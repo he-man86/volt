@@ -43,6 +43,9 @@ export function resolveNamedType(name: string, project: Scope, depth = 0): Type 
   if (sym.kind === "function_block" || sym.kind === "program") {
     return { kind: "function_block", name, scope: findChildScope(project, name) }
   }
+  if (sym.kind === "interface") {
+    return { kind: "interface", name, scope: findChildScope(project, name) }
+  }
   if (sym.kind === "type") {
     const body = (sym.ast as TypeDecl).body
     if (body.kind === "enum") return { kind: "enum", name, scope: findChildScope(project, name) }

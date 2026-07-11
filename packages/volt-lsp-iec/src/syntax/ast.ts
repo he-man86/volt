@@ -196,6 +196,8 @@ export type Statement =
   | ExitStatement
   | ContinueStatement
   | TryStatement
+  | JmpStatement
+  | LabelStatement
   | ExprStatement
   | EmptyStatement
 export type StatementList = Statement[]
@@ -293,6 +295,19 @@ export interface ContinueStatement {
 }
 export interface EmptyStatement {
   kind: "empty"
+  span: Span
+}
+/** `JMP <label>;` — CODESYS/TwinCAT jump. `target` is a bare IdentExpr for a real label; anything else
+ *  (a numeric literal, an expression) is an invalid destination (C0114) the label check flags. */
+export interface JmpStatement {
+  kind: "jmp"
+  target: Expr
+  span: Span
+}
+/** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */
+export interface LabelStatement {
+  kind: "label"
+  name: Identifier
   span: Span
 }
 
@@ -471,6 +486,8 @@ export interface Function {
   kind: "function"
   name: Identifier
   returnType?: TypeExpr
+  /** An illegal `IMPLEMENTS` clause on a FUNCTION (only FBs implement interfaces) — drives C0145. */
+  implementsMisused?: Identifier[]
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -514,6 +531,8 @@ export interface Interface {
   extends?: Identifier[]
   /** An IMPLEMENTS list illegally used on an interface (should be EXTENDS) — drives C0421. */
   implementsMisused?: Identifier[]
+  /** VAR sections illegally placed directly in the interface body (interfaces declare signatures only) — drives C0149. */
+  strayVarSections?: VarSection[]
   methods: InterfaceMethod[]
   properties: InterfaceProperty[]
   span: Span
@@ -537,6 +556,9 @@ export interface TypeDecl {
   kind: "type_decl"
   name: Identifier
   body: DutBody
+  /** An `EXTENDS Base` clause on a non-STRUCT DUT (enum/alias → C0144, union → C0542) — inheritance is only
+   *  legal on structs (and FBs/interfaces). The parser sets this only in the illegal case. */
+  extendsMisused?: Identifier
   span: Span
 }
 export interface GlobalVarList {

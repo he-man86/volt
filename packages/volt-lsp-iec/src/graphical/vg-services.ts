@@ -174,6 +174,13 @@ export function referencesAnywhere(
   return toLocations(kept)
 }
 
+/** documentHighlight (ST + VG) — every occurrence of the cursor's symbol IN this doc, incl. VG operand uses. */
+export function documentHighlightsAnywhere(doc: Document, project: Scope, offset: number): Range[] | undefined {
+  const sym = resolveAnywhere(doc, project, offset)
+  if (sym === undefined) return undefined
+  return allReferences([doc], project, sym).map((r) => r.range)
+}
+
 /** prepareRename (ST + VG) — the editable range for a renameable cursor. */
 export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
   if (resolveAnywhere(doc, project, offset) === undefined) return undefined

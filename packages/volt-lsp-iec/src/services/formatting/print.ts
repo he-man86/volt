@@ -247,6 +247,10 @@ function printStatement(s: Statement, depth: number): string {
       return `${ind}REPEAT\n${printStatements(s.body, depth + 1)}\n${ind}UNTIL ${exprText(s.until)}\n${ind}END_REPEAT;`
     case "try":
       return printTry(s, depth)
+    case "jmp":
+      return `${ind}JMP ${exprText(s.target)};`
+    case "label":
+      return `${ind}${s.name.text}:`
   }
 }
 

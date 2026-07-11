@@ -7,7 +7,7 @@
  * off the node instead of re-resolving a `TypeExpr` (the win of the folded model).
  */
 import type { Scope, Symbol } from "../symbols/index.js"
-import { lookup, lookupLocal } from "../symbols/index.js"
+import { childScopesByName, lookup, lookupLocal } from "../symbols/index.js"
 import type {
   BinaryExpr,
   CallExpr,
@@ -201,7 +201,7 @@ function calleeInfo(
 
 /** The member scope of a scoped type (enum/struct/FB), or undefined. */
 function scopeOf(t: Type): Scope | undefined {
-  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" ? t.scope : undefined
+  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 
 /** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. */
@@ -237,9 +237,7 @@ function thisType(scope: Scope): Type {
 
 /** A bare name that names a GVL/enum/namespace/POU/struct scope (a static member base like `E.Idle`). */
 function staticScopeType(project: Scope, name: string): Type | undefined {
-  const target = name.toLowerCase()
-  for (const child of project.children) {
-    if (child.name.toLowerCase() !== target) continue
+  for (const child of childScopesByName(project, name)) {
     switch (child.kind) {
       case "enum":
         return { kind: "enum", name: child.name, scope: child }

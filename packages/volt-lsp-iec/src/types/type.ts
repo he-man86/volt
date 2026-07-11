@@ -22,6 +22,7 @@ export type Type =
   | EnumType
   | StructType
   | FunctionBlockType
+  | InterfaceType
   | ArrayTypeInfo
   | PointerTypeInfo
   | ReferenceTypeInfo
@@ -44,6 +45,12 @@ export interface StructType {
   kind: "struct"
   name: string
   /** The struct/union field scope, when resolved. */
+  scope?: Scope
+}
+export interface InterfaceType {
+  kind: "interface"
+  name: string
+  /** The interface member scope (its methods + properties), when resolved. */
   scope?: Scope
 }
 export interface FunctionBlockType {

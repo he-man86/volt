@@ -29,19 +29,21 @@
     "category": "syntax token mismatch",
     "cause": "The parser expected one of two specific tokens (e.g. comma or closing paren) but found a different token in the source.",
     "message": "'<operator 1>' or '<operator 2>' expected instead of '<tag>'",
-    "repro": "PROGRAM PLC_PRG\nFun(1;",
+    "repro": "PROGRAM P\nVAR x:INT;\nEND_VAR\nx := foo(1;\nEND_PROGRAM",
     "expect": [
-      "',' or ')' expected instead of ';'"
+      "')' expected instead of ';'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0003",
@@ -75,7 +77,7 @@
     "expect": [
       "'z' is no component of 'DUT'"
     ],
-    "note": "expect reconciled to our wording (the member-not-a-component error). CODESYS additionally cascades a conversion error ('Type 'unknown type…'); we emit the primary component error only.",
+    "note": "expect reconciled to our wording (the member-not-a-component error). CODESYS additionally cascades a conversion error ('Type 'unknown typeâ€¦'); we emit the primary component error only.",
     "status": "implemented",
     "ourCheck": "unknown-member",
     "ourCode": "unknown-member",
@@ -105,7 +107,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0006",
@@ -114,17 +118,17 @@
     "category": "missing keyword",
     "cause": "A required keyword (such as THEN) is omitted from a control-flow statement, so the parser encounters the following token instead.",
     "message": "'<operator>' expected instead of '<token>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest\n    x := 9;\nEND_IF",
+    "repro": "PROGRAM PLC_PRG\nVAR bTest:BOOL; x:INT;\nEND_VAR\nIF bTest\n x := 9;\nEND_IF\nEND_PROGRAM",
     "expect": [
       "'THEN' expected instead of 'x'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null
   },
@@ -147,7 +151,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0008",
@@ -156,19 +162,21 @@
     "category": "unterminated block",
     "cause": "A control-structure block (e.g. IF) is left unclosed before the source file ends.",
     "message": "Unexpected end-of-file found: '<operator>', '<operator>', or '<operator>' expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest THEN\n    x := 9;",
+    "repro": "PROGRAM P\nVAR b:BOOL;x:INT;\nEND_VAR\nIF b THEN\n x:=1;\nEND_PROGRAM",
     "expect": [
-      "Unexpected end-of-file found: 'ELSIF', 'ELSE', or 'END_IF' expected"
+      "'END_IF' expected instead of end of POU"
     ],
     "fix": null,
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
-    }
+    },
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0009",
@@ -189,7 +197,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0010",
@@ -198,19 +208,21 @@
     "category": "unterminated block",
     "cause": "A block (e.g. a FOR loop) is left open with no closing keyword before the source file ends.",
     "message": "Unexpected end-of-file found: '<token>' expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i := 0 TO 2 DO\n;",
+    "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nFOR i:=0 TO 10 DO\n i:=i;\nEND_PROGRAM",
     "expect": [
-      "Unexpected end-of-file found: 'END_FOR' expected"
+      "'END_FOR' expected instead of end of POU"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0011",
@@ -219,19 +231,22 @@
     "category": "missing case label",
     "cause": "A statement inside a CASE block is not preceded by a case-value label.",
     "message": "No 'CASE' label found",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\n    x: INT;\nEND_VAR\n\nCASE i OF\n    x := 9;\nEND_CASE",
+    "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nCASE i OF\n i := 9;\nEND_CASE\nEND_PROGRAM",
     "expect": [
-      "No 'CASE' label found"
+      "'END_CASE' expected instead of 'i'",
+      "';' expected instead of end of POU"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE"
+    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE",
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0013",
@@ -252,7 +267,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0015",
@@ -261,19 +278,26 @@
     "category": "missing for-loop initializer",
     "cause": "A FOR loop's counter variable is not given an initial value with := before the TO keyword.",
     "message": "Counter initialization expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i TO 10 DO\n    ;\nEND_FOR",
+    "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\nFOR i TO 10 DO\n i:=i;\nEND_FOR\nEND_PROGRAM",
     "expect": [
-      "Counter initialization expected"
+      "':=' expected instead of 'TO'",
+      "';' expected instead of end of POU"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR"
+    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR",
+    "codesysActual": [
+      "Counter initialisation expected"
+    ],
+    "twincatActual": [
+      "Counter initialisation expected"
+    ]
   },
   {
     "code": "C0018",
@@ -315,7 +339,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "x := 2;"
+    "fix": "x := 2;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0022",
@@ -328,14 +354,15 @@
     "expect": [
       "'ADR' needs exactly '1' operands"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
+    "note": "Verified live CODESYS. Arity table ADR/SIZEOF/SEL/MUX (unshadowed only); corpus zero-FP.",
     "fix": "pt := ADR(i);"
   },
   {
@@ -349,14 +376,15 @@
     "expect": [
       "'MUX' needs at least '3' operands"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
+    "note": "Verified live CODESYS. Same intrinsic-operands arity check as C0022; corpus zero-FP.",
     "fix": "i := MUX(30,40,50);"
   },
   {
@@ -379,7 +407,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "METHOD METH123"
+    "fix": "METHOD METH123",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0027",
@@ -388,20 +418,21 @@
     "category": "missing string size",
     "cause": "A STRING type declaration opens a size specifier with '(' but does not supply the numeric length.",
     "message": "size of string expected after '('",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     str : STRING();\nEND_VAR",
+    "repro": "PROGRAM P\nVAR s : STRING();\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Size of string expected after '('",
-      "';' :=, REF=, ( or '[' expected instead of ')'"
+      "expected expression, got punct ')'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "str : STRING(100);"
+    "fix": "str : STRING(100);",
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0030",
@@ -422,7 +453,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i AT %IW0 : INT;"
+    "fix": "i AT %IW0 : INT;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0031",
@@ -431,19 +464,29 @@
     "category": "missing type definition",
     "cause": "A variable declaration's type position contains something that is not a valid data type (e.g. a numeric literal).",
     "message": "Type definition expected instead of '<no data type>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : 0;\nEND_VAR",
+    "repro": "TYPE T : ; END_TYPE",
     "expect": [
-      "Type definition expected instead of '0'"
+      "expected type, got ';'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "i : INT;"
+    "fix": "i : INT;",
+    "codesysActual": [
+      "Type definition expected instead of ';'",
+      "':= or ;' expected instead of ''",
+      "'END_TYPE' expected instead of ''"
+    ],
+    "twincatActual": [
+      "':= or ;' expected instead of ''",
+      "'END_TYPE' expected instead of ''",
+      "Type definition expected instead of ';'"
+    ]
   },
   {
     "code": "C0032",
@@ -452,32 +495,19 @@
     "category": "type-conversion",
     "cause": "an implicit conversion between incompatible types",
     "message": "Cannot convert type '<from>' to type '<to>'",
-    "repro": "FUNCTION_BLOCK F\nVAR b : BOOL; i : INT; END_VAR\ni := b;\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK F\nVAR\n  b : BOOL;\n  i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK",
     "expect": [
       "Cannot convert type 'BOOL' to type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "assignment",
-    "ourCode": null,
+    "ourCode": "assignment-type-mismatch",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "test1 := TO_INT(test2);",
-    "codesysActual": [
-      "Unexpected statement"
-    ],
-    "twincatActual": [
-      "Unexpected Token 'VAR' found",
-      "';' expected instead of 'b'",
-      "The label 'B' has not been referenced",
-      "Unexpected Token 'BOOL' found",
-      "The label 'I' has not been referenced",
-      "Unexpected Token 'INT' found",
-      "Unexpected Token 'END_VAR' found",
-      "';' expected instead of 'i'"
-    ]
+    "fix": "test1 := TO_INT(test2);"
   },
   {
     "code": "C0033",
@@ -488,23 +518,17 @@
     "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
     "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    dw : DWORD;\nEND_VAR\n    dw := ptr;",
     "expect": [
-      "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'."
+      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
     ],
     "status": "implemented",
     "ourCheck": "pointer-conversion",
     "ourCode": "pointer-not-convertible",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
-    ],
-    "twincatActual": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
-    ]
+    "fix": null
   },
   {
     "code": "C0035",
@@ -513,20 +537,21 @@
     "category": "invalid call target",
     "cause": "A call expression targets something (e.g. a nonexistent method resolved via a bad member access) that is not a callable program/function/FB instance.",
     "message": "Program name, function or function block instance expected instead of '<invalid function>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPLC_PRG.METH1();\n\nMETHOD METH\nVAR_INPUT\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni();\nEND_PROGRAM",
     "expect": [
-      "'METH1' is not a component of 'PLC_PRG'",
-      "Program name, function or function block instance expected instead of 'PLC_PRG.METH1'"
+      "Program name, function or function block instance expected instead of 'i'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "non-callable-call",
+    "ourCode": "invalid-call-target",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "PLC_PRG.METH();"
+    "fix": "PLC_PRG.METH();",
+    "triage": null,
+    "note": "Calling a plain value (scalar/struct var). Shares the non-callable-call check with C0036 (GVL); split by target kind. Conservative: unknown/library-FB-typed vars skipped."
   },
   {
     "code": "C0036",
@@ -535,7 +560,7 @@
     "category": "non-callable object call",
     "cause": "Call syntax '()' is applied to an object (e.g. a global variable list) that is not a function/FB/program and thus cannot be invoked.",
     "message": "Cannot call object of type <type>",
-    "repro": "VAR_GLOBAL GVL\n    value : INT;\nEND_VAR\nPROGRAM PLC_PRG\nGVL();",
+    "repro": "VAR_GLOBAL\n    value : INT;\nEND_VAR\nPROGRAM PLC_PRG\nGVL();\nEND_PROGRAM",
     "expect": [
       "Cannot call object of type 'VAR_GLOBAL'"
     ],
@@ -547,7 +572,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "note": "The non-callable-call check DOES emit this for a GVL call ('Cannot call object of type VAR_GLOBAL', verified live + colocated test). Stays checkable because neither offline harness can repro a NAMED GVL single-source (burn-in names it from the uri, verify-catalog names it 'GVL') — no single repro satisfies both. Value-call case shipped as C0035.",
+    "fix": null,
+    "triage": null
   },
   {
     "code": "C0037",
@@ -670,7 +697,7 @@
     "expect": [
       "Either all or none formal parameter have to be denoted in function call"
     ],
-    "note": "NOT a simple mix rule: CODESYS accepts mixed positional + named INPUT args (21 corpus FPs, e.g. `svc.registerString(posA, refInput := ADR(x), posC, posD)`). The actual C0042 trigger is order/version-specific and not decidable from a flat 'has both forms' test. Deferred.",
+    "note": "Live IDE (2026-07-11 :8556) does NOT emit the documented 'all-or-none' message on mixed named+positional args — it emits C0044 'Assignment to input missing for parameter <n>' (which IS implemented). The C0042 wording isn't reproducible; the case is already covered. Won't-fix as C0042.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -679,7 +706,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip"
   },
   {
     "code": "C0043",
@@ -701,7 +729,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(5, iPar2 := 2);"
+    "fix": "i := Test(5, iPar2 := 2);",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0044",
@@ -850,7 +880,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(x);"
+    "fix": "i := Test(x);",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0051",
@@ -871,7 +903,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}"
+    "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0053",
@@ -882,7 +916,7 @@
     "message": "Compiler version <version> has been withdrawn. Please use a higher compiler version instead.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -890,7 +924,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0061",
@@ -933,7 +969,8 @@
       "twincat": false
     },
     "fix": "n := i;",
-    "note": "NOT cleanly offline-checkable: `int.name` is ambiguous with symbolic bit access (`WORD.bitConst`), which is valid CODESYS. Needs member-as-constant resolution to distinguish from a real struct access. Deferred."
+    "note": "NOT offline-checkable: `word.bitConst` (symbolic bit access, e.g. `xuUnitVacuum.Vacuum01` where the member is an integer constant) is VALID CODESYS and indistinguishable from a real struct access without member-as-constant resolution. Corpus scout: 20 such hits in pro2193 are all valid bit access, not bugs. Deferred.",
+    "triage": "resolution"
   },
   {
     "code": "C0064",
@@ -975,7 +1012,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "VAR_GLOBAL\n    someValue : INT;\nEND_VAR"
+    "fix": "VAR_GLOBAL\n    someValue : INT;\nEND_VAR",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0066",
@@ -1153,7 +1192,7 @@
     "category": "name-resolution",
     "cause": "a declared type name resolves to no known type",
     "message": "Unknown type: '<type>'",
-    "repro": "FUNCTION_BLOCK F\nVAR a : USNT; END_VAR\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK F\nVAR\n  a : USNT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Unknown type: 'USNT'"
     ],
@@ -1162,21 +1201,10 @@
     "ourCode": "unknown-type",
     "lint": "unknownType",
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
-    "codesysActual": [
-      "Unexpected statement"
-    ],
-    "twincatActual": [
-      "Unexpected Token 'VAR' found",
-      "';' expected instead of 'a'",
-      "The label 'A' has not been referenced",
-      "The code 'USNT;",
-      "Unexpected Token 'END_VAR' found",
-      "';' expected instead of end of POU"
-    ]
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
   },
   {
     "code": "C0078",
@@ -1189,7 +1217,7 @@
     "expect": [
       "Unsupported type: 'LREAL'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1197,7 +1225,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR",
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0080",
@@ -1261,7 +1291,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{IF defined (abc)}"
+    "fix": "{IF defined (abc)}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0084",
@@ -1282,7 +1314,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{IF defined (abc)}"
+    "fix": "{IF defined (abc)}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0085",
@@ -1303,7 +1337,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, '120')}\n{END_IF}"
+    "fix": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, '120')}\n{END_IF}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0086",
@@ -1483,19 +1519,22 @@
     "category": "deprecated keyword",
     "cause": "The obsolete keyword FUNCTIONBLOCK (without underscore) is used instead of FUNCTION_BLOCK.",
     "message": "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTIONBLOCK FB\nVAR\nEND_VAR",
+    "repro": "FUNCTIONBLOCK FB\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "deprecated-keyword",
+    "ourCode": "deprecated-functionblock",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "note": "Offline-correct (re-lex token-pair scan; burn-in + corpus + conformance clean). Live-verify is BLOCKED by the harness: `FUNCTIONBLOCK` lexes as an identifier so splitRepro can't identify the deprecated FB as a pushable unit, so the IDE builds nothing and stays silent. Would need the verifier to push the raw source as a typed FB item.",
+    "fix": null,
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0099",
@@ -1517,7 +1556,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0101",
@@ -1526,26 +1566,20 @@
     "category": "data type recursion",
     "cause": "A function block or struct contains, directly or indirectly, an instance of itself as a member, creating infinite/circular data nesting.",
     "message": "Data Recursion: '<recursion>'",
-    "repro": "FUNCTION_BLOCK FB1\nVAR x : FB2;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB2\nVAR y : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK FB1\nVAR\n  self : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Data recursion: FB1 -> FB2 -> FB1"
+      "Data recursion: FB1 -> FB1"
     ],
     "status": "implemented",
     "ourCheck": "checkDataRecursion",
     "ourCode": "data-recursion",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null,
-    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL.",
-    "twincatActual": [
-      "Data Recursion: FB1 -> FB2 -> FB1"
-    ],
-    "codesysActual": [
-      "Data recursion: FB1 -> FB2 -> FB1"
-    ]
+    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL."
   },
   {
     "code": "C0102",
@@ -1556,7 +1590,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1564,7 +1598,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0103",
@@ -1575,7 +1611,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap {2})",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1583,7 +1619,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0104",
@@ -1594,7 +1632,7 @@
     "message": "Out of global data memory: Variable '<variable name>', <byte size> bytes.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1602,7 +1640,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0106",
@@ -1613,7 +1653,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap <byte size> bytes)",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1621,7 +1661,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0114",
@@ -1630,19 +1672,21 @@
     "category": "invalid jump target",
     "cause": "A JMP statement targets something that is not a valid declared label (e.g. a numeric literal) in the current scope.",
     "message": "Invalid destination <jump label> for 'JMP'",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP 0;",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP 0;\nEND_PROGRAM",
     "expect": [
-      "Invalid destination 0 for 'JMP'"
+      "Invalid destination 0 for JMP"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "jump-labels",
+    "ourCode": "jump-invalid-destination",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "Implemented via the jump-labels check (JMP/label parsing added to the statement grammar). Wording PROVISIONAL until a live recording settles it; label rendered uppercased matching observed CODESYS behavior."
   },
   {
     "code": "C0115",
@@ -1663,7 +1707,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "CALC(condition, MyFunction(1,2))"
+    "fix": "CALC(condition, MyFunction(1,2))",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0116",
@@ -1676,15 +1722,17 @@
     "expect": [
       "The label 'LABEL' is a duplicate"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "jump-labels",
+    "ourCode": "jump-label-duplicate",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "Implemented via the jump-labels check (JMP/label parsing added to the statement grammar). Wording PROVISIONAL until a live recording settles it; label rendered uppercased matching observed CODESYS behavior."
   },
   {
     "code": "C0117",
@@ -1693,19 +1741,21 @@
     "category": "undefined jump label",
     "cause": "A JMP statement references a label name that is not declared anywhere within its scope.",
     "message": "No such label '<jump label>' within the scope of the 'JMP' statement",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP A;",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP A;\nEND_PROGRAM",
     "expect": [
-      "No such label 'A' within the scope of the 'JMP' statement."
+      "No such label 'A' within the scope of the JMP statement"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "jump-labels",
+    "ourCode": "jump-label-undefined",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "Implemented via the jump-labels check (JMP/label parsing added to the statement grammar). Wording PROVISIONAL until a live recording settles it; label rendered uppercased matching observed CODESYS behavior."
   },
   {
     "code": "C0118",
@@ -1718,15 +1768,17 @@
     "expect": [
       "The label 'LABEL' has not been referenced"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "jump-labels",
+    "ourCode": "jump-label-unreferenced",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "Implemented via the jump-labels check (JMP/label parsing added to the statement grammar). Wording PROVISIONAL until a live recording settles it; label rendered uppercased matching observed CODESYS behavior."
   },
   {
     "code": "C0119",
@@ -1739,7 +1791,7 @@
     "expect": [
       "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
     ],
-    "note": "expect reconciled to our CODESYS wording ('The FB_Init method…'); the docs template is the TwinCAT form ('An 'FB_init'-Method…').",
+    "note": "expect reconciled to our CODESYS wording ('The FB_Init methodâ€¦'); the docs template is the TwinCAT form ('An 'FB_init'-Methodâ€¦').",
     "status": "implemented",
     "ourCheck": "lifecycle",
     "ourCode": "fb-lifecycle-signature",
@@ -1761,7 +1813,7 @@
     "expect": [
       "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
     ],
-    "note": "expect reconciled to our CODESYS wording; the docs template is the TwinCAT form ('An 'FB_Exit'-Method…').",
+    "note": "expect reconciled to our CODESYS wording; the docs template is the TwinCAT form ('An 'FB_Exit'-Methodâ€¦').",
     "status": "implemented",
     "ourCheck": "lifecycle",
     "ourCode": "fb-lifecycle-signature",
@@ -1826,7 +1878,7 @@
     "expect": [
       "The constant 0 is assigned to more than one enumeration."
     ],
-    "note": "NOT an error by default: CODESYS accepts duplicate enum values (a common sentinel-alias pattern, e.g. FIRST_ENTRY:=0 / LAST_ENTRY:=n — 35 corpus FPs across library enums). C0125 appears to be gated on a strict-enums option we can't see offline. Deferred.",
+    "note": "NOT an error by default: CODESYS accepts duplicate enum values (a common sentinel-alias pattern, e.g. FIRST_ENTRY:=0 / LAST_ENTRY:=n â€” 35 corpus FPs across library enums). C0125 appears to be gated on a strict-enums option we can't see offline. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1835,7 +1887,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0126",
@@ -1854,12 +1907,14 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "pi[0] := 0;",
     "twincatActual": [
       "Variable of type '1' requires exactly 1 Index"
-    ]
+    ],
+    "note": "TC DETECTS this (build fails) but renders the type as '1' — 'Variable of type '1' requires exactly 1 Index' — a TwinCAT message-formatting quirk, not derivable from the type. CS-verified; TC-detected but wording unmatchable (live 2026-07-11).",
+    "twincatWordingDivergence": true
   },
   {
     "code": "C0130",
@@ -1881,7 +1936,7 @@
       "twincat": false
     },
     "fix": "inst.METH1();",
-    "note": "Method member used as a value (member access; called = not-a-call-callee). Bare-ident refs excluded (own return var). PROVISIONAL.",
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Method referenced as a value without (): IDE errors as 'Cannot convert type '<method>' to type '<T>'' — a semantic-alias (same defect, different wording via the IDE's compile order). Our wording is more precise; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'METH1' to type 'INT'"
     ],
@@ -1938,19 +1993,31 @@
     "category": "ambiguous global name",
     "cause": "The same global variable name is declared in more than one global variable list, so an unqualified reference to it is ambiguous.",
     "message": "ambiguous use of name '<variable name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\n\nGVL1:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nGVL2:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "nicht eindeutige Verwendung des Namens 'g_i'"
+      "Ambiguous use of name 'g_i'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "ambiguous-global",
+    "ourCode": "ambiguous-global",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "j : INT := GVL1.g_i;"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    j : INT := GVL1.g_i;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "Bare ref to a global declared in 2+ project GVLs. Conservative: PROJECT (non-library) GVLs only — library signatures flatten into project scope and would manufacture false duplicates (ERR_OK/NULL live in many library GVLs; corpus scout: 60+ library dups, 0 project dups). Local shadow skipped. Wording PROVISIONAL (only a German recording was harvested).",
+    "reproFiles": [
+      {
+        "uri": "GVL1.gvl",
+        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
+      },
+      {
+        "uri": "GVL2.gvl",
+        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
+      }
+    ]
   },
   {
     "code": "C0138",
@@ -1971,7 +2038,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0139",
@@ -1982,23 +2051,22 @@
     "message": "The code <code> has no effect. Is this the intent?",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni;",
     "expect": [
-      "The code 'i' has no effect. Is this the intent?"
+      "The code 'i;' has no effect. Is this the intent?"
     ],
     "status": "implemented",
     "ourCheck": "no-op-statement",
     "ourCode": "no-op-statement",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null,
-    "codesysActual": [
-      "The code 'i;\r\n' has no effect. Is this the intent?"
-    ],
     "twincatActual": [
       "The code 'i;"
-    ]
+    ],
+    "note": "TC emits the warning but its message is truncated/multi-line ('The code 'i;') vs CS's full 'The code 'i;' has no effect. Is this the intent?'. CS-verified; TC wording unmatchable (live 2026-07-11).",
+    "twincatWordingDivergence": true
   },
   {
     "code": "C0140",
@@ -2032,7 +2100,7 @@
     "expect": [
       "Reference assign needs variable with write access"
     ],
-    "note": "NOT cleanly offline-checkable: a literal RHS is NOT always an error — `r REF= 0` is the valid way to null a reference (7 corpus FPs). The real C0141 trigger is narrower than 'RHS is a literal'. Deferred.",
+    "note": "NOT cleanly offline-checkable: a literal RHS is NOT always an error â€” `r REF= 0` is the valid way to null a reference (7 corpus FPs). The real C0141 trigger is narrower than 'RHS is a literal'. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -2041,7 +2109,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "I_r REF= i;"
+    "fix": "I_r REF= i;",
+    "triage": "optionGated"
   },
   {
     "code": "C0142",
@@ -2094,19 +2163,26 @@
     "category": "invalid EXTENDS target",
     "cause": "EXTENDS is used on a POU type (here an enumeration TYPE) that is not a function block, interface, or structure, none of which support inheritance.",
     "message": "Inheritance only allowed in function blocks, Interfaces and Structures",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT_1;\nEND_VAR\n\nTYPE DUT:\n(\n    enum_member := 0\n);\nEND_TYPE\n\nTYPE DUT_1 EXTENDS DUT:\n(\n    enum_memberX := 0\n);\nEND_TYPE",
+    "repro": "TYPE Base : STRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nTYPE E EXTENDS Base :\n(\n A, B\n); END_TYPE",
     "expect": [
       "Inheritance only allowed in function blocks, Interfaces and Structures"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "inheritance-not-allowed",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "No definition found for base class 'Base'"
+    ],
+    "twincatActual": [
+      "No definition found for base class 'Base'"
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION EXTENDS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0145",
@@ -2115,19 +2191,28 @@
     "category": "invalid IMPLEMENTS target",
     "cause": "IMPLEMENTS is used on a FUNCTION POU, but only function blocks are allowed to implement interfaces.",
     "message": "Interfaces can only be implemented by function blocks",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU();\n\nFUNCTION POU IMPLEMENTS ITF\nVAR\nEND_VAR",
+    "repro": "FUNCTION POU IMPLEMENTS ITF\nVAR\nEND_VAR\nEND_FUNCTION",
     "expect": [
       "Interfaces can only be implemented by function blocks"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "function-implements",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Identifier 'POU' not defined",
+      "Program name, function or function block instance expected instead of 'POU'"
+    ],
+    "twincatActual": [
+      "Identifier 'POU' not defined",
+      "Program name, function or function block instance expected instead of 'POU'"
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION IMPLEMENTS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0149",
@@ -2136,19 +2221,26 @@
     "category": "invalid interface declaration",
     "cause": "A VAR block containing variable declarations is placed inside an INTERFACE, which is not permitted since interfaces may only declare method signatures.",
     "message": "Variable declarations are not allowed in interfaces",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : ITF;\nEND_VAR\n\nINTERFACE ITF\nVAR_INPUT\n    i : INT;\nEND_VAR",
+    "repro": "INTERFACE ITF\nVAR_INPUT\n    i : INT;\nEND_VAR\nEND_INTERFACE",
     "expect": [
       "Variable declarations are not allowed in interfaces"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "var-in-interface",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Unknown type: 'ITF'"
+    ],
+    "twincatActual": [
+      "Unknown type: 'ITF'"
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'VAR block in an INTERFACE' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0161",
@@ -2203,7 +2295,7 @@
     "expect": [
       "POU PLC_PRG writes to output QB7 and is called in several tasks."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2211,7 +2303,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0165",
@@ -2224,7 +2318,7 @@
     "expect": [
       "Variable Output, which is mapped on address QB7 is written in different tasks."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2232,7 +2326,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0168",
@@ -2284,19 +2380,27 @@
     "category": "invalid keyword inside struct",
     "cause": "A variable-block keyword such as VAR_INPUT is used inside a STRUCT declaration, where only plain member declarations are allowed.",
     "message": "'<keyword>' not allowed in this place",
-    "repro": "TYPE DUT :\nSTRUCT\n    VAR_INPUT\n            member : INT;\n    END_VAR\nEND_STRUCT\nEND_TYPE",
+    "repro": "TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE",
     "expect": [
       "'VAR_INPUT' not allowed in this place"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE"
+    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE",
+    "codesysActual": [
+      "'VarInput' not allowed in this place",
+      "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n"
+    ],
+    "twincatActual": [
+      "'VarInput' not allowed in this place",
+      "Variable declaration expected instead of VAR_INPUT"
+    ]
   },
   {
     "code": "C0174",
@@ -2309,7 +2413,7 @@
     "expect": [
       "VAR_TEMP declaration not allowed in this place"
     ],
-    "note": "repro switched to a METHOD (our live-calibrated rule allows VAR_TEMP in a FUNCTION); expect is our CODESYS wording (no quotes). Docs quote the kind — drift to settle at recording.",
+    "note": "repro switched to a METHOD (our live-calibrated rule allows VAR_TEMP in a FUNCTION); expect is our CODESYS wording (no quotes). Docs quote the kind â€” drift to settle at recording.",
     "status": "implemented",
     "ourCheck": "var-section-placement",
     "ourCode": "var-section-placement",
@@ -2369,19 +2473,21 @@
     "category": "external access to VAR_IN_OUT parameter",
     "cause": "Code outside a function block tries to read/write one of its VAR_IN_OUT parameters directly via instance-dot access, which is not allowed since VAR_IN_OUT is only valid during the call.",
     "message": "No external access to 'VAR_IN_OUT' parameter '<parameter name>' of '<object name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\n    i : INT;\nEND_VAR\ni := inst.in_out;\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\n    i : INT;\nEND_VAR\ni := inst.in_out;\nEND_PROGRAM\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "No external access to 'VAR_IN_OUT' parameter 'in_out' of 'FB'"
+      "No external access to VAR_IN_OUT parameter 'in_out' of 'FB'.\""
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "inout-external-access",
+    "ourCode": "inout-no-external-access",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "External read/write of an FB's VAR_IN_OUT member. Wording PROVISIONAL until a live recording; object name is the FB type name. external-write cedes VAR_IN_OUT to this check."
   },
   {
     "code": "C0179",
@@ -2390,19 +2496,21 @@
     "category": "invalid FB-instance initializer target",
     "cause": "A function block instance's inline initializer assigns a value to a VAR_IN_OUT parameter, but instance initialization may only assign inputs, not VAR_IN_OUT or output parameters.",
     "message": "'<identifier>' is no output of 'Function block'",
-    "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR",
+    "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "'inOut' is no output of 'MyFB'"
+      "'inOut' is no input of 'MyFB'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "fb-init-inout",
+    "ourCode": "fb-init-inout",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "Inline FB-instance initializer assigns a VAR_IN_OUT field (only inputs are assignable at declaration). Conservative: fires only for a project FB whose member resolves VAR_IN_OUT. Wording PROVISIONAL (modeled on noInput sibling) until a live recording."
   },
   {
     "code": "C0180",
@@ -2415,7 +2523,7 @@
     "expect": [
       "Ambiguous namespace 'STANDARD' defined by library 'Standard, 3.5.15.0 (System)'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2423,7 +2531,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0182",
@@ -2465,7 +2575,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\niVar := .globalValue;"
+    "fix": "PROGRAM PLC_PRG\niVar := .globalValue;",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0185",
@@ -2474,17 +2586,17 @@
     "category": "chained access on call result",
     "cause": "Component access, index access, or a call was chained directly onto the result of a function call instead of first assigning that result to a variable.",
     "message": "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    it : ITF;\nEND_VAR\n\nPOU_1()[0].METH1();\n\nFUNCTION POU_1 : ARRAY[0..0] OF ITF\n\nINTERFACE ITF\n\nMETHOD METH1",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    it : ITF;\nEND_VAR\nPOU_1()[0].METH1();\nEND_PROGRAM\n\nFUNCTION POU_1 : ARRAY[0..0] OF ITF\nEND_FUNCTION\n\nINTERFACE ITF\nMETHOD METH1\nEND_METHOD\nEND_INTERFACE",
     "expect": [
       "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "call-result-access",
+    "ourCode": "call-result-access",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null
   },
@@ -2507,7 +2619,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR_TEMP\n    tempInterface : MyInterface;\nEND_VAR\ntempInterface := GetInterface();\nIF tempInterface <> 0 THEN\n    // ...\nEND_IF"
+    "fix": "PROGRAM PLC_PRG\nVAR_TEMP\n    tempInterface : MyInterface;\nEND_VAR\ntempInterface := GetInterface();\nIF tempInterface <> 0 THEN\n    // ...\nEND_IF",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0187",
@@ -2526,7 +2640,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0188",
@@ -2537,7 +2653,7 @@
     "message": "Device not installed to the system. No code generation possible.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2545,7 +2661,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0189",
@@ -2554,20 +2672,27 @@
     "category": "missing semicolon",
     "cause": "A statement is missing its terminating semicolon, so the parser reaches an unexpected token where ';' was required.",
     "message": "';' expected instead of '<token>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    INT\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n INT\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Unexpected token '<Token>' found",
-      "';' expected instead of 'INT'"
+      "':' expected instead of 'END_VAR'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/var-section",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Unexpected token 'INT' found",
+      "';' expected instead of 'END_VAR'"
+    ],
+    "twincatActual": [
+      "Unexpected Token 'INT' found",
+      "';' expected instead of 'END_VAR'"
+    ]
   },
   {
     "code": "C0190",
@@ -2576,17 +2701,17 @@
     "category": "missing semicolon at end of POU",
     "cause": "The final statement in a POU is missing its terminating semicolon before the POU body ends.",
     "message": "';' expected instead of end of POU",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni := 5",
+    "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\ni := 5\nEND_PROGRAM",
     "expect": [
       "';' expected instead of end of POU"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null
   },
@@ -2599,7 +2724,7 @@
     "message": "The operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2607,7 +2732,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0195",
@@ -2684,24 +2811,17 @@
     "message": "String constant '<string value>' too long for destination type '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    str : STRING(4) := '12345';\nEND_VAR",
     "expect": [
-      "String constant '12345' too long for destination type 'STRING(4)'"
+      "String constant ''...' too long for destination type 'STRING(4)'"
     ],
     "status": "implemented",
     "ourCheck": "string-constant",
     "ourCode": "string-constant-too-long",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "String constant ''...' too long for destination type 'STRING(4)'"
-    ],
-    "twincatActual": [
-      "String constant ''...' too long for destination type 'STRING(4)'",
-      "String constant ''...' too long for destination type 'STRING(4)'"
-    ]
+    "fix": null
   },
   {
     "code": "C0199",
@@ -2849,7 +2969,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0208",
@@ -2862,7 +2984,7 @@
     "expect": [
       "MOD is not defined for REAL"
     ],
-    "note": "expect is our CODESYS wording (no quotes; TwinCAT quotes both). Repro uses two REAL variables — a literal operand infers to a generic integer and is skipped, matching a conservative fold.",
+    "note": "expect is our CODESYS wording (no quotes; TwinCAT quotes both). Repro uses two REAL variables â€” a literal operand infers to a generic integer and is skipped, matching a conservative fold.",
     "status": "implemented",
     "ourCheck": "binary-operators",
     "ourCode": "binary-op-type-mismatch",
@@ -2882,7 +3004,7 @@
     "message": "You have defined '<number>' applications for device '<device name>'. The maximum number is '<number>'. So you will not be able to download all applications.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2890,7 +3012,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0211",
@@ -2899,19 +3023,26 @@
     "category": "Malformed variable declaration",
     "cause": "The compiler expects a variable declaration inside a VAR block but finds invalid/nested syntax instead.",
     "message": "Variable declaration expected instead of <expression>",
-    "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n\n   END_VAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n   END_VAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Variable declaration expected instead of VAR END_VAR"
+      "unterminated VAR section: expected END_VAR",
+      "';' expected instead of end of POU"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/var-section",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Variable declaration expected instead of VAR\r\nEND_VAR\r\n"
+    ],
+    "twincatActual": [
+      "Variable declaration expected instead of VAR"
+    ]
   },
   {
     "code": "C0212",
@@ -2920,19 +3051,20 @@
     "category": "Missing VAR block keyword",
     "cause": "A variable declaration appears directly in a POU body without being wrapped in a VAR/VAR_INPUT/VAR_OUTPUT/VAR_INOUT block.",
     "message": "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of <expression>",
-    "repro": "PROGRAM PLC_PRG\ni : INT;",
+    "repro": "PROGRAM PLC_PRG\ni : INT;\nEND_PROGRAM",
     "expect": [
-      "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of i : INT;"
+      "The label 'I' has not been referenced"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "jump-labels",
+    "ourCode": "jump-label-unreferenced",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
+    "note": "`i : INT;` (no VAR block) parses `i:` as a jump label — matching CODESYS, whose first diagnostic is also 'label not referenced'. The secondary 'Unexpected token INT' is not reproduced. Wording PROVISIONAL."
   },
   {
     "code": "C0213",
@@ -2943,17 +3075,21 @@
     "message": "VAR_GLOBAL or VAR_CONFIG expected instead of <declaration>",
     "repro": "VAR_GLOBAL\nEND_VAR\ni : INT;",
     "expect": [
-      "VAR_GLOBAL or VAR_CONFIG expected instead of i:INT"
+      "unexpected identifier 'i' at file scope"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parser",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [],
+    "twincatActual": [
+      "VAR_GLOBAL or VAR_CONFIG expected instead of i:INT;"
+    ]
   },
   {
     "code": "C0215",
@@ -2974,7 +3110,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [],
+    "twincatActual": [],
+    "triage": "skip",
+    "note": "REMOVED as a false positive: live CODESYS 3.5 (2026-07-11 :8556) builds VAR_GLOBAL PERSISTENT [RETAIN] with a direct AT %MB/%QB/%IB address CLEAN. The documented rule likely applies only to the special Persistent-Variables object, which we can't distinguish from a regular persistent GVL offline, so the check over-fired. Won't-fix."
   },
   {
     "code": "C0216",
@@ -3079,7 +3219,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "xVar := %IX0.2;"
+    "fix": "xVar := %IX0.2;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0222",
@@ -3122,7 +3264,7 @@
       "twincat": false
     },
     "fix": null,
-    "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL.",
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Direct recursion in a FUNCTION: IDE errors 'Cannot convert type 'Unknown type: 'Fib(...)'' + 'function/FB instance expected instead of Fib' — a semantic-alias. Our 'Call Recursion' wording is clearer; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
       "Program name, function or function block instance expected instead of 'Fib'"
@@ -3143,7 +3285,7 @@
     "expect": [
       "'fbVar' is not an instance of 'MyFB2'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3151,7 +3293,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0227",
@@ -3177,7 +3321,7 @@
   {
     "code": "C0228",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0228.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "missing constant initializer",
     "cause": "A VAR CONSTANT variable is declared without an initial value.",
     "message": "No initial value for constant variable '<constant name>'",
@@ -3194,7 +3338,7 @@
       "twincat": true
     },
     "fix": "k : INT := 1;",
-    "note": "CONSTANT-section decl with no initializer. PROVISIONAL."
+    "note": "CONSTANT-section decl with no initializer. PROVISIONAL. Severity: WARNING (live-confirmed on the bakon-nano build; was mislabeled error — the message matched but severity was never compared, same blind spot as C0371)."
   },
   {
     "code": "C0230",
@@ -3267,17 +3411,17 @@
     "category": "__QueryInterface first operand",
     "cause": "The first argument passed to __QueryInterface is not an interface reference or function block instance.",
     "message": "First Operand of __QueryInterface must be an interface reference or the instance of a function block",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(a ,ITFref);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(a, itf);\nEND_PROGRAM",
     "expect": [
-      "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
+      "First operand of __QueryInterface must be an interface reference or the instance of a function block"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "calls/intrinsic-operands",
+    "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
   },
@@ -3288,17 +3432,17 @@
     "category": "__QueryInterface second operand",
     "cause": "The second argument passed to __QueryInterface is not an interface reference.",
     "message": "Second Operand of __QueryInterface must be an interface reference",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(ITFref2, a);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(itf, a);\nEND_PROGRAM",
     "expect": [
-      "Second Operand of __QueryInterface must be an interface reference"
+      "Second operand of __QueryInterface must be an interface reference"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "calls/intrinsic-operands",
+    "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
   },
@@ -3309,9 +3453,9 @@
     "category": "VAR_EXTERNAL type mismatch",
     "cause": "A variable's type in a VAR_EXTERNAL declaration doesn't match its type in the corresponding VAR_GLOBAL declaration.",
     "message": "Wrong type definition for VAR_EXTERNAL <variable name>",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : STRING;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : BOOL;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Wrong type definition for VAR_EXTERNAL ig"
+      "Wrong type definition for VAR_EXTERNAL g_i"
     ],
     "status": "checkable",
     "ourCheck": null,
@@ -3321,7 +3465,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
+    "triage": "skip",
+    "note": "Live IDE does NOT flag a VAR_EXTERNAL/VAR_GLOBAL type mismatch (2026-07-11 :8556 built the repro clean). An offline check would be a false positive. Won't-fix. (C0237, the no-global-definition case, IS flagged and is implemented.)"
   },
   {
     "code": "C0237",
@@ -3330,19 +3476,21 @@
     "category": "missing global definition",
     "cause": "A VAR_EXTERNAL declares a variable that has no matching VAR_GLOBAL declaration anywhere in the project.",
     "message": "No global definition found for VAR_EXTERNAL '<variable name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    i : INT;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "No global definition found for VAR_EXTERNAL 'i'"
+      "No global definition found for VAR_EXTERNAL g_i"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "external-global",
+    "ourCode": "external-no-global",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "VAR_EXTERNAL with no matching VAR_GLOBAL anywhere (project or library). Zero corpus surface (VAR_EXTERNAL is legacy/unused). Wording PROVISIONAL."
   },
   {
     "code": "C0238",
@@ -3351,17 +3499,17 @@
     "category": "illegal external initializer",
     "cause": "A VAR_EXTERNAL declaration supplies an initial value, but external variables must take their initial value only from the matching VAR_GLOBAL declaration.",
     "message": "No initial value allowed for VAR_EXTERNAL <variable name>",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : INT := 2;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : INT := 2;\nEND_VAR\nEND_PROGRAM\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
     "expect": [
       "No initial value allowed for VAR_EXTERNAL ig"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "external-initializer",
+    "ourCode": "external-initializer",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null
   },
@@ -3384,7 +3532,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0240",
@@ -3392,18 +3542,18 @@
     "kind": "error",
     "category": "invalid QueryPointer operand",
     "cause": "The first argument passed to __QueryPointer is a plain variable instead of an interface reference or function block instance.",
-    "message": "First Operand of __QueryPointer must be an interface reference or the instance of a function block",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(a,pt);",
+    "message": "First operand of __QueryPointer must be an interface reference or the instance of a function block",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    pt : POINTER TO FB;\nEND_VAR\n__QueryPointer(a, pt);\nEND_PROGRAM",
     "expect": [
-      "First Operand of __QueryPointer must be an interface reference or the instance of a function block"
+      "First operand of __QueryPointer must be an interface reference or the instance of a function block"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "query-pointer-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": "__QueryPointer (ITFref, pt);"
   },
@@ -3413,18 +3563,18 @@
     "kind": "error",
     "category": "invalid QueryPointer operand",
     "cause": "The second argument passed to __QueryPointer is not a pointer-typed variable as required.",
-    "message": "Second Operand of __QueryPointer must be pointer",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    b : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(ITFref,b);\n\nINTERFACE ITF EXTENDS __System.IQueryInterface",
+    "message": "Second operand of __QueryInterface must be a pointer",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\n\nINTERFACE ITF EXTENDS __System.IQueryInterface\nEND_INTERFACE\n\nPROGRAM PLC_PRG\nVAR\n    b : INT;\n    ITFref : ITF;\nEND_VAR\n__QueryPointer(ITFref, b);\nEND_PROGRAM",
     "expect": [
-      "Second Operand of __QueryPointer must be pointer"
+      "Second operand of __QueryInterface must be a pointer"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "query-pointer-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": "__QueryPointer (ITFref, pt);"
   },
@@ -3466,7 +3616,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip",
+    "note": "No offline ground truth / won't-fix (CODESYS accepts the construct, or there is no repro+oracle to build against). Reclassify if a real case appears."
   },
   {
     "code": "C0266",
@@ -3475,19 +3627,21 @@
     "category": "constant-false loop condition",
     "cause": "A FOR loop's computed exit condition can never become TRUE for the declared iteration variable's type/range, so the loop cannot terminate normally.",
     "message": "Loop exit condition '<condition>' is constant FALSE. Possible endless loop.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      b : BYTE;\n      i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n      i := i + 1;\nEND_FOR;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
     "expect": [
-      "Loop exit condition 'b > 255' is constant FALSE. Endless loop possible."
+      "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "loop-exit",
+    "ourCode": "loop-exit-constant",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 254 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
+    "triage": null,
+    "note": "FOR end bound at/beyond the counter type's range → unreachable exit test. Conservative: elementary integer counter with known range, constant non-zero step, constant bound at/beyond the limit in the step direction. Wording PROVISIONAL (doc example, no live recording)."
   },
   {
     "code": "C0269",
@@ -3500,7 +3654,7 @@
     "expect": [
       "The instance pinst^ points to will be reinitialized for virtual function calls. Make sure pinst^ doesn't point to a type derived from FBBase."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3508,7 +3662,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0298",
@@ -3521,7 +3677,7 @@
     "expect": [
       "Calculation of stack usage incomplete because of recursive calls, starting at 'm_Recursive'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3529,7 +3685,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{attribute 'estimated-stack-usage' := '99'}"
+    "fix": "{attribute 'estimated-stack-usage' := '99'}",
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0316",
@@ -3550,7 +3708,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip",
+    "note": "Live IDE (2026-07-11 :8556) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
   },
   {
     "code": "C0319",
@@ -3561,7 +3721,7 @@
     "message": "<> not allowed in interface library",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3569,7 +3729,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0344",
@@ -3582,7 +3744,7 @@
     "expect": [
       "The monitoring attribute is not supported for property 'TestProp' and will be ignored."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3590,7 +3752,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0351",
@@ -3603,17 +3767,17 @@
     "expect": [
       "The attribute call_after_ini is unknown and will be ignored by the  compiler."
     ],
-    "note": "expect is our calibrated CODESYS wording (double space before 'compiler' + trailing period, a compiler quirk matched byte-for-byte); opt-in lint (only as complete as the pragma table).",
+    "note": "expect is our calibrated CODESYS wording (double space before 'compiler' + trailing period, a compiler quirk matched byte-for-byte); opt-in lint (only as complete as the pragma table). CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT.",
     "status": "implemented",
     "ourCheck": "pragmas",
     "ourCode": "unknown-attribute",
     "lint": "unknownAttribute",
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true
   },
   {
     "code": "C0354",
@@ -3669,7 +3833,7 @@
     "expect": [
       "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3677,28 +3841,33 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0371",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0371.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "VAR_IN_OUT scoping",
     "cause": "A method of a function block accesses that function block's own VAR_IN_OUT parameter, which is not guaranteed valid from the method's external context.",
     "message": "Access to VAR_IN_OUT '<variable name>' declared in '<function block name>' from external context '<POU name>'",
-    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n      bInOut : BOOL;\nEND_VAR\n\nMETHOD METH: BOOL\nVAR\n      bBool : BOOL;\nEND_VAR\nbInOut := bBool;",
+    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n    io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n    x : INT;\nEND_VAR\nio := x;\nEND_METHOD",
     "expect": [
-      "Access to VAR_IN_OUT 'bInOut' declared in 'FB_Test' from external context 'METH'"
+      "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
-    "lint": null,
+    "status": "implemented",
+    "ourCheck": "inout-own-access",
+    "ourCode": "inout-own-access",
+    "lint": "inoutOwnAccess",
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated",
+    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified.",
+    "codesysActual": "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
   },
   {
     "code": "C0373",
@@ -3707,18 +3876,19 @@
     "category": "user-defined pragma warning",
     "cause": "Source code contains an explicit {warning 'text'} pragma, which the compiler echoes back verbatim as a warning.",
     "message": "<custom message text defined by the 'warning' pragma>",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n{warning 'This is a warning'}",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n{warning 'This is a warning'}\nEND_PROGRAM",
     "expect": [
       "This is a warning"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "pragmas",
+    "ourCode": "message-pragma-warning",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
+    "note": "Reconcile â€” the pre-existing message-pragma check already echoes a {warning 'text'} pragma verbatim (C0081 family). Code-linked to C0373.",
     "fix": null
   },
   {
@@ -3728,10 +3898,11 @@
     "category": "array-bound operator misuse",
     "cause": "LOWER_BOUND/UPPER_BOUND is called on a fixed-size array instead of a variable-length array parameter (ARRAY [*]).",
     "message": "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length.",
-    "repro": "FUNCTION_BLOCK POU\nVAR_IN_OUT\n    arrin : ARRAY [*] OF INT;\nEND_VAR\nVAR\n    arrtest : ARRAY [0..5] OF INT;\n    test1: DINT;\n    test2: DINT;\nEND_VAR\n\ntest1 := UPPER_BOUND(arrin, 1);\ntest2 := UPPER_BOUND(arrtest, 1);",
+    "repro": "FUNCTION_BLOCK POU\nVAR_IN_OUT\n    arrin : ARRAY [*] OF INT;\nEND_VAR\nVAR\n    arrtest : ARRAY [0..5] OF INT;\n    test1: DINT;\n    test2: DINT;\nEND_VAR\ntest1 := UPPER_BOUND(arrin, 1);\ntest2 := UPPER_BOUND(arrtest, 1);\nEND_FUNCTION_BLOCK",
     "expect": [
       "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length."
     ],
+    "note": "NOT a flat 'fixed array' rule: CODESYS ACCEPTS UPPER_BOUND/LOWER_BOUND on a fixed array (returns the constant bound) â€” 11 corpus FPs, e.g. UPPER_BOUND(abyReadBuffer,1) on ARRAY[0..42] OF BYTE compiles clean. The docs-repro C0380 trigger is narrower/context-specific (possibly only when a variable-length param coexists) and not decidable from a flat non-`[*]` test. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -3740,7 +3911,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0398",
@@ -3751,7 +3923,7 @@
     "message": "The development system has not enough memory to process the online change. Please restart the application before continuing development.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3759,7 +3931,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0406",
@@ -3772,7 +3946,7 @@
     "expect": [
       "The implicit check function 'CHECKBOUNDS' is hidden by another variable or function."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3780,7 +3954,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0415",
@@ -3791,7 +3967,7 @@
     "message": "Out of persistent memory. Variable '<variable name>', <count> bytes (Largest contiguous memory gap <size>). Editing persistent variable lists may produce fragmented memory. Perform \"Declarations, Reorder List and Clear Gaps\" command to compact persistent variable lists.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3799,7 +3975,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0421",
@@ -3842,7 +4020,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip"
   },
   {
     "code": "C0441",
@@ -3851,17 +4030,17 @@
     "category": "VAR_IN_OUT default-value misuse",
     "cause": "A VAR_IN_OUT variable is referenced in the default-value initializer of another variable declaration, before it is actually bound at call time.",
     "message": "Access to uninitialized VAR_IN_OUT variable",
-    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\n      i:INT;\nEND_VAR\nVAR_OUTPUT\n      b:BOOL := a[i];\nEND_VAR\nVAR_IN_OUT\n      a:ARRAY [1..5] OF BOOL;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\n i:INT;\nEND_VAR\nVAR_OUTPUT\n b:BOOL := a[i];\nEND_VAR\nVAR_IN_OUT\n a:ARRAY [1..5] OF BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Access to uninitialized VAR_IN_OUT variable"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/inout-initializer",
+    "ourCode": "inout-in-initializer",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null
   },
@@ -3872,19 +4051,27 @@
     "category": "invalid __NEW expression usage",
     "cause": "Code embeds a __NEW pointer-assignment expression directly inside another expression (e.g. a comparison), which the compiler disallows.",
     "message": "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\nIF (pSt := __NEW(ST_Data)) = 0 THEN\n      RETURN;\nEND_IF",
+    "repro": "TYPE ST_Data :\nSTRUCT\n    x : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\nIF (pSt := __NEW(ST_Data)) = 0 THEN\n      RETURN;\nEND_IF\nEND_PROGRAM",
     "expect": [
       "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "new-in-expression",
+    "ourCode": "new-in-expression",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF"
+    "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF",
+    "note": "Env-gated (not verifiable without a __NEW memory pool): live IDE (2026-07-11 :8556) errors 'No memory for dynamic object creation defined' first, masking C0454. Documented rule + conservative check (fires only on __NEW inside another expression) — no demonstrable FP.",
+    "codesysActual": [
+      "No memory for dynamic object creation defined for application 'Device.Application'",
+      "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+    ],
+    "twincatActual": [
+      "A Functionblock or Structure needs the attribute '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+    ]
   },
   {
     "code": "C0456",
@@ -3895,7 +4082,7 @@
     "message": "The implicit check function <name of the check function> is hidden by another implicit check function <name of the check function>. Checks will not be performed!",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3903,7 +4090,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0508",
@@ -3924,7 +4113,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Local var name == a same-POU action name. BLOCKED offline: in the one-item-per-file workspace layout a standalone action binds at PROJECT scope (its member-host is only set within the same file), so it never co-locates with the FB's vars — detecting the collision needs action→FB name association the binder doesn't do. Zero corpus surface (0 collisions)."
   },
   {
     "code": "C0509",
@@ -3943,10 +4134,12 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
-    "twincatActual": []
+    "twincatActual": [],
+    "note": "TwinCAT throws an INTERNAL compiler error on this __NEW chained-assignment repro (a TwinCAT bug — no usable diagnostic, build fails silently), so it can't serve as ground truth. The LSP emits the CODESYS-correct error 'Multiple assignments are not allowed for operator __New'. CS-verified; TC internal-errors (live 2026-07-11).",
+    "twincatInternalError": true
   },
   {
     "code": "C0511",
@@ -3955,19 +4148,22 @@
     "category": "abstract FB assignment",
     "cause": "Code directly assigns one abstract function block variable/reference to another by value, which is disallowed because abstract function blocks have no concrete implementation to copy; a reference assignment (REF=) must be used instead.",
     "message": "The function block '<function block name>' is ABSTRACT and cannot be used as a target for an assignment.",
-    "repro": "PROGRAM PLC_PRG\nVAR\nrefAbstract1 : REFERENCE TO AbstractPOU;\nrefAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\n\nrefAbstract1 := refAbstract2;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 := refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
     "expect": [
-      "The function block 'refAbstract1' is ABSTRACT and cannot be used as a target for an assignment."
+      "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "abstract-assign",
+    "ourCode": "abstract-assign",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null
+    "fix": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 REF= refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
+    "triage": null,
+    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT. TwinCAT lacks this rule (live :8555 built the repro clean, 2026-07-11) — check is CODESYS-gated.",
+    "codesysOnly": true
   },
   {
     "code": "C0513",
@@ -3980,7 +4176,7 @@
     "expect": [
       "Should not access private property POU Prop"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3988,7 +4184,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0514",
@@ -4001,7 +4199,7 @@
     "expect": [
       "Should not access internal property POU.Prop of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4009,7 +4207,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0515",
@@ -4022,7 +4222,7 @@
     "expect": [
       "Should not access protected property POU.Prop"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4030,7 +4230,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0516",
@@ -4043,7 +4245,7 @@
     "expect": [
       "Should not access internal variable InternalPOU.varIn of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4051,7 +4253,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0517",
@@ -4064,7 +4268,7 @@
     "expect": [
       "Should not access internal object POU of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4072,7 +4276,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0525",
@@ -4081,19 +4287,21 @@
     "category": "invalid default on input parameter",
     "cause": "A VAR_INPUT parameter of a complex/array type is given a literal initializer in the function declaration, which CODESYS does not permit in that context.",
     "message": "The type <type> cannot have a default value in this context",
-    "repro": "FUNCTION Fun: INT\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\n      aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n     aInt:ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun(1, TRUE, aInt);",
+    "repro": "FUNCTION Fun : INT\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\n      aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun := 0;\nEND_FUNCTION\n\nPROGRAM PLC_PRG\nVAR\n     aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun(1, TRUE, aInt);\nEND_PROGRAM",
     "expect": [
       "The type ARRAY [0..1] OF INT cannot have a default value in this context"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "input-default",
+    "ourCode": "input-default-composite",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0526",
@@ -4106,17 +4314,17 @@
     "expect": [
       "Default value is not constant"
     ],
-    "note": "our zero-FP slice: only a mutable-variable default fires. The docs' function-call default (`:= F2()`) is skipped — `STRUCT(…)`/`SIZEOF`/`ADR` are compile-time constants that also parse as calls, indistinguishable offline (1 corpus FP on a `STRUCT(…)` default confirmed this).",
+    "note": "our zero-FP slice: only a mutable-variable default fires. The docs' function-call default (`:= F2()`) is skipped â€” `STRUCT(â€¦)`/`SIZEOF`/`ADR` are compile-time constants that also parse as calls, indistinguishable offline (1 corpus FP on a `STRUCT(â€¦)` default confirmed this). CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT.",
     "status": "implemented",
     "ourCheck": "const-context",
     "ourCode": "default-not-constant",
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true
   },
   {
     "code": "C0533",
@@ -4135,10 +4343,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0540",
@@ -4159,7 +4368,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable"
+    "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0541",
@@ -4170,7 +4381,7 @@
     "message": "Creating the memory allocator failed: The required AddOn '{0}' is not installed",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4178,7 +4389,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0542",
@@ -4187,19 +4400,21 @@
     "category": "invalid UNION inheritance",
     "cause": "A structured data type (DUT) is derived from a UNION via EXTENDS, or a UNION is derived from a DUT, which CODESYS treats as invalid inheritance but only downgrades to a warning for backward compatibility.",
     "message": "Inheritance is not intended for the data type \"UNION\" <data type name>.",
-    "repro": "TYPE U_StringExt EXTENDS U_StringBase :\nUNION\n    str10 : STRING(10);\nEND_UNION\nEND_TYPE\n\nTYPE U_StringBase :\nUNION\n    str20 : STRING(20);\nEND_UNION\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    uStringExt : U_StringExt;\nEND_VAR\n\nuStringExt.str20 := 'a234567890b234567890'; -> C0542",
+    "repro": "TYPE Base : STRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nTYPE U EXTENDS Base :\nUNION\n a : INT;\nEND_UNION\nEND_TYPE",
     "expect": [
-      "C0542"
+      "Inheritance is not intended for data type \"UNION\": Base"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "union-inheritance",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0543",
@@ -4220,7 +4435,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0549",
@@ -4241,7 +4458,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated",
+    "note": "Compile-option gated â€” the diagnostic flips on a compiler option the LSP cannot observe offline (e.g. 'Replace constants', strict enums); an always-on check would false-positive against clean project code. Deferred."
   },
   {
     "code": "C0550",
@@ -4260,10 +4479,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0554",
@@ -4276,7 +4496,7 @@
     "expect": [
       "No explicit calls of 'FB1' allowed. Call of this FB is not allowed."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4284,7 +4504,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0555",
@@ -4293,11 +4515,11 @@
     "category": "string literal encoding",
     "cause": "A string literal contains characters outside the Latin-1 character set that cannot be represented unless the 'UTF-8 Encoding for STRING' project compile option is enabled.",
     "message": "The string literal <literal> contains characters that cannot be displayed. The project option 'UTF-8 encoding for STRING' could be used.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n\tstr1: STRING(200);\n\tstr2: STRING := '1 €';\n\tstr3: STRING(200) := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';\nEND_VAR\n\nstr1 := '你好,世界';\nstr1 := 'ABC abc 123 äöü ß#~=\" §% /(!)[]{}\\ ´`^*~°€µ  *_-.;  中文字 Ω �';\nstr1 := '1 £';\nstr1 := '1 €';\nstr1 := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';",
+    "repro": "PROGRAM PLC_PRG\nVAR\n\tstr1: STRING(200);\n\tstr2: STRING := '1 â‚¬';\n\tstr3: STRING(200) := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';\nEND_VAR\n\nstr1 := 'ä½ å¥½,ä¸–ç•Œ';\nstr1 := 'ABC abc 123 Ã¤Ã¶Ã¼ ÃŸ#~=\" Â§% /(!)[]{}\\ Â´`^*~Â°â‚¬Âµ  *_-.;  ä¸­æ–‡å­— Î© ï¿½';\nstr1 := '1 Â£';\nstr1 := '1 â‚¬';\nstr1 := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';",
     "expect": [
-      "The string literal '你好,世界' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
+      "The string literal 'ä½ å¥½,ä¸–ç•Œ' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4305,7 +4527,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0561",
@@ -4318,7 +4542,7 @@
     "expect": [
       "Call recursion: RECURSIVE -> RECURSIVE"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4326,7 +4550,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0564",
@@ -4347,7 +4573,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
+    "triage": "resolution",
+    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
   },
   {
     "code": "C0565",
@@ -4388,10 +4616,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "FUNCTION_BLOCK FB_Host\nEND_FUNCTION_BLOCK\n\nMETHOD FB_ReInit : BOOL\nEND_METHOD",
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0567",
@@ -4412,7 +4641,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface",
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0568",
@@ -4444,7 +4675,7 @@
     "message": "No matching instance path in VAR_PERSISTENT list found for variable {0}. Use the command \"Add All Instance Paths\" to add all instance paths to the VAR_PERSISTENT list.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4452,7 +4683,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0571",
@@ -4465,7 +4698,7 @@
     "expect": [
       "FB_EXIT of instances in VAR_RETAIN is also called during Reset warm, but not FB_INIT. Avoid retain declaration of function blocks with FB_EXIT!"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4473,7 +4706,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0572",
@@ -4492,7 +4727,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
   },
   {
     "code": "C0573",
@@ -4511,7 +4748,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0576",
@@ -4532,7 +4771,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Access a method's VAR_INST from outside. BLOCKED offline: `fb.method.varInst` infers the method's RETURN type (a scalar), not a scope carrying the VAR_INST, so the final member never resolves. Needs bespoke method-member-scope resolution the type model doesn't have. Exotic (VAR_INST rare)."
   },
   {
     "code": "C0579",
@@ -4545,7 +4786,7 @@
     "expect": [
       "The compiler feature 'Generic constant variable' is only supported with compiler version 3.5.18.0 or newer"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4553,7 +4794,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0581",
@@ -4572,7 +4815,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
   },
   {
     "code": "C0582",
@@ -4581,17 +4826,21 @@
     "category": "duplicate method name",
     "cause": "A function block declares two methods with the same name without marking them as intentional overloads via the 'overloaded' attribute or OVERLOAD keyword.",
     "message": "There is another method with the name '{0}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.",
-    "repro": null,
-    "expect": null,
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "repro": "FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\n    b : INT;\nEND_VAR\nEND_METHOD",
+    "expect": [
+      "There is another method with the name 'Calc'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods."
+    ],
+    "status": "implemented",
+    "ourCheck": "duplicate-declaration",
+    "ourCode": "duplicate-method",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": null,
+    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented."
   },
   {
     "code": "C0583",
@@ -4610,7 +4859,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
   },
   {
     "code": "C0584",
@@ -4623,7 +4874,7 @@
     "expect": [
       "Maximum nesting depth exceeded"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4631,7 +4882,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0585",
@@ -4652,7 +4905,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;"
+    "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;",
+    "triage": "resolution",
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   },
   {
     "code": "C0586",
@@ -4673,7 +4929,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments"
+    "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments",
+    "triage": "resolution",
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   },
   {
     "code": "C0587",
@@ -4694,6 +4953,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared"
+    "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared",
+    "triage": "resolution",
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   }
 ]

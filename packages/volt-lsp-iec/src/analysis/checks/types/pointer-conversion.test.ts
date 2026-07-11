@@ -18,7 +18,7 @@ const pc = (body: string): { message: string; severity: string }[] => {
 
 test("pointer → non-pointer is a warning with the rendered types", () => {
   expect(pc(`dw := ptr;`)).toEqual([
-    { message: "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'.", severity: "warning" },
+    { message: "Cannot convert type 'POINTER TO INT' to type 'DWORD'", severity: "warning" },
   ])
 })
 

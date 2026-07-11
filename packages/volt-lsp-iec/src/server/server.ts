@@ -106,6 +106,7 @@ import {
   type HierItem,
 } from "../services/index.js"
 import {
+  documentHighlightsAnywhere,
   documentSymbolsWithVg,
   inVgBody,
   prepareRenameAnywhere,
@@ -377,7 +378,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     at(
       p.textDocument.uri,
       p.position,
-      (d, o) => documentHighlights(d, project(), o)?.map((range) => ({ range })) ?? null,
+      (d, o) => documentHighlightsAnywhere(d, project(), o)?.map((range) => ({ range })) ?? null,
     ),
   )
   conn.onRequest(CompletionRequest.type, (p) =>
@@ -533,7 +534,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
   conn.onRequest(LinkedEditingRangeRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) => {
-      const ranges = documentHighlights(d, project(), o)
+      const ranges = documentHighlightsAnywhere(d, project(), o)
       return ranges !== undefined && ranges.length > 0 ? { ranges } : null
     }),
   )

@@ -19,8 +19,10 @@ public class VoltLogTests
             VoltLog.Init("codesys", dir);
             VoltLog.Warn("degraded: no project selected");
 
-            var file = Assert.Single(Directory.GetFiles(dir, "*.log"));
-            Assert.Contains("codesys-", Path.GetFileName(file)); // daily per-source file: codesys-YYYY-MM-DD.log
+            // Filter by THIS source's file (like the Raw test below): VoltLog's dir is process-global, so a
+            // parallel test class logging a different source can leak a second file into this dir — not this
+            // test's concern. We assert our codesys line landed in a codesys-YYYY-MM-DD.log.
+            var file = Assert.Single(Directory.GetFiles(dir, "codesys-*.log"));
             var content = File.ReadAllText(file);
             Assert.Contains("[codesys]", content);
             Assert.Contains("[warn]", content);

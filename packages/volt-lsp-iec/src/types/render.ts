@@ -16,6 +16,7 @@ export function renderType(t: Type): string {
     case "enum":
     case "struct":
     case "function_block":
+    case "interface":
       return t.name
     case "array":
       return `ARRAY[${t.dims.map(renderDim).join(", ")}] OF ${renderType(t.element)}`

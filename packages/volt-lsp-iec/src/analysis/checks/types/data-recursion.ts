@@ -13,6 +13,7 @@
  * compiles clean) has no cycles and never fires.
  */
 import type { Identifier, TopLevel, TypeExpr } from "../../../syntax/index.js"
+import type { Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -21,15 +22,22 @@ interface Node {
   edges: string[] // lowercased target node names
 }
 
-export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): void {
-  // Build the composition graph from every project FB/struct scope.
+// The composition graph depends only on the project scope (the same object for every file in a workspace
+// pass), so build it ONCE per project and memoize — keyed on `Scope` identity, exactly like `parseStatements`.
+// Without this the whole-project graph was rebuilt per file (O(files × project size)) — 85% of all check time
+// on a 24k-file corpus. A workspace change yields a fresh `Scope` → fresh graph (old entry GC'd), never stale.
+const graphCache = new WeakMap<Scope, Map<string, Node>>()
+
+function compositionGraph(project: Scope): Map<string, Node> {
+  const cached = graphCache.get(project)
+  if (cached !== undefined) return cached
   const graph = new Map<string, Node>()
-  for (const scope of ctx.project.children) {
+  for (const scope of project.children) {
     if (scope.kind !== "pou" && scope.kind !== "struct") continue
     const key = scope.name.toLowerCase()
     if (!graph.has(key)) graph.set(key, { display: scope.name, edges: [] })
   }
-  for (const scope of ctx.project.children) {
+  for (const scope of project.children) {
     if (scope.kind !== "pou" && scope.kind !== "struct") continue
     const node = graph.get(scope.name.toLowerCase())!
     for (const syms of scope.symbols.values())
@@ -39,6 +47,12 @@ export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): vo
         if (target !== undefined && graph.has(target)) node.edges.push(target)
       }
   }
+  graphCache.set(project, graph)
+  return graph
+}
+
+export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const graph = compositionGraph(ctx.project)
 
   // Emit for each current-document FB/struct that participates in a cycle.
   for (const unit of ctx.parseResult.units) {

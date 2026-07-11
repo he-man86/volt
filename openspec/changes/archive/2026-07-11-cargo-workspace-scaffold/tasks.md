@@ -21,8 +21,8 @@
 
 - [x] 4.1 `bun typecheck` + `bun test` in `packages/volt-git`.
 - [x] 4.2 Manual: `volt init` a bound project → confirm the Cargo workspace is written, `src/` is untouched, and (with rustup installed) `cargo test` passes on the scaffold.
-- [ ] 4.3 `bun run volt-scripts/check-divergence.ts` — still purely additive.
+- [x] 4.3 `bun run volt-scripts/check-divergence.ts` — still purely additive.
 
 ## 5. Spec sync
 
-- [ ] 5.1 Archive-time: fold the `ide-sync` delta (Cargo-workspace scaffold; `/target/` gitignore) into `openspec/specs/ide-sync/spec.md`.
+- [x] 5.1 Archive-time: fold the `ide-sync` delta (Cargo-workspace scaffold; `/target/` gitignore) into `openspec/specs/ide-sync/spec.md`.

@@ -39,6 +39,7 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
         // `SIZEOF(…)`, `ADR(…)` are compile-time constants that also parse as calls, so only a `variable`
         // constancy (a definite mutable reference) is flagged; call/unknown defaults are left alone (zero-FP).
         if (
+          ctx.config.vendor === "codesys" && // C0526 — live /build shows TwinCAT silently accepts a non-constant VAR_INPUT default
           section.sectionKind === "VAR_INPUT" &&
           decl.init !== undefined &&
           decl.init.kind !== "aggregate_init" &&

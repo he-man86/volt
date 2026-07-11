@@ -22,6 +22,7 @@ export interface ErrorCode {
   cause: string | null // one line, our words (never the docs' prose)
   message: string | null // exact template with <placeholder> tokens
   repro: string | null // the docs' "Example of the error:" code — the negative-test input (a draft; finalize per code)
+  reproFiles?: { uri: string; source: string }[] // extra context files (distinct uris) for cross-file codes — the symbol table is built from `repro` + these; diagnostics still run on `repro`
   expect: string[] | null // the concrete exact messages `repro` produces
   fix: string | null // the docs' "Example of an error correction:" code — the positive-test input (compiles clean)
   status: ErrorStatus
@@ -29,6 +30,9 @@ export interface ErrorCode {
   ourCode: string | null // our diagnostic `code`, when covered
   lint: string | null // opt-in LintConfig flag to enable when running `repro`
   verified: { codesys: boolean; twincat: boolean } // message recorded from a live /build
+  note?: string // why an open code is deferred, or an implementation caveat — one line
+  /** For an open code: the honest reason it is not implemented — "what's open and why" (see TRIAGE.md). */
+  triage?: "parser" | "pragma" | "resolution" | "optionGated" | "ideOnly" | "skip"
 }
 
 const CATALOG_PATH = join(

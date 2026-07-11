@@ -89,8 +89,8 @@ ship the solid subset, and record the blocker in the deferred code's `note` + `T
 - **Over-scoping** → the change explicitly lands catalog + triage + first batch only; remaining `checkable` codes are follow-on units, each independently shippable.
 - **Copyright** → extraction limited to functional facts + our own repros; no prose reproduced.
 
-## Open Questions
+## Open Questions — resolved
 
-- Exact catalog file shape (`errors.json` + thin TS wrapper vs. a hand-maintained TS module) — settle at D1 implementation; both satisfy the spec.
-- Whether to record conformance in this change or defer to when the user's live IDEs are available (the recording step needs `:8556`/`:8555` running); until then messages ship `PROVISIONAL`.
+- Catalog file shape: settled — `docs/codesys-reference/error-catalog.json` with a thin TS wrapper (`src/reference/error-codes.ts`).
+- Conformance recording: **done** — live-verified against both CODESYS (`:8556`) and TwinCAT (`:8555`) on 2026-07-11; 112/131 verified on each, the residuals classified per-vendor (`codesysOnly` / `twincatWordingDivergence` / `twincatInternalError`). `PROVISIONAL` no longer applies to the verified set.
 - First-batch selection: propose the highest-value zero-FP codes (constant-range C0001, literal/type-suffix C0032 family gaps, and confirming C0077 unknown-type = the check just built).

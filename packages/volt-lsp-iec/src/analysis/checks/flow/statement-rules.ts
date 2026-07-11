@@ -24,8 +24,8 @@ export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): v
           code: "not-assignment-target",
           message: ctx.messages.notAssignmentTarget(ctx.source.slice(s.target.span.start, s.target.span.end)),
         })
-      // C0509 — __NEW in a chained assignment.
-      if (s.chained !== undefined && s.chained.length > 0 && s.value.kind === "call" && s.value.callee.kind === "ident_expr" && s.value.callee.name.toUpperCase() === "__NEW")
+      // C0509 — __NEW in a chained assignment. CODESYS-only: live /build shows TwinCAT silently accepts it.
+      if (ctx.config.vendor === "codesys" && s.chained !== undefined && s.chained.length > 0 && s.value.kind === "call" && s.value.callee.kind === "ident_expr" && s.value.callee.name.toUpperCase() === "__NEW")
         out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "multiple-assignment-new", message: ctx.messages.multipleAssignmentNew() })
     })
     // C0132 — EXIT outside any loop.

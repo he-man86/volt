@@ -42,6 +42,10 @@ interface Score {
  *     .TcPOU / .tspproj / .tmc files  → TwinCAT (high)
  *     .project (with <CodeSysProject>) → CODESYS (high)
  *     tsconfig.tcobject.xml           → TwinCAT (high)
+ *     the CONTROLLER `.device` target's `Vendor:` field — Beckhoff → TwinCAT, else → CODESYS (high). The
+ *     PLC target explicitly names its vendor, and only Beckhoff runs TwinCAT (Lenze/3S/WAGO/… all license
+ *     CODESYS). Only the controller (the shallowest / `Device.device`) is read — Beckhoff EtherCAT SLAVES
+ *     legitimately appear inside a CODESYS project, so scoring every `.device` would false-positive.
  *
  *   Code content (sampled — up to N files):
  *     `{attribute 'Tc...'}` pragma     → TwinCAT (medium)
@@ -61,8 +65,10 @@ export async function detectVendor(
 	const root = resolve(workspaceRoot);
 	const score: Score = { codesys: 0, twincat: 0 };
 	const filesToScan: string[] = [];
+	const devicePaths: string[] = [];
 
-	await walk(root, 0, maxDepth, filesToScan, score);
+	await walk(root, 0, maxDepth, filesToScan, score, devicePaths);
+	await scoreDeviceTarget(devicePaths, score);
 
 	// Sample-scan up to maxFiles of the collected kind-named source files.
 	const sampled = filesToScan.slice(0, maxFiles);
@@ -89,6 +95,7 @@ async function walk(
 	maxDepth: number,
 	sourceFiles: string[],
 	score: Score,
+	devicePaths: string[],
 ): Promise<void> {
 	if (depth > maxDepth) return;
 	let entries: string[];
@@ -108,7 +115,7 @@ async function walk(
 			continue;
 		}
 		if (s.isDirectory()) {
-			await walk(full, depth + 1, maxDepth, sourceFiles, score);
+			await walk(full, depth + 1, maxDepth, sourceFiles, score, devicePaths);
 			continue;
 		}
 		// Filename signals.
@@ -131,9 +138,34 @@ async function walk(
 			}
 		} else if (lower.endsWith(".iecst") || lower.endsWith(".exp")) {
 			score.codesys += 2;
+		} else if (lower.endsWith(".device")) {
+			devicePaths.push(full);
 		} else if (KIND_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
 			sourceFiles.push(full);
 		}
+	}
+}
+
+/**
+ * Score the PLC target's vendor from the CONTROLLER `.device` file. The controller is the shallowest device
+ * in the tree (nested `.device` files are fieldbus masters / I/O slaves / drives), preferring the conventional
+ * `Device.device`. Its `Vendor:` field is authoritative: only Beckhoff runs TwinCAT; every other IEC vendor
+ * (Lenze, 3S-Smart, WAGO, Schneider, ABB, Festo, …) licenses the CODESYS runtime.
+ */
+async function scoreDeviceTarget(devicePaths: string[], score: Score): Promise<void> {
+	if (devicePaths.length === 0) return;
+	const depth = (p: string): number => p.split(/[\\/]/).length;
+	const minDepth = Math.min(...devicePaths.map(depth));
+	const shallow = devicePaths.filter((p) => depth(p) === minDepth);
+	const controller = shallow.find((p) => /(^|[\\/])device\.device$/i.test(p)) ?? shallow[0]!;
+	try {
+		const head = (await readFile(controller, "utf-8")).slice(0, 2048);
+		const vendor = /^Vendor:\s*(.+)$/im.exec(head)?.[1]?.trim().toLowerCase();
+		if (vendor === undefined || vendor.length === 0) return;
+		if (vendor.includes("beckhoff")) score.twincat += 10;
+		else score.codesys += 10;
+	} catch {
+		// best-effort; the descriptor may be absent or unreadable
 	}
 }
 

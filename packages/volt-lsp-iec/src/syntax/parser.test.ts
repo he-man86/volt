@@ -110,3 +110,19 @@ test("error-tolerant: a malformed unit records an error, never throws", () => {
   const r = parseSource("FUNCTION_BLOCK")
   expect(r.errors.length).toBeGreaterThan(0)
 })
+
+test("statement tree: CODESYS partial variable access `x.%W1` / `.%B3` parses cleanly", () => {
+  const r = stmts("wHigh := dwSource.%W1; bHigh := dwSource.%B3;")
+  expect(r.ok).toBe(true)
+  const assign = r.statements[0] as { kind: string; value: { kind: string; member: { name: string } } }
+  expect(assign.value.kind).toBe("member")
+  expect(assign.value.member.name).toBe("%W1")
+})
+
+test("statement tree: CODESYS typed char literal `UCHAR#'A'` parses cleanly", () => {
+  const r = stmts("b := UCHAR#'A';")
+  expect(r.ok).toBe(true)
+  const assign = r.statements[0] as { kind: string; value: Literal }
+  expect(assign.value.kind).toBe("literal")
+  expect((assign.value as Literal).literalKind).toBe("typed")
+})

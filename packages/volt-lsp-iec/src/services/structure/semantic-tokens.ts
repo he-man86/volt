@@ -9,6 +9,7 @@
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
 import { lex, type Token, type TokenKind } from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
+import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset, type Document } from "../shared/index.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
@@ -113,10 +114,12 @@ function classify(tok: Token, doc: Document, project: Scope): string | undefined
   if (byKind !== undefined) return byKind
   if (tok.kind === "keyword") return "keyword"
   if (tok.kind !== "identifier") return undefined
-  // Identifier — refine by the symbol it names in scope (else a plain variable).
+  // Identifier — refine by the symbol it names in scope, else an elementary type name, else a plain variable.
   const scope = scopeAtOffset(doc, project, tok.span.start)
   const sym = lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
-  return sym !== undefined ? SYMBOL_TYPE[sym.kind] : "variable"
+  if (sym !== undefined) return SYMBOL_TYPE[sym.kind]
+  if (isKnownPrimitive(tok.text)) return "type" // INT/BOOL/… are type names, not variables
+  return "variable"
 }
 
 const KIND_TYPE: Partial<Record<TokenKind, string>> = {

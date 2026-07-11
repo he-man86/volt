@@ -21,11 +21,22 @@ import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
 
-/** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE. */
-function lspMessagesForCode(repro: string, vendor: "codesys" | "twincat", ourCode: string | undefined): string[] {
+/** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
+ *  `extra` are cross-file context units (a code's `reproFiles`); the symbol table is built from all of them but
+ *  diagnostics still run on `repro`. */
+function lspMessagesForCode(
+  repro: string,
+  vendor: "codesys" | "twincat",
+  ourCode: string | undefined,
+  extra?: { uri: string; source: string }[],
+): string[] {
   if (ourCode === undefined) return []
   const pr = parseSource(repro)
-  const project = buildSymbolTable([{ uri: "R.fb", parseResult: pr, source: repro }])
+  const files = [
+    { uri: "R.fb", parseResult: pr, source: repro },
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
+  ]
+  const project = buildSymbolTable(files)
   return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor, lints: { unknownType: true, unknownAttribute: true } }) })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)
@@ -148,7 +159,19 @@ async function resetProject(): Promise<void> {
 // ── the catalog ──────────────────────────────────────────────────────────────
 const catalog = JSON.parse(readFileSync(CATALOG, "utf8"))
 const codes: any[] = Array.isArray(catalog) ? catalog : catalog.codes
-const targets = codes.filter((c) => c.status === "implemented" && (!ONLY || ONLY.has(c.code)) && c.repro)
+// `codesysOnly` codes are CODESYS-specific rules TwinCAT's compiler doesn't have (live /build confirmed clean).
+// The check is vendor-gated, so on TwinCAT it correctly emits nothing — skip it there so a "silent" outcome
+// never resets its (correct) verified flag.
+// Not verifiable on TwinCAT: a `codesysOnly` rule TwinCAT's compiler lacks, or a `twincatInternalError` repro
+// that makes TwinCAT throw an INTERNAL compiler error (a TC bug — no usable diagnostic). Skip both on TC so a
+// "silent" outcome never resets their (correct) verified flag; the LSP still emits the CODESYS-correct error.
+const targets = codes.filter(
+  (c) =>
+    c.status === "implemented" &&
+    (!ONLY || ONLY.has(c.code)) &&
+    c.repro &&
+    !((c.codesysOnly === true || c.twincatInternalError === true) && VENDOR !== "codesys"),
+)
 
 console.log(`Verifying ${targets.length} implemented codes against ${BASE} (${VENDOR}) …\n`)
 // The true per-vendor mirror test: does the LSP's message (for `vendor`) appear among the IDE's messages?
@@ -161,18 +184,29 @@ const norm = (s: string): string => s.replace(/\r?\n/g, "").trim() // real messa
 
 for (const c of targets) {
   const { plcBody, items, instTypes, calls } = splitRepro(c.repro)
+  // Cross-file context (`reproFiles`, e.g. extra GVLs) — push each under its own uri-derived name so distinct
+  // files stay distinct (a nameless VAR_GLOBAL would otherwise collapse to a single "GVL").
+  const extraItems = (c.reproFiles ?? []).map((f: { uri: string; source: string }) => ({
+    wire: f.uri,
+    src: complete(f.source.trimEnd() + "\n", f.uri.endsWith(".gvl") ? "global_var_list" : "function_block"),
+  }))
   let actual: string[] = []
   let lsp: string[] = []
   let outcome: Outcome = "error"
   try {
     await resetProject()
-    for (const it of items) { touched.add(it.wire); await robustSet(it.wire, it.src) }
+    for (const it of [...items, ...extraItems]) { touched.add(it.wire); await robustSet(it.wire, it.src) }
     await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
     const r = await post("/build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
-    lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode)
+    lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode, c.reproFiles)
     const actualN = actual.map(norm)
     outcome = lsp.length === 0 ? "silent" : lsp.every((m) => actualN.includes(norm(m))) ? "verified" : "mismatch"
+    // Detection-parity: a code flagged `<vendor>WordingDivergence` where the IDE's OWN message is buggy (TC
+    // renders a pointer type as '1', C0126) or truncated (C0139). The IDE DETECTS the same error (non-empty
+    // actual) at the same spot; byte-matching would ship the IDE's bug. So the LSP keeps the correct wording
+    // and this counts as verified-by-detection, not a mismatch.
+    if (outcome === "mismatch" && actual.length > 0 && c[`${VENDOR}WordingDivergence`] === true) outcome = "verified"
   } catch (e) {
     console.warn(`  ${c.code}: ERROR ${(e as Error).message}`)
   } finally {

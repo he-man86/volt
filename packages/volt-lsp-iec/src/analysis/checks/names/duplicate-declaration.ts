@@ -25,12 +25,15 @@ function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: Diagnostic
     const bareName: Symbol[] = symbols.filter((s) => !s.qualifiedOnly)
     for (let i = 1; i < bareName.length; i++) {
       const sym = bareName[i]
+      // Two methods sharing a name is an unmarked overload (C0582) — a distinct error from a duplicate var, and
+      // one Volt can't push at all (the bridge's CreateChild rejects the second child). Use its own wording.
+      const isMethod = sym.kind === "method" && bareName[i - 1].kind === "method"
       out.push({
         severity: "error",
         span: sym.span,
         source: SOURCE,
-        code: "duplicate-declaration",
-        message: ctx.messages.duplicateDeclaration(sym.name, scope.name),
+        code: isMethod ? "duplicate-method" : "duplicate-declaration",
+        message: isMethod ? ctx.messages.duplicateMethod(sym.name) : ctx.messages.duplicateDeclaration(sym.name, scope.name),
       })
     }
   }

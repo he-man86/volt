@@ -32,6 +32,7 @@ import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { collectInitTokens, initializerFromTokens, parseExpression } from "../expression.js"
 import { identFromToken, joinSpans } from "../util.js"
+import { atVarSection } from "../var-section.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const start = c.expectKeyword("TYPE", "at start of TYPE block")
@@ -50,9 +51,12 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const colon = c.expectPunct(":", "after TYPE name")
   if (colon === undefined) return undefined
   const body = parseDutBody(c)
-  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there).
-  if (extendsName !== undefined && body !== undefined && body.kind === "struct" && body.extends === undefined) {
-    body.extends = extendsName
+  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there). EXTENDS on any other DUT kind
+  // (enum/alias → C0144, union → C0542) is illegal — capture it as `extendsMisused` for the check.
+  let extendsMisused: Identifier | undefined
+  if (extendsName !== undefined && body !== undefined) {
+    if (body.kind === "struct" && body.extends === undefined) body.extends = extendsName
+    else if (body.kind !== "struct") extendsMisused = extendsName
   }
   // TwinCAT-idiomatic optional `;` after the body (engineers C-style
   // terminate the enum/struct/alias before END_TYPE). Spec-permissive
@@ -76,6 +80,7 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
     kind: "type_decl",
     name,
     body,
+    ...(extendsMisused !== undefined ? { extendsMisused } : {}),
     span: joinSpans(start.span, endSpan),
   }
 }
@@ -118,6 +123,19 @@ function parseStructBody(c: Cursor): StructBody | undefined {
         span: joinSpans(start.span, endStruct.span),
       }
     }
+    // A VAR-section keyword inside a STRUCT is illegal (C0173) — skip the whole misplaced `VAR_* … END_VAR`
+    // block with ONE error, instead of choking `parseStructField` on `VAR_INPUT` and then again on `END_VAR`.
+    if (atVarSection(c)) {
+      const kw = c.consume()
+      c.pushError(`'${kw.text}' not allowed in this place`, kw.span)
+      c.recoverTo({ keywords: ["END_VAR", "END_STRUCT"] })
+      c.eatKeyword("END_VAR")
+      continue
+    }
+    // A non-name keyword here (e.g. the outer `END_TYPE` when `END_STRUCT` is missing) means the struct wasn't
+    // closed — stop with ONE "unterminated STRUCT" error and leave the token for the TYPE parser, instead of
+    // choking the field parser on it AND letting recovery eat the `END_TYPE` the outer parser needs.
+    if (!c.atNameStart()) break
     const decl = parseStructField(c)
     if (decl !== undefined) {
       fields.push(decl)
@@ -149,6 +167,7 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
         span: joinSpans(start.span, endUnion.span),
       }
     }
+    if (!c.atNameStart()) break // non-name keyword → unterminated union; leave it for the TYPE parser (see struct)
     const decl = parseStructField(c)
     if (decl !== undefined) {
       fields.push(decl)

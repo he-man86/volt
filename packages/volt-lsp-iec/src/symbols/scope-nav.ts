@@ -72,10 +72,26 @@ export function hasUnresolvedBase(scope: Scope): boolean {
   return false
 }
 
+/** Direct child scopes of `parent` by name (case-insensitive), via a lazy index. Multiple only on same-name
+ *  collisions (rare); the index is rebuilt whenever `children` grows so a mid-build query never goes stale. */
+export function childScopesByName(parent: Scope, name: string): Scope[] {
+  if (parent._childIndex === undefined || parent._childIndexLen !== parent.children.length) {
+    const index = new Map<string, Scope[]>()
+    for (const c of parent.children) {
+      const key = c.name.toLowerCase()
+      const bucket = index.get(key)
+      if (bucket !== undefined) bucket.push(c)
+      else index.set(key, [c])
+    }
+    parent._childIndex = index
+    parent._childIndexLen = parent.children.length
+  }
+  return parent._childIndex.get(name.toLowerCase()) ?? []
+}
+
 /** A direct child scope of `parent` by name (case-insensitive) — the qualified-navigation step. */
 export function findChildScope(parent: Scope, name: string): Scope | undefined {
-  const t = name.toLowerCase()
-  return parent.children.find((c) => c.name.toLowerCase() === t)
+  return childScopesByName(parent, name)[0]
 }
 
 /** Any scope in the project tree by name (case-insensitive), depth-first. */

@@ -5,6 +5,8 @@
  *   C0242 delete-non-pointer  — `__DELETE(x)` where `x` is not a pointer.
  *   C0070 ini-needs-instance  — `INI(x, …)` where `x` is not an FB / DUT (struct) instance.
  *   C0072 operator-not-possible — a math operator (`ABS`, `SQRT`, …) applied to a non-numeric type. PROVISIONAL.
+ *   C0240/C0241 query-pointer-operand   — `__QueryPointer` operands (interface-ref/FB, then pointer).
+ *   C0234/C0235 query-interface-operand — `__QueryInterface` operands (interface-ref/FB, then interface-ref).
  *
  * Zero-FP: C0131 fires only on a bare literal argument; C0355 only when the argument's type is KNOWN BIT; C0242
  * only when the argument's type is KNOWN and not a pointer; C0070 only when the first operand's type is KNOWN
@@ -20,6 +22,14 @@ import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
 const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+/** Intrinsic-operator operand-count rules (C0022 exact / C0023 at-least). Only IEC-standard operators with an
+ *  unambiguous arity — a real project's correct usage never fires (the corpus gate validates the table). */
+const OP_ARITY: Record<string, { exact?: number; atLeast?: number }> = {
+  ADR: { exact: 1 },
+  SIZEOF: { exact: 1 },
+  SEL: { exact: 3 },
+  MUX: { atLeast: 3 },
+}
 const NUMERIC_FAMILIES = new Set(["int", "bitstring", "real"])
 const titleCase = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase()
 
@@ -27,6 +37,18 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
     if (e.kind !== "call" || e.callee.kind !== "ident_expr") return
     const name = e.callee.name.toUpperCase()
+
+    // C0022 / C0023 — wrong operand count for an intrinsic operator. Unshadowed only (a project/library symbol
+    // of the same name is a user function, not the operator). Anchored on the callee.
+    const arity = OP_ARITY[name]
+    if (arity !== undefined && lookup(scope, e.callee.name) === undefined) {
+      const n = e.args.length
+      if (arity.exact !== undefined && n !== arity.exact)
+        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsExactly(name, arity.exact)) // C0022
+      else if (arity.atLeast !== undefined && n < arity.atLeast)
+        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsAtLeast(name, arity.atLeast)) // C0023
+    }
+
     const arg = e.args[0]?.value
     if (arg === undefined) return
     if (MATH_OPS.has(name) && lookup(scope, e.callee.name) === undefined) {
@@ -51,6 +73,26 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind !== "function_block" && t.kind !== "struct" && t.kind !== "unknown")
         push(out, "error", e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
+    }
+    if (name === "__QUERYPOINTER") {
+      // Conservative: fire only when an operand is a KNOWN ELEMENTARY (unambiguously wrong) — an interface ref /
+      // FB instance reads as function_block, a valid pointer as pointer; a reference/struct/unknown is skipped.
+      const first = e.args[0]?.value
+      if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
+        push(out, "error", first.span, "query-pointer-operand", ctx.messages.queryPointerFirst()) // C0240
+      const second = e.args[1]?.value
+      if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
+        push(out, "error", second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
+    }
+    if (name === "__QUERYINTERFACE") {
+      // Same conservative rule (twin of __QueryPointer), but the second operand must be an interface reference,
+      // not a pointer — a KNOWN ELEMENTARY is unambiguously wrong for either operand.
+      const first = e.args[0]?.value
+      if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
+        push(out, "error", first.span, "query-interface-operand", ctx.messages.queryInterfaceFirst()) // C0234
+      const second = e.args[1]?.value
+      if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
+        push(out, "error", second.span, "query-interface-operand", ctx.messages.queryInterfaceSecond()) // C0235
     }
   })
 }

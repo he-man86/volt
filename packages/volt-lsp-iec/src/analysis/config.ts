@@ -42,6 +42,14 @@ export interface LintConfig {
    * the library floor is solved (signatures loaded into the symbol table). See `checks/names/unknown-type`.
    */
   unknownType: boolean
+  /**
+   * A method/action/property-accessor accessing its enclosing FB's VAR_IN_OUT (C0371). Controlled by a
+   * per-project CODESYS compiler-warning toggle that isn't in the materialized ST — but it is ENABLED by
+   * default in CODESYS and hardly any project changes it (lenze-mid: on/96 warnings; pro2193 is the rare one
+   * that disabled it). So this defaults ON to match the common case; a project that disabled the warning turns
+   * it off here too. When on, the wording is compiler-exact. See `checks/oop/inout-own-access`.
+   */
+  inoutOwnAccess: boolean
 }
 
 export interface AnalysisInitOptions {
@@ -62,6 +70,7 @@ const DEFAULT_LINTS: LintConfig = {
   shadowing: false,
   unknownAttribute: false,
   unknownType: false,
+  inoutOwnAccess: true, // ENABLED by default in CODESYS; hardly any project disables it (see LintConfig doc)
 }
 
 /** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */

@@ -17,6 +17,7 @@ export {
   resolveAnywhere,
   allReferences,
   referencesAnywhere,
+  documentHighlightsAnywhere,
   prepareRenameAnywhere,
   renameAnywhere,
 } from "./vg-services.js"

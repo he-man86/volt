@@ -195,4 +195,33 @@ public class PushServiceTests
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);
     }
+
+    // Duplicate child names (an unmarked overload) are keyed by name → the second would silently overwrite the
+    // first, losing a source method while the push reports accepted. The guard lives in Core (before any driver
+    // call), so BOTH drivers reject it identically — this is the parity test for that shared behaviour.
+    private const string TwoSameNameMethods =
+        "FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nEND_METHOD\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nEND_METHOD\n";
+
+    [Fact]
+    public void Duplicate_child_name_is_rejected_not_silently_collapsed()
+    {
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.fb", IfVersion = null, SourceText = TwoSameNameMethods });
+        Assert.False(resp.Accepted);
+        Assert.Contains(resp.Conflicts!, c => c.Name == "FB_Math.fb" && c.Reason.Contains("more than one child named 'Calc'"));
+        Assert.Empty(ide.Recorded); // guard throws before any CreateChild/WriteText — no half-written FB
+    }
+
+    [Fact]
+    public void Distinct_child_names_still_push_cleanly()
+    {
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var twoDistinct = TwoSameNameMethods.Replace("METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;", "METHOD Calc2 : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;");
+        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.fb", IfVersion = null, SourceText = twoDistinct });
+        Assert.True(resp.Accepted);
+    }
 }

@@ -16,15 +16,18 @@
 import type { Span } from "./span.js"
 import type { Keyword } from "./tokens.js"
 import { Cursor } from "./cursor.js"
-import { skipFolderDirective } from "./util.js"
+import { identFromToken, skipFolderDirective } from "./util.js"
 import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
-import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, Statement, StatementList } from "./ast.js"
+import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
 
 export interface BodyParse {
   statements: StatementList
   ok: boolean
   /** First recorded error (diagnostic-quality, for corpus triage only — never surfaced to the user). */
   firstError?: string
+  /** All recorded parse errors (an `expect*` mismatch = a definite syntax error at a precise span). Surfaced
+   *  as diagnostics by `checkParseErrors`; the resilient-recovery work (phase 2) grows this past one entry. */
+  errors: readonly ParseError[]
 }
 
 // A BodySpan is immutable and parsed identically every time, but the ~15 semantic checks each iterate
@@ -58,7 +61,7 @@ export function parseStatements(body: BodySpan): BodyParse {
   const firstError = ok
     ? undefined
     : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
-  const result: BodyParse = { statements, ok, firstError }
+  const result: BodyParse = { statements, ok, firstError, errors }
   parseCache.set(body, result)
   return result
 }
@@ -72,14 +75,34 @@ function lastSpan(list: ReadonlyArray<{ span: Span }>, fallback: Span): Span {
   return list.length > 0 ? (list[list.length - 1] as { span: Span }).span : fallback
 }
 
+// Recovery anchors for a garbage statement: a `;` (end of the bad statement) or a statement-starter /
+// block-structural keyword (start of the next real thing). Skipping to one of these lets a single unparsable
+// statement (a typo, a stray token) yield one diagnostic while the rest of the body still parses. Safe now
+// that the block constructs self-recover (missing-token insertion + closer recovery) — `parseStatement` returns
+// a node for a malformed IF/CASE/FOR/…, so anything that still fails to parse is genuinely a bad statement, not
+// a half-consumed construct dumping its tail here (which is what made an earlier list-level skip cascade).
+const STMT_SYNC: readonly Keyword[] = [
+  "IF", "CASE", "FOR", "WHILE", "REPEAT", "RETURN", "EXIT", "CONTINUE", "__TRY",
+  "END_IF", "ELSIF", "ELSE", "END_CASE", "END_FOR", "END_WHILE", "END_REPEAT", "UNTIL",
+  "__CATCH", "__FINALLY", "__ENDTRY",
+]
+
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
     // `%FOLDER <path>` is bridge folder metadata prepended to a child body — skip it like trivia.
     if (skipFolderDirective(cur)) continue
+    const before = cur.mark()
     const s = parseStatement(cur)
-    if (s === undefined) break // error recorded; stop so ok=false surfaces
-    out.push(s)
+    if (s !== undefined) {
+      out.push(s)
+      continue
+    }
+    // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
+    // trailing `consume()` guarantees ≥1 token of progress per iteration, so recovery can never loop forever.
+    cur.recoverTo({ puncts: [";"], keywords: STMT_SYNC })
+    cur.eatPunct(";")
+    if (cur.mark() === before) cur.consume()
   }
   return out
 }
@@ -119,9 +142,32 @@ function parseStatement(cur: Cursor): Statement | undefined {
       }
       case "__TRY":
         return parseTry(cur)
+      case "JMP":
+        return parseJmp(cur)
+    }
+  }
+  // A jump label — `name:` at statement start: an identifier followed by ':' (NOT ':=', a distinct token, so
+  // assignment never collides; CASE labels are parsed by parseCaseArm, not here).
+  if (t.kind === "identifier") {
+    const after = cur.peek(1)
+    if (after.kind === "punct" && after.text === ":") {
+      const nameTok = cur.consume()
+      const colon = cur.consume() // ':'
+      return { kind: "label", name: identFromToken(nameTok), span: merge(nameTok.span, colon.span) }
     }
   }
   return parseExprOrAssign(cur)
+}
+
+function parseJmp(cur: Cursor): Statement | undefined {
+  const kw = cur.consume() // JMP
+  const target = parseExpression(cur)
+  if (target === undefined) {
+    cur.pushError("expected a label after JMP", cur.peek().span)
+    return undefined
+  }
+  const semi = cur.eatPunct(";") // lenient like RETURN/EXIT — a missing ';' is caught by the next statement
+  return { kind: "jmp", target, span: merge(kw.span, semi?.span ?? target.span) }
 }
 
 function parseExprOrAssign(cur: Cursor): Statement | undefined {
@@ -182,8 +228,7 @@ function parseTry(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("__FINALLY") !== undefined) {
     finallyBody = parseStatementList(cur, (c) => atKeyword(c, "__ENDTRY"))
   }
-  const end = cur.expectKeyword("__ENDTRY", "closing __TRY")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("__ENDTRY", "closing __TRY") // missing closer: record, keep the parsed bodies
   cur.eatPunct(";")
   return {
     kind: "try",
@@ -191,7 +236,7 @@ function parseTry(cur: Cursor): Statement | undefined {
     ...(catchVar ? { catchVar } : {}),
     ...(catchBody ? { catchBody } : {}),
     ...(finallyBody ? { finallyBody } : {}),
-    span: merge(kw.span, end.span),
+    span: merge(kw.span, end?.span ?? kw.span),
   }
 }
 
@@ -210,16 +255,18 @@ function parseIf(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_IF"))
   }
-  const end = cur.expectKeyword("END_IF", "closing IF")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_IF", "closing IF") // missing closer: record, but keep the parsed branches
   cur.eatPunct(";")
-  return { kind: "if", branches, elseBody, span: merge(kw.span, end.span) }
+  return { kind: "if", branches, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
   const cond = parseAssignable(cur) // `IF x := f() THEN` — inline assignment in the condition (CODESYS)
   if (cond === undefined) return undefined
-  if (cur.expectKeyword("THEN", "in IF") === undefined) return undefined
+  // Missing-token recovery (Roslyn-style): record the absent THEN but DON'T abandon the branch — parse the
+  // body anyway and let the IF consume its END_IF. Bailing here instead dumps the body + END_IF back to the
+  // statement list, which mis-parses them into a spurious cascade error. One error in → one error out.
+  cur.expectKeyword("THEN", "in IF")
   const body = parseStatementList(cur, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"))
   return { kind: "if_branch", cond, body, span: merge(cond.span, lastSpan(body, cond.span)) }
 }
@@ -228,7 +275,7 @@ function parseCase(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // CASE
   const selector = parseExpression(cur)
   if (selector === undefined) return undefined
-  if (cur.expectKeyword("OF", "in CASE") === undefined) return undefined
+  cur.expectKeyword("OF", "in CASE") // missing-token recovery — parse the arms regardless (see parseIfBranch)
   const arms: CaseArm[] = []
   while (!cur.atEof() && !atKeyword(cur, "ELSE", "END_CASE")) {
     if (!isArmStart(cur)) break // not a label header — let END_CASE expectation fail → fallback
@@ -240,10 +287,9 @@ function parseCase(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_CASE"))
   }
-  const end = cur.expectKeyword("END_CASE", "closing CASE")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_CASE", "closing CASE") // missing closer: record, but keep the parsed arms
   cur.eatPunct(";")
-  return { kind: "case", selector, arms, elseBody, span: merge(kw.span, end.span) }
+  return { kind: "case", selector, arms, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseCaseArm(cur: Cursor): CaseArm | undefined {
@@ -323,7 +369,7 @@ function parseFor(cur: Cursor): Statement | undefined {
   if (cur.expectPunct(":=", "in FOR") === undefined) return undefined
   const from = parseExpression(cur)
   if (from === undefined) return undefined
-  if (cur.expectKeyword("TO", "in FOR") === undefined) return undefined
+  cur.expectKeyword("TO", "in FOR") // missing-token recovery — the upper bound follows regardless (see parseIfBranch)
   const to = parseExpression(cur)
   if (to === undefined) return undefined
   let by: Expr | undefined
@@ -331,24 +377,22 @@ function parseFor(cur: Cursor): Statement | undefined {
     by = parseExpression(cur)
     if (by === undefined) return undefined
   }
-  if (cur.expectKeyword("DO", "in FOR") === undefined) return undefined
+  cur.expectKeyword("DO", "in FOR") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_FOR"))
-  const end = cur.expectKeyword("END_FOR", "closing FOR")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_FOR", "closing FOR") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "for", controlVar, from, to, by, body, span: merge(kw.span, end.span) }
+  return { kind: "for", controlVar, from, to, by, body, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseWhile(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // WHILE
   const cond = parseAssignable(cur)
   if (cond === undefined) return undefined
-  if (cur.expectKeyword("DO", "in WHILE") === undefined) return undefined
+  cur.expectKeyword("DO", "in WHILE") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
-  const end = cur.expectKeyword("END_WHILE", "closing WHILE")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_WHILE", "closing WHILE") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "while", cond, body, span: merge(kw.span, end.span) }
+  return { kind: "while", cond, body, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseRepeat(cur: Cursor): Statement | undefined {
@@ -357,8 +401,7 @@ function parseRepeat(cur: Cursor): Statement | undefined {
   if (cur.expectKeyword("UNTIL", "in REPEAT") === undefined) return undefined
   const until = parseAssignable(cur)
   if (until === undefined) return undefined
-  const end = cur.expectKeyword("END_REPEAT", "closing REPEAT")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_REPEAT", "closing REPEAT") // missing closer: record, keep the parsed body
   cur.eatPunct(";")
-  return { kind: "repeat", body, until, span: merge(kw.span, end.span) }
+  return { kind: "repeat", body, until, span: merge(kw.span, end?.span ?? kw.span) }
 }

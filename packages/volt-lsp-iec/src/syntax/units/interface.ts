@@ -12,10 +12,11 @@
  * parent interfaces. Each parent is fully qualified by name; the
  * resolver flattens the chain at symbol-table build time.
  */
-import type { Identifier, Interface, InterfaceMethod, InterfaceProperty } from "../ast.js"
+import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSection } from "../ast.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { collectVarSections, describeToken, identFromToken, joinSpans, skipFolderDirective } from "../util.js"
+import { atVarSection, parseVarSection } from "../var-section.js"
 
 export function parseInterface(c: Cursor): Interface | undefined {
   const start = c.expectKeyword("INTERFACE", "at start of INTERFACE")
@@ -53,6 +54,9 @@ export function parseInterface(c: Cursor): Interface | undefined {
 
   const methods: InterfaceMethod[] = []
   const properties: InterfaceProperty[] = []
+  // VAR sections placed directly in the interface body are illegal — interfaces declare signatures only.
+  // Capture them (instead of the generic recovery error) so a check can emit C0149.
+  const strayVarSections: VarSection[] = []
 
   while (!c.atEof()) {
     const endIface = c.eatKeyword("END_INTERFACE")
@@ -62,6 +66,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
         name,
         ...(extendsList !== undefined ? { extends: extendsList } : {}),
         ...(implementsMisused !== undefined ? { implementsMisused } : {}),
+        ...(strayVarSections.length > 0 ? { strayVarSections } : {}),
         methods,
         properties,
         span: joinSpans(start.span, endIface.span),
@@ -71,6 +76,14 @@ export function parseInterface(c: Cursor): Interface | undefined {
     // A method that lives in a sub-folder carries a `%FOLDER <path>` directive (between members or
     // just before its END_METHOD) — bridge metadata, not interface content.
     if (skipFolderDirective(c)) continue
+
+    // A VAR section here is illegal (C0149) but well-formed — parse and capture it rather than
+    // spraying recovery errors token-by-token.
+    if (atVarSection(c)) {
+      const s = parseVarSection(c)
+      if (s !== undefined) strayVarSections.push(s)
+      continue
+    }
 
     const next = c.peek()
     if (next.kind === "keyword" && next.keyword === "METHOD") {
@@ -93,6 +106,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
     kind: "interface",
     name,
     ...(extendsList !== undefined ? { extends: extendsList } : {}),
+    ...(strayVarSections.length > 0 ? { strayVarSections } : {}),
     methods,
     properties,
     span: joinSpans(start.span, name.span),

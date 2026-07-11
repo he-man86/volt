@@ -56,13 +56,12 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   const stringTok = c.eatAnyKeyword("STRING", "WSTRING")
   if (stringTok !== undefined) {
     const wide = stringTok.keyword === "WSTRING"
-    const length = parseOptionalStringLength(c)
-    const endSpan = length?.span ?? stringTok.span
+    const len = parseOptionalStringLength(c)
     return {
       kind: "string_type",
       wide,
-      ...(length !== undefined ? { length } : {}),
-      span: joinSpans(stringTok.span, endSpan),
+      ...(len?.length !== undefined ? { length: len.length } : {}),
+      span: joinSpans(stringTok.span, len?.end ?? stringTok.span),
     }
   }
 
@@ -261,14 +260,14 @@ function topLevelDotDot(tokens: readonly Token[]): number {
   return -1
 }
 
-function parseOptionalStringLength(c: Cursor): Expr | undefined {
-  const openParen = c.eatPunct("(")
-  const openBracket = openParen === undefined ? c.eatPunct("[") : undefined
-  if (openParen === undefined && openBracket === undefined) return undefined
-  const closer = openParen !== undefined ? ")" : "]"
-  const len = parseExpression(c)
-  c.expectPunct(closer, "closing string length")
-  return len
+/** The optional `(n)`/`[n]` length clause, with the span of its closer so the STRING type covers the paren. */
+function parseOptionalStringLength(c: Cursor): { length?: Expr; end: Span } | undefined {
+  const open = c.eatPunct("(") ?? c.eatPunct("[")
+  if (open === undefined) return undefined
+  const closer = open.text === "(" ? ")" : "]"
+  const length = parseExpression(c)
+  const close = c.expectPunct(closer, "closing string length")
+  return { ...(length !== undefined ? { length } : {}), end: (close ?? length ?? open).span }
 }
 
 function tokenDescription(t: Token): string {

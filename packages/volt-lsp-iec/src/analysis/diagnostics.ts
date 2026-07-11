@@ -38,11 +38,18 @@ import { checkDataRecursion } from "./checks/types/data-recursion.js"
 import { checkEnumInit } from "./checks/types/enum-init.js"
 import { checkCaseLabels } from "./checks/flow/case-labels.js"
 import { checkStatementRules } from "./checks/flow/statement-rules.js"
+import { checkNewInExpression } from "./checks/flow/new-in-expression.js"
+import { checkJumpLabels } from "./checks/flow/jump-labels.js"
 import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
+import { checkLoopExit } from "./checks/flow/loop-exit.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
 import { checkConstantContext } from "./checks/declarations/const-context.js"
 import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
+import { checkExternalInitializer } from "./checks/declarations/external-initializer.js"
+import { checkExternalGlobal } from "./checks/declarations/external-global.js"
+import { checkInputDefault } from "./checks/declarations/input-default.js"
+import { checkDeprecatedKeyword } from "./checks/declarations/deprecated-keyword.js"
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
 import { checkOutputRules } from "./checks/declarations/output-rules.js"
 import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
@@ -52,8 +59,14 @@ import { checkMethodReference } from "./checks/oop/method-reference.js"
 import { checkInheritedVariable } from "./checks/oop/inherited-variable.js"
 import { checkIntrinsicOperands } from "./checks/calls/intrinsic-operands.js"
 import { checkCallArguments } from "./checks/calls/call-arguments.js"
+import { checkCallResultAccess } from "./checks/calls/call-result-access.js"
 import { checkRecursiveCall } from "./checks/calls/recursive-call.js"
+import { checkNonCallableCall } from "./checks/calls/non-callable-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
+import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
+import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
+import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
+import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
 import { checkInterfaceImplementations } from "./checks/oop/interface-implementation.js"
@@ -61,12 +74,15 @@ import { checkMethodSignatures } from "./checks/oop/method-signature.js"
 import { checkAbstractOutputDefault } from "./checks/oop/abstract-output-default.js"
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
+import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
+import { checkParseErrors } from "./checks/syntax/parse-errors.js"
+import { checkInoutInitializer } from "./checks/declarations/inout-initializer.js"
 
 export type { DiagnosticItem }
 
@@ -108,11 +124,18 @@ const CHECKS: readonly Check[] = [
   // flow/
   checkCaseLabels,
   checkStatementRules,
+  checkNewInExpression,
+  checkJumpLabels,
   checkNoOpStatement,
+  checkLoopExit,
   checkThisSuperContext,
   // declarations/
   checkConstantContext,
   checkConstantInitializer,
+  checkExternalInitializer,
+  checkExternalGlobal,
+  checkInputDefault,
+  checkDeprecatedKeyword,
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,
@@ -125,18 +148,26 @@ const CHECKS: readonly Check[] = [
   checkInheritedVariable,
   // calls/
   checkCallArguments,
+  checkCallResultAccess,
   checkRecursiveCall,
+  checkNonCallableCall,
   checkIntrinsicOperands,
   checkFbInstantiation,
   // names/
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
+  checkAmbiguousGlobal,
   checkUnknownTypes,
   checkTypeAsValue,
   // declarations/
   checkVarSectionPlacement,
+  checkInoutInitializer,
   // oop/
   checkExternalNonInputWrite,
+  checkInoutExternalAccess,
+  checkInoutOwnAccess,
+  checkFbInitInout,
+  checkAbstractAssign,
   checkLifecycleSignatures,
   checkAbstractInstantiation,
   checkInterfaceImplementations,
@@ -144,6 +175,10 @@ const CHECKS: readonly Check[] = [
   checkAbstractOutputDefault,
   // pragmas/
   checkPragmas,
+  // syntax/ — surfaces every parser-recorded syntax error (declaration structure + statement bodies), held to
+  // the corpus + conformance zero-FP gate (a parse error on clean code is a grammar gap to fix, never a shipped
+  // FP). See change `resilient-st-parse-errors`.
+  checkParseErrors,
 ]
 
 export interface DiagnosticsArgs {
@@ -168,9 +203,20 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     references: args.references ?? EMPTY_WORKSPACE_REFS,
   }
   const out: DiagnosticItem[] = []
-  for (const check of CHECKS) check(ctx, out)
+  if (CHECK_TIMING !== undefined) {
+    for (const check of CHECKS) {
+      const t = Number(process.hrtime.bigint())
+      check(ctx, out)
+      CHECK_TIMING[check.name] = (CHECK_TIMING[check.name] ?? 0) + (Number(process.hrtime.bigint()) - t) / 1e6
+    }
+  } else {
+    for (const check of CHECKS) check(ctx, out)
+  }
   return out
 }
+
+/** Per-check wall-time accumulator (ms), for the offline profiler only. Enable by assigning `{}`. */
+export let CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
 
 function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
   return c !== undefined && "lints" in c && typeof (c as ResolvedConfig).vendor === "string"
