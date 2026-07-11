@@ -969,7 +969,7 @@
       "twincat": false
     },
     "fix": "n := i;",
-    "note": "NOT cleanly offline-checkable: `int.name` is ambiguous with symbolic bit access (`WORD.bitConst`), which is valid CODESYS. Needs member-as-constant resolution to distinguish from a real struct access. Deferred.",
+    "note": "NOT offline-checkable: `word.bitConst` (symbolic bit access, e.g. `xuUnitVacuum.Vacuum01` where the member is an integer constant) is VALID CODESYS and indistinguishable from a real struct access without member-as-constant resolution. Corpus scout: 20 such hits in pro2193 are all valid bit access, not bugs. Deferred.",
     "triage": "resolution"
   },
   {
@@ -4109,7 +4109,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Local var name == a same-POU action name. BLOCKED offline: in the one-item-per-file workspace layout a standalone action binds at PROJECT scope (its member-host is only set within the same file), so it never co-locates with the FB's vars — detecting the collision needs action→FB name association the binder doesn't do. Zero corpus surface (0 collisions)."
   },
   {
     "code": "C0509",
@@ -4568,7 +4568,7 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
   },
   {
     "code": "C0565",
@@ -4722,7 +4722,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
   },
   {
     "code": "C0573",
@@ -4766,7 +4766,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Access a method's VAR_INST from outside. BLOCKED offline: `fb.method.varInst` infers the method's RETURN type (a scalar), not a scope carrying the VAR_INST, so the final member never resolves. Needs bespoke method-member-scope resolution the type model doesn't have. Exotic (VAR_INST rare)."
   },
   {
     "code": "C0579",
@@ -4810,7 +4810,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
   },
   {
     "code": "C0582",
@@ -4831,7 +4831,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
   },
   {
     "code": "C0583",
@@ -4852,7 +4852,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
   },
   {
     "code": "C0584",

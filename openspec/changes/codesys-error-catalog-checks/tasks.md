@@ -5,7 +5,7 @@ _Authoritative data lives in `docs/codesys-reference/error-catalog.json` (per-co
 
 ## Where we are (2026-07-11)
 
-**131 / 220 documented codes implemented · 112 CS-verified · 112 TC-verified · CS/TC fully reconciled.**
+**135 / 220 documented codes implemented · 112 CS-verified · 112 TC-verified · CS/TC reconciled.**
 Every implemented code is a registered check in `src/analysis/checks/**` (or a parser-surfaced syntax error),
 emitting through `computeSemanticDiagnostics` with per-vendor wording (`messages.ts`), held to the corpus zero-FP
 gate. Verified = the message is byte-identical to what the live IDE build emits (recorded 2026-07-11 from CODESYS
@@ -13,14 +13,41 @@ gate. Verified = the message is byte-identical to what the live IDE build emits 
 
 | Bucket | Count | Meaning |
 |---|---:|---|
-| **implemented** | 131 | a check emits it, burn-in green |
+| **implemented** | 135 | a check emits it, burn-in green |
 | ├ both-vendor verified | 112 | byte-identical to both live builds |
-| └ implemented, not both-verified | 19 | structural ceiling (see "open", not a TODO list) |
-| **checkable** (offline, not yet built) | 54 | the open backlog — see below |
+| └ implemented, not both-verified | 23 | 19 structural-ceiling + 4 new this session, pending a live recording |
+| **checkable** (offline, not yet built) | 50 | the open backlog — see below |
 | **ide-only** | 35 | impossible offline (live build / library / memory / codegen) — out of scope by design |
 
 The 220 total is **not** the target — 35 are ide-only and ~24 more are deferred-with-reason (below). See
 "What 100% means".
+
+### Resolution-bucket progress (this session)
+
+Worked the `resolution` bucket per the proven scout→implement-conservatively→corpus-gate→colocated-test flow.
+Closed **4** (corpus zero-FP + burn-in green; wording PROVISIONAL until a live recording):
+- **C0179** `fb-init-inout` — inline FB-init field cannot target a VAR_IN_OUT.
+- **C0511** `abstract-assign` — value-assign (`:=`) into a (reference to a) project abstract FB (REF= / pointer excluded).
+- **C0266** `loop-exit` — FOR whose end bound is at/beyond the counter type's range → unreachable exit (endless loop).
+- **C0136** `ambiguous-global` — bare ref to a global declared in 2+ **project** GVLs (library GVLs excluded — they
+  flatten into project scope and manufacture false duplicates: corpus scout found 60+ library dups, 0 project dups).
+
+Also: a **perf** fix — `staticScopeType`/`findChildScope` did an O(children) linear scan per lookup; on a real
+project the root scope has thousands of children, so every bare-ident inference + named-type resolution was a 1×n
+tax. Routed both through a lazy name→children index (`childScopesByName`). Full corpus diagnostic pass 138s→81s;
+the corpus gate that was timing out now passes. And the burn-in harness gained `reproFiles` (cross-file repros).
+
+**Deferrals discovered (blocked by a model gap, not neglect — recorded in each code's catalog `note`):**
+- **C0508** (var==action name) — a standalone action binds at PROJECT scope in the one-item-per-file layout, so it
+  never co-locates with the FB's vars; needs action→FB name association.
+- **C0576** (external VAR_INST access) — `fb.method.varInst` infers the method's return type, not a scope with the
+  VAR_INST; needs bespoke method-member resolution.
+- **C0062** (member on non-struct) — reaffirmed FP-trap: `word.bitConst` symbolic bit access is valid and
+  indistinguishable without member-as-constant resolution (20 valid corpus hits).
+
+**Overloads / init-order decision (the juncture the plan named):** corpus scout found **0 overloaded method names
+across all 5 projects** → **defer C0581/582/583** (and init-order C0564/572) — real projects don't use them, and
+they need genuine new resolution structure. Revisit if a real project adopts overloads.
 
 ## What's done (the machinery)
 
@@ -55,22 +82,24 @@ deliberately don't mirror.
 "100% of 220" is the wrong goal — 35 ide-only + ~24 deferred codes are out of offline scope by construction. Two
 honest targets:
 
-1. **Coverage ceiling ≈ 161** = 131 implemented + the 30 `resolution` codes (minus corpus demotions). Closing the
-   coverage gap = **implementing the resolution bucket**, one family at a time, each corpus- and live-verified.
-   That is the only remaining real work. The other 24 checkable (parser/optionGated/pragma/skip) stay unimplemented
-   for principled reasons, not neglect.
-2. **Verification ceiling ≈ 112 + a few** = every implemented code confirmed byte-identical live. We're at 112/131;
-   the 19 residuals are structural (above), so this is near its true ceiling already.
+1. **Coverage ceiling ≈ 157** = 135 implemented + the ~22 `resolution` codes that are actually implementable
+   (the 26 still-checkable minus the model-blocked C0508/C0576/C0062 and the deferred overloads/init-order).
+   Closing the gap = working that implementable subset, one family at a time, each corpus- and live-verified.
+2. **Verification ceiling ≈ 112 + a few** = every implemented code confirmed byte-identical live. We're at 112/135;
+   the 23 residuals are the 19 structural + this session's 4 new (pending a live recording on the bridges).
 
-**So: closing the gap to 100% = working the 30-code `resolution` bucket.** Approach (proven this session on C0178/
-C0036): scout the pattern's corpus firing first (`scripts/resolution-scout.ts`) to reject option-gated/FP-prone
-candidates before writing code, implement conservatively (skip unknown/library types → zero-FP), then verify the
-exact wording live on both bridges. Each family is a judgment call — do it with a human, not on an autonomous loop.
+**Approach (proven this session):** scout the pattern's corpus firing first (`scripts/resolution-scout.ts` +
+ad-hoc scouts) to reject option-gated/FP-prone/model-blocked candidates before writing code, implement
+conservatively (skip unknown/library types → zero-FP), corpus-gate, colocated-test, then verify the exact wording
+live on both bridges. Each family is a judgment call.
 
 ## Open task list
 
-- [ ] Work the `resolution` bucket (30 codes) per the approach above — this is the coverage gap to 100%.
-- [ ] Optional: re-triage the 24 deferred `checkable` codes to a terminal status so the "54 checkable" stops
-  implying they're all TODO (they aren't).
-- [x] Everything else (catalog, triage, harvest, conformance harness, live CS+TC verification, CS/TC
-  reconciliation) — **done**; see the catalog for per-code detail.
+- [ ] **Live-verify this session's 4 new codes** (C0179/C0511/C0266/C0136) on the `:8556`/`:8555` bridges and stamp
+  `verified` + finalize the PROVISIONAL wording. Highest-value next step (bridges required).
+- [ ] Continue the implementable `resolution` remainder (e.g. C0237/C0236 VAR_EXTERNAL, C0239/C0567 interface-IQI,
+  C0187) — cheap + safe but low real-world surface (zero corpus firing); close for catalog completeness.
+- [ ] **Model work (only if a real project needs it):** action→FB association (unblocks C0508), method-member
+  scope (unblocks C0576), overload resolution (C0581/2/3) — deferred; corpus shows 0 usage.
+- [x] Catalog, triage, harvest, conformance harness (+ `reproFiles` cross-file support), live CS+TC verification,
+  CS/TC reconciliation, the O(children) hot-path perf fix, and 4 resolution codes — **done**; see the catalog.
