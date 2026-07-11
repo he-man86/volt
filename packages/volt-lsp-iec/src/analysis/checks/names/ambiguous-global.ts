@@ -8,17 +8,31 @@
  * manufacture false duplicates (ERR_OK, NULL, … live in many library GVLs). A reference locally shadowed by a
  * var/param is skipped. Wording PROVISIONAL — the only harvested recording was localized (German).
  */
-import { lookup } from "../../../symbols/index.js"
+import { lookup, type Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
-export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const ambiguous = new Set<string>()
-  for (const [key, syms] of ctx.project.symbols) {
-    const uris = new Set<string>()
-    for (const s of syms) if (s.kind === "gvl_var" && s.qualifiedOnly !== true && !isLibrarySymbol(s)) uris.add(s.uri)
-    if (uris.size >= 2) ambiguous.add(key)
+/** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
+ *  file, so compute it once per project scope and reuse. A fresh project scope (rebuilt per workspace edit) gets
+ *  a fresh entry; the old one is GC'd via the WeakMap. Without this, a 10k-symbol project rescans per file. */
+const ambiguousCache = new WeakMap<Scope, ReadonlySet<string>>()
+function ambiguousGlobals(project: Scope): ReadonlySet<string> {
+  let set = ambiguousCache.get(project)
+  if (set === undefined) {
+    const s = new Set<string>()
+    for (const [key, syms] of project.symbols) {
+      const uris = new Set<string>()
+      for (const sym of syms) if (sym.kind === "gvl_var" && sym.qualifiedOnly !== true && !isLibrarySymbol(sym)) uris.add(sym.uri)
+      if (uris.size >= 2) s.add(key)
+    }
+    set = s
+    ambiguousCache.set(project, set)
   }
+  return set
+}
+
+export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const ambiguous = ambiguousGlobals(ctx.project)
   if (ambiguous.size === 0) return
   // `a.b` visits `b` as a standalone ident too, but a QUALIFIED member is never ambiguous — collect the
   // member-position nodes (pre-order: the member expr is seen before its `.member` child) and skip them.
