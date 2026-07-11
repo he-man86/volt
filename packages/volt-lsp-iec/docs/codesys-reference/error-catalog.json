@@ -3321,7 +3321,7 @@
   {
     "code": "C0228",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0228.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "missing constant initializer",
     "cause": "A VAR CONSTANT variable is declared without an initial value.",
     "message": "No initial value for constant variable '<constant name>'",
@@ -3338,7 +3338,7 @@
       "twincat": true
     },
     "fix": "k : INT := 1;",
-    "note": "CONSTANT-section decl with no initializer. PROVISIONAL."
+    "note": "CONSTANT-section decl with no initializer. PROVISIONAL. Severity: WARNING (live-confirmed on the bakon-nano build; was mislabeled error — the message matched but severity was never compared, same blind spot as C0371)."
   },
   {
     "code": "C0230",

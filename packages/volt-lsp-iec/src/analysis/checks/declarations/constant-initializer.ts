@@ -1,11 +1,13 @@
 /**
  * constant-initializer (C0228 · declarations/). A `CONSTANT` variable declared without an initial value —
- * a constant must be given its value inline. CODESYS: "No initial value for constant variable '<name>'".
+ * a constant should be given its value inline. CODESYS: "No initial value for constant variable '<name>'".
+ * A WARNING, not an error (live-confirmed on the bakon-nano build) — the constant defaults, so it compiles.
  *
- * Zero-FP: fires only for a declaration in a LOCAL/GLOBAL `CONSTANT` section (`VAR`/`VAR_GLOBAL`), of an
- * ELEMENTARY type, with no initializer. A `VAR_INPUT CONSTANT` receives its value from the caller (not inline)
- * and a struct/array/FB-typed constant is default-initialized from its members — both legitimately omit the
- * initializer and must NOT fire; only a scalar constant, which has no meaningful implicit value, is required.
+ * Zero-FP: fires for a declaration in a LOCAL/GLOBAL `CONSTANT` section (`VAR`/`VAR_GLOBAL`) with no
+ * initializer — of ANY resolvable value type (elementary OR struct/array/enum/union: live-confirmed on
+ * bakon-nano, CODESYS warns on `defaultXYA : XYA_Target` too). A `VAR_INPUT CONSTANT` takes its value from the
+ * caller and is skipped; an unresolvable/library type is skipped (zero-FP — can't know its shape); an
+ * FB-typed "constant" is skipped (not a value type).
  */
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -20,10 +22,11 @@ export function checkConstantInitializer(ctx: CheckContext, out: DiagnosticItem[
       if (section.constant !== true || !INLINE_CONST_SECTIONS.has(section.sectionKind)) continue
       for (const decl of section.decls) {
         if (decl.init !== undefined) continue
-        if (resolveTypeExpr(decl.type, ctx.project).kind !== "elementary") continue // composite → default-initialized
+        const t = resolveTypeExpr(decl.type, ctx.project).kind
+        if (t === "unknown" || t === "function_block" || t === "interface") continue // unresolvable/non-value → skip (zero-FP)
         for (const name of decl.names)
           out.push({
-            severity: "error",
+            severity: "warning",
             span: name.span,
             source: SOURCE,
             code: "constant-no-initial-value",
