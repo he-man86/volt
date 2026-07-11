@@ -54,7 +54,8 @@ public static class FetchService
         var total = walked.Count;
         var done = 0;
         var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
-        var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Debug)
+        var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Warn)
+        var excluded = 0;    // excluded-from-build — a DELIBERATE omission (no compiler ground truth), not a loss
         onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total, Phase = "reading" });
 
         foreach (var it in walked)
@@ -66,15 +67,16 @@ public static class FetchService
                 onProgress(new ProgressFrame { Operation = "fetch", Done = done, Total = total });
 
             var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) { unmapped++; continue; }
+            if (kind == null) { unmapped++; VoltLog.Debug($"fetch skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
             // A container-manager (library / recipe / visualization manager) is a FOLDER, never a tracked item —
             // it only groups its children (see ItemKind.IsContainerManager). The driver walks already avoid
             // emitting it; this is the Core backstop so the invariant holds for EVERY vendor structurally, not
             // per-driver — a stray manager can never materialize as a stub file.
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
             // Excluded-from-build objects have no compiler ground truth — omit them so the LSP never
-            // false-positives on code the IDE itself doesn't compile.
-            if (it.ExcludeFromBuild) continue;
+            // false-positives on code the IDE itself doesn't compile. Deliberate, but LOG the name so a customer
+            // sees a missing POU was EXCLUDED, not lost (bridge-diagnostics-observability edge case #4).
+            if (it.ExcludeFromBuild) { excluded++; VoltLog.Debug($"fetch skip: exclude-from-build '{it.Name}'"); continue; }
 
             // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
             // can't be materialized), never throw for the whole batch.
@@ -127,18 +129,20 @@ public static class FetchService
         changed = DedupeByFullName(changed);
 
         var libRenderNull = 0;
+        var libUnmatched = 0;
         if (request.Verbose)
         {
             // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate
             // — the AI gets the full public API of the used libraries). This is the slow second phase on a big
             // project (precompile + render), so flag it as its own indeterminate phase.
             onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = done, Total = total, Phase = "rendering libraries" });
-            libRenderNull = AppendLibrarySignatures(ide, libByResolution, changed);
+            (libRenderNull, libUnmatched) = AppendLibrarySignatures(ide, libByResolution, changed);
         }
 
         var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
 
-        var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable), ("lib-render-null", libRenderNull));
+        var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable), ("exclude-from-build", excluded),
+                          ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         VoltLog.Info($"fetch{(isInit ? " init" : "")}: {fullVersions.Count} items, {changed.Count} changed, {removed.Count} removed{drops} ({sw.ElapsedMilliseconds}ms)");
 
         return new FetchResponse
@@ -159,24 +163,32 @@ public static class FetchService
     /// library is matched to its `.library` ref by RESOLUTION; an unmatched lib falls back to the shared Library
     /// Manager folder. Extraction precompiles the libraries first (see <c>ExtractLibrarySignatures</c>). TwinCAT
     /// returns none. The version is a content hash — read-only, never a push target.</summary>
-    private static int AppendLibrarySignatures(IIdeDriver ide, Dictionary<string, (string Folder, string Name)> libByResolution, List<FetchedItem> changed)
+    /// <summary>Returns (renderNull, unmatched): how many element signatures couldn't be rendered, and how many
+    /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</summary>
+    private static (int RenderNull, int Unmatched) AppendLibrarySignatures(IIdeDriver ide, Dictionary<string, (string Folder, string Name)> libByResolution, List<FetchedItem> changed)
     {
         // The Library Manager base folder (all refs share it) — home of the LOUD `(unresolved)` marker below.
         var libManBase = libByResolution.Values.Select(v => v.Folder).FirstOrDefault(f => f.Length > 0) ?? "";
         var renderNull = 0;
+        var unmatched = 0;
         foreach (var sig in ide.ExtractLibrarySignatures())
         {
-            if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; continue; }
+            // Render-null: a sub-signature (method/property — covered by its parent FB) or an unknown POUType.
+            if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Debug($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }
             string libFolder;
             if (libByResolution.TryGetValue(sig.LibraryPath, out var lib))
                 // Identified: fold the element beside its library's `.library` file (matched by RESOLUTION).
                 libFolder = LibraryFolder(lib.Folder, lib.Name);
             else
+            {
                 // NOT identified: its owning library matched no `.library` ref by RESOLUTION (CODESYS facade /
                 // Interfaces-Implementation split). Do NOT silently drop it and do NOT guess it into a real
                 // library's folder — surface it LOUD under an explicit `(unresolved)` marker so the matching gap
                 // is impossible to miss (nothing lost, no hidden bug). See openspec bridge-diagnostics-observability.
                 libFolder = LibraryFolder(LibraryFolder(libManBase, "(unresolved)"), Sanitize(sig.LibraryPath.Split(',')[0].Trim()));
+                unmatched++;
+                VoltLog.Debug($"fetch: lib element '{sig.Name}' — owning library '{sig.LibraryPath}' matched no .library ref, foldered under (unresolved)");
+            }
             var fileName = $"{Sanitize(sig.Name)}{r.Ext}";
             changed.Add(new FetchedItem
             {
@@ -186,7 +198,7 @@ public static class FetchService
                 Version = Hasher.ComputeItemVersion(libFolder, r.Text),
             });
         }
-        return renderNull;
+        return (renderNull, unmatched);
     }
 
     /// <summary>Format the non-zero drop tallies for the completion log — e.g. <c> (skipped: 2 unmapped-kind,
