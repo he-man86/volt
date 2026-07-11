@@ -96,6 +96,10 @@ export interface Scope {
   baseScope?: Scope
   /** For an `enum`/`gvl` scope carrying `{attribute 'qualified_only'}`: members are NOT bare-accessible. */
   qualifiedOnly?: boolean
+  /** Lazy name→children index for `childScopesByName` — the project root has thousands of children, so a
+   *  linear `.find` per lookup is an O(n) tax on the hot inference path. Rebuilt when `children` grows. */
+  _childIndex?: Map<string, Scope[]>
+  _childIndexLen?: number
 }
 
 export function createProjectScope(): Scope {
