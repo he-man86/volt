@@ -4127,11 +4127,12 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
     "twincatActual": [],
-    "note": "TC build FAILS with no structured diagnostic (buildSuccess=false, empty) on the __NEW chained-assignment repro — likely differs on dynamic-memory handling (cf. C0454). CS-verified; not verifiable on TC (live 2026-07-11)."
+    "note": "TwinCAT throws an INTERNAL compiler error on this __NEW chained-assignment repro (a TwinCAT bug — no usable diagnostic, build fails silently), so it can't serve as ground truth. The LSP emits the CODESYS-correct error 'Multiple assignments are not allowed for operator __New'. CS-verified; TC internal-errors (live 2026-07-11).",
+    "twincatInternalError": true
   },
   {
     "code": "C0511",

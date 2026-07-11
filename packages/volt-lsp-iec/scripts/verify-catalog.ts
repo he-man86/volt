@@ -151,8 +151,15 @@ const codes: any[] = Array.isArray(catalog) ? catalog : catalog.codes
 // `codesysOnly` codes are CODESYS-specific rules TwinCAT's compiler doesn't have (live /build confirmed clean).
 // The check is vendor-gated, so on TwinCAT it correctly emits nothing — skip it there so a "silent" outcome
 // never resets its (correct) verified flag.
+// Not verifiable on TwinCAT: a `codesysOnly` rule TwinCAT's compiler lacks, or a `twincatInternalError` repro
+// that makes TwinCAT throw an INTERNAL compiler error (a TC bug — no usable diagnostic). Skip both on TC so a
+// "silent" outcome never resets their (correct) verified flag; the LSP still emits the CODESYS-correct error.
 const targets = codes.filter(
-  (c) => c.status === "implemented" && (!ONLY || ONLY.has(c.code)) && c.repro && !(c.codesysOnly === true && VENDOR !== "codesys"),
+  (c) =>
+    c.status === "implemented" &&
+    (!ONLY || ONLY.has(c.code)) &&
+    c.repro &&
+    !((c.codesysOnly === true || c.twincatInternalError === true) && VENDOR !== "codesys"),
 )
 
 console.log(`Verifying ${targets.length} implemented codes against ${BASE} (${VENDOR}) …\n`)
