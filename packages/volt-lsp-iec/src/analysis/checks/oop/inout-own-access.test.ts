@@ -33,6 +33,13 @@ test("the FB's OWN main body touching its VAR_IN_OUT does NOT warn (it lives the
   expect(diag(src).filter((d) => d.code === "inout-own-access")).toEqual([])
 })
 
+test("a property GET/SET accessor touching the FB's VAR_IN_OUT warns, context '__get'/'__set'<Prop>", () => {
+  const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROPERTY Pos : INT\nGET\nPos := io;\nEND_GET\nSET\nio := Pos;\nEND_SET\nEND_PROPERTY`
+  const ds = diag(src).filter((d) => d.code === "inout-own-access").map((d) => d.message)
+  expect(ds).toContain("Access to VAR_IN_OUT 'io' declared in 'FB' from external context '__getPos'")
+  expect(ds).toContain("Access to VAR_IN_OUT 'io' declared in 'FB' from external context '__setPos'")
+})
+
 test("a method touching a plain local (not a VAR_IN_OUT) does NOT warn", () => {
   const src = `FUNCTION_BLOCK FB\nVAR\n loc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nloc := loc + 1;\nEND_METHOD`
   expect(diag(src).filter((d) => d.code === "inout-own-access")).toEqual([])

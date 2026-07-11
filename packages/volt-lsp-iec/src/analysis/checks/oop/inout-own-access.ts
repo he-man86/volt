@@ -12,17 +12,17 @@
  * Sibling `inout-external-access` (C0178) owns the external-instance case; this owns the own-member-scope case.
  * The two never overlap (that check requires a non-THIS FB-typed base; this requires a bare/own reference).
  */
-import { walkAllExprs, type IdentExpr } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { walkAllExprs, type BodySpan, type Property, type TopLevel, type IdentExpr } from "../../../syntax/index.js"
+import { bodies, type Scope } from "../../../symbols/index.js"
 import { resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   if (!ctx.config.lints.inoutOwnAccess) return // opt-in: per-project option-gated, invisible offline (see header + LintConfig)
-  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    if (scope.kind !== "method") continue // method/action/accessor scopes only — never the FB's own body
-    const context = scope.name
+  for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    const context = externalContext(scope, unit, body) // method/action/property-accessor scope; undefined = the FB's own body
+    if (context === undefined) continue
     const memberNames = new Set<IdentExpr>()
     walkAllExprs(statements, (e) => {
       if (e.kind === "member") memberNames.add(e.member)
@@ -40,4 +40,16 @@ export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): v
       })
     })
   }
+}
+
+/** The "external context" name CODESYS uses for a member-scope body — a method/action is its own name; a
+ *  property accessor is `__get<Prop>` / `__set<Prop>` (matching the compiler). Undefined for the FB's own body. */
+function externalContext(scope: Scope, unit: TopLevel, body: BodySpan): string | undefined {
+  if (scope.kind === "method") return scope.name // method or action
+  if (scope.kind === "accessor" && unit.kind === "property") {
+    const p = unit as Property
+    if (p.getter !== undefined && p.getter.body.span.start === body.span.start) return `__get${p.name.text}`
+    if (p.setter !== undefined && p.setter.body.span.start === body.span.start) return `__set${p.name.text}`
+  }
+  return undefined
 }
