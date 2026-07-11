@@ -77,6 +77,7 @@ function lspWarnings(dir: string): Set<string> {
 }
 
 interface Recording {
+  recorded?: { buildSuccess?: boolean }
   diagnostics: { severity: string; message: string }[]
 }
 
@@ -91,20 +92,25 @@ for (const project of projects) {
     const rec = JSON.parse(readFileSync(recPath, "utf8")) as Recording
     const buildWarnings = new Set(rec.diagnostics.filter((d) => d.severity === "warning").map((d) => norm(d.message)))
     const capped = [...buildWarnings].some((m) => /more than \d+ warnings/i.test(m))
+    // A build that didn't compile clean never reaches the warning (typify) phase, so its warning set is
+    // incomplete — the FP direction can't be trusted. (awa-palletizer: 129 library-not-found errors.)
+    const buildFailed = rec.recorded?.buildSuccess === false || rec.diagnostics.some((d) => d.severity === "error")
     const ours = lspWarnings(join(CORPUS_ROOT, project))
 
     const oursExtra = [...ours].filter((m) => !buildWarnings.has(m)) // FP candidates
     const oursMissing = [...buildWarnings].filter((m) => !ours.has(m)) // coverage gaps
 
     // Coverage report (informational — the LSP is a curated subset of the compiler, not a re-implementation).
+    const unreliable = capped || buildFailed
     console.log(
-      `[${project}] warnings — ours:${ours.size} build:${buildWarnings.size} · missing(coverage):${oursMissing.length} · extra(FP):${oursExtra.length}${capped ? " · build CAPPED" : ""}`,
+      `[${project}] warnings — ours:${ours.size} build:${buildWarnings.size} · missing(coverage):${oursMissing.length} · extra(FP):${oursExtra.length}${capped ? " · CAPPED" : ""}${buildFailed ? " · BUILD-FAILED" : ""}`,
     )
     if (oursMissing.length > 0) console.log(`  MISSING (build warns, we don't):`, oursMissing.slice(0, 8))
-    if (oursExtra.length > 0) console.log(`  EXTRA (we warn, build doesn't):`, oursExtra.slice(0, 8))
+    if (oursExtra.length > 0) console.log(`  EXTRA (we warn, build doesn't)${unreliable ? " [unconfirmed]" : ""}:`, oursExtra.slice(0, 8))
 
-    // Hard FP gate — a warning we emit the build never did. Skipped only when the build's cap could hide it.
-    if (!capped) expect(oursExtra).toEqual([])
+    // Hard FP gate — a warning we emit the build never did. Skipped when the build capped or didn't compile
+    // clean (its warning set is then incomplete, so an "extra" may be a real warning the build never reached).
+    if (!unreliable) expect(oursExtra).toEqual([])
   }, CORPUS_TIMEOUT)
 }
 
