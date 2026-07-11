@@ -3851,7 +3851,7 @@
     "category": "VAR_IN_OUT scoping",
     "cause": "A method of a function block accesses that function block's own VAR_IN_OUT parameter, which is not guaranteed valid from the method's external context.",
     "message": "Access to VAR_IN_OUT '<variable name>' declared in '<function block name>' from external context '<POU name>'",
-    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n      bInOut : BOOL;\nEND_VAR\n\nMETHOD METH: BOOL\nVAR\n      bBool : BOOL;\nEND_VAR\nbInOut := bBool;",
+    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n    bInOut : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD METH : BOOL\nVAR\n    bBool : BOOL;\nEND_VAR\nbInOut := bBool;\nEND_METHOD",
     "expect": [
       "Access to VAR_IN_OUT 'bInOut' declared in 'FB_Test' from external context 'METH'"
     ],
@@ -3864,8 +3864,8 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "triage": "optionGated",
+    "note": "OPTION-GATED — old CODESYS kept VAR_IN_OUT stack-only (a method accessing the FB's VAR_IN_OUT errored); modern CODESYS stores the reference so methods access it freely. The corpus (lenze-mid etc.) does this 1300+ times, so an always-on error is mass FP. Deferred until a live recording confirms the active behavior. Attempted 2026-07-11, demoted by the corpus."
   },
   {
     "code": "C0373",
