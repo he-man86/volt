@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
 using Volt.Bridge.Core.Workspace;
@@ -12,6 +14,7 @@ public static class RefsService
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
+        var sw = Stopwatch.StartNew();
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
@@ -19,6 +22,8 @@ public static class RefsService
         var walked = ide.WalkItems();
         var total = walked.Count;
         var done = 0;
+        var unmapped = 0;    // KindCode the table doesn't map — dropped
+        var unreadable = 0;  // exists + tracked, body unreadable (SafeVersion logs the why at Debug)
         onProgress?.Invoke(new ProgressFrame { Operation = "refs", Done = 0, Total = total, Phase = "reading" });
 
         foreach (var it in walked)
@@ -28,7 +33,7 @@ public static class RefsService
                 onProgress(new ProgressFrame { Operation = "refs", Done = done, Total = total });
 
             var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) continue;
+            if (kind == null) { unmapped++; continue; }
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
             if (it.ExcludeFromBuild) continue;
 
@@ -39,7 +44,13 @@ public static class RefsService
                 fullVersions[mat.FullName] = version;
                 folders[mat.FullName] = it.Folder;
             }
+            else unreadable++;
         }
+
+        var hit = new List<string>();
+        if (unmapped > 0) hit.Add($"{unmapped} unmapped-kind");
+        if (unreadable > 0) hit.Add($"{unreadable} unreadable");
+        VoltLog.Info($"refs: {fullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
 
         return new RefsResponse
         {

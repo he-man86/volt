@@ -51,12 +51,12 @@ public static class PushService
         }
 
         var parent = ide.GetPlcProjectRoot();
-        var applied = 0;
+        var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
         var opTotal = request.Ops.Count;
         onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = 0, Total = opTotal, Phase = "applying" });
         foreach (var op in request.Ops)
         {
-            try { ApplyOp(ide, parent, itemCache, op); }
+            try { applied.Add((ApplyOp(ide, parent, itemCache, op), op.Name)); }
             catch (Exception ex)
             {
                 // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
@@ -68,7 +68,7 @@ public static class PushService
                     currentProjectVersion);
             }
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
-            onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = ++applied, Total = opTotal });
+            onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = applied.Count, Total = opTotal });
         }
 
         ide.FlushPendingWrites();
@@ -99,8 +99,26 @@ public static class PushService
             if (mat != null) receiptFullVersions[mat.FullName] = version;
         }
 
-        VoltLog.Info($"push {request.Ops.Count} ops — accepted ({receiptFullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
+        VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receiptFullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
+    }
+
+    /// <summary>The write receipt for the accepted-push log line: each applied op grouped by what it did to the
+    /// item (created/updated/renamed/moved/deleted), with the item names — so the log answers "what files did
+    /// this push change?". Names per group are capped so a bulk push stays one readable line.</summary>
+    private static string FormatApplied(List<(string Action, string Name)> ops)
+    {
+        if (ops.Count == 0) return "no-op";
+        return string.Join("; ", ops
+            .GroupBy(o => o.Action, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g =>
+            {
+                var names = g.Select(o => o.Name).ToList();
+                var shown = string.Join(", ", names.Take(15));
+                if (names.Count > 15) shown += $", +{names.Count - 15} more";
+                return $"{g.Key}: {shown}";
+            }));
     }
 
     private static List<PushConflict> DetectConflicts(
@@ -159,7 +177,9 @@ public static class PushService
         new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
                 Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
 
-    private static void ApplyOp(IIdeDriver ide, ItemRef parent,
+    /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
+    /// used only for the log receipt.</summary>
+    private static string ApplyOp(IIdeDriver ide, ItemRef parent,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
@@ -171,18 +191,19 @@ public static class PushService
         switch (op)
         {
             case SetItemOp set:
-                ApplySetItem(ide, parent, name, existing, currentFolder, set);
-                break;
+                return ApplySetItem(ide, parent, name, existing, currentFolder, set);
             case DeleteItemOp when existing is { } del:
                 ide.Delete(ide.Parent(del), name);
-                break;
+                return "deleted";
+            default:
+                return "no-op";  // delete of an item that isn't there
         }
     }
 
     /// <summary>Apply one unified change. A rename uses the IDE's native rename (rewrites call-sites) and
     /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
-    private static void ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string currentFolder, SetItemOp op)
+    private static string ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string currentFolder, SetItemOp op)
     {
         if (op.SourceText is { } st && string.IsNullOrWhiteSpace(st))
             throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': sourceText is empty");
@@ -193,26 +214,34 @@ public static class PushService
             if (op.SourceText is null)
                 throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': a new item needs sourceText");
             WriteItemFromSource(ide, parent, name, existing: null, op.SourceText, op.ToFolder);
-            return;
+            return "created";
         }
 
         var currentName = name;
+        var renamed = false;
         var toName = op.ToName is { } t ? Materializer.Bare(t) : null;
         if (toName != null && !string.Equals(toName, currentName, StringComparison.OrdinalIgnoreCase))
         {
             ide.Rename(item, toName);                  // native rename → IDE rewrites references
             currentName = toName;
             item = ide.Lookup(currentName) ?? item;    // refresh the (possibly staled) handle
+            renamed = true;
         }
 
         // A non-empty toFolder that differs from the item's current folder is a MOVE; empty (or omitted) means
         // "keep the current folder" — never a move to the root — so an in-place edit that doesn't restate the
         // full tree path isn't misread as a move (and a graphical item isn't spuriously refused).
         if (op.ToFolder is { Length: > 0 } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
+        {
             MoveItem(ide, parent, currentName, item, toFolder, op.SourceText);       // recreate in the new folder
-        else if (op.SourceText is { } src)
+            return renamed ? "renamed+moved" : "moved";
+        }
+        if (op.SourceText is { } src)
+        {
             WriteItemFromSource(ide, parent, currentName, item, src, currentFolder); // content update in place
-        // else: rename-only (or no-op) — already applied.
+            return renamed ? "renamed+updated" : "updated";
+        }
+        return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
     }
 
     /// <summary>Move an item to a new folder by full-fidelity recreate (declaration + implementation +
