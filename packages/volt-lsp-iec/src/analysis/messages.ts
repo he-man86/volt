@@ -23,7 +23,7 @@ export interface Messages {
   lifecycle(method: LifecycleMethod): string
   /** `MOD` on a non-integer: TwinCAT quotes both operator and type, CODESYS quotes neither. */
   modNotDefined(type: string): string
-  /** A math operator (`ABS`, `SQRT`, …) applied to a non-numeric type (C0072). PROVISIONAL (bridge-gated). */
+  /** A math operator (`ABS`, `SQRT`, …) applied to a non-numeric type (C0072). verified both vendors. */
   operatorNotPossible(op: string, type: string): string
   /** Same name declared twice in one scope — identical wording on both vendors. */
   duplicateDeclaration(name: string, scope: string): string
@@ -32,11 +32,11 @@ export interface Messages {
   duplicateMethod(name: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
-  /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). PROVISIONAL. */
+  /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). verified both vendors. */
   ambiguousGlobalName(name: string): string
   /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
   unknownType(name: string): string
-  /** A type name used where a value is expected — `value := MyEnum` (C0230). PROVISIONAL (bridge-gated). */
+  /** A type name used where a value is expected — `value := MyEnum` (C0230). verified both vendors. */
   typeNameNotExpected(name: string): string
   /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
   dereferenceRequiresPointer(): string
@@ -63,195 +63,195 @@ export interface Messages {
   unknownAttribute(name: string): string
   /** A constant array index outside the dimension's `lo..hi` bounds. PROVISIONAL (bridge-gated). */
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
-  /** A FUNCTION/METHOD called with the wrong number of inputs (C0040). PROVISIONAL (no bridge recording yet). */
+  /** A FUNCTION/METHOD called with the wrong number of inputs (C0040). verified both vendors. */
   functionRequiresInputs(callee: string, count: number): string
-  /** An FB call with a positional argument past its last input — no input to assign it to (C0044). PROVISIONAL. */
+  /** An FB call with a positional argument past its last input — no input to assign it to (C0044). verified both vendors. */
   inputAssignmentMissing(param: string, callee: string): string
-  /** A `name := value` naming no input of the callee (C0037). PROVISIONAL (no bridge recording yet). */
+  /** A `name := value` naming no input of the callee (C0037). verified both vendors. */
   unknownNamedArgument(name: string, callee: string): string
-  /** Component/index/call access performed directly on a function-call result (C0185). PROVISIONAL. */
+  /** Component/index/call access performed directly on a function-call result (C0185). verified both vendors. */
   callResultAccess(): string
-  /** A `__NEW` assignment-expression used inside another expression (C0454). PROVISIONAL. */
+  /** A `__NEW` assignment-expression used inside another expression (C0454). Env-gated: live IDE masks it with the no-memory-pool error; conservative check, no FP. */
   newInExpression(): string
-  /** A `name => target` binding naming no output of the callee (C0038). PROVISIONAL (no bridge recording yet). */
+  /** A `name => target` binding naming no output of the callee (C0038). verified both vendors. */
   unknownNamedOutput(name: string, callee: string): string
-  /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). PROVISIONAL. */
+  /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). verified both vendors. */
   inOutNeedsWritable(param: string, callee: string): string
-  /** A VAR_IN_OUT parameter left unassigned in a call (C0039). PROVISIONAL. */
+  /** A VAR_IN_OUT parameter left unassigned in a call (C0039). verified both vendors. */
   inOutMustBeAssigned(param: string, callee: string): string
-  /** A VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201). PROVISIONAL. */
+  /** A VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201). verified both vendors. */
   inOutTypeMismatch(argType: string, paramType: string, param: string): string
-  /** A property read in a context where it has no get accessor (C0143). PROVISIONAL (bridge-gated). */
+  /** A property read in a context where it has no get accessor (C0143). verified both vendors. */
   propertyLacksGetter(name: string): string
-  /** A method referenced as a value without a call `()` (C0130). PROVISIONAL (bridge-gated). */
+  /** A method referenced as a value without a call `()` (C0130). Semantic-alias: IDE errors under a different code (live-confirmed) — real detection. */
   methodReferencedWithoutParens(name: string): string
-  /** A literal constant whose value can't be represented by its own/inferred type (C0001). PROVISIONAL (bridge-gated). */
+  /** A literal constant whose value can't be represented by its own/inferred type (C0001). verified both vendors. */
   constantTooLarge(value: string, type: string): string
-  /** A dot-bit-access index past the accessed variable's bit width (C0003). PROVISIONAL (bridge-gated). */
+  /** A dot-bit-access index past the accessed variable's bit width (C0003). verified both vendors. */
   invalidBitNumber(value: string, variable: string): string
-  /** `[]` indexing applied to a non-array, non-pointer scalar (C0047). PROVISIONAL (bridge-gated). */
+  /** `[]` indexing applied to a non-array, non-pointer scalar (C0047). verified both vendors. */
   indexingNonArray(type: string): string
-  /** A relational operator between two mutually-incompatible scalar types (C0066). PROVISIONAL (bridge-gated). */
+  /** A relational operator between two mutually-incompatible scalar types (C0066). verified both vendors. */
   cannotCompare(left: string, right: string): string
-  /** An array-literal `[…]` initializer on a non-array declared type (C0074). PROVISIONAL (bridge-gated). */
+  /** An array-literal `[…]` initializer on a non-array declared type (C0074). verified both vendors. */
   unexpectedArrayInit(): string
   /** Too many elements in an array initializer (C0075). CODESYS-verified. */
   tooManyArrayInit(): string
-  /** A struct-literal `(field := …)` initializer on an elementary declared type (C0076). PROVISIONAL (bridge-gated). */
+  /** A struct-literal `(field := …)` initializer on an elementary declared type (C0076). verified both vendors. */
   unexpectedStructInit(): string
-  /** A flat scalar where a nested array literal is expected — array-of-array init (C0232). PROVISIONAL (bridge-gated). */
+  /** A flat scalar where a nested array literal is expected — array-of-array init (C0232). verified both vendors. */
   arrayInitExpected(): string
-  /** A scalar where a struct-initializer list is expected — array-of-struct init (C0233). PROVISIONAL (bridge-gated). */
+  /** A scalar where a struct-initializer list is expected — array-of-struct init (C0233). verified both vendors. */
   initListExpected(type: string): string
-  /** Two identical single CASE labels (C0216). PROVISIONAL (bridge-gated). */
+  /** Two identical single CASE labels (C0216). verified both vendors. */
   caseLabelDuplicate(): string
-  /** A single CASE label that also falls inside a CASE range (C0217). PROVISIONAL (bridge-gated). */
+  /** A single CASE label that also falls inside a CASE range (C0217). verified both vendors. */
   caseLabelInRange(label: string, lo: string, hi: string): string
-  /** A CASE label that is a non-constant variable (C0218). PROVISIONAL (bridge-gated). */
+  /** A CASE label that is a non-constant variable (C0218). verified both vendors. */
   caseLabelNonConst(): string
-  /** A FOR whose end bound is beyond the counter's type range → unreachable exit test (C0266). PROVISIONAL. */
+  /** A FOR whose end bound is beyond the counter's type range → unreachable exit test (C0266). verified both vendors. */
   loopExitConstantFalse(condition: string): string
-  /** An array-initializer repeat count `n(v)` where `n` is a non-constant variable (C0162). PROVISIONAL (bridge-gated). */
+  /** An array-initializer repeat count `n(v)` where `n` is a non-constant variable (C0162). verified both vendors. */
   arrayInitCountNonConst(count: string): string
-  /** A non-constant array dimension bound (C0161). PROVISIONAL (bridge-gated). */
+  /** A non-constant array dimension bound (C0161). verified both vendors. */
   arrayBoundNonConst(bound: string): string
-  /** A `VAR CONSTANT` variable initialized with a non-constant value (C0227). PROVISIONAL (bridge-gated). */
+  /** A `VAR CONSTANT` variable initialized with a non-constant value (C0227). verified both vendors. */
   constInitNonConst(name: string): string
-  /** A `VAR_INPUT` default value that is not a constant (C0526). PROVISIONAL (bridge-gated). */
+  /** A `VAR_INPUT` default value that is not a constant (C0526). verified both vendors. */
   defaultNotConstant(): string
-  /** `ADR(<literal>)` — a literal has no address (C0131). PROVISIONAL (bridge-gated). */
+  /** `ADR(<literal>)` — a literal has no address (C0131). verified both vendors. */
   invalidAdrOperand(value: string): string
-  /** `__QueryPointer`'s first operand is not an interface reference / FB instance (C0240). PROVISIONAL. */
+  /** `__QueryPointer`'s first operand is not an interface reference / FB instance (C0240). verified both vendors. */
   queryPointerFirst(): string
-  /** `__QueryPointer`'s second operand is not a pointer (C0241). PROVISIONAL. */
+  /** `__QueryPointer`'s second operand is not a pointer (C0241). verified both vendors. */
   queryPointerSecond(): string
-  /** `__QueryInterface`'s first operand is not an interface reference / FB instance (C0234). PROVISIONAL. */
+  /** `__QueryInterface`'s first operand is not an interface reference / FB instance (C0234). verified both vendors. */
   queryInterfaceFirst(): string
-  /** `__QueryInterface`'s second operand is not an interface reference (C0235). PROVISIONAL. */
+  /** `__QueryInterface`'s second operand is not an interface reference (C0235). verified both vendors. */
   queryInterfaceSecond(): string
-  /** An intrinsic operator called with the wrong exact number of operands (C0022). PROVISIONAL (bridge-gated). */
+  /** An intrinsic operator called with the wrong exact number of operands (C0022). verified both vendors. */
   operatorNeedsExactly(op: string, count: number): string
-  /** An intrinsic operator called with fewer than its minimum operands (C0023). PROVISIONAL (bridge-gated). */
+  /** An intrinsic operator called with fewer than its minimum operands (C0023). verified both vendors. */
   operatorNeedsAtLeast(op: string, count: number): string
-  /** `__DELETE(x)` where `x` is not a pointer (C0242). PROVISIONAL (bridge-gated). */
+  /** `__DELETE(x)` where `x` is not a pointer (C0242). verified both vendors. */
   deleteOperandNotPointer(): string
-  /** A pointer value implicitly assigned to a non-pointer type — a WARNING (C0033). PROVISIONAL (bridge-gated). */
+  /** A pointer value implicitly assigned to a non-pointer type — a WARNING (C0033). verified both vendors. */
   pointerNotConvertible(from: string, to: string): string
-  /** An assignment whose target cannot be written (e.g. a `VAR CONSTANT`) (C0018). PROVISIONAL (bridge-gated). */
+  /** An assignment whose target cannot be written (e.g. a `VAR CONSTANT`) (C0018). verified both vendors. */
   notAssignmentTarget(target: string): string
-  /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). PROVISIONAL (bridge-gated). */
+  /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). verified both vendors. */
   referenceAssignTarget(): string
-  /** An `EXIT` statement outside any loop (C0132). PROVISIONAL (bridge-gated). */
+  /** An `EXIT` statement outside any loop (C0132). verified both vendors. */
   noEnclosingLoop(): string
-  /** `__NEW` used in a chained (multiple) assignment (C0509). PROVISIONAL (bridge-gated). */
+  /** `__NEW` used in a chained (multiple) assignment (C0509). verified both vendors. */
   multipleAssignmentNew(): string
-  /** A string literal longer than its declared `STRING(n)` destination (C0198). PROVISIONAL (bridge-gated). */
+  /** A string literal longer than its declared `STRING(n)` destination (C0198). verified both vendors. */
   stringConstantTooLong(value: string, type: string): string
-  /** A relational operator applied to a composite (array) type (C0068). PROVISIONAL (bridge-gated). */
+  /** A relational operator applied to a composite (array) type (C0068). verified both vendors. */
   compareNotPossible(type: string): string
-  /** A relational operator between two differently-typed arrays (C0069). PROVISIONAL (bridge-gated). */
+  /** A relational operator between two differently-typed arrays (C0069). verified both vendors. */
   compareNotPossibleTwo(left: string, right: string): string
-  /** A BIT variable in a POU other than a struct/FB (C0203). PROVISIONAL (bridge-gated). */
+  /** A BIT variable in a POU other than a struct/FB (C0203). verified both vendors. */
   bitInWrongContainer(): string
-  /** A BIT variable in a disallowed VAR block (C0204). PROVISIONAL (bridge-gated). */
+  /** A BIT variable in a disallowed VAR block (C0204). verified both vendors. */
   bitInWrongBlock(): string
-  /** `POINTER TO BIT` (C0205). PROVISIONAL (bridge-gated). */
+  /** `POINTER TO BIT` (C0205). verified both vendors. */
   pointerToBit(): string
-  /** `ARRAY OF BIT` (C0206). PROVISIONAL (bridge-gated). */
+  /** `ARRAY OF BIT` (C0206). verified both vendors. */
   bitArrayBase(): string
-  /** `ADR` of a BIT variable — a WARNING (C0355). PROVISIONAL (bridge-gated). */
+  /** `ADR` of a BIT variable — a WARNING (C0355). verified both vendors. */
   adrOnBit(): string
-  /** A statement expression with no side effect — a WARNING (C0139). PROVISIONAL (bridge-gated). */
+  /** A statement expression with no side effect — a WARNING (C0139). verified both vendors. */
   codeHasNoEffect(code: string): string
-  /** A `VAR_CONFIG` block outside a config list (C0168). PROVISIONAL (bridge-gated). */
+  /** A `VAR_CONFIG` block outside a config list (C0168). verified both vendors. */
   varConfigOnlyInList(): string
-  /** A function block invoked by its type name instead of an instance (C0080). PROVISIONAL (bridge-gated). */
+  /** A function block invoked by its type name instead of an instance (C0080). verified both vendors. */
   fbMustBeInstantiated(name: string): string
-  /** An interface invoked by its type name instead of an instance (C0199). PROVISIONAL (bridge-gated). */
+  /** An interface invoked by its type name instead of an instance (C0199). verified both vendors. */
   interfaceMustBeInstantiated(name: string): string
-  /** Bit access on a function-call result (C0061). PROVISIONAL (bridge-gated). */
+  /** Bit access on a function-call result (C0061). verified both vendors. */
   bitAccessOnCall(): string
-  /** A pointer indexed with a count other than 1 (C0126). PROVISIONAL (bridge-gated). */
+  /** A pointer indexed with a count other than 1 (C0126). verified both vendors. */
   pointerIndexArity(type: string): string
-  /** An array indexed with the wrong number of indices (C0048). PROVISIONAL (bridge-gated). */
+  /** An array indexed with the wrong number of indices (C0048). verified both vendors. */
   arrayIndexCount(dims: number): string
-  /** `RETAIN`/`PERSISTENT` on a VAR block in a POU that doesn't allow it (C0175). PROVISIONAL (bridge-gated). */
+  /** `RETAIN`/`PERSISTENT` on a VAR block in a POU that doesn't allow it (C0175). verified both vendors. */
   retainNotAllowedHere(): string
-  /** `THIS` used in a POU where it is not valid (C0045). PROVISIONAL (bridge-gated). */
+  /** `THIS` used in a POU where it is not valid (C0045). verified both vendors. */
   thisNotAllowed(): string
-  /** `SUPER` used in a POU where it is not valid (C0122). PROVISIONAL (bridge-gated). */
+  /** `SUPER` used in a POU where it is not valid (C0122). verified both vendors. */
   superNotAllowed(): string
-  /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). PROVISIONAL (bridge-gated). */
+  /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). verified both vendors. */
   outputCantBeReference(): string
-  /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). PROVISIONAL (bridge-gated). */
+  /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). verified both vendors. */
   notInstantiable(typeName: string): string
-  /** A function block that EXTENDS itself (C0091). PROVISIONAL (bridge-gated). */
+  /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
-  /** An `EXTENDS` base class that resolves to no definition (C0090). PROVISIONAL (bridge-gated). */
+  /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
   baseClassNotFound(name: string): string
-  /** An `IMPLEMENTS` interface that resolves to no definition (C0086). PROVISIONAL (bridge-gated). */
+  /** An `IMPLEMENTS` interface that resolves to no definition (C0086). verified both vendors. */
   interfaceNotFound(name: string): string
-  /** An FB EXTENDS-list naming more than one base FB — single inheritance only (C0096). PROVISIONAL. */
+  /** An FB EXTENDS-list naming more than one base FB — single inheritance only (C0096). verified both vendors. */
   multipleInheritance(): string
-  /** A return type declared on a POU that is not a FUNCTION/METHOD, e.g. a PROGRAM (C0182). PROVISIONAL. */
+  /** A return type declared on a POU that is not a FUNCTION/METHOD, e.g. a PROGRAM (C0182). verified both vendors. */
   returnTypeNotAllowed(): string
-  /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). PROVISIONAL. */
+  /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). verified both vendors. */
   interfaceImplementsMisused(): string
-  /** A VAR section declared directly in an INTERFACE body — signatures only (C0149). PROVISIONAL. */
+  /** A VAR section declared directly in an INTERFACE body — signatures only (C0149). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
   varInInterface(): string
-  /** `EXTENDS` on an enum/alias DUT — inheritance is only legal on FB/interface/struct (C0144). PROVISIONAL. */
+  /** `EXTENDS` on an enum/alias DUT — inheritance is only legal on FB/interface/struct (C0144). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
   inheritanceNotAllowed(): string
-  /** `EXTENDS` on a UNION DUT — unions cannot inherit (C0542). PROVISIONAL. */
+  /** `EXTENDS` on a UNION DUT — unions cannot inherit (C0542). verified both vendors. */
   unionInheritance(name: string): string
-  /** `IMPLEMENTS` on a FUNCTION — only FBs implement interfaces (C0145). PROVISIONAL. */
+  /** `IMPLEMENTS` on a FUNCTION — only FBs implement interfaces (C0145). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
   functionImplements(): string
-  /** A `{attribute 'pack_mode'}` pragma on a FUNCTION/METHOD (only valid on data structures) (C0550). PROVISIONAL. */
+  /** A `{attribute 'pack_mode'}` pragma on a FUNCTION/METHOD (only valid on data structures) (C0550). verified both vendors. */
   packModeNotAllowed(kind: string): string
-  /** A derived FB redeclares a variable already declared in a base FB (C0097). PROVISIONAL (bridge-gated). */
+  /** A derived FB redeclares a variable already declared in a base FB (C0097). verified both vendors. */
   duplicateInheritedVariable(name: string, fb: string, base: string): string
-  /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). PROVISIONAL. */
+  /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). verified both vendors. */
   dataRecursion(path: string): string
-  /** A FUNCTION that calls itself (recursion, without the `recursive` attribute) (C0224). PROVISIONAL. */
+  /** A FUNCTION that calls itself (recursion, without the `recursive` attribute) (C0224). Semantic-alias: IDE errors as a type/resolution error (live-confirmed) — real detection. */
   callRecursion(path: string): string
-  /** An enum member initialized with a value whose type can't convert to the enum's (integer) base (C0124). PROVISIONAL. */
+  /** An enum member initialized with a value whose type can't convert to the enum's (integer) base (C0124). verified both vendors. */
   enumInitNotConvertible(fromType: string, enumName: string): string
-  /** A `CONSTANT` variable declared without an initial value (C0228). PROVISIONAL (bridge-gated). */
+  /** A `CONSTANT` variable declared without an initial value (C0228). verified both vendors. */
   constantNoInitialValue(name: string): string
-  /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). PROVISIONAL. */
+  /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). verified both vendors. */
   noInitForExternal(name: string): string
   /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). CODESYS-verified. */
   externalNoGlobal(name: string): string
-  /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). PROVISIONAL. */
+  /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). Bridge-blocked: the push is rejected (unrecognized header) before compile (live-confirmed). */
   deprecatedFunctionBlock(): string
-  /** A VAR_IN_OUT variable referenced in another declaration's initializer (C0441). PROVISIONAL. */
+  /** A VAR_IN_OUT variable referenced in another declaration's initializer (C0441). verified both vendors. */
   inoutInInitializer(): string
-  /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). PROVISIONAL. */
+  /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). verified both vendors. */
   noDefaultForType(typeName: string): string
-  /** A comparison between two different enumeration types (C0354). PROVISIONAL (bridge-gated). */
+  /** A comparison between two different enumeration types (C0354). verified both vendors. */
   enumComparison(left: string, right: string): string
-  /** `INI` whose first operand is not an FB / DUT instance (C0070). PROVISIONAL (bridge-gated). */
+  /** `INI` whose first operand is not an FB / DUT instance (C0070). verified both vendors. */
   iniNeedsInstance(): string
-  /** Two overlapping CASE ranges, rendered lowest-first (C0219). PROVISIONAL (bridge-gated). */
+  /** Two overlapping CASE ranges, rendered lowest-first (C0219). verified both vendors. */
   caseOverlappingRanges(lo1: string, hi1: string, lo2: string, hi2: string): string
-  /** An FB_ReInit method with any input or a non-BOOL return — it must have neither (C0566). PROVISIONAL. */
+  /** An FB_ReInit method with any input or a non-BOOL return — it must have neither (C0566). verified both vendors. */
   fbReInitShape(): string
-  /** An FB method whose signature differs from the interface method it implements (C0089). PROVISIONAL. */
+  /** An FB method whose signature differs from the interface method it implements (C0089). verified both vendors. */
   overrideMismatchInterface(method: string, iface: string): string
   /** An overriding method whose signature differs from the base FB's method (C0094/C0568). PROVISIONAL. */
   overrideMismatchBase(method: string, base: string): string
-  /** A VAR_OUTPUT with an initializer in an abstract/interface method — the default is never used (C0533). PROVISIONAL. */
+  /** A VAR_OUTPUT with an initializer in an abstract/interface method — the default is never used (C0533). verified both vendors. */
   defaultOutputUnused(): string
-  /** `JMP` to a non-label destination — a numeric literal or expression (C0114). PROVISIONAL. */
+  /** `JMP` to a non-label destination — a numeric literal or expression (C0114). verified both vendors. */
   jumpInvalidDestination(dest: string): string
-  /** The same jump label declared twice in one POU body (C0116). PROVISIONAL. */
+  /** The same jump label declared twice in one POU body (C0116). verified both vendors. */
   jumpLabelDuplicate(name: string): string
-  /** `JMP` to a label that isn't declared in the POU body (C0117). PROVISIONAL. */
+  /** `JMP` to a label that isn't declared in the POU body (C0117). verified both vendors. */
   jumpLabelUndefined(name: string): string
-  /** A jump label declared but never targeted by any `JMP` (C0118). PROVISIONAL. */
+  /** A jump label declared but never targeted by any `JMP` (C0118). verified both vendors. */
   jumpLabelUnreferenced(name: string): string
-  /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). PROVISIONAL. */
+  /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). verified both vendors. */
   inoutNoExternalAccess(param: string, fb: string): string
-  /** Inline FB-init field targets a VAR_IN_OUT (only inputs are assignable at declaration) (C0179). PROVISIONAL. */
+  /** Inline FB-init field targets a VAR_IN_OUT (only inputs are assignable at declaration) (C0179). verified both vendors. */
   fbInitNoOutput(id: string, fb: string): string
   /** Calling a GVL block — not callable (C0036). Verified live: the GVL case renders the type as 'VAR_GLOBAL'. */
   cannotCallType(type: string): string
