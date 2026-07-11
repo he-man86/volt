@@ -1,38 +1,5 @@
 {
-  "at": "2026-07-11T09:12:56.089Z",
+  "at": "2026-07-11T09:30:40.196Z",
   "base": "http://127.0.0.1:8555",
-  "results": [
-    {
-      "code": "C0114",
-      "outcome": "verified",
-      "lsp": [
-        "Invalid destination 0 for JUMP"
-      ],
-      "actual": [
-        "Invalid destination 0 for JUMP",
-        "No such label 'INVALID: 0' within the scope of the JMP statement."
-      ]
-    },
-    {
-      "code": "C0117",
-      "outcome": "verified",
-      "lsp": [
-        "No such label 'A' within the scope of the JMP statement."
-      ],
-      "actual": [
-        "No such label 'A' within the scope of the JMP statement."
-      ]
-    },
-    {
-      "code": "C0178",
-      "outcome": "verified",
-      "lsp": [
-        "No external access to 'VAR_IN_OUT' parameter 'in_out' of 'FB'.\""
-      ],
-      "actual": [
-        "Access to VAR_IN_OUT 'in_out' declared in 'FB' from external context 'PLC_PRG'.",
-        "No external access to 'VAR_IN_OUT' parameter 'in_out' of 'FB'.\""
-      ]
-    }
-  ]
+  "results": []
 }

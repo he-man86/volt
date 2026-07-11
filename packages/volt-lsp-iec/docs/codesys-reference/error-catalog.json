@@ -3757,17 +3757,17 @@
     "expect": [
       "The attribute call_after_ini is unknown and will be ignored by the  compiler."
     ],
-    "note": "expect is our calibrated CODESYS wording (double space before 'compiler' + trailing period, a compiler quirk matched byte-for-byte); opt-in lint (only as complete as the pragma table).",
+    "note": "expect is our calibrated CODESYS wording (double space before 'compiler' + trailing period, a compiler quirk matched byte-for-byte); opt-in lint (only as complete as the pragma table). CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT.",
     "status": "implemented",
     "ourCheck": "pragmas",
     "ourCode": "unknown-attribute",
     "lint": "unknownAttribute",
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true
   },
   {
     "code": "C0354",
@@ -4283,10 +4283,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0526",
@@ -4299,17 +4300,17 @@
     "expect": [
       "Default value is not constant"
     ],
-    "note": "our zero-FP slice: only a mutable-variable default fires. The docs' function-call default (`:= F2()`) is skipped â€” `STRUCT(â€¦)`/`SIZEOF`/`ADR` are compile-time constants that also parse as calls, indistinguishable offline (1 corpus FP on a `STRUCT(â€¦)` default confirmed this).",
+    "note": "our zero-FP slice: only a mutable-variable default fires. The docs' function-call default (`:= F2()`) is skipped â€” `STRUCT(â€¦)`/`SIZEOF`/`ADR` are compile-time constants that also parse as calls, indistinguishable offline (1 corpus FP on a `STRUCT(â€¦)` default confirmed this). CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT.",
     "status": "implemented",
     "ourCheck": "const-context",
     "ourCode": "default-not-constant",
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true
   },
   {
     "code": "C0533",
@@ -4328,10 +4329,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0540",
@@ -4394,10 +4396,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0543",
@@ -4462,10 +4465,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0554",
@@ -4598,10 +4602,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "FUNCTION_BLOCK FB_Host\nEND_FUNCTION_BLOCK\n\nMETHOD FB_ReInit : BOOL\nEND_METHOD",
-    "twincatActual": []
+    "codesysOnly": true,
+    "note": "CODESYS-ONLY: TwinCAT's compiler accepts this construct (live /build clean 2026-07-11), so the check is vendor-gated to CODESYS and correctly emits nothing on TwinCAT."
   },
   {
     "code": "C0567",

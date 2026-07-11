@@ -148,7 +148,12 @@ async function resetProject(): Promise<void> {
 // ── the catalog ──────────────────────────────────────────────────────────────
 const catalog = JSON.parse(readFileSync(CATALOG, "utf8"))
 const codes: any[] = Array.isArray(catalog) ? catalog : catalog.codes
-const targets = codes.filter((c) => c.status === "implemented" && (!ONLY || ONLY.has(c.code)) && c.repro)
+// `codesysOnly` codes are CODESYS-specific rules TwinCAT's compiler doesn't have (live /build confirmed clean).
+// The check is vendor-gated, so on TwinCAT it correctly emits nothing — skip it there so a "silent" outcome
+// never resets its (correct) verified flag.
+const targets = codes.filter(
+  (c) => c.status === "implemented" && (!ONLY || ONLY.has(c.code)) && c.repro && !(c.codesysOnly === true && VENDOR !== "codesys"),
+)
 
 console.log(`Verifying ${targets.length} implemented codes against ${BASE} (${VENDOR}) …\n`)
 // The true per-vendor mirror test: does the LSP's message (for `vendor`) appear among the IDE's messages?
