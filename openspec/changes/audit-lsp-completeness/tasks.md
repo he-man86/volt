@@ -5,7 +5,7 @@ commit. `[x]` when landed.
 
 ## P0 — correctness bug (rename corrupts code)
 
-- [ ] **Type-position references** — `findReferences` walks only statement bodies, so type-position uses
+- [x] **Type-position references** — `findReferences` walks only statement bodies, so type-position uses
   (`inst : FB_X`, `EXTENDS`, `IMPLEMENTS`, return types) aren't counted → **renaming a type silently leaves
   those uses stale** (broken project). Scan declaration type-positions too. Test: rename a type, assert the
   `: FB_X` decl uses are included; and the R23 narrowing scenario (same-name field not over-matched).

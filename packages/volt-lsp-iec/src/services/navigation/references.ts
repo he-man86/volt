@@ -6,8 +6,8 @@
  * A member-access chain resolves through `types/resolveMemberChain`; a bare ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
-import { walkAllExprs, type IdentExpr } from "../../syntax/index.js"
-import { lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../symbols/index.js"
+import { flatUnits, unitTypeNameRefs, walkAllExprs, type IdentExpr } from "../../syntax/index.js"
+import { lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
 import { rangeFromSpan, stBodies, type Document } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
@@ -36,6 +36,15 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
           if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
         }
       })
+    }
+    // Type positions — `inst : T`, `EXTENDS T`, `IMPLEMENTS T`, return/field/alias types. Bodies above never
+    // see these, so without this a type rename leaves its declaration uses stale (broken project).
+    for (const unit of flatUnits(doc.parseResult.units)) {
+      const uscope = scopeForUnit(project, unit) ?? project
+      for (const ref of unitTypeNameRefs(unit)) {
+        if (ref.qualified) continue // `NS.T` keys on the last segment; skip to avoid cross-namespace collisions
+        if (lookup(uscope, ref.name)?.symbol === target) out.push({ uri: doc.uri, range: rangeFromSpan(ref.span) })
+      }
     }
   }
   return out
