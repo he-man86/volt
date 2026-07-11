@@ -40,6 +40,8 @@ export interface Messages {
   notAMember(member: string, type: string): string
   /** Instantiating an ABSTRACT FB: "Function block" (CODESYS) vs "Functionblock" (TwinCAT, one word). */
   abstractInstantiation(fb: string): string
+  /** Value-assigning to an abstract-FB target (C0511). The message names the TARGET variable. CODESYS-verified. */
+  abstractAssignTarget(target: string): string
   /** A VAR section not allowed for the containing POU: TwinCAT quotes the section name, CODESYS doesn't. */
   sectionNotAllowed(sectionKind: string): string
   /** An interface member with no implementation — identical both vendors; member + interface UPPERCASED. */
@@ -102,6 +104,8 @@ export interface Messages {
   caseLabelInRange(label: string, lo: string, hi: string): string
   /** A CASE label that is a non-constant variable (C0218). PROVISIONAL (bridge-gated). */
   caseLabelNonConst(): string
+  /** A FOR whose end bound is beyond the counter's type range → unreachable exit test (C0266). PROVISIONAL. */
+  loopExitConstantFalse(condition: string): string
   /** An array-initializer repeat count `n(v)` where `n` is a non-constant variable (C0162). PROVISIONAL (bridge-gated). */
   arrayInitCountNonConst(count: string): string
   /** A non-constant array dimension bound (C0161). PROVISIONAL (bridge-gated). */
@@ -311,6 +315,9 @@ export function messagesFor(vendor: Vendor): Messages {
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
+    // CODESYS-verified wording (the '<name>' is the assignment TARGET, not the FB type). PROVISIONAL on TwinCAT.
+    abstractAssignTarget: (target) =>
+      `The function block '${target}' is ABSTRACT and cannot be used as a target for an assignment.`,
     sectionNotAllowed: (sectionKind) =>
       sectionKind === "VAR_GLOBAL" // C0169 — both vendors verified, different wording
         ? tc
@@ -363,6 +370,8 @@ export function messagesFor(vendor: Vendor): Messages {
     caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
     caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
     caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
+    // PROVISIONAL (harvested from the doc example, no live recording). Condition rendered as `<counter> <op> <bound>`.
+    loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Endless loop possible.`,
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,

@@ -3612,21 +3612,21 @@
     "category": "constant-false loop condition",
     "cause": "A FOR loop's computed exit condition can never become TRUE for the declared iteration variable's type/range, so the loop cannot terminate normally.",
     "message": "Loop exit condition '<condition>' is constant FALSE. Possible endless loop.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      b : BYTE;\n      i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n      i := i + 1;\nEND_FOR;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
     "expect": [
       "Loop exit condition 'b > 255' is constant FALSE. Endless loop possible."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "loop-exit",
+    "ourCode": "loop-exit-constant",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 254 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
+    "triage": null,
+    "note": "FOR end bound at/beyond the counter type's range → unreachable exit test. Conservative: elementary integer counter with known range, constant non-zero step, constant bound at/beyond the limit in the step direction. Wording PROVISIONAL (doc example, no live recording)."
   },
   {
     "code": "C0269",
@@ -4132,21 +4132,21 @@
     "category": "abstract FB assignment",
     "cause": "Code directly assigns one abstract function block variable/reference to another by value, which is disallowed because abstract function blocks have no concrete implementation to copy; a reference assignment (REF=) must be used instead.",
     "message": "The function block '<function block name>' is ABSTRACT and cannot be used as a target for an assignment.",
-    "repro": "PROGRAM PLC_PRG\nVAR\nrefAbstract1 : REFERENCE TO AbstractPOU;\nrefAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\n\nrefAbstract1 := refAbstract2;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 := refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
     "expect": [
       "The function block 'refAbstract1' is ABSTRACT and cannot be used as a target for an assignment."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "abstract-assign",
+    "ourCode": "abstract-assign",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 REF= refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
+    "triage": null,
+    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT."
   },
   {
     "code": "C0513",

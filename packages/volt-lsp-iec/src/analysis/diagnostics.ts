@@ -41,6 +41,7 @@ import { checkStatementRules } from "./checks/flow/statement-rules.js"
 import { checkNewInExpression } from "./checks/flow/new-in-expression.js"
 import { checkJumpLabels } from "./checks/flow/jump-labels.js"
 import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
+import { checkLoopExit } from "./checks/flow/loop-exit.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
 import { checkConstantContext } from "./checks/declarations/const-context.js"
@@ -63,6 +64,7 @@ import { checkNonCallableCall } from "./checks/calls/non-callable-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
+import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
 import { checkInterfaceImplementations } from "./checks/oop/interface-implementation.js"
@@ -123,6 +125,7 @@ const CHECKS: readonly Check[] = [
   checkNewInExpression,
   checkJumpLabels,
   checkNoOpStatement,
+  checkLoopExit,
   checkThisSuperContext,
   // declarations/
   checkConstantContext,
@@ -160,6 +163,7 @@ const CHECKS: readonly Check[] = [
   checkExternalNonInputWrite,
   checkInoutExternalAccess,
   checkFbInitInout,
+  checkAbstractAssign,
   checkLifecycleSignatures,
   checkAbstractInstantiation,
   checkInterfaceImplementations,
