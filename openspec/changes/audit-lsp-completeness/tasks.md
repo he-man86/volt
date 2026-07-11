@@ -12,31 +12,33 @@ commit. `[x]` when landed.
 
 ## P1 — resolution depth (one root cause lights up a whole column)
 
-- [ ] **Device instances into the symbol tree** — `.device` excluded from `SOURCE_EXTENSIONS`; device names
-  only feed the diagnostics skip-set, never `buildSymbolTable`; assist services don't even get `WorkspaceRefs`.
-  Blind across nav/completion/hover/sig-help/semantic-tokens. Expose read-only device descriptors so refs
-  resolve. Test: def/hover/completion on a device instance.
-- [x] **Interface member scope** — `resolveTypeExpr(interface)` builds no scope → `drv.Move` completion/
-  sig-help blind and hover *wrong* (shows builtin `MOVE`). Give interface types a member scope + add
-  `interface` to `scopeOfType`. Test: completion/hover/sig-help on an interface-typed instance.
-- [x] **GVL-qualified member completion** — `GvlName.field` blind (no child scope for the GVL block).
+- [x] **Interface member scope** — added an `interface` Type kind; completion/hover/sig-help/nav resolve
+  interface members; hover no longer mis-matches the builtin `MOVE`. Corpus gate green.
+- [x] **GVL-qualified member completion** — collect GVL block members by uri (incl. `qualified_only`).
+- [ ] **DEFERRED (model work) — Device instances into the symbol tree.** Devices are name-only (`.device` is a
+  descriptor, not ST → no type, so member access is *inherently* blind, and there's no clean go-to-def target).
+  Making the NAME resolve everywhere needs a new `device` `SymbolKind` (+ every exhaustive `Record<SymbolKind>`),
+  `.device`-path tracking in workspace-refs, and injection after `buildSymbolTable`. Modest value (name only),
+  real cross-cutting cost + a design decision. Diagnostics already skip devices (no false "unresolved"), so the
+  only gap is completion offering the name / a descriptor hover. Do only if a device-heavy project needs it.
 
-## P2 — VG (graphical) parity (missing graphical-aware variants)
+## P2 — VG (graphical) parity
 
-- [ ] **document-highlight VG variant** — highlight is ST-only; add `documentHighlightsAnywhere`, wire it.
-- [ ] **call-hierarchy over VG bodies** — calls inside FBD/LD are invisible (iterates `stBodies`).
-- [ ] **folding + selection over VG networks** — folding refuses graphical bodies; selection is coarse.
-- [ ] **semantic-tokens coloring** — builtin primitives (`INT`/`BOOL`) and library/device refs color as
-  `variable`. Recognize the primitive set; feed library/device into the classifier's scope.
+- [x] **document-highlight VG variant** — `documentHighlightsAnywhere`, wired.
+- [x] **folding over VG networks** — one fold per NETWORK.
+- [x] **semantic-tokens: elementary type names** color as `type` (was `variable`) on every file.
+- [ ] **DEFERRED (niche + cross-layer plumbing) — call-hierarchy + selection-range over VG.** call-hierarchy
+  iterates `stBodies` so FBD/LD `fb_call`s are invisible; selection-range is token→whole-POU inside a network.
+  Both are feasible (VG networks *do* expose calls/operands — `operandStatements` handles `fb_call`) but the
+  wiring is cycle-sensitive (services↔graphical) and the features are low-frequency on graphical bodies. Follow
+  the `referencesAnywhere` server-wiring pattern when picked up.
 
-## P3 — test debt (untested guarantees; silent degradation risk)
+## P3 — test debt (untested guarantees — regression protection, no bug)
 
-- [ ] Vendor dialect layer (R2/R3) — no test withholds a TwinCAT-only name / flags a CODESYS-only `__` op.
-- [ ] Formatting comments (R30) — no format test has a comment; impl preserves verbatim vs spec's "relocate"
-  → reconcile spec↔behavior, then test the invariant that survives.
-- [ ] Formatter canonicalization (R29) — tests start from canonical input; add non-canonical → canonical.
-- [ ] Bare-enum-member navigation (R27); VG device resolution (R28); `.library`-change re-index (R8.3).
-- [ ] Reconcile the stale body-parse-fallback scenario (R10.1) with current parse-error-as-diagnostic behavior.
+- [ ] Vendor dialect layer (R2/R3); formatting comments (R30, also reconcile spec's "relocate" vs verbatim impl);
+  formatter canonicalization from non-canonical input (R29); bare-enum-member nav (R27); VG device resolution
+  (R28); `.library`-change re-index (R8.3); reconcile the stale body-parse-fallback scenario (R10.1). All
+  test-only (or spec-reconcile) — they protect working behavior; none is a shipped bug.
 
 ## Done
 
