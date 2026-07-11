@@ -19,7 +19,7 @@ const codes = (decls: string, body: string): string[] => diag(decls, body).map((
 test("C0511 — value-assign through a REFERENCE TO abstract FB", () => {
   const ds = diag(" r1 : REFERENCE TO AbstractPOU;\n r2 : REFERENCE TO AbstractPOU;", "r1 := r2;")
   expect(ds.map((d) => d.code)).toEqual(["abstract-assign"])
-  expect(ds[0].message).toBe(`The function block 'r1' is ABSTRACT and cannot be used as a target for an assignment.`)
+  expect(ds[0].message).toBe(`Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment`)
 })
 
 test("REF= rebind of an abstract reference is legal — no FP", () => {

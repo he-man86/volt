@@ -42,8 +42,8 @@ export interface Messages {
   notAMember(member: string, type: string): string
   /** Instantiating an ABSTRACT FB: "Function block" (CODESYS) vs "Functionblock" (TwinCAT, one word). */
   abstractInstantiation(fb: string): string
-  /** Value-assigning to an abstract-FB target (C0511). The message names the TARGET variable. CODESYS-verified. */
-  abstractAssignTarget(target: string): string
+  /** Value-assigning to an abstract-FB target (C0511). The message names the FB TYPE. CODESYS-verified. */
+  abstractAssignTarget(fb: string): string
   /** A VAR section not allowed for the containing POU: TwinCAT quotes the section name, CODESYS doesn't. */
   sectionNotAllowed(sectionKind: string): string
   /** An interface member with no implementation — identical both vendors; member + interface UPPERCASED. */
@@ -216,10 +216,8 @@ export interface Messages {
   constantNoInitialValue(name: string): string
   /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). PROVISIONAL. */
   noInitForExternal(name: string): string
-  /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). PROVISIONAL. */
+  /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). CODESYS-verified. */
   externalNoGlobal(name: string): string
-  /** A `VAR_EXTERNAL` whose type differs from the matching `VAR_GLOBAL` (C0236). PROVISIONAL. */
-  externalTypeMismatch(name: string): string
   /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). PROVISIONAL. */
   deprecatedFunctionBlock(): string
   /** A direct-address (`AT %…`) binding in a PERSISTENT var list (C0215). PROVISIONAL. */
@@ -285,8 +283,8 @@ export function messagesFor(vendor: Vendor): Messages {
     // 'VAR_IN_OUT', CS does not — a genuine per-vendor divergence like the double-space in unknownAttribute.
     inoutNoExternalAccess: (param, fb) =>
       tc ? `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'."` : `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
-    // PROVISIONAL (no live recording yet) — modeled on the noInput sibling; live-verify the exact wording/casing.
-    fbInitNoOutput: (id, fb) => `'${id}' is no output of '${fb}'`,
+    // CODESYS-verified (2026-07-11 live :8556): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
+    fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     lifecycle: (method) => {
@@ -313,8 +311,8 @@ export function messagesFor(vendor: Vendor): Messages {
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
-    // PROVISIONAL — only a localized (German) recording was harvested; English wording from the doc field.
-    ambiguousGlobalName: (name) => `ambiguous use of name '${name}'`,
+    // CODESYS-verified (2026-07-11 live :8556): capital "Ambiguous".
+    ambiguousGlobalName: (name) => `Ambiguous use of name '${name}'`,
     // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
     unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
@@ -323,9 +321,10 @@ export function messagesFor(vendor: Vendor): Messages {
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
-    // CODESYS-verified wording (the '<name>' is the assignment TARGET, not the FB type). PROVISIONAL on TwinCAT.
-    abstractAssignTarget: (target) =>
-      `The function block '${target}' is ABSTRACT and cannot be used as a target for an assignment.`,
+    // CODESYS-verified (2026-07-11 live :8556): names the FB TYPE, no "The"/quotes/period. TwinCAT PROVISIONAL
+    // (mirrors abstractInstantiation's one-word "Functionblock").
+    abstractAssignTarget: (fb) =>
+      `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be used as a target for an assignment`,
     sectionNotAllowed: (sectionKind) =>
       sectionKind === "VAR_GLOBAL" // C0169 — both vendors verified, different wording
         ? tc
@@ -378,8 +377,8 @@ export function messagesFor(vendor: Vendor): Messages {
     caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
     caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
     caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
-    // PROVISIONAL (harvested from the doc example, no live recording). Condition rendered as `<counter> <op> <bound>`.
-    loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Endless loop possible.`,
+    // CODESYS-verified (2026-07-11 live :8556): "Possible endless loop." Condition rendered `<counter> <op> <bound>`.
+    loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop.`,
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
@@ -454,9 +453,8 @@ export function messagesFor(vendor: Vendor): Messages {
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
-    // PROVISIONAL (no live recording; zero corpus surface — VAR_EXTERNAL is legacy/unused in the corpus).
-    externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL '${name}'`,
-    externalTypeMismatch: (name) => `Wrong type definition for VAR_EXTERNAL ${name}`,
+    // CODESYS-verified (2026-07-11 live :8556): no quotes around the name.
+    externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL ${name}`,
     deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
     persistentDirectAddress: () => `Direct address declaration is not possible in persistent list`,
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,

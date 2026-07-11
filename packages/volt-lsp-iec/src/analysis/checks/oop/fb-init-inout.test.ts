@@ -19,7 +19,7 @@ const codes = (decls: string): string[] => diag(decls).map((d) => d.code)
 test("C0179 — single-field init assigns a VAR_IN_OUT", () => {
   const ds = diag(" fb : MyFB := (io := 3);")
   expect(ds.map((d) => d.code)).toEqual(["fb-init-inout"])
-  expect(ds[0].message).toBe(`'io' is no output of 'MyFB'`)
+  expect(ds[0].message).toBe(`'io' is no input of 'MyFB'`)
 })
 
 test("C0179 — multi-field init flags only the VAR_IN_OUT field", () => {

@@ -18,7 +18,7 @@ const codes = (decls: string, body: string): string[] => diag(decls, body).map((
 test("C0266 — FOR b := 0 TO 255 with b : BYTE is endless", () => {
   const ds = diag(" b : BYTE;\n i : INT;", "FOR b := 0 TO 255 BY 1 DO\n i := i + 1;\nEND_FOR;")
   expect(ds.map((d) => d.code)).toEqual(["loop-exit-constant"])
-  expect(ds[0].message).toBe(`Loop exit condition 'b > 255' is constant FALSE. Endless loop possible.`)
+  expect(ds[0].message).toBe(`Loop exit condition 'b > 255' is constant FALSE. Possible endless loop.`)
 })
 
 test("descending FOR b := 255 TO 0 with a USINT (min 0) is endless", () => {

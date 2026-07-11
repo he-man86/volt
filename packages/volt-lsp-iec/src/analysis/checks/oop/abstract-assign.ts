@@ -29,7 +29,7 @@ export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): v
         span: s.target.span,
         source: SOURCE,
         code: "abstract-assign",
-        message: ctx.messages.abstractAssignTarget(s.target.name),
+        message: ctx.messages.abstractAssignTarget(fb.name),
       })
     })
   }

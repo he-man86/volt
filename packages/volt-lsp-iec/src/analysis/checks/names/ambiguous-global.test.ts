@@ -23,7 +23,7 @@ const run = (prg: string, extraGvl2 = true) => {
 test("C0136 — bare ref to a global declared in two GVLs (initializer)", () => {
   const ds = run("PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM")
   expect(ds.length).toBe(1)
-  expect(ds[0].message).toBe(`ambiguous use of name 'g_i'`)
+  expect(ds[0].message).toBe(`Ambiguous use of name 'g_i'`)
 })
 
 test("bare ref when the global is declared in only one GVL — no FP", () => {

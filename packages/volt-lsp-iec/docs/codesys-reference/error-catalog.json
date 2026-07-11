@@ -1995,14 +1995,14 @@
     "message": "ambiguous use of name '<variable name>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "ambiguous use of name 'g_i'"
+      "Ambiguous use of name 'g_i'"
     ],
     "status": "implemented",
     "ourCheck": "ambiguous-global",
     "ourCode": "ambiguous-global",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    j : INT := GVL1.g_i;\nEND_VAR\nEND_PROGRAM",
@@ -2495,14 +2495,14 @@
     "message": "'<identifier>' is no output of 'Function block'",
     "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "'inOut' is no output of 'MyFB'"
+      "'inOut' is no input of 'MyFB'"
     ],
     "status": "implemented",
     "ourCheck": "fb-init-inout",
     "ourCode": "fb-init-inout",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB;\nEND_VAR\nEND_PROGRAM",
@@ -3452,23 +3452,17 @@
     "expect": [
       "Wrong type definition for VAR_EXTERNAL g_i"
     ],
-    "status": "implemented",
-    "ourCheck": "external-global",
-    "ourCode": "external-type-mismatch",
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
-    "triage": null,
-    "note": "VAR_EXTERNAL type differs from the matching project VAR_GLOBAL. Conservative: project globals only (library types flatten unreliably); rendered-type-spelling compare. Zero corpus surface. Wording PROVISIONAL.",
-    "reproFiles": [
-      {
-        "uri": "GVL.gvl",
-        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
-      }
-    ]
+    "triage": "skip",
+    "note": "Live IDE does NOT flag a VAR_EXTERNAL/VAR_GLOBAL type mismatch (2026-07-11 :8556 built the repro clean). An offline check would be a false positive. Won't-fix. (C0237, the no-global-definition case, IS flagged and is implemented.)"
   },
   {
     "code": "C0237",
@@ -3479,14 +3473,14 @@
     "message": "No global definition found for VAR_EXTERNAL '<variable name>'",
     "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "No global definition found for VAR_EXTERNAL 'g_i'"
+      "No global definition found for VAR_EXTERNAL g_i"
     ],
     "status": "implemented",
     "ourCheck": "external-global",
     "ourCode": "external-no-global",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
@@ -3630,14 +3624,14 @@
     "message": "Loop exit condition '<condition>' is constant FALSE. Possible endless loop.",
     "repro": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
     "expect": [
-      "Loop exit condition 'b > 255' is constant FALSE. Endless loop possible."
+      "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
     ],
     "status": "implemented",
     "ourCheck": "loop-exit",
     "ourCode": "loop-exit-constant",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 254 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
@@ -4150,14 +4144,14 @@
     "message": "The function block '<function block name>' is ABSTRACT and cannot be used as a target for an assignment.",
     "repro": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 := refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
     "expect": [
-      "The function block 'refAbstract1' is ABSTRACT and cannot be used as a target for an assignment."
+      "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
     ],
     "status": "implemented",
     "ourCheck": "abstract-assign",
     "ourCode": "abstract-assign",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 REF= refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",

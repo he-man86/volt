@@ -21,11 +21,22 @@ import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
 
-/** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE. */
-function lspMessagesForCode(repro: string, vendor: "codesys" | "twincat", ourCode: string | undefined): string[] {
+/** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
+ *  `extra` are cross-file context units (a code's `reproFiles`); the symbol table is built from all of them but
+ *  diagnostics still run on `repro`. */
+function lspMessagesForCode(
+  repro: string,
+  vendor: "codesys" | "twincat",
+  ourCode: string | undefined,
+  extra?: { uri: string; source: string }[],
+): string[] {
   if (ourCode === undefined) return []
   const pr = parseSource(repro)
-  const project = buildSymbolTable([{ uri: "R.fb", parseResult: pr, source: repro }])
+  const files = [
+    { uri: "R.fb", parseResult: pr, source: repro },
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
+  ]
+  const project = buildSymbolTable(files)
   return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor, lints: { unknownType: true, unknownAttribute: true } }) })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)
@@ -173,16 +184,22 @@ const norm = (s: string): string => s.replace(/\r?\n/g, "").trim() // real messa
 
 for (const c of targets) {
   const { plcBody, items, instTypes, calls } = splitRepro(c.repro)
+  // Cross-file context (`reproFiles`, e.g. extra GVLs) — push each under its own uri-derived name so distinct
+  // files stay distinct (a nameless VAR_GLOBAL would otherwise collapse to a single "GVL").
+  const extraItems = (c.reproFiles ?? []).map((f: { uri: string; source: string }) => ({
+    wire: f.uri,
+    src: complete(f.source.trimEnd() + "\n", f.uri.endsWith(".gvl") ? "global_var_list" : "function_block"),
+  }))
   let actual: string[] = []
   let lsp: string[] = []
   let outcome: Outcome = "error"
   try {
     await resetProject()
-    for (const it of items) { touched.add(it.wire); await robustSet(it.wire, it.src) }
+    for (const it of [...items, ...extraItems]) { touched.add(it.wire); await robustSet(it.wire, it.src) }
     await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
     const r = await post("/build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
-    lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode)
+    lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode, c.reproFiles)
     const actualN = actual.map(norm)
     outcome = lsp.length === 0 ? "silent" : lsp.every((m) => actualN.includes(norm(m))) ? "verified" : "mismatch"
     // Detection-parity: a code flagged `<vendor>WordingDivergence` where the IDE's OWN message is buggy (TC
