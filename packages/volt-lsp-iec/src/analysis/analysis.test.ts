@@ -29,8 +29,8 @@ test("type checks do not false-positive on compiler-accepted code", () => {
     "x : INT; y : DINT; z : DINT;\nEND_VAR\nz := x + y;", // mixed-width arithmetic
     "x : REAL; y : INT; z : REAL;\nEND_VAR\nz := x + y;", // real + int
     "x : BYTE; y : WORD; z : WORD;\nEND_VAR\nz := x AND y;", // bitwise mixed width
-    "x : INT := 40000;", // out-of-range literal — compiler accepts (conversion), not an error
-    "x : INT := 30000 + 10000;", // const-expr over max — compiler accepts
+    "x : INT := 40000;\nEND_VAR", // out-of-range literal — compiler accepts (conversion), not an error
+    "x : INT := 30000 + 10000;\nEND_VAR", // const-expr over max — compiler accepts
     "p : POINTER TO INT; x : INT;\nEND_VAR\nx := p^;", // valid deref
   ]
   for (const decls of accepts) {

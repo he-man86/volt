@@ -1,6 +1,7 @@
 /**
- * parse-errors — statement-level syntax errors now SHIP as diagnostics (previously discarded by design D3).
- * A malformed statement is flagged at the offending token; valid ST stays silent (the zero-FP contract the
+ * parse-errors — syntax errors now SHIP as diagnostics (previously discarded by design D3), from BOTH parser
+ * streams: statement bodies AND declaration structure (unit headers, VAR sections, type decls). A malformed
+ * statement or declaration is flagged at the offending token; valid code stays silent (the zero-FP contract the
  * corpus + conformance gates enforce). Grammar gaps the gate found (partial access, typed char literals) are
  * closed, so these valid CODESYS forms produce no diagnostic.
  */
@@ -30,6 +31,20 @@ test("a missing FOR initializer is surfaced", () => {
 test("valid ST produces NO syntax-error diagnostics (zero-FP contract)", () => {
   expect(syntaxErrors(`PROGRAM P\nVAR bTest : BOOL; x : INT;\nEND_VAR\nIF bTest THEN\n  x := 9;\nELSE\n  x := 0;\nEND_IF\nEND_PROGRAM`)).toEqual([])
   expect(syntaxErrors(`PROGRAM P\nVAR i : INT;\nEND_VAR\nCASE i OF\n  1: i := 2;\n  2, 3: i := 4;\nELSE\n  i := 0;\nEND_CASE\nEND_PROGRAM`)).toEqual([])
+})
+
+test("declaration-structure errors surface precisely (the parser's decl stream, not just statements)", () => {
+  // A VAR-section keyword inside a STRUCT — one precise error at the offending keyword (C0173).
+  expect(syntaxErrors(`TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE`)).toEqual([
+    "'VAR_INPUT' not allowed in this place",
+  ])
+  // A declaration with no VAR block was SILENT before decl errors were surfaced — now it's flagged (C0212).
+  expect(syntaxErrors(`PROGRAM P\ni : INT;\nEND_PROGRAM`).length).toBeGreaterThan(0)
+})
+
+test("valid declarations produce NO syntax-error diagnostics (decl zero-FP contract)", () => {
+  expect(syntaxErrors(`TYPE T :\nSTRUCT\n  m : INT;\n  n : REAL;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
+  expect(syntaxErrors(`FUNCTION_BLOCK FB\nVAR_INPUT\n  a : INT;\nEND_VAR\nVAR\n  b : BOOL := TRUE;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 test("grammar-completion forms surface no false positive (gate regression guard)", () => {

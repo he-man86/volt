@@ -159,8 +159,9 @@ const CHECKS: readonly Check[] = [
   checkAbstractOutputDefault,
   // pragmas/
   checkPragmas,
-  // syntax/ — surfaces statement-level parse errors, held to the corpus + conformance zero-FP gate (a parse
-  // error on clean code is a grammar gap to fix, never a shipped FP). See change `resilient-st-parse-errors`.
+  // syntax/ — surfaces every parser-recorded syntax error (declaration structure + statement bodies), held to
+  // the corpus + conformance zero-FP gate (a parse error on clean code is a grammar gap to fix, never a shipped
+  // FP). See change `resilient-st-parse-errors`.
   checkParseErrors,
 ]
 

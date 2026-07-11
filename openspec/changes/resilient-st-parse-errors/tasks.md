@@ -1,9 +1,10 @@
 # Tasks — resilient ST parse-error diagnostics
 
-**Status (2026-07-10): Phase 1 + Phase 2.4 SHIPPED — statement syntax errors now surface with precise spans.**
-Open: Phase 2.1–2.3 (resilient multi-error recovery — the parser currently reports the first error per body),
-Phase 3 (declaration-layer resilience — the "unterminated <unit>" class), Phase 4 (per-code CODESYS wording +
-`Cnnnn` mapping via the live recorder). All guardrails green (incl. a perf bug this validation surfaced — see §5.3).
+**Status (2026-07-11): Phase 1 + 2.4 + 3.1 SHIPPED — statement AND declaration syntax errors now surface with
+precise spans (`checkParseErrors` drains both parser streams).** Open: Phase 2.1–2.3 (resilient multi-error
+recovery — the parser reports the first error per body), Phase 3.2 (suppress the outer `unterminated` when a
+precise inner error exists) + C0211 double-report, Phase 4 (per-code CODESYS wording + `Cnnnn` mapping via the
+live recorder — needs a live bridge). All guardrails green (incl. a perf bug this validation surfaced — see §5.3).
 
 Grounding (measured 2026-07-10): statement parser produces `firstError:"expected THEN in IF, got identifier
 'x'"` for a missing `THEN` (discarded today); corpus completeness = **1938/1938 ST bodies parse with zero
@@ -84,9 +85,17 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   → **2 errors → 1**. (c) **struct/union missing closer** — a missing `END_STRUCT`/`END_UNION` was another
   3-error cascade (field parser chokes on the outer `END_TYPE`, recovery eats it, TYPE parser can't find it);
   the same `atNameStart()` break stops the field loop cleanly → **3 errors → 1**. Corpus zero-declaration-errors
-  + materialize + conformance all green throughout. **Still open:** C0189/C0190 (`;` expected), C0211/C0212/
-  C0213 (malformed/`VAR`-less declaration — C0212 is currently *silent*, the body-capture swallows it), C0215/
-  C0221 (address), and closer-recovery for the POU (function-block/program/…) parsers.
+  + materialize + conformance all green throughout. (d) **Surface the declaration error stream (2026-07-11).**
+  The cascades were killed, but the recorded decl errors were still *discarded* — no check read `parseResult.errors`;
+  `checkParseErrors` drained only the statement stream. Refactored `checkParseErrors` to drain the parser's WHOLE
+  recorded-error stream (declaration + statement) — the native shape, not a second check. Now surfacing precisely:
+  C0031 (`expected type`), C0173 (`'VAR_INPUT' not allowed in this place`), C0189 (`expected ':' after var name(s)`),
+  C0190, C0212, C0213, and the unterminated-section/unit family. Gates: corpus-fp zero-FP, conformance 253/283
+  (unchanged), guardrail suite green. The surfacing caught two malformed FP-bait fixtures in `analysis.test.ts`
+  (bare decls with no `END_VAR`, previously green only because decl errors were swallowed) — fixed to be valid.
+  `scripts/parser-completeness.ts` added as the standing 0/0 proof (both streams, whole corpus). **Still open:**
+  C0211 (nested `VAR`) double-reports (`unterminated VAR section` + a body artifact) — recovery-quality, not an FP;
+  C0215/C0221 (address); closer-recovery for the POU (function-block/program/…) parsers.
 - [ ] 3.2 The reported example (`IF` missing `THEN` *and* no `END_PROGRAM`) reports the precise `THEN` error,
   not the misleading `unterminated program`.
 
