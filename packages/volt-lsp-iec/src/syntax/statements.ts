@@ -16,7 +16,7 @@
 import type { Span } from "./span.js"
 import type { Keyword } from "./tokens.js"
 import { Cursor } from "./cursor.js"
-import { skipFolderDirective } from "./util.js"
+import { identFromToken, skipFolderDirective } from "./util.js"
 import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
 import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
 
@@ -142,9 +142,32 @@ function parseStatement(cur: Cursor): Statement | undefined {
       }
       case "__TRY":
         return parseTry(cur)
+      case "JMP":
+        return parseJmp(cur)
+    }
+  }
+  // A jump label — `name:` at statement start: an identifier followed by ':' (NOT ':=', a distinct token, so
+  // assignment never collides; CASE labels are parsed by parseCaseArm, not here).
+  if (t.kind === "identifier") {
+    const after = cur.peek(1)
+    if (after.kind === "punct" && after.text === ":") {
+      const nameTok = cur.consume()
+      const colon = cur.consume() // ':'
+      return { kind: "label", name: identFromToken(nameTok), span: merge(nameTok.span, colon.span) }
     }
   }
   return parseExprOrAssign(cur)
+}
+
+function parseJmp(cur: Cursor): Statement | undefined {
+  const kw = cur.consume() // JMP
+  const target = parseExpression(cur)
+  if (target === undefined) {
+    cur.pushError("expected a label after JMP", cur.peek().span)
+    return undefined
+  }
+  const semi = cur.eatPunct(";") // lenient like RETURN/EXIT — a missing ';' is caught by the next statement
+  return { kind: "jmp", target, span: merge(kw.span, semi?.span ?? target.span) }
 }
 
 function parseExprOrAssign(cur: Cursor): Statement | undefined {

@@ -196,6 +196,8 @@ export type Statement =
   | ExitStatement
   | ContinueStatement
   | TryStatement
+  | JmpStatement
+  | LabelStatement
   | ExprStatement
   | EmptyStatement
 export type StatementList = Statement[]
@@ -293,6 +295,19 @@ export interface ContinueStatement {
 }
 export interface EmptyStatement {
   kind: "empty"
+  span: Span
+}
+/** `JMP <label>;` — CODESYS/TwinCAT jump. `target` is a bare IdentExpr for a real label; anything else
+ *  (a numeric literal, an expression) is an invalid destination (C0114) the label check flags. */
+export interface JmpStatement {
+  kind: "jmp"
+  target: Expr
+  span: Span
+}
+/** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */
+export interface LabelStatement {
+  kind: "label"
+  name: Identifier
   span: Span
 }
 

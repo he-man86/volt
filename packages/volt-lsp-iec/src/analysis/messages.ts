@@ -232,6 +232,14 @@ export interface Messages {
   overrideMismatchBase(method: string, base: string): string
   /** A VAR_OUTPUT with an initializer in an abstract/interface method — the default is never used (C0533). PROVISIONAL. */
   defaultOutputUnused(): string
+  /** `JMP` to a non-label destination — a numeric literal or expression (C0114). PROVISIONAL. */
+  jumpInvalidDestination(dest: string): string
+  /** The same jump label declared twice in one POU body (C0116). PROVISIONAL. */
+  jumpLabelDuplicate(name: string): string
+  /** `JMP` to a label that isn't declared in the POU body (C0117). PROVISIONAL. */
+  jumpLabelUndefined(name: string): string
+  /** A jump label declared but never targeted by any `JMP` (C0118). PROVISIONAL. */
+  jumpLabelUnreferenced(name: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -247,6 +255,12 @@ export function messagesFor(vendor: Vendor): Messages {
     signChange: (fromSign, fromType, toSign, toType) =>
       `Implicit conversion from ${fromSign} Type '${fromType}' to ${toSign} Type '${toType}' : ${possible} change of sign`,
     noInput: (member, fb) => `'${member}' is no input of '${fb}'`,
+    // JMP/label wording is PROVISIONAL (no live-bridge recording yet). CODESYS renders labels uppercased in
+    // these messages (observed: source `i` → 'I'), matching IEC case-insensitivity; both vendors support JMP.
+    jumpInvalidDestination: (dest) => `Invalid destination ${dest} for 'JMP'`,
+    jumpLabelDuplicate: (name) => `The label '${name.toUpperCase()}' is a duplicate`,
+    jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the 'JMP' statement`,
+    jumpLabelUnreferenced: (name) => `The label '${name.toUpperCase()}' has not been referenced`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc

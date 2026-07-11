@@ -39,6 +39,7 @@ import { checkEnumInit } from "./checks/types/enum-init.js"
 import { checkCaseLabels } from "./checks/flow/case-labels.js"
 import { checkStatementRules } from "./checks/flow/statement-rules.js"
 import { checkNewInExpression } from "./checks/flow/new-in-expression.js"
+import { checkJumpLabels } from "./checks/flow/jump-labels.js"
 import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
@@ -117,6 +118,7 @@ const CHECKS: readonly Check[] = [
   checkCaseLabels,
   checkStatementRules,
   checkNewInExpression,
+  checkJumpLabels,
   checkNoOpStatement,
   checkThisSuperContext,
   // declarations/

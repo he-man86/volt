@@ -38,8 +38,8 @@ test("declaration-structure errors surface precisely (the parser's decl stream, 
   expect(syntaxErrors(`TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE`)).toEqual([
     "'VAR_INPUT' not allowed in this place",
   ])
-  // A declaration with no VAR block was SILENT before decl errors were surfaced — now it's flagged (C0212).
-  expect(syntaxErrors(`PROGRAM P\ni : INT;\nEND_PROGRAM`).length).toBeGreaterThan(0)
+  // A var name with no ':' type — a declaration-structure error surfaced from the decl stream (C0189).
+  expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("expected ':' after var name(s), got keyword 'END_VAR'")
 })
 
 test("valid declarations produce NO syntax-error diagnostics (decl zero-FP contract)", () => {

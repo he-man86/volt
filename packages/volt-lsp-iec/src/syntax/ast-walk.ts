@@ -68,6 +68,10 @@ export function stmtExprs(s: Statement): Expr[] {
     case "return":
     case "exit":
     case "continue":
+    // A JMP target is a label name, not a value expression — deliberately NOT walked (so identifier resolution
+    // doesn't flag it as an undefined variable). The jump-labels check reads `s.target` directly.
+    case "jmp":
+    case "label":
     case "empty":
       return []
   }
