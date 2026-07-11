@@ -4820,19 +4820,21 @@
     "category": "duplicate method name",
     "cause": "A function block declares two methods with the same name without marking them as intentional overloads via the 'overloaded' attribute or OVERLOAD keyword.",
     "message": "There is another method with the name '{0}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.",
-    "repro": null,
-    "expect": null,
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "repro": "FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\n    b : INT;\nEND_VAR\nEND_METHOD",
+    "expect": [
+      "There is another method with the name 'Calc'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods."
+    ],
+    "status": "implemented",
+    "ourCheck": "duplicate-declaration",
+    "ourCode": "duplicate-method",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
     "fix": null,
-    "triage": "resolution",
-    "note": "Method overloads. DEFERRED per corpus evidence: 0 overloaded method names across all 5 corpus projects (overloading needs an explicit attribute rarely used in IEC practice), and a real overload-resolution model is genuine new structure. Revisit if a real project adopts overloads."
+    "triage": null,
+    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented."
   },
   {
     "code": "C0583",

@@ -27,6 +27,9 @@ export interface Messages {
   operatorNotPossible(op: string, type: string): string
   /** Same name declared twice in one scope — identical wording on both vendors. */
   duplicateDeclaration(name: string, scope: string): string
+  /** Two methods with the same name in one FB (C0582) — an unmarked overload. Volt can't push it either way.
+   *  PROVISIONAL: the bridge rejects the push, so this wording can't be live-verified. */
+  duplicateMethod(name: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
   /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). PROVISIONAL. */
@@ -310,6 +313,9 @@ export function messagesFor(vendor: Vendor): Messages {
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
+    // PROVISIONAL — bridge rejects the push (CreateChild name collision), so unverifiable. Doc wording (C0582).
+    duplicateMethod: (name) =>
+      `There is another method with the name '${name}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
     ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
