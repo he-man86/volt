@@ -1993,21 +1993,31 @@
     "category": "ambiguous global name",
     "cause": "The same global variable name is declared in more than one global variable list, so an unqualified reference to it is ambiguous.",
     "message": "ambiguous use of name '<variable name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\n\nGVL1:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nGVL2:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "nicht eindeutige Verwendung des Namens 'g_i'"
+      "ambiguous use of name 'g_i'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "ambiguous-global",
+    "ourCode": "ambiguous-global",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "j : INT := GVL1.g_i;",
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "PROGRAM PLC_PRG\nVAR\n    j : INT := GVL1.g_i;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "Bare ref to a global declared in 2+ project GVLs. Conservative: PROJECT (non-library) GVLs only — library signatures flatten into project scope and would manufacture false duplicates (ERR_OK/NULL live in many library GVLs; corpus scout: 60+ library dups, 0 project dups). Local shadow skipped. Wording PROVISIONAL (only a German recording was harvested).",
+    "reproFiles": [
+      {
+        "uri": "GVL1.gvl",
+        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
+      },
+      {
+        "uri": "GVL2.gvl",
+        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
+      }
+    ]
   },
   {
     "code": "C0138",

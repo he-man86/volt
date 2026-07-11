@@ -29,6 +29,8 @@ export interface Messages {
   duplicateDeclaration(name: string, scope: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
+  /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). PROVISIONAL. */
+  ambiguousGlobalName(name: string): string
   /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
   unknownType(name: string): string
   /** A type name used where a value is expected — `value := MyEnum` (C0230). PROVISIONAL (bridge-gated). */
@@ -307,6 +309,8 @@ export function messagesFor(vendor: Vendor): Messages {
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
+    // PROVISIONAL — only a localized (German) recording was harvested; English wording from the doc field.
+    ambiguousGlobalName: (name) => `ambiguous use of name '${name}'`,
     // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
     unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,

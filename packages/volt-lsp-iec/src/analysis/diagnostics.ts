@@ -72,6 +72,7 @@ import { checkMethodSignatures } from "./checks/oop/method-signature.js"
 import { checkAbstractOutputDefault } from "./checks/oop/abstract-output-default.js"
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
+import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
@@ -153,6 +154,7 @@ const CHECKS: readonly Check[] = [
   // names/
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
+  checkAmbiguousGlobal,
   checkUnknownTypes,
   checkTypeAsValue,
   // declarations/
