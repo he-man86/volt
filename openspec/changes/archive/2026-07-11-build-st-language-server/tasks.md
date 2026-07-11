@@ -353,9 +353,9 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       unit tests — all three layers shipped and green (268 unit · 8 corpus 0-FP · replay 251 CS / 252 TC).
       Message parity byte-identical per vendor is the enforced criterion; the recorder (`scripts/record-language.ts`)
       + matrix oracle (`scripts/conversion-matrix.ts`) keep it honest against the live compilers.
-- [ ] X.1 (DEFERRED — the only remaining item, held by decision) `transpile/rust/` + `test/exec/` — transpile a
-      POU, build, drive scan cycles, assert I/O. A separate epic (not a diagnostics/LSP task); tracked here so the
-      change stays open as its home. Nothing else blocks on it.
+- [x] X.1 (REHOMED) `transpile/rust/` + `test/exec/` — the Rust transpile-for-headless-exec epic moved to its
+      own change **`transpile-st-to-rust`** (a separate epic, not a diagnostics/LSP task). The LSP/diagnostics
+      scope of this change is complete, so it no longer needs to stay open as the transpiler's home.
 
 ## Land
 - [x] Z.1 Full suite + typecheck + corpus 0-error + conformance replay green; `check-divergence` clean; the
