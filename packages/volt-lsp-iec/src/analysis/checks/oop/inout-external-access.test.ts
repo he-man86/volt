@@ -19,7 +19,7 @@ const codes = (body: string): string[] => diag(body).map((d) => d.code)
 test("C0178 — external READ of a VAR_IN_OUT member", () => {
   const ds = diag("i := inst.io;")
   expect(ds.map((d) => d.code)).toEqual(["inout-no-external-access"])
-  expect(ds[0].message).toBe("No external access to 'VAR_IN_OUT' parameter 'io' of 'FB'")
+  expect(ds[0].message).toBe(`No external access to VAR_IN_OUT parameter 'io' of 'FB'."`)
 })
 
 test("C0178 — external WRITE of a VAR_IN_OUT member (single fire, not external-write)", () => {

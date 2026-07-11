@@ -242,8 +242,10 @@ export interface Messages {
   jumpLabelUnreferenced(name: string): string
   /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). PROVISIONAL. */
   inoutNoExternalAccess(param: string, fb: string): string
-  /** Calling something that isn't callable — a GVL or a plain typed variable (C0036). PROVISIONAL. */
+  /** Calling a GVL block — not callable (C0036). Verified live: the GVL case renders the type as 'VAR_GLOBAL'. */
   cannotCallType(type: string): string
+  /** Calling a plain value (a scalar/struct var) — CODESYS asks for a program/function/FB instead (C0035). */
+  callTargetExpected(name: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -261,13 +263,15 @@ export function messagesFor(vendor: Vendor): Messages {
     noInput: (member, fb) => `'${member}' is no input of '${fb}'`,
     // JMP/label wording is PROVISIONAL (no live-bridge recording yet). CODESYS renders labels uppercased in
     // these messages (observed: source `i` → 'I'), matching IEC case-insensitivity; both vendors support JMP.
-    jumpInvalidDestination: (dest) => `Invalid destination ${dest} for 'JMP'`,
+    jumpInvalidDestination: (dest) => `Invalid destination ${dest} for JMP`,
     jumpLabelDuplicate: (name) => `The label '${name.toUpperCase()}' is a duplicate`,
-    jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the 'JMP' statement`,
+    jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the JMP statement`,
     jumpLabelUnreferenced: (name) => `The label '${name.toUpperCase()}' has not been referenced`,
     // PROVISIONAL (no live recording yet). Object name is the FB TYPE name, matching the doc example.
-    inoutNoExternalAccess: (param, fb) => `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'`,
+    // CODESYS byte-identical incl. its trailing stray quote (`…of 'FB'."`), like the double-space in unknownAttribute.
+    inoutNoExternalAccess: (param, fb) => `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
+    callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc

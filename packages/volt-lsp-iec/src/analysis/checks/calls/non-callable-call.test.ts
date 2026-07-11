@@ -15,9 +15,9 @@ const diag = (inputs: { uri: string; src: string }[]): { code: string; message: 
 }
 const one = (src: string) => diag([{ uri: "F.fb", src }])
 
-test("C0036 — calling a scalar variable", () => {
-  const ds = one("PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni();\nEND_PROGRAM").filter((d) => d.code === "non-callable-call")
-  expect(ds.map((d) => d.message)).toEqual(["Cannot call object of type 'INT'"])
+test("C0035 — calling a scalar variable (CODESYS asks for a program/function/FB)", () => {
+  const ds = one("PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni();\nEND_PROGRAM").filter((d) => d.code === "invalid-call-target")
+  expect(ds.map((d) => d.message)).toEqual(["Program name, function or function block instance expected instead of 'i'"])
 })
 
 test("C0036 — calling a GVL block (doc's VAR_GLOBAL case, multi-file)", () => {

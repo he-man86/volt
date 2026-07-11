@@ -541,10 +541,32 @@
     "category": "invalid call target",
     "cause": "A call expression targets something (e.g. a nonexistent method resolved via a bad member access) that is not a callable program/function/FB instance.",
     "message": "Program name, function or function block instance expected instead of '<invalid function>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPLC_PRG.METH1();\n\nMETHOD METH\nVAR_INPUT\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni();\nEND_PROGRAM",
     "expect": [
-      "'METH1' is not a component of 'PLC_PRG'",
-      "Program name, function or function block instance expected instead of 'PLC_PRG.METH1'"
+      "Program name, function or function block instance expected instead of 'i'"
+    ],
+    "status": "implemented",
+    "ourCheck": "non-callable-call",
+    "ourCode": "invalid-call-target",
+    "lint": null,
+    "verified": {
+      "codesys": true,
+      "twincat": false
+    },
+    "fix": "PLC_PRG.METH();",
+    "triage": null,
+    "note": "Calling a plain value (scalar/struct var). Shares the non-callable-call check with C0036 (GVL); split by target kind. Conservative: unknown/library-FB-typed vars skipped."
+  },
+  {
+    "code": "C0036",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0036.html",
+    "kind": "error",
+    "category": "non-callable object call",
+    "cause": "Call syntax '()' is applied to an object (e.g. a global variable list) that is not a function/FB/program and thus cannot be invoked.",
+    "message": "Cannot call object of type <type>",
+    "repro": "VAR_GLOBAL\n    value : INT;\nEND_VAR\nPROGRAM PLC_PRG\nGVL();\nEND_PROGRAM",
+    "expect": [
+      "Cannot call object of type 'VAR_GLOBAL'"
     ],
     "status": "checkable",
     "ourCheck": null,
@@ -554,30 +576,7 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PLC_PRG.METH();",
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
-  },
-  {
-    "code": "C0036",
-    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0036.html",
-    "kind": "error",
-    "category": "non-callable object call",
-    "cause": "Call syntax '()' is applied to an object (e.g. a global variable list) that is not a function/FB/program and thus cannot be invoked.",
-    "message": "Cannot call object of type <type>",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni();\nEND_PROGRAM",
-    "expect": [
-      "Cannot call object of type 'INT'"
-    ],
-    "status": "implemented",
-    "ourCheck": "non-callable-call",
-    "ourCode": "non-callable-call",
-    "lint": null,
-    "verified": {
-      "codesys": false,
-      "twincat": false
-    },
-    "note": "Conservative callable detection: fires on a GVL or a KNOWN non-callable type; an unknown/library-FB-typed var is skipped (18 corpus FPs avoided, scouted). Repro uses the scalar case (burn-in is single-source, can't name a GVL); the doc's GVL variant yields 'VAR_GLOBAL' in multi-file (colocated test). Wording PROVISIONAL.",
+    "note": "The non-callable-call check DOES emit this for a GVL call ('Cannot call object of type VAR_GLOBAL', verified live + colocated test). Stays checkable because neither offline harness can repro a NAMED GVL single-source (burn-in names it from the uri, verify-catalog names it 'GVL') — no single repro satisfies both. Value-call case shipped as C0035.",
     "fix": null,
     "triage": null
   },
@@ -1677,16 +1676,16 @@
     "category": "invalid jump target",
     "cause": "A JMP statement targets something that is not a valid declared label (e.g. a numeric literal) in the current scope.",
     "message": "Invalid destination <jump label> for 'JMP'",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP 0;",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP 0;\nEND_PROGRAM",
     "expect": [
-      "Invalid destination 0 for 'JMP'"
+      "Invalid destination 0 for JMP"
     ],
     "status": "implemented",
     "ourCheck": "jump-labels",
     "ourCode": "jump-invalid-destination",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -1732,7 +1731,7 @@
     "ourCode": "jump-label-duplicate",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -1746,16 +1745,16 @@
     "category": "undefined jump label",
     "cause": "A JMP statement references a label name that is not declared anywhere within its scope.",
     "message": "No such label '<jump label>' within the scope of the 'JMP' statement",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP A;",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP A;\nEND_PROGRAM",
     "expect": [
-      "No such label 'A' within the scope of the 'JMP' statement"
+      "No such label 'A' within the scope of the JMP statement"
     ],
     "status": "implemented",
     "ourCheck": "jump-labels",
     "ourCode": "jump-label-undefined",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -1778,7 +1777,7 @@
     "ourCode": "jump-label-unreferenced",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -2463,14 +2462,14 @@
     "message": "No external access to 'VAR_IN_OUT' parameter '<parameter name>' of '<object name>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\n    i : INT;\nEND_VAR\ni := inst.in_out;\nEND_PROGRAM\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "No external access to 'VAR_IN_OUT' parameter 'in_out' of 'FB'"
+      "No external access to VAR_IN_OUT parameter 'in_out' of 'FB'.\""
     ],
     "status": "implemented",
     "ourCheck": "inout-external-access",
     "ourCode": "inout-no-external-access",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -3053,14 +3052,10 @@
     "ourCode": "jump-label-unreferenced",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
-    "codesysActual": [
-      "The label 'I' has not been referenced",
-      "Unexpected token 'INT' found"
-    ],
     "twincatActual": [
       "The label 'I' has not been referenced",
       "Unexpected Token 'INT' found"
