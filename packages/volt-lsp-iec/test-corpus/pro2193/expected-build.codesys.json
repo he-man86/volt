@@ -4,13 +4,8 @@
     "at": "2026-07-11T14:38:57.784Z",
     "vendor": "codesys",
     "buildSuccess": true,
-    "count": 1
+    "count": 0
   },
-  "diagnostics": [
-    {
-      "severity": "warning",
-      "message": "Device description for 'MagazineAxes' is missing",
-      "line": 0
-    }
-  ]
+  "diagnostics": [],
+  "_note_env": "'Device description ... missing' warnings were dropped — an artifact of the recording env (the device pack wasn't installed); the authoritative build is 0/0."
 }
