@@ -64,6 +64,7 @@ import { checkRecursiveCall } from "./checks/calls/recursive-call.js"
 import { checkNonCallableCall } from "./checks/calls/non-callable-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
+import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
 import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
@@ -164,6 +165,7 @@ const CHECKS: readonly Check[] = [
   // oop/
   checkExternalNonInputWrite,
   checkInoutExternalAccess,
+  checkInoutOwnAccess,
   checkFbInitInout,
   checkAbstractAssign,
   checkLifecycleSignatures,

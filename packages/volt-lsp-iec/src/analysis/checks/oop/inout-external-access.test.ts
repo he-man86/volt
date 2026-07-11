@@ -31,10 +31,12 @@ test("a VAR_INPUT member is externally accessible — no FP", () => {
   expect(codes("inst.inp := 5;")).toEqual([])
 })
 
-test("a method accessing its OWN FB's VAR_IN_OUT is NOT flagged (option-gated C0371 — idiomatic, deferred)", () => {
+test("a method accessing its OWN FB's VAR_IN_OUT is a WARNING (C0371 inout-own-access), not the C0178 error", () => {
   const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
-  expect(ds.map((d) => d.code)).toEqual([])
+  // Modern CODESYS ALLOWS it but warns (verified live: 96 such warnings on lenze-mid). Not the C0178 error.
+  expect(ds.map((d) => ({ code: d.code, sev: d.severity }))).toEqual([{ code: "inout-own-access", sev: "warning" }])
+  expect(ds[0].message).toBe("Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'")
 })

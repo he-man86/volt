@@ -251,6 +251,8 @@ export interface Messages {
   jumpLabelUnreferenced(name: string): string
   /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). verified both vendors. */
   inoutNoExternalAccess(param: string, fb: string): string
+  /** A method/action touching its own FB's VAR_IN_OUT — a WARNING (modern CODESYS allows it) (C0371). */
+  inoutOwnAccess(param: string, fb: string, context: string): string
   /** Inline FB-init field targets a VAR_IN_OUT (only inputs are assignable at declaration) (C0179). verified both vendors. */
   fbInitNoOutput(id: string, fb: string): string
   /** Calling a GVL block — not callable (C0036). Verified live: the GVL case renders the type as 'VAR_GLOBAL'. */
@@ -284,6 +286,9 @@ export function messagesFor(vendor: Vendor): Messages {
     // 'VAR_IN_OUT', CS does not — a genuine per-vendor divergence like the double-space in unknownAttribute.
     inoutNoExternalAccess: (param, fb) =>
       tc ? `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'."` : `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
+    // Live-verify pending (bridge up) — from the lenze-mid build the exact form is this. WARNING severity.
+    inoutOwnAccess: (param, fb, context) =>
+      `Access to VAR_IN_OUT '${param}' declared in '${fb}' from external context '${context}'`,
     // CODESYS-verified (2026-07-11 live :8556): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,

@@ -3848,25 +3848,26 @@
   {
     "code": "C0371",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0371.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "VAR_IN_OUT scoping",
     "cause": "A method of a function block accesses that function block's own VAR_IN_OUT parameter, which is not guaranteed valid from the method's external context.",
     "message": "Access to VAR_IN_OUT '<variable name>' declared in '<function block name>' from external context '<POU name>'",
-    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n    bInOut : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD METH : BOOL\nVAR\n    bBool : BOOL;\nEND_VAR\nbInOut := bBool;\nEND_METHOD",
+    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n    io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n    x : INT;\nEND_VAR\nio := x;\nEND_METHOD",
     "expect": [
-      "Access to VAR_IN_OUT 'bInOut' declared in 'FB_Test' from external context 'METH'"
+      "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "inout-own-access",
+    "ourCode": "inout-own-access",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "triage": "optionGated",
-    "note": "OPTION-GATED — old CODESYS kept VAR_IN_OUT stack-only (a method accessing the FB's VAR_IN_OUT errored); modern CODESYS stores the reference so methods access it freely. The corpus (lenze-mid etc.) does this 1300+ times, so an always-on error is mass FP. Deferred until a live recording confirms the active behavior. Attempted 2026-07-11, demoted by the corpus."
+    "triage": null,
+    "note": "RECLASSIFIED error to WARNING. A method/action touching its enclosing FB's VAR_IN_OUT. Modern CODESYS ALLOWS it but WARNS - was wrongly deferred as an option-gated error because our conformance only diffed ERRORS (the error-only oracle couldn't see these warnings). Live-verified byte-identical on the real lenze-mid build (96 displayed warnings; 20/20 unique messages match ours; 0 gaps). TC severity unverified.",
+    "codesysActual": "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
   },
   {
     "code": "C0373",
