@@ -1,15 +1,15 @@
 {
-  "at": "2026-07-11T11:35:50.252Z",
-  "base": "http://127.0.0.1:8556",
+  "at": "2026-07-11T11:42:31.990Z",
+  "base": "http://127.0.0.1:8555",
   "results": [
     {
       "code": "C0136",
       "outcome": "verified",
       "lsp": [
-        "Ambiguous use of name 'g_i'"
+        "ambiguous use of name 'g_i'"
       ],
       "actual": [
-        "Ambiguous use of name 'g_i'",
+        "ambiguous use of name 'g_i'",
         "Identifier 'g_i' not defined",
         "Cannot convert type 'Unknown type: 'g_i'' to type 'INT'"
       ]
@@ -22,7 +22,7 @@
       ],
       "actual": [
         "'inOut' is no input of 'MyFB'",
-        "Access to VAR_IN_OUT 'inOut' declared in 'MyFB' from external context 'PLC_PRG'",
+        "Access to VAR_IN_OUT 'inOut' declared in 'MyFB' from external context 'PLC_PRG'.",
         "Access to uninitialized VAR_IN_OUT variable"
       ]
     },
@@ -40,20 +40,10 @@
       "code": "C0266",
       "outcome": "verified",
       "lsp": [
-        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
+        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop!"
       ],
       "actual": [
-        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
-      ]
-    },
-    {
-      "code": "C0511",
-      "outcome": "verified",
-      "lsp": [
-        "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
-      ],
-      "actual": [
-        "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
+        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop!"
       ]
     }
   ]

@@ -2003,7 +2003,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    j : INT := GVL1.g_i;\nEND_VAR\nEND_PROGRAM",
     "triage": null,
@@ -2503,7 +2503,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB;\nEND_VAR\nEND_PROGRAM",
     "triage": null,
@@ -3481,7 +3481,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
     "triage": null,
@@ -3632,7 +3632,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    b : BYTE;\n    i : INT;\nEND_VAR\nFOR b := 0 TO 254 BY 1 DO\n    i := i + 1;\nEND_FOR;\nEND_PROGRAM",
     "triage": null,
@@ -4156,7 +4156,8 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 REF= refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
     "triage": null,
-    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT."
+    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT. TwinCAT lacks this rule (live :8555 built the repro clean, 2026-07-11) — check is CODESYS-gated.",
+    "codesysOnly": true
   },
   {
     "code": "C0513",

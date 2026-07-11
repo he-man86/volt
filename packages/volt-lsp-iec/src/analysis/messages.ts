@@ -311,8 +311,8 @@ export function messagesFor(vendor: Vendor): Messages {
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
-    // CODESYS-verified (2026-07-11 live :8556): capital "Ambiguous".
-    ambiguousGlobalName: (name) => `Ambiguous use of name '${name}'`,
+    // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
+    ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
     // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
     unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
@@ -377,8 +377,8 @@ export function messagesFor(vendor: Vendor): Messages {
     caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
     caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
     caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
-    // CODESYS-verified (2026-07-11 live :8556): "Possible endless loop." Condition rendered `<counter> <op> <bound>`.
-    loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop.`,
+    // Live-verified both vendors (2026-07-11): CODESYS ends "loop.", TwinCAT ends "loop!". Cond `<counter> <op> <bound>`.
+    loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop${tc ? "!" : "."}`,
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,

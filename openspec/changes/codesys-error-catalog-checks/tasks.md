@@ -5,10 +5,11 @@ _Authoritative data lives in `docs/codesys-reference/error-catalog.json` (per-co
 
 ## Where we are (2026-07-11)
 
-**136 / 220 documented codes implemented · 117 CS-verified · 112 TC-verified.**
-(This session's 6 new codes: 5 live-verified on CODESYS `:8556`, 1 — C0236 — demoted as an IDE-confirmed
-false positive. TwinCAT verification of the 5 pending — the TC bridge attaches to the live IDE, so a destructive
-verify needs a fixture project confirmed first.)
+**136 / 220 documented codes implemented · 117 CS-verified · 116 TC-verified.**
+(This session's 6 new codes live-verified on both bridges `:8556`/`:8555`: C0136/C0179/C0237/C0266 both-vendor
+byte-identical; C0511 CODESYS-only — TwinCAT's compiler lacks the abstract-assign rule, so the check is
+CODESYS-gated; C0236 demoted as an IDE-confirmed false positive. Per-vendor wording deltas found live: C0136
+"Ambiguous"/"ambiguous", C0266 "loop."/"loop!".)
 Every implemented code is a registered check in `src/analysis/checks/**` (or a parser-surfaced syntax error),
 emitting through `computeSemanticDiagnostics` with per-vendor wording (`messages.ts`), held to the corpus zero-FP
 gate. Verified = the message is byte-identical to what the live IDE build emits (recorded 2026-07-11 from CODESYS
@@ -17,8 +18,8 @@ gate. Verified = the message is byte-identical to what the live IDE build emits 
 | Bucket | Count | Meaning |
 |---|---:|---|
 | **implemented** | 136 | a check emits it, burn-in green |
-| ├ both-vendor verified | 112 | byte-identical to both live builds |
-| ├ CODESYS-verified only | 5 | this session's new codes (C0136/C0179/C0237/C0266/C0511) — TC pending |
+| ├ both-vendor verified | 116 | byte-identical to both live builds (incl. 4 new this session) |
+| ├ CODESYS-only (TC lacks the rule) | 1 | C0511 abstract-assign — CODESYS-gated |
 | └ implemented, not both-verified | 19 | structural-ceiling residuals |
 | **checkable** (offline, not yet built) | 49 | the open backlog — see below |
 | **ide-only** | 35 | impossible offline (live build / library / memory / codegen) — out of scope by design |
