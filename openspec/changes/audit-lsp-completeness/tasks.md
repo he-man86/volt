@@ -15,12 +15,14 @@ commit. `[x]` when landed.
 - [x] **Interface member scope** — added an `interface` Type kind; completion/hover/sig-help/nav resolve
   interface members; hover no longer mis-matches the builtin `MOVE`. Corpus gate green.
 - [x] **GVL-qualified member completion** — collect GVL block members by uri (incl. `qualified_only`).
-- [ ] **DEFERRED (model work) — Device instances into the symbol tree.** Devices are name-only (`.device` is a
-  descriptor, not ST → no type, so member access is *inherently* blind, and there's no clean go-to-def target).
-  Making the NAME resolve everywhere needs a new `device` `SymbolKind` (+ every exhaustive `Record<SymbolKind>`),
-  `.device`-path tracking in workspace-refs, and injection after `buildSymbolTable`. Modest value (name only),
-  real cross-cutting cost + a design decision. Diagnostics already skip devices (no false "unresolved"), so the
-  only gap is completion offering the name / a descriptor hover. Do only if a device-heavy project needs it.
+- [x] **Device `.device` → vendor detection (the real value).** Reframed: the main `.device` is the PLC TARGET
+  (controller), not a code-referenced symbol — so "resolve it in nav/completion" was the wrong lens. Its
+  `Vendor:` field is the most authoritative dialect signal (Beckhoff → twincat, else → codesys), and detectVendor
+  ignored it. Now scored from the controller device (shallowest, FP-safe against nested Beckhoff slaves).
+- [ ] **Not pursued — device instance symbol-tree ingestion.** Name-only (no type → member access inherently
+  blind, no go-to-def target); diagnostics already skip devices (no false "unresolved"). Only gap left is
+  completion offering the bare NAME — low value for a new `SymbolKind` + cross-cutting cost. The richer target
+  description belongs in agent context (a skill/note pointing at `Device/*.device`), not the LSP protocol.
 
 ## P2 — VG (graphical) parity
 
