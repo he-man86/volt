@@ -3711,7 +3711,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Explicit SUPER^.FB_Init/FB_Exit/FB_ReInit call the runtime already invokes. DEFERRED pending live clarification: SUPER^.FB_Init() base-chaining is a common legitimate OOP pattern, so an always-on check risks FP on real overrides. Zero corpus surface (0 explicit lifecycle calls). Needs the bridge to confirm the exact rule before shipping."
   },
   {
     "code": "C0319",

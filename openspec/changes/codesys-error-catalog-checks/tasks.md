@@ -5,7 +5,7 @@ _Authoritative data lives in `docs/codesys-reference/error-catalog.json` (per-co
 
 ## Where we are (2026-07-11)
 
-**135 / 220 documented codes implemented · 112 CS-verified · 112 TC-verified · CS/TC reconciled.**
+**137 / 220 documented codes implemented · 112 CS-verified · 112 TC-verified · CS/TC reconciled.**
 Every implemented code is a registered check in `src/analysis/checks/**` (or a parser-surfaced syntax error),
 emitting through `computeSemanticDiagnostics` with per-vendor wording (`messages.ts`), held to the corpus zero-FP
 gate. Verified = the message is byte-identical to what the live IDE build emits (recorded 2026-07-11 from CODESYS
@@ -13,10 +13,10 @@ gate. Verified = the message is byte-identical to what the live IDE build emits 
 
 | Bucket | Count | Meaning |
 |---|---:|---|
-| **implemented** | 135 | a check emits it, burn-in green |
+| **implemented** | 137 | a check emits it, burn-in green |
 | ├ both-vendor verified | 112 | byte-identical to both live builds |
-| └ implemented, not both-verified | 23 | 19 structural-ceiling + 4 new this session, pending a live recording |
-| **checkable** (offline, not yet built) | 50 | the open backlog — see below |
+| └ implemented, not both-verified | 25 | 19 structural-ceiling + 6 new this session, pending a live recording |
+| **checkable** (offline, not yet built) | 48 | the open backlog — see below |
 | **ide-only** | 35 | impossible offline (live build / library / memory / codegen) — out of scope by design |
 
 The 220 total is **not** the target — 35 are ide-only and ~24 more are deferred-with-reason (below). See
@@ -25,12 +25,20 @@ The 220 total is **not** the target — 35 are ide-only and ~24 more are deferre
 ### Resolution-bucket progress (this session)
 
 Worked the `resolution` bucket per the proven scout→implement-conservatively→corpus-gate→colocated-test flow.
-Closed **4** (corpus zero-FP + burn-in green; wording PROVISIONAL until a live recording):
+Closed **6** (corpus zero-FP + burn-in green; wording PROVISIONAL until a live recording):
 - **C0179** `fb-init-inout` — inline FB-init field cannot target a VAR_IN_OUT.
 - **C0511** `abstract-assign` — value-assign (`:=`) into a (reference to a) project abstract FB (REF= / pointer excluded).
 - **C0266** `loop-exit` — FOR whose end bound is at/beyond the counter type's range → unreachable exit (endless loop).
 - **C0136** `ambiguous-global` — bare ref to a global declared in 2+ **project** GVLs (library GVLs excluded — they
   flatten into project scope and manufacture false duplicates: corpus scout found 60+ library dups, 0 project dups).
+- **C0237 + C0236** `external-global` — a VAR_EXTERNAL with no matching VAR_GLOBAL, or a type mismatch against one.
+
+**The resolution bucket is now fully triaged** — the 24 codes still `checkable` all carry a terminal deferral
+reason in the catalog `note` (no more "quietly TODO"): FP-prone (C0042 mixed-args, C0062 bit-access), needs
+system/library knowledge (C0207 __SYSTEM, C0239/C0567 IQueryInterface, C0065 leading-dot-global), model-blocked
+(C0508 action-scope, C0576 method-member, C0138/C0581/2/3 overload resolution, C0564/572 init-order, C0540
+no_assign propagation, C0043), uncertain-semantics-needs-live (C0316 SUPER^.FB_Init chaining), niche AST (C0183,
+C0186, C0187), or parked (C0573 metadata-sync, C0585/6/7 generics). None is a clean zero-FP offline win today.
 
 Also: a **perf** fix — `staticScopeType`/`findChildScope` did an O(children) linear scan per lookup; on a real
 project the root scope has thousands of children, so every bare-ident inference + named-type resolution was a 1×n
