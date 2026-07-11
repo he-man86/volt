@@ -223,8 +223,6 @@ export interface Messages {
   externalNoGlobal(name: string): string
   /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). PROVISIONAL. */
   deprecatedFunctionBlock(): string
-  /** A direct-address (`AT %…`) binding in a PERSISTENT var list (C0215). PROVISIONAL. */
-  persistentDirectAddress(): string
   /** A VAR_IN_OUT variable referenced in another declaration's initializer (C0441). PROVISIONAL. */
   inoutInInitializer(): string
   /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). PROVISIONAL. */
@@ -462,7 +460,6 @@ export function messagesFor(vendor: Vendor): Messages {
     // CODESYS-verified (2026-07-11 live :8556): no quotes around the name.
     externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL ${name}`,
     deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
-    persistentDirectAddress: () => `Direct address declaration is not possible in persistent list`,
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,
     noDefaultForType: (typeName) => `The type ${typeName} cannot have a default value in this context`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,

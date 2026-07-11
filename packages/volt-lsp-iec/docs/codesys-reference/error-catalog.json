@@ -3099,9 +3099,9 @@
     "expect": [
       "Direct address declaration is not possible in persistent list"
     ],
-    "status": "implemented",
-    "ourCheck": "declarations/persistent-address",
-    "ourCode": "persistent-direct-address",
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3109,7 +3109,9 @@
     },
     "fix": null,
     "codesysActual": [],
-    "twincatActual": []
+    "twincatActual": [],
+    "triage": "skip",
+    "note": "REMOVED as a false positive: live CODESYS 3.5 (2026-07-11 :8556) builds VAR_GLOBAL PERSISTENT [RETAIN] with a direct AT %MB/%QB/%IB address CLEAN. The documented rule likely applies only to the special Persistent-Variables object, which we can't distinguish from a regular persistent GVL offline, so the check over-fired. Won't-fix."
   },
   {
     "code": "C0216",
