@@ -8,7 +8,7 @@ import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
-// The check is opt-in (per-project option-gated); enable it for these tests.
+// The check is ON by default; pass it explicitly to be robust to the default flipping.
 const diag = (src: string) => {
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
@@ -45,10 +45,18 @@ test("a method touching a plain local (not a VAR_IN_OUT) does NOT warn", () => {
   expect(diag(src).filter((d) => d.code === "inout-own-access")).toEqual([])
 })
 
-test("OFF by default — it's per-project option-gated (pro2193 builds 0 of these), so no FP on a quiet project", () => {
+test("ON by default (CODESYS default; hardly any project disables it) — fires without opting in", () => {
   const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.filter((d) => d.code === "inout-own-access").length).toBe(1)
+})
+
+test("a project that disabled the warning can turn it off (lints.inoutOwnAccess=false)", () => {
+  const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: false } }) })
   expect(ds.filter((d) => d.code === "inout-own-access")).toEqual([])
 })

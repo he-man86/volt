@@ -31,13 +31,14 @@ test("a VAR_INPUT member is externally accessible — no FP", () => {
   expect(codes("inst.inp := 5;")).toEqual([])
 })
 
-test("a method accessing its OWN FB's VAR_IN_OUT is NOT the C0178 error; C0371 is opt-in (default off)", () => {
+test("a method accessing its OWN FB's VAR_IN_OUT is the C0371 warning, NOT the C0178 error", () => {
   const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  // Default config: no diagnostic — C0371 is opt-in (per-project option-gated), and this is not the C0178 error.
-  expect(computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })).toEqual([])
-  // With the opt-in lint on, it's the C0371 warning (not the C0178 error).
-  const on = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: true } }) })
-  expect(on.map((d) => ({ code: d.code, sev: d.severity }))).toEqual([{ code: "inout-own-access", sev: "warning" }])
+  // Default config: the C0371 warning (default on), never the C0178 error.
+  const def = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(def.map((d) => ({ code: d.code, sev: d.severity }))).toEqual([{ code: "inout-own-access", sev: "warning" }])
+  // A project that disabled the warning: no diagnostic at all (still never the C0178 error).
+  const off = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: false } }) })
+  expect(off).toEqual([])
 })

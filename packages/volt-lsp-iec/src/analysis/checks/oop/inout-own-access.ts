@@ -1,10 +1,11 @@
 /**
- * inout-own-access (D.2 · oop/) — C0371, an OPT-IN WARNING (`lints.inoutOwnAccess`, off by default). A
- * method/action/property accessor that touches its enclosing FB's VAR_IN_OUT parameter. CODESYS warns on
- * this — but ONLY when a per-project compiler option is set: lenze-mid emits 96 of these, pro2193 (same
- * CODESYS version, same access pattern) emits 0. That option is not in the materialized ST, so an always-on
- * check false-positives on an option-off project (175 FPs on pro2193). Hence opt-in; when enabled it matches
- * the compiler exactly (lenze-mid: byte-identical, 0 gaps).
+ * inout-own-access (D.2 · oop/) — C0371, a WARNING (`lints.inoutOwnAccess`, ON by default). A
+ * method/action/property accessor that touches its enclosing FB's VAR_IN_OUT parameter. CODESYS controls this
+ * with a per-project compiler-warning toggle that isn't in the materialized ST — but it's ENABLED by default
+ * and hardly any project disables it (lenze-mid: on, 96 warnings; pro2193 is the rare one that turned it off).
+ * So default ON to match the common case; a project that disabled the warning sets the lint false. When on it
+ * matches the compiler exactly — verified byte-identical against pro2193's own build with the warning enabled
+ * (0 gaps, property accessors included).
  *
  * NOT the FB's own main body (VAR_IN_OUT lives there — normal), and NOT external instance access (`inst.io`
  * from another POU — that's C0178 `inout-external-access`, an error). Only a member scope of the SAME FB.
@@ -19,7 +20,7 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (!ctx.config.lints.inoutOwnAccess) return // opt-in: per-project option-gated, invisible offline (see header + LintConfig)
+  if (!ctx.config.lints.inoutOwnAccess) return // default ON; off only for a project that disabled the CODESYS warning (see header + LintConfig)
   for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     const context = externalContext(scope, unit, body) // method/action/property-accessor scope; undefined = the FB's own body
     if (context === undefined) continue
