@@ -60,6 +60,15 @@ function isIdentChar(c: string): boolean {
 
 function memberCompletions(base: string, scope: Scope, project: Scope): CompletionItem[] {
   const sym = lookup(scope, base)?.symbol
+  // GVL-qualified `GvlName.field`: a GVL block has no child scope — its vars live flat on the project scope,
+  // tagged by the block's uri (incl. qualified_only vars, which REQUIRE this qualified form).
+  if (sym?.kind === "gvl_block") {
+    const items: CompletionItem[] = []
+    const seen = new Set<string>()
+    for (const list of project.symbols.values())
+      for (const m of list) if (m.kind === "gvl_var" && m.uri === sym.uri && addOnce(seen, m.name)) items.push(item(m))
+    return items
+  }
   let memberScope: Scope | undefined
   if (sym?.typeExpr !== undefined) memberScope = scopeOfType(resolveTypeExpr(sym.typeExpr, project))
   memberScope ??= findChildScope(project, base) // static: an enum/namespace/type/FB name
@@ -76,7 +85,7 @@ function memberCompletions(base: string, scope: Scope, project: Scope): Completi
 }
 
 function scopeOfType(t: Type): Scope | undefined {
-  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" ? t.scope : undefined
+  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 
 function scopeCompletions(scope: Scope, project: Scope): CompletionItem[] {

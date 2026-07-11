@@ -16,10 +16,10 @@ commit. `[x]` when landed.
   only feed the diagnostics skip-set, never `buildSymbolTable`; assist services don't even get `WorkspaceRefs`.
   Blind across nav/completion/hover/sig-help/semantic-tokens. Expose read-only device descriptors so refs
   resolve. Test: def/hover/completion on a device instance.
-- [ ] **Interface member scope** — `resolveTypeExpr(interface)` builds no scope → `drv.Move` completion/
+- [x] **Interface member scope** — `resolveTypeExpr(interface)` builds no scope → `drv.Move` completion/
   sig-help blind and hover *wrong* (shows builtin `MOVE`). Give interface types a member scope + add
   `interface` to `scopeOfType`. Test: completion/hover/sig-help on an interface-typed instance.
-- [ ] **GVL-qualified member completion** — `GvlName.field` blind (no child scope for the GVL block).
+- [x] **GVL-qualified member completion** — `GvlName.field` blind (no child scope for the GVL block).
 
 ## P2 — VG (graphical) parity (missing graphical-aware variants)
 

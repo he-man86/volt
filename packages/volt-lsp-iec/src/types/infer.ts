@@ -201,7 +201,7 @@ function calleeInfo(
 
 /** The member scope of a scoped type (enum/struct/FB), or undefined. */
 function scopeOf(t: Type): Scope | undefined {
-  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" ? t.scope : undefined
+  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 
 /** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. */
