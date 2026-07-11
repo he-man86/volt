@@ -216,6 +216,10 @@ export interface Messages {
   constantNoInitialValue(name: string): string
   /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). PROVISIONAL. */
   noInitForExternal(name: string): string
+  /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). PROVISIONAL. */
+  externalNoGlobal(name: string): string
+  /** A `VAR_EXTERNAL` whose type differs from the matching `VAR_GLOBAL` (C0236). PROVISIONAL. */
+  externalTypeMismatch(name: string): string
   /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). PROVISIONAL. */
   deprecatedFunctionBlock(): string
   /** A direct-address (`AT %…`) binding in a PERSISTENT var list (C0215). PROVISIONAL. */
@@ -450,6 +454,9 @@ export function messagesFor(vendor: Vendor): Messages {
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
+    // PROVISIONAL (no live recording; zero corpus surface — VAR_EXTERNAL is legacy/unused in the corpus).
+    externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL '${name}'`,
+    externalTypeMismatch: (name) => `Wrong type definition for VAR_EXTERNAL ${name}`,
     deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
     persistentDirectAddress: () => `Direct address declaration is not possible in persistent list`,
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,

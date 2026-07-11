@@ -697,7 +697,7 @@
     "expect": [
       "Either all or none formal parameter have to be denoted in function call"
     ],
-    "note": "NOT a simple mix rule: CODESYS accepts mixed positional + named INPUT args (21 corpus FPs, e.g. `svc.registerString(posA, refInput := ADR(x), posC, posD)`). The actual C0042 trigger is order/version-specific and not decidable from a flat 'has both forms' test. Deferred.",
+    "note": "Mixed named+positional call args. FP-prone: corpus scout found 21 genuine mixed-input calls in pro2193 (e.g. Set(In:=val, <positional>), registerString(<pos>, refInput:=val, <pos>, <pos>)) — a BUILDING project, so CODESYS evidently accepts the mix (or the objects are excluded-from-build). Always-on would mass-FP. Deferred pending live confirmation of the real rule.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -3448,21 +3448,27 @@
     "category": "VAR_EXTERNAL type mismatch",
     "cause": "A variable's type in a VAR_EXTERNAL declaration doesn't match its type in the corresponding VAR_GLOBAL declaration.",
     "message": "Wrong type definition for VAR_EXTERNAL <variable name>",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : STRING;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : BOOL;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Wrong type definition for VAR_EXTERNAL ig"
+      "Wrong type definition for VAR_EXTERNAL g_i"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "external-global",
+    "ourCode": "external-type-mismatch",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "VAR_EXTERNAL type differs from the matching project VAR_GLOBAL. Conservative: project globals only (library types flatten unreliably); rendered-type-spelling compare. Zero corpus surface. Wording PROVISIONAL.",
+    "reproFiles": [
+      {
+        "uri": "GVL.gvl",
+        "source": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR"
+      }
+    ]
   },
   {
     "code": "C0237",
@@ -3471,21 +3477,21 @@
     "category": "missing global definition",
     "cause": "A VAR_EXTERNAL declares a variable that has no matching VAR_GLOBAL declaration anywhere in the project.",
     "message": "No global definition found for VAR_EXTERNAL '<variable name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    i : INT;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "No global definition found for VAR_EXTERNAL 'i'"
+      "No global definition found for VAR_EXTERNAL 'g_i'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "external-global",
+    "ourCode": "external-no-global",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "VAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "VAR_EXTERNAL with no matching VAR_GLOBAL anywhere (project or library). Zero corpus surface (VAR_EXTERNAL is legacy/unused). Wording PROVISIONAL."
   },
   {
     "code": "C0238",

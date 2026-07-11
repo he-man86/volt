@@ -47,6 +47,7 @@ import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
 import { checkConstantContext } from "./checks/declarations/const-context.js"
 import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
 import { checkExternalInitializer } from "./checks/declarations/external-initializer.js"
+import { checkExternalGlobal } from "./checks/declarations/external-global.js"
 import { checkInputDefault } from "./checks/declarations/input-default.js"
 import { checkDeprecatedKeyword } from "./checks/declarations/deprecated-keyword.js"
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
@@ -132,6 +133,7 @@ const CHECKS: readonly Check[] = [
   checkConstantContext,
   checkConstantInitializer,
   checkExternalInitializer,
+  checkExternalGlobal,
   checkInputDefault,
   checkDeprecatedKeyword,
   checkBitUsage,
