@@ -31,7 +31,7 @@
     "message": "'<operator 1>' or '<operator 2>' expected instead of '<tag>'",
     "repro": "PROGRAM P\nVAR x:INT;\nEND_VAR\nx := foo(1;\nEND_PROGRAM",
     "expect": [
-      "expected ')' closing call arguments, got ';'"
+      "')' expected instead of ';'"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -120,23 +120,17 @@
     "message": "'<operator>' expected instead of '<token>'",
     "repro": "PROGRAM PLC_PRG\nVAR bTest:BOOL; x:INT;\nEND_VAR\nIF bTest\n x := 9;\nEND_IF\nEND_PROGRAM",
     "expect": [
-      "expected THEN in IF, got identifier 'x'"
+      "'THEN' expected instead of 'x'"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
     "ourCode": "syntax-error",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "'THEN' expected instead of 'x'"
-    ],
-    "twincatActual": [
-      "'THEN' expected instead of 'x'"
-    ]
+    "fix": null
   },
   {
     "code": "C0007",
@@ -170,7 +164,7 @@
     "message": "Unexpected end-of-file found: '<operator>', '<operator>', or '<operator>' expected",
     "repro": "PROGRAM P\nVAR b:BOOL;x:INT;\nEND_VAR\nIF b THEN\n x:=1;\nEND_PROGRAM",
     "expect": [
-      "expected END_IF closing IF, got end of input"
+      "'END_IF' expected instead of end of POU"
     ],
     "fix": null,
     "status": "implemented",
@@ -216,7 +210,7 @@
     "message": "Unexpected end-of-file found: '<token>' expected",
     "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nFOR i:=0 TO 10 DO\n i:=i;\nEND_PROGRAM",
     "expect": [
-      "expected END_FOR closing FOR, got end of input"
+      "'END_FOR' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -239,7 +233,8 @@
     "message": "No 'CASE' label found",
     "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nCASE i OF\n i := 9;\nEND_CASE\nEND_PROGRAM",
     "expect": [
-      "expected END_CASE closing CASE, got identifier 'i'"
+      "'END_CASE' expected instead of 'i'",
+      "';' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -285,7 +280,8 @@
     "message": "Counter initialization expected",
     "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\nFOR i TO 10 DO\n i:=i;\nEND_FOR\nEND_PROGRAM",
     "expect": [
-      "expected ':=' in FOR, got keyword 'TO'"
+      "':=' expected instead of 'TO'",
+      "';' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -2665,7 +2661,7 @@
     "message": "';' expected instead of '<token>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n INT\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "expected ':' after var name(s), got keyword 'END_VAR'"
+      "':' expected instead of 'END_VAR'"
     ],
     "status": "implemented",
     "ourCheck": "syntax/var-section",
@@ -2694,23 +2690,17 @@
     "message": "';' expected instead of end of POU",
     "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\ni := 5\nEND_PROGRAM",
     "expect": [
-      "expected ';' after assignment, got end of input"
+      "';' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
     "ourCode": "syntax-error",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "';' expected instead of end of POU"
-    ],
-    "twincatActual": [
-      "';' expected instead of end of POU"
-    ]
+    "fix": null
   },
   {
     "code": "C0191",
@@ -3022,7 +3012,8 @@
     "message": "Variable declaration expected instead of <expression>",
     "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n   END_VAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "unterminated VAR section: expected END_VAR"
+      "unterminated VAR section: expected END_VAR",
+      "';' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/var-section",

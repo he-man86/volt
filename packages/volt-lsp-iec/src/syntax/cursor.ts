@@ -108,29 +108,31 @@ export class Cursor {
 
   // ─── Expect variants — record an error if mismatched, don't consume ──
 
-  expectKeyword(kw: Keyword, context: string): Token | undefined {
+  // Wording mirrors CODESYS/TwinCAT: `'<expected>' expected instead of <found>` (the `context` arg — which
+  // construct we were in — is retained for call-site readability but omitted from the message, as the IDEs do).
+  expectKeyword(kw: Keyword, _context: string): Token | undefined {
     const t = this.eatKeyword(kw)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`expected ${kw} ${context}, got ${describeToken(next)}`, next.span)
+      this.pushError(`'${kw}' expected instead of ${describeToken(next)}`, next.span)
     }
     return t
   }
 
-  expectPunct(text: string, context: string): Token | undefined {
+  expectPunct(text: string, _context: string): Token | undefined {
     const t = this.eatPunct(text)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`expected '${text}' ${context}, got ${describeToken(next)}`, next.span)
+      this.pushError(`'${text}' expected instead of ${describeToken(next)}`, next.span)
     }
     return t
   }
 
-  expectIdent(context: string): Token | undefined {
+  expectIdent(_context: string): Token | undefined {
     const t = this.eatIdent()
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`expected identifier ${context}, got ${describeToken(next)}`, next.span)
+      this.pushError(`identifier expected instead of ${describeToken(next)}`, next.span)
     }
     return t
   }
@@ -141,12 +143,12 @@ export class Cursor {
    * `FINAL`/`ABSTRACT`/`OVERRIDE`) are all legal identifiers elsewhere — real code has methods named
    * `Set`, `Override`, etc. The token's `.text` keeps its source casing, so it reads as the name.
    */
-  expectName(context: string): Token | undefined {
+  expectName(_context: string): Token | undefined {
     const t = this.peek()
     if (t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
       return this.consume()
     }
-    this.pushError(`expected identifier ${context}, got ${describeToken(t)}`, t.span)
+    this.pushError(`identifier expected instead of ${describeToken(t)}`, t.span)
     return undefined
   }
 
@@ -233,10 +235,11 @@ export class Cursor {
   }
 }
 
+// CODESYS/TwinCAT render the offending token bare-quoted (`'x'`, `';'`, `'TO'`) and EOF as "end of POU".
 function describeToken(t: Token): string {
-  if (t.kind === "eof") return "end of input"
-  if (t.kind === "keyword") return `keyword '${t.keyword ?? t.text}'`
-  if (t.kind === "identifier") return `identifier '${t.text}'`
+  if (t.kind === "eof") return "end of POU"
+  if (t.kind === "keyword") return `'${t.keyword ?? t.text}'`
+  if (t.kind === "identifier") return `'${t.text}'`
   if (t.kind === "punct") return `'${t.text}'`
-  return `${t.kind} '${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`
+  return `'${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`
 }

@@ -20,7 +20,7 @@ const syntaxErrors = (src: string): string[] => {
 
 test("a missing THEN is surfaced precisely (not swallowed, not a cascade)", () => {
   expect(syntaxErrors(`PROGRAM P\nVAR bTest : BOOL; x : INT;\nEND_VAR\nIF bTest\n  x := 9;\nEND_IF\nEND_PROGRAM`)).toEqual([
-    "expected THEN in IF, got identifier 'x'",
+    "'THEN' expected instead of 'x'",
   ])
 })
 
@@ -39,7 +39,7 @@ test("declaration-structure errors surface precisely (the parser's decl stream, 
     "'VAR_INPUT' not allowed in this place",
   ])
   // A var name with no ':' type — a declaration-structure error surfaced from the decl stream (C0189).
-  expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("expected ':' after var name(s), got keyword 'END_VAR'")
+  expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("':' expected instead of 'END_VAR'")
 })
 
 test("valid declarations produce NO syntax-error diagnostics (decl zero-FP contract)", () => {

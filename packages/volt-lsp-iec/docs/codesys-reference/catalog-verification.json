@@ -1,32 +1,26 @@
 {
-  "at": "2026-07-11T09:38:40.865Z",
+  "at": "2026-07-11T09:50:25.212Z",
   "base": "http://127.0.0.1:8555",
   "results": [
     {
-      "code": "C0126",
+      "code": "C0006",
       "outcome": "verified",
       "lsp": [
-        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
+        "'THEN' expected instead of 'x'"
       ],
       "actual": [
-        "Variable of type '1' requires exactly 1 Index"
+        "'THEN' expected instead of 'x'"
       ]
     },
     {
-      "code": "C0139",
+      "code": "C0190",
       "outcome": "verified",
       "lsp": [
-        "The code 'i;' has no effect. Is this the intent?"
+        "';' expected instead of end of POU"
       ],
       "actual": [
-        "The code 'i;"
+        "';' expected instead of end of POU"
       ]
-    },
-    {
-      "code": "C0509",
-      "outcome": "silent",
-      "lsp": [],
-      "actual": []
     }
   ]
 }
