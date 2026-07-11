@@ -242,6 +242,8 @@ export interface Messages {
   jumpLabelUnreferenced(name: string): string
   /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). PROVISIONAL. */
   inoutNoExternalAccess(param: string, fb: string): string
+  /** Calling something that isn't callable — a GVL or a plain typed variable (C0036). PROVISIONAL. */
+  cannotCallType(type: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -265,6 +267,7 @@ export function messagesFor(vendor: Vendor): Messages {
     jumpLabelUnreferenced: (name) => `The label '${name.toUpperCase()}' has not been referenced`,
     // PROVISIONAL (no live recording yet). Object name is the FB TYPE name, matching the doc example.
     inoutNoExternalAccess: (param, fb) => `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'`,
+    cannotCallType: (type) => `Cannot call object of type '${type}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc

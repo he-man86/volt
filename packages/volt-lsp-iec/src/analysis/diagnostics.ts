@@ -59,6 +59,7 @@ import { checkIntrinsicOperands } from "./checks/calls/intrinsic-operands.js"
 import { checkCallArguments } from "./checks/calls/call-arguments.js"
 import { checkCallResultAccess } from "./checks/calls/call-result-access.js"
 import { checkRecursiveCall } from "./checks/calls/recursive-call.js"
+import { checkNonCallableCall } from "./checks/calls/non-callable-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
@@ -142,6 +143,7 @@ const CHECKS: readonly Check[] = [
   checkCallArguments,
   checkCallResultAccess,
   checkRecursiveCall,
+  checkNonCallableCall,
   checkIntrinsicOperands,
   checkFbInstantiation,
   // names/

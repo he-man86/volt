@@ -565,21 +565,21 @@
     "category": "non-callable object call",
     "cause": "Call syntax '()' is applied to an object (e.g. a global variable list) that is not a function/FB/program and thus cannot be invoked.",
     "message": "Cannot call object of type <type>",
-    "repro": "VAR_GLOBAL GVL\n    value : INT;\nEND_VAR\nPROGRAM PLC_PRG\nGVL();",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni();\nEND_PROGRAM",
     "expect": [
-      "Cannot call object of type 'VAR_GLOBAL'"
+      "Cannot call object of type 'INT'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "non-callable-call",
+    "ourCode": "non-callable-call",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "note": "Check written (a call whose bare-name callee resolves to a gvl_block â†’ 'Cannot call object of type VAR_GLOBAL') and correct for real multi-file use + live, but the offline BURN-IN can't represent it: a GVL is nameless in source, so a single-file repro names it after the URI, and `GVL()` never resolves. Deferred until the burn-in materializes units as separate files (or a GVL code is prioritized for live-only).",
+    "note": "Conservative callable detection: fires on a GVL or a KNOWN non-callable type; an unknown/library-FB-typed var is skipped (18 corpus FPs avoided, scouted). Repro uses the scalar case (burn-in is single-source, can't name a GVL); the doc's GVL variant yields 'VAR_GLOBAL' in multi-file (colocated test). Wording PROVISIONAL.",
     "fix": null,
-    "triage": "resolution"
+    "triage": null
   },
   {
     "code": "C0037",
