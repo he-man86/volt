@@ -242,6 +242,8 @@ export interface Messages {
   jumpLabelUnreferenced(name: string): string
   /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). PROVISIONAL. */
   inoutNoExternalAccess(param: string, fb: string): string
+  /** Inline FB-init field targets a VAR_IN_OUT (only inputs are assignable at declaration) (C0179). PROVISIONAL. */
+  fbInitNoOutput(id: string, fb: string): string
   /** Calling a GVL block — not callable (C0036). Verified live: the GVL case renders the type as 'VAR_GLOBAL'. */
   cannotCallType(type: string): string
   /** Calling a plain value (a scalar/struct var) — CODESYS asks for a program/function/FB instead (C0035). */
@@ -273,6 +275,8 @@ export function messagesFor(vendor: Vendor): Messages {
     // 'VAR_IN_OUT', CS does not — a genuine per-vendor divergence like the double-space in unknownAttribute.
     inoutNoExternalAccess: (param, fb) =>
       tc ? `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'."` : `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
+    // PROVISIONAL (no live recording yet) — modeled on the noInput sibling; live-verify the exact wording/casing.
+    fbInitNoOutput: (id, fb) => `'${id}' is no output of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     lifecycle: (method) => {

@@ -2483,21 +2483,21 @@
     "category": "invalid FB-instance initializer target",
     "cause": "A function block instance's inline initializer assigns a value to a VAR_IN_OUT parameter, but instance initialization may only assign inputs, not VAR_IN_OUT or output parameters.",
     "message": "'<identifier>' is no output of 'Function block'",
-    "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR",
+    "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR\nEND_PROGRAM",
     "expect": [
       "'inOut' is no output of 'MyFB'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "fb-init-inout",
+    "ourCode": "fb-init-inout",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB;\nEND_VAR\nEND_PROGRAM",
+    "triage": null,
+    "note": "Inline FB-instance initializer assigns a VAR_IN_OUT field (only inputs are assignable at declaration). Conservative: fires only for a project FB whose member resolves VAR_IN_OUT. Wording PROVISIONAL (modeled on noInput sibling) until a live recording."
   },
   {
     "code": "C0180",
