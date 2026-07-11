@@ -13,6 +13,7 @@ import {
   isGraphicalBody,
 } from "../../syntax/index.js"
 import { isTrivia } from "../../syntax/index.js"
+import { parseVgBody } from "../../graphical/text/parser.js"
 import type { Document } from "../shared/index.js"
 
 export function foldingRanges(doc: Document): FoldingRange[] {
@@ -24,7 +25,10 @@ export function foldingRanges(doc: Document): FoldingRange[] {
     add(unit.span)
     if ("varSections" in unit) for (const s of unit.varSections) add(s.span)
     for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) continue
+      if (isGraphicalBody(body)) {
+        for (const n of parseVgBody(body).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
+        continue
+      }
       const parsed = parseStatements(body)
       if (!parsed.ok) continue
       walkStatements(parsed.statements, (s) => {
