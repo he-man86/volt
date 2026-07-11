@@ -51,3 +51,29 @@ test("no signals → undefined (caller picks its own default)", async () => {
 test("a nonexistent workspace → undefined, never throws", async () => {
   expect(await detectVendor(join(base, "does-not-exist"))).toBeUndefined()
 })
+
+// ── the CONTROLLER `.device` target's Vendor field is the authoritative dialect signal ──
+
+const CTRL = (vendor: string) => `Name:         Controller X\nVendor:       ${vendor}\nType:         4096\n`
+
+test("a Beckhoff controller `.device` → twincat", async () => {
+  const d = dir("beckhoff-target", {})
+  mkdirSync(join(d, "Device"), { recursive: true })
+  writeFileSync(join(d, "Device", "Device.device"), CTRL("Beckhoff Automation"))
+  expect(await detectVendor(d)).toBe("twincat")
+})
+
+test("a Lenze (CODESYS-OEM) controller `.device` → codesys", async () => {
+  const d = dir("lenze-target", {})
+  mkdirSync(join(d, "Device"), { recursive: true })
+  writeFileSync(join(d, "Device", "Device.device"), CTRL("Lenze"))
+  expect(await detectVendor(d)).toBe("codesys")
+})
+
+test("a Beckhoff EtherCAT SLAVE nested under a Lenze controller stays codesys (only the controller counts)", async () => {
+  const d = dir("lenze-with-beckhoff-slave", {})
+  mkdirSync(join(d, "Device", "EtherCAT_Master", "EL1008"), { recursive: true })
+  writeFileSync(join(d, "Device", "Device.device"), CTRL("Lenze")) // the controller (shallowest / Device.device)
+  writeFileSync(join(d, "Device", "EtherCAT_Master", "EL1008", "EL1008.device"), CTRL("Beckhoff Automation")) // a slave, deeper
+  expect(await detectVendor(d)).toBe("codesys")
+})
