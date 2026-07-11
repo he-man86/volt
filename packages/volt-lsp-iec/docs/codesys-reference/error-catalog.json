@@ -4888,7 +4888,8 @@
     },
     "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   },
   {
     "code": "C0586",
@@ -4911,7 +4912,8 @@
     },
     "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   },
   {
     "code": "C0587",
@@ -4934,6 +4936,7 @@
     },
     "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "PARKED — generic FBs (VAR_GENERIC + <...> instantiation) are a CODESYS-only feature; TwinCAT's compiler rejects the syntax entirely (live 2026-07-11: 'VAR_GENERIC ... expected instead', '<' unexpected). Rare/advanced (corpus has 0). Would need a parser extension for the <...> generic-argument syntax before the 3 name-checks; low value/effort — revisit only if a CODESYS target project uses generics.",
+    "codesysOnly": true
   }
 ]
