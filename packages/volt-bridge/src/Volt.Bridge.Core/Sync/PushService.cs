@@ -243,6 +243,22 @@ public static class PushService
     private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
     {
         var split = StSplitter.SplitSt(src);
+
+        // Children (method/action/property) are keyed by name, so two children sharing a name would silently
+        // collapse: the second's CreateChild finds the first and WriteText overwrites it, losing a source item
+        // while the push still reports accepted. The IDE itself can't hold two same-name children (an unmarked
+        // overload). Reject the push with a clear reason instead of dropping code. This is NOT the top-level
+        // opaque-item name invariant (which forbids a throwing dup guard because real projects repeat opaque
+        // names) — it is duplicate children WITHIN one pushed source, which is unambiguously invalid.
+        var dupChild = split.Children
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (dupChild != null)
+            throw new BridgeException(400, "DUPLICATE_CHILD",
+                $"'{name}' declares more than one child named '{dupChild.Key}' — a duplicate method/action/property " +
+                "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
+                "Rename or remove the duplicate.");
+
         var decl = split.PouDeclaration ?? "";
         var impl = split.PouImplementation ?? "";
         var itemType = PouKindToCode(split.PouKind);
