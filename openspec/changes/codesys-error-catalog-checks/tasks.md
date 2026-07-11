@@ -5,7 +5,10 @@ _Authoritative data lives in `docs/codesys-reference/error-catalog.json` (per-co
 
 ## Where we are (2026-07-11)
 
-**137 / 220 documented codes implemented · 112 CS-verified · 112 TC-verified · CS/TC reconciled.**
+**136 / 220 documented codes implemented · 117 CS-verified · 112 TC-verified.**
+(This session's 6 new codes: 5 live-verified on CODESYS `:8556`, 1 — C0236 — demoted as an IDE-confirmed
+false positive. TwinCAT verification of the 5 pending — the TC bridge attaches to the live IDE, so a destructive
+verify needs a fixture project confirmed first.)
 Every implemented code is a registered check in `src/analysis/checks/**` (or a parser-surfaced syntax error),
 emitting through `computeSemanticDiagnostics` with per-vendor wording (`messages.ts`), held to the corpus zero-FP
 gate. Verified = the message is byte-identical to what the live IDE build emits (recorded 2026-07-11 from CODESYS
@@ -13,10 +16,11 @@ gate. Verified = the message is byte-identical to what the live IDE build emits 
 
 | Bucket | Count | Meaning |
 |---|---:|---|
-| **implemented** | 137 | a check emits it, burn-in green |
+| **implemented** | 136 | a check emits it, burn-in green |
 | ├ both-vendor verified | 112 | byte-identical to both live builds |
-| └ implemented, not both-verified | 25 | 19 structural-ceiling + 6 new this session, pending a live recording |
-| **checkable** (offline, not yet built) | 48 | the open backlog — see below |
+| ├ CODESYS-verified only | 5 | this session's new codes (C0136/C0179/C0237/C0266/C0511) — TC pending |
+| └ implemented, not both-verified | 19 | structural-ceiling residuals |
+| **checkable** (offline, not yet built) | 49 | the open backlog — see below |
 | **ide-only** | 35 | impossible offline (live build / library / memory / codegen) — out of scope by design |
 
 The 220 total is **not** the target — 35 are ide-only and ~24 more are deferred-with-reason (below). See

@@ -697,7 +697,7 @@
     "expect": [
       "Either all or none formal parameter have to be denoted in function call"
     ],
-    "note": "Mixed named+positional call args. FP-prone: corpus scout found 21 genuine mixed-input calls in pro2193 (e.g. Set(In:=val, <positional>), registerString(<pos>, refInput:=val, <pos>, <pos>)) — a BUILDING project, so CODESYS evidently accepts the mix (or the objects are excluded-from-build). Always-on would mass-FP. Deferred pending live confirmation of the real rule.",
+    "note": "Live IDE (2026-07-11 :8556) does NOT emit the documented 'all-or-none' message on mixed named+positional args — it emits C0044 'Assignment to input missing for parameter <n>' (which IS implemented). The C0042 wording isn't reproducible; the case is already covered. Won't-fix as C0042.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -707,7 +707,7 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "resolution"
+    "triage": "skip"
   },
   {
     "code": "C0043",
@@ -3704,8 +3704,8 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "resolution",
-    "note": "Explicit SUPER^.FB_Init/FB_Exit/FB_ReInit call the runtime already invokes. DEFERRED pending live clarification: SUPER^.FB_Init() base-chaining is a common legitimate OOP pattern, so an always-on check risks FP on real overrides. Zero corpus surface (0 explicit lifecycle calls). Needs the bridge to confirm the exact rule before shipping."
+    "triage": "skip",
+    "note": "Live IDE (2026-07-11 :8556) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
   },
   {
     "code": "C0319",
