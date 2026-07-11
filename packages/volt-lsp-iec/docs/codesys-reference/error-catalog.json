@@ -551,7 +551,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PLC_PRG.METH();",
     "triage": null,
@@ -1686,7 +1686,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": null,
@@ -1732,7 +1732,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": null,
@@ -1755,7 +1755,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": null,
@@ -1778,7 +1778,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": null,
@@ -2470,7 +2470,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": null,
@@ -3053,13 +3053,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
-    "twincatActual": [
-      "The label 'I' has not been referenced",
-      "Unexpected Token 'INT' found"
-    ],
     "note": "`i : INT;` (no VAR block) parses `i:` as a jump label — matching CODESYS, whose first diagnostic is also 'label not referenced'. The secondary 'Unexpected token INT' is not reproduced. Wording PROVISIONAL."
   },
   {

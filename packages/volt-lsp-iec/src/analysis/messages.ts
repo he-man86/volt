@@ -263,13 +263,16 @@ export function messagesFor(vendor: Vendor): Messages {
     noInput: (member, fb) => `'${member}' is no input of '${fb}'`,
     // JMP/label wording is PROVISIONAL (no live-bridge recording yet). CODESYS renders labels uppercased in
     // these messages (observed: source `i` → 'I'), matching IEC case-insensitivity; both vendors support JMP.
-    jumpInvalidDestination: (dest) => `Invalid destination ${dest} for JMP`,
+    // Live-verified both vendors (2026-07-11): TC renders the keyword as JUMP + trailing periods; CS uses JMP, no period.
+    jumpInvalidDestination: (dest) => `Invalid destination ${dest} for ${tc ? "JUMP" : "JMP"}`,
     jumpLabelDuplicate: (name) => `The label '${name.toUpperCase()}' is a duplicate`,
-    jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the JMP statement`,
+    jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the JMP statement${tc ? "." : ""}`,
     jumpLabelUnreferenced: (name) => `The label '${name.toUpperCase()}' has not been referenced`,
     // PROVISIONAL (no live recording yet). Object name is the FB TYPE name, matching the doc example.
-    // CODESYS byte-identical incl. its trailing stray quote (`…of 'FB'."`), like the double-space in unknownAttribute.
-    inoutNoExternalAccess: (param, fb) => `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
+    // Byte-identical both vendors (2026-07-11), incl. the trailing stray quote (`…of 'FB'."`). TC quotes
+    // 'VAR_IN_OUT', CS does not — a genuine per-vendor divergence like the double-space in unknownAttribute.
+    inoutNoExternalAccess: (param, fb) =>
+      tc ? `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'."` : `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     lifecycle: (method) => {
