@@ -1,17 +1,824 @@
 {
-  "at": "2026-07-11T11:42:31.990Z",
-  "base": "http://127.0.0.1:8555",
+  "at": "2026-07-11T11:45:26.352Z",
+  "base": "http://127.0.0.1:8556",
   "results": [
+    {
+      "code": "C0001",
+      "outcome": "verified",
+      "lsp": [
+        "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
+        "Constant 'INT#123456' too large for type 'INT'",
+        "Constant '10E500' too large for type 'ANY_REAL'"
+      ],
+      "actual": [
+        "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
+        "Constant 'INT#123456' too large for type 'INT'",
+        "Constant '10E500' too large for type 'ANY_REAL'"
+      ]
+    },
+    {
+      "code": "C0002",
+      "outcome": "mismatch",
+      "lsp": [
+        "')' expected instead of ';'"
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0003",
+      "outcome": "verified",
+      "lsp": [
+        "'17' is no valid bit number for 'w'"
+      ],
+      "actual": [
+        "'17' is no valid bit number for 'w'"
+      ]
+    },
+    {
+      "code": "C0004",
+      "outcome": "verified",
+      "lsp": [
+        "'z' is no component of 'DUT'"
+      ],
+      "actual": [
+        "Cannot convert type 'Unknown type: 'test1.z'' to type 'INT'",
+        "'z' is no component of 'DUT'"
+      ]
+    },
+    {
+      "code": "C0006",
+      "outcome": "verified",
+      "lsp": [
+        "'THEN' expected instead of 'x'"
+      ],
+      "actual": [
+        "'THEN' expected instead of 'x'"
+      ]
+    },
+    {
+      "code": "C0008",
+      "outcome": "mismatch",
+      "lsp": [
+        "'END_IF' expected instead of end of POU"
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0010",
+      "outcome": "mismatch",
+      "lsp": [
+        "'END_FOR' expected instead of end of POU"
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0011",
+      "outcome": "mismatch",
+      "lsp": [
+        "'END_CASE' expected instead of 'i'",
+        "';' expected instead of end of POU"
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0015",
+      "outcome": "mismatch",
+      "lsp": [
+        "':=' expected instead of 'TO'",
+        "';' expected instead of end of POU"
+      ],
+      "actual": [
+        "Counter initialisation expected"
+      ]
+    },
+    {
+      "code": "C0018",
+      "outcome": "verified",
+      "lsp": [
+        "'j' is no valid assignment target"
+      ],
+      "actual": [
+        "'j' is no valid assignment target"
+      ]
+    },
+    {
+      "code": "C0022",
+      "outcome": "verified",
+      "lsp": [
+        "'ADR' needs exactly '1' operands"
+      ],
+      "actual": [
+        "'ADR' needs exactly '1' operands"
+      ]
+    },
+    {
+      "code": "C0023",
+      "outcome": "verified",
+      "lsp": [
+        "'MUX' needs at least '3' operands"
+      ],
+      "actual": [
+        "'MUX' needs at least '3' operands"
+      ]
+    },
+    {
+      "code": "C0027",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": []
+    },
+    {
+      "code": "C0031",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": [
+        "Type definition expected instead of ';'",
+        "':= or ;' expected instead of ''",
+        "'END_TYPE' expected instead of ''"
+      ]
+    },
+    {
+      "code": "C0032",
+      "outcome": "verified",
+      "lsp": [
+        "Cannot convert type 'BOOL' to type 'INT'"
+      ],
+      "actual": [
+        "Cannot convert type 'BOOL' to type 'INT'"
+      ]
+    },
+    {
+      "code": "C0033",
+      "outcome": "verified",
+      "lsp": [
+        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+      ],
+      "actual": [
+        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+      ]
+    },
+    {
+      "code": "C0035",
+      "outcome": "verified",
+      "lsp": [
+        "Program name, function or function block instance expected instead of 'i'"
+      ],
+      "actual": [
+        "Program name, function or function block instance expected instead of 'i'"
+      ]
+    },
+    {
+      "code": "C0037",
+      "outcome": "verified",
+      "lsp": [
+        "'iVar' is no input of 'TEST'"
+      ],
+      "actual": [
+        "'iVar' is no input of 'TEST'",
+        "Identifier 'iVar' not defined"
+      ]
+    },
+    {
+      "code": "C0038",
+      "outcome": "verified",
+      "lsp": [
+        "'iVar' is no output of 'TEST'"
+      ],
+      "actual": [
+        "'iVar' is no output of 'TEST'",
+        "Identifier 'iVar' not defined"
+      ]
+    },
+    {
+      "code": "C0039",
+      "outcome": "verified",
+      "lsp": [
+        "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
+      ],
+      "actual": [
+        "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
+      ]
+    },
+    {
+      "code": "C0040",
+      "outcome": "verified",
+      "lsp": [
+        "Function 'TEST' requires exactly '1' inputs"
+      ],
+      "actual": [
+        "Function 'TEST' requires exactly '1' inputs"
+      ]
+    },
+    {
+      "code": "C0041",
+      "outcome": "verified",
+      "lsp": [
+        "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
+      ],
+      "actual": [
+        "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
+      ]
+    },
+    {
+      "code": "C0044",
+      "outcome": "verified",
+      "lsp": [
+        "Assignment to input missing for parameter '1' in call of 'FB'"
+      ],
+      "actual": [
+        "Assignment to input missing for parameter '1' in call of 'FB'"
+      ]
+    },
+    {
+      "code": "C0045",
+      "outcome": "verified",
+      "lsp": [
+        "Expression THIS is not allowed in this context"
+      ],
+      "actual": [
+        "'THIS^.test1' is no valid assignment target",
+        "'THIS^' is no structured variable",
+        "Expression THIS is not allowed in this context"
+      ]
+    },
+    {
+      "code": "C0046",
+      "outcome": "verified",
+      "lsp": [
+        "Identifier 'i' not defined"
+      ],
+      "actual": [
+        "Identifier 'i' not defined",
+        "'i' is no valid assignment target"
+      ]
+    },
+    {
+      "code": "C0047",
+      "outcome": "verified",
+      "lsp": [
+        "Cannot apply indexing with [] to an expression of type 'INT'"
+      ],
+      "actual": [
+        "The code 'i[1];\r\n' has no effect. Is this the intent?",
+        "Cannot apply indexing with [] to an expression of type 'INT'"
+      ]
+    },
+    {
+      "code": "C0048",
+      "outcome": "verified",
+      "lsp": [
+        "Array requires exactly 2 indexes"
+      ],
+      "actual": [
+        "Array requires exactly 2 indexes"
+      ]
+    },
+    {
+      "code": "C0049",
+      "outcome": "verified",
+      "lsp": [
+        "The constant index '3' is not within the range from '1' to '2'"
+      ],
+      "actual": [
+        "The constant index '3' is not within the range from '1' to '2'"
+      ]
+    },
+    {
+      "code": "C0061",
+      "outcome": "verified",
+      "lsp": [
+        "Bit access on function call is not allowed"
+      ],
+      "actual": [
+        "Cannot convert type 'BIT' to type 'INT'",
+        "Bit access on function call is not allowed"
+      ]
+    },
+    {
+      "code": "C0064",
+      "outcome": "verified",
+      "lsp": [
+        "Dereference requires a pointer"
+      ],
+      "actual": [
+        "Cannot convert type 'Unknown type: 'i^'' to type 'INT'",
+        "Dereference requires a pointer"
+      ]
+    },
+    {
+      "code": "C0066",
+      "outcome": "verified",
+      "lsp": [
+        "Cannot compare type 'INT' with type 'STRING'"
+      ],
+      "actual": [
+        "Cannot compare type 'INT' with type 'STRING'"
+      ]
+    },
+    {
+      "code": "C0068",
+      "outcome": "verified",
+      "lsp": [
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
+      ],
+      "actual": [
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
+      ]
+    },
+    {
+      "code": "C0069",
+      "outcome": "verified",
+      "lsp": [
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
+      ],
+      "actual": [
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
+      ]
+    },
+    {
+      "code": "C0070",
+      "outcome": "verified",
+      "lsp": [
+        "INI operator needs function block instance or data unit type instance"
+      ],
+      "actual": [
+        "INI operator needs function block instance or data unit type instance"
+      ]
+    },
+    {
+      "code": "C0072",
+      "outcome": "verified",
+      "lsp": [
+        "Operation 'Abs' is not possible on type 'STRING'"
+      ],
+      "actual": [
+        "Operation 'Abs' is not possible on type 'STRING'"
+      ]
+    },
+    {
+      "code": "C0074",
+      "outcome": "verified",
+      "lsp": [
+        "Unexpected array initialisation"
+      ],
+      "actual": [
+        "Unexpected array initialisation",
+        "Cannot convert type 'Unknown type: '[1, 2, 3, 4, 5, 6]'' to type 'INT'"
+      ]
+    },
+    {
+      "code": "C0075",
+      "outcome": "verified",
+      "lsp": [
+        "Too many initializers for array"
+      ],
+      "actual": [
+        "Too many initializers for array"
+      ]
+    },
+    {
+      "code": "C0076",
+      "outcome": "verified",
+      "lsp": [
+        "Unexpected structure initialisation"
+      ],
+      "actual": [
+        "Unexpected structure initialisation",
+        "Cannot convert type 'Unknown type: 'STRUCT(p1 := 1)'' to type 'INT'",
+        "Identifier 'p1' not defined",
+        "'p1' is no valid assignment target"
+      ]
+    },
+    {
+      "code": "C0077",
+      "outcome": "verified",
+      "lsp": [
+        "Unknown type: 'USNT'"
+      ],
+      "actual": [
+        "Unknown type: 'USNT'"
+      ]
+    },
+    {
+      "code": "C0080",
+      "outcome": "verified",
+      "lsp": [
+        "Function block 'FB' must be instantiated to be accessed"
+      ],
+      "actual": [
+        "Function block 'FB' must be instantiated to be accessed"
+      ]
+    },
+    {
+      "code": "C0081",
+      "outcome": "verified",
+      "lsp": [
+        "Unexpected pragma: 'END_IF' found without matching 'if'"
+      ],
+      "actual": [
+        "Unexpected pragma: 'END_IF' found without matching 'if'"
+      ]
+    },
+    {
+      "code": "C0086",
+      "outcome": "verified",
+      "lsp": [
+        "No definition found for interface 'XY'"
+      ],
+      "actual": [
+        "No definition found for interface 'XY'"
+      ]
+    },
+    {
+      "code": "C0087",
+      "outcome": "verified",
+      "lsp": [
+        "There is no implementation for method 'METH1' defined in interface 'XY'"
+      ],
+      "actual": [
+        "There is no implementation for method 'METH1' defined in interface 'XY'"
+      ]
+    },
+    {
+      "code": "C0089",
+      "outcome": "verified",
+      "lsp": [
+        "Interface of overridden method 'METH1' of interface 'XY' doesn't match declaration"
+      ],
+      "actual": [
+        "Interface of overridden method 'METH1' of interface 'XY' doesn't match declaration",
+        "The number of inputs/outputs of the method 'METH1' does not correspond to the interface 'XY'."
+      ]
+    },
+    {
+      "code": "C0090",
+      "outcome": "verified",
+      "lsp": [
+        "No definition found for base class 'POU'"
+      ],
+      "actual": [
+        "Unknown type: 'POU'",
+        "No definition found for base class 'POU'"
+      ]
+    },
+    {
+      "code": "C0091",
+      "outcome": "verified",
+      "lsp": [
+        "Recursion in base function block list: FB -> FB"
+      ],
+      "actual": [
+        "Recursion in base function block list: FB -> FB"
+      ]
+    },
+    {
+      "code": "C0094",
+      "outcome": "verified",
+      "lsp": [
+        "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
+      ],
+      "actual": [
+        "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
+      ]
+    },
+    {
+      "code": "C0096",
+      "outcome": "verified",
+      "lsp": [
+        "Only one base function block may be defined in EXTENDS list"
+      ],
+      "actual": [
+        "Only one base function block may be defined in EXTENDS list"
+      ]
+    },
+    {
+      "code": "C0097",
+      "outcome": "verified",
+      "lsp": [
+        "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
+      ],
+      "actual": [
+        "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
+      ]
+    },
+    {
+      "code": "C0098",
+      "outcome": "mismatch",
+      "lsp": [
+        "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0101",
+      "outcome": "verified",
+      "lsp": [
+        "Data recursion: FB1 -> FB1"
+      ],
+      "actual": [
+        "Data recursion: FB1 -> FB1"
+      ]
+    },
+    {
+      "code": "C0114",
+      "outcome": "verified",
+      "lsp": [
+        "Invalid destination 0 for JMP"
+      ],
+      "actual": [
+        "Invalid destination 0 for JMP",
+        "No such label 'INVALID: 0' within the scope of the JMP statement"
+      ]
+    },
+    {
+      "code": "C0116",
+      "outcome": "verified",
+      "lsp": [
+        "The label 'LABEL' is a duplicate"
+      ],
+      "actual": [
+        "The label 'LABEL' is a duplicate"
+      ]
+    },
+    {
+      "code": "C0117",
+      "outcome": "verified",
+      "lsp": [
+        "No such label 'A' within the scope of the JMP statement"
+      ],
+      "actual": [
+        "No such label 'A' within the scope of the JMP statement"
+      ]
+    },
+    {
+      "code": "C0118",
+      "outcome": "verified",
+      "lsp": [
+        "The label 'LABEL' has not been referenced"
+      ],
+      "actual": [
+        "The label 'LABEL' has not been referenced"
+      ]
+    },
+    {
+      "code": "C0119",
+      "outcome": "verified",
+      "lsp": [
+        "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
+      ],
+      "actual": [
+        "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
+      ]
+    },
+    {
+      "code": "C0120",
+      "outcome": "verified",
+      "lsp": [
+        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
+      ],
+      "actual": [
+        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
+      ]
+    },
+    {
+      "code": "C0122",
+      "outcome": "verified",
+      "lsp": [
+        "Expression SUPER is not allowed in this context"
+      ],
+      "actual": [
+        "Program name, function or function block instance expected instead of 'SUPER^.METH'",
+        "'SUPER^' is no structured variable",
+        "Expression SUPER is not allowed in this context"
+      ]
+    },
+    {
+      "code": "C0124",
+      "outcome": "verified",
+      "lsp": [
+        "Cannot convert type 'LREAL' to type 'DUT'"
+      ],
+      "actual": [
+        "Cannot convert type 'LREAL' to type 'DUT'",
+        "2.5 is no valid initialisation for an enumeration"
+      ]
+    },
+    {
+      "code": "C0126",
+      "outcome": "verified",
+      "lsp": [
+        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
+      ],
+      "actual": [
+        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
+      ]
+    },
+    {
+      "code": "C0130",
+      "outcome": "mismatch",
+      "lsp": [
+        "METHOD 'METH1' referenced without parentheses '()'"
+      ],
+      "actual": [
+        "Cannot convert type 'METH1' to type 'INT'"
+      ]
+    },
+    {
+      "code": "C0131",
+      "outcome": "verified",
+      "lsp": [
+        "'1' is not allowed as operand for ADR"
+      ],
+      "actual": [
+        "'1' is not allowed as operand for ADR"
+      ]
+    },
+    {
+      "code": "C0132",
+      "outcome": "verified",
+      "lsp": [
+        "No enclosing loop of which to exit"
+      ],
+      "actual": [
+        "No enclosing loop of which to exit"
+      ]
+    },
     {
       "code": "C0136",
       "outcome": "verified",
       "lsp": [
-        "ambiguous use of name 'g_i'"
+        "Ambiguous use of name 'g_i'"
       ],
       "actual": [
-        "ambiguous use of name 'g_i'",
+        "Ambiguous use of name 'g_i'",
         "Identifier 'g_i' not defined",
         "Cannot convert type 'Unknown type: 'g_i'' to type 'INT'"
+      ]
+    },
+    {
+      "code": "C0139",
+      "outcome": "verified",
+      "lsp": [
+        "The code 'i;' has no effect. Is this the intent?"
+      ],
+      "actual": [
+        "The code 'i;\r\n' has no effect. Is this the intent?"
+      ]
+    },
+    {
+      "code": "C0140",
+      "outcome": "verified",
+      "lsp": [
+        "Reference assign is only allowed to variables of reference type"
+      ],
+      "actual": [
+        "Reference assign is only allowed to variables of reference type"
+      ]
+    },
+    {
+      "code": "C0142",
+      "outcome": "verified",
+      "lsp": [
+        "A local variable named 'i' is already defined in 'PLC_PRG'"
+      ],
+      "actual": [
+        "A local variable named 'i' is already defined in 'PLC_PRG'"
+      ]
+    },
+    {
+      "code": "C0143",
+      "outcome": "verified",
+      "lsp": [
+        "The property 'Prop' cannot be used in this context because it lacks the get accessor"
+      ],
+      "actual": [
+        "The property 'Prop' cannot be used in this context because it lacks the get accessor"
+      ]
+    },
+    {
+      "code": "C0144",
+      "outcome": "mismatch",
+      "lsp": [
+        "Inheritance only allowed in function blocks, Interfaces and Structures"
+      ],
+      "actual": [
+        "No definition found for base class 'Base'"
+      ]
+    },
+    {
+      "code": "C0145",
+      "outcome": "mismatch",
+      "lsp": [
+        "Interfaces can only be implemented by function blocks"
+      ],
+      "actual": [
+        "Identifier 'POU' not defined",
+        "Program name, function or function block instance expected instead of 'POU'"
+      ]
+    },
+    {
+      "code": "C0149",
+      "outcome": "mismatch",
+      "lsp": [
+        "Variable declarations are not allowed in interfaces"
+      ],
+      "actual": [
+        "Unknown type: 'ITF'"
+      ]
+    },
+    {
+      "code": "C0161",
+      "outcome": "verified",
+      "lsp": [
+        "Border 'i' of array is no constant value"
+      ],
+      "actual": [
+        "Border 'i' of array is no constant value"
+      ]
+    },
+    {
+      "code": "C0162",
+      "outcome": "verified",
+      "lsp": [
+        "Number 'i' of array initialisations is no constant value"
+      ],
+      "actual": [
+        "Number 'i' of array initialisations is no constant value"
+      ]
+    },
+    {
+      "code": "C0168",
+      "outcome": "verified",
+      "lsp": [
+        "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
+      ],
+      "actual": [
+        "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
+      ]
+    },
+    {
+      "code": "C0169",
+      "outcome": "verified",
+      "lsp": [
+        "VAR_GLOBAL declaration only allowed in global variable list"
+      ],
+      "actual": [
+        "VAR_GLOBAL declaration only allowed in global variable list"
+      ]
+    },
+    {
+      "code": "C0173",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": [
+        "'VarInput' not allowed in this place",
+        "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n"
+      ]
+    },
+    {
+      "code": "C0174",
+      "outcome": "verified",
+      "lsp": [
+        "VAR_TEMP declaration not allowed in this place"
+      ],
+      "actual": [
+        "VAR_TEMP declaration not allowed in this place"
+      ]
+    },
+    {
+      "code": "C0175",
+      "outcome": "verified",
+      "lsp": [
+        "RETAIN or PERSISTENT not allowed in this place"
+      ],
+      "actual": [
+        "RETAIN or PERSISTENT not allowed in this place",
+        "Unexpected token 'r' found",
+        "';' expected instead of ':'",
+        "Unexpected token ':' found",
+        "';' expected instead of 'INT'",
+        "Unexpected token 'INT' found"
+      ]
+    },
+    {
+      "code": "C0177",
+      "outcome": "verified",
+      "lsp": [
+        "'POU' is of type FUNCTION and cannot be instantiated"
+      ],
+      "actual": [
+        "'POU' is of type FUNCTION and cannot be instantiated"
+      ]
+    },
+    {
+      "code": "C0178",
+      "outcome": "verified",
+      "lsp": [
+        "No external access to VAR_IN_OUT parameter 'in_out' of 'FB'.\""
+      ],
+      "actual": [
+        "Access to VAR_IN_OUT 'in_out' declared in 'FB' from external context 'PLC_PRG'",
+        "No external access to VAR_IN_OUT parameter 'in_out' of 'FB'.\""
       ]
     },
     {
@@ -22,8 +829,337 @@
       ],
       "actual": [
         "'inOut' is no input of 'MyFB'",
-        "Access to VAR_IN_OUT 'inOut' declared in 'MyFB' from external context 'PLC_PRG'.",
+        "Access to VAR_IN_OUT 'inOut' declared in 'MyFB' from external context 'PLC_PRG'",
         "Access to uninitialized VAR_IN_OUT variable"
+      ]
+    },
+    {
+      "code": "C0182",
+      "outcome": "verified",
+      "lsp": [
+        "Return type is only possible for POUs of type FUNCTION and METHOD"
+      ],
+      "actual": [
+        "Return type is only possible for POUs of type FUNCTION and METHOD"
+      ]
+    },
+    {
+      "code": "C0185",
+      "outcome": "verified",
+      "lsp": [
+        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
+      ],
+      "actual": [
+        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
+      ]
+    },
+    {
+      "code": "C0189",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": [
+        "Unexpected token 'INT' found",
+        "';' expected instead of 'END_VAR'"
+      ]
+    },
+    {
+      "code": "C0190",
+      "outcome": "verified",
+      "lsp": [
+        "';' expected instead of end of POU"
+      ],
+      "actual": [
+        "';' expected instead of end of POU"
+      ]
+    },
+    {
+      "code": "C0195",
+      "outcome": "verified",
+      "lsp": [
+        "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+      ],
+      "actual": [
+        "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+      ]
+    },
+    {
+      "code": "C0196",
+      "outcome": "verified",
+      "lsp": [
+        "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
+      ],
+      "actual": [
+        "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
+      ]
+    },
+    {
+      "code": "C0197",
+      "outcome": "verified",
+      "lsp": [
+        "Implicit conversion from 'DINT' to 'REAL': Possible loss of information"
+      ],
+      "actual": [
+        "Implicit conversion from 'DINT' to 'REAL': Possible loss of information"
+      ]
+    },
+    {
+      "code": "C0198",
+      "outcome": "verified",
+      "lsp": [
+        "String constant ''...' too long for destination type 'STRING(4)'"
+      ],
+      "actual": [
+        "String constant ''...' too long for destination type 'STRING(4)'"
+      ]
+    },
+    {
+      "code": "C0199",
+      "outcome": "verified",
+      "lsp": [
+        "Interface 'ITF' must be instantiated to be accessed"
+      ],
+      "actual": [
+        "Cannot call object of type 'INTERFACE'",
+        "Interface 'ITF' must be instantiated to be accessed"
+      ]
+    },
+    {
+      "code": "C0201",
+      "outcome": "verified",
+      "lsp": [
+        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
+      ],
+      "actual": [
+        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
+      ]
+    },
+    {
+      "code": "C0203",
+      "outcome": "verified",
+      "lsp": [
+        "Only structures and function blocks can contain variables of type BIT"
+      ],
+      "actual": [
+        "Only structures and function blocks can contain variables of type BIT"
+      ]
+    },
+    {
+      "code": "C0204",
+      "outcome": "verified",
+      "lsp": [
+        "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section"
+      ],
+      "actual": [
+        "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
+        "References to bits are not possible"
+      ]
+    },
+    {
+      "code": "C0205",
+      "outcome": "verified",
+      "lsp": [
+        "POINTER TO BIT is not allowed"
+      ],
+      "actual": [
+        "POINTER TO BIT is not allowed"
+      ]
+    },
+    {
+      "code": "C0206",
+      "outcome": "verified",
+      "lsp": [
+        "BIT is not allowed as base type of an array"
+      ],
+      "actual": [
+        "BIT is not allowed as base type of an array"
+      ]
+    },
+    {
+      "code": "C0208",
+      "outcome": "verified",
+      "lsp": [
+        "MOD is not defined for REAL"
+      ],
+      "actual": [
+        "MOD is not defined for REAL"
+      ]
+    },
+    {
+      "code": "C0211",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": [
+        "Variable declaration expected instead of VAR\r\nEND_VAR\r\n"
+      ]
+    },
+    {
+      "code": "C0212",
+      "outcome": "verified",
+      "lsp": [
+        "The label 'I' has not been referenced"
+      ],
+      "actual": [
+        "The label 'I' has not been referenced",
+        "Unexpected token 'INT' found"
+      ]
+    },
+    {
+      "code": "C0213",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": []
+    },
+    {
+      "code": "C0215",
+      "outcome": "mismatch",
+      "lsp": [
+        "Direct address declaration is not possible in persistent list"
+      ],
+      "actual": []
+    },
+    {
+      "code": "C0216",
+      "outcome": "verified",
+      "lsp": [
+        "CASE label duplicate"
+      ],
+      "actual": [
+        "CASE label duplicate"
+      ]
+    },
+    {
+      "code": "C0217",
+      "outcome": "verified",
+      "lsp": [
+        "CASE label 4 also contained in range 3 .. 5"
+      ],
+      "actual": [
+        "CASE label 4 also contained in range 3 .. 5"
+      ]
+    },
+    {
+      "code": "C0218",
+      "outcome": "verified",
+      "lsp": [
+        "CASE label requires literal or symbolic integer constant"
+      ],
+      "actual": [
+        "CASE label requires literal or symbolic integer constant"
+      ]
+    },
+    {
+      "code": "C0219",
+      "outcome": "verified",
+      "lsp": [
+        "CASE contains overlapping range 1 .. 4 and 3 .. 5"
+      ],
+      "actual": [
+        "CASE contains overlapping range 1 .. 4 and 3 .. 5"
+      ]
+    },
+    {
+      "code": "C0222",
+      "outcome": "verified",
+      "lsp": [
+        "Outputs can't be of type REFERENCE TO"
+      ],
+      "actual": [
+        "Outputs can't be of type REFERENCE TO"
+      ]
+    },
+    {
+      "code": "C0224",
+      "outcome": "mismatch",
+      "lsp": [
+        "Call Recursion: Fib -> Fib"
+      ],
+      "actual": [
+        "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
+        "Program name, function or function block instance expected instead of 'Fib'"
+      ]
+    },
+    {
+      "code": "C0227",
+      "outcome": "verified",
+      "lsp": [
+        "Initialisation of constant variable 'k' not constant"
+      ],
+      "actual": [
+        "Initialisation of constant variable 'k' not constant"
+      ]
+    },
+    {
+      "code": "C0228",
+      "outcome": "verified",
+      "lsp": [
+        "No initial value for constant variable 'k'"
+      ],
+      "actual": [
+        "No initial value for constant variable 'k'"
+      ]
+    },
+    {
+      "code": "C0230",
+      "outcome": "verified",
+      "lsp": [
+        "Type name 'MyEnum' not expected in this place",
+        "Type name 'MyEnum' not expected in this place"
+      ],
+      "actual": [
+        "Type name 'MyEnum' not expected in this place",
+        "Type name 'MyEnum' not expected in this place",
+        "Implicit conversion from signed Type 'INT' to unsigned Type 'MYENUM' : Possible change of sign"
+      ]
+    },
+    {
+      "code": "C0232",
+      "outcome": "verified",
+      "lsp": [
+        "Array initialisation expected"
+      ],
+      "actual": [
+        "Array initialisation expected",
+        "Cannot convert type 'BIT' to type 'ARRAY [0..2] OF INT'",
+        "Array initialisation expected",
+        "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'",
+        "Array initialisation expected",
+        "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'"
+      ]
+    },
+    {
+      "code": "C0233",
+      "outcome": "verified",
+      "lsp": [
+        "Initialisation list for COLOR expected"
+      ],
+      "actual": [
+        "Initialisation list for COLOR expected",
+        "Cannot convert type 'BIT' to type 'COLOR'",
+        "Initialisation list for COLOR expected",
+        "Cannot convert type 'SINT' to type 'COLOR'",
+        "Initialisation list for COLOR expected",
+        "Cannot convert type 'SINT' to type 'COLOR'"
+      ]
+    },
+    {
+      "code": "C0234",
+      "outcome": "verified",
+      "lsp": [
+        "First operand of __QueryInterface must be an interface reference or the instance of a function block"
+      ],
+      "actual": [
+        "First operand of __QueryInterface must be an interface reference or the instance of a function block"
+      ]
+    },
+    {
+      "code": "C0235",
+      "outcome": "verified",
+      "lsp": [
+        "Second operand of __QueryInterface must be an interface reference"
+      ],
+      "actual": [
+        "Interface ITF__Union does not extend __System.IQueryInterface",
+        "Second operand of __QueryInterface must be an interface reference"
       ]
     },
     {
@@ -37,13 +1173,230 @@
       ]
     },
     {
+      "code": "C0238",
+      "outcome": "verified",
+      "lsp": [
+        "No initial value allowed for VAR_EXTERNAL ig"
+      ],
+      "actual": [
+        "No initial value allowed for VAR_EXTERNAL ig"
+      ]
+    },
+    {
+      "code": "C0240",
+      "outcome": "verified",
+      "lsp": [
+        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
+      ],
+      "actual": [
+        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
+      ]
+    },
+    {
+      "code": "C0241",
+      "outcome": "verified",
+      "lsp": [
+        "Second operand of __QueryInterface must be a pointer"
+      ],
+      "actual": [
+        "Second operand of __QueryInterface must be a pointer"
+      ]
+    },
+    {
+      "code": "C0242",
+      "outcome": "verified",
+      "lsp": [
+        "Operand of __DELETE must be pointer"
+      ],
+      "actual": [
+        "No memory for dynamic object creation defined for application 'Device.Application'",
+        "Operand of __DELETE must be pointer"
+      ]
+    },
+    {
       "code": "C0266",
       "outcome": "verified",
       "lsp": [
-        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop!"
+        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
       ],
       "actual": [
-        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop!"
+        "Loop exit condition 'b > 255' is constant FALSE. Possible endless loop."
+      ]
+    },
+    {
+      "code": "C0351",
+      "outcome": "verified",
+      "lsp": [
+        "The attribute call_after_ini is unknown and will be ignored by the  compiler."
+      ],
+      "actual": [
+        "The attribute call_after_ini is unknown and will be ignored by the  compiler."
+      ]
+    },
+    {
+      "code": "C0354",
+      "outcome": "verified",
+      "lsp": [
+        "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
+      ],
+      "actual": [
+        "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
+      ]
+    },
+    {
+      "code": "C0355",
+      "outcome": "verified",
+      "lsp": [
+        "A single bit cannot be referenced. A reference to the complete byte will be stored."
+      ],
+      "actual": [
+        "A single bit cannot be referenced. A reference to the complete byte will be stored."
+      ]
+    },
+    {
+      "code": "C0373",
+      "outcome": "verified",
+      "lsp": [
+        "This is a warning"
+      ],
+      "actual": [
+        "This is a warning"
+      ]
+    },
+    {
+      "code": "C0421",
+      "outcome": "verified",
+      "lsp": [
+        "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS"
+      ],
+      "actual": [
+        "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS"
+      ]
+    },
+    {
+      "code": "C0441",
+      "outcome": "verified",
+      "lsp": [
+        "Access to uninitialized VAR_IN_OUT variable"
+      ],
+      "actual": [
+        "Access to uninitialized VAR_IN_OUT variable",
+        "Access to uninitialized VAR_IN_OUT variable",
+        "Access to VAR_IN_OUT 'a' declared in 'POU' from external context 'FB_INIT'"
+      ]
+    },
+    {
+      "code": "C0454",
+      "outcome": "mismatch",
+      "lsp": [
+        "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
+      ],
+      "actual": [
+        "No memory for dynamic object creation defined for application 'Device.Application'",
+        "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+      ]
+    },
+    {
+      "code": "C0509",
+      "outcome": "verified",
+      "lsp": [
+        "Multiple assignments are not allowed for operator '__New'."
+      ],
+      "actual": [
+        "Multiple assignments are not allowed for operator '__New'.",
+        "No memory for dynamic object creation defined for application 'Device.Application'",
+        "No memory for dynamic object creation defined for application 'Device.Application'"
+      ]
+    },
+    {
+      "code": "C0511",
+      "outcome": "verified",
+      "lsp": [
+        "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
+      ],
+      "actual": [
+        "Function block AbstractPOU is ABSTRACT and cannot be used as a target for an assignment"
+      ]
+    },
+    {
+      "code": "C0525",
+      "outcome": "verified",
+      "lsp": [
+        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
+      ],
+      "actual": [
+        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
+      ]
+    },
+    {
+      "code": "C0526",
+      "outcome": "verified",
+      "lsp": [
+        "Default value is not constant"
+      ],
+      "actual": [
+        "Default value is not constant"
+      ]
+    },
+    {
+      "code": "C0533",
+      "outcome": "verified",
+      "lsp": [
+        "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
+      ],
+      "actual": [
+        "The default value for a VAR_OUTPUT is not used in abstract or interface methods",
+        "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
+      ]
+    },
+    {
+      "code": "C0542",
+      "outcome": "verified",
+      "lsp": [
+        "Inheritance is not intended for data type \"UNION\": Base"
+      ],
+      "actual": [
+        "Inheritance is not intended for data type \"UNION\": Base"
+      ]
+    },
+    {
+      "code": "C0550",
+      "outcome": "verified",
+      "lsp": [
+        "Attribute 'pack_mode' not allowed for 'FUNCTION'"
+      ],
+      "actual": [
+        "Attribute 'pack_mode' not allowed for 'FUNCTION'"
+      ]
+    },
+    {
+      "code": "C0565",
+      "outcome": "verified",
+      "lsp": [
+        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
+      ],
+      "actual": [
+        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
+      ]
+    },
+    {
+      "code": "C0566",
+      "outcome": "verified",
+      "lsp": [
+        "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!"
+      ],
+      "actual": [
+        "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!"
+      ]
+    },
+    {
+      "code": "C0568",
+      "outcome": "verified",
+      "lsp": [
+        "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
+      ],
+      "actual": [
+        "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
       ]
     }
   ]
