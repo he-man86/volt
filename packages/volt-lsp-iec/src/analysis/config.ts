@@ -42,6 +42,14 @@ export interface LintConfig {
    * the library floor is solved (signatures loaded into the symbol table). See `checks/names/unknown-type`.
    */
   unknownType: boolean
+  /**
+   * A method/action accessing its enclosing FB's VAR_IN_OUT (C0371). CODESYS warns on this — but only when a
+   * per-project compiler option is set: lenze-mid emits 96, pro2193 (same CODESYS, same pattern) emits 0. That
+   * option is NOT in the materialized ST, so the LSP can't see it — an always-on check false-positives on a
+   * project built with the option off (175 FPs on pro2193). Opt-in: a project that runs with the option on can
+   * enable this and get a compiler-exact match. See `checks/oop/inout-own-access`.
+   */
+  inoutOwnAccess: boolean
 }
 
 export interface AnalysisInitOptions {
@@ -62,6 +70,7 @@ const DEFAULT_LINTS: LintConfig = {
   shadowing: false,
   unknownAttribute: false,
   unknownType: false,
+  inoutOwnAccess: false,
 }
 
 /** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */

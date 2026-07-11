@@ -1,8 +1,10 @@
 /**
- * inout-own-access (D.2 · oop/) — C0371, a WARNING. A method/action/property accessor that touches its
- * enclosing FB's VAR_IN_OUT parameter. Older CODESYS kept VAR_IN_OUT stack-only (this errored); modern CODESYS
- * stores the reference so the access WORKS — but still emits a warning. Real projects do it heavily (lenze-mid:
- * 96 sites; the corpus: 1300+), and CODESYS warns on every one, so this is a standard warning, not an error.
+ * inout-own-access (D.2 · oop/) — C0371, an OPT-IN WARNING (`lints.inoutOwnAccess`, off by default). A
+ * method/action/property accessor that touches its enclosing FB's VAR_IN_OUT parameter. CODESYS warns on
+ * this — but ONLY when a per-project compiler option is set: lenze-mid emits 96 of these, pro2193 (same
+ * CODESYS version, same access pattern) emits 0. That option is not in the materialized ST, so an always-on
+ * check false-positives on an option-off project (175 FPs on pro2193). Hence opt-in; when enabled it matches
+ * the compiler exactly (lenze-mid: byte-identical, 0 gaps).
  *
  * NOT the FB's own main body (VAR_IN_OUT lives there — normal), and NOT external instance access (`inst.io`
  * from another POU — that's C0178 `inout-external-access`, an error). Only a member scope of the SAME FB.
@@ -17,6 +19,7 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (!ctx.config.lints.inoutOwnAccess) return // opt-in: per-project option-gated, invisible offline (see header + LintConfig)
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     if (scope.kind !== "method") continue // method/action/accessor scopes only — never the FB's own body
     const context = scope.name

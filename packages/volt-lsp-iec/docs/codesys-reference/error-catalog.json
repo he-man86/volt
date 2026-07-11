@@ -3859,14 +3859,14 @@
     "status": "implemented",
     "ourCheck": "inout-own-access",
     "ourCode": "inout-own-access",
-    "lint": null,
+    "lint": "inoutOwnAccess",
     "verified": {
       "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "triage": null,
-    "note": "RECLASSIFIED error to WARNING. A method/action touching its enclosing FB's VAR_IN_OUT. Modern CODESYS ALLOWS it but WARNS - was wrongly deferred as an option-gated error because our conformance only diffed ERRORS (the error-only oracle couldn't see these warnings). Live-verified byte-identical on the real lenze-mid build (96 displayed warnings; 20/20 unique messages match ours; 0 gaps). TC severity unverified.",
+    "triage": "optionGated",
+    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified.",
     "codesysActual": "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
   },
   {
