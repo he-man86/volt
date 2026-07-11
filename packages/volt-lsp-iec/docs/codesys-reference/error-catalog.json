@@ -1936,7 +1936,7 @@
       "twincat": false
     },
     "fix": "inst.METH1();",
-    "note": "Method member used as a value (member access; called = not-a-call-callee). Bare-ident refs excluded (own return var). PROVISIONAL.",
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Method referenced as a value without (): IDE errors as 'Cannot convert type '<method>' to type '<T>'' — a semantic-alias (same defect, different wording via the IDE's compile order). Our wording is more precise; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'METH1' to type 'INT'"
     ],
@@ -2181,7 +2181,8 @@
     ],
     "twincatActual": [
       "No definition found for base class 'Base'"
-    ]
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION EXTENDS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0145",
@@ -2210,7 +2211,8 @@
     "twincatActual": [
       "Identifier 'POU' not defined",
       "Program name, function or function block instance expected instead of 'POU'"
-    ]
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION IMPLEMENTS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0149",
@@ -2237,7 +2239,8 @@
     ],
     "twincatActual": [
       "Unknown type: 'ITF'"
-    ]
+    ],
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'VAR block in an INTERFACE' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0161",
@@ -3261,7 +3264,7 @@
       "twincat": false
     },
     "fix": null,
-    "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL.",
+    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Direct recursion in a FUNCTION: IDE errors 'Cannot convert type 'Unknown type: 'Fib(...)'' + 'function/FB instance expected instead of Fib' — a semantic-alias. Our 'Call Recursion' wording is clearer; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
       "Program name, function or function block instance expected instead of 'Fib'"
@@ -4060,7 +4063,7 @@
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF",
-    "note": "Check is offline-correct (structural: an assign_expr whose value is a __NEW call; corpus + conformance clean, burn-in passes). Live-verify is BLOCKED by the test project's environment â€” it has no __NEW memory pool configured, so the build reports the __NEW prerequisites ('No memory for dynamic object creation', 'needs {attribute enable_dynamic_creation}') BEFORE reaching C0454. C0454 fires only once __NEW is otherwise valid. verified.codesys stays false until a project with dynamic-creation memory is available.",
+    "note": "Env-gated (not verifiable without a __NEW memory pool): live IDE (2026-07-11 :8556) errors 'No memory for dynamic object creation defined' first, masking C0454. Documented rule + conservative check (fires only on __NEW inside another expression) — no demonstrable FP.",
     "codesysActual": [
       "No memory for dynamic object creation defined for application 'Device.Application'",
       "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
