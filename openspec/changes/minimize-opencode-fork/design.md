@@ -167,3 +167,36 @@ opencode (it's opencode's — opt-in, never silent). Single-connector supersede 
 - No file installed/updated by two mechanisms.
 - All self-updaters that Volt *injected* are removed; opencode's native one stays for opencode.
 - The wire `protocolVersion` is the ONLY cross-version negotiation (ext↔connector, update windows).
+
+## Frontend architecture — one shared core, two frontends (keep `control`, drop `volt-app`)
+
+The IDE-changes feature has two frontends (VS Code + desktop). They render in **different hosts** — VS Code
+**tree views** vs desktop **Solid/DOM** — so their **UI cannot be shared; only the logic can.** That logic layer
+is `volt-control`, and it is the RIGHT simplification, not something to drop:
+
+```
+volt-git        engine  — the CLI + bridge client (spawned as a binary)
+  ↑
+volt-control    shared UI-agnostic logic — spawn the volt binary, status/pull/push/health, VoltStatus tracker,
+  ↑             IPC handlers (electron-free via IpcMainLike). What makes the two frontends "technically close".
+  ├── volt-vscode    VS Code frontend — native tree views + decorations + LSP client + commands
+  └── volt-desktop   Desktop frontend — THE WRAPPER + the IDE-view + the IPC bridge (one cohesive app)
+```
+
+**Decisions:**
+- **Keep `volt-control`.** Dropping it would duplicate the spawn/parse/state logic across both frontends or
+  couple one frontend to the other. It is the shared core; the closeness to the extension lives *here*.
+- **Drop `volt-app`; merge it into `volt-desktop`.** `volt-app` only exists to be *injected into opencode's GUI*
+  via the `session.tsx` seam. The de-fork removes that injection — the panel lives in the **Volt shell**. So its
+  `VoltIdePanel` becomes the shell's IDE-view; `VoltIdeHeader`/`VoltOnboard` (branding/onboarding injected into
+  opencode's GUI) mostly fold into the shell's own chrome under the wrap model.
+- **`volt-desktop` is the wrapper AND the IDE-view** (one package): spawn opencode → wrap its served GUI → Volt
+  chrome → the Solid IDE-view → preload/IPC to `volt-control`. It replaces the forked `packages/desktop`.
+- **`volt-vscode` unchanged** — native VS Code UX is more idiomatic than forcing a shared webview.
+
+**Principle: share the logic, not the pixels.** The two frontends share `volt-control` and mirror each other's
+*structure*; their look-and-feel diverges deliberately (desktop-native vs VS Code-native).
+
+**Net:** packages `git · control · vscode · app · [desktop-fork]` → **`git · control · vscode · desktop`** (one
+fewer, and the desktop becomes Volt-owned). The `window.volt`-into-opencode's-GUI injection is replaced by the
+shell owning both ends of its own IPC.

@@ -11,6 +11,9 @@ fate table + edge cases in `design.md`. Each phase is independently verifiable: 
 ## 1. IDE-changes view → a desktop FRONTEND (the desktop sibling of the VS Code extension; NO connector change)
 A thin TS UI over `@opencode-ai/volt-control` (the exact layer the extension uses). Knows its own workspace (the
 desktop's active project) → forward binding `readBridgePort(workspaceRoot)`. The bridge connector is untouched.
+**Package structure (design §Frontend architecture): keep `volt-control` (shared core), build the desktop view in
+`volt-desktop` (the wrapper + IDE-view, one package), and DROP `volt-app` — merge `VoltIdePanel` into
+`volt-desktop`; `VoltIdeHeader`/`VoltOnboard` fold into the shell chrome.**
 - [ ] Desktop state module over volt-control — mirror the extension's `VoltStatus` (state/status.ts) minus
       `vscode`: `readBridgePort` / `probeHealth` / `fetchStatus` / `subscribeChanges` (reactive drift) /
       `isMutationInFlight`. Where useful, extract a shared vscode-free core so the extension + desktop share it.
@@ -19,7 +22,8 @@ desktop's active project) → forward binding `readBridgePort(workspaceRoot)`. T
 - [ ] Wire the desktop's active workspace into the panel; render it as Volt shell chrome beside the wrapped
       opencode GUI (or a shell window). No VS Code dependency.
 - [ ] Remove seams: `packages/app/src/pages/session.tsx`, `packages/app/package.json`,
-      `packages/desktop/src/preload/index.ts` (+ `volt-control` dep) → pristine.
+      `packages/desktop/src/preload/index.ts` (+ `volt-control` dep) → pristine; and **drop `volt-app`** (its
+      components now live in `volt-desktop`).
 - [ ] Verify parity with the old in-GUI panel; `check-divergence` drops those seams.
 
 ## 2. GUI-content seams → pristine
