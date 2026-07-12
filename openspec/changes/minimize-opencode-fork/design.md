@@ -41,12 +41,22 @@ Legend: **DELETE** = revert to pristine · **SHRINK** = keep file, remove part �
 ## End-state architecture
 ```
 Volt install (our NSIS)
- ├─ stock opencode (pinned release, unmodified) ── sidecar server + TUI + web GUI (pristine)
+ ├─ stock opencode (pinned release, unmodified) ── serves backend + GUI over HTTP (`opencode web` → localhost)
  ├─ OPENCODE_CONFIG_DIR bundle ── LSP registration + volt tool + agent + theme + permissions   (additive)
  ├─ env-wrapper `volt` ── sets OPENCODE_CONFIG_DIR/PATH before exec (kills the tui.ts seam)
- ├─ desktop shell (packages/desktop) ── Volt brand + window + spawns the sidecar + volt:// translation
+ ├─ desktop shell (Volt-owned Electron) ── spawns opencode, LOADS its SERVED GUI url in a BrowserView,
+ │                                          draws Volt chrome (titlebar/brand/"IDE changes" button) around it
  └─ connector (volt-*) ── bridge gateway + IDE-changes panel + runs volt-git for pull/push
 ```
+
+**The desktop WRAPS opencode's served GUI — it does NOT bundle `packages/app`.** `opencode web` (verified:
+`cli/cmd/web.ts` → `Server.listen`) serves the GUI at `http://localhost:<port>`; the Volt shell loads that URL
+in a BrowserView. So the desktop needs **no `@opencode-ai/app` package, no GUI vendoring, no GUI seams** — the
+GUI is consumed as a running URL exactly like the backend is consumed as a running process. Pristine GUI is
+enforced *by construction* (you can't edit a page you load by URL). This is also what makes a **clean standalone
+`volt` repo** viable: `volt-*` packages + config + a thin shell, depending on opencode only as a **runtime**
+(chained install) + `@opencode-ai/plugin`. No monorepo fork. (Extracting that repo is a follow-on, sequenced
+after this de-fork lands.)
 
 ## `check-divergence.ts` simplification (tighten while shrinking)
 - Shrink `ALLOWED_MODIFICATIONS` from 18 → the ~9 survivors. Every removed entry means a *re-introduced* edit to
