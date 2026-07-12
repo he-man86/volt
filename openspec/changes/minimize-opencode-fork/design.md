@@ -67,9 +67,14 @@ after this de-fork lands.)
 - The classifier logic itself is unchanged — only the allowlist data shrinks. Simpler surface, stronger invariant.
 
 ## Edge cases (the ones that will bite if unplanned)
-1. **Connector runs git-sync.** Pull/Push in the panel today go `window.volt`→volt-control→volt-git. In the
-   connector, it must shell **volt-git** against the **bound workspace** (`.git/volt`). The connector knows the
-   IDE project; it must resolve the workspace path from the binding. Bundle `volt-git` beside the connector.
+1. **Connector runs git-sync — needs workspace resolution (bigger than first stated).** Pull/Push in the panel
+   today go `window.volt`→volt-control→volt-git, and the desktop knew `workspaceRoot` because it opened the
+   project. The binding is **workspace → bridge** (each repo's `.git/volt/config.json`); it is NOT
+   reverse-resolvable, and the connector has **zero** workspace awareness (verified). **Fix (phase 1.0):** a
+   machine-local **reverse registry** `%LocalAppData%\Volt\workspaces.json` mapping `bridge port/project →
+   workspaceRoot`, written by `volt-git` on any bridge-touching command (init/pull/push/status), read by the
+   connector to resolve the workspace for its live IDE. Then the connector shells the bundled `volt-git`
+   (status/diff/pull/push). Entries are validated (path exists + `.git/volt` still binds this port) and pruned.
 2. **No IDE / no workspace.** Panel needs empty states ("no IDE connected", "not a Volt workspace").
 3. **`volt://` translation.** Shell (main) rewrites `volt://…`→`opencode://…` before dispatching to the pristine
    app's `__OPENCODE__.deepLinks`. Verify every link shape round-trips; register only `volt://` at the OS.

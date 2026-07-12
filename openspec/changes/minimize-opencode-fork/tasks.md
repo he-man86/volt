@@ -9,6 +9,9 @@ fate table + edge cases in `design.md`. Each phase is independently verifiable: 
 - [ ] Edge #11: grep the pristine app for any `window.volt` use beyond the IDE panel.
 
 ## 1. IDE panel → the connector
+- [ ] **1.0 Workspace registry (foundation, edge #1)** — `volt-git` writes a machine-local reverse index
+      `%LocalAppData%\Volt\workspaces.json` (`port/project → workspaceRoot`) on every bridge-touching command;
+      validated + pruned. A reader the connector uses to resolve the workspace for its live IDE. *(In progress.)*
 - [ ] Build the connector's IDE-changes view (reuse the `VoltIdePanel` component in a WebView2, or native): files
       changed in the IDE vs git, merge-safety warning, empty states (edge #2).
 - [ ] Connector runs pull/push via a bundled `volt-git` against the workspace bound in `.git/volt` (edge #1).

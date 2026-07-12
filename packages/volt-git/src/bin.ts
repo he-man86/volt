@@ -8,6 +8,7 @@ import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build, unpushedCount } from "./build.js";
 import { createReporter } from "./reporter.js";
 import { configuredBridgePort } from "./config/workspace.js";
+import { recordWorkspace } from "./config/registry.js";
 import { diff } from "./diff.js";
 import { init } from "./init.js";
 import { log } from "./log.js";
@@ -74,6 +75,10 @@ async function main(): Promise<number> {
 	const port = args.port ?? configuredBridgePort(root) ?? 8555;
 	const bridge = new BridgeClient({ port });
 
+	// Keep the reverse workspace registry current so the connector can resolve "which workspace for this IDE?"
+	// (edge #1). No-op for a not-yet-bound dir (e.g. `init`, which records its own target on success below).
+	recordWorkspace(root);
+
 	switch (args.verb) {
 		case "init": {
 			const r = await init(args.operands[0] ?? args.workspace, bridge);
@@ -86,6 +91,7 @@ async function main(): Promise<number> {
 			if (r.scaffold > 0) console.log(`scaffolded ${r.scaffold} project file(s)`);
 			if (r.corpus > 0) console.log(`installed ${r.corpus} language-reference file(s)`);
 			console.log(r.note !== undefined ? r.note : `pulled ${r.pulled} file(s) — workspace ready`);
+			recordWorkspace(resolve(args.operands[0] ?? args.workspace)); // now bound → record the reverse index
 			return 0;
 		}
 		case "pull": {
