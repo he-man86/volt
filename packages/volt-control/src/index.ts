@@ -16,3 +16,5 @@ export * from "./display.js" // healthLabel, healthDisplay, aggregate, VoltDispl
 export * from "./actions.js" // fetchStatus, pull, push, build, init, showFile, detect + outcome types
 export * from "./events.js" // subscribeChanges (polls /refs to detect IDE edits)
 export * from "./ipc.js" // registerVoltIpcHandlers (desktop main process) + IpcMainLike
+export * from "./emitter.js" // Emitter, Disposable — framework-agnostic (vscode-EventEmitter-shaped)
+export * from "./status-tracker.js" // VoltStatus — the reactive per-workspace IDE-changes state (extension + desktop share it)
