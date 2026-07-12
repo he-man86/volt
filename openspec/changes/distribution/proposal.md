@@ -7,6 +7,17 @@ auto-update *back* to opencode). This blocks shipping Volt to users. (VOLT-PLAN 
 
 ## What Changes
 
+> **⟲ FORWARD DIRECTION SUPERSEDED (2026-07-12) by `minimize-opencode-fork`.** The premise below — a single
+> self-contained `volt` binary + *mirroring* opencode's CLI-distribution machinery + bundling opencode into the
+> installer — is replaced by the **two-lane model**: opencode **self-installs** (chained online) and
+> **self-updates on its own feed**; Volt's installer owns ONLY the Volt layer (branded Electron shell + config +
+> LSP + connector + bridges + `volt` env-wrapper + extension) — **no custom binary, no mirroring of opencode's
+> distribution.** The bundling installer built here (largely ✅ below) is the interim that proved every piece;
+> the **connector + extension lifecycle tasks (2.13 / 2.15b / 2.15c) carry forward** with the refinements from
+> the lifecycle audit (single-connector invariant, extension authority-per-path, quiesce-on-update). Superseded
+> items: 2.3 (mirror `build.ts` → a custom binary) and the "self-contained binary / mirror `publish.ts`" bullets.
+> See `minimize-opencode-fork/design.md` → "Target lifecycle & installer".
+
 **Mirror opencode's distribution machinery** (`script/build.ts`, `script/publish.ts`, root `install`,
 electron-updater, `opencode upgrade`), parameterized for Volt and pointed at **Volt's release repo**. The
 whole Volt delta is small. See `design.md` for the full architecture.

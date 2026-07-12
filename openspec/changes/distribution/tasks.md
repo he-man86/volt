@@ -45,6 +45,16 @@ installer's NSIS uses it for PATH); `build-installers.ts` → `build-installer.t
 
 ### Shared
 - [x] 2.14 Removed the `volt setup` CLI verb **and** the global `setup()` — `volt init` now writes the LSP + `volt` tool into the **project** `.opencode/` (coexists with stock opencode; nothing global to clean)
+> **Lifecycle-audit refinements (2026-07-12)** — fold into 2.13 / 2.15b / 2.15c (source: the install/uninstall/
+> update review; full model in `minimize-opencode-fork/design.md` → "Target lifecycle & installer"):
+> - **2.13 — extension authority per path:** desktop-install → sideloaded + **version-locked to the install**
+>   (sideload only if newer; don't fight Marketplace for those users); extension-only → Marketplace. Prevents the
+>   force-sideload-vs-Marketplace **version thrash/downgrade**.
+> - **2.15b — single-connector invariant:** one connector, one Run-key, one port. The desktop **detects +
+>   supersedes** a standalone connector (like the retired CLI-installer's desktop-detection guard) — no port fight.
+> - **2.15c — graceful update:** **quiesce** in-flight pull/push before killing the connector; `protocolVersion`
+>   gate covers the new-connector ↔ old in-proc-DLL window; "restart CODESYS" prompt for the net48 DLL.
+
 - [ ] 2.15 Connector **standalone installer** — background Windows gateway (CODESYS in-proc lib / TwinCAT standalone `.exe`), HTTP 8555/8556
 - [ ] 2.15b Desktop **bundles + chains** the connector installer + re-deploys it on app update (one-install UX)
 - [ ] 2.15c Connector **self-update** lane (extension users) + `protocolVersion` on `/health` (compat gate) + CODESYS "restart CODESYS" prompt
