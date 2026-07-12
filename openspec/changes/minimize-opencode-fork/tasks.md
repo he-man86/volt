@@ -8,16 +8,18 @@ fate table + edge cases in `design.md`. Each phase is independently verifiable: 
       not compiled code) — if it does, log the extra scope before proceeding.
 - [ ] Edge #11: grep the pristine app for any `window.volt` use beyond the IDE panel.
 
-## 1. IDE panel → the connector
-- [ ] **1.0 Workspace registry (foundation, edge #1)** — `volt-git` writes a machine-local reverse index
-      `%LocalAppData%\Volt\workspaces.json` (`port/project → workspaceRoot`) on every bridge-touching command;
-      validated + pruned. A reader the connector uses to resolve the workspace for its live IDE. *(In progress.)*
-- [ ] Build the connector's IDE-changes view (reuse the `VoltIdePanel` component in a WebView2, or native): files
-      changed in the IDE vs git, merge-safety warning, empty states (edge #2).
-- [ ] Connector runs pull/push via a bundled `volt-git` against the workspace bound in `.git/volt` (edge #1).
-- [ ] Access: tray entry now; optional shell titlebar button later (edge #9). No VS Code dependency.
+## 1. IDE-changes view → a desktop FRONTEND (the desktop sibling of the VS Code extension; NO connector change)
+A thin TS UI over `@opencode-ai/volt-control` (the exact layer the extension uses). Knows its own workspace (the
+desktop's active project) → forward binding `readBridgePort(workspaceRoot)`. The bridge connector is untouched.
+- [ ] Desktop state module over volt-control — mirror the extension's `VoltStatus` (state/status.ts) minus
+      `vscode`: `readBridgePort` / `probeHealth` / `fetchStatus` / `subscribeChanges` (reactive drift) /
+      `isMutationInFlight`. Where useful, extract a shared vscode-free core so the extension + desktop share it.
+- [ ] Desktop panel UI (Electron/Solid in the Volt shell): changed-in-IDE list, merge-safety warning, empty
+      states, Pull/Push (via volt-control `pull`/`push`) — mirroring the extension's `panel.ts` / `commands.ts`.
+- [ ] Wire the desktop's active workspace into the panel; render it as Volt shell chrome beside the wrapped
+      opencode GUI (or a shell window). No VS Code dependency.
 - [ ] Remove seams: `packages/app/src/pages/session.tsx`, `packages/app/package.json`,
-      `packages/desktop/src/preload/index.ts` (+ `volt-control` dep in `desktop/package.json`) → pristine.
+      `packages/desktop/src/preload/index.ts` (+ `volt-control` dep) → pristine.
 - [ ] Verify parity with the old in-GUI panel; `check-divergence` drops those seams.
 
 ## 2. GUI-content seams → pristine
