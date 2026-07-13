@@ -11,7 +11,7 @@ import { dirname, join } from "node:path"
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
 if (!outDir) {
-	console.error("usage: bun volt-scripts/harvest-lsp-corpus.ts <outDir> [port]")
+	console.error("usage: bun run harvest:corpus <outDir> [port]")
 	process.exit(1)
 }
 

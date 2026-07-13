@@ -17,6 +17,6 @@ A  syntax        tokens · lexer · complete AST · parser + treewalker
                      ↘ transpile (Rust backend) consumes A·B·C directly
 ```
 
-The ranks are encoded and **enforced** in `scripts/check-layering.ts` (run via `bun lint`): an upward
+The ranks are encoded and **enforced** in `scripts/check-layering.ts` (run via `bun run lint`): an upward
 import, a check importing a sibling check, or `transpile` reaching above `types` fails the build.
 Each layer exposes one `index.ts` barrel — consumers import `from "../types"`, not a deep file.

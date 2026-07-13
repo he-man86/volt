@@ -6,9 +6,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/opencode"
+    "url": "https://github.com/he-man86/volt"
   },
-  "description": "Ground-up rebuild of the IEC 61131-3 Structured Text language server, built layer-by-layer from openspec/specs/st-language-server. Isolated clean-room package; nothing imports it until it subsumes volt-lsp-iec.",
+  "description": "TypeScript-native language server for IEC 61131-3 Structured Text (+ the VG graphical sublanguage) — diagnostics, nav, completion, hover, signature help, semantic tokens. Registered to opencode via volt-config.",
   "type": "module",
   "exports": {
     ".": {
