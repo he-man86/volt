@@ -126,7 +126,7 @@ async function main(): Promise<number> {
 		case "build": {
 			const pending = unpushedCount(root);
 			if (pending > 0 && !args.has("--json"))
-				console.log(`note: ${pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run \`volt-git push\` first.`);
+				console.log(`note: ${pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run \`volt push\` first.`);
 			const rep = createReporter();
 			const r = await build(bridge, args.has("--full"), rep.onProgress);
 			rep.finish();
@@ -154,7 +154,7 @@ async function main(): Promise<number> {
 			try {
 				await bridge.waitForChange(ms);
 				if (args.has("--json")) process.stdout.write(`${JSON.stringify({ kind: "changed" })}\n`);
-				else console.log("IDE changed — run `volt-git pull` to sync.");
+				else console.log("IDE changed — run `volt pull` to sync.");
 				return 0;
 			} catch (e) {
 				const message = e instanceof Error ? e.message : String(e);
@@ -209,7 +209,7 @@ async function main(): Promise<number> {
 				return 0;
 			}
 			if (entries.length === 0) {
-				console.log("no sync history yet — run `volt-git pull`.");
+				console.log("no sync history yet — run `volt pull`.");
 				return 0;
 			}
 			for (const e of entries) console.log(`${e.sha.slice(0, 8)}  ${e.date.slice(0, 10)}  ${e.summary}`);
@@ -229,7 +229,7 @@ async function main(): Promise<number> {
 		case "show": {
 			const [ref, rel] = args.operands;
 			if (ref === undefined || rel === undefined) {
-				console.error("usage: volt-git show <ref> <path>");
+				console.error("usage: volt show <ref> <path>");
 				return 1;
 			}
 			const r = await show(root, bridge, ref, rel);

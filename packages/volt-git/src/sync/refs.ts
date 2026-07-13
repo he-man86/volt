@@ -65,7 +65,7 @@ export function loadIdeRefs(root: string): IdeRefs | undefined {
 	// A present-but-corrupt sidecar is unexpected: throw loudly (malformed JSON throws here too).
 	const raw = JSON.parse(readFileSync(p, "utf-8")) as Partial<IdeRefs>;
 	if (raw.projectVersion === undefined || raw.items === undefined || raw.folders === undefined) {
-		throw new Error(`.git/volt/ide-refs.json is malformed — delete it and run \`volt-git pull\` to rebuild the baseline`);
+		throw new Error(`.git/volt/ide-refs.json is malformed — delete it and run \`volt pull\` to rebuild the baseline`);
 	}
 	return raw as IdeRefs;
 }

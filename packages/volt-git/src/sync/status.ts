@@ -76,8 +76,8 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 
 	let recommend: string | null = null;
 	if (merging !== null) recommend = "resolve the conflict, then `git merge --continue`";
-	else if (online && hasChanges(incoming)) recommend = "volt-git pull";
-	else if (hasChanges(outgoing)) recommend = "volt-git push";
+	else if (online && hasChanges(incoming)) recommend = "volt pull";
+	else if (hasChanges(outgoing)) recommend = "volt push";
 
 	const summary = !initialized
 		? "not initialized"

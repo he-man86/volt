@@ -8,8 +8,7 @@
 # this script to your PATH and `volt <verb>` works from any cwd, exactly
 # like a published CLI.
 #
-# We invoke the TypeScript source directly via `bun` — no build step
-# required, and bun resolves workspace imports natively.
+# Runs the built CLI (`dist/bin.js`) via bun — run `bun run build` in this package first.
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec bun "${SCRIPT_DIR}/../dist/bin.js" "$@"

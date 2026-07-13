@@ -32,7 +32,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	const sidecar = loadIdeRefs(root);
 	const voltHead = voltIdeHead(gitDir);
 	if (sidecar === undefined || voltHead === undefined) {
-		return { kind: "rejected", reason: "no IDE baseline yet — run `volt-git pull` once before pushing" };
+		return { kind: "rejected", reason: "no IDE baseline yet — run `volt pull` once before pushing" };
 	}
 
 	// Unrecognized-extension guard (BEFORE committing anything). A file like `Foo.dut` isn't in the
@@ -62,7 +62,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 
 	const refs = await bridge.getRefs();
 	if (opts.forceWithLease !== undefined && opts.forceWithLease !== refs.projectVersion) {
-		return { kind: "rejected", reason: `--force-with-lease is stale: the IDE is at ${refs.projectVersion}, not ${opts.forceWithLease} — run \`volt-git pull\` first` };
+		return { kind: "rejected", reason: `--force-with-lease is stale: the IDE is at ${refs.projectVersion}, not ${opts.forceWithLease} — run \`volt pull\` first` };
 	}
 	const forcing = opts.force === true || opts.forceWithLease === refs.projectVersion;
 
@@ -70,7 +70,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	const drift = computeIncoming(refs.items, sidecar.items);
 	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && !forcing) {
 		const n = countChanges(drift);
-		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt-git pull\` first (or push --force)` };
+		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt pull\` first (or push --force)` };
 	}
 	// Forcing clobbers the IDE's current state, so guard against THAT (not the stale baseline).
 	const guardItems = forcing ? refs.items : sidecar.items;
@@ -128,7 +128,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 				continue;
 			}
 			const ver = guardItems[o.name];
-			if (ver === undefined) throw new Error(`renamed item '${o.name}' has no known IDE version — run \`volt-git pull\` first`);
+			if (ver === undefined) throw new Error(`renamed item '${o.name}' has no known IDE version — run \`volt pull\` first`);
 			ops.push({
 				op: "set",
 				name: o.name,

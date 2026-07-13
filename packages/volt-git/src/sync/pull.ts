@@ -6,7 +6,7 @@
  *   dirty tree       → refused (commit/stash first — git won't merge a dirty tree)
  *
  * On conflict the sidecar baseline is intentionally NOT advanced: resolve via `git merge --continue`/
- * `--abort`, then run `volt-git pull` again to finalize.
+ * `--abort`, then run `volt pull` again to finalize.
  */
 import type { ProgressHandler, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";

@@ -32,12 +32,12 @@ export function removeSrcFiles(root: string, paths: readonly string[]): void {
 	}
 }
 
-/** Ensure the root `.gitignore` ignores Rust build output (`/rust/target/`) + the machine-specific
- *  `.opencode/` files `volt init` writes (LSP/tool with absolute binary paths — regenerated per machine),
- *  and `.gitattributes` forces LF. (Volt's own state lives in `.git/volt/`, which git never tracks.) */
+/** Ensure the root `.gitignore` ignores Rust build output (`/rust/target/`).
+ *  (Volt's own state lives in `.git/volt/`, which git never tracks; the agent config is the installed
+ *  opencode's `OPENCODE_CONFIG_DIR`, not a per-project `.opencode/`.) */
 export function ensureGitignore(root: string): void {
 	const giPath = join(root, ".gitignore");
-	const wanted = ["/rust/target/", ".opencode/opencode.json", ".opencode/tool/volt.ts"];
+	const wanted = ["/rust/target/"];
 	let lines = existsSync(giPath) ? readFileSync(giPath, "utf-8").split("\n") : [];
 	let changed = false;
 	for (const w of wanted) {

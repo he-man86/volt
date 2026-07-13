@@ -36,6 +36,7 @@ volt push     # auto-commit src → push HEAD → fast-forward refs/remotes/volt
 volt status   # incoming (IDE) / outgoing (working tree) / merge state         [--json] [--porcelain]
 volt build    # build via the IDE; returns diagnostics                         [--full] [--json]
 volt log      # the IDE-sync history (commits on refs/remotes/volt/ide)        [--json] [--limit N]
+volt wait-change  # block until the IDE is edited (SSE), then exit             [--timeout <s>] [--json]
 volt show     # a file at a ref:  <ref> <path>
               #   HEAD | VOLTIDE | WORKSPACE | MERGE_OURS|THEIRS|BASE | BRIDGE | <any git ref>
 volt merge    # finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]
@@ -68,7 +69,6 @@ bun run build   # tsc -> dist/ (also runs on prepare; the bin is ./dist/bin.js)
 
 ## See also
 
-- [`./SYNC-OPTIONS.md`](./SYNC-OPTIONS.md) — the sync-model decision record (why the IDE-as-remote-branch option won).
-- [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
-- [`../../CLAUDE.md`](../../CLAUDE.md) — repo guidance + the fork-surface map.
+- [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log (incl. the IDE-as-remote-branch sync model).
+- [`../../CLAUDE.md`](../../CLAUDE.md) — repo guidance.
 - [`../volt-bridge/ARCHITECTURE.md`](../volt-bridge/ARCHITECTURE.md) — the bridge on the other side of the HTTP wire.

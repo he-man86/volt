@@ -24,12 +24,12 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	mkdirSync(root, { recursive: true });
 
 	if (configExists(root)) {
-		return { kind: "error", reason: "this workspace is already initialized — run `volt-git pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)" };
+		return { kind: "error", reason: "this workspace is already initialized — run `volt pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)" };
 	}
 
 	const health = await bridge.getHealth();
 	if (health.projectName === undefined || health.projectName === null || health.projectName === "") {
-		return { kind: "error", reason: "the bridge has no PLC project loaded — open a project in the IDE before `volt-git init`" };
+		return { kind: "error", reason: "the bridge has no PLC project loaded — open a project in the IDE before `volt init`" };
 	}
 
 	const gitCreated = !isInsideRepo(root);

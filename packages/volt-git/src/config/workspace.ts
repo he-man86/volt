@@ -49,7 +49,7 @@ export function loadConfig(root: string): WorkspaceConfig {
 		cfg.project?.platform === undefined ||
 		cfg.project?.projectName === undefined
 	) {
-		throw new Error(".git/volt/config.json is malformed — re-run `volt-git init`");
+		throw new Error(".git/volt/config.json is malformed — re-run `volt init`");
 	}
 	return cfg as WorkspaceConfig;
 }

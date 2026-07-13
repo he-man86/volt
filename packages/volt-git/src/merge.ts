@@ -1,6 +1,6 @@
 /**
- * volt-git merge — a thin shim over native git so the `merge` verb (and its opencode.json gate +
- * vscode mergeCmd) keeps working in the git-native model. `--continue`/`--abort` map to git;
+ * volt-git merge — a thin shim over native git so the `merge` verb (and the vscode mergeCmd)
+ * keeps working in the git-native model. `--continue`/`--abort` map to git;
  * `--resolve <path> [--use-ours|--use-theirs]` takes one whole side of a conflict.
  */
 import { checkoutSide, mergeAbort, mergeContinue, unmergedPaths } from "./git/plumbing.js";
@@ -31,7 +31,7 @@ export function merge(root: string, opts: MergeOptions): MergeResult {
 	if (opts.continue === true) {
 		const unresolved = unmergedPaths(root);
 		if (unresolved.length > 0) {
-			return { code: 2, message: `still ${unresolved.length} unresolved file(s) — resolve the markers (or \`volt-git merge --resolve <path> --use-ours|--use-theirs\`) first` };
+			return { code: 2, message: `still ${unresolved.length} unresolved file(s) — resolve the markers (or \`volt merge --resolve <path> --use-ours|--use-theirs\`) first` };
 		}
 		mergeContinue(root);
 		return { code: 0, message: "merge completed" };
