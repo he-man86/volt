@@ -33,9 +33,14 @@ one env var; two lean installers; the forked GUI/binary seams revert to pristine
 - [ ] Extension: **not** in the installer — Marketplace.
 
 ## Step 5 — shrink the fork surface
-- [ ] Revert the forked seams to pristine — `packages/app/*`, `packages/desktop/*`,
-      `packages/opencode/src/{cli/cmd/tui.ts, installation/index.ts}` — the product no longer ships them
-      (`volt-desktop` + stock opencode replace them); drop `volt-app`.
-- [ ] Shrink `check-divergence` `ALLOWED_MODIFICATIONS` to the surviving `volt-*` + near-static seams; add
-      self-tests that the reverted seams are now violations.
-- [ ] `sync.ts` green; both installers build + run; `check-divergence` shows the shrunk surface.
+- [x] Reverted all 14 forked seams to pristine — `packages/{app,ui,desktop}/*` +
+      `packages/opencode/src/{cli/cmd/tui.ts, installation/index.ts}`; dropped `volt-app` (its IDE panel lives
+      in `volt-desktop` over `volt-control`); preserved its brand assets into `volt-desktop/assets`.
+- [x] Shrank `check-divergence` `ALLOWED_MODIFICATIONS` 18 → 4 near-static seams; flipped the self-tests so the
+      reverted GUI/binary edits are violations again. Removed the obsolete `check-volt-integration` guards
+      (vite.js channel `define`, tui.ts worker-env seam).
+- [x] `check-divergence` clean at 4 seams; compat verifiers green. (Installers = the `distribution` change.)
+
+> Superseded: this change's Step 4 (installers) folded into `extract-clean-repo` + `distribution`. The de-fork
+> is proven done — `extract-clean-repo` then removed the opencode source in place. This change is effectively
+> complete; the remaining installer work lives in those follow-ons.

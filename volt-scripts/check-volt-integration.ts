@@ -153,7 +153,7 @@ if (process.platform === "win32") {
 
 console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
 console.log("\nManual verification — opencode (this repo):");
-console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
+console.log("  1. From repo root: bun dev   # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode (Volt-aware)");
 console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-iec' diagnostics.");
 console.log("     ('volt-lsp-iec' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
