@@ -54,7 +54,7 @@ function fmtChangeSet(label: string, c: ChangeSet): void {
 }
 
 const USAGE = `volt <command> [args] — git-native Volt CLI
-  (bare \`volt\`, or any non-PLC command, opens the opencode agent)
+  (for the AI agent, run \`opencode\` — Volt configures it via OPENCODE_CONFIG_DIR)
 
   init     bind to the bridge, git-init the project, first pull
   pull     fetch the IDE → git merge into your branch       [--force] [--dry-run]

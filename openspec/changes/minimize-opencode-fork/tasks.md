@@ -14,11 +14,14 @@ one env var; two lean installers; the forked GUI/binary seams revert to pristine
       a bare-exe live check, all green). `OPENCODE_CONFIG_DIR` is additive; auth is in the data dir (untouched).
 
 ## Step 3 — opencode as prerequisite, config via one env var
-- [ ] Config = **installer-set persistent env vars** `OPENCODE_CONFIG_DIR` + `PATH += bin`. The single mechanism —
-      **remove `serveEnv()` / per-spawn env from `volt-desktop`** (the spawned opencode inherits the global env).
-- [ ] **Strip `autoupdate` from `volt-config`** (leave opencode's updater entirely alone).
-- [ ] **Slim `volt.exe`** to the PLC CLI only (no opencode compiled in).
-- [ ] `volt-desktop` (and `volt`) resolve `opencode` from PATH; graceful "install opencode" when absent.
+- [x] Config = **installer-set persistent env vars** `OPENCODE_CONFIG_DIR` + `PATH += bin`, the single mechanism —
+      `volt-desktop` spawns `opencode serve` with no per-spawn env (inherits the global env); no `serveEnv`.
+- [x] **Stripped `autoupdate` from `volt-config`** — opencode's updater is left entirely alone.
+- [x] **Slimmed `volt.exe`** to the PLC CLI only — deleted `src/volt.ts` (the opencode-embedding router) +
+      `volt-scripts/build.ts` (mirrored opencode's build); `dist.ts` now compiles `bin.ts` directly. Dropped the
+      `opencode` / `@opentui/solid` / `opentui-spinner` deps + the TUI-spinner tree-shake guard.
+- [x] `volt-desktop` (and `volt`) resolve `opencode` from PATH (`OPENCODE_BIN` default); graceful "Install opencode"
+      panel when absent.
 
 ## Step 4 — the two installers
 - [ ] **CLI installer** (CORE): volt CLI + LSP + bridge/connector + config; sets the env vars; **no opencode**, no

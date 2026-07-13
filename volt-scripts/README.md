@@ -29,7 +29,7 @@ outside the fork's allowed seams; see `CLAUDE.md` → "Fork surface".)
 | `bun volt-scripts/build-installer.ts` | **Recreate the PROD installer** — forces `OPENCODE_CHANNEL=prod`, builds the bundle + the desktop NSIS (`packages/desktop/dist/Volt-Setup-<ver>-x64.exe`). |
 | `bun volt-scripts/dist.ts` | Build the `dist/volt` bundle — prod `volt` binary + LSP + self-contained connector (`--no-bridge` skips the C# connector). The installer bundles it. |
 
-(`build.ts` compiles the `volt` binary and `brand-icons.ts` brands the icons — both are called by the above. Install/uninstall is the NSIS; **updates ship via electron-updater from `he-man86/volt`** — opencode's mechanism, so the GUI + CLI + bridge all update together.)
+(`dist.ts` compiles the `volt` PLC CLI directly (no opencode bundled — the agent is stock opencode) and `brand-icons.ts` brands the icons. Install/uninstall is the NSIS; **updates ship via electron-updater from `he-man86/volt`**.)
 
 ## Dev & PLC tooling
 

@@ -21,9 +21,6 @@
   },
   "dependencies": {
     "@opencode-ai/volt-lsp-iec": "workspace:*",
-    "@opentui/solid": "catalog:",
-    "opencode": "workspace:*",
-    "opentui-spinner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

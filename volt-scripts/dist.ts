@@ -8,13 +8,13 @@
  *   bun volt-scripts/dist.ts --no-bridge  # binaries only (skip dotnet)
  *
  * Output:
- *   dist/volt/bin/volt[.exe]              the CLI: bare `volt` opens the agent, `volt <verb>` syncs
+ *   dist/volt/bin/volt[.exe]              the PLC CLI (`volt <verb>` syncs; the agent is stock opencode)
  *   dist/volt/bin/volt-lsp-iec[.exe]  the Structured Text LSP (no node needed)
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
 import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -38,11 +38,8 @@ function compile(entry: string, name: string): void {
 rmSync(out, { recursive: true, force: true })
 mkdirSync(bin, { recursive: true })
 
-console.log("• volt binary (opencode + PLC — mirrors opencode's build, TUI included)")
-if (!run("bun", ["volt-scripts/build.ts"])) {
-  console.error("✗ volt build failed")
-  process.exit(1)
-}
+console.log("• volt binary (PLC CLI — no opencode; the agent is stock opencode)")
+compile("packages/volt-git/src/bin.ts", "volt")
 
 console.log("• volt-lsp-iec")
 compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
@@ -123,15 +120,6 @@ for (const name of ["volt", "volt-lsp-iec"]) {
     console.error(`✗ missing expected artifact: ${name}${ext}`)
     process.exit(1)
   }
-}
-
-// Guard: the compiled `volt` must still register the TUI <spinner>. build.ts's minify+splitting can tree-shake
-// the bare side-effect import (opentui-spinner) → chat crashes with "[Reconciler] Unknown component type:
-// spinner". volt.ts value-references registerSpinner() to keep it; verify it survived the bundle.
-if (!readFileSync(resolve(bin, "volt" + ext), "latin1").includes("registerSpinner")) {
-  console.error("✗ TUI spinner registration tree-shaken out of the volt binary — chat would crash.")
-  console.error("  Fix: packages/volt-git/src/volt.ts must value-reference registerSpinner().")
-  process.exit(1)
 }
 
 console.log(`\n✓ release binaries in ${out}`)
