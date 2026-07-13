@@ -1,45 +1,35 @@
 # volt-scripts
 
-Fork-owned tooling for the Volt fork of opencode. All TS scripts run with `bun`; PS scripts
-drive the Windows-only bridges. (Not `bun run` scripts — `package.json` is an upstream file
-outside the fork's allowed seams; see `CLAUDE.md` → "Fork surface".)
+Repo tooling for Volt. All TS scripts run with `bun`; PS scripts drive the Windows-only bridges.
 
-## Sync with upstream
+## Track opencode (the compat gate)
 
-| Command | What it does |
-|---|---|
-| `bun volt-scripts/merge-upstream.ts [vX.Y.Z]` | **The one sync command.** Tracks opencode's **release tags**, not `dev`: fetch tags → newest `v<current-major>.*` (or a named tag — `v2.0.0` to opt into a new major) → dated `sync/…` branch → merge → run `sync.ts`. Stops on conflict; prints the fast-forward to land it. `--land` fast-forwards `volt` + pushes on green. |
-| `bun volt-scripts/sync.ts` | **The merge-process signal flow** — install → divergence → integration → lsp → tool, stopping at the first ✗. Run standalone after resolving a manual merge. |
-| `bun run volt-scripts/check-divergence.ts` | **Keystone guard.** Fails if the fork touched upstream outside the 15 seams, added a file outside the allowlist, or committed junk (`*.bak`/`.DS_Store`/…). `--self-test` runs the classifier unit tests. Also run by the pre-push hook + CI. |
-
-## Verify integration (after a merge, or in dev)
+Volt depends on opencode as a runtime + `@opencode-ai/plugin` (npm), not a fork. On an opencode version bump, run the compat gate:
 
 | Command | What it does |
 |---|---|
-| `bun run volt-scripts/check-volt-integration.ts` | Configs/bins/wiring present (files exist, dist built, corpus, vscode entry) + the release-merge guards: GUI channel `define` intact, `@opencode-ai/plugin` pin published on npm. |
-| `bun volt-scripts/verify-lsp.ts` | Proves the volt **LSP** attaches in opencode (drives `opencode debug lsp`). |
-| `bun volt-scripts/verify-volt-tool.ts` | Proves the volt **CLI tool** registers (drives `opencode debug agent volt`). Needs a configured model/provider. |
+| `bun volt-scripts/sync.ts` | **The opencode compat gate** — install → integration → lsp loads → tool loads, stopping at the first ✗. Exit 0 = Volt loads in this opencode. |
+| `bun run volt-scripts/check-volt-integration.ts` | Configs/bins/wiring present (config layer, dist built, corpus, wire-version parity, vscode entry). Key-free — runs in CI. |
+| `bun volt-scripts/verify-lsp.ts` | Proves the volt **LSP** loads in the installed opencode via `OPENCODE_CONFIG_DIR` (drives `opencode debug lsp`). |
+| `bun volt-scripts/verify-volt-tool.ts` | Proves the volt **CLI tool** loads (drives `opencode debug agent volt`). Needs an installed opencode + configured provider. |
 
-## Build & distribution (the prod installer)
-
-**One** all-inclusive installer (the desktop NSIS = GUI + `volt` CLI on PATH + bridge + LSP). Prod-only by default — dev/beta need an explicit `OPENCODE_CHANNEL` (CI sets it per branch).
+## Build & distribution
 
 | Command | What it does |
 |---|---|
-| `bun volt-scripts/build-installer.ts` | **Recreate the PROD installer** — forces `OPENCODE_CHANNEL=prod`, builds the bundle + the desktop NSIS (`packages/desktop/dist/Volt-Setup-<ver>-x64.exe`). |
-| `bun volt-scripts/dist.ts` | Build the `dist/volt` bundle — prod `volt` binary + LSP + self-contained connector (`--no-bridge` skips the C# connector). The installer bundles it. |
+| `bun volt-scripts/dist.ts` | Build the `dist/volt` bundle — `volt` PLC CLI + LSP + `volt-config/` + self-contained connector (`--no-bridge` skips the C# connector). The installer bundles this folder. |
 
-(`dist.ts` compiles the `volt` PLC CLI directly (no opencode bundled — the agent is stock opencode) and `brand-icons.ts` brands the icons. Install/uninstall is the NSIS; **updates ship via electron-updater from `he-man86/volt`**.)
+`dist.ts` compiles the `volt` PLC CLI directly (no opencode bundled — the agent is the user's installed opencode). The desktop shell + NSIS installer are built from `packages/volt-desktop` (Phase 2 / the distribution work).
 
 ## Dev & PLC tooling
 
 | Command | What it does |
 |---|---|
-| `bun volt-scripts/dev.ts` | opencode TUI from source with the volt LSP attached (`.fb`/`.prg`/…). |
 | `bun volt-scripts/harvest-corpus.ts` | Capture POU PLCopenXML from a live bridge (LSP corpus tooling). |
 | `pwsh volt-scripts/codesys-bridge.ps1 up\|test\|down\|…` | Headless CODESYS dev/test bridge loop. |
 | `pwsh volt-scripts/bridge.ps1` | Build + (re)launch the Beckhoff standalone bridge. |
 | `volt` / `volt.cmd` | `volt` CLI wrappers (add `volt-scripts/` to PATH to use bare `volt`). |
 
-`tsconfig.json` here typechecks every script (run by the pre-push hook + CI via
-`tsgo --noEmit -p volt-scripts/tsconfig.json`).
+For dev with the Volt-aware agent, run `bun dev` from the repo root (`OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`).
+
+`tsconfig.json` here typechecks every script (run by the pre-push hook + CI via `tsgo --noEmit -p volt-scripts/tsconfig.json`).

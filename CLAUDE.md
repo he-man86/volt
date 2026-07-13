@@ -4,62 +4,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-This is a fork of **opencode** (the open-source AI coding agent) that adds **Volt**: a toolchain for managing IEC 61131-3 PLC projects (CODESYS and TwinCAT/Beckhoff) as version-controllable text. The `volt-*` packages are the work that lives here; the rest is upstream opencode and is rarely touched. When in doubt, you are almost certainly working in a `volt-*` package.
+**Volt** — a toolchain for managing IEC 61131-3 PLC projects (CODESYS and TwinCAT/Beckhoff) as version-controllable text. The repo is a standalone Bun monorepo of `volt-*` packages.
 
-`AGENTS.md` (style guide, commit conventions, testing rules) and `CONTEXT.md` (V2 session-runtime domain language) are authoritative and apply to upstream opencode code — read them before editing `packages/opencode` / `packages/core` / `packages/llm` etc. The conventions below extend them for Volt.
+Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-source AI coding agent) is a **runtime dependency** — a user-provided install — not a fork. Volt makes the user's opencode PLC-aware by handing it one config dir via the `OPENCODE_CONFIG_DIR` env var (LSP + `volt` tool + agent + theme + permissions). We depend on opencode two ways: the installed **binary** at runtime, and **`@opencode-ai/plugin`** (from npm) that the `volt` tool imports. Nothing of opencode's source lives here.
 
-## Monorepo package map (opencode host)
+> History: this repo began as a fork of opencode's monorepo. The `extract-clean-repo` / `minimize-opencode-fork` changes (see `openspec/`) removed all opencode source and re-rooted it as the standalone Volt repo. If you find a stray reference to `packages/opencode`, `packages/app`, `check-divergence`, or "the fork" — it's stale; fix it.
 
-How the host fits together: **one backend, two frontends.** `opencode` is the binary; it composes `core + server + llm + tui + sdk + plugin`. The **TUI** (terminal) and the **GUI** (`app`, wrapped by `desktop` or served as web) are two frontends over the same HTTP server. Volt work is almost always in `packages/volt-*` — this map is for understanding the host you integrate into.
+## Package map
 
-**Backend / runtime** (the `opencode` binary composes these):
-- `opencode` (`packages/opencode`) — **the `opencode` binary**: agent runtime + CLI, embeds the HTTP server, launches the TUI. The main entry.
-- `@opencode-ai/core` — shared domain logic (the V2 session runtime; see `CONTEXT.md`).
-- `@opencode-ai/server` — HTTP **API layer** (routes/handlers/auth/cors) that every frontend calls.
-- `@opencode-ai/llm` — schema-first **LLM/provider** abstraction (one typed request/response/event/tool language).
-- `@opencode-ai/plugin` — **plugin + custom-tool SDK**; what `.opencode/tool/*.ts` and TUI plugins (`.opencode/plugins/*.tsx`) import (`tool()`, `tui()`).
-- `@opencode-ai/sdk` — typed **client SDK** the GUI uses to talk to the server.
-- `@opencode-ai/schema` — shared schema/type definitions (agent, command, filesystem, …).
-- `@opencode-ai/tui` — **terminal UI** renderer (opentui + solid). TUI plugins/slots (`home_logo`, …) live here.
-- `@opencode-ai/http-recorder` · `@opencode-ai/script` — test HTTP record/replay; shared repo scripts.
+Bun workspaces + Turbo. All product code is in `packages/volt-*`:
 
-**GUI frontend stack** (web + desktop share this):
-- `@opencode-ai/app` — **the GUI** (Solid web/desktop UI); talks to the server via the SDK. `bun dev:web` serves it in a browser.
-- `@opencode-ai/ui` — shared GUI components — **the logo (`logo.tsx`) lives here.**
-- `@opencode-ai/session-ui` — session-view UI components used by `app`.
-- `@opencode-ai/desktop` — **Electron shell**: loads `app` in a window + spawns the `opencode` server as a sidecar; owns app name/window/updater.
-- `@opencode-ai/web` (docs/marketing site, Astro) · `@opencode-ai/storybook` (component preview).
+- **`volt-bridge`** (`@opencode-ai/volt-bridge`) — the C# bridges + connector: one live IDE (CODESYS / TwinCAT) over a small HTTP wire.
+- **`volt-git`** (`@opencode-ai/volt-git`) — the **`volt` CLI**: git-native PLC sync (`init/pull/push/status/build/log/show/merge`).
+- **`volt-lsp-iec`** (`@opencode-ai/volt-lsp-iec`) — TypeScript-native LSP for Structured Text.
+- **`volt-control`** (`@opencode-ai/volt-control`) — UI-agnostic core (status/pull/push/health/diagnostics) that powers both frontends.
+- **`volt-desktop`** (`@opencode-ai/volt-desktop`) — Electron shell: spawns the installed `opencode serve`, loads its GUI in a `WebContentsView`, adds Volt chrome + the IDE panel over `volt-control`.
+- **`volt-vscode`** — VS Code extension (Marketplace-distributed): PLC language intelligence + drift coloring + the `volt-control` views.
+- **`volt-landing`** — commercial landing site. **Deferred / out of the workspace** — it still depends on opencode's private `console-*` packages; extracted in a later cut (see `openspec/changes/extract-clean-repo/` §5).
 
-**Cloud / infra — rarely relevant to Volt:** `console/*` (cloud console), `stats/*` (analytics), `@opencode-ai/{enterprise,function,slack}`, `@opencode-ai/cli` (separate `lildax` binary, *not* the opencode entry), `@opencode-ai/{effect-sqlite-node,effect-drizzle-sqlite}` (Effect SQLite adapters).
+**`volt-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. `@opencode-ai/plugin` is vendored into it (npm) so the tool loads with no registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`.
 
-**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridge`), `volt-git` (the `volt` CLI), `volt-lsp-iec` (`@opencode-ai/volt-lsp-iec`), `volt-vscode` — detailed under "Volt architecture" below. Planned commercial layer: `volt-landing` (Volt's own landing site — *scaffold*, see `packages/volt-landing/README.md`).
-
-**Volt-as-a-SaaS principle (white-label opencode):** *own what's purely Volt's, sync what is the product.* The public **landing page** is fully owned (`volt-landing`, modeled on `console/app`'s homepage — never synced). The **agent GUI** (`packages/app`/`ui`/`desktop`) and the **backend** (`console-core` billing/auth/email) are **reused and kept in sync** with upstream — customized only via minimal branding seams (logo, app name) and Volt's own `infra/` SST config (your Stripe/SES/DB). Never fork `packages/app` — it's opencode's core product, improved daily. The design, invariants, roadmap, and decision log now live in **OpenSpec** (`openspec/specs/` + `openspec/changes/`; run `openspec list`); **`VOLT-DESIGN.md`** / **`VOLT-PLAN.md`** are slim pointers.
-
-**Branding/UI reach (recurring question):** TUI logo/panels are additive via `@opencode-ai/tui` plugin slots; the **GUI logo** (`packages/ui`), **GUI components** (`packages/app`), and **app name** (`packages/desktop`) have no plugin hook → deliberate (minimal) upstream seams.
+Each `volt-*` package has its own `README.md` — read it before deep work there.
 
 ## Tooling & common commands
 
-Monorepo: **Bun** workspaces + **Turbo**. Package manager is `bun@1.3.14`. Lint is **oxlint**; format is Prettier (`semi: false`, `printWidth: 120`).
+Package manager is `bun@1.3.14`. Lint is **oxlint**; format is Prettier (`semi: false`, `printWidth: 120`).
 
 ```bash
-bun install                 # install (postinstall patches node-pty)
-bun typecheck               # turbo typecheck across all packages
+bun install                 # install workspace deps
+bun typecheck               # turbo typecheck across all volt packages
 bun lint                    # oxlint
-bun volt-scripts/merge-upstream.ts                # sync to opencode's latest RELEASE tag: fetch tags → merge → verify (one command)
-bun volt-scripts/sync.ts                          # AFTER an upstream merge: the full signal flow (install→divergence→integration→lsp→tool)
-bun run volt-scripts/check-divergence.ts          # (sub-step) enforce the fork surface — also run by the pre-push hook
-bun run volt-scripts/check-volt-integration.ts    # (sub-step) confirm configs/bins/wiring are present
-bun volt-scripts/dev.ts                           # opencode TUI from source with the volt LSP attached (.fb/.prg/…)
-bun volt-scripts/verify-lsp.ts                    # prove the volt LSP loads in opencode (non-interactive)
-bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool loads in opencode (non-interactive)
+bun dev                     # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode (installed opencode, Volt-aware)
+bun volt-scripts/sync.ts                          # the opencode COMPAT GATE (install→integration→lsp→tool)
+bun run volt-scripts/check-volt-integration.ts    # (sub-step) configs/bins/wiring present (key-free)
+bun volt-scripts/verify-lsp.ts                    # prove the volt LSP loads in the installed opencode
+bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool loads in the installed opencode
+bun volt-scripts/dist.ts                          # build the dist/volt/ release bundle (binaries + config + connector)
 ```
 
-The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`.opencode/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify the tool with `opencode debug agent volt` (look for `tools.volt: true`).
-
-`bun run dev` does **not** load the volt LSP — it forces opencode's cwd to `packages/opencode`, so the repo-root-relative LSP path can't resolve. Use `bun volt-scripts/dev.ts` (passes the repo root as the project dir). See `packages/volt-lsp-iec/README.md` → "Running inside opencode" for the why + the launch matrix (CLI/TUI/desktop).
-
-Each `volt-*` package has its own `README.md` with package-level detail — read it before deep work in that package.
+The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`volt-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
 
 Per-package work (run from the package dir, e.g. `packages/volt-git`):
 
@@ -111,44 +94,27 @@ The whole wire is keyed by bare item name — `/refs`, `/fetch` `knownItems`, ev
 
 Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-bridge/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-bridge/ITEM_KINDS.md` / `item-kinds.json` define the vendor-neutral item-type table.
 
-## Conventions specific to this fork
+## opencode integration — one env var, additive, safe
 
-- **Git:** default branch is `dev` (not `main` — local `main` may not exist; diff against `dev`/`origin/dev`). Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful Volt scopes: `bridge`, `cli`, `lsp`.
-- **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. `volt-scripts/*.ps1` drive the bridges and installers (fork scripts live in `volt-scripts/`; upstream's stay in `script/`).
-- The repo retains upstream's package name `opencode` and the `.opencode/` config (LSP wiring for `volt-lsp-iec`, and `ask` permission gates on `volt init/pull/push`). Don't confuse `.opencode/` (opencode agent config) with `.volt/` (a CLI-managed PLC workspace).
-- **Agent toolchain ships as ONE config dir (the unify model).** The installed product hands opencode the whole agent-facing layer — LSP + `volt` tool + agent + theme + permissions — as one read-only dir `packages/volt-git/volt-config/` (→ `dist/volt/volt-config/`, `@opencode-ai/plugin` vendored), via the env var **`OPENCODE_CONFIG_DIR`** (opencode treats it as a full `.opencode`; set by the desktop `main/index.ts` env seam + the `volt` binary `volt.ts`, with the bin dir prepended to PATH so the config's bare-name `volt-lsp-iec`/`volt` commands resolve). So `volt init` **no longer generates a per-project `.opencode/`** — it only binds the IDE project (`.git/volt`) + installs vendor skills. The repo's own `.opencode/` is just the dev-time config. See `openspec/changes/unify-volt-agent-config/`.
+- The **installer** sets two persistent user env vars: `OPENCODE_CONFIG_DIR` = the shipped `volt-config`, and `PATH += <bin>` (so the config's bare-name `volt-lsp-iec` / `volt` commands resolve). This is the single mechanism — nothing per-spawn.
+- **Additive & safe:** opencode always merges the user's own global config, and `OPENCODE_CONFIG_DIR` is just an *extra* merged directory. Auth lives in opencode's data dir (untouched). So the user's settings + provider keys are preserved; Volt's config merges on top. Uninstall removes the env vars → opencode reverts to vanilla.
+- **opencode is a prerequisite** — Volt never bundles, downloads, updates, or uninstalls it. The desktop precheck aborts if `opencode` is absent; the CLI works without it (the agent lights up if/when opencode is present).
 
-## Fork surface & upstream sync
+## Conventions
 
-Volt is **purely additive** — all product code lives in `packages/volt-*`, and integration uses opencode's extension points (auto-discovered files + config), **never edits to opencode source**. The complete divergence from upstream:
+- **Git:** default branch is `dev`. Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful scopes: `bridge`, `cli`, `lsp`.
+- **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. `volt-scripts/*.ps1` drive the bridges and installers.
+- **`.volt/`** is a CLI-managed PLC workspace binding (`.git/volt`); **`volt-config/`** is the agent-config layer handed to opencode. Don't confuse them.
+- Design, invariants, roadmap, and the decision log live in **OpenSpec** (`openspec/specs/` + `openspec/changes/`; run `openspec list`). **`VOLT-DESIGN.md`** / **`VOLT-PLAN.md`** are slim pointers.
 
-- **Product:** `packages/volt-{bridge,git,lsp-iec,vscode}` (+ `volt-control`, `volt-app`) — auto-included via the `packages/*` workspace glob (no registration needed).
-- **Additive files:** `.opencode/opencode.json` (LSP registration + `volt` permission gates — opencode **deep-merges** this over upstream's pristine `opencode.jsonc`, so config is additive, not a seam), `.opencode/agent/volt.md`, `.opencode/themes/volt.json` (Volt brand theme), `.opencode/tool/volt.ts` (the `volt` CLI as a custom tool — opencode scans `.opencode/tool/` only), `packages/volt-*/turbo.json` (per-package test tasks via `extends: ["//"]`, so root `turbo.json` stays pristine), `volt-scripts/*`, `CLAUDE.md`, `VOLT-DESIGN.md`, `VOLT-PLAN.md`, `.github/workflows/volt-*.yml` (Volt CI + scheduled upstream-sync), plus committed dev tooling under `.claude/` (Claude Code skills/commands, incl. the OpenSpec workflow). (Language-reference skills are **generated** into a consumer's `.claude/skills/` by `volt init` — see `packages/volt-lsp-iec/README.md` → "Adding another vendor LSP".)
-- **Modified upstream files (18 seams):** *near-static* — `bun.lock` (volt deps), `.opencode/tui.json` (select the brand theme), `.husky/pre-push` (typecheck scoped to volt-*), `.gitignore` (`/memory` junction); *branding* — `packages/ui/src/components/logo.tsx` (Volt logo), `packages/desktop/src/main/index.ts` + `packages/desktop/electron-builder.config.ts` (Volt app name) + `packages/desktop/src/renderer/index.html` + `packages/app/index.html` (Volt window title); *GUI panel* — `packages/app/src/pages/session.tsx` (one-line `<VoltIdePanel/>` mount — the self-owned IDE-changes panel, not a changes-source selector entry) + `packages/app/package.json` (`volt-app` dep) + `packages/app/src/pages/layout/deep-links.ts` (volt:// scheme — *replaces* opencode://; only the two installed apps coexist); *desktop IPC* — `packages/desktop/src/preload/index.ts` (expose `window.volt`) + `packages/desktop/electron.vite.config.ts` (bundle the volt CLI beside main + default the build channel to prod) + `packages/desktop/package.json` (`volt-control`/`volt-git` deps), handlers wired in the already-seamed `packages/desktop/src/main/index.ts`; *build channel* — `packages/app/vite.js` (default the renderer build channel to prod → ship opencode's stable **V1** layout, not its unreleased V2); *updater* — `packages/opencode/src/installation/index.ts` (self-updater tracks Volt's release feed via `VOLT_UPDATE_REPO`); *TUI worker env* — `packages/opencode/src/cli/cmd/tui.ts` (pass live env to the TUI worker so its config carries the Volt LSP). The config/test seams were eliminated via the merge-layers above; the branding + GUI-panel + IPC seams are the deliberate white-label/desktop-product cost (no additive hook exists in `packages/{ui,desktop,app}`).
+## Tracking opencode (the compat gate)
 
-**Extension-point map — where each future addition goes (route everything here to stay conflict-free):**
-| Addition | Additive home | |
-|---|---|---|
-| LSP / permission / mcp / model config | `.opencode/opencode.json` (the growing config layer — never edit `.jsonc`) | ✅ |
-| Custom tool · agent · theme | `.opencode/tool/*.ts` · `.opencode/agent/*.md` · `.opencode/themes/*.json` | ✅ |
-| **Graphical Volt panel in the TUI** | `.opencode/plugins/volt.tsx` (plugin API: routes/slots/keybinds; allowlist it in `check-divergence.ts`) | ✅ |
-| **Desktop (Electron) panel · logo · app name** | none — `packages/desktop` / `packages/ui/.../logo.tsx` are **not** plugin-extensible | ⚠️ deliberate seam |
-
-Build graphical features as a **TUI plugin** or in fork-owned `volt-vscode` to stay additive; an opencode **desktop** panel/logo is the only growth that requires a documented upstream seam.
-
-`bun run volt-scripts/check-divergence.ts` enforces this — it fails if any upstream file outside those 18 seams is modified/deleted, **or if a new file is added outside `packages/volt-*`, `volt-scripts/`, `.claude/`, `.github/workflows/volt-*`, `openspec/`, `CLAUDE.md`, `NOTICE`, `VOLT-DESIGN.md`, `VOLT-PLAN.md`, or the `.opencode/{agent,themes,tool,plugins}/…` + `.opencode/opencode.json` additive allowlist`, or if committed junk (`*.bak`/`.DS_Store`/…) appears.** It's the always-accurate map of where the fork's changes live; run it after every upstream merge. (It diffs committed `HEAD` vs `upstream/dev`, so commit your changes before relying on it.) **Enforced in CI** (`.github/workflows/volt-ci.yml`), not just the pre-push hook. Design, roadmap, and the decision log now live in **OpenSpec** (`openspec/`; run `openspec list`); `VOLT-DESIGN.md`/`VOLT-PLAN.md` are slim pointers.
-
-### Syncing upstream (runbook)
-
-Volt tracks opencode's **prod-ready releases** (tags like `v1.17.11`), **not** its moving `dev` trunk — opencode is trunk-based, so `dev` is unreleased work-in-progress. **One command** does the whole safe flow — fetch tags → resolve the latest release → dated `sync/…` branch → merge → verify:
+Volt tracks opencode by **dependency version + a compat test**, not by merging its source. On an opencode version bump (or `@opencode-ai/plugin` bump), run:
 
 ```
-bun volt-scripts/merge-upstream.ts            # newest v<current-major>.* release tag
-bun volt-scripts/merge-upstream.ts v1.18.0    # a specific tag (or v2.0.0 to opt into a new major)
+bun volt-scripts/sync.ts     # install → integration → lsp loads → tool loads (stops at first ✗)
 ```
 
-By default it merges the newest tag within the **current major** (held back from a breaking new major until you name it). It stops cleanly on conflicts (resolve + commit, then `bun volt-scripts/sync.ts`), and on success prints the fast-forward to land it on `volt` — it does **not** move/push your branch. The scheduled CI job (`.github/workflows/volt-upstream-sync.yml`) does the same weekly and opens a PR.
-
-Under the hood it runs **`volt-scripts/sync.ts`** — the merge-process *signal flow* that confirms the fork still holds (deps resolve → surface unchanged → wiring intact → runtime loads): it orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Run `sync.ts` standalone after resolving a manual merge. `check-volt-integration` also guards the release-merge regressions (the GUI channel `define`, the `@opencode-ai/plugin` pin being published on npm); `dist.ts` guards that the TUI `<spinner>` survived the bundle.
+It confirms the current opencode still loads Volt's config: deps resolve, the wiring is intact (`check-volt-integration`), and the LSP + `volt` tool actually load in the **installed** `opencode` (`verify-lsp` / `verify-volt-tool` drive the real binary via `OPENCODE_CONFIG_DIR`). Exit 0 = Volt is compatible with this opencode. `volt-ci.yml` runs the key-free subset (typecheck + lint + integration) on every push/PR; the provider-dependent verifiers run locally / on bumps.
 
 Adding another vendor LSP: `packages/volt-lsp-iec/README.md` → "Adding another vendor LSP".
