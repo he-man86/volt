@@ -6,7 +6,7 @@ Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into 
 
 ## Role in Volt
 
-This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@opencode-ai/volt-control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-iec` server, started as an LSP client.
+This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@volt/control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-iec` server, started as an LSP client.
 
 The UI is the **Volt** activity-bar container, which hosts four tree views (`src/views/panel.ts`), per workspace:
 
@@ -21,7 +21,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Activation.** The extension activates on `onStartupFinished`, on opening the Structured Text language (every writable source item — POU/DUT/GVL/interface, textual or editable graphical — is one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`); read-only `.cfc`/`.sfc` and reference manifests keep their own extensions), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the IDE Sync view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the view toolbar.
 
-**Status tracking** (`state/status.ts`). Each workspace gets a `VoltStatus` that probes bridge health every 30s, polls the Volt state mtime every 3s, refreshes on save of tracked POU files, and runs `volt status --json` (via `fetchStatus` in `@opencode-ai/volt-control`) to populate the cached `StatusJson`. On error it keeps the last good status and just surfaces the message.
+**Status tracking** (`state/status.ts`). Each workspace gets a `VoltStatus` that probes bridge health every 30s, polls the Volt state mtime every 3s, refreshes on save of tracked POU files, and runs `volt status --json` (via `fetchStatus` in `@volt/control`) to populate the cached `StatusJson`. On error it keeps the last good status and just surfaces the message.
 
 **The views** (`views/panel.ts`). In IDE Sync, incoming items diff `VOLTIDE ↔ BRIDGE` (the baseline vs. the live IDE — what a pull brings in); outgoing items diff `VOLTIDE ↔ WORKSPACE` (the baseline vs. your working file — what a push sends). A project mismatch or an in-progress merge short-circuits the tree to a single explanatory row.
 
@@ -29,7 +29,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Drift decorations** (`providers/decorations.ts`). A file-decoration provider badges changed files in the Explorer: `i` (incoming, `volt.driftIncomingForeground`), `o` (outgoing, `volt.driftOutgoingForeground`), `C` (merge conflict, `volt.driftConflictForeground`), and `RO` for read-only kinds (graphical/config files the AI reads but can't push, from `extensionAccess`). These colors are deliberately distinct from git's own.
 
-**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp-iec` (falling back to the sibling `volt-lsp-iec` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up a whole graphical (FBD/LD) POU — a kind-named `.fb`/`.prg`/`.fun` file — **and** a graphical body inlined in a POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
+**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@volt/lsp-iec` (falling back to the sibling `volt-lsp-iec` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up a whole graphical (FBD/LD) POU — a kind-named `.fb`/`.prg`/`.fun` file — **and** a graphical body inlined in a POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
 **Status bar** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. Bridge lifecycle is **not** the extension's job — it's the tray connector's; the extension only reports state and initializes a workspace (`volt init`) against a reachable bridge.
 

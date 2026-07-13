@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
-import type { StatusJson, ChangeSet } from "@opencode-ai/volt-control"
-import { readExtensionAccess } from "@opencode-ai/volt-control"
+import type { StatusJson, ChangeSet } from "@volt/control"
+import { readExtensionAccess } from "@volt/control"
 
 export class VoltDecorations implements vscode.FileDecorationProvider {
 	private readonly emitter = new vscode.EventEmitter<vscode.Uri | undefined>()

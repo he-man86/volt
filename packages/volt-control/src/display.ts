@@ -3,7 +3,7 @@
  *
  * Node-free by contract (no `node:*` value imports; `HealthState`/`StatusJson` are `import type`,
  * erased at runtime) so the **sandboxed** Solid renderer can import it via the
- * `@opencode-ai/volt-control/display` subpath — the same trick as `/channels`. Before this module,
+ * `@volt/control/display` subpath — the same trick as `/channels`. Before this module,
  * the health→string mapping was derived three times (volt-control `healthLabel`, volt-vscode
  * `updateGlobalUi`, volt-desktop `HealthDot`) and drifted; every surface now renders these functions.
  */

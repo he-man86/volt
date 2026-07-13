@@ -630,8 +630,8 @@
     "package": "bun run build && vsce package --no-dependencies"
   },
   "dependencies": {
-    "@opencode-ai/volt-control": "workspace:*",
-    "@opencode-ai/volt-lsp-iec": "workspace:*",
+    "@volt/control": "workspace:*",
+    "@volt/lsp-iec": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

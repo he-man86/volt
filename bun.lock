@@ -14,7 +14,7 @@
       },
     },
     "packages/volt-bridge": {
-      "name": "@opencode-ai/volt-bridge",
+      "name": "@volt/bridge",
       "version": "0.1.0",
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
@@ -25,7 +25,7 @@
       },
     },
     "packages/volt-control": {
-      "name": "@opencode-ai/volt-control",
+      "name": "@volt/control",
       "version": "0.1.0",
       "dependencies": {
         "vscode-jsonrpc": "^8.2.0",
@@ -39,10 +39,10 @@
       },
     },
     "packages/volt-desktop": {
-      "name": "@opencode-ai/volt-desktop",
+      "name": "@volt/desktop",
       "version": "0.1.0",
       "dependencies": {
-        "@opencode-ai/volt-control": "workspace:*",
+        "@volt/control": "workspace:*",
       },
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
@@ -53,13 +53,13 @@
       },
     },
     "packages/volt-git": {
-      "name": "@opencode-ai/volt-git",
+      "name": "@volt/git",
       "version": "0.1.0",
       "bin": {
         "volt": "./dist/bin.js",
       },
       "dependencies": {
-        "@opencode-ai/volt-lsp-iec": "workspace:*",
+        "@volt/lsp-iec": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -71,7 +71,7 @@
       },
     },
     "packages/volt-lsp-iec": {
-      "name": "@opencode-ai/volt-lsp-iec",
+      "name": "@volt/lsp-iec",
       "version": "0.1.0",
       "bin": {
         "volt-lsp-iec": "./dist/src/bin.js",
@@ -92,8 +92,8 @@
       "name": "volt-vscode",
       "version": "0.1.3",
       "dependencies": {
-        "@opencode-ai/volt-control": "workspace:*",
-        "@opencode-ai/volt-lsp-iec": "workspace:*",
+        "@volt/control": "workspace:*",
+        "@volt/lsp-iec": "workspace:*",
         "vscode-languageclient": "^9.0.1",
       },
       "devDependencies": {
@@ -155,16 +155,6 @@
     "@nodelib/fs.stat": ["@nodelib/fs.stat@2.0.5", "", {}, "sha512-RkhPPp2zrqDAQA/2jNhnztcPAlv64XdhIp7a7454A5ovI7Bukxgt7MX7udwAu3zg1DcpPU0rz3VV1SeaqvY4+A=="],
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
-
-    "@opencode-ai/volt-bridge": ["@opencode-ai/volt-bridge@workspace:packages/volt-bridge"],
-
-    "@opencode-ai/volt-control": ["@opencode-ai/volt-control@workspace:packages/volt-control"],
-
-    "@opencode-ai/volt-desktop": ["@opencode-ai/volt-desktop@workspace:packages/volt-desktop"],
-
-    "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
-
-    "@opencode-ai/volt-lsp-iec": ["@opencode-ai/volt-lsp-iec@workspace:packages/volt-lsp-iec"],
 
     "@oxlint-tsgolint/darwin-arm64": ["@oxlint-tsgolint/darwin-arm64@0.21.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-P20j3MLqfwIT+94qGU3htC7dWp4pXGZW1p1p7FRUzu1aopq7c9nPCgf0W/WjktqQ57+iuTq9mbSlwWinl6+H1A=="],
 
@@ -283,6 +273,16 @@
     "@typescript/native-preview-win32-x64": ["@typescript/native-preview-win32-x64@7.0.0-dev.20251207.1", "", { "os": "win32", "cpu": "x64" }, "sha512-5l51HlXjX7lXwo65DEl1IaCFLjmkMtL6K3NrSEamPNeNTtTQwZRa3pQ9V65dCglnnCQ0M3+VF1RqzC7FU0iDKg=="],
 
     "@typespec/ts-http-runtime": ["@typespec/ts-http-runtime@0.3.5", "", { "dependencies": { "http-proxy-agent": "^7.0.0", "https-proxy-agent": "^7.0.0", "tslib": "^2.6.2" } }, "sha512-yURCknZhvywvQItHMMmFSo+fq5arCUIyz/CVk7jD89MSai7dkaX8ufjCWp3NttLojoTVbcE72ri+be/TnEbMHw=="],
+
+    "@volt/bridge": ["@volt/bridge@workspace:packages/volt-bridge"],
+
+    "@volt/control": ["@volt/control@workspace:packages/volt-control"],
+
+    "@volt/desktop": ["@volt/desktop@workspace:packages/volt-desktop"],
+
+    "@volt/git": ["@volt/git@workspace:packages/volt-git"],
+
+    "@volt/lsp-iec": ["@volt/lsp-iec@workspace:packages/volt-lsp-iec"],
 
     "@vscode/vsce": ["@vscode/vsce@3.9.2", "", { "dependencies": { "@azure/identity": "^4.1.0", "@secretlint/node": "^10.1.2", "@secretlint/secretlint-formatter-sarif": "^10.1.2", "@secretlint/secretlint-rule-no-dotenv": "^10.1.2", "@secretlint/secretlint-rule-preset-recommend": "^10.1.2", "@vscode/vsce-sign": "^2.0.0", "azure-devops-node-api": "^12.5.0", "chalk": "^4.1.2", "cheerio": "^1.0.0-rc.9", "cockatiel": "^3.1.2", "commander": "^12.1.0", "form-data": "^4.0.0", "glob": "^13.0.6", "hosted-git-info": "^4.0.2", "jsonc-parser": "^3.2.0", "leven": "^3.1.0", "markdown-it": "^14.1.0", "mime": "^1.3.4", "minimatch": "^10.2.2", "parse-semver": "^1.1.1", "read": "^1.0.7", "secretlint": "^10.1.2", "semver": "^7.5.2", "tmp": "^0.2.3", "typed-rest-client": "^1.8.4", "url-join": "^4.0.1", "xml2js": "^0.5.0", "yauzl": "^3.2.1", "yazl": "^2.2.2" }, "optionalDependencies": { "keytar": "^7.7.0" }, "bin": { "vsce": "vsce" } }, "sha512-XSxMosEEDO6vLxELAHVkwmhC0qe0ijZni2jB9Rcs8kQsW4lhTDQ/wMzmwFs/buotAWSnpmUp/dRWD2ufG3UYKA=="],
 

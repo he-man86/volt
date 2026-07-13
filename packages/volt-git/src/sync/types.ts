@@ -1,4 +1,4 @@
-/** Result + status shapes. status/log match the consumer contracts in @opencode-ai/volt-control
+/** Result + status shapes. status/log match the consumer contracts in @volt/control
  *  (StatusJson, LogEntry) so the desktop panel + vscode parse volt-git output unchanged. */
 
 export interface ChangeSet {

@@ -2,13 +2,13 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import { resolveAgentExe } from "./agent.js"
 import { startLsp } from "./lsp.js"
-import { setBundledCli } from "@opencode-ai/volt-control"
+import { setBundledCli } from "@volt/control"
 import { registerCommands } from "./commands.js"
 import { VoltStatus, hasVoltConfig, workspaceFolders } from "./state/status.js"
 import { VoltViews } from "./views/panel.js"
 import { VoltDecorations } from "./providers/decorations.js"
 import { VoltContentProvider, SCHEME } from "./providers/content.js"
-import { aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@opencode-ai/volt-control"
+import { aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined

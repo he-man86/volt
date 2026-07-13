@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/volt-git",
+  "name": "@volt/git",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@opencode-ai/volt-lsp-iec": "workspace:*",
+    "@volt/lsp-iec": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

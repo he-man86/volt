@@ -1,6 +1,6 @@
 /**
  * volt-git status — produces the StatusData the text renderer uses, whose StatusJson subset matches
- * @opencode-ai/volt-control's contract exactly (so the desktop panel + vscode parse it unchanged).
+ * @volt/control's contract exactly (so the desktop panel + vscode parse it unchanged).
  * incoming = bridge-refs vs the sidecar baseline (worktree-independent — the IDE axis). outgoing = the
  * WORKING TREE vs refs/remotes/volt/ide (item-name keyed), so an edit shows the moment you save — committed
  * or not, incl. untracked new files. (push still sends committed HEAD after auto-commit; this is the live

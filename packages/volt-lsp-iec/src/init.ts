@@ -65,7 +65,7 @@ license: MIT
 metadata:
   language: structured-text
   vendor: twincat
-  source-package: "@opencode-ai/volt-lsp-iec"
+  source-package: "@volt/lsp-iec"
   installed-by: "volt-lsp-iec init"
 ---
 
@@ -111,7 +111,7 @@ license: MIT
 metadata:
   language: structured-text
   vendor: codesys
-  source-package: "@opencode-ai/volt-lsp-iec"
+  source-package: "@volt/lsp-iec"
   installed-by: "volt-lsp-iec init"
 ---
 

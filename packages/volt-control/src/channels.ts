@@ -3,7 +3,7 @@
  * (registerVoltIpcHandlers) and the sandboxed preload bridge.
  *
  * Node-free (no imports) so the **sandboxed** Electron preload can import it via the
- * `@opencode-ai/volt-control/channels` subpath WITHOUT pulling volt-control's CLI/Node code
+ * `@volt/control/channels` subpath WITHOUT pulling volt-control's CLI/Node code
  * (which a sandboxed preload can't load).
  */
 export const VOLT_CHANNELS = {

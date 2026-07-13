@@ -5,7 +5,7 @@
  */
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-iec";
+import { installCorpus, type DetectedVendor } from "@volt/lsp-iec";
 import type { Remote } from "./bridge/types.js";
 import { configExists, saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo, commitAll, headCommit, currentBranch, readTreeToIndex, resolveGitDir, updateRef } from "./git/plumbing.js";

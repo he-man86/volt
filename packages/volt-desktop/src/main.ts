@@ -3,7 +3,7 @@
 // renders as the inner content pane in a WebContentsView. Spawns the INSTALLED opencode's server and loads
 // its embedded GUI by URL — no opencode packages are bundled (opencode is a provisioned runtime).
 // The IDE panel mirrors the volt-vscode sections (IDE Sync / Diagnostics / Bridge) over the SAME
-// @opencode-ai/volt-control the extension uses — share the logic, not the pixels. The active workspace
+// @volt/control the extension uses — share the logic, not the pixels. The active workspace
 // follows the project opencode's GUI is on (sniffed from its x-opencode-directory header), like VS Code
 // binding to its open folder.
 import { spawn } from "node:child_process"
@@ -22,7 +22,7 @@ import {
   collectDiagnostics,
   setLspServer,
   type StatusJson,
-} from "@opencode-ai/volt-control"
+} from "@volt/control"
 
 const BRIDGE_PORT = { codesys: 8556, twincat: 8555 } as const // CLAUDE.md: CODESYS 8556, Beckhoff 8555
 

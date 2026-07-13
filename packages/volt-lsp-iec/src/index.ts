@@ -1,4 +1,4 @@
-// @opencode-ai/volt-lsp-iec — public API barrel.
+// @volt/lsp-iec — public API barrel.
 //
 // The layer stack (imports point DOWNWARD only, lint-enforced by scripts/check-layering.ts):
 //   syntax ← symbols ← types ← analysis ← services ← reference/graphical ← server

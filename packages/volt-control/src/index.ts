@@ -1,5 +1,5 @@
 /**
- * @opencode-ai/volt-control — the UI-agnostic core that drives the `volt` CLI / bridge.
+ * @volt/control — the UI-agnostic core that drives the `volt` CLI / bridge.
  *
  * No UI-framework code: it spawns the CLI, parses `--json` output into typed outcomes, probes bridge
  * health, collects diagnostics, and owns the desktop IPC channel names. Rendered by both frontends —

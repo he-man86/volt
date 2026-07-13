@@ -1,4 +1,4 @@
-# @opencode-ai/volt-control
+# @volt/control
 
 > UI-agnostic core that drives the `volt` CLI / bridge — one shared driver behind both Volt GUIs.
 
@@ -6,7 +6,7 @@ The shared CLI/bridge driver plus the Electron IPC layer that sits behind the tw
 
 ## Role in Volt
 
-volt-control is the layer **below** the GUIs. Both renderers — `volt-desktop` (the Electron shell wrapping installed opencode) and `volt-vscode` (VS Code tree views) — go through it; it drives the `volt` binary (`@opencode-ai/volt-git`), parses its output, and owns the channel names that define the desktop IPC contract. **One shared core, two renderers.** It is distinct from `volt-git`: that package *is* the CLI binary, while this one *spawns and parses* it.
+volt-control is the layer **below** the GUIs. Both renderers — `volt-desktop` (the Electron shell wrapping installed opencode) and `volt-vscode` (VS Code tree views) — go through it; it drives the `volt` binary (`@volt/git`), parses its output, and owns the channel names that define the desktop IPC contract. **One shared core, two renderers.** It is distinct from `volt-git`: that package *is* the CLI binary, while this one *spawns and parses* it.
 
 The package is Node-bound (it spawns child processes and reads files), so the desktop main process imports the full package. The `/channels` subpath is deliberately **Node-free** (zero imports) so the **sandboxed** Electron preload can import the channel names without pulling in any CLI/Node code it can't load.
 

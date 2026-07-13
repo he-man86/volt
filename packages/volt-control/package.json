@@ -1,5 +1,5 @@
 {
-  "name": "@opencode-ai/volt-control",
+  "name": "@volt/control",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "../providers/content.js"
-import { healthDisplay, isPouFile, readBridgePort, type StatusJson } from "@opencode-ai/volt-control"
+import { healthDisplay, isPouFile, readBridgePort, type StatusJson } from "@volt/control"
 import type { VoltStatus } from "../state/status.js"
 
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:

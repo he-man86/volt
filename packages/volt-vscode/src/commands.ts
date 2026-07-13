@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { pull, push, build, init as voltInit, readBridgePort, type ProgressUpdate } from "@opencode-ai/volt-control"
+import { pull, push, build, init as voltInit, readBridgePort, type ProgressUpdate } from "@volt/control"
 import { VoltStatus } from "./state/status.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
