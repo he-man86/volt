@@ -1,36 +1,30 @@
 ## Why
 
-Volt has to be **installable like opencode** — a `volt` CLI (npm / curl / brew) *and* a desktop app, plus
-the IDE bridge — not just a desktop build. Today only hand-compiled binaries exist: no published CLI, no
-clean install, no update path, and the desktop's updater feed still points at stock opencode (so it would
-auto-update *back* to opencode). This blocks shipping Volt to users. (VOLT-PLAN phase **B ◐**.)
+Volt has to be **installable on Windows** — one install that covers both the desktop app and terminal use —
+over the user's own opencode, with **auto-update built in**. Today only hand-compiled binaries exist: no clean
+install, no env-var wiring, no uninstall, no update path. This blocks shipping Volt. (VOLT-PLAN phase **B**.)
+
+> **This is the single home for installer work.** It supersedes the abandoned "bundle *our own* opencode build"
+> model *and* the interim two-NSIS-lane model, and folds in the still-live installer items from
+> `minimize-opencode-fork` (Step 4) and `extract-clean-repo` (§3) — both archived. Current truth, matching the
+> code: opencode is a **user-provided, optional** runtime (never bundled/downloaded/updated by Volt), and Volt
+> ships **one Velopack installer** whose **always-running C# connector drives auto-update**.
 
 ## What Changes
 
-> **⟲ FORWARD DIRECTION SUPERSEDED (2026-07-12) by `minimize-opencode-fork`.** The premise below — a single
-> self-contained `volt` binary + *mirroring* opencode's CLI-distribution machinery + bundling opencode into the
-> installer — is replaced by the **two-lane model**: opencode **self-installs** (chained online) and
-> **self-updates on its own feed**; Volt's installer owns ONLY the Volt layer (branded Electron shell + config +
-> LSP + connector + bridges + `volt` env-wrapper + extension) — **no custom binary, no mirroring of opencode's
-> distribution.** The bundling installer built here (largely ✅ below) is the interim that proved every piece;
-> the **connector + extension lifecycle tasks (2.13 / 2.15b / 2.15c) carry forward** with the refinements from
-> the lifecycle audit (single-connector invariant, extension authority-per-path, quiesce-on-update). Superseded
-> items: 2.3 (mirror `build.ts` → a custom binary) and the "self-contained binary / mirror `publish.ts`" bullets.
-> See `minimize-opencode-fork/design.md` → "Target lifecycle & installer".
+**ONE Windows installer for all Volt apps** (desktop GUI + `volt` CLI on PATH + `volt-lsp-iec` LSP + the tray
+connector + `volt-config`) — **not** the VS Code extension (Marketplace-only). Per-user, `%LocalAppData%\Volt`.
 
-**Mirror opencode's distribution machinery** (`script/build.ts`, `script/publish.ts`, root `install`,
-electron-updater, `opencode upgrade`), parameterized for Volt and pointed at **Volt's release repo**. The
-whole Volt delta is small. See `design.md` for the full architecture.
+- **Auto-update is driven by the always-running C# connector** (the one process alive in every configuration —
+  the Electron window may never be opened), using **Velopack** (the standard .NET installer+updater). The
+  connector checks `he-man86/volt`, downloads deltas, and stages them for its next restart. `vpk pack` produces
+  the one installer; **no hand-rolled update logic, no electron-updater** (which only checks when the GUI is
+  open).
+- **opencode is optional** — no install-time gate; if absent the desktop shows an "install opencode for the
+  agent" panel and the PLC tools work regardless. Volt **never** touches opencode's own updater.
 
-- **`volt` is one self-contained binary** — our opencode build + the PLC dispatcher, run in-process,
-  packaged exactly like `opencode-ai`. *(In-process binary validated.)*
-- **CLI distribution** — mirror `publish.ts` (npm `volt` wrapper + per-platform binaries) and the `install`
-  curl script. The **only** addition to opencode's recipe is one postinstall line registering the LSP.
-- **Desktop** — opencode's electron app + branding (done); ⚠ **re-point the electron-updater feed to Volt's
-  repo**; bundle + register the LSP for the embedded opencode.
-- **Updates** — `volt upgrade` (reuse opencode's method-aware `installation/` logic) + electron-updater.
-- **Bridge connector** — build the C# bridges + install them into the IDE.
-- **Remove the `volt setup` CLI verb** — registration moves to postinstall (CLI) / startup (desktop).
+The env wiring (`OPENCODE_CONFIG_DIR` + PATH) moves into the connector's Velopack install hooks (C#), retiring
+the NSIS/PowerShell installer entirely.
 
 ## Capabilities
 
@@ -39,9 +33,7 @@ whole Volt delta is small. See `design.md` for the full architecture.
 
 ## Impact
 
-Additive: `volt` is one binary built entirely from this repo (no external opencode). **No new upstream
-seams** — the updater re-point edits the *already-seamed* `electron-builder.config.ts`; the CLI/LSP/PLC
-additions are all fork-owned (`packages/volt-*`). Everything else reuses opencode's `build.ts` / `publish.ts`
-/ `install` / electron-updater verbatim, renamed for Volt — keeping the upstream merge easy.
-
-Inputs needed: a Volt GitHub release repo, Windows signing certs.
+Additive. The payload is already produced by `bun run dist` → `dist/volt/`
+(`bin/` · `connector/` · `volt-config/` · `docs/`). The installers just wrap that folder + wire env/lifecycle.
+No opencode source, no fork seams. Inputs still needed for later: a Windows code-signing cert (shipping
+**unsigned for now**), Marketplace publisher token.
