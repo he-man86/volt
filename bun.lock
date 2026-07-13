@@ -40,7 +40,6 @@
         "@opencode-ai/sdk": "workspace:*",
         "@opencode-ai/session-ui": "workspace:*",
         "@opencode-ai/ui": "workspace:*",
-        "@opencode-ai/volt-app": "workspace:*",
         "@pierre/trees": "1.0.0-beta.4",
         "@sentry/solid": "catalog:",
         "@shikijs/transformers": "3.9.2",
@@ -364,7 +363,7 @@
     },
     "packages/desktop": {
       "name": "@opencode-ai/desktop",
-      "version": "0.1.0",
+      "version": "1.17.11",
       "dependencies": {
         "@zip.js/zip.js": "2.7.62",
         "effect": "catalog:",
@@ -380,8 +379,6 @@
         "@lydell/node-pty": "catalog:",
         "@opencode-ai/app": "workspace:*",
         "@opencode-ai/ui": "workspace:*",
-        "@opencode-ai/volt-control": "workspace:*",
-        "@opencode-ai/volt-git": "workspace:*",
         "@sentry/solid": "catalog:",
         "@sentry/vite-plugin": "catalog:",
         "@solid-primitives/i18n": "2.2.1",
@@ -1004,22 +1001,6 @@
       "peerDependencies": {
         "@solidjs/meta": "^0.29.0",
         "solid-js": "^1.9.0",
-      },
-    },
-    "packages/volt-app": {
-      "name": "@opencode-ai/volt-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@opencode-ai/session-ui": "workspace:*",
-        "@opencode-ai/ui": "workspace:*",
-        "@opencode-ai/volt-control": "workspace:*",
-        "solid-js": "catalog:",
-      },
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/bun": "catalog:",
-        "@typescript/native-preview": "catalog:",
-        "typescript": "catalog:",
       },
     },
     "packages/volt-bridge": {
@@ -2121,8 +2102,6 @@
     "@opencode-ai/tui": ["@opencode-ai/tui@workspace:packages/tui"],
 
     "@opencode-ai/ui": ["@opencode-ai/ui@workspace:packages/ui"],
-
-    "@opencode-ai/volt-app": ["@opencode-ai/volt-app@workspace:packages/volt-app"],
 
     "@opencode-ai/volt-bridge": ["@opencode-ai/volt-bridge@workspace:packages/volt-bridge"],
 

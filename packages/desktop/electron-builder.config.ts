@@ -29,22 +29,17 @@ async function signWindows(configuration: { path: string }) {
 const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
-  // Default prod — installers are prod-only; dev/beta require an explicit OPENCODE_CHANNEL (CI sets it per branch).
-  return "prod"
+  return "dev"
 })()
 
 const APP_IDS = {
-  dev: "dev.volt.desktop.dev",
-  beta: "dev.volt.desktop.beta",
-  prod: "dev.volt.desktop",
+  dev: "ai.opencode.desktop.dev",
+  beta: "ai.opencode.desktop.beta",
+  prod: "ai.opencode.desktop",
 } as const
 
-// Per-channel product name — the single source for both productName and the uninstall entry name.
-const PRODUCT_NAMES = { dev: "Volt Dev", beta: "Volt Beta", prod: "Volt" } as const
-
 const getBase = (appId: string): Configuration => ({
-  artifactName: "Volt-Setup-${version}-${arch}.${ext}",
-  productName: PRODUCT_NAMES[channel],
+  artifactName: "opencode-desktop-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -55,10 +50,6 @@ const getBase = (appId: string): Configuration => ({
   // https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html
   // https://www.electron.build/docs/linux/
   extraMetadata: {
-    // Volt: electron-builder derives the per-user install dir from the package `name`. The real name is
-    // `@opencode-ai/desktop` (shared with stock opencode → both land in `Programs\@opencode-aidesktop` and
-    // collide). Override it for the build only, so Volt installs to `Programs\Volt` and the two COEXIST.
-    name: "Volt",
     desktopName: `${appId}.desktop`,
   },
   files: ["out/**/*", "resources/**/*"],
@@ -67,38 +58,6 @@ const getBase = (appId: string): Configuration => ({
       from: "native/",
       to: "native/",
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
-    },
-    {
-      // Volt: bundle the LSP + CLI binaries so a fresh install carries PLC intelligence without a
-      // hand-written global config. Build them first: `bun volt-scripts/dist.ts` → dist/volt/bin.
-      from: "../../dist/volt/bin",
-      to: "volt/bin",
-    },
-    {
-      // Volt: bundle the agent config dir (LSP + `volt` tool + agent + theme + permissions + the vendored
-      // @opencode-ai/plugin) handed to opencode via OPENCODE_CONFIG_DIR (set in main/index.ts). This is what
-      // gives a fresh install PLC intelligence with NO `volt init`. Built by dist.ts → dist/volt/volt-config.
-      from: "../../dist/volt/volt-config",
-      to: "volt/volt-config",
-    },
-    {
-      // Volt: bundle the connector (background tray gateway + bridge workers) so ONE install carries
-      // everything. The nsis.include macros launch it on install + clean its login item on uninstall.
-      from: "../../dist/volt/connector",
-      to: "volt/connector",
-    },
-    {
-      // Volt: bundle the VS Code extension so the installer sideloads it into the user's editors
-      // (connector.nsh customInstall → volt-extension.ps1). Built by dist.ts → dist/volt/volt-vscode.vsix.
-      from: "../../dist/volt/volt-vscode.vsix",
-      to: "volt/volt-vscode.vsix",
-    },
-    {
-      // Volt: bundle the ST language-reference corpus beside the binaries. `volt init`'s installCorpus reads
-      // it from `resources/volt/docs` (init.ts resolves `dirname(process.execPath)/../docs` in the compiled
-      // binary — `bun --compile` can't embed this fs-read tree). Built by dist.ts → dist/volt/docs.
-      from: "../../dist/volt/docs",
-      to: "volt/docs",
     },
   ],
   mac: {
@@ -115,8 +74,8 @@ const getBase = (appId: string): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "Volt",
-    schemes: ["volt"],
+    name: "OpenCode",
+    schemes: ["opencode"],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -131,12 +90,6 @@ const getBase = (appId: string): Configuration => ({
     perMachine: false,
     installerIcon: `resources/icons/icon.ico`,
     installerHeaderIcon: `resources/icons/icon.ico`,
-    // Apps & Features entry: just the product name (e.g. "Volt"). Drop the version electron-builder bakes into
-    // the name by default — it stays in DisplayVersion (the Version column). One all-inclusive installer.
-    uninstallDisplayName: PRODUCT_NAMES[channel],
-    // Volt: connector lifecycle (launch on install · stop + drop login item on uninstall). Fork-owned
-    // .nsh, referenced by absolute path so it's not a new file inside the upstream desktop package.
-    include: path.join(rootDir, "packages/volt-bridge/installer/connector.nsh"),
   },
   linux: {
     icon: `resources/icons`,
@@ -162,6 +115,7 @@ function getConfig() {
       return {
         ...base,
         appId,
+        productName: "OpenCode Dev",
         rpm: { packageName: "opencode-dev" },
       }
     }
@@ -169,9 +123,9 @@ function getConfig() {
       return {
         ...base,
         appId,
-        protocols: { name: "Volt Beta", schemes: ["volt"] },
-        // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
-        publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "beta" },
+        productName: "OpenCode Beta",
+        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
+        publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
         rpm: { packageName: "opencode-beta" },
       }
     }
@@ -179,9 +133,9 @@ function getConfig() {
       return {
         ...base,
         appId,
-        protocols: { name: "Volt", schemes: ["volt"] },
-        // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
-        publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "latest" },
+        productName: "OpenCode",
+        protocols: { name: "OpenCode", schemes: ["opencode"] },
+        publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
         deb: { fpm: [legacyDesktopEntryFpm] },
         rpm: { packageName: "opencode", fpm: [legacyDesktopEntryFpm] },
       }

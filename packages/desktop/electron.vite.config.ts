@@ -9,9 +9,7 @@ const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   if (process.env.OPENCODE_CHANNEL === "latest") return "prod"
-  // Volt: default to opencode's STABLE prod channel (V1 layout), not its unreleased V2. Upstream defaults to
-  // "dev"; we ship stable and inherit V2 only when opencode promotes it. See openspec harden-opencode-integration.
-  return "prod"
+  return "dev"
 })()
 
 const nodePtyPkg = `@lydell/node-pty-${process.platform}-${process.arch}`
@@ -40,9 +38,7 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        // Volt seam — bundle the volt CLI beside the main bundle (out/main/volt.js), resolved
-        // at runtime like sidecar.js. A PLC workspace has no volt CLI in node_modules.
-        input: { index: "src/main/index.ts", sidecar: "src/main/sidecar.ts", volt: "../volt-git/src/bin.ts" },
+        input: { index: "src/main/index.ts", sidecar: "src/main/sidecar.ts" },
       },
       externalizeDeps: { include: [nodePtyPkg] },
     },

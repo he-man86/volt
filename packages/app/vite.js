@@ -9,9 +9,7 @@ const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   if (process.env.OPENCODE_CHANNEL === "latest") return "prod"
-  // Volt: default to opencode's STABLE prod channel (V1 layout), not its unreleased V2. Upstream defaults to
-  // "dev"; we ship stable and inherit V2 only when opencode promotes it. See openspec harden-opencode-integration.
-  return "prod"
+  return "dev"
 })()
 
 /**

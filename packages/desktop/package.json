@@ -1,7 +1,7 @@
 {
   "name": "@opencode-ai/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.17.11",
   "type": "module",
   "license": "MIT",
   "homepage": "https://opencode.ai",
@@ -18,7 +18,6 @@
     "preview": "electron-vite preview",
     "package": "electron-builder --config electron-builder.config.ts",
     "package:mac": "electron-builder --mac --config electron-builder.config.ts",
-    "prepackage:win": "bun ../../volt-scripts/brand-icons.ts",
     "package:win": "electron-builder --win --config electron-builder.config.ts",
     "package:linux": "electron-builder --linux --config electron-builder.config.ts",
     "native:build": "bun install --cwd native"
@@ -39,8 +38,6 @@
     "@lydell/node-pty": "catalog:",
     "@opencode-ai/app": "workspace:*",
     "@opencode-ai/ui": "workspace:*",
-    "@opencode-ai/volt-git": "workspace:*",
-    "@opencode-ai/volt-control": "workspace:*",
     "@sentry/solid": "catalog:",
     "@sentry/vite-plugin": "catalog:",
     "@solid-primitives/i18n": "2.2.1",

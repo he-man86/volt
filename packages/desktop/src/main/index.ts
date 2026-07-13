@@ -6,10 +6,7 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
 import type { Event } from "electron"
-import { app, BrowserWindow, ipcMain } from "electron"
-import { fileURLToPath } from "node:url"
-import { dirname } from "node:path"
-import { registerVoltIpcHandlers } from "@opencode-ai/volt-control" // Volt seam — see CLAUDE.md "Fork surface"
+import { app, BrowserWindow } from "electron"
 
 import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
@@ -42,11 +39,10 @@ import { registerWslIpcHandlers } from "./wsl/ipc"
 import { spawnWslSidecar } from "./wsl/sidecar"
 import { migrate } from "./migrate"
 
-// Volt branding (fork seam — see CLAUDE.md "Fork surface").
 const APP_NAMES: Record<string, string> = {
-  dev: "Volt Dev",
-  beta: "Volt Beta",
-  prod: "Volt",
+  dev: "OpenCode Dev",
+  beta: "OpenCode Beta",
+  prod: "OpenCode",
 }
 const APP_IDS: Record<string, string> = {
   dev: "ai.opencode.desktop.dev",
@@ -130,7 +126,7 @@ const main = Effect.gen(function* () {
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "Volt Dev")
+  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "OpenCode Dev")
   app.setAppUserModelId(appId)
   app.setPath(
     "userData",
@@ -193,7 +189,7 @@ const main = Effect.gen(function* () {
   preferAppEnv(app.getPath("userData"))
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg: string) => arg.startsWith("volt://"))
+    const urls = argv.filter((arg: string) => arg.startsWith("opencode://"))
     if (urls.length) {
       logger.log("deep link received via second-instance", { urls })
       emitDeepLinks(urls)
@@ -241,7 +237,7 @@ const main = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady())
 
   if (!TEST_ONBOARDING) migrate()
-  app.setAsDefaultProtocolClient("volt")
+  app.setAsDefaultProtocolClient("opencode")
   registerRendererProtocol()
   setDockIcon()
   const updater = setupAutoUpdater(stopSidecars)
@@ -272,30 +268,6 @@ const main = Effect.gen(function* () {
     recordFatalRendererError: (error) => writeLog("renderer", "fatal renderer error", { ...error }, "error"),
   })
   registerWslIpcHandlers(wslServers)
-  // Volt: wire the volt CLI over IPC so the renderer panel can call window.volt.* — the CLI is
-  // bundled beside this main bundle (electron.vite.config volt input), resolved like sidecar.js.
-  try {
-    registerVoltIpcHandlers(ipcMain, join(dirname(fileURLToPath(import.meta.url)), "volt.js"))
-  } catch (e) {
-    logger.log("volt ipc registration failed", { error: String(e) })
-  }
-  // Volt: hand opencode the bundled agent-config dir (LSP + `volt` tool + agent + theme + permissions) via
-  // OPENCODE_CONFIG_DIR, and prepend the bundled bin dir to PATH so the config's bare-name `volt-lsp-iec`
-  // / `volt` commands resolve even before the installer's PATH entry takes effect. The opencode sidecar
-  // (createSidecarEnv) inherits this whole env. `volt init` now only binds the IDE project; VOLT_BIN lets
-  // volt-control shell the CLI over IPC.
-  if (app.isPackaged) {
-    const exe = process.platform === "win32" ? ".exe" : ""
-    const voltRoot = join(process.resourcesPath, "volt")
-    const binDir = join(voltRoot, "bin")
-    process.env.OPENCODE_CONFIG_DIR = join(voltRoot, "volt-config")
-    process.env.PATH = binDir + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? "")
-    process.env.VOLT_BIN = join(binDir, "volt" + exe)
-    // The desktop updates via electron-updater (its own he-man86/volt feed), so silence opencode's in-sidecar
-    // self-updater — otherwise volt-config's `autoupdate: notify` would double-prompt. The terminal CLI keeps
-    // its self-updater (volt.ts sets VOLT_UPDATE_REPO instead), since it has no electron-updater.
-    process.env.OPENCODE_DISABLE_AUTOUPDATE = "1"
-  }
   void updater.start()
   const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
   updateTimer.unref()

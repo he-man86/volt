@@ -8,7 +8,6 @@ import {
   Match,
   Switch,
   createMemo,
-  createResource,
   createEffect,
   createComputed,
   on,
@@ -28,7 +27,6 @@ import { Tabs } from "@opencode-ai/ui/tabs"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { previewSelectedLines } from "@opencode-ai/session-ui/pierre/selection-bridge"
 import { Button } from "@opencode-ai/ui/button"
-import { VoltIdePanel } from "@opencode-ai/volt-app" // Volt seam — self-owned IDE-changes panel (see CLAUDE.md "Fork surface")
 import { showToast } from "@/utils/toast"
 import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
 import { useLocation, useNavigate, useSearchParams } from "@solidjs/router"
@@ -917,15 +915,6 @@ export default function Page() {
         "bg-background-stronger": !settings.general.newLayoutDesigns(),
       }}
     >
-      <VoltIdePanel
-        workspaceRoot={sdk().directory}
-        readFile={(path) =>
-          sdk()
-            .client.file.read({ path })
-            .then((x) => x.data)
-            .catch(() => undefined)
-        }
-      />
       <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
         {reviewContent({
           diffStyle: layout.review.diffStyle(),
