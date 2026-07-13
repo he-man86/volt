@@ -17,7 +17,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
 	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
 
-	// "Volt: Open Agent" — like opencode's Quick Launch: open, or focus an already-open, agent terminal.
+	// "Volt: Open Agent" — open, or focus an already-open, agent terminal.
 	// New Session always starts a fresh one. The agent binary is a PREREQUISITE (desktop install or `volt`
 	// on PATH) — the extension doesn't bundle or download it (see agent.ts).
 	let agentTerm: vscode.Terminal | undefined
@@ -45,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
 	statusBar.command = "volt.status"
 
-	// Probe both bridge ports (parallel) so the Source Control welcome's init buttons enable only for a
+	// Probe both bridge ports (parallel) so the IDE Sync view welcome's init buttons enable only for a
 	// vendor whose IDE is actually connected — `volt.twincatLive` / `volt.codesysLive` drive their
 	// command `enablement` (visible-but-disabled until the bridge is up). Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {

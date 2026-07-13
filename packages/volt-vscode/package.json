@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/opencode"
+    "url": "https://github.com/he-man86/volt"
   },
   "engines": {
     "vscode": "^1.80.0"
@@ -363,14 +363,14 @@
           "default": 8555,
           "minimum": 1,
           "maximum": 65535,
-          "description": "Port the TwinCAT / Beckhoff bridge listens on. Used by the `Initialize for TwinCAT` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
+          "description": "Port the TwinCAT / Beckhoff bridge listens on. Used by the `Initialize for TwinCAT` welcome-view button. Once a workspace is initialized, the port stored in `.git/volt/config.json` takes precedence for that workspace."
         },
         "volt.bridge.codesysPort": {
           "type": "number",
           "default": 8556,
           "minimum": 1,
           "maximum": 65535,
-          "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
+          "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.git/volt/config.json` takes precedence for that workspace."
         }
       }
     },

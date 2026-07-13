@@ -183,7 +183,7 @@ async function doInit(
 		return
 	}
 	vscode.window.showInformationMessage("Workspace initialized.")
-	// The folder now has .git/volt/config.json — register it so the SCM view, status
+	// The folder now has .git/volt/config.json — register it so the IDE Sync view, status
 	// bar and decorations come alive without a reload.
 	ensureWorkspace(workspaceRoot)
 	await refreshFor(statuses, workspaceRoot)

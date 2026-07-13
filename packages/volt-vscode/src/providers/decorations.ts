@@ -39,7 +39,7 @@ export class VoltDecorations implements vscode.FileDecorationProvider {
 			const letter = i !== undefined ? "i" : "o"
 			const colorId = i !== undefined ? "volt.driftIncomingForeground" : "volt.driftOutgoingForeground"
 			const dir = i !== undefined ? "incoming" : "outgoing"
-			return { badge: letter, color: new vscode.ThemeColor(colorId), tooltip: `${dir} — ${i ?? o}. diff via \`volt show\` or the SCM view` }
+			return { badge: letter, color: new vscode.ThemeColor(colorId), tooltip: `${dir} — ${i ?? o}. diff via \`volt show\` or the IDE Sync view` }
 		}
 		// Read-only config kind (only within the tracked src/ tree).
 		if (rel.startsWith("src/")) {

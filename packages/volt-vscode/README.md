@@ -8,20 +8,22 @@ Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into 
 
 This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@opencode-ai/volt-control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-iec` server, started as an LSP client.
 
-The heart of the UI is the **`volt.scm`** tree view ("Sync with IDE"). It renders, per workspace:
+The UI is the **Volt** activity-bar container, which hosts four tree views (`src/views/panel.ts`), per workspace:
 
-- a **health** row (connected / degraded / disconnected / unreachable to the bridge), and
-- two drift groups — **Incoming (IDE → pull)** and **Outgoing (push → IDE)** — each file a clickable `vscode.diff` against the last-synced baseline ref `refs/remotes/volt/ide` (`VOLTIDE`).
+- **IDE Sync** (`volt.views.sync`) — a **health** row (connected / degraded / disconnected / unreachable) plus two drift groups, **Incoming (IDE → pull)** and **Outgoing (push → IDE)**, each file a clickable `vscode.diff` against the last-synced baseline ref `refs/remotes/volt/ide` (`VOLTIDE`).
+- **Diagnostics** (`volt.views.diagnostics`) — the current build/LSP problems.
+- **Bridge** (`volt.views.bridge`) — bridge health + port; the view only reports, it never starts bridges (that's the connector's job).
+- **Reference & Agent** (`volt.views.reference`) — links into the language reference + the agent.
 
 Git history, conflict resolution, and discard are **delegated to the editor's built-in Git** — when a pull hits conflicts, Volt opens the files and tells you to resolve them with your normal merge tools, then pull again. Volt owns only the IDE axis git can't see; it adds no custom history or merge engine.
 
 ## How it works
 
-**Activation.** The extension activates on `onStartupFinished`, on opening the Structured Text language (every writable source item — POU/DUT/GVL/interface, textual or editable graphical — is one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`); read-only `.cfc`/`.sfc` and reference manifests keep their own extensions), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the SCM view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the SCM toolbar.
+**Activation.** The extension activates on `onStartupFinished`, on opening the Structured Text language (every writable source item — POU/DUT/GVL/interface, textual or editable graphical — is one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`); read-only `.cfc`/`.sfc` and reference manifests keep their own extensions), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the IDE Sync view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the view toolbar.
 
 **Status tracking** (`state/status.ts`). Each workspace gets a `VoltStatus` that probes bridge health every 30s, polls the Volt state mtime every 3s, refreshes on save of tracked POU files, and runs `volt status --json` (via `fetchStatus` in `@opencode-ai/volt-control`) to populate the cached `StatusJson`. On error it keeps the last good status and just surfaces the message.
 
-**The SCM tree** (`views/scm.ts`). Incoming items diff `VOLTIDE ↔ BRIDGE` (the baseline vs. the live IDE — what a pull brings in); outgoing items diff `VOLTIDE ↔ WORKSPACE` (the baseline vs. your working file — what a push sends). A project mismatch or an in-progress merge short-circuits the tree to a single explanatory row.
+**The views** (`views/panel.ts`). In IDE Sync, incoming items diff `VOLTIDE ↔ BRIDGE` (the baseline vs. the live IDE — what a pull brings in); outgoing items diff `VOLTIDE ↔ WORKSPACE` (the baseline vs. your working file — what a push sends). A project mismatch or an in-progress merge short-circuits the tree to a single explanatory row.
 
 **Diff content** (`providers/content.ts`). A `volt://` text-document content provider backs every diff: it parses the `volt://<workspaceRoot>/<ref>/<path>` URI and shells out to `volt show <ref> <path>` (via `spawnVoltBuffer`) to materialize that ref's version of a file. Exit code 2 (absent) renders as empty so adds/deletes diff cleanly.
 
@@ -29,7 +31,9 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp-iec` (falling back to the sibling `volt-lsp-iec` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up a whole graphical (FBD/LD) POU — a kind-named `.fb`/`.prg`/`.fun` file — **and** a graphical body inlined in a POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
-**Status bar + Start Bridge** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. When the bridge is offline the item retargets to **`volt.startBridge`**, which (via `connector.ts`) ensures the Volt Connector is running and starts the configured bridge port. Onboarding (`volt.setup`) asks the connector which IDE/project is live and binds to it directly, falling back to an explicit TwinCAT/CODESYS pick.
+**Status bar** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. Bridge lifecycle is **not** the extension's job — it's the tray connector's; the extension only reports state and initializes a workspace (`volt init`) against a reachable bridge.
+
+**Agent** (`agent.ts`). The agent is the installed opencode — a prerequisite the extension resolves (bundled `volt`/opencode from the Volt install, else `volt` on PATH); it neither bundles nor downloads it. "Volt: Open Agent" opens/focuses an agent terminal.
 
 ## Commands
 
@@ -57,13 +61,13 @@ windsurf --install-extension volt-<version>.vsix
 | Path | Role |
 |---|---|
 | `src/extension.ts` | `activate`/`deactivate`; wires the SCM tree, decorations, content provider, status bar, per-workspace `VoltStatus`, and `setBundledCli`; starts the LSP. |
-| `src/commands.ts` | All `volt.*` command handlers — pull/push (with force confirmations), init/setup, build, status, refresh, start-bridge, open config/settings/reference. |
-| `src/views/scm.ts` | The `volt.scm` tree: health row + Incoming/Outgoing drift groups, each item a `vscode.diff` against `refs/remotes/volt/ide`. |
+| `src/commands.ts` | All `volt.*` command handlers — pull/push (with force confirmations), init, build, status, refresh, open config/settings/reference. |
+| `src/views/panel.ts` | The four Volt tree views (IDE Sync / Diagnostics / Bridge / Reference & Agent); IDE Sync = health row + Incoming/Outgoing drift, each item a `vscode.diff` against `refs/remotes/volt/ide`. |
 | `src/providers/content.ts` | `volt://` content provider; resolves a ref's file via `volt show`. |
 | `src/providers/decorations.ts` | Explorer drift badges (`i`/`o`/`C`/`RO`) using the `volt.drift*` theme colors. |
 | `src/state/status.ts` | `VoltStatus` — health probe, mtime poll, `volt status --json` refresh, config detection. |
 | `src/lsp.ts` | Starts the Volt LSP client for the ST-family languages. |
-| `src/connector.ts` | Talks to the Volt Connector (bridge discovery, start-bridge, CODESYS/TwinCAT instance selection). |
+| `src/agent.ts` | Resolves the agent (installed opencode) binary for "Volt: Open Agent". |
 | `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language config (ST/ITF/GVL/DUT) + `vg.injection.tmLanguage.json` — the injection that highlights VG `NETWORK` networks by content. |
 | `icons/` | File-kind icons and the `volt-icons` icon theme + activity-bar icon. |
 
@@ -74,4 +78,4 @@ windsurf --install-extension volt-<version>.vsix
 - [`../volt-lsp-iec/README.md`](../volt-lsp-iec/README.md) — the Structured Text **+ VG** language server.
 - [`../volt-bridge/docs/vg-language.md`](../volt-bridge/docs/vg-language.md) — the **VG (Volt Graphical)** language spec.
 - [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
-- [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and the fork's architecture.
+- [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and architecture.
