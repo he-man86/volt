@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Volt release builder — compiles every shippable binary into dist/volt/ so the installer just bundles
- * one folder. The desktop app + NSIS installer are built separately (packages/desktop: `package:win`),
- * which bundles this folder via extraResources.
+ * Volt release builder — compiles every shippable binary + the volt-config layer into dist/volt/ so the
+ * installer just bundles one folder. The volt-desktop shell + NSIS installer are built separately
+ * (packages/volt-desktop), which bundles this folder.
  *
  *   bun volt-scripts/dist.ts            # binaries + bridges
  *   bun volt-scripts/dist.ts --no-bridge  # binaries only (skip dotnet)

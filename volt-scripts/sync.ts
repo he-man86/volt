@@ -1,21 +1,21 @@
 #!/usr/bin/env bun
 /**
- * Volt ⇄ opencode sync — the merge-process signal flow.
+ * Volt ⇄ opencode compat gate.
  *
- * The single command to run AFTER `git fetch upstream && git merge upstream/dev`.
- * It confirms the fork still holds: deps resolve, the fork surface is unchanged,
- * the wiring is intact, and the runtime actually loads. One command, clear signals.
+ * Volt is opencode-independent: opencode is a user-provided runtime (`@opencode-ai/plugin` from npm + the
+ * installed binary), not a fork. This is the single command to run on each opencode version bump — it confirms
+ * the current opencode still loads Volt's config: deps resolve, the wiring is intact, and the LSP + `volt` tool
+ * actually load in the installed opencode.
  *
  *     bun volt-scripts/sync.ts
  *
  * Signal flow (stops at the first ✗):
  *
- *     install ─▶ divergence ─▶ integration ─▶ lsp loads ─▶ tool loads ─▶ ✓ SYNC OK
- *      deps      18 seams       configs+bins    opencode     opencode
- *                only?          present?        runtime      runtime
+ *     install ─▶ integration ─▶ lsp loads ─▶ tool loads ─▶ ✓ COMPAT OK
+ *      deps      configs+bins    installed     installed
+ *                present?        opencode      opencode
  *
- * Each step is an existing, independently-runnable script — this just orchestrates
- * them into the one flow you run on every upstream merge. Exit 0 = fork holds.
+ * Each step is an existing, independently-runnable script. Exit 0 = Volt is compatible with this opencode.
  */
 import { spawnSync } from "node:child_process"
 import { readdirSync } from "node:fs"
@@ -34,16 +34,15 @@ function step(label: string, cmd: string, args: string[]): boolean {
 }
 
 const FLOW: [string, string, string[]][] = [
-  ["install      — deps resolve (bun.lock + new upstream deps)", "bun", ["install"]],
-  ["divergence   — fork surface = only the allowed seams", "bun", ["run", "volt-scripts/check-divergence.ts"]],
+  ["install      — deps resolve (bun.lock)", "bun", ["install"]],
   ["integration  — configs / bins / wiring present", "bun", ["run", "volt-scripts/check-volt-integration.ts"]],
-  ["lsp loads    — volt LSP attaches in opencode", "bun", ["volt-scripts/verify-lsp.ts"]],
-  ["tool loads   — volt CLI tool registers in opencode", "bun", ["volt-scripts/verify-volt-tool.ts"]],
+  ["lsp loads    — volt LSP loads in installed opencode", "bun", ["volt-scripts/verify-lsp.ts"]],
+  ["tool loads   — volt CLI tool loads in installed opencode", "bun", ["volt-scripts/verify-volt-tool.ts"]],
 ]
 
-console.log("Volt ⇄ opencode sync — signal flow\n" + "─".repeat(60))
-// ponytail: root listing only — verifiers scratch at repoRoot (resolve(repoRoot, ".volt-*.fb")).
-// Catches a step that leaves a file behind (e.g. a process.exit() that skipped its cleanup `finally`).
+console.log("Volt ⇄ opencode compat gate\n" + "─".repeat(60))
+// ponytail: root listing only — verifiers scratch at repoRoot. Catches a step that leaves a file behind
+// (e.g. a process.exit() that skipped its cleanup `finally`).
 const rootBefore = new Set(readdirSync(repoRoot))
 let ok = true
 for (const [label, cmd, args] of FLOW) {
@@ -63,5 +62,5 @@ if (ok) {
   }
 }
 console.log("─".repeat(60))
-console.log(ok ? "✓ SYNC OK — the fork holds against upstream." : "✗ SYNC FAILED — fix the ✗ step above, then re-run.")
+console.log(ok ? "✓ COMPAT OK — Volt loads in this opencode." : "✗ COMPAT FAILED — fix the ✗ step above, then re-run.")
 process.exit(ok ? 0 : 1)

@@ -1,43 +1,39 @@
-# Volt fork CI — enforces the invariants the pre-push hook checks locally, but
-# un-bypassably (no --no-verify). Runs the fork-surface guard + typecheck on every
-# push/PR. Provider-dependent runtime verifiers (verify-volt-tool) need API keys, so
-# they stay local; CI covers the enforceable, key-free surface.
+# Volt CI — typecheck + lint + the key-free integration check on every push/PR.
+# Volt is opencode-independent (opencode is a runtime dependency, not a fork), so there is no fork-surface
+# guard. Provider-dependent runtime verifiers (verify-lsp / verify-volt-tool) need an installed opencode +
+# API keys, so they run locally / on version bumps, not here.
 name: volt-ci
 
 on:
   push:
-    branches: [volt]
+    branches: [dev]
   pull_request:
-    branches: [volt, dev]
+    branches: [dev]
 
 jobs:
-  guard:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # full history so check-divergence can find the merge-base
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - name: Fetch upstream/dev (check-divergence diffs against it)
-        run: |
-          git remote add upstream https://github.com/anomalyco/opencode.git || true
-          git fetch --no-tags upstream dev:refs/remotes/upstream/dev
-
       - run: bun install --frozen-lockfile
-
-      - name: Fork-surface guard (classifier self-test + live)
-        run: |
-          bun run volt-scripts/check-divergence.ts --self-test
-          bun run volt-scripts/check-divergence.ts
 
       - name: Typecheck (volt packages + volt-scripts)
         run: |
-          bun turbo typecheck --filter='./packages/volt-*'
+          bun turbo typecheck
           bunx tsgo --noEmit -p volt-scripts/tsconfig.json
 
-      - name: Lint (volt surface only)
-        run: bunx oxlint packages/volt-cli packages/volt-lsp-st packages/volt-vscode volt-scripts
+      - name: Build binaries (feeds the integration check)
+        run: |
+          bun run --cwd packages/volt-git build
+          bun run --cwd packages/volt-lsp-iec build
+
+      - name: Integration check (config layer + bins + wiring)
+        run: bun run volt-scripts/check-volt-integration.ts
+
+      - name: Lint (volt surface)
+        run: bunx oxlint packages/volt-git packages/volt-lsp-iec packages/volt-vscode volt-scripts

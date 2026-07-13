@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
-# Check if bun version matches package.json
-# keep in sync with packages/script/src/index.ts semver qualifier
+# Bun version must match package.json's packageManager field.
 bun -e '
 import { semver } from "bun";
 const pkg = await Bun.file("package.json").json();
@@ -9,30 +8,10 @@ const expectedBunVersion = pkg.packageManager?.split("@")[1];
 if (!expectedBunVersion) {
   throw new Error("packageManager field not found in root package.json");
 }
-const expectedBunVersionRange = `^${expectedBunVersion}`;
-if (!semver.satisfies(process.versions.bun, expectedBunVersionRange)) {
-  throw new Error(`This script requires bun@${expectedBunVersionRange}, but you are using bun@${process.versions.bun}`);
-}
-if (process.versions.bun !== expectedBunVersion) {
-  console.warn(`Warning: Bun version ${process.versions.bun} differs from expected ${expectedBunVersion}`);
+if (!semver.satisfies(process.versions.bun, `^${expectedBunVersion}`)) {
+  throw new Error(`This repo requires bun@^${expectedBunVersion}, but you are using bun@${process.versions.bun}`);
 }
 '
-# bun typecheck
-  # Scope typecheck to packages we own (Volt SaaS). Upstream opencode
-  # packages are left to upstream CI — running them locally on Windows
-  # triggers env-specific TS errors that aren't real regressions.
-  # When contributing back upstream, run `bun typecheck` manually.
-  # Filter by PATH (not name) so volt-vscode — whose package name is the
-  # unscoped `volt-vscode` (a VS Code marketplace requirement) — is covered
-  # too; an `@opencode-ai/volt-*` name filter silently skipped it.
-  bun turbo typecheck --filter='./packages/volt-*'
-  # volt-scripts/ isn't a workspace package, so typecheck it directly.
-  bunx tsgo --noEmit -p volt-scripts/tsconfig.json
-
-# Fork invariant: Volt is purely additive — fail the push if we modified
-# opencode source outside the allowed integration seams (see CLAUDE.md
-# "Fork surface"). Self-test the guard's logic first, then run it.
-# It skips gracefully if `upstream/dev` isn't fetched, so it never blocks
-# a push spuriously.
-  bun run volt-scripts/check-divergence.ts --self-test
-  bun run volt-scripts/check-divergence.ts
+# Typecheck the workspace + volt-scripts (not a workspace package, so typecheck it directly).
+bun turbo typecheck
+bunx tsgo --noEmit -p volt-scripts/tsconfig.json
