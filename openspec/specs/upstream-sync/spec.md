@@ -8,7 +8,7 @@ TBD - created by archiving change review-upstream-sync. Update Purpose after arc
 Volt SHALL NOT modify the contents of any upstream opencode file except the enumerated
 integration seams. New Volt code SHALL live under `packages/volt-*/` or an allowlisted path
 (`volt-scripts/`, `.claude/`, `.github/workflows/volt-*`, `openspec/`, the `.opencode/{agent,themes,tool,plugins}`
-+ `.opencode/opencode.json` additive set, `CLAUDE.md`, `NOTICE`, `VOLT-DESIGN.md`, `VOLT-PLAN.md`).
++ `.opencode/opencode.json` additive set, `CLAUDE.md`, `NOTICE`).
 Integration SHALL use opencode's extension points — auto-discovered files and deep-merged
 config — never edits to opencode source. A new capability SHALL attach at the highest additive
 hook that fits; a tiny seam is used only where no hook exists (GUI logo / app-name / one GUI slot).

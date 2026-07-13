@@ -73,5 +73,5 @@ windsurf --install-extension volt-<version>.vsix
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI bundled into `dist/cli.js`.
 - [`../volt-lsp-iec/README.md`](../volt-lsp-iec/README.md) — the Structured Text **+ VG** language server.
 - [`../volt-bridge/docs/vg-language.md`](../volt-bridge/docs/vg-language.md) — the **VG (Volt Graphical)** language spec.
-- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log.
+- [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and the fork's architecture.

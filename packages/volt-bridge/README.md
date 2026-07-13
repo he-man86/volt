@@ -98,5 +98,5 @@ pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up|test|down|restart|status
 - [`ITEM_KINDS.md`](./ITEM_KINDS.md) — TwinCAT/CODESYS item-kind coverage map
 - [`docs/vg-language.md`](./docs/vg-language.md) — the VG language spec
 - [`docs/vg-diagnostics.md`](./docs/vg-diagnostics.md) — VG format & diagnostics quick-reference
-- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, decision log
+- [`../../openspec/`](../../openspec/) — Volt design, roadmap, decision log
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance

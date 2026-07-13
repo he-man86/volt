@@ -69,6 +69,6 @@ bun run build   # tsc -> dist/ (also runs on prepare; the bin is ./dist/bin.js)
 ## See also
 
 - [`./SYNC-OPTIONS.md`](./SYNC-OPTIONS.md) — the sync-model decision record (why the IDE-as-remote-branch option won).
-- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log.
+- [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo guidance + the fork-surface map.
 - [`../volt-bridge/ARCHITECTURE.md`](../volt-bridge/ARCHITECTURE.md) — the bridge on the other side of the HTTP wire.

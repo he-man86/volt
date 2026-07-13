@@ -61,5 +61,5 @@ bun test         # bun test runner (gate + workspace-detection tests)
 - [`../volt-desktop/README.md`](../volt-desktop/README.md) — desktop shell renderer
 - [`../volt-vscode/README.md`](../volt-vscode/README.md) — VS Code extension renderer
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI this drives
-- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — D4: one shared core, two renderers
+- [`../../openspec/`](../../openspec/) — D4: one shared core, two renderers
 - [`../../CLAUDE.md`](../../CLAUDE.md) — fork architecture & conventions
