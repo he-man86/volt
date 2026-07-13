@@ -21,14 +21,15 @@ export function cliScript(workspaceRoot: string): string {
 	throw new Error("volt CLI not found (no bundled CLI, none installed in the workspace)")
 }
 
-/** Run the CLI as a Node script via the editor's own runtime. ELECTRON_RUN_AS_NODE
- *  makes process.execPath behave as plain node, so this works whether the host is
- *  VS Code, Windsurf, or Cursor — no external node required. */
+/** Spawn the volt CLI. A `.js` entry runs via the editor's own runtime (ELECTRON_RUN_AS_NODE makes
+ *  process.execPath behave as plain node — works in VS Code / Windsurf / Cursor, no external node). A compiled
+ *  standalone (`.exe`, the Velopack desktop install) is spawned directly. */
 function spawnCli(workspaceRoot: string, args: string[], extraEnv?: Record<string, string>) {
 	const script = cliScript(workspaceRoot)
-	return spawn(process.execPath, [script, ...args], {
+	const asNode = script.toLowerCase().endsWith(".js")
+	return spawn(asNode ? process.execPath : script, asNode ? [script, ...args] : args, {
 		cwd: workspaceRoot,
-		env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv },
+		env: asNode ? { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv } : { ...process.env, ...extraEnv },
 	})
 }
 

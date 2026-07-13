@@ -24,6 +24,9 @@ namespace Volt.Bridge.Connector
         private readonly Dictionary<string, ToolStripMenuItem> _vendorItems = new();
         private readonly ControlServer _control;
         private volatile BridgeView[] _snapshot = Array.Empty<BridgeView>();
+        private ToolStripMenuItem _headerItem = null!; // shows the installed version; refreshed each tick
+        private ToolStripMenuItem _updateItem = null!; // hidden until the updater has a version downloaded
+        private string? _updateShown; // the pending version we've already toasted, so we toast it once
 
         public TrayContext()
         {
@@ -82,6 +85,7 @@ namespace Volt.Bridge.Connector
             }
             UpdateIcon();
             RefreshMenuLabels();
+            ShowUpdateIfReady();
 
             // Publish the immutable snapshot the control plane serves on :8550.
             _snapshot = _providers.Select(p => new BridgeView(
@@ -131,7 +135,10 @@ namespace Volt.Bridge.Connector
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add(new ToolStripMenuItem("Volt Bridge Connector") { Enabled = false });
+            // Header carries the installed version. RefreshMenuLabels re-sets its text each tick, so it self-
+            // corrects even if Updater.CurrentVersion wasn't ready when the menu was first built.
+            _headerItem = new ToolStripMenuItem($"Volt Bridge Connector  ·  {Updater.CurrentVersion}") { Enabled = false };
+            menu.Items.Add(_headerItem);
             menu.Items.Add(new ToolStripSeparator());
 
             foreach (var p in _providers)
@@ -153,6 +160,9 @@ namespace Volt.Bridge.Connector
             }
 
             menu.Items.Add(new ToolStripSeparator());
+            // Appears (with the version) once the updater has downloaded a newer build; the user picks the moment.
+            _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) => Updater.RestartToApply()) { Visible = false };
+            menu.Items.Add(_updateItem);
             menu.Items.Add("Show logs", null, (_, _) => ShowLogs());
             menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
             return menu;
@@ -228,8 +238,29 @@ namespace Volt.Bridge.Connector
             _logWindow.Activate();
         }
 
+        // Normally runs on the UI thread (the WinForms timer tick). The one exception is the first, ctor-fired
+        // TickAsync (no sync context yet) — but PendingVersion is null that early (nothing downloaded), so it
+        // returns before touching the tray. The updater downloads in the background and just exposes
+        // PendingVersion; here we surface it — a one-time toast + the menu action.
+        private void ShowUpdateIfReady()
+        {
+            var pending = Updater.PendingVersion;
+            if (pending == null || pending == _updateShown) return;
+            _updateShown = pending;
+            _updateItem.Text = $"Restart to update to {pending}";
+            _updateItem.Visible = true;
+            // Be precise about how it applies: the tray action (below) installs it now; otherwise it applies
+            // automatically at your next sign-in. Closing/reopening the Volt window does NOT — the connector is
+            // a separate always-on process.
+            _icon.ShowBalloonTip(8000, "Volt update ready",
+                $"Volt {pending} is ready. Pick “Restart to update to {pending}” from the tray to install it now — "
+                    + "otherwise it installs automatically the next time you sign in to Windows.",
+                ToolTipIcon.Info);
+        }
+
         private void RefreshMenuLabels()
         {
+            _headerItem.Text = $"Volt Bridge Connector  ·  {Updater.CurrentVersion}"; // self-corrects if set late
             foreach (var p in _providers)
             {
                 if (!_vendorItems.TryGetValue(p.Id, out var item)) continue;

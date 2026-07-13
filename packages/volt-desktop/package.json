@@ -1,7 +1,7 @@
 {
   "name": "@volt/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Volt desktop shell — wraps the installed opencode's served GUI + the IDE panel (desktop sibling of volt-vscode).",
   "main": "main.mjs",
@@ -19,6 +19,7 @@
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "electron": "42.3.3",
+    "electron-builder": "^25.1.8",
     "typescript": "catalog:"
   }
 }

@@ -28,5 +28,15 @@ namespace Volt.Bridge.Connector
             }
             catch { /* registration is best-effort */ }
         }
+
+        public static void Unregister()
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
+                key?.DeleteValue(ValueName, throwOnMissingValue: false);
+            }
+            catch { /* best-effort */ }
+        }
     }
 }

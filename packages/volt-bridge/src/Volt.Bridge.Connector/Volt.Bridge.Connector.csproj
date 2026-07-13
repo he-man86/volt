@@ -16,4 +16,9 @@
          however different the vendor internals get (TwinCAT COM vs Siemens Openness
          vs Allen-Bradley LDSDK). -->
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Velopack: the connector is the always-on process, so it hosts auto-update (Updater.cs) + the
+         install/env hooks (VoltEnv.cs). Standard framework — the one installer is `vpk pack`ed. -->
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
 </Project>

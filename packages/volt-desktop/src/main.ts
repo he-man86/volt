@@ -133,12 +133,19 @@ function pushStatus() {
   win?.webContents.send("volt:status", snapshot(status))
 }
 
-// volt-control spawns the volt CLI + LSP as node scripts (ELECTRON_RUN_AS_NODE). Point them at the built bins.
-// ponytail: dev-monorepo paths (sibling packages' dist/). The packaged app resolves these from the bundled
-// resources instead — wired up with the electron-builder packaging (the `distribution` change), not here.
+// Point volt-control at the volt CLI + LSP. Packaged (Velopack): the compiled .exe's sit beside the connector
+// at the app-dir root (…\current\bin), and this GUI runs from …\current\desktop\resources\app — so hop up to
+// current\ from process.resourcesPath (…\current\desktop\resources). Dev: the sibling packages' .js entries
+// (run via ELECTRON_RUN_AS_NODE). volt-control spawns .exe directly, .js via node — see cli.ts/diagnostics.ts.
 function configureTools() {
-  setBundledCli(join(__dirname, "..", "volt-git", "dist", "bin.js"))
-  setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "bin.js"))
+  if (app.isPackaged) {
+    const bin = join(process.resourcesPath, "..", "..", "bin") // …\current\desktop\resources → …\current\bin
+    setBundledCli(join(bin, "volt.exe"))
+    setLspServer(join(bin, "volt-lsp-iec.exe"))
+  } else {
+    setBundledCli(join(__dirname, "..", "volt-git", "dist", "bin.js"))
+    setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "bin.js"))
+  }
 }
 
 let diagRunning = false
@@ -225,8 +232,12 @@ app.whenReady().then(async () => {
     await view.webContents.loadURL(
       "data:text/html," +
         encodeURIComponent(`<body style="font:14px system-ui;padding:2rem;background:#16120e;color:#f3ead9">
-      <h2>Volt couldn't start opencode</h2><p>${(err as Error).message}</p>
-      <p>Install opencode, or set <code>OPENCODE_BIN</code> to its binary path.</p></body>`),
+      <h2>The AI agent needs opencode</h2>
+      <p>opencode is an <b>optional</b> runtime that powers the agent view. Your Volt PLC tools — sync, the
+      language server, and the IDE bridge — work without it.</p>
+      <p>To enable the agent, install opencode from <b>opencode.ai</b> (or set <code>OPENCODE_BIN</code> to its
+      binary path), then reopen Volt.</p>
+      <p style="opacity:.6">Details: ${(err as Error).message}</p></body>`),
     )
   }
 })

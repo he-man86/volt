@@ -53,7 +53,7 @@ export function setLspServer(path: string): void {
 function resolveServer(workspaceRoot: string): string | undefined {
   const candidates = [
     serverModule,
-    join(workspaceRoot, "node_modules", "@opencode-ai", "volt-lsp-iec", "dist", "src", "bin.js"),
+    join(workspaceRoot, "node_modules", "@volt", "lsp-iec", "dist", "src", "bin.js"),
   ].filter((p): p is string => p !== undefined)
   return candidates.find((p) => existsSync(p))
 }
@@ -77,9 +77,12 @@ export async function collectDiagnostics(
   const server = resolveServer(workspaceRoot)
   if (server === undefined) throw new Error("volt-lsp-iec server not found — build it or call setLspServer()")
 
-  // Run the .js via the host runtime (ELECTRON_RUN_AS_NODE) — same pattern volt-control's CLI spawn uses.
-  const child = spawn(process.execPath, [server, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys"], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+  // A `.js` server runs via the host runtime (ELECTRON_RUN_AS_NODE); a compiled `.exe` (the Velopack desktop
+  // install ships volt-lsp-iec.exe) spawns directly. Same .js/.exe split as the CLI spawn.
+  const lspArgs = ["--stdio", vendor === "twincat" ? "--twincat" : "--codesys"]
+  const asNode = server.toLowerCase().endsWith(".js")
+  const child = spawn(asNode ? process.execPath : server, asNode ? [server, ...lspArgs] : lspArgs, {
+    env: asNode ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : { ...process.env },
     stdio: ["pipe", "pipe", "ignore"],
   })
   const conn = createProtocolConnection(new StreamMessageReader(child.stdout!), new StreamMessageWriter(child.stdin!))

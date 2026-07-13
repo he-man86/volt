@@ -1,0 +1,21 @@
+# `--dir` mode only. electron-builder here builds + brands the Electron app (Volt.exe + runtime); it does NOT
+# produce an installer and does NOT wire electron-updater. The one installer + auto-update are owned by Velopack,
+# driven by the always-running C# connector (see openspec/changes/distribution). build-app.ts runs this, then
+# folds win-unpacked/ into the Velopack pack as the desktop/ subdir. (YAML, not .ts — electron-builder's .ts
+# loader needs Windows symlink privileges we don't require here; the config is static anyway.)
+appId: dev.volt.desktop
+productName: Volt
+asar: false # main.mjs resolves shell.html / preload.cjs / assets by path — keep them on disk
+directories:
+  output: dist
+# main.mjs is self-contained (@volt/control bundled in) — ship only the app files, never the workspace symlink.
+files:
+  - main.mjs
+  - preload.cjs
+  - shell.html
+  - assets/**/*
+  - package.json
+  - "!node_modules/**"
+win:
+  icon: assets/volt-icon.ico
+  target: dir
