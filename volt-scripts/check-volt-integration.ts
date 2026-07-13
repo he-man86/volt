@@ -43,19 +43,22 @@ function check(name: string, fn: () => boolean | string): void {
 console.log("Volt opencode-integration check");
 console.log("=".repeat(40));
 
-console.log("\nConfig files");
-check(".opencode/opencode.json exists (Volt config merge-layer)", () =>
-	existsSync(join(REPO_ROOT, ".opencode/opencode.json")) || "missing — Volt's LSP + permission config lives here"
-);
-check(".opencode/opencode.json parses + registers volt-lsp-iec", () => {
-	const cfg = JSON.parse(readFileSync(join(REPO_ROOT, ".opencode/opencode.json"), "utf-8"));
-	return Boolean(cfg?.lsp?.["volt-lsp-iec"]) || "no lsp.volt-lsp-iec entry";
+// Volt is opencode-independent: the whole agent-facing layer ships as ONE dir (volt-config/), handed to the
+// user's installed opencode via OPENCODE_CONFIG_DIR. There is no per-repo .opencode/ anymore — volt-config IS
+// the config (dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`).
+console.log("\nAgent config layer (volt-config/ → OPENCODE_CONFIG_DIR)");
+check("volt-config/opencode.json exists + registers volt-lsp-iec (bare-name)", () => {
+	const cfg = join(REPO_ROOT, "volt-config/opencode.json");
+	if (!existsSync(cfg)) return "missing — Volt's LSP + permission config lives here";
+	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-iec"];
+	if (!lsp) return "no lsp.volt-lsp-iec entry";
+	return lsp.command?.[0] === "volt-lsp-iec" || "LSP command is not the bare name (must resolve off PATH)";
 });
-check(".opencode/agent/volt.md exists", () =>
-	existsSync(join(REPO_ROOT, ".opencode/agent/volt.md")) || "agent persona missing"
+check("volt-config/agent/volt.md exists (agent persona)", () =>
+	existsSync(join(REPO_ROOT, "volt-config/agent/volt.md")) || "agent persona missing"
 );
-check(".opencode/tool/volt.ts exists (volt CLI custom tool)", () =>
-	existsSync(join(REPO_ROOT, ".opencode/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
+check("volt-config/tool/volt.ts exists (volt CLI custom tool)", () =>
+	existsSync(join(REPO_ROOT, "volt-config/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
 );
 // The st-reference skill is GENERATED into a consumer project by `volt init`
 // (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
@@ -73,55 +76,6 @@ check("volt-lsp-iec dist/src/bin.js", () => {
 check("volt CLI dist/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-git/dist/bin.js");
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-git build";
-});
-
-console.log("\nUpstream-sync guards (a release-tag merge can silently regress these)");
-// The desktop GUI's stable-vs-V2 layout is gated on import.meta.env.VITE_OPENCODE_CHANNEL, which packages/app's
-// vite plugin DEFINES from the build channel. If an upstream merge drops that define (as opencode PR #28612 did),
-// the GUI silently defaults to the unreleased V2 layout regardless of OPENCODE_CHANNEL=prod.
-check("packages/app/vite.js still defines VITE_OPENCODE_CHANNEL", () => {
-	const f = join(REPO_ROOT, "packages/app/vite.js");
-	return (existsSync(f) && readFileSync(f, "utf-8").includes("VITE_OPENCODE_CHANNEL"))
-		|| "channel define dropped — the GUI would revert to V2 (cf. opencode PR #28612)";
-});
-// The terminal TUI runs its server in a Bun Worker, and Bun snapshots a worker's env at PROCESS START — so
-// the volt binary's runtime OPENCODE_CONFIG_DIR/PATH only reach it because tui.ts passes { env } explicitly
-// (a seam). A merge that reverts it to `new Worker(file)` silently strips the LSP + `volt` tool + agent from
-// the terminal TUI while every main-process check (debug lsp/agent) still passes — the exact blind spot that
-// hid this once. This source guard is the only cheap catch: the dev verify-* scripts can't reproduce it
-// (they use .opencode auto-discovery, not runtime OPENCODE_CONFIG_DIR). Upstreamed as anomalyco/opencode#34759.
-check("tui.ts passes live env to the TUI worker (worker-env seam)", () => {
-	const f = join(REPO_ROOT, "packages/opencode/src/cli/cmd/tui.ts");
-	if (!existsSync(f)) return "packages/opencode/src/cli/cmd/tui.ts missing";
-	return /new Worker\(\s*file\s*,\s*\{\s*env\b/.test(readFileSync(f, "utf-8"))
-		|| "worker-env seam dropped — `new Worker(file, { env })` reverted to `new Worker(file)`; the terminal TUI would lose the LSP/tool/agent (OPENCODE_CONFIG_DIR/PATH never reach the worker)";
-});
-// The agent toolchain ships as one OPENCODE_CONFIG_DIR dir (packages/volt-git/volt-config/), handed to opencode
-// by the desktop + the `volt` binary; @opencode-ai/plugin is vendored into it at dist time (no npm pin). Confirm
-// the dir is present + structurally intact (bare-name LSP) so the unify layer ships.
-check("volt-config dir is present (bare-name LSP + volt tool)", () => {
-	const dir = join(REPO_ROOT, "packages/volt-git/volt-config");
-	const cfg = join(dir, "opencode.json");
-	if (!existsSync(cfg)) return "packages/volt-git/volt-config/opencode.json missing";
-	if (!existsSync(join(dir, "tool", "volt.ts"))) return "volt-config/tool/volt.ts missing";
-	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-iec"];
-	if (!lsp || lsp.command?.[0] !== "volt-lsp-iec") return "volt-config LSP entry missing or not bare-name";
-	return true;
-});
-
-// The dev `.opencode/` and shipped `volt-config/` share a few files verbatim (they only differ in the LSP
-// command + the dev-only smoke plugin). Until they're generated from one template, guard that the shared
-// ones don't drift — an edit to one must land in the other. Compare normalized for line-ending (autocrlf).
-check("shared .opencode/ ↔ volt-config/ files are in sync (no drift)", () => {
-	const shared = ["agent/volt.md", "themes/volt.json", "plugins/volt.tsx"];
-	const norm = (p: string) => readFileSync(p, "utf-8").replace(/\r\n/g, "\n");
-	for (const rel of shared) {
-		const dev = join(REPO_ROOT, ".opencode", rel);
-		const shipped = join(REPO_ROOT, "packages/volt-git/volt-config", rel);
-		if (!existsSync(dev) || !existsSync(shipped)) return `${rel} missing in one location`;
-		if (norm(dev) !== norm(shipped)) return `${rel} drifted — sync .opencode/ and volt-config/`;
-	}
-	return true;
 });
 
 console.log("\nRuntime smoke test");

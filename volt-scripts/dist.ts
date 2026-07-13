@@ -79,7 +79,7 @@ if (run("bun", ["run", "package"], vsixDir)) {
 // is @opencode-ai/plugin (the tool's import), so the tool loads with no npm/registry at runtime.
 console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
 const cfgOut = resolve(out, "volt-config")
-cpSync(resolve(repo, "packages/volt-git/volt-config"), cfgOut, { recursive: true })
+cpSync(resolve(repo, "volt-config"), cfgOut, { recursive: true })
 // Bundle the `volt` tool to a self-contained .js (its @opencode-ai/plugin import + zod inlined — the rest of
 // the plugin is type-only) and drop the .ts source. The shipped dir then needs NO node_modules: opencode
 // scans {tool,tools}/*.{js,ts} and loads the bundle directly. (electron-builder's extraResources copy strips
