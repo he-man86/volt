@@ -20,7 +20,8 @@ Bun workspaces + Turbo. All product code is in `packages/volt-*`:
 - **`volt-control`** (`@opencode-ai/volt-control`) — UI-agnostic core (status/pull/push/health/diagnostics) that powers both frontends.
 - **`volt-desktop`** (`@opencode-ai/volt-desktop`) — Electron shell: spawns the installed `opencode serve`, loads its GUI in a `WebContentsView`, adds Volt chrome + the IDE panel over `volt-control`.
 - **`volt-vscode`** — VS Code extension (Marketplace-distributed): PLC language intelligence + drift coloring + the `volt-control` views.
-- **`volt-landing`** — commercial landing site. **Deferred / out of the workspace** — it still depends on opencode's private `console-*` packages; extracted in a later cut (see `openspec/changes/extract-clean-repo/` §5).
+
+The commercial landing site is **not in this repo** — it was removed pending a fresh implementation; the plan lives in `openspec/changes/commercial-landing/` (it will re-enter once opencode's private `console-*` deps are resolved).
 
 **`volt-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. `@opencode-ai/plugin` is vendored into it (npm) so the tool loads with no registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`.
 

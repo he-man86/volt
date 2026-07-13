@@ -2,7 +2,7 @@
  * @opencode-ai/volt-control — UI-agnostic core that drives the `volt` CLI / bridge.
  *
  * Extracted from `packages/volt-vscode` (Phase 1). No UI-framework code — rendered by
- * `volt-vscode` (VS Code views) and `volt-app` (Solid panel in the opencode desktop app).
+ * `volt-vscode` (VS Code views) and `volt-desktop` (the Electron shell wrapping installed opencode).
  *
  * Phase 1 (done): the pure primitives below. Phase 2 (next): split the UI-agnostic
  * status/command *logic* out of volt-vscode's `state/status.ts` + `commands.ts`.

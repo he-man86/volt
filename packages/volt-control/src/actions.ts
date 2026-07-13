@@ -1,6 +1,6 @@
 /**
  * UI-agnostic actions over the volt CLI — what a renderer (volt-vscode views,
- * volt-app panel) calls. No UI framework: each returns data/outcomes; the caller
+ * volt-desktop panel) calls. No UI framework: each returns data/outcomes; the caller
  * owns progress spinners and dialogs.
  *
  * Mutating actions take the per-workspace gate (so a concurrent health probe skips —

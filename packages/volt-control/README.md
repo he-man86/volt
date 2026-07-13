@@ -2,11 +2,11 @@
 
 > UI-agnostic core that drives the `volt` CLI / bridge — one shared driver behind both Volt GUIs.
 
-The shared CLI/bridge driver plus the Electron IPC layer that sits behind the two Volt GUIs. It spawns the bundled `volt` CLI, parses its `--json` output into typed outcomes, probes bridge health, and exposes the IPC contract — with **no UI-framework code**, so it can be rendered by both the desktop panel (`volt-app`) and the VS Code extension (`volt-vscode`).
+The shared CLI/bridge driver plus the Electron IPC layer that sits behind the two Volt GUIs. It spawns the bundled `volt` CLI, parses its `--json` output into typed outcomes, probes bridge health, and exposes the IPC contract — with **no UI-framework code**, so it can be rendered by both the desktop panel (`volt-desktop`) and the VS Code extension (`volt-vscode`).
 
 ## Role in Volt
 
-volt-control is the layer **below** the GUIs. Both renderers — `volt-app` (the Solid panel in the opencode desktop app) and `volt-vscode` (VS Code tree views) — go through it; it drives the `volt` binary (`@opencode-ai/volt-git`), parses its output, and owns the channel names that define the desktop IPC contract. **One shared core, two renderers.** It is distinct from `volt-git`: that package *is* the CLI binary, while this one *spawns and parses* it.
+volt-control is the layer **below** the GUIs. Both renderers — `volt-desktop` (the Electron shell wrapping installed opencode) and `volt-vscode` (VS Code tree views) — go through it; it drives the `volt` binary (`@opencode-ai/volt-git`), parses its output, and owns the channel names that define the desktop IPC contract. **One shared core, two renderers.** It is distinct from `volt-git`: that package *is* the CLI binary, while this one *spawns and parses* it.
 
 The package is Node-bound (it spawns child processes and reads files), so the desktop main process imports the full package. The `/channels` subpath is deliberately **Node-free** (zero imports) so the **sandboxed** Electron preload can import the channel names without pulling in any CLI/Node code it can't load.
 
@@ -58,7 +58,7 @@ bun test         # bun test runner (gate + workspace-detection tests)
 
 ## See also
 
-- [`../volt-app/README.md`](../volt-app/README.md) — desktop panel renderer
+- [`../volt-desktop/README.md`](../volt-desktop/README.md) — desktop shell renderer
 - [`../volt-vscode/README.md`](../volt-vscode/README.md) — VS Code extension renderer
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI this drives
 - [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — D4: one shared core, two renderers

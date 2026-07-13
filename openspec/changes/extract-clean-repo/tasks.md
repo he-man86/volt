@@ -35,5 +35,6 @@ keeps history/CI. Full plan in `design.md`.
       remotes that pointed at opencode).
 
 ## 5. Second cut — commercial/landing
-- [ ] Resolve `console-*` / `session-ui` (publish, vendor, or keep coupled); bring `volt-landing` back into the
-      workspace when unblocked. (Currently on disk, out of the workspace.)
+- [x] `volt-landing` **removed from the repo** (git-recoverable) — the landing page is unimplemented and its
+      opencode `console-*` coupling made it dead weight. A fresh implementation is tracked in
+      `openspec/changes/commercial-landing/`.
