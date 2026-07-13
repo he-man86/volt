@@ -31,17 +31,20 @@ Each `volt-*` package has its own `README.md` — read it before deep work there
 
 Package manager is `bun@1.3.14`. Lint is **oxlint**; format is Prettier (`semi: false`, `printWidth: 120`).
 
+Standard workflows are root `bun run` scripts — prefer these over invoking `volt-scripts/*.ts` by path:
+
 ```bash
 bun install                 # install workspace deps
-bun typecheck               # turbo typecheck across all volt packages
-bun lint                    # oxlint
-bun dev                     # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode (installed opencode, Volt-aware)
-bun volt-scripts/sync.ts                          # the opencode COMPAT GATE (install→integration→lsp→tool)
-bun run volt-scripts/check-volt-integration.ts    # (sub-step) configs/bins/wiring present (key-free)
-bun volt-scripts/verify-lsp.ts                    # prove the volt LSP loads in the installed opencode
-bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool loads in the installed opencode
-bun volt-scripts/dist.ts                          # build the dist/volt/ release bundle (binaries + config + connector)
+bun run dev                 # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
+bun run build               # build the TS packages (turbo; the C# bridge builds in `dist`)
+bun run dist                # the release bundle → dist/volt/ (both exes + volt-config + .vsix + connector)
+bun run compat              # opencode compat gate: integration → lsp-loads → tool-loads (run on an opencode bump)
+bun run typecheck           # turbo typecheck across all volt packages
+bun run lint                # oxlint
 ```
+
+`compat` and `dist` are implemented in `volt-scripts/` (product-level orchestration across all packages); the
+gate's sub-steps are runnable alone when one fails (`bun volt-scripts/{check-volt-integration,verify-lsp,verify-volt-tool}.ts`).
 
 The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`volt-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
 

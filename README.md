@@ -26,10 +26,11 @@ Bun workspaces + Turbo. Requires `bun@1.3.14` and, for the agent, an installed `
 
 ```bash
 bun install
-bun typecheck                # all volt packages
-bun lint
-bun dev                      # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode
-bun volt-scripts/sync.ts     # opencode compat gate (install → integration → lsp → tool)
+bun run dev            # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
+bun run build          # build the TS packages
+bun run dist           # release bundle → dist/volt/
+bun run compat         # opencode compat gate (integration → lsp → tool)
+bun run typecheck && bun run lint
 ```
 
 The bridges are .NET (Windows-only) — see `packages/volt-bridge/README.md`. Full guidance for contributors and agents is in `CLAUDE.md`; design + roadmap live in `openspec/` (`openspec list`).

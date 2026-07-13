@@ -6,8 +6,8 @@
  *   bun volt-scripts/check-volt-integration.ts
  *
  * Verifies:
- *   - Config layer (.opencode/opencode.json) exists, parses, and registers the LSP
- *   - Agent persona (.opencode/agent/volt.md) + volt custom tool (.opencode/tool/volt.ts) present
+ *   - Config layer (volt-config/opencode.json) exists, parses, and registers the LSP (bare-name)
+ *   - Agent persona (volt-config/agent/volt.md) + volt custom tool (volt-config/tool/volt.ts) present
  *   - LSP + CLI binaries are built (dist/ output present)
  *   - volt-lsp-iec binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
@@ -85,10 +85,10 @@ check("volt-lsp-iec --version exits 0", () => {
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
 });
-check("volt CLI wrapper runs (volt-scripts/volt[.cmd])", () => {
+check("volt CLI wrapper runs (packages/volt-git/scripts/volt[.cmd])", () => {
 	const wrapper = process.platform === "win32"
-		? join(REPO_ROOT, "volt-scripts/volt.cmd")
-		: join(REPO_ROOT, "volt-scripts/volt");
+		? join(REPO_ROOT, "packages/volt-git/scripts/volt.cmd")
+		: join(REPO_ROOT, "packages/volt-git/scripts/volt");
 	if (!existsSync(wrapper)) return "wrapper missing";
 	const r = spawnSync(wrapper, ["help"], {
 		encoding: "utf-8",
@@ -141,14 +141,14 @@ if (failed > 0) {
 console.log("\nOne-time PATH setup (so bare `volt` works in shells / opencode bash / VS Code terminal):");
 if (process.platform === "win32") {
 	console.log("  PowerShell (this session only):");
-	console.log(`    $env:Path = "${join(REPO_ROOT, "volt-scripts")};$env:Path"`);
+	console.log(`    $env:Path = "${join(REPO_ROOT, "packages/volt-git/scripts")};$env:Path"`);
 	console.log("  PowerShell (permanent, current user):");
-	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "volt-scripts")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
+	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "packages/volt-git/scripts")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
 } else {
 	console.log("  Bash / zsh (this session only):");
-	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-git/scripts")}:$PATH"`);
 	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
-	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-git/scripts")}:$PATH"`);
 }
 
 console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
