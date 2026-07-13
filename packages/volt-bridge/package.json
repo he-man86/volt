@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/opencode"
+    "url": "https://github.com/he-man86/volt"
   },
   "description": "Volt IDE bridges — C# binaries with shared Core (Beckhoff TwinCAT, CODESYS, more vendors coming); round-trips FBD/LD graphical bodies as VG (Volt Graphical) text",
   "type": "module",

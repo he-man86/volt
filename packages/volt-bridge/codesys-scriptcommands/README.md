@@ -12,7 +12,7 @@ the Volt app then talks to that IDE session over `http://127.0.0.1:8556`.
 | `config.json` | Declares the menu items: **Start Volt Bridge** / **Stop Volt Bridge** |
 | `start_bridge.py` | IronPython launcher — loads the C# DLL and calls `Host.Start(projects, system, online)` |
 | `stop_bridge.py` | IronPython — `Host.Stop()` (falls back to `POST /shutdown`) |
-| `VoltBridge.Codesys.dll` | The bridge itself (C#); all logic lives here. Built from `src/VoltBridge.Codesys` |
+| `Volt.Bridge.Codesys.dll` | The bridge itself (C#); all logic lives here. Built from `src/Volt.Bridge.Codesys` |
 
 The Python is only a launcher; the bridge is a single C# codebase.
 
@@ -22,16 +22,16 @@ The Python is only a launcher; the bridge is a single C# codebase.
 
 1. `$VOLT_BRIDGE_DLL` — explicit override
 2. next to the script itself — **production** (the installer ships the `.py` + DLL together)
-3. `../src/VoltBridge.Codesys/bin/{Release,Debug}/net48/` — **dev**, when you
+3. `../src/Volt.Bridge.Codesys/bin/{Release,Debug}/net48/` — **dev**, when you
    run this repo copy of the script directly
 
-**Dev (now):** build `src/VoltBridge.Codesys`, then in CODESYS use
+**Dev (now):** build `src/Volt.Bridge.Codesys`, then in CODESYS use
 **Tools → Scripting → Execute Script File…** and pick this repo's `start_bridge.py`.
 It loads the freshly-built DLL from the build output — nothing to copy.
 
-**Production (future, single installer):** the Volt installer bundles the opencode
-fork + the TwinCAT bridge + this CODESYS bridge. For CODESYS it drops
-`config.json`, the two `.py` files and `VoltBridge.Codesys.dll` into
+**Production (future, single installer):** the Volt installer bundles the Volt
+layer + the TwinCAT bridge + this CODESYS bridge. For CODESYS it drops
+`config.json`, the two `.py` files and `Volt.Bridge.Codesys.dll` into
 `C:\ProgramData\CODESYS\Script Commands\`; CODESYS shows the menu items and the
 DLL resolves next-to-script.
 

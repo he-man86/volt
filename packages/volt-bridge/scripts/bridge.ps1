@@ -15,7 +15,7 @@ $projName = "Volt.Bridge.Beckhoff"
 $asmName  = $projName
 $bridge = Split-Path $PSScriptRoot -Parent   # the volt-bridge package dir (this script lives in ./scripts)
 $csproj = Join-Path $bridge "src\$projName\$projName.csproj"
-$logDir = Join-Path $env:TEMP "opencode"
+$logDir = Join-Path $env:TEMP "volt"
 $outDir = Join-Path $logDir "bridge-$($Project.ToLower())"
 
 taskkill /F /IM "$asmName.exe" 2>$null

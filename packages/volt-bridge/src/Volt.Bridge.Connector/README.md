@@ -80,8 +80,8 @@ dependencies and risk assembly conflicts inside the in-proc CODESYS (net48) host
 ## Dev
 
 ```
-dotnet build src/VoltBridge.Connector -c Release
-./src/VoltBridge.Connector/bin/Release/net8.0-windows/VoltConnector.exe
+dotnet build src/Volt.Bridge.Connector -c Release
+./src/Volt.Bridge.Connector/bin/Release/net8.0-windows/VoltConnector.exe
 ```
 
 The shipped bundle (`build-bridges.ps1`) places `VoltConnector.exe`, the worker

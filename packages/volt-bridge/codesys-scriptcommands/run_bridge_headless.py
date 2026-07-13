@@ -21,7 +21,7 @@ drains the thread's Win32 message queue (servicing both WPF Dispatcher and
 WinForms Control.Invoke posts), so we pump one frame per loop iteration.
 
 Driven by env vars set by the wrapper:
-  VOLT_BRIDGE_DLL      absolute path to VoltBridge.Codesys.dll  (required)
+  VOLT_BRIDGE_DLL      absolute path to Volt.Bridge.Codesys.dll  (required)
   VOLT_FIXTURE_PROJECT .project to open before starting (optional; else uses
                        whatever project is already primary)
   VOLT_STOP_FLAG       path to a file whose existence requests shutdown

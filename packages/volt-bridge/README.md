@@ -88,7 +88,7 @@ pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up|test|down|restart|status
 | `src/Volt.Bridge.Connector/` | Windows tray supervisor — spawns + supervises every vendor bridge |
 | `test/Volt.Bridge.Tests/` | C# unit tests (graphical round-trips, VG, push, hashing, resilience) |
 | `test/e2e/` | TS-side end-to-end tests (endpoints · kinds · graphical · lifecycle) |
-| `docs/` | `vg-language.md`, `vg-diagnostics.md` |
+| `docs/` | `vg-language.md`, `vg-diagnostics.md`, `debugging-a-bridge-session.md` |
 | `codesys-scriptcommands/` | IronPython scripts that launch the in-proc CODESYS bridge headless |
 | `ITEM_KINDS.md` / `item-kinds.json` | the vendor-neutral item-type table |
 
