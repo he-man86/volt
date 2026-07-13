@@ -48,7 +48,7 @@ bun test         # bun test runner (gate + workspace-detection tests)
 |---|---|
 | `actions.ts` | UI-agnostic actions over the CLI (`fetchStatus`/`pull`/`push`/`build`/`init`/`showFile`/`detect`) + outcome contracts |
 | `status-tracker.ts` | `VoltStatus` — the reactive per-workspace IDE-changes state (health + `volt status` drift) |
-| `diagnostics.ts` | headless LSP-diagnostics collector (the vscode-free core behind the "Diagnostics" view) |
+| `diagnostics.ts` | headless LSP-diagnostics collector (the vscode-free core behind the "Diagnostics" view) — drives `volt-lsp-iec` directly and filters on `source: "volt-lsp-iec"` (`SOURCE`), the same precise Volt filter the VS Code view uses, so both renderers count identically |
 | `display.ts` | the display model — health/aggregate/drift → user-facing text (`healthLabel`, …) |
 | `events.ts` | watch the bridge for IDE-side changes (polls `GET /refs`) |
 | `emitter.ts` | tiny framework-agnostic event emitter shaped like `vscode.EventEmitter` |
@@ -59,7 +59,7 @@ bun test         # bun test runner (gate + workspace-detection tests)
 | `workspace.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
 | `gate.ts` | Per-workspace mutation gate (`withGate`, `isMutationInFlight`) |
 | `types.ts` | `StatusJson`, `ChangeSet`, `ProjectMismatch`, `changeCount` |
-| `index.ts` | Public API barrel (full package); `/channels` subpath is separate |
+| `index.ts` | Public API barrel (full package); the `/channels` and `/display` subpaths are separate exports |
 
 ## See also
 

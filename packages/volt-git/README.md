@@ -65,7 +65,7 @@ bun run build   # tsc -> dist/ (also runs on prepare; the bin is ./dist/bin.js)
 | `src/show.ts` | `volt show` — raw file bytes at a ref (git refs, the IDE baseline, the live workspace/bridge, merge sides). |
 | `src/log.ts` | `volt log` — the IDE-sync history off `refs/remotes/volt/ide`. |
 | `src/init.ts` | `volt init` — bind, git-init, write config, scaffold, install the corpus, first pull. |
-| `src/scaffold.ts` | Turns a Volt-bound directory into a Bun project (package.json, tsconfig, bunfig, README, `.vscode`, example test); idempotent. |
+| `src/scaffold.ts` | Turns a Volt-bound directory into a standard Cargo (Rust) crate under `rust/` (`Cargo.toml`, `src/lib.rs`, `tests/smoke.rs`) plus a README and `.vscode/settings.json`; idempotent. The LSP transpiles the project's ST into Rust there. |
 
 ## See also
 

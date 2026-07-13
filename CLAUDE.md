@@ -109,7 +109,7 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 - **Git:** default branch is `dev`. Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful scopes: `bridge`, `cli`, `lsp`.
 - **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. Bridge build/dev-loop scripts live in `packages/volt-bridge/scripts/*.ps1`; repo-wide tooling (compat gate, dist, installer helpers) in `volt-scripts/`.
 - **`.volt/`** is a CLI-managed PLC workspace binding (`.git/volt`); **`volt-config/`** is the agent-config layer handed to opencode. Don't confuse them.
-- Design, invariants, roadmap, and the decision log live in **OpenSpec** (`openspec/specs/` + `openspec/changes/`; run `openspec list`).
+- **Source of truth for invariants is the code + each package's `README.md`/`ARCHITECTURE.md`** (e.g. `volt-bridge/ARCHITECTURE.md`, `volt-lsp-iec/docs/`), not a parallel spec tree. **OpenSpec is `openspec/changes/` only** — in-flight proposals + the decision log (`openspec list`); the archived `specs/` capability tree was removed (it drifted) and its load-bearing invariants folded into the package docs.
 
 ## Tracking opencode (the compat gate)
 

@@ -32,10 +32,17 @@ bun run typecheck # tsgo --noEmit
 | `preload.cjs` | exposes `window.volt` (the `@volt/control` IPC contract) to the shell renderer |
 | `shell.html` | the Volt chrome — frameless titlebar, icon rail, IDE panel (DOM, no framework) |
 | `assets/` | Volt brand icons (window/taskbar `.ico` + marks for packaging) |
+| `electron-builder.yml` | electron-builder **`--dir`** config — brands `Volt.exe` only; it builds no installer (Velopack packs it) |
 
-## Status
+## Packaging
 
-The shell runs from source (`bun run start`). **Packaging is not done here** — the electron-builder config + NSIS installer (which also resolves the bundled tool paths for `configureTools`) are the `distribution` change; see `openspec/changes/distribution/`.
+The shell runs from source with `bun run start`. The shipped app is built by `bun volt-scripts/build-app.ts` into
+**one Velopack installer** (`dist/release/Volt-win-Setup.exe`) bundling the desktop GUI + `volt` CLI + LSP + tray
+connector + config. electron-builder (see `electron-builder.yml`) runs in `--dir` mode only — it brands `Volt.exe`,
+not an installer, and no `electron-updater` is wired. Install/uninstall hooks and the **auto-update loop are owned by
+the always-running C# connector** (`VoltConnector.exe`, the Velopack `mainExe`); `configureTools()` resolves the
+bundled `volt`/LSP `.exe`s from the packaged resources. The VS Code extension is Marketplace-distributed, not in this
+installer. See `openspec/changes/distribution/`.
 
 ## See also
 

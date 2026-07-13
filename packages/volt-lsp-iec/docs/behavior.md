@@ -593,17 +593,17 @@ NOT be carried on the wire (it is recovered from content on push).
 ### Requirement: Read-only graphical POUs are marked in content, not by extension
 
 Because POUs are named by kind, the extension SHALL NOT encode read-only access for a POU. A read-only
-graphical POU (a CFC/SFC body) SHALL materialize with an in-content marker: its body is a leading
-`READONLY <LANG>` line (e.g. `READONLY CFC`), stating it is read-only because the body is graphical.
-Read-only for a POU SHALL be detected from this marker (the body's first significant token is
-`READONLY`), never from the extension. Opaque reference kinds (`library`, `task`, `image_pool`,
-`text_list`, `recipe_manager`, `visualization`, `visualization_manager`, `library_manager`,
-`class_diagram`, `external_types`, `tmc`) SHALL remain read-only by their own extension. A folder SHALL
-remain a `.gitkeep` marker.
+graphical POU (a CFC/SFC body) SHALL materialize with an in-content marker: its body is a single
+`(* @volt-graphical: <LANG> *)` informational comment (e.g. `(* @volt-graphical: CFC *)`), stating it is
+read-only because the body is graphical and not round-tripped. Read-only for a POU SHALL be detected from
+this marker (the body is a lone `@volt-graphical` comment), never from the extension. Opaque reference kinds
+(`library`, `task`, `image_pool`, `text_list`, `recipe_manager`, `visualization`, `visualization_manager`,
+`library_manager`, `class_diagram`, `external_types`, `tmc`) SHALL remain read-only by their own extension. A
+folder SHALL remain a `.gitkeep` marker.
 
 #### Scenario: A read-only CFC POU carries a content marker
 - **WHEN** the IDE contains a function block whose body is a read-only CFC
-- **THEN** it materializes as `<name>.fb` whose body begins with `READONLY CFC` — no `.cfc` extension and no wire flag mark it
+- **THEN** it materializes as `<name>.fb` whose body is `(* @volt-graphical: CFC *)` — no `.cfc` extension and no wire flag mark it
 
 #### Scenario: A reference kind keeps its extension and is read-only
 - **WHEN** the IDE contains a library, task, or visualization
@@ -611,9 +611,9 @@ remain a `.gitkeep` marker.
 
 ### Requirement: Access is read from content; kind from content
 
-The CLI SHALL derive a POU file's push-ability from its content — a body led by `READONLY` is
-read-only, a `NETWORK`-led or textual body is writable — while reference kinds stay read-only by
-their extension. The bridge SHALL recover an item's kind from file content on push-back (the ST
+The CLI SHALL derive a POU file's push-ability from its content — a body that is a `(* @volt-graphical: … *)`
+marker is read-only, a `NETWORK`-led or plain textual body is writable — while reference kinds stay read-only
+by their extension. The bridge SHALL recover an item's kind from file content on push-back (the ST
 declaration header for textual kinds; the NETWORK-token VG body for editable graphical POUs), never
 from the extension. The kind-based naming SHALL NOT lose kind or access information.
 
@@ -622,7 +622,7 @@ from the extension. The kind-based naming SHALL NOT lose kind or access informat
 - **THEN** the bridge reconstructs the correct kind from the content and applies the push
 
 #### Scenario: A read-only POU is not pushed
-- **WHEN** a `.fb` file whose body begins with `READONLY` (a CFC/SFC body) is edited and a push is attempted
+- **WHEN** a `.fb` file whose body is a `(* @volt-graphical: … *)` marker (a CFC/SFC body) is edited and a push is attempted
 - **THEN** the CLI refuses it up front from the marker, and the bridge refuses it as a backstop
 
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree
