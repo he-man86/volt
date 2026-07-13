@@ -77,7 +77,11 @@ const runCli = (workspaceRoot: string, args: string[], onProgress?: (p: Progress
 /** `volt pull [--force]`. Takes the mutation gate; returns the parsed outcome. */
 export function pull(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PullOutcome> {
   return withGate(workspaceRoot, async () => {
-    const r = await runCli(workspaceRoot, ["pull", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot], opts.onProgress)
+    const r = await runCli(
+      workspaceRoot,
+      ["pull", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot],
+      opts.onProgress,
+    )
     return parseJson<PullOutcome>(r.stdout) ?? { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
   })
 }
@@ -85,7 +89,11 @@ export function pull(workspaceRoot: string, opts: { force?: boolean } & Progress
 /** `volt push [--force]`. Takes the mutation gate; returns the parsed outcome. */
 export function push(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PushOutcome> {
   return withGate(workspaceRoot, async () => {
-    const r = await runCli(workspaceRoot, ["push", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot], opts.onProgress)
+    const r = await runCli(
+      workspaceRoot,
+      ["push", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot],
+      opts.onProgress,
+    )
     return parseJson<PushOutcome>(r.stdout) ?? { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
   })
 }
@@ -98,32 +106,27 @@ export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<Cl
 /** `volt init --port <port> [--force]`. Takes the mutation gate. */
 export function init(workspaceRoot: string, port: number, opts: { force?: boolean } = {}): Promise<CliResult> {
   return withGate(workspaceRoot, () =>
-    spawnVolt(workspaceRoot, ["init", "--port", String(port), ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot]),
+    spawnVolt(workspaceRoot, [
+      "init",
+      "--port",
+      String(port),
+      ...(opts.force ? ["--force"] : []),
+      "--workspace",
+      workspaceRoot,
+    ]),
   )
 }
 
 /** `volt show <ref> <rel>` → raw bytes (for restoring a file). */
-export function showFile(workspaceRoot: string, ref: string, rel: string): Promise<{ stdout: Buffer; stderr: string; code: number }> {
+export function showFile(
+  workspaceRoot: string,
+  ref: string,
+  rel: string,
+): Promise<{ stdout: Buffer; stderr: string; code: number }> {
   return spawnVoltBuffer(workspaceRoot, ["show", ref, rel, "--workspace", workspaceRoot])
 }
 
 /** Cheap check: does this dir have an initialized `.git/volt` Volt workspace? (no bridge probe) */
 export function detect(workspaceRoot: string): boolean {
   return readBridgePort(workspaceRoot) !== undefined
-}
-
-export interface IdeDiff {
-  file: string
-  patch: string
-  additions: number
-  deletions: number
-  status: "added" | "deleted" | "modified"
-}
-
-/** `volt diff --json` → the outgoing IDE drift (working tree vs the IDE baseline) as a per-file
- *  unified-diff list, shaped to the GUI's `VcsFileDiff`. Never throws (unbound → []). */
-export async function ideDiff(workspaceRoot: string): Promise<IdeDiff[]> {
-  const r = await spawnVolt(workspaceRoot, ["diff", "--json", "--workspace", workspaceRoot])
-  if (r.code !== 0) return []
-  return parseJson<IdeDiff[]>(r.stdout) ?? []
 }

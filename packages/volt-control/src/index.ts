@@ -1,11 +1,9 @@
 /**
- * @opencode-ai/volt-control — UI-agnostic core that drives the `volt` CLI / bridge.
+ * @opencode-ai/volt-control — the UI-agnostic core that drives the `volt` CLI / bridge.
  *
- * Extracted from `packages/volt-vscode` (Phase 1). No UI-framework code — rendered by
+ * No UI-framework code: it spawns the CLI, parses `--json` output into typed outcomes, probes bridge
+ * health, collects diagnostics, and owns the desktop IPC channel names. Rendered by both frontends —
  * `volt-vscode` (VS Code views) and `volt-desktop` (the Electron shell wrapping installed opencode).
- *
- * Phase 1 (done): the pure primitives below. Phase 2 (next): split the UI-agnostic
- * status/command *logic* out of volt-vscode's `state/status.ts` + `commands.ts`.
  */
 export * from "./types.js" // ChangeSet, ProjectMismatch, StatusJson, changeCount
 export * from "./gate.js" // isMutationInFlight, withGate

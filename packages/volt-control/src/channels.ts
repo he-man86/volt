@@ -13,7 +13,6 @@ export const VOLT_CHANNELS = {
   push: "volt:push",
   build: "volt:build",
   show: "volt:show",
-  diff: "volt:diff",
   probe: "volt:probe",
   init: "volt:init",
 } as const

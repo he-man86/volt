@@ -22,13 +22,13 @@ The package is Node-bound (it spawns child processes and reads files), so the de
 
 Mutating actions (`pull`/`push`/`init`) take a per-workspace mutation gate (`gate.ts`: `withGate` / `isMutationInFlight`) so a concurrent health probe can skip, and release it before returning so outcome dialogs never hold the lock.
 
-**IPC (`ipc.ts`)** — `registerVoltIpcHandlers(ipcMain, cliPath?)` is called once from the desktop main process. It calls `setBundledCli(cliPath)` then registers one handler per channel (`detect`/`status`/`pull`/`push`/`build`/`show`) as a thin pass-through to the actions; the renderer passes the workspace dir on every call. `IpcMainLike` keeps the package free of an `electron` dependency.
+**IPC (`ipc.ts`)** — `registerVoltIpcHandlers(ipcMain, cliPath?)` is called once from the desktop main process. It calls `setBundledCli(cliPath)` then registers one handler per channel (`detect`/`status`/`pull`/`push`/`build`/`show`/`probe`/`init`) as a thin pass-through to the actions; the renderer passes the workspace dir on every call. `IpcMainLike` keeps the package free of an `electron` dependency.
 
 **Channels (`channels.ts`)** — `VOLT_CHANNELS` is the single source of truth for the channel names (`volt:detect`, `volt:status`, …) shared by the main-process handlers and the preload bridge.
 
 **CLI spawning (`cli.ts`)** — `setBundledCli` pins the CLI shipped inside the host (so a PLC workspace needs no Node toolchain or `node_modules/.bin/volt`); `cliScript` falls back to the workspace's installed `volt-git`. `spawnVolt` / `spawnVoltBuffer` run it as a Node script via the editor's own runtime (`process.execPath` + `ELECTRON_RUN_AS_NODE=1`), so it works under VS Code, Cursor, Windsurf, or Electron with no external node.
 
-**Health & workspace (`health.ts`, `workspace.ts`)** — `probeHealth` GETs `/health` on `127.0.0.1:<port>` and maps it to a `HealthState` (connected / degraded / disconnected / unreachable); `readBridgePort` / `readExtensionAccess` read `.git/volt/config.json`; `healthLabel` renders a one-line status. `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime (`.git/volt/ide-refs.json`) for last-sync time.
+**Health & workspace (`health.ts`, `workspace.ts`, `display.ts`)** — `probeHealth` GETs `/health` on `127.0.0.1:<port>` and maps it to a `HealthState` (connected / degraded / disconnected / unreachable); `probeVendors` checks both bridge ports; `readBridgePort` / `readExtensionAccess` read `.git/volt/config.json`. The `healthLabel` one-line renderer lives in `display.ts` (the display model). `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime (`.git/volt/ide-refs.json`) for last-sync time.
 
 ## Commands
 
@@ -47,10 +47,15 @@ bun test         # bun test runner (gate + workspace-detection tests)
 | File | Role |
 |---|---|
 | `actions.ts` | UI-agnostic actions over the CLI (`fetchStatus`/`pull`/`push`/`build`/`init`/`showFile`/`detect`) + outcome contracts |
+| `status-tracker.ts` | `VoltStatus` — the reactive per-workspace IDE-changes state (health + `volt status` drift) |
+| `diagnostics.ts` | headless LSP-diagnostics collector (the vscode-free core behind the "Diagnostics" view) |
+| `display.ts` | the display model — health/aggregate/drift → user-facing text (`healthLabel`, …) |
+| `events.ts` | watch the bridge for IDE-side changes (polls `GET /refs`) |
+| `emitter.ts` | tiny framework-agnostic event emitter shaped like `vscode.EventEmitter` |
 | `ipc.ts` | `registerVoltIpcHandlers` — wires the actions over Electron IPC; `IpcMainLike` |
 | `channels.ts` | `VOLT_CHANNELS` — Node-free channel-name source of truth (the `/channels` subpath) |
 | `cli.ts` | Bundled-CLI resolution + `spawnVolt` / `spawnVoltBuffer` child-process spawning |
-| `health.ts` | Bridge `/health` probe, `HealthState`, port/extension-access config reads, `healthLabel` |
+| `health.ts` | Bridge `/health` probe, `HealthState`, `probeVendors`, port/extension-access config reads |
 | `workspace.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
 | `gate.ts` | Per-workspace mutation gate (`withGate`, `isMutationInFlight`) |
 | `types.ts` | `StatusJson`, `ChangeSet`, `ProjectMismatch`, `changeCount` |
@@ -61,5 +66,5 @@ bun test         # bun test runner (gate + workspace-detection tests)
 - [`../volt-desktop/README.md`](../volt-desktop/README.md) — desktop shell renderer
 - [`../volt-vscode/README.md`](../volt-vscode/README.md) — VS Code extension renderer
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI this drives
-- [`../../openspec/`](../../openspec/) — D4: one shared core, two renderers
-- [`../../CLAUDE.md`](../../CLAUDE.md) — fork architecture & conventions
+- [`../../openspec/`](../../openspec/) — one shared core, two renderers
+- [`../../CLAUDE.md`](../../CLAUDE.md) — architecture & conventions
