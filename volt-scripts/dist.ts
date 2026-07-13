@@ -51,13 +51,6 @@ compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 cpSync(resolve(repo, "packages/volt-lsp-iec/docs"), resolve(out, "docs"), { recursive: true })
 console.log("  ✓ docs corpus → dist/volt/docs")
 
-// Installer helpers (live beside their NSIS in packages/volt-bridge/installer): volt-path.ps1 adds/removes
-// `volt` on PATH; volt-extension.ps1 sideloads the .vsix. Bundled into bin/ so connector.nsh finds them at
-// $INSTDIR\resources\volt\bin.
-const installerDir = resolve(repo, "packages/volt-bridge/installer")
-cpSync(resolve(installerDir, "volt-path.ps1"), resolve(bin, "volt-path.ps1"))
-cpSync(resolve(installerDir, "volt-extension.ps1"), resolve(bin, "volt-extension.ps1"))
-
 // Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
 console.log("• volt-vscode extension (.vsix)")
 const vsixDir = resolve(repo, "packages/volt-vscode")

@@ -31,7 +31,7 @@ Core is a strict top-down stack — the contract first, vendor glue last:
 ```
 Ide/        the contract           ◄── each vendor bridge implements this, and only this
 Wire/       HTTP transport         ── serves the contract over HttpListener + JSON
-Sync/       endpoint services      ── fetch / push / build / refs / raw
+Sync/       endpoint services      ── fetch / push / build / refs / debug
 Workspace/  source materialize     ── item ⇄ canonical ST text
 Graphical/  graphical materialize  ── PlcOpen XML ⇄ VG text
 ```
@@ -92,11 +92,13 @@ pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up|test|down|restart|status
 | `codesys-scriptcommands/` | IronPython scripts that launch the in-proc CODESYS bridge headless |
 | `ITEM_KINDS.md` / `item-kinds.json` | the vendor-neutral item-type table |
 
+The connector (the tray supervisor) has its own [`src/Volt.Bridge.Connector/README.md`](./src/Volt.Bridge.Connector/README.md).
+
 ## See also
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — the deep dive; **read before touching bridge code**
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — the implementation deep-dive; **read before touching bridge code**
+- [`openapi.yaml`](./openapi.yaml) — the wire contract (served live at `GET /openapi.yaml` + `/swagger`)
 - [`ITEM_KINDS.md`](./ITEM_KINDS.md) — TwinCAT/CODESYS item-kind coverage map
-- [`docs/vg-language.md`](./docs/vg-language.md) — the VG language spec
-- [`docs/vg-diagnostics.md`](./docs/vg-diagnostics.md) — VG format & diagnostics quick-reference
-- [`../../openspec/`](../../openspec/) — Volt design, roadmap, decision log
+- [`docs/vg-language.md`](./docs/vg-language.md) · [`docs/vg-diagnostics.md`](./docs/vg-diagnostics.md) — the VG graphical sublanguage
+- [`docs/debugging-a-bridge-session.md`](./docs/debugging-a-bridge-session.md) — debugging a live bridge
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance
