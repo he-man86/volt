@@ -20,10 +20,11 @@ near-static **branded desktop shell** — reusing opencode's core *and* GUI **pr
 Seam-by-seam (full fate table in `design.md`): **18 seams → ~9, all in the desktop shell + dev-config, with
 ZERO edits to `packages/app`, `packages/ui`, or `packages/opencode/src`.**
 
-- **Delete the GUI-content seams.** Move the IDE-changes panel out of `session.tsx` into the **connector**;
-  revert `packages/app/{session.tsx,package.json,index.html,vite.js}`, `packages/app/.../deep-links.ts`, and
-  `packages/ui/.../logo.tsx*` to pristine. (Channel pin → a build-env `OPENCODE_CHANNEL=prod`; `volt://` →
-  shell-side protocol translation; in-GUI logo → optional single static seam, keep or drop.)
+- **Delete the GUI-content seams.** Move the IDE-changes panel out of `session.tsx` into the **Volt desktop shell
+  (`volt-desktop`)** — the desktop sibling of the VS Code extension, a thin frontend over `volt-control` (NOT the
+  connector; corrected in `design.md`). Revert `packages/app/{session.tsx,package.json,index.html,vite.js}`,
+  `packages/app/.../deep-links.ts`, and `packages/ui/.../logo.tsx*` to pristine. (Channel pin → a build-env
+  `OPENCODE_CHANNEL=prod`; `volt://` → shell-side protocol translation; in-GUI logo → optional single static seam.)
 - **Delete the opencode-binary seams.** Drop `cli/cmd/tui.ts` (set `OPENCODE_CONFIG_DIR` **before** launch via an
   env-wrapper so Bun's worker snapshot carries it) and `installation/index.ts` (the whole install updates via our
   installer/electron-updater — no in-binary self-updater feed). → **ship stock opencode, no custom binary.**
@@ -37,7 +38,9 @@ ZERO edits to `packages/app`, `packages/ui`, or `packages/opencode/src`.**
 
 - **`packages/app` / `packages/ui` / `packages/opencode/src` → pristine.** The highest-churn merge conflicts
   disappear; upstream GUI/core improvements land for free.
-- **The connector gains the IDE-changes surface** (Volt-owned, frontend-independent, no VS Code needed).
+- **`volt-desktop` gains the IDE-changes surface** — a Volt-owned frontend over `volt-control` (the extension's
+  sibling), tracking opencode's open project via its `x-opencode-directory` header. Bridge *control* stays the
+  connector's job; the frontends only observe + sync.
 - **No custom `volt` binary** — bundle a pinned stock opencode; the CLI is a config-dir add-on.
 - New ongoing cost: **compat-test the add-on against each opencode release** (a gate, not a merge).
 - User-visible change: **≈none** (panel is beside the chat vs inside it; the future GUI-plugin closes even that).

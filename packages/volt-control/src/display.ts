@@ -68,8 +68,9 @@ export interface VoltDisplay {
   severity: VoltSeverity
   label: string
   tooltip: string
-  /** Where the surface's status affordance should point when clicked. */
-  action?: "status" | "startBridge" | "acceptRename"
+  /** Where the surface's status affordance should point when clicked. Bridge *control* is the connector's
+   *  job (tray), never a frontend's — so there is no "start bridge" action here, only view/rebind. */
+  action?: "status" | "acceptRename"
   incoming: number
   outgoing: number
 }
@@ -133,8 +134,8 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
     return {
       severity: "offline",
       label: "Volt: bridge offline",
-      tooltip: "No bridge on the configured port — start it via the connector",
-      action: "startBridge",
+      tooltip: "No bridge on the configured port — start it from the Volt Connector (tray)",
+      action: "status",
       incoming,
       outgoing,
     }

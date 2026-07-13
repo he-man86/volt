@@ -371,11 +371,6 @@
           "minimum": 1,
           "maximum": 65535,
           "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
-        },
-        "volt.connector.path": {
-          "type": "string",
-          "default": "",
-          "description": "Full path to VoltConnector.exe. The connector supervises the bridges from the system tray; the extension launches it automatically when needed. Leave empty to use the conventional install location (the Volt install's resources\\volt\\connector) or the VOLT_CONNECTOR_EXE environment variable."
         }
       }
     },
@@ -436,12 +431,6 @@
         "icon": "$(add)"
       },
       {
-        "command": "volt.setup",
-        "title": "Volt: Set Up Workspace (pick a live IDE)",
-        "category": "Volt",
-        "icon": "$(rocket)"
-      },
-      {
         "command": "volt.initTwincat",
         "title": "Volt: Initialize for TwinCAT (port 8555)",
         "category": "Volt",
@@ -491,12 +480,6 @@
         "title": "Volt: Refresh",
         "category": "Volt",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "volt.startBridge",
-        "title": "Volt: Start Bridge",
-        "category": "Volt",
-        "icon": "$(debug-start)"
       },
       {
         "command": "volt.build",
@@ -634,7 +617,7 @@
       },
       {
         "view": "volt.views.sync",
-        "contents": "$(plug) No PLC IDE detected yet.\nOpen a project in CODESYS or TwinCAT and start its bridge, then set up this folder.\n[$(rocket) Set Up Workspace](command:volt.setup)\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
+        "contents": "$(plug) No PLC IDE detected yet.\nOpen a project in CODESYS or TwinCAT and start its bridge, then initialize this folder.\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
         "when": "!volt.workspaceInitialized && !volt.twincatLive && !volt.codesysLive"
       }
     ]

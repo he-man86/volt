@@ -1036,11 +1036,25 @@
     "packages/volt-control": {
       "name": "@opencode-ai/volt-control",
       "version": "0.1.0",
+      "dependencies": {
+        "vscode-jsonrpc": "^8.2.0",
+        "vscode-languageserver-protocol": "^3.17.5",
+      },
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
         "typescript": "catalog:",
+      },
+    },
+    "packages/volt-desktop": {
+      "name": "@opencode-ai/volt-desktop",
+      "version": "0.1.0",
+      "dependencies": {
+        "@opencode-ai/volt-control": "workspace:*",
+      },
+      "devDependencies": {
+        "electron": "42.3.3",
       },
     },
     "packages/volt-git": {
@@ -2116,6 +2130,8 @@
     "@opencode-ai/volt-bridge": ["@opencode-ai/volt-bridge@workspace:packages/volt-bridge"],
 
     "@opencode-ai/volt-control": ["@opencode-ai/volt-control@workspace:packages/volt-control"],
+
+    "@opencode-ai/volt-desktop": ["@opencode-ai/volt-desktop@workspace:packages/volt-desktop"],
 
     "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 

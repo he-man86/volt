@@ -46,7 +46,7 @@ test("worst-state-wins: merge beats offline beats drift", () => {
   const offline: WorkspaceState = { status: status({ outgoing: { added: ["X"], modified: [], removed: [] } }), health: unreachable }
   expect(aggregate([offline, merging]).severity).toBe("merging") // merge wins over the offline+drift peer
   expect(aggregate([offline]).severity).toBe("offline") // offline wins over drift
-  expect(aggregate([offline]).action).toBe("startBridge")
+  expect(aggregate([offline]).action).toBe("status") // bridge control is the connector's job, not the frontend's
 })
 
 test("mismatch retargets to acceptRename", () => {

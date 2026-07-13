@@ -148,7 +148,7 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 
 	statusBar.text = `$(${SEV_ICON[d.severity]}) ${d.label}`
 	statusBar.tooltip = d.tooltip
-	statusBar.command = d.action === "startBridge" ? "volt.startBridge" : d.action === "acceptRename" ? "volt.acceptProjectRename" : "volt.status"
+	statusBar.command = d.action === "acceptRename" ? "volt.acceptProjectRename" : "volt.status"
 	statusBar.backgroundColor =
 		d.severity === "mismatch" || d.severity === "offline" ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined
 	statusBar.show()

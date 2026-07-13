@@ -1,0 +1,211 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Volt</title>
+<style>
+  /* Volt shell chrome. opencode fills the left; a thin icon rail sits on the right (always visible, like
+     opencode's own activity bar) and the IDE panel expands beside it when a rail icon is clicked. */
+  :root {
+    --bg: #16120e; --chrome: #241d16; --border: #342b20; --surface: #1c1610;
+    --text: #f3ead9; --muted: #9a8e7c; --accent: #f2843c; --red: #e8675c; --green: #74c07a; --amber: #f2b24c;
+    --rail-w: 46px; --panel-w: 320px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; font: 13px/1.35 system-ui, sans-serif; color: var(--text); background: var(--bg); user-select: none; overflow: hidden; }
+  .bolt { width: 16px; height: 16px; color: var(--accent); flex: none; }
+  .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .titlebar { height: 40px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px 0 14px; background: var(--chrome); border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 660; letter-spacing: .2px; }
+  .winctl { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+  .winctl button { width: 34px; height: 26px; border: 0; background: transparent; color: var(--muted);
+    border-radius: 6px; display: grid; place-items: center; cursor: default; font-size: 13px; }
+  .winctl button:hover { background: rgba(243,234,217,.08); }
+  .winctl .close:hover { background: var(--red); color: #fff; }
+
+  /* the always-visible icon rail */
+  #rail { position: fixed; top: 40px; right: 0; bottom: 0; width: var(--rail-w); background: var(--chrome);
+    border-left: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
+  .rail-btn { position: relative; width: 38px; height: 38px; border: 0; background: transparent; color: var(--muted);
+    border-radius: 10px; display: grid; place-items: center; cursor: default; }
+  .rail-btn:hover { background: rgba(243,234,217,.08); color: var(--text); }
+  .rail-btn.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .rail-btn .bolt, .rail-btn .ico { width: 19px; height: 19px; }
+  .rail-badge { position: absolute; top: 1px; right: 1px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
+    background: var(--accent); color: #16120e; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; }
+  .rail-badge.err { background: var(--red); color: #fff; }
+  .rail-badge.hide { display: none; }
+  .rail-dot { margin-top: auto; width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
+  .rail-dot.ok { background: var(--green); } .rail-dot.warn { background: var(--amber); } .rail-dot.error { background: var(--red); }
+
+  /* the expandable panel */
+  #panel { position: fixed; top: 40px; right: var(--rail-w); bottom: 0; width: var(--panel-w);
+    background: var(--surface); border-left: 1px solid var(--border); display: none; overflow-y: auto; }
+  #panel.open { display: block; }
+
+  .sect { display: flex; align-items: center; gap: 7px; padding: 13px 8px 4px 14px; }
+  .sect .s-title { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+  .sect + .sect { border-top: 1px solid var(--border); margin-top: 6px; }
+  .s-acts { margin-left: auto; display: flex; gap: 1px; }
+  .ico-btn { width: 25px; height: 22px; border: 0; background: transparent; color: var(--muted); border-radius: 5px;
+    display: grid; place-items: center; cursor: default; }
+  .ico-btn:hover:not(:disabled) { background: rgba(243,234,217,.09); color: var(--text); }
+  .ico-btn:disabled { opacity: .3; }
+
+  .grp { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11.5px; padding: 7px 14px 2px; }
+  .grp .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 3px 14px; font-size: 12.5px; }
+  .row .stat { font-family: ui-monospace, monospace; font-weight: 700; width: 12px; text-align: center; flex: none; }
+  .stat.A { color: var(--green); } .stat.M { color: var(--amber); } .stat.D { color: var(--red); }
+  .row .path { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .n { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; padding-left: 8px; }
+  .note { color: var(--muted); padding: 4px 14px 6px; font-size: 12.5px; display: flex; gap: 7px; align-items: flex-start; }
+  .note .bolt, .note .ico { margin-top: 1px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.ok { background: var(--green); } .dot.warn { background: var(--amber); } .dot.error { background: var(--red); }
+  .init-row { display: flex; flex-direction: column; gap: 7px; padding: 8px 14px 10px; }
+  .btn { -webkit-app-region: no-drag; display: flex; align-items: center; justify-content: center; gap: 7px;
+    background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font: inherit; cursor: default; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #16120e; border-color: var(--accent); font-weight: 640; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .warn-box { display: flex; gap: 8px; margin: 8px 14px; padding: 9px 10px; border-radius: 8px; font-size: 12px;
+    background: rgba(242,178,76,.1); border: 1px solid rgba(242,178,76,.35); color: var(--text); }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13.2c-.5.66-.03 1.6.8 1.6H11l-1.4 7.2c-.16.85.94 1.34 1.47.66L20 11.4c.5-.66.03-1.6-.8-1.6H13.5L14.6 2.9c.14-.83-.93-1.32-1.46-.66Z" fill="currentColor"/></symbol>
+  <symbol id="i-pull" viewBox="0 0 24 24"><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 3v11m0 0 4-4m-4 4-4-4"/></symbol>
+  <symbol id="i-push" viewBox="0 0 24 24"><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 15V4m0 0 4 4m-4-4-4 4"/></symbol>
+  <symbol id="i-build" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+</svg>
+
+<div class="titlebar">
+  <span class="brand"><svg class="bolt"><use href="#bolt"/></svg>Volt</span>
+  <span class="winctl">
+    <button onclick="volt.minimize()" aria-label="Minimize">&#x2013;</button>
+    <button onclick="volt.maximize()" aria-label="Maximize">&#x25a1;</button>
+    <button class="close" onclick="volt.close()" aria-label="Close">&#x2715;</button>
+  </span>
+</div>
+
+<nav id="rail">
+  <button class="rail-btn" id="railSync" title="IDE changes" onclick="toggle()">
+    <svg class="bolt"><use href="#bolt"/></svg><span class="rail-badge hide" id="driftBadge">0</span>
+  </button>
+  <button class="rail-btn" id="railDiag" title="Diagnostics" onclick="toggle()">
+    <svg class="ico"><use href="#i-alert"/></svg><span class="rail-badge err hide" id="diagBadge">0</span>
+  </button>
+  <span class="rail-dot" id="bridgeDot" title="Bridge"></span>
+</nav>
+
+<aside id="panel"></aside>
+
+<script>
+  let snap = { bound: false, initialized: false, paused: false, incoming: [], outgoing: [] }
+  let diag = null // { loading } | { errors, warnings, files } | { error }
+  let open = false
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
+  const base = (p) => p.split(/[\\/]/).pop()
+  const rows = (items) => items.map((f) => `<div class="row"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
+  const grp = (label, items) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${rows(items)}` : ""
+  const icoBtn = (icon, title, onclick, off) => `<button class="ico-btn" title="${title}" ${off ? "disabled" : ""} onclick="${onclick}"><svg class="ico"><use href="#${icon}"/></svg></button>`
+  const section = (title, acts, body) => `<div class="sect"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
+
+  function setBadge(id, count, on) {
+    const el = document.getElementById(id)
+    el.textContent = count
+    el.classList.toggle("hide", !on)
+  }
+
+  function renderRail() {
+    const n = snap.incoming.length + snap.outgoing.length
+    setBadge("driftBadge", n, n > 0)
+    const errs = diag && !diag.loading && !diag.error ? diag.errors : 0
+    setBadge("diagBadge", errs, errs > 0)
+    document.getElementById("railSync").classList.toggle("on", open)
+    document.getElementById("railDiag").classList.toggle("on", open)
+    const dot = document.getElementById("bridgeDot")
+    dot.className = "rail-dot" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
+  }
+
+  function render() {
+    renderRail()
+    if (!open) return
+    const s = snap
+    const n = s.incoming.length + s.outgoing.length
+
+    // 1. IDE Sync
+    const syncActs = s.initialized
+      ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") +
+        icoBtn("i-push", "Push · workspace → IDE", "doPush()") +
+        icoBtn("i-build", "Build", "doBuild()") +
+        icoBtn("i-refresh", "Refresh", "doRefresh()")
+      : ""
+    let syncBody
+    if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
+    else if (!s.initialized)
+      syncBody = `<div class="note">Not a Volt workspace yet — bind this project to the live IDE:</div>
+        <div class="init-row">
+          <button class="btn primary" onclick="doInit('codesys')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for CODESYS</button>
+          <button class="btn" onclick="doInit('twincat')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for TwinCAT</button>
+        </div>`
+    else if (s.paused) syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
+    else if (n === 0) syncBody = `<div class="note">✓ In sync with the IDE.</div>`
+    else syncBody = grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
+
+    // 2. Diagnostics
+    const diagActs = s.bound ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
+    let diagBody
+    if (!s.bound) diagBody = `<div class="note">No project open.</div>`
+    else if (!diag || diag.loading) diagBody = `<div class="note">Analyzing Structured Text…</div>`
+    else if (diag.error) diagBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(diag.error)}</div>`
+    else if ((diag.errors + diag.warnings) === 0) diagBody = `<div class="note">✓ No problems.</div>`
+    else
+      diagBody =
+        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div>` +
+        diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("")
+
+    // 3. Bridge
+    let bridgeBody
+    if (!s.bound) bridgeBody = `<div class="note">No project open.</div>`
+    else if (!s.initialized) bridgeBody = `<div class="note">Not a Volt workspace — initialize it in IDE Sync above.</div>`
+    else {
+      const h = s.health || { label: "…", tone: "warn", online: false }
+      bridgeBody =
+        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span></div>` +
+        (s.port ? `<div class="row"><span class="stat">·</span><span class="path">Port ${s.port}</span></div>` : "") +
+        (!h.online ? `<div class="note">Bridge offline — start it via the connector.</div>` : "")
+    }
+    const bridgeActs = s.initialized ? icoBtn("i-refresh", "Refresh", "doRefresh()") : ""
+
+    const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
+
+    document.getElementById("panel").innerHTML =
+      section("IDE Sync", syncActs, syncBody + warn) +
+      section("Diagnostics", diagActs, diagBody) +
+      section("Bridge", bridgeActs, bridgeBody)
+  }
+
+  function toggle() {
+    open = !open
+    document.getElementById("panel").classList.toggle("open", open)
+    volt.togglePanel(open)
+    render()
+  }
+
+  async function doPull() { try { await volt.pull() } catch {} }
+  async function doPush() { try { await volt.push() } catch {} }
+  async function doBuild() { try { await volt.build() } catch {} }
+  function doRefresh() { volt.refresh() }
+  function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
+  async function doInit(vendor) { try { await volt.initWorkspace(vendor) } catch {} }
+
+  volt.onStatus((s) => { snap = s; render() })
+  volt.onDiagnostics((d) => { diag = d; render() })
+  render()
+</script>

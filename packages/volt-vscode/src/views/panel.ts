@@ -226,8 +226,9 @@ function bridgeRoots(statuses: ReadonlyMap<string, VoltStatus>): VoltNode[] {
 		const port = readBridgePort(s.workspaceRoot)
 		if (port !== undefined) nodes.push({ key: `port:${s.workspaceRoot}`, label: `Port ${port}`, icon: new vscode.ThemeIcon("plug") })
 
+		// Bridge lifecycle is the connector's job (tray) — the view only reports; it never starts bridges.
 		if (!hd.online)
-			nodes.push({ key: `start:${s.workspaceRoot}`, label: "Start bridge", icon: new vscode.ThemeIcon("debug-start"), command: { command: "volt.startBridge", title: "Start Bridge" } })
+			nodes.push({ key: `offline:${s.workspaceRoot}`, label: "Offline — start it from the Volt Connector (tray)", icon: new vscode.ThemeIcon("info") })
 		if (s.cached?.projectMismatch != null)
 			nodes.push({ key: `rename:${s.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
 	}

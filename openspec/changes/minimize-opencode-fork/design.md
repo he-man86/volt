@@ -41,22 +41,33 @@ Legend: **DELETE** = revert to pristine · **SHRINK** = keep file, remove part �
 ## End-state architecture
 ```
 Volt install (our NSIS)
- ├─ stock opencode (pinned release, unmodified) ── serves backend + GUI over HTTP (`opencode web` → localhost)
+ ├─ stock opencode (pinned release, unmodified) ── serves backend + GUI over HTTP (`opencode serve` → localhost)
  ├─ OPENCODE_CONFIG_DIR bundle ── LSP registration + volt tool + agent + theme + permissions   (additive)
  ├─ env-wrapper `volt` ── sets OPENCODE_CONFIG_DIR/PATH before exec (kills the tui.ts seam)
- ├─ desktop shell (Volt-owned Electron) ── spawns opencode, LOADS its SERVED GUI url in a BrowserView,
- │                                          draws Volt chrome (titlebar/brand/"IDE changes" button) around it
- └─ connector (volt-*) ── bridge gateway + IDE-changes panel + runs volt-git for pull/push
+ ├─ volt-desktop (Volt-owned Electron) ── spawns opencode, LOADS its SERVED GUI url in a WebContentsView,
+ │                                        draws Volt chrome (titlebar + collapsible icon rail + IDE panel) around it
+ └─ connector (volt-*) ── bridge gateway; runs volt-git for pull/push (bridge lifecycle owner)
 ```
 
-**The desktop WRAPS opencode's served GUI — it does NOT bundle `packages/app`.** `opencode web` (verified:
-`cli/cmd/web.ts` → `Server.listen`) serves the GUI at `http://localhost:<port>`; the Volt shell loads that URL
-in a BrowserView. So the desktop needs **no `@opencode-ai/app` package, no GUI vendoring, no GUI seams** — the
-GUI is consumed as a running URL exactly like the backend is consumed as a running process. Pristine GUI is
-enforced *by construction* (you can't edit a page you load by URL). This is also what makes a **clean standalone
-`volt` repo** viable: `volt-*` packages + config + a thin shell, depending on opencode only as a **runtime**
-(chained install) + `@opencode-ai/plugin`. No monorepo fork. (Extracting that repo is a follow-on, sequenced
-after this de-fork lands.)
+**The desktop WRAPS opencode's served GUI — it does NOT bundle `packages/app`.** `opencode serve` (verified:
+`cli/cmd/serve.ts` → `Server.listen`, serves the embedded web UI unless `OPENCODE_DISABLE_EMBEDDED_WEB_UI`) prints
+`opencode server listening on http://…:<port>`; `volt-desktop` parses that and loads the URL in a `WebContentsView`.
+So the desktop needs **no `@opencode-ai/app` package, no GUI vendoring, no GUI seams** — the GUI is consumed as a
+running URL exactly like the backend is a running process. Pristine GUI is enforced *by construction* (you can't
+edit a page you load by URL). This is what makes a **clean standalone `volt` repo** viable: `volt-*` + config + a
+thin shell, depending on opencode only as a **runtime** (chained install) + `@opencode-ai/plugin`. No monorepo
+fork. (Extracting that repo is a follow-on, after this de-fork lands.)
+
+**Built + validated (2026-07-13, uncommitted):** `volt-desktop` wraps npm-installed stock opencode `1.17.18`;
+IDE panel = **3 sections** (IDE Sync / Diagnostics / Bridge) over `volt-control`, in a collapsible right icon rail.
+Refinements since the original plan: **(a)** the active workspace **follows opencode's open project** — sniffed
+from the GUI's `x-opencode-directory` header (VS Code-open-folder semantics), no folder picker, no connector/reverse
+lookup; **(b)** the IDE panel is **rebuilt fresh over volt-control** (the old `VoltIdePanel` was diff-only +
+coupled to opencode's `SessionReview`), so "merge VoltIdePanel into volt-desktop" is moot; **(c)** **bridge
+lifecycle control belongs to the connector** — removed from both frontends (`volt.startBridge`, `connector.ts`,
+the `startBridge` display action); **(d)** Diagnostics uses a **headless LSP pull-collector** in volt-control
+(`workspace/diagnostic`). Still pending: set `OPENCODE_CONFIG_DIR` on the served opencode; remove the old
+`packages/app`/`packages/desktop` seams + drop `volt-app`; shrink `check-divergence`.
 
 ## `check-divergence.ts` simplification (tighten while shrinking)
 - Shrink `ALLOWED_MODIFICATIONS` from 18 → the ~9 survivors. Every removed entry means a *re-introduced* edit to
