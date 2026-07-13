@@ -12,7 +12,6 @@ playground
 tmp
 dist
 ts-dist
-.turbo
 **/.serena
 .serena/
 **/.omo
@@ -42,3 +41,4 @@ tsconfig.tsbuildinfo
 /rust/target/
 .opencode/opencode.json
 .opencode/tool/volt.ts
+.turbo

@@ -7,10 +7,10 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "OPENCODE_CONFIG_DIR=$PWD/volt-config opencode",
-    "build": "bun turbo build --filter=!@opencode-ai/volt-bridge",
+    "build": "bun run --filter='*' build",
     "dist": "bun volt-scripts/dist.ts",
     "compat": "bun volt-scripts/sync.ts",
-    "typecheck": "bun turbo typecheck",
+    "typecheck": "bun run --filter='*' typecheck",
     "lint": "oxlint",
     "prepare": "husky",
     "test": "echo 'do not run tests from root' && exit 1"
@@ -39,7 +39,6 @@
     "oxlint": "1.60.0",
     "oxlint-tsgolint": "0.21.0",
     "prettier": "3.6.2",
-    "turbo": "2.8.13",
     "typescript": "catalog:"
   },
   "repository": {

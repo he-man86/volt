@@ -12,7 +12,7 @@ Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-sour
 
 ## Package map
 
-Bun workspaces + Turbo. All product code is in `packages/volt-*`:
+Bun workspaces (no Turbo — task-running is bun-native `--filter`). All product code is in `packages/volt-*`:
 
 - **`volt-bridge`** (`@opencode-ai/volt-bridge`) — the C# bridges + connector: one live IDE (CODESYS / TwinCAT) over a small HTTP wire.
 - **`volt-git`** (`@opencode-ai/volt-git`) — the **`volt` CLI**: git-native PLC sync (`init/pull/push/status/build/log/show/merge`).
@@ -36,10 +36,10 @@ Standard workflows are root `bun run` scripts — prefer these over invoking `vo
 ```bash
 bun install                 # install workspace deps
 bun run dev                 # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
-bun run build               # build the TS packages (turbo; the C# bridge builds in `dist`)
+bun run build               # build the TS packages (bun --filter; the C# bridge builds in `dist`)
 bun run dist                # the release bundle → dist/volt/ (both exes + volt-config + .vsix + connector)
 bun run compat              # opencode compat gate: integration → lsp-loads → tool-loads (run on an opencode bump)
-bun run typecheck           # turbo typecheck across all volt packages
+bun run typecheck           # tsgo --noEmit across all volt packages
 bun run lint                # oxlint
 ```
 

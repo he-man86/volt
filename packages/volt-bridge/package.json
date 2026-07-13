@@ -11,7 +11,6 @@
   "description": "Volt IDE bridges — C# binaries with shared Core (Beckhoff TwinCAT, CODESYS, more vendors coming); round-trips FBD/LD graphical bodies as VG (Volt Graphical) text",
   "type": "module",
   "scripts": {
-    "build": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo",
     "build:all": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo && dotnet build src/Volt.Bridge.Codesys/Volt.Bridge.Codesys.csproj -c Release --nologo",
     "build:package": "powershell -File scripts/build-bridges.ps1",
     "test": "bun test",

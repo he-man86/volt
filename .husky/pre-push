@@ -13,5 +13,5 @@ if (!semver.satisfies(process.versions.bun, `^${expectedBunVersion}`)) {
 }
 '
 # Typecheck the workspace + volt-scripts (not a workspace package, so typecheck it directly).
-bun turbo typecheck
+bun run --filter='*' typecheck
 bunx tsgo --noEmit -p volt-scripts/tsconfig.json
