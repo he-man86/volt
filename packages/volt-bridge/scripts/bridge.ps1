@@ -1,11 +1,11 @@
 #Requires -Version 5.1
 # Build + (re)launch the Beckhoff standalone bridge from the repo, attaching to a
 # running TwinCAT (TcXaeShell). CODESYS is NOT launchable here: Volt.Bridge.Codesys is
-# an OutputType=Library loaded in-process - use volt-scripts/codesys-bridge.ps1 for it.
+# an OutputType=Library loaded in-process - use packages/volt-bridge/scripts/codesys-bridge.ps1 for it.
 param([string]$Port = "8555", [string]$Project = "Beckhoff")
 
 if ($Project -ne "Beckhoff") {
-    Write-Output "bridge.ps1 only launches the Beckhoff bridge (a standalone exe). CODESYS is loaded in-proc - use volt-scripts/codesys-bridge.ps1 instead."
+    Write-Output "bridge.ps1 only launches the Beckhoff bridge (a standalone exe). CODESYS is loaded in-proc - use packages/volt-bridge/scripts/codesys-bridge.ps1 instead."
     exit 1
 }
 
@@ -13,8 +13,8 @@ if ($Project -ne "Beckhoff") {
 # Do NOT hardcode a second name that silently rots when the project is renamed.
 $projName = "Volt.Bridge.Beckhoff"
 $asmName  = $projName
-$repo   = Split-Path $PSScriptRoot -Parent
-$csproj = Join-Path $repo "packages\volt-bridge\src\$projName\$projName.csproj"
+$bridge = Split-Path $PSScriptRoot -Parent   # the volt-bridge package dir (this script lives in ./scripts)
+$csproj = Join-Path $bridge "src\$projName\$projName.csproj"
 $logDir = Join-Path $env:TEMP "opencode"
 $outDir = Join-Path $logDir "bridge-$($Project.ToLower())"
 

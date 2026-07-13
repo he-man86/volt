@@ -13,7 +13,7 @@ param(
     [switch]$ApiTests
 )
 $ErrorActionPreference = "Stop"
-$ROOT = $PSScriptRoot
+$ROOT = Split-Path $PSScriptRoot -Parent   # the volt-bridge package dir (this script lives in ./scripts)
 $DIST = "$ROOT\dist"
 # Resolve a dotnet that actually has an SDK. The PATH entry may be the x86 stub (no x64 SDK), so validate each
 # candidate with --list-sdks and fall back to the user-dir SDK (dotnet-install default) / the system path.

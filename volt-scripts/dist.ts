@@ -99,7 +99,7 @@ if (!skipBridge) {
   // the .NET SDK still ships the TS binaries (the bridge is the IDE side; pass --no-bridge to silence).
   const built =
     process.platform === "win32" &&
-    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-bridge/build-bridges.ps1"])
+    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-bridge/scripts/build-bridges.ps1"])
   const priorConnector = resolve(repo, "packages/volt-bridge/dist/Connector")
   if (built) {
     cpSync(priorConnector, resolve(out, "connector"), { recursive: true })

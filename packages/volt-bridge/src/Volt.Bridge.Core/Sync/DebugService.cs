@@ -12,7 +12,7 @@ namespace Volt.Bridge.Core.Sync;
 ///     name, kind code + kind string, type tags, and declaration/implementation text, recursively.
 ///   • <c>count</c> + <c>bodies</c> (only with <c>xml=1</c>): every POU's raw PLCopen XML as a flat
 ///     <c>folder/name.ext → xml</c> map — the exact bytes the IDE emits, for corpus capture
-///     (volt-scripts/harvest-corpus.ts). This folds in what used to be a separate <c>/raw</c> endpoint.
+///     (packages/volt-bridge/scripts/harvest-corpus.ts). This folds in what used to be a separate <c>/raw</c> endpoint.
 ///
 /// Why a read-only dump: writing a bad COM op (e.g. an unsupported interface-accessor text write) can
 /// HARD-CRASH TwinCAT, so "probe the create path by writing" is a destructive debug loop. Reading never

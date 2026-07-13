@@ -2,7 +2,7 @@
  * Corpus harvester — capture every POU's raw PLCopenXML from a live bridge into the round-trip
  * coverage corpus. No authoring: open a real project in the IDE, point the bridge at it, run this.
  *
- *   bun volt-scripts/harvest-corpus.ts [port]      # default 8556 (CODESYS); 8555 = TwinCAT
+ *   bun packages/volt-bridge/scripts/harvest-corpus.ts [port]      # default 8556 (CODESYS); 8555 = TwinCAT
  *
  * Writes packages/volt-bridge/test/Volt.Bridge.Tests/fixtures/corpus/<name>.plcopen.xml,
  * which FbdCorpusRoundTripTests then measures. Re-run on any project to grow the corpus.
@@ -12,8 +12,8 @@ import { join } from "node:path"
 
 const port = process.argv[2] ?? "8556"
 const corpus = join(
-	import.meta.dirname, "..",
-	"packages", "volt-bridge", "test", "Volt.Bridge.Tests", "fixtures", "corpus",
+	import.meta.dirname, "..", // this script lives in packages/volt-bridge/scripts
+	"test", "Volt.Bridge.Tests", "fixtures", "corpus",
 )
 mkdirSync(corpus, { recursive: true })
 

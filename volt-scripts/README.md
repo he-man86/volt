@@ -21,15 +21,14 @@ Volt depends on opencode as a runtime + `@opencode-ai/plugin` (npm), not a fork.
 
 `dist.ts` compiles the `volt` PLC CLI directly (no opencode bundled — the agent is the user's installed opencode). The desktop shell + NSIS installer are built from `packages/volt-desktop` (Phase 2 / the distribution work).
 
-## Dev & PLC tooling
+## Dev tooling
 
 | Command | What it does |
 |---|---|
-| `bun volt-scripts/harvest-corpus.ts` | Capture POU PLCopenXML from a live bridge (LSP corpus tooling). |
-| `pwsh volt-scripts/codesys-bridge.ps1 up\|test\|down\|…` | Headless CODESYS dev/test bridge loop. |
-| `pwsh volt-scripts/bridge.ps1` | Build + (re)launch the Beckhoff standalone bridge. |
 | `volt` / `volt.cmd` | `volt` CLI wrappers (add `volt-scripts/` to PATH to use bare `volt`). |
 
 For dev with the Volt-aware agent, run `bun dev` from the repo root (`OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`).
+
+Package-specific scripts live in each package's `scripts/` dir — the bridge build + dev-loop scripts (`build-bridges.ps1`, `codesys-bridge.ps1`, `bridge.ps1`, `harvest-corpus.ts`) are in `packages/volt-bridge/scripts/`; LSP corpus/conformance tooling is in `packages/volt-lsp-iec/scripts/`.
 
 `tsconfig.json` here typechecks every script (run by the pre-push hook + CI via `tsgo --noEmit -p volt-scripts/tsconfig.json`).

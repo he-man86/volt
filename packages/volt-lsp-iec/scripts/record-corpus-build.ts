@@ -5,7 +5,7 @@
  * they do NOT — see the C0371 demotion). Run it ONCE per project, with that project loaded in the live IDE:
  *
  *   1. Open the project in CODESYS (or TwinCAT) so the bridge serves it.
- *   2. Bring the bridge up (pwsh volt-scripts/codesys-bridge.ps1 up), or point at your running IDE's bridge.
+ *   2. Bring the bridge up (pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up), or point at your running IDE's bridge.
  *   3. PROJECT=lenze-mid VOLT_BRIDGE_PORT=8556 bun run scripts/record-corpus-build.ts
  *
  * Writes test-corpus/<PROJECT>/expected-build.<vendor>.json = every error+warning the FULL build emitted.

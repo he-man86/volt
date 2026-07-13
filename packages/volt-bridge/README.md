@@ -75,7 +75,7 @@ Headless CODESYS dev/test loop (Windows / PowerShell) — runs against its own h
 live IDE:
 
 ```bash
-pwsh volt-scripts/codesys-bridge.ps1 up|test|down|restart|status|logs
+pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up|test|down|restart|status|logs
 ```
 
 ## Layout

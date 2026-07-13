@@ -42,8 +42,8 @@ These talk to a **live bridge** to produce the data above. Run them by hand when
 | `audit-check.ts` | `bun run audit:check <battery>` | nothing — prints to screen | ad-hoc "what does the live IDE say vs our LSP" for a battery of cases. The tool for *is this check actually right?* (it's what proved `constant-overflow` was wrong). Touches no test data. |
 | `check-layering.ts` | `bun run lint` | nothing — lint | fails on an illegal upward import between layers. |
 
-Bring a bridge up first: `pwsh volt-scripts/codesys-bridge.ps1 up` (CODESYS :8556) or
-`pwsh volt-scripts/bridge.ps1 -Port 8555` (TwinCAT, XAE open on a project).
+Bring a bridge up first: `pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up` (CODESYS :8556) or
+`pwsh packages/volt-bridge/scripts/bridge.ps1 -Port 8555` (TwinCAT, XAE open on a project).
 
 ## Running
 

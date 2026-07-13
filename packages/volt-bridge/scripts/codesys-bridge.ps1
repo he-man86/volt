@@ -27,16 +27,16 @@
 .PARAMETER Port     bridge port (fixed at 8556 by Host; override only if changed)
 .PARAMETER NoBuild  skip the dotnet build (reuse the existing DLL)
 
-.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 up
-.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 test
-.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 down
+.EXAMPLE  pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up
+.EXAMPLE  pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 test
+.EXAMPLE  pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 down
 #>
 param(
     [ValidateSet("start", "wait", "up", "test", "down", "restart", "status", "logs")]
     [string]$Action = "up",
     [ValidateSet("18", "21")]
     [string]$Version = "21",
-    [string]$Project = "$PSScriptRoot\..\packages\volt-bridge\test\CodesysTestProject.project",
+    [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project",
     [int]$Port = 8556,
     [switch]$NoBuild
 )
@@ -44,11 +44,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ── paths ────────────────────────────────────────────────────────────────────
-$repo    = Split-Path $PSScriptRoot -Parent
-$proj  = Join-Path $repo "packages\volt-bridge\src\Volt.Bridge.Codesys"
+$bridge  = Split-Path $PSScriptRoot -Parent   # the volt-bridge package dir (this script lives in ./scripts)
+$proj  = Join-Path $bridge "src\Volt.Bridge.Codesys"
 $csproj  = Join-Path $proj "Volt.Bridge.Codesys.csproj"
 $dll     = Join-Path $proj "bin\Release\net48\Volt.Bridge.Codesys.dll"
-$scriptPy = Join-Path $repo "packages\volt-bridge\codesys-scriptcommands\run_bridge_headless.py"
+$scriptPy = Join-Path $bridge "codesys-scriptcommands\run_bridge_headless.py"
 
 $dotnet  = "C:\Program Files\dotnet\dotnet.exe"
 $install = if ($Version -eq "21") { "C:\Program Files\CODESYS 3.5.21.40" } else { "C:\Program Files\CODESYS 3.5.18.30" }
@@ -183,7 +183,7 @@ function Invoke-Test {
     } catch {
         Write-Warning "  /refs failed: $_"
     }
-    Write-Host "`nBridge left running. Tear down with:  volt-scripts/codesys-bridge.ps1 down"
+    Write-Host "`nBridge left running. Tear down with:  packages/volt-bridge/scripts/codesys-bridge.ps1 down"
 }
 
 switch ($Action) {

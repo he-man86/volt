@@ -13,7 +13,7 @@
   "scripts": {
     "build": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo",
     "build:all": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo && dotnet build src/Volt.Bridge.Codesys/Volt.Bridge.Codesys.csproj -c Release --nologo",
-    "build:package": "powershell -File build-bridges.ps1",
+    "build:package": "powershell -File scripts/build-bridges.ps1",
     "test": "bun test",
     "typecheck": "tsgo --noEmit"
   },
