@@ -134,6 +134,8 @@ function pushStatus() {
 }
 
 // volt-control spawns the volt CLI + LSP as node scripts (ELECTRON_RUN_AS_NODE). Point them at the built bins.
+// ponytail: dev-monorepo paths (sibling packages' dist/). The packaged app resolves these from the bundled
+// resources instead — wired up with the electron-builder packaging (the `distribution` change), not here.
 function configureTools() {
   setBundledCli(join(__dirname, "..", "volt-git", "dist", "bin.js"))
   setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "bin.js"))
@@ -166,7 +168,7 @@ async function bindWorkspace(root: string) {
 }
 
 /** The project opencode's GUI is on — announced to its server via the x-opencode-directory header or
- *  ?directory= query (server reads it in workspace-routing.ts). This is the desktop's "open folder". */
+ *  ?directory= query (the installed opencode server reads it). This is the desktop's "open folder". */
 function activeDirFromRequest(details: { url: string; requestHeaders: Record<string, string> }): string | undefined {
   for (const [k, v] of Object.entries(details.requestHeaders)) {
     // The GUI sends `x-opencode-directory: encodeURIComponent(dir)` — decode back to a real path.
@@ -201,6 +203,7 @@ app.whenReady().then(async () => {
     height: 860,
     frame: false, // Volt draws the titlebar (shell.html) — not the OS
     backgroundColor: "#16120e",
+    icon: join(__dirname, "assets", "volt-icon.ico"), // Volt taskbar/window icon
     webPreferences: { preload: join(__dirname, "preload.cjs") },
   })
   await win.loadFile(join(__dirname, "shell.html"))
