@@ -1,14 +1,12 @@
-// TODO(volt): set your domain + Cloudflare zone ID.
-//   1. Register/move your domain onto Cloudflare.
-//   2. Replace "volt.example" below with your real domain (prod + dev subdomains).
-//   3. Replace VOLT_CLOUDFLARE_ZONE_ID with the zone ID from the Cloudflare dashboard (Overview → API → Zone ID).
+// Domain: volt-ai.dev (prod), dev.volt-ai.dev (dev), <stage>.dev.volt-ai.dev (other stages).
 export const domain = (() => {
-  if ($app.stage === "production") return "volt.example" // TODO(volt): production domain
-  if ($app.stage === "dev") return "dev.volt.example" // TODO(volt): dev subdomain
-  return `${$app.stage}.dev.volt.example`
+  if ($app.stage === "production") return "volt-ai.dev"
+  if ($app.stage === "dev") return "dev.volt-ai.dev"
+  return `${$app.stage}.dev.volt-ai.dev`
 })()
 
-export const zoneID = "VOLT_CLOUDFLARE_ZONE_ID" // TODO(volt): Cloudflare zone ID for the domain above
+// Cloudflare Zone ID for volt-ai.dev.
+export const zoneID = "ebac4f049c913d03ae11f89114379d6c"
 export const awsStage = $app.stage === "production" ? "production" : "dev"
 export const deployAws = $app.stage === awsStage
 
