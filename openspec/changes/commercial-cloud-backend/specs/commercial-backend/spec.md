@@ -33,3 +33,20 @@ swapped for Volt's product in a separate follow-up change rather than silently s
 - **WHEN** the "deploy as-is" bring-up is complete
 - **THEN** the opencode-shaped billing product, price IDs, and branding are listed as items the follow-up
   `adapt-commercial-backend` change must rewrite
+
+### Requirement: The backend is observable, with error tracking and success-rate monitoring
+
+The deployed backend SHALL expose the app's health so operators can see its **success rate** and be alerted to
+regressions. It SHALL emit per-request usage/error telemetry to an observability backend (Honeycomb), compute
+success/error rates (gateway completions, API 5xx) with alerting to a Volt incident channel, and capture
+application exceptions in an error tracker (Sentry). This is required for operating the subscription product,
+though it need not ship in the first deploy.
+
+#### Scenario: Gateway success rate is visible and alerts on regression
+- **WHEN** the gateway serves LLM requests and some fail (upstream errors, rate limits, timeouts)
+- **THEN** the success/error rate is queryable from the emitted `inference.event` telemetry, and an alert fires to
+  Volt's incident channel when the error rate exceeds a threshold
+
+#### Scenario: Application exceptions are captured for debugging
+- **WHEN** the console app, auth issuer, or gateway worker throws an unhandled exception
+- **THEN** it is reported to Sentry with a stack trace and release context

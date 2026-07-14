@@ -118,6 +118,32 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
 - [ ] **Email (SES)** — only needed for workspace invites + the enterprise-contact page, not login. Stub `AWS_SES_*`
       now; wire real SES keys if/when invites matter.
 
+## Stage 4c — observability, error tracking & success-rate monitoring (required, not day-1)
+Goal: **see the success rate of the app** — gateway completion rate, API health, and errors — plus alerting.
+Four layers; #1 and #2 are the core "success rate" ask.
+
+1. **Success-rate & ops metrics — Honeycomb** (the telemetry *send* is already coded in
+   `function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`, needs only `HONEYCOMB_API_KEY`):
+   - [ ] Create a Honeycomb account → set `HONEYCOMB_API_KEY`. Inference events (`status`, `llm.error`, latency,
+         model, provider, geo…) start flowing → queryable dashboards + SLOs.
+   - [ ] **Re-add `infra/monitoring.ts`** (adapt opencode's — it's the success-rate monitor): re-add the
+         `honeycomb` provider to `sst.config.ts`, plus the error-rate fields/formulas (`FAILED/TOTAL`) and
+         triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse) → alert to **Volt's Discord/
+         Slack** webhook (`DISCORD_INCIDENT_WEBHOOK_URL` or a Slack equivalent).
+2. **Error tracking — Sentry (NEW — not currently wired; `SENTRY_*` .env keys are orphans, no `@sentry` code):**
+   - [ ] Add `@sentry/*` to the console app (SolidStart) + the workers (auth issuer, gateway, log-processor) for
+         exception capture + stack traces + release health. Wire `SENTRY_DSN` (+ source-map upload via
+         `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN`). Complements Honeycomb (metrics/traces) with
+         debuggable exceptions.
+3. **Product-analytics warehouse (re-add the dropped sink)** — for per-user spend / model mix / margin / funnel
+   (see the analytics gap note). ClickHouse/Tinybird/Postgres, or wire back a lake-style ingest into `log-processor`.
+4. **Infra health — Cloudflare-native** — enable Workers logpush + Workers Analytics for worker/DB uptime (free).
+
+**What "success rate" concretely means here** (all derivable once #1 is live):
+- Gateway: successful completions ÷ total (from `inference.event` `status` + `llm.error`) — the headline metric.
+- API/auth: 5xx rate on the console app + auth worker.
+- Business funnel: signup → subscribe → active (DB + Stripe), for conversion health.
+
 ## Stage 5 — adapt branding/product (separate follow-up change)
 - [ ] Replace `console/app`'s marketing/branding with Volt's (keep the functional app + gateway).
 - [ ] Rename the Stripe products/pricing to Volt's real plans (the Zen/Go/Black structure stays — it's the sub
