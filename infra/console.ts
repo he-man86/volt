@@ -293,7 +293,9 @@ new sst.cloudflare.x.SolidStart("Console", {
       placement: { region: "aws:us-east-2" },
       transform: {
         worker: {
-          tailConsumers: [{ service: logProcessor.nodes.worker.scriptName }],
+          // Tail Workers require the Workers Paid plan. This pipeline only feeds monitoring, which is gated on
+          // HONEYCOMB_API_KEY — so on the Free plan (monitoring deferred) we skip the tail consumer and deploy.
+          tailConsumers: process.env.HONEYCOMB_API_KEY ? [{ service: logProcessor.nodes.worker.scriptName }] : [],
         },
       },
     },
