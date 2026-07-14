@@ -111,33 +111,33 @@ const zenLiteProduct = new stripe.Product("ZenLite", {
 const zenLiteCouponFirstMonth50 = new stripe.Coupon("ZenLiteCouponFirstMonth50", {
   name: "First month 50% off",
   percentOff: 50,
-  appliesToProducts: [zenLiteProduct.id],
+  appliesTos: [zenLiteProduct.id],
   duration: "once",
 })
 const zenLiteCouponFirstMonth100 = new stripe.Coupon("ZenLiteCouponFirstMonth100", {
   name: "First month 100% off",
   percentOff: 100,
-  appliesToProducts: [zenLiteProduct.id],
+  appliesTos: [zenLiteProduct.id],
   duration: "once",
 })
 const zenLiteCouponThreeMonths100 = new stripe.Coupon("ZenLiteCoupon3Months100", {
   name: "3 months 100% off",
   percentOff: 100,
-  appliesToProducts: [zenLiteProduct.id],
+  appliesTos: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 3,
 })
 const zenLiteCouponSixMonths100 = new stripe.Coupon("ZenLiteCoupon6Months100", {
   name: "6 months 100% off",
   percentOff: 100,
-  appliesToProducts: [zenLiteProduct.id],
+  appliesTos: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 6,
 })
 const zenLiteCouponTwelveMonths100 = new stripe.Coupon("ZenLiteCoupon12Months100", {
   name: "12 months 100% off",
   percentOff: 100,
-  appliesToProducts: [zenLiteProduct.id],
+  appliesTos: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 12,
 })
