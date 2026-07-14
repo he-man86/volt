@@ -1,0 +1,52 @@
+#!/usr/bin/env bun
+/**
+ * deploy-secrets — generate a COMPLETE SST secrets file for `sst secret load`.
+ *
+ * The infra declares ~50 `sst.Secret`s (incl. ZEN_MODELS1..30) and `sst deploy` errors on the first UNSET
+ * one. Your hand-edited `.env` only carries the ones you actually fill; this expands that to every declared
+ * secret — real value from `.env` where present, empty "" stub otherwise — so the deploy is satisfied.
+ *
+ * Usage:
+ *   bun volt-scripts/deploy-secrets.ts                 # writes .env.deploy + prints the load command
+ *   bun volt-scripts/deploy-secrets.ts --apply dev     # writes it AND runs `sst secret load` for the stage
+ *
+ * `.env.deploy` is gitignored (`.env*`). Reads values from your current `.env`.
+ */
+import { readFileSync, writeFileSync, readdirSync } from "fs"
+import { join } from "path"
+
+// values from .env (KEY=VALUE, first '=' splits)
+const env: Record<string, string> = {}
+try {
+  for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)
+    if (m) env[m[1]] = m[2]
+  }
+} catch {
+  console.error("No .env found — copy .env.example to .env and fill it first.")
+  process.exit(1)
+}
+
+// every `new sst.Secret("NAME")` with NO default (a default'd secret doesn't need setting) across infra/
+const names = new Set<string>()
+for (const f of readdirSync("infra").filter((f) => f.endsWith(".ts"))) {
+  const src = readFileSync(join("infra", f), "utf8")
+  for (const m of src.matchAll(/new sst\.Secret\(\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\)/g)) names.add(m[1])
+}
+const sorted = [...names].sort()
+
+const body = sorted.map((n) => `${n}=${env[n] ?? ""}`).join("\n") + "\n"
+writeFileSync(".env.deploy", body)
+
+const filled = sorted.filter((n) => (env[n] ?? "").trim() !== "")
+console.log(`Wrote .env.deploy — ${sorted.length} secrets (${filled.length} with a value, ${sorted.length - filled.length} stubbed "").`)
+
+const apply = process.argv.includes("--apply")
+const stage = process.argv[process.argv.indexOf("--apply") + 1] || "dev"
+if (apply) {
+  console.log(`Running: sst secret load .env.deploy --stage ${stage}`)
+  const { $ } = await import("bun")
+  await $`bunx sst secret load .env.deploy --stage ${stage}`
+} else {
+  console.log(`\nNext: review, then run  →  bunx sst secret load .env.deploy --stage <stage>`)
+}

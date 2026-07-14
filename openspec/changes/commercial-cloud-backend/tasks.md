@@ -25,15 +25,13 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 - [ ] **PlanetScale `production` branch.** The `dev` stage forks `parentBranch: "production"` (`infra/console.ts`).
       PlanetScale's default branch is usually `main` — create/rename a `production` branch on `volt`, or change
       `parentBranch` to the DB's actual default.
-- [ ] **AWS provider.** `sst.config.ts` declares the `aws` provider but the infra creates **zero** AWS resources
-      (email uses SES-over-HTTP with `AWS_SES_*` keys, not the provider). Pulumi may still try to init it and fail
-      on a missing `volt-dev` profile → **remove the `aws` provider from `sst.config.ts`** (cleanest) unless/until
-      SES is wired.
-- [ ] **Set ALL linked SST secrets (even to dummy values).** `sst deploy` errors on the first *unset* linked
-      secret, and the Console worker links ~20 (`Salesforce*`, `Discord*`, `AWS_SES_*`, `EmailOctopus`, `Upstash*`,
-      `ZEN_MODELS1..30`, `ZEN_LIMITS`, `SUPPORT_API_KEY`, `HONEYCOMB_API_KEY`, `R2*`, …). Script it: set real values
-      where we have them (Stripe, OAuth, session, DB), **stub the rest with `""`** so deploy runs. (SES/Upstash/
-      ZEN_MODELS get real values later — SES at invites, Upstash+ZEN_MODELS at Stage 4b.)
+- [x] **AWS provider removed** — infra creates zero AWS resources (email is SES-over-HTTP, not the provider), so
+      the unused `aws` provider is gone from `sst.config.ts` (no init-fail on a missing profile).
+- [ ] **Set ALL linked SST secrets** — `sst deploy` errors on the first *unset* one (the Console worker links 48,
+      incl. `ZEN_MODELS1..30`). **Tooling ready:** `bun volt-scripts/deploy-secrets.ts` expands `.env` → a complete
+      `.env.deploy` (real where present, `""` stubbed), then `bunx sst secret load .env.deploy --stage <stage>` (or
+      the script's `--apply <stage>`). Verified: generates all 48 (7 filled today; Upstash/ZEN_MODELS/SES get real
+      values later at Stage 4b/invites).
 
 ### Then deploy
 - [ ] `bunx sst deploy --stage dev` — auth issuer, Stripe products, console app on `dev.volt-ai.dev`.

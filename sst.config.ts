@@ -11,16 +11,9 @@ export default $config({
       protect: ["production"].includes(input?.stage),
       home: "cloudflare",
       providers: {
-        aws: {
-          version: "7.30.0",
-          region: "us-east-1",
-          // TODO(volt): your AWS CLI profile names (SES/STS live here). CI uses GITHUB_ACTIONS creds instead.
-          profile: process.env.GITHUB_ACTIONS
-            ? undefined
-            : input.stage === "production"
-              ? "volt-production"
-              : "volt-dev",
-        },
+        // No `aws` provider: the vendored infra creates zero AWS resources (the dropped lake/stats used it;
+        // email uses SES-over-HTTP with AWS_SES_* keys, not the Pulumi provider). Add it back only if you
+        // introduce real AWS resources — then set a `volt-*` AWS profile.
         stripe: {
           version: "0.0.28",
           apiKey: process.env.STRIPE_SECRET_KEY!,
