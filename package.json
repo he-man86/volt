@@ -10,7 +10,7 @@
     "build": "bun run --filter='*' build",
     "dist": "bun volt-scripts/dist.ts",
     "compat": "bun volt-scripts/sync.ts",
-    "typecheck": "bun run --filter='*' typecheck",
+    "typecheck": "bun run --filter='./packages/volt-*' typecheck",
     "lint": "oxlint",
     "prepare": "husky",
     "test": "echo 'do not run tests from root' && exit 1"
@@ -22,14 +22,21 @@
       "packages/volt-desktop",
       "packages/volt-git",
       "packages/volt-lsp-iec",
-      "packages/volt-vscode"
+      "packages/volt-vscode",
+      "packages/console/*"
     ],
     "catalog": {
+      "@cloudflare/workers-types": "4.20251008.0",
       "@tsconfig/node22": "22.0.2",
       "@types/bun": "1.3.13",
       "@types/node": "24.12.2",
       "@typescript/native-preview": "7.0.0-dev.20251207.1",
+      "ai": "6.0.168",
+      "drizzle-kit": "1.0.0-rc.2",
+      "drizzle-orm": "1.0.0-rc.2",
+      "solid-js": "1.9.10",
       "typescript": "5.8.2",
+      "ulid": "3.0.1",
       "zod": "4.1.8"
     }
   },
