@@ -18,6 +18,14 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 
 ## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
 
+### ⚠ DEPLOY FROM LINUX / WSL / CI — NOT Windows
+`console/app`'s SolidStart toolchain (the pinned `@solidjs/start` `pkg.pr.new` preview) **mangles Windows paths** —
+both `vite dev` and `vite build` fail (`Rollup failed to resolve "C:Usersmarce…"` — backslashes eaten). `sst deploy`
+runs `vite build` locally, so **it cannot run from the Windows dev box.** Options: run the deploy from **WSL**, a
+Linux/mac machine, or **CI (GitHub Actions on ubuntu — opencode's own approach)**. The volt product (bridges/LSP)
+stays Windows-native; only the backend deploy needs a Unix builder. Same reason local `dev:console` won't render
+on Windows — use WSL for a local run.
+
 ### Pre-deploy blockers — clear these FIRST or `sst deploy` crashes
 - [x] **PlanetScale token — done + verified.** New service token in `.env` can list databases and it
       **created + deleted a throwaway branch** (proved `create_branch`/`delete_branch`/`create_password` scope).
