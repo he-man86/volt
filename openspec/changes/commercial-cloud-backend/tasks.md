@@ -11,11 +11,11 @@ usable checkpoint.
 - [x] Vendor `infra/*.ts` + `sst.config.ts` **verbatim as reference** (opencode-hardcoded; rewire at Stage 0).
 - [x] Keep `@opencode-ai/console-*` naming; add `packages/console/*` to workspaces + the 6 catalog entries.
 - [x] `bun install` resolves the spine (1905 pkgs). Root/hook/CI typecheck scoped to `volt-*` → gate stays green.
-- [ ] **Gate A (SST):** `Resource` types need `sst install` + configured app → Stage 3.
-- [ ] **Gate B (drizzle):** `drizzle-orm@1.0.0-rc.2` type exports don't resolve under `tsgo`/bundler (symlink is
-      fine). Reconcile at wiring — try `bun install` w/o `minimumReleaseAge`, a pinned stable drizzle, or a
-      `paths`/`customConditions` tweak. See `packages/console/VENDORED.md`.
-- [ ] Once A+B clear: flip `packages/console/*` back into the typecheck gate.
+- [x] Verified clean copy: spine typechecks with **0 non-SST errors** (core/resource/mail/function). The only
+      red is **3 `Cannot find module 'sst'`** errors — the SST gate below. (An earlier "drizzle rc.2" gate was a
+      false alarm from a corrupted bun cache; `bun pm cache rm` fixed it.)
+- [ ] **Gate (SST):** `sst` module + `Resource` member types need `sst install` + configured app → Stage 3.
+- [ ] Once it clears: flip `packages/console/*` back into the typecheck gate.
 
 ## Stage 2 — DB up
 - [ ] Provision the PlanetScale branch via `infra/console.ts`; set DB secrets.
