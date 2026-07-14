@@ -6,16 +6,16 @@ usable checkpoint.
 - [ ] Volt Cloudflare account (Workers + R2 enabled), AWS profile, PlanetScale org/DB, **Volt Stripe account**, domain.
 - [ ] Record which provider settings in `sst.config.ts` change (app `name`, aws `profile`, planetscale org, domain).
 
-## Stage 1 — vendor the spine (pinned v1.17.20)
-- [ ] Vendor `packages/console/{core,resource,mail,function}` — **each package whole** (no file surgery; unused
-      LLM-gateway modules never load thanks to per-module exports). NOT `enterprise` (opencode-core coupled) or
-      `packages/function` (GitHub/sync).
-- [ ] Vendor `infra/{console,secret,stage}.ts`, a **trimmed** `infra/app.ts` (drop docs `web`, `app` static site,
-      sync durable object, GitHub-app secrets), `sst.config.ts`, and the `.sst/platform` config.
-- [ ] Keep naming `@opencode-ai/console-*` (least churn; the ported `volt-landing` already imports these paths).
-      Add to root Bun workspaces + catalog: `stripe`, `drizzle-orm`, `drizzle-kit`, `@planetscale/database`,
-      `@openauthjs/openauth`, `ulid`, `postgres`, `aws4fetch`, `@jsx-email/*`.
-- [ ] `bun install` + `bun typecheck` clean on the vendored spine.
+## Stage 1 — vendor the spine (pinned v1.17.20) — MOSTLY DONE (commit 9ebfd0b)
+- [x] Vendor `packages/console/{core,resource,mail,function}` — each package whole. NOT `enterprise`/`function`.
+- [x] Vendor `infra/*.ts` + `sst.config.ts` **verbatim as reference** (opencode-hardcoded; rewire at Stage 0).
+- [x] Keep `@opencode-ai/console-*` naming; add `packages/console/*` to workspaces + the 6 catalog entries.
+- [x] `bun install` resolves the spine (1905 pkgs). Root/hook/CI typecheck scoped to `volt-*` → gate stays green.
+- [ ] **Gate A (SST):** `Resource` types need `sst install` + configured app → Stage 3.
+- [ ] **Gate B (drizzle):** `drizzle-orm@1.0.0-rc.2` type exports don't resolve under `tsgo`/bundler (symlink is
+      fine). Reconcile at wiring — try `bun install` w/o `minimumReleaseAge`, a pinned stable drizzle, or a
+      `paths`/`customConditions` tweak. See `packages/console/VENDORED.md`.
+- [ ] Once A+B clear: flip `packages/console/*` back into the typecheck gate.
 
 ## Stage 2 — DB up
 - [ ] Provision the PlanetScale branch via `infra/console.ts`; set DB secrets.
