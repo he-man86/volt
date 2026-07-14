@@ -18,15 +18,17 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
   (`index`/`brand`/`zen`/`black`/`changelog`/`download`/`legal`…) AND the functional app** (`auth`/`stripe`/
   `workspace`/`workspace-picker`/`user-menu`). Test all backend features via the functional routes; the marketing
   pages tag along. It's opencode-branded — the plan is to replace it with Volt's own frontend on `console-core`.
-- `/packages/ui` (`@opencode-ai/ui`) — opencode's design system (`app` depends on it). Standalone — only
-  third-party npm deps, **no opencode-core coupling**.
+`@opencode-ai/ui` is **NOT vendored.** `console/app` used only 8 of its 191 source files, and really just three
+things: `createSimpleContext`, `Favicon`, and a no-op `Font`. The rest (all of `v2/`, 1210 icons, audio,
+storybook, 183 agent-GUI components) was dead weight. So those bits are inlined into `console/app/src/ui.tsx`
+(Font dropped — it returned `null`), the `@opencode-ai/ui` dependency + package are gone, and 15 catalog entries
+that only `ui` needed were pruned. No new deps added to `console/app` (it already had `solid-js` + `@solidjs/meta`).
 
-**Two deliberate removals** — opencode's npm-publish tooling, dead weight in Volt (we don't publish these to npm):
-1. `ui/script/publish.ts` — deleted (it published `@opencode-ai/ui` to npm).
-2. `packages/script` (`@opencode-ai/script`) — not vendored (opencode's release-version helper; only `publish.ts`
-   used it). Its `@opencode-ai/script: workspace:*` root link is removed too.
+Also removed as dead opencode publish tooling: `ui/script/publish.ts` and `packages/script`
+(`@opencode-ai/script`) — never ran in Volt.
 
-Everything else is byte-identical to opencode `v1.17.20` (`diff -rq` clean apart from these two).
+The rest of the vendored tree (spine + `console/app` source) remains byte-identical to opencode `v1.17.20`, except
+the handful of import lines in `console/app` that now point at the local `./ui` instead of `@opencode-ai/ui`.
 
 > One build-time caveat (not a code diff): `console/app`'s `build` script ends with
 > `bun ../../opencode/script/schema.ts …`, which reaches into `packages/opencode` (the CLI, not vendored). So
