@@ -98,10 +98,15 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
       request proxies upstream, metered + rate-limited.
 
 ## ⚠ Open gaps / decisions still needed (found in review — not yet in the plan)
-- [ ] **THE LINCHPIN — agent ↔ gateway wiring.** Selling subs only works if a Volt user's opencode actually routes
-      LLM calls through the gateway with their subscription key. `volt-config` (or the CLI/desktop) must point
-      opencode's provider at `https://volt-ai.dev/zen/v1` with the user's key. This connects the *product* (PLC
-      agent) to the *business* (subs) and is currently **nowhere in the plan**. Design this before launch.
+- [ ] **THE LINCHPIN — agent ↔ gateway wiring (design sketched).** The gateway is OpenAI-compatible
+      (`zen/v1/chat/completions`), auths via `sk-…` bearer keys (`Key.create`). Wire it in 3 pieces:
+      1. **`volt-config/opencode.json` provider block** — add `provider.volt` (`@ai-sdk/openai-compatible`,
+         `baseURL: https://volt-ai.dev/zen/v1`, `apiKey: {env:VOLT_API_KEY}`, models = deepseek + claude, IDs
+         matching the gateway's `/v1/models`). Set opencode's default model to the cheap tier (DeepSeek).
+      2. **Key onto the user's machine** — MVP: subscribe on web → copy key → set `VOLT_API_KEY`. Polished:
+         a `volt login` (CLI/desktop) OAuth → fetch/create `sk-` key → store (opencode auth store or env).
+      3. Metering headers (`x-opencode-*`) are read-if-present, key-based limiting works regardless — nothing to build.
+      - Decisions: key storage (env MVP → auth store), model IDs alignment, default model = DeepSeek.
 - [ ] **Unit economics — do the math.** Set each tier's `fixedLimit` allowance vs. real DeepSeek/Claude token
       costs vs. the $24/$59/$99 price so every tier is margin-positive at max usage. No numbers exist yet.
 - [ ] **Free-trial terms** — define `free` limits (`promoTokens`, `dailyRequests`): what a non-subscriber gets.
