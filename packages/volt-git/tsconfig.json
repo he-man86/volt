@@ -7,6 +7,10 @@
     "module": "nodenext",
     "declaration": true,
     "moduleResolution": "nodenext",
+    // Resolve @volt/* by the same "bun" export condition the runtime uses (→ src), so typecheck and the
+    // prepare build read lsp-iec's source, not its dist. Without this, TS falls through to the "default"
+    // (dist) branch and volt-git can't typecheck/build until lsp-iec is built first — a fragile install order.
+    "customConditions": ["bun"],
     "lib": ["es2022"]
   },
   "include": ["src"],
