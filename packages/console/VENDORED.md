@@ -20,14 +20,16 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
   pages tag along. It's opencode-branded — the plan is to replace it with Volt's own frontend on `console-core`.
 - `/packages/ui` (`@opencode-ai/ui`) — opencode's design system (`app` depends on it). Standalone — only
   third-party npm deps, **no opencode-core coupling**.
+- `/packages/script` (`@opencode-ai/script`) — opencode's tiny build/publish helper (`semver` only); vendored so
+  `ui/script/publish.ts` resolves. Linked via `@opencode-ai/script: workspace:*` in the **root** `package.json`
+  (Volt config), exactly as opencode's root does — no change to any vendored package.
 
-**Two minimal deviations from verbatim** (a verbatim copy can't reference packages we excluded):
-1. `app/package.json` build — dropped the trailing `bun ../../opencode/script/schema.ts …` step (it generated
-   opencode-CLI config JSON from `packages/opencode`, which we don't vendor). Sitemap + `vite build` remain.
-2. Deleted `ui/script/publish.ts` — it imported `@opencode-ai/script` (opencode's internal npm-publish tool).
-   Volt doesn't publish `@opencode-ai/ui`.
+**ZERO patches.** `diff -rq` vs opencode `v1.17.20` is empty across every vendored path — all code is byte-identical.
 
-`diff -rq` vs opencode `v1.17.20` shows *only* these two. Everything else is byte-identical.
+> One build-time caveat (not a code diff): `console/app`'s `build` script ends with
+> `bun ../../opencode/script/schema.ts …`, which reaches into `packages/opencode` (the CLI, not vendored). So
+> `bun run build` on `console/app` needs that at Stage 3; `typecheck`/`dev` don't. The script line is kept
+> verbatim — we did **not** patch it.
 
 **Deploy entrypoint:** `/sst.config.ts` + `/infra/*.ts` (also vendored verbatim). These are opencode-hardcoded
 (domains `opencode.ai`, their Cloudflare zone, PlanetScale org `anomalyco`, AWS profiles, and `lake`/`stats`/

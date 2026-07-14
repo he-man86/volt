@@ -5,6 +5,7 @@
     "": {
       "name": "opencode",
       "devDependencies": {
+        "@opencode-ai/script": "workspace:*",
         "@typescript/native-preview": "catalog:",
         "husky": "9.1.7",
         "oxlint": "1.60.0",
@@ -121,6 +122,16 @@
         "@tsconfig/node22": "22.0.2",
         "@types/node": "catalog:",
         "cloudflare": "5.2.0",
+      },
+    },
+    "packages/script": {
+      "name": "@opencode-ai/script",
+      "dependencies": {
+        "semver": "^7.6.3",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/semver": "^7.5.8",
       },
     },
     "packages/ui": {
@@ -751,6 +762,8 @@
 
     "@opencode-ai/console-resource": ["@opencode-ai/console-resource@workspace:packages/console/resource"],
 
+    "@opencode-ai/script": ["@opencode-ai/script@workspace:packages/script"],
+
     "@opencode-ai/ui": ["@opencode-ai/ui@workspace:packages/ui"],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
@@ -1278,6 +1291,8 @@
     "@types/sarif": ["@types/sarif@2.1.7", "", {}, "sha512-kRz0VEkJqWLf1LLVN4pT1cg1Z9wAuvI6L97V3m2f5B76Tg8d413ddvLBPTEHAZJlnn4XSvu0FkZtViCQGVyrXQ=="],
 
     "@types/scheduler": ["@types/scheduler@0.26.0", "", {}, "sha512-WFHp9YUJQ6CKshqoC37iOlHnQSmxNc795UhB26CyBBttrN9svdIrUjl/NjnNmfcwtncN0h/0PPAFWv9ovP8mLA=="],
+
+    "@types/semver": ["@types/semver@7.7.1", "", {}, "sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA=="],
 
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
 
