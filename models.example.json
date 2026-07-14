@@ -1,0 +1,29 @@
+{
+  "providers": {
+    "deepseek": {
+      "displayName": "DeepSeek",
+      "api": "https://api.deepseek.com/v1",
+      "apiKey": "<your-deepseek-api-key>",
+      "format": "oa-compat"
+    },
+    "anthropic": {
+      "displayName": "Anthropic",
+      "api": "https://api.anthropic.com/v1",
+      "apiKey": "<your-anthropic-api-key>",
+      "format": "anthropic"
+    }
+  },
+  "zenModels": {
+    "deepseek-chat": {
+      "name": "DeepSeek (Volt)",
+      "cost": { "input": 0.00000027, "output": 0.0000011 },
+      "providers": [{ "id": "deepseek", "model": "deepseek-chat" }]
+    },
+    "claude-sonnet-4-5": {
+      "name": "Claude (Volt)",
+      "cost": { "input": 0.000003, "output": 0.000015 },
+      "providers": [{ "id": "anthropic", "model": "claude-sonnet-4-5" }]
+    }
+  },
+  "liteModels": {}
+}
