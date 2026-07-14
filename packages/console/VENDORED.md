@@ -20,11 +20,13 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
   pages tag along. It's opencode-branded — the plan is to replace it with Volt's own frontend on `console-core`.
 - `/packages/ui` (`@opencode-ai/ui`) — opencode's design system (`app` depends on it). Standalone — only
   third-party npm deps, **no opencode-core coupling**.
-- `/packages/script` (`@opencode-ai/script`) — opencode's tiny build/publish helper (`semver` only); vendored so
-  `ui/script/publish.ts` resolves. Linked via `@opencode-ai/script: workspace:*` in the **root** `package.json`
-  (Volt config), exactly as opencode's root does — no change to any vendored package.
 
-**ZERO patches.** `diff -rq` vs opencode `v1.17.20` is empty across every vendored path — all code is byte-identical.
+**Two deliberate removals** — opencode's npm-publish tooling, dead weight in Volt (we don't publish these to npm):
+1. `ui/script/publish.ts` — deleted (it published `@opencode-ai/ui` to npm).
+2. `packages/script` (`@opencode-ai/script`) — not vendored (opencode's release-version helper; only `publish.ts`
+   used it). Its `@opencode-ai/script: workspace:*` root link is removed too.
+
+Everything else is byte-identical to opencode `v1.17.20` (`diff -rq` clean apart from these two).
 
 > One build-time caveat (not a code diff): `console/app`'s `build` script ends with
 > `bun ../../opencode/script/schema.ts …`, which reaches into `packages/opencode` (the CLI, not vendored). So
