@@ -20,7 +20,10 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - run: bun install --frozen-lockfile
+      # --ignore-scripts: skip volt-git/lsp-iec `prepare` (tsc build) during install — it has a cross-package
+      # order dependency (git imports lsp-iec) that a plain workspace install runs in an unstable order. The
+      # explicit "Build binaries" step below builds them in the correct order (lsp-iec first).
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Typecheck (volt packages + volt-scripts)
         run: |
@@ -34,8 +37,8 @@ jobs:
 
       - name: Build binaries (feeds the integration check)
         run: |
+          bun run --cwd packages/volt-lsp-iec build   # first — volt-git imports its build output
           bun run --cwd packages/volt-git build
-          bun run --cwd packages/volt-lsp-iec build
 
       - name: Integration check (config layer + bins + wiring)
         run: bun run volt-scripts/check-volt-integration.ts

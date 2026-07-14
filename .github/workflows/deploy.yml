@@ -56,7 +56,10 @@ jobs:
         with:
           node-version: "24"
 
-      - run: bun install --frozen-lockfile
+      # --ignore-scripts: the deploy needs only console + sst + vite (all pure-JS, no native postinstall).
+      # It skips the volt *product* packages' prepare (a tsc build of volt-git/lsp-iec) we don't deploy —
+      # that build has a cross-package order dependency (git needs lsp-iec built) that breaks a plain install.
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       - run: bunx sst deploy --stage ${{ github.event.inputs.stage }}
         env:
