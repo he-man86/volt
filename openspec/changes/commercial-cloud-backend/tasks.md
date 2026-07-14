@@ -50,11 +50,23 @@ Scope this precisely (tested on Windows):
 - [x] **SST secrets set (dev) — done + Windows-verified.** `sst secret load` ran on Windows (exit 0, no build, not
       blocked), set all **48 secrets** for the `dev` stage, and bootstrapped the SST state. Confirmed:
       `sst secret list --stage dev` = 48.
-- [ ] **Deploy via `.github/workflows/deploy.yml`** (workflow_dispatch → pick stage). Mirrors opencode's proven
-      deploy.yml — ubuntu, `bunx sst deploy`, provider-auth env from GitHub environment secrets
-      (`CLOUDFLARE_API_TOKEN`, `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), `STRIPE_SECRET_KEY`, `HONEYCOMB_API_KEY`). No
-      AWS/Sentry. **Prereqs:** domain Active + secrets set + create `dev`/`production` GitHub environments with
-      those secrets. (Or run `bun run deploy:dev` from WSL/Linux — same thing, not Windows.)
+- [~] **Deploy via `.github/workflows/deploy.yml`** (workflow_dispatch → pick stage). Merged to `dev`, dispatched.
+      **Attempt #1 (2026-07-14) ran 20 min and got deep** — created the SST secrets, the `AuthApi` Worker,
+      `AUTH_API_URL` — then failed on two issues, both now handled except one human step:
+    - ✅ *Fixed — empty-secret `SecretMissingError`.* sst treats an empty secret as unset; `deploy-secrets` now
+      stubs unfilled secrets non-empty (`PLACEHOLDER_UNSET`). Reloaded dev → 0 empty. Also dropped `HONEYCOMB_API_KEY`
+      from the deploy env so monitoring (Honeycomb→Discord trigger) doesn't run until Discord is provisioned.
+    - ⛔ *BLOCKER — Cloudflare token lacks "Regional Services".* `403` on `POST zones/{zone}/addressing/
+      regional_hostnames` — SST binds the worker's custom domain via a regional hostname. **Add the zone permission
+      "Regional Services → Edit" to the `CLOUDFLARE_API_TOKEN`** (My Profile → API Tokens → edit → Permissions), then
+      re-dispatch. This is the only thing gating attempt #2.
+    - Env from GitHub secrets: `CLOUDFLARE_API_TOKEN`, `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), `STRIPE_SECRET_KEY`. No
+      AWS/Sentry/Honeycomb (deploy #1). (Or `bun run deploy:dev` from WSL/Linux — same thing, not Windows.)
+- **Provisioning debt (deploy-as-is):** the stubbed (`PLACEHOLDER_UNSET`) secrets mean those features are INERT
+  until real values are set (`sst secret set NAME <v> --stage dev`): OAuth login (`GITHUB_CLIENT_*_CONSOLE`,
+  `GOOGLE_CLIENT_SECRET`), gateway rate-limit (`UpstashRedis*`, `ZEN_LIMITS`), gateway upstream keys (`ZEN_MODELS*`),
+  email (`AWS_SES_*`, `EMAILOCTOPUS_API_KEY`), support portal, Salesforce, Discord alerts. Real today: Stripe,
+  `ZEN_SESSION_SECRET`, `GOOGLE_CLIENT_ID`, Honeycomb. Deploy #1 proves the spine stands up; provisioning is next.
 - [ ] `bun run db:dev migrate` — schema already on `main` (24 tables) and the dev branch inherits it, so this is a
       no-op confirm for the first dev deploy; run it after future schema changes.
 - [ ] Verify: sign up (GitHub/Google OAuth — **no email needed for login**) writes account/user/workspace rows.
