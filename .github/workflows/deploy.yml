@@ -58,6 +58,18 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # Set the SST secrets IN THIS JOB, before deploy. SST state is per-machine (local + cloud-backed,
+      # passphrase-encrypted) — secrets set from a dev laptop are NOT visible to a fresh CI runner (proven:
+      # CI saw 0/48). Loading them here guarantees the deploy step below reads them (same runner, same .sst/).
+      # deploy-secrets fills each declared secret from process.env (the GitHub secrets below), else a
+      # non-empty PLACEHOLDER_UNSET (SST rejects empty). Placeholder'd features stay inert until provisioned.
+      - name: Load SST secrets into this run's state
+        run: bun volt-scripts/deploy-secrets.ts --apply ${{ github.event.inputs.stage }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
       - run: bunx sst deploy --stage ${{ github.event.inputs.stage }} --print-logs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -17,7 +17,9 @@
 import { readFileSync, writeFileSync, readdirSync } from "fs"
 import { join } from "path"
 
-// values from .env (KEY=VALUE, first '=' splits)
+// Values resolve: process.env (CI passes real secrets here) → .env (local dev) → placeholder.
+// IMPORTANT: SST secrets are per-state — secrets set from a dev laptop are NOT visible to a CI deploy
+// (state is local + cloud-backed, passphrase-encrypted). So this runs INSIDE the CI deploy job too.
 const env: Record<string, string> = {}
 try {
   for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
@@ -25,8 +27,7 @@ try {
     if (m) env[m[1]] = m[2]
   }
 } catch {
-  console.error("No .env found — copy .env.example to .env and fill it first.")
-  process.exit(1)
+  // no .env (e.g. CI) — rely on process.env + placeholders
 }
 
 // every `new sst.Secret("NAME")` with NO default (a default'd secret doesn't need setting) across infra/
