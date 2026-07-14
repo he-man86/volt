@@ -62,6 +62,19 @@ Scope this precisely (tested on Windows):
 - Note: the workflow's *structure* is proven (mirrors opencode + verified adaptations). The **first real deploy**
   is the end-to-end proof — it needs the domain + secrets + first-run SST bootstrap, which can't be dry-run.
 
+## Open process items (found in review — not deploy-blockers but required)
+- [ ] **Merge `commercial-cloud-backend` → `dev`** (43 commits). Required twice over: `deploy.yml` is only
+      dispatchable from the **default branch** (`dev`), and none of this ships until merged. Big diff — review
+      first (the volt product surface is untouched; the change is additive `packages/console/*` + `infra/*` +
+      config). The volt `--filter='*'` gate + console tests are green, so CI should pass.
+- [ ] **Production GitHub environment + secrets** — only `dev` is set. Create the `production` environment with
+      **production** values (live Stripe key, etc.) when going live — do NOT reuse dev/test values.
+- [ ] **`adapt-commercial-backend`** — the Stage 5 rebrand + billing-product swap is referenced as its own change
+      but not yet created. Spin it up when the first deploy is proven (rebrand `console/app`, swap Zen→Volt product,
+      align model IDs, prune the marketing integrations). Not part of this change.
+- [ ] **Verify `sst secret load` runs on Windows** — it doesn't build the web app, so it likely isn't
+      Windows-blocked, but that's unconfirmed. If it fails on Windows, run the one-time secret load from WSL/CI.
+
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to
       opencode except the simplifications below). NOT `enterprise`/`function`/`web`/`app`(GUI) — see proposal.

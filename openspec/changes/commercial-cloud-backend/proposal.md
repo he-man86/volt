@@ -7,10 +7,17 @@ and it's **public in their released repo** (verified at tag `v1.17.20`; the old 
 note was stale). The play: vendor opencode's commercial packages, get them green in the monorepo, then repoint
 providers at Volt's own cloud accounts and deploy — *then* adapt (own frontend, own billing product).
 
-## Status: vendored + green (Stage 1 done). Not yet deployed (Stage 0 blocks).
+## Status: deploy-ready — waiting only on DNS propagation.
 
-The full console package set is in the repo, typechecks green, and installs. What remains is **cloud provisioning
-+ infra rewire** (Stage 0/2/3), which is human-gated on Volt's accounts.
+Far past the initial vendor. Done + verified: all 6 console packages vendored + green; **infra rewired for Volt**
+(domain/zone/account/DB/`main` branch, aws provider removed, honeycomb monitoring re-added gated); **`sst install`
+passed** + infra typechecks vs real provider types (caught a Stripe `appliesTos` bug); **accounts wired** —
+Cloudflare token (R2/Workers/KV/DNS verified), PlanetScale token (create/delete branch proven) + DB `volt`/
+`mheijmans` with the **schema migrated (24 tables)**, Stripe/OAuth/session secrets; **`.env` cleaned** + `.env.example`;
+**CI deploy** (`deploy.yml`, mirrors opencode) + **GitHub `dev` env secrets set**; **console unit tests in CI**; the
+**agent↔gateway login validated live** (`opencode models` shows `volt/deepseek-chat` + `volt/claude-sonnet-4-5`).
+Remaining: `volt-ai.dev` nameservers propagating (Hostnet 24h lock) → then set the ~48 SST secrets once + fire the
+deploy from CI (**console/app builds only on Linux** — a SolidStart preview mangles Windows paths). See `tasks.md`.
 
 ## What's vendored (from opencode `v1.17.20`, in `packages/console/*`)
 
@@ -25,7 +32,7 @@ The backend is one SST/Pulumi app (`sst.config.ts`, `home: "cloudflare"`) over f
 | `console/function` | OpenAuth **issuer** (`auth.ts`) + log/stat handlers | ✅ verbatim |
 | `console/app` | opencode.ai's SolidStart site — marketing pages **+** the functional app (`auth`/`stripe`/`workspace`/`user-menu`). The feature-test frontend. | ✅ vendored, `@opencode-ai/ui` **inlined** (see below) |
 | `console/support` | small support-lookup portal (`index`+`lookup`); depends only on `console-core`. Usefulness TBD. | ✅ verbatim |
-| `infra/*.ts` + `sst.config.ts` + `sst-env.d.ts` | Deploy entrypoint. opencode-hardcoded (their domains/zone/PlanetScale org/AWS profiles + lake/stats/monitoring/enterprise deploys we don't use). | ✅ vendored **as reference** — rewire at Stage 0 |
+| `infra/*.ts` + `sst.config.ts` + `sst-env.d.ts` | Deploy entrypoint. **Rewired for Volt** (domain `volt-ai.dev`, zone, DB `volt`/`mheijmans` on `main`, aws provider removed, honeycomb monitoring re-added gated). | ✅ rewired + `sst install`-validated |
 
 **Green offline:** committed root `sst-env.d.ts` (opencode's, `declare module "sst"` + `Resource`) + `sst@4.13.1`
 make the `Resource` types resolve, so the whole spine typechecks in the normal `--filter='*'` gate. (Runtime still

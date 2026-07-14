@@ -3,14 +3,34 @@
 ### Requirement: Volt hosts opencode's commercial backend on its own cloud
 
 Volt SHALL vendor opencode's public commercial packages (pinned to a release tag) and deploy them under Volt's
-own provider accounts — Cloudflare, AWS, Stripe, and PlanetScale — as a single SST app. The vendored subset
-SHALL cover authentication (OpenAuth issuer), the DB (PlanetScale/drizzle), user/account/workspace management,
-and Stripe billing. It SHALL NOT include opencode's LLM-gateway product surface (provider/model/key/lite/referral).
+own provider accounts — Cloudflare, Stripe, and PlanetScale — as a single SST app. The vendored subset SHALL cover
+authentication (OpenAuth issuer), the DB (PlanetScale/drizzle), user/account/workspace management, Stripe billing,
+**and the LLM gateway** (see the subscription requirement below — the gateway is a load-bearing part of the
+product, not excluded). Because the `console/app` web build only runs on Unix, the deploy SHALL run from CI
+(GitHub Actions/ubuntu) or a Linux/WSL host, not the Windows dev box.
 
 #### Scenario: The backend deploys and stands up on Volt infrastructure
-- **WHEN** the vendored subset is deployed (`sst deploy`) with Volt's provider credentials and secrets set
-- **THEN** the OpenAuth issuer, the `console/app` frontend, and the PlanetScale DB come up on Volt's domain, and
-  the drizzle schema (account/auth/user/workspace/billing) is migrated
+- **WHEN** the vendored subset is deployed (`sst deploy`, from CI/Linux) with Volt's provider credentials + secrets set
+- **THEN** the OpenAuth issuer, the `console/app` frontend, the LLM gateway, and the PlanetScale DB come up on
+  Volt's domain, and the drizzle schema is migrated (via `drizzle-kit migrate` — not `push`)
+
+### Requirement: Volt sells metered LLM access, and the agent routes through the gateway
+
+Volt SHALL offer LLM access as a subscription product built on the vendored gateway: it meters each request in real
+model cost, enforces per-tier spend allowances + rate limits, and pools upstream provider keys. A subscriber's
+opencode agent SHALL be able to route its model calls through the gateway using their subscription key, wired via
+`volt-config` (a `provider.volt` block + a `volt-auth` login hook), so the PLC product and the subscription are one
+funnel. Pricing SHALL be tiers of a single product differentiated by spend allowance (same models on all tiers).
+
+#### Scenario: A subscriber connects their agent to the gateway
+- **WHEN** a subscriber runs `opencode auth login` → Volt → pastes the `sk-` key from their dashboard
+- **THEN** the agent's Volt models (e.g. `volt/deepseek-chat`, `volt/claude-…`) route through `zen/v1`, and each
+  request is metered against their tier's spend allowance and rate-limited
+
+#### Scenario: The higher tier is the natural upsell
+- **WHEN** a subscriber uses the expensive model (Claude) heavily on the entry tier
+- **THEN** they exhaust their spend allowance faster than a cheap-model (DeepSeek) user and are prompted to upgrade
+  — cost-metering drives the tier upgrade without gating models
 
 ### Requirement: Signup drives a Stripe checkout and persists a subscription
 
