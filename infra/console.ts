@@ -1,16 +1,15 @@
-import { deployAws, domain } from "./stage"
+import { domain } from "./stage"
 import { EMAILOCTOPUS_API_KEY } from "./app"
 import { SECRET } from "./secret"
-
-const lake = deployAws ? await import("./lake") : undefined
 
 ////////////////
 // DATABASE
 ////////////////
 
 const cluster = planetscale.getDatabaseOutput({
-  name: "opencode",
-  organization: "anomalyco",
+  // TODO(volt): your PlanetScale database name + organization (create the DB in the PlanetScale dashboard first).
+  name: "volt",
+  organization: "VOLT_PLANETSCALE_ORG",
 })
 
 const branch =
@@ -68,8 +67,12 @@ export const auth = new sst.cloudflare.Worker("AuthApi", {
 })
 
 ////////////////
-// GATEWAY
+// GATEWAY (Stripe)
 ////////////////
+// TODO(volt): this whole section is opencode's Zen product shape (a "Go" plan @ $10/mo + a "Black" tier +
+// coupons). On deploy it CREATES these products/prices in your Stripe account. For the first deploy it gives you
+// a working placeholder product so the signup→checkout loop works; replace with Volt's real product/pricing in
+// the adapt stage. console/app reads ZEN_LITE_PRICE / ZEN_BLACK_PRICE, so keep those linkables until then.
 
 export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint", {
   url: $interpolate`https://${domain}/stripe/webhook`,
@@ -104,7 +107,7 @@ export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint",
 })
 
 const zenLiteProduct = new stripe.Product("ZenLite", {
-  name: "OpenCode Go",
+  name: "Volt Go", // TODO(volt): your plan name
 })
 const zenLiteCouponFirstMonth50 = new stripe.Coupon("ZenLiteCouponFirstMonth50", {
   name: "First month 50% off",
@@ -162,7 +165,7 @@ const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
 })
 
 const zenBlackProduct = new stripe.Product("ZenBlack", {
-  name: "OpenCode Black",
+  name: "Volt Black", // TODO(volt): your plan name
 })
 const zenBlackPriceProps = {
   product: zenBlackProduct.id,
@@ -242,7 +245,7 @@ const SALESFORCE_INSTANCE_URL = new sst.Secret("SALESFORCE_INSTANCE_URL")
 
 const logProcessor = new sst.cloudflare.Worker("LogProcessor", {
   handler: "packages/console/function/src/log-processor.ts",
-  link: [SECRET.HoneycombApiKey, ...(lake?.lakeIngest ? [lake.lakeIngest] : [])],
+  link: [SECRET.HoneycombApiKey],
 })
 
 new sst.cloudflare.x.SolidStart("Console", {

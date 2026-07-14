@@ -37,9 +37,12 @@ the handful of import lines in `console/app` that now point at the local `./ui` 
 > `bun run build` on `console/app` needs that at Stage 3; `typecheck`/`dev` don't. The script line is kept
 > verbatim — we did **not** patch it.
 
-**Deploy entrypoint:** `/sst.config.ts` + `/infra/*.ts` (also vendored verbatim). These are opencode-hardcoded
-(domains `opencode.ai`, their Cloudflare zone, PlanetScale org `anomalyco`, AWS profiles, and `lake`/`stats`/
-`monitoring`/`enterprise` deploys we don't use) — **rewrite for Volt at Stage 0**, don't deploy as-is.
+**Deploy entrypoint:** `/sst.config.ts` + `/infra/{console,stage,secret,app}.ts`. **Rewired for Volt** (no longer
+verbatim): app name→`volt`, opencode domains/zone/PlanetScale-org/AWS-profiles → Volt placeholders marked
+`TODO(volt)`; the `lake`/`stats`/`monitoring`/`enterprise` infra + the `app.ts` deploys of dropped packages are
+removed. Fill the `TODO(volt)` markers + create the cloud accounts (Stage 0) before `sst deploy`. Still carries
+opencode-product secret slots (ZEN_MODELS, Salesforce, Discord, Upstash, SES) — unset placeholders, prune in the
+adapt stage.
 
 ## Not vendored (deliberately)
 

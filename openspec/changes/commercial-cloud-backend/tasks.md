@@ -1,11 +1,16 @@
 Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned to opencode **`v1.17.20`**
 (git-recoverable priors: `db73e8d459`). Stages 0/2/3/4 remain; Stage 1 (vendor + green) is done.
 
-## Stage 0 — accounts & providers (no code) — HUMAN-GATED, blocks the rest
-- [ ] Volt Cloudflare account (Workers + R2), AWS profile, PlanetScale org/DB, **Volt Stripe account**, domain.
-- [ ] Rewrite `infra/*.ts` + `sst.config.ts` off opencode's hardcoded values (app `name`, domains `opencode.ai`,
-      Cloudflare zone, PlanetScale org `anomalyco`, AWS profiles) → Volt's. Drop the `lake`/`stats`/`monitoring`/
-      `enterprise` imports in `sst.config.ts` run() (we don't have those packages).
+## Stage 0 — accounts & providers
+- [x] **Infra rewired for Volt** (done): `sst.config.ts` app `name`→`volt`, AWS profiles→`volt-*`, dropped the
+      `honeycomb` provider + `lake`/`stats`/`monitoring`/`enterprise`/`app` imports; deleted `infra/{lake,stats,
+      monitoring,enterprise}.ts`; gutted `infra/app.ts` (deployed only dropped packages) to just its one used
+      secret; `stage.ts` domain/zone → Volt placeholders; `console.ts` PlanetScale name/org + Stripe product
+      names → Volt. All values only Volt can fill are marked `TODO(volt)`.
+- [ ] **Fill the `TODO(volt)` markers** (`grep -rn "TODO(volt)" infra/ sst.config.ts`): domain + Cloudflare zone
+      ID (`stage.ts`), PlanetScale db name + org (`console.ts`), AWS profile names (`sst.config.ts`).
+- [ ] **Create the accounts** — HUMAN-GATED, blocks deploy: Cloudflare (Workers + R2) + domain on it, AWS profile,
+      PlanetScale org/DB, **Volt Stripe account** (test mode to start).
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to

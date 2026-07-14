@@ -1,9 +1,12 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
+// Volt commercial backend — SST app (vendored from opencode, rewired for Volt).
+// Provisions: PlanetScale DB, OpenAuth issuer, Stripe billing, the console/app frontend.
+// TODO(volt) markers below flag the values only you can fill (accounts, domain, org names).
 export default $config({
   app(input) {
     return {
-      name: "opencode",
+      name: "volt",
       removal: input?.stage === "production" ? "retain" : "remove",
       protect: ["production"].includes(input?.stage),
       home: "cloudflare",
@@ -11,11 +14,12 @@ export default $config({
         aws: {
           version: "7.30.0",
           region: "us-east-1",
+          // TODO(volt): your AWS CLI profile names (SES/STS live here). CI uses GITHUB_ACTIONS creds instead.
           profile: process.env.GITHUB_ACTIONS
             ? undefined
             : input.stage === "production"
-              ? "opencode-production"
-              : "opencode-dev",
+              ? "volt-production"
+              : "volt-dev",
         },
         stripe: {
           version: "0.0.28",
@@ -23,30 +27,15 @@ export default $config({
         },
         random: "4.19.2",
         planetscale: "0.4.1",
-        honeycomb: "0.49.0",
       },
     }
   },
   async run() {
     const stage = await import("./infra/stage.js")
-    await import("./infra/app.js")
-    const lake = stage.deployAws ? await import("./infra/lake.js") : undefined
-    const stats = stage.deployAws ? await import("./infra/stats.js") : undefined
+    // console.ts pulls in ./app (secrets), the DB, auth issuer, Stripe, and the console frontend.
     const { stat } = await import("./infra/console.js")
-    await import("./infra/enterprise.js")
-    if ($app.stage === "production" || $app.stage === "vimtor") {
-      await import("./infra/monitoring.js")
-    }
-
     return {
       StatWorkerUrl: stat.url,
-      ...(stats ? { StatsUrl: stats.app.url } : {}),
-      ...(lake
-        ? {
-            LakeUrl: lake.lakeIngest.properties.url,
-            LakeSecretSsm: lake.ingestSecretSsm.name,
-          }
-        : {}),
       AwsStage: stage.awsStage,
     }
   },
