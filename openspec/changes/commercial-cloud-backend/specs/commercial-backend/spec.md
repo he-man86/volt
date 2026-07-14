@@ -9,8 +9,8 @@ and Stripe billing. It SHALL NOT include opencode's LLM-gateway product surface 
 
 #### Scenario: The backend deploys and stands up on Volt infrastructure
 - **WHEN** the vendored subset is deployed (`sst deploy`) with Volt's provider credentials and secrets set
-- **THEN** the OpenAuth issuer, console/enterprise apps, and PlanetScale DB come up on Volt's domain, and the
-  drizzle schema (account/auth/user/workspace/billing) is migrated
+- **THEN** the OpenAuth issuer, the `console/app` frontend, and the PlanetScale DB come up on Volt's domain, and
+  the drizzle schema (account/auth/user/workspace/billing) is migrated
 
 ### Requirement: Signup drives a Stripe checkout and persists a subscription
 

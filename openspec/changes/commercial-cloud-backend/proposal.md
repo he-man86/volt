@@ -1,59 +1,67 @@
 ## Why
 
-Volt is a clean standalone repo now — all opencode source was stripped, including `packages/volt-landing`
-and the vendored `packages/console` (git-recoverable from `db73e8d459`). We want the **commercial backend**
-back: Stripe billing, the enterprise/teams app, the DB, and user/workspace management. Not to reinvent it —
-opencode already built this and it's **public in their released repo** (verified at tag `v1.17.20`; the old
-"console-* deps are private" note was stale). The play: vendor opencode's commercial packages **as-is**,
-repoint the providers at Volt's own cloud accounts, deploy, get it running — *then* adapt (rewrite the
-landing page, swap the billing product) as a follow-up.
+Volt is a clean standalone repo now — all opencode source was stripped, including the old `packages/console`
+and `packages/volt-landing` (git-recoverable from `db73e8d459`). We want the **commercial backend** back:
+Stripe billing, the DB, auth, and user/workspace management. Not to reinvent it — opencode already built this
+and it's **public in their released repo** (verified at tag `v1.17.20`; the old "console-* deps are private"
+note was stale). The play: vendor opencode's commercial packages, get them green in the monorepo, then repoint
+providers at Volt's own cloud accounts and deploy — *then* adapt (own frontend, own billing product).
 
-## What opencode ships (the map, at `v1.17.20`)
+## Status: vendored + green (Stage 1 done). Not yet deployed (Stage 0 blocks).
 
-The whole backend is one SST/Pulumi app (`sst.config.ts`, `home: "cloudflare"`) over five providers —
-Cloudflare (Workers/R2/StaticSite), AWS, **Stripe** (`18.0.0`), **PlanetScale** (MySQL), Honeycomb.
+The full console package set is in the repo, typechecks green, and installs. What remains is **cloud provisioning
++ infra rewire** (Stage 0/2/3), which is human-gated on Volt's accounts.
 
-| Piece | Package / file | What it is |
+## What's vendored (from opencode `v1.17.20`, in `packages/console/*`)
+
+The backend is one SST/Pulumi app (`sst.config.ts`, `home: "cloudflare"`) over five providers — Cloudflare
+(Workers/R2), AWS, **Stripe** `18.0.0`, **PlanetScale** (MySQL), Honeycomb.
+
+| Package | What it is | State |
 |---|---|---|
-| **Core business logic** | `packages/console/core` (`@opencode-ai/console-core`) | drizzle DB layer + `account` `user` `workspace` `actor` (auth) `billing` (Stripe) `subscription` — and opencode-product bits `provider` `model` `key` `lite` `referral` |
-| **DB schema (user managers)** | `console/core/src/schema/*.sql.ts` | `account` `auth` `user` `workspace` `billing` + product tables (`key` `model` `provider` `referral` `ip` `benchmark`) |
-| **Auth issuer** | `console/function/auth.ts` + `@openauthjs/openauth` | OpenAuth issuer, clientID `app`, shared session cookie |
-| **Secrets binding** | `packages/console/resource` (`@opencode-ai/console-resource`) | SST `Resource.*` (e.g. `ZEN_SESSION_SECRET`) |
-| **Transactional mail** | `packages/console/mail` | jsx-email templates |
-| **Frontend (site + dashboard)** | `packages/console/app` (`@opencode-ai/console-app`) | SolidStart — **is opencode.ai itself**: marketing home + `brand`/`changelog`/`legal`/`download` + signup/`stripe`/`zen` checkout + authed dashboard (`workspace`/`stats`/`bench`). Deploys to root `domain`. Depends on `@opencode-ai/ui`. |
-| ~~Enterprise / Teams~~ | `packages/enterprise` | **DROP** — depends on `@opencode-ai/core` + `session-ui` + `ui`; it's opencode's *session-sharing* app (`share` routes) tied to the agent runtime, not generic enterprise infra. Rebuild teams/SSO on `console-core` (has workspace/user/role) later. |
-| ~~API worker~~ | `packages/function` | **DROP** — octokit GitHub-app + sync durable object; opencode-product-specific. |
-| **Docs** | `packages/web` | Astro docs site — optional, not part of as-is |
-| *(NOT a frontend)* | `packages/app` (`@opencode-ai/app`) | opencode's agent **chat GUI** — already replaced by stock opencode; do not vendor |
-| **API worker** | `packages/function/src/api.ts` + `infra/app.ts` | Cloudflare Worker (GitHub app, sync durable object, R2) |
-| **DB infra** | `infra/console.ts` | PlanetScale MySQL cluster/branch/password |
-| **Secrets** | `infra/secret.ts`, `infra/app.ts`, `sst.config.ts` | Stripe, R2, PlanetScale, Honeycomb, GitHub app, support bots, session secret |
+| `console/core` (`@opencode-ai/console-core`) | drizzle DB layer + `account`/`user`/`workspace`/`actor` (auth) + `billing`/`subscription` (Stripe). Schema in `src/schema/*.sql.ts`. Kept **whole**; LLM-gateway modules (`provider`/`model`/`key`/`lite`/`referral`) present but unused (per-module exports → never loaded). | ✅ verbatim, green |
+| `console/resource` | SST `Resource.*` secret bindings | ✅ verbatim |
+| `console/mail` | jsx-email transactional templates | ✅ verbatim |
+| `console/function` | OpenAuth **issuer** (`auth.ts`) + log/stat handlers | ✅ verbatim |
+| `console/app` | opencode.ai's SolidStart site — marketing pages **+** the functional app (`auth`/`stripe`/`workspace`/`user-menu`). The feature-test frontend. | ✅ vendored, `@opencode-ai/ui` **inlined** (see below) |
+| `console/support` | small support-lookup portal (`index`+`lookup`); depends only on `console-core`. Usefulness TBD. | ✅ verbatim |
+| `infra/*.ts` + `sst.config.ts` + `sst-env.d.ts` | Deploy entrypoint. opencode-hardcoded (their domains/zone/PlanetScale org/AWS profiles + lake/stats/monitoring/enterprise deploys we don't use). | ✅ vendored **as reference** — rewire at Stage 0 |
 
-## What Changes
+**Green offline:** committed root `sst-env.d.ts` (opencode's, `declare module "sst"` + `Resource`) + `sst@4.13.1`
+make the `Resource` types resolve, so the whole spine typechecks in the normal `--filter='*'` gate. (Runtime still
+needs real provisioning — Stage 0/3.)
 
-Bring up a **minimum coherent subset** under `packages/console/*` + `infra/`, repointed to Volt's cloud:
+## Deliberately NOT vendored (decisions — don't revisit)
 
-- **Vendor the spine as-is, pinned to `v1.17.20`, each package WHOLE** (per-module exports, no barrel — unused
-  LLM-gateway modules never load, so no risky file surgery): `console/{core,resource,mail,function}` + the infra it
-  needs (`console.ts`, `secret.ts`, `stage.ts`, a trimmed `app.ts`, `sst.config.ts`, the `.sst` platform).
-- **Repoint providers to Volt accounts:** Volt Cloudflare + AWS profile + **Volt Stripe account** + Volt
-  PlanetScale DB + Volt domain. Set the SST secrets. `drizzle-kit` migrate the schema.
-- **Frontend, two roles:** deploy `console/app` **as-is** (drags in `@opencode-ai/ui`; stub the `packages/opencode`
-  schema build step) as a working *reference checkpoint* — proves signup → Stripe → dashboard. **But** the real
-  "our frontend" is a thin app on `console-core` — revive `packages/volt-landing` (already ported to reuse
-  `console-core` auth + `Billing.generateLiteCheckoutUrl`), not a fork of opencode.ai (a rip-out, not a reskin).
-- **Do NOT vendor:** `packages/enterprise` (opencode-core coupled), `packages/function` (GitHub/sync worker), the
-  `packages/app` GUI, docs `web`, lake/stats/benchmark. And don't *use* console-core's LLM-gateway modules
-  (`provider`/`model`/`key`/`lite`/`referral`) — they carry opencode's Zen product, not Volt's.
+- **`packages/ui` (`@opencode-ai/ui`)** — `console/app` used 8 of its 191 files, really just `createSimpleContext`
+  + `Favicon` (+ a no-op `Font`). Inlined those into `console/app/src/ui.tsx`; dropped the package (1642 files,
+  all `v2/`/icons/audio/agent-GUI components) + 15 catalog entries only it needed. No new deps.
+- **`packages/enterprise`** — it's opencode's **session-sharing "Teams" app**, NOT enterprise infra. Depends on
+  `@opencode-ai/core` (the agent runtime: 64 deps incl. every `@ai-sdk/*` provider + `llm`/`schema`/`plugin`/
+  `effect-*`), `session-ui`, `ui`. Vendoring it = re-forking opencode's engine, reversing the de-fork. **Also
+  confirmed: opencode has NO real SSO/SAML/SCIM code** — those strings appear only in i18n + tests; their
+  "enterprise" is a marketing page (`console/app/routes/enterprise`) + self-hosting + sales. So there's nothing
+  to copy. Enterprise features (orgs/roles/seats/SSO) get **built on `console-core`** (which already models
+  workspace/user/role/account) when wanted — a future feature, not a vendor.
+- **`packages/function`** (api worker: octokit GitHub-app + sync durable object), **`packages/app`** (agent chat
+  GUI — already covered by stock opencode), **`packages/web`** (docs), **lake/stats/benchmark** infra.
+- **opencode publish tooling** — `ui/script/publish.ts` + `packages/script` (`@opencode-ai/script`): opencode's
+  npm-release helpers, never run in Volt.
+
+## Simplifications applied (repo is NOT byte-identical to opencode, on purpose)
+
+- `@opencode-ai/ui` inlined to `console/app/src/ui.tsx` (3 import paths in `console/app` changed).
+- Favicon branding neutralized (Volt title, opencode favicon assets deleted). The **rest of `console/app` is still
+  opencode's marketing site** (social cards, `/brand` wordmarks, `zen`/`black` product pages, "OpenCode" copy) —
+  full de-brand is the frontend-replacement job, deferred.
+- Everything else in the vendored spine is byte-identical to `v1.17.20`.
 
 ## Impact
 
-- **New:** `packages/console/*`, `packages/enterprise`, `infra/*`, `sst.config.ts` — a cloud-deploy surface the
-  repo doesn't currently have. Root `package.json` gains the console workspaces + `stripe`/`drizzle`/`planetscale`
-  catalog entries.
-- **Load-bearing risk (call it now):** opencode's billing (`billing.ts` / `subscription.ts` / `lite.ts`) is wired
-  to their **Zen LLM-subscription product** and its Stripe price IDs. "Deploy as-is" yields a *running* console
-  that bills for opencode's product shape; making it bill for **Volt's** product is the named follow-up, not part
-  of this bring-up.
-- **Nothing in the existing Volt product depends on this** — the bridge/CLI/LSP/desktop are untouched. This is
-  additive cloud infra that stands alone until the landing page and product are adapted onto it.
+- **New surface:** `packages/console/*` + `infra/*` + `sst.config.ts` + `sst-env.d.ts` — a cloud-deploy surface
+  the repo didn't have. Root `package.json` gains the console workspaces + catalog (`stripe`/`drizzle`/`planetscale`/
+  `sst`/solid + more).
+- **Load-bearing risk:** opencode's billing (`billing.ts`/`subscription.ts`/`lite.ts`) is wired to their **Zen
+  LLM-subscription product** + Stripe price IDs. A deploy bills for opencode's product shape; making it bill for
+  **Volt's** product is the named follow-up.
+- **Nothing in the existing Volt product depends on this** — bridge/CLI/LSP/desktop untouched. Additive cloud infra.
