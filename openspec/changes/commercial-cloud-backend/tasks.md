@@ -47,9 +47,9 @@ Scope this precisely (tested on Windows):
       values later at Stage 4b/invites).
 
 ### Then deploy — from CI (Windows can't build the web app) or WSL/Linux
-- [ ] **Set the SST secrets once** (from a host with SST + Cloudflare auth — `sst secret load` doesn't build the
-      web app, so it isn't Windows-blocked): `bun run secrets:dev` (= `deploy-secrets --apply dev` →
-      `sst secret load .env.deploy --stage dev`).
+- [x] **SST secrets set (dev) — done + Windows-verified.** `sst secret load` ran on Windows (exit 0, no build, not
+      blocked), set all **48 secrets** for the `dev` stage, and bootstrapped the SST state. Confirmed:
+      `sst secret list --stage dev` = 48.
 - [ ] **Deploy via `.github/workflows/deploy.yml`** (workflow_dispatch → pick stage). Mirrors opencode's proven
       deploy.yml — ubuntu, `bunx sst deploy`, provider-auth env from GitHub environment secrets
       (`CLOUDFLARE_API_TOKEN`, `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), `STRIPE_SECRET_KEY`, `HONEYCOMB_API_KEY`). No
@@ -71,8 +71,7 @@ Scope this precisely (tested on Windows):
 - [ ] **`adapt-commercial-backend`** — the Stage 5 rebrand + billing-product swap is referenced as its own change
       but not yet created. Spin it up when the first deploy is proven (rebrand `console/app`, swap Zen→Volt product,
       align model IDs, prune the marketing integrations). Not part of this change.
-- [ ] **Verify `sst secret load` runs on Windows** — it doesn't build the web app, so it likely isn't
-      Windows-blocked, but that's unconfirmed. If it fails on Windows, run the one-time secret load from WSL/CI.
+- [x] **`sst secret load` on Windows — verified working** (exit 0, 48 secrets set for dev). Not Windows-blocked.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to
