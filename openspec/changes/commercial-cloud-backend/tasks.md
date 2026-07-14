@@ -58,14 +58,18 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 - [ ] Verify the loop end-to-end on the `dev` stage. **This is "deployed and working."**
 
 ## Stage 4b — LLM gateway (IN scope — Volt sells subscriptions too)
-The Zen gateway (`console/app/routes/zen/*`) is kept and functional. To make it serve/resell:
+The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch model set: DeepSeek (budget/margin)
++ Claude (premium quality)** — start lean, not opencode's 20-model catalog. To make it serve/resell:
 - [ ] **Upstash Redis** account → `UpstashRedisRestUrl` / `UpstashRedisRestToken` (rate-limit + budget state).
-- [ ] **Upstream provider keys** (Anthropic/OpenAI/etc.) → the `ZEN_MODELS1..30` secrets (the pool the gateway
-      rotates across). Set `ZEN_LIMITS`.
-- [ ] Configure the **model catalog + pricing** via console-core scripts: `update-models`, `update-limits`,
-      `promote-models-to-{dev,prod}`.
+- [ ] **Provider keys** → `ZEN_MODELS*` secrets: your **Anthropic** key + your **DeepSeek** key (the pool the
+      gateway rotates). Set `ZEN_LIMITS`.
+- [ ] **Model catalog** (DB `model` table, edited via `update-models` against the live DB — post-migration): add
+      **2 entries** — Claude (`format: "anthropic"`, cost = Claude pricing) and DeepSeek (`format: "oa-compat"`,
+      DeepSeek endpoint, cost = DeepSeek pricing). Schema: `console/core/src/model.ts` `ZenData.ModelSchema`.
+- [ ] (Recommended) **Validate model quality on PLC tasks** before launch — run real ST/FBD tasks through DeepSeek
+      vs Claude via the corpus/conformance harness; price/tier accordingly (budget=DeepSeek, pro=Claude).
 - [ ] Verify end-to-end: subscribe → get API key → point a client at `zen/v1/{chat/completions,messages}` →
-      request proxies to the upstream provider, metered + rate-limited.
+      request proxies upstream, metered + rate-limited.
 
 ## Stage 5 — adapt branding/product (separate follow-up change)
 - [ ] Replace `console/app`'s marketing/branding with Volt's (keep the functional app + gateway).
