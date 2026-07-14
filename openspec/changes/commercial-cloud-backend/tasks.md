@@ -118,28 +118,31 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
 - [ ] **Email (SES)** — only needed for workspace invites + the enterprise-contact page, not login. Stub `AWS_SES_*`
       now; wire real SES keys if/when invites matter.
 
-## Stage 4c — observability, error tracking & success-rate monitoring (required, not day-1)
-Goal: **see the success rate of the app** — gateway completion rate, API health, and errors — plus alerting.
-Four layers; #1 and #2 are the core "success rate" ask.
+## Stage 4c — observability & success-rate monitoring (required, not day-1)
+Goal: **see the success rate of the app** — gateway completion rate, API health, errors — plus alerting.
+Three layers; #1 is the core "success rate" ask.
 
-1. **Success-rate & ops metrics — Honeycomb** — **`infra/monitoring.ts` + the `honeycomb` provider are re-added**
+1. **Success-rate, errors & alerts — Honeycomb** — **`infra/monitoring.ts` + the `honeycomb` provider are re-added**
    (both gated on `HONEYCOMB_API_KEY` so a pre-Honeycomb deploy still works). Telemetry *send* is already coded
-   (`function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`). To activate:
+   (`function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`); the event carries error signals too
+   (`status`, `llm.error`, `error_type`, `error.response`), so **error visibility comes from Honeycomb — no
+   separate error tracker needed**. To activate:
    - [ ] Create a Honeycomb account → set `HONEYCOMB_API_KEY` (env, for the provider) + the secret (for the send).
          Then `sst install` pulls the honeycomb provider → `monitoring.ts` typechecks → `sst deploy` creates the
          error-rate SLOs + triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse).
    - [ ] Alerts route via `honeycomb/webhook` route → set `DISCORD_INCIDENT_WEBHOOK_URL` (Discord/Slack) for Volt.
    - Note: `monitoring.ts` alerts self-disable off-production (`alertsDisabled = stage !== "production"`).
-2. **Error tracking — Sentry (NEW — not currently wired; `SENTRY_*` .env keys are orphans, no `@sentry` code):**
-   - [ ] Add `@sentry/*` to the console app (SolidStart) + the workers (auth issuer, gateway, log-processor) for
-         exception capture + stack traces + release health. Wire `SENTRY_DSN` (+ source-map upload via
-         `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN`). Complements Honeycomb (metrics/traces) with
-         debuggable exceptions.
-3. **Product-analytics warehouse** — for per-user spend / model mix / margin / funnel. **Do NOT re-add opencode's
+2. **Product-analytics warehouse** — for per-user spend / model mix / margin / funnel. **Do NOT re-add opencode's
    `infra/lake.ts`** (a full AWS S3-Tables+Glue+Athena+Firehose lake) or `packages/stats` (a second SolidStart app
-   needing the removed `ui`) — both are opencode-scale overkill. Use a **lightweight sink**: Tinybird / ClickHouse
-   Cloud / Postgres, pointed at from `log-processor` (swap the `lake` fetch for the new sink's ingest URL).
-4. **Infra health — Cloudflare-native** — enable Workers logpush + Workers Analytics for worker/DB uptime (free).
+   needing the removed `ui`) — both are opencode-scale overkill (a real project, not a flip-on package). Use a
+   **lightweight sink**: Tinybird / ClickHouse Cloud / Postgres, pointed at from `log-processor` (swap the `lake`
+   fetch for the new sink's ingest URL). Thin slice that matters: per-user spend vs. revenue = margin.
+3. **Infra health — Cloudflare-native** — Workers logpush + Workers Analytics for worker/DB uptime + exception
+   logs (free). Covers app-level errors alongside Honeycomb.
+
+**Sentry: dropped.** opencode never used it (0 code references — the `SENTRY_*` .env keys are stale from an earlier
+attempt). Honeycomb + Cloudflare Workers logs give error visibility without a new integration; add a dedicated
+error tracker only if grouped stack traces / release health become worth the build.
 
 **What "success rate" concretely means here** (all derivable once #1 is live):
 - Gateway: successful completions ÷ total (from `inference.event` `status` + `llm.error`) — the headline metric.
@@ -156,7 +159,8 @@ Four layers; #1 and #2 are the core "success rate" ask.
 ## Reference: external providers the backend relies on
 **Required:** Cloudflare (host/R2/KV/Workers), PlanetScale (DB), Stripe (billing), Anthropic + DeepSeek (LLM
 upstreams), Upstash Redis (gateway limits), GitHub + Google OAuth (login).
-**Optional/observability:** AWS SES (email — invites only, NOT login), Honeycomb (tracing), Sentry (`SENTRY_*`).
+**Optional/observability:** Honeycomb (metrics + errors + success-rate alerts), AWS SES (email — invites only, NOT
+login), a lightweight analytics sink (Tinybird/ClickHouse/Postgres). *Sentry dropped* (opencode never used it).
 **Prune (opencode-specific):** Discord (community + support bot), Feishu, EmailOctopus (newsletter), Salesforce (CRM).
 
 ### Analytics / "chat analysis" (gap)
