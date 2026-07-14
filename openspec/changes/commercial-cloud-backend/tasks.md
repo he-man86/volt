@@ -57,6 +57,22 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       resolves; drive signup → Stripe Checkout → webhook → subscription row in DB.
 - [ ] Verify the loop end-to-end on the `dev` stage. **This is "deployed and working."**
 
+## Pricing model (decided — configure at Stage 4b)
+**Two flat tiers, same models on both, differentiated by a monthly spend allowance.** The gateway meters each
+request in real model cost (`costInfo.totalCostInCent`), so allowances are in **dollars of model usage**, which
+makes this margin-safe and model-agnostic.
+- **Go — $24/mo** → ~$15 of model usage included.
+- **Black — $59/mo** → ~$40 of model usage included.
+- Both tiers can use **DeepSeek + Claude**. No model gating — cost-metering does the upselling: Claude costs ~10×
+  DeepSeek/token, so Claude-heavy users burn their allowance ~10× faster, hit the Go cap, and upgrade to Black.
+  DeepSeek users stretch their allowance and stay happy on Go.
+- **Tunable knobs** (all supported by `Subscription.LimitsSchema`: `rollingLimit`/`rollingWindow`/`weeklyLimit`/
+  `monthlyLimit`): size Go so a Claude-heavy user hits it in ~2–3 weeks (the upgrade trigger); rolling window
+  guards against burst-and-churn.
+- **Overage behavior** at the cap — decide: hard stop ("upgrade to continue", stronger upsell) vs. metered
+  pay-as-you-go on top (opencode's "Zen" model — more revenue, weaker upgrade pressure).
+- Collapse opencode's 3-variant Black pricing (`$200/$100/$20`) to a single $59 price; set Go price $10→$24.
+
 ## Stage 4b — LLM gateway (IN scope — Volt sells subscriptions too)
 The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch model set: DeepSeek (budget/margin)
 + Claude (premium quality)** — start lean, not opencode's 20-model catalog. To make it serve/resell:
