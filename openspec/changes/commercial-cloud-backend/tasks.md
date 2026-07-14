@@ -31,9 +31,11 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       the script's `--apply <stage>`). Verified: generates all 48 (7 filled today; Upstash/ZEN_MODELS/SES get real
       values later at Stage 4b/invites).
 
-### Then deploy
-- [ ] `bunx sst deploy --stage dev` — auth issuer, Stripe products, console app on `dev.volt-ai.dev`.
-- [ ] Migrate the schema into the (empty) DB via `sst shell` + `drizzle-kit` from `packages/console/core`.
+### Then deploy (root scripts wrap these)
+- [ ] `bun run secrets:dev` — sets all SST secrets (deploy-secrets `--apply dev`).
+- [ ] `bun run deploy:dev` — `sst deploy --stage dev`: auth issuer, Stripe products, console app on `dev.volt-ai.dev`.
+- [ ] `bun run db:dev migrate` — drizzle-kit migrate inside the dev `sst shell` (populates the empty DB).
+- [ ] `bun run dev:console` (optional) to run the console frontend locally against the dev resources.
 - [ ] Verify: sign up (GitHub/Google OAuth — **no email needed for login**) writes account/user/workspace rows.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
