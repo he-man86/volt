@@ -17,13 +17,28 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       Re-check: `nslookup -type=ns volt-ai.dev 1.1.1.1` — when it shows `cloudflare.com`, the zone goes Active.
 
 ## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
-- [ ] `bunx sst deploy --stage dev` — provisions DB branch/password, auth issuer, Stripe products, console app on
-      `dev.volt-ai.dev`. First real cloud deploy (creates resources).
-- [ ] Migrate the schema into the (empty) DB — opencode's way: `sst shell` + `drizzle-kit` from `packages/console/core`.
-- [ ] Verify sign-up writes account/user/workspace rows.
-- Watch-outs surfaced during setup: PlanetScale service token could list the org but not databases — confirm it
-  can create branch/password at deploy (the `planetscale.Branch`/`Password` step) or the deploy will fail there.
-  The `dev` branch forks `parentBranch: "production"` — ensure a `production` branch exists on the `volt` DB.
+
+### Pre-deploy blockers — clear these FIRST or `sst deploy` crashes
+- [ ] **PlanetScale token perms (HIGH RISK).** The current service token can't even list databases/branches
+      (`not_found`) → it can't create the branch/password the deploy needs. Issue a new token with **create
+      branch + create password** (DB-admin) scope on `mheijmans/volt`, update `.env`.
+- [ ] **PlanetScale `production` branch.** The `dev` stage forks `parentBranch: "production"` (`infra/console.ts`).
+      PlanetScale's default branch is usually `main` — create/rename a `production` branch on `volt`, or change
+      `parentBranch` to the DB's actual default.
+- [ ] **AWS provider.** `sst.config.ts` declares the `aws` provider but the infra creates **zero** AWS resources
+      (email uses SES-over-HTTP with `AWS_SES_*` keys, not the provider). Pulumi may still try to init it and fail
+      on a missing `volt-dev` profile → **remove the `aws` provider from `sst.config.ts`** (cleanest) unless/until
+      SES is wired.
+- [ ] **Set ALL linked SST secrets (even to dummy values).** `sst deploy` errors on the first *unset* linked
+      secret, and the Console worker links ~20 (`Salesforce*`, `Discord*`, `AWS_SES_*`, `EmailOctopus`, `Upstash*`,
+      `ZEN_MODELS1..30`, `ZEN_LIMITS`, `SUPPORT_API_KEY`, `HONEYCOMB_API_KEY`, `R2*`, …). Script it: set real values
+      where we have them (Stripe, OAuth, session, DB), **stub the rest with `""`** so deploy runs. (SES/Upstash/
+      ZEN_MODELS get real values later — SES at invites, Upstash+ZEN_MODELS at Stage 4b.)
+
+### Then deploy
+- [ ] `bunx sst deploy --stage dev` — auth issuer, Stripe products, console app on `dev.volt-ai.dev`.
+- [ ] Migrate the schema into the (empty) DB via `sst shell` + `drizzle-kit` from `packages/console/core`.
+- [ ] Verify: sign up (GitHub/Google OAuth — **no email needed for login**) writes account/user/workspace rows.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to
@@ -39,23 +54,15 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       marketing branding left for the frontend rework.
 - [x] `bun run typecheck` green (volt + console), `bun run lint` 0 errors.
 
-## Stage 2 — DB up (needs Stage 0)
-- [ ] Provision the PlanetScale branch via the rewired `infra/console.ts`; set DB secrets.
-- [ ] `drizzle-kit` migrate the schema (`console/core/migrations`). Confirm tables exist.
+## Stages 2–3 — DB + deploy → see **▶ RESUME HERE** above (consolidated; these were duplicates).
 
-## Stage 3 — auth + secrets deploy (needs Stage 0)
-- [ ] Set the SST secrets (`sst secret set`): Stripe key, `ZEN_SESSION_SECRET`, R2 keys, PlanetScale creds,
-      Honeycomb, support/email keys. Stub the ones the subset doesn't use.
-- [ ] `sst install` (generates `.sst/platform` + regenerates `sst-env.d.ts` from Volt's resources).
-- [ ] `sst deploy` to a `dev` stage. OpenAuth issuer + `console/app` (+ optionally `console/support`) come up on
-      Volt's domain. Verify: sign up → account/user/workspace rows land in the Volt DB.
-
-## Stage 4 — frontend + billing loop
-- [ ] `console/app` is the as-is feature-test frontend. Stub the extra integrations it links that the subset
-      doesn't need (Salesforce, SES, Discord, Upstash) so it boots.
-- [ ] Create a placeholder Stripe product/price in the Volt Stripe account so `Billing.generateLiteCheckoutUrl`
-      resolves; drive signup → Stripe Checkout → webhook → subscription row in DB.
-- [ ] Verify the loop end-to-end on the `dev` stage. **This is "deployed and working."**
+## Stage 4 — billing loop (prove a subscription end-to-end)
+- [ ] `console/app` is the as-is feature-test frontend (opencode-branded — fine for now; rebrand at Stage 5).
+- [ ] Since we use the **`black`** product (Go/`lite` dropped), drive the checkout via the **black plan** path
+      (`BlackData.planToPriceID`, not `Billing.generateLiteCheckoutUrl`). Make sure `ZenBlack`'s 3 prices exist
+      (they're created by `infra/console.ts` on deploy).
+- [ ] Sign up → pick a plan → Stripe Checkout (**test mode**) → webhook (`/stripe/webhook`) writes a subscription
+      row. Verify the loop end-to-end on `dev`. **This is "billing works."** Gateway serving = Stage 4b.
 
 ## Pricing model (decided — configure at Stage 4b)
 **One product, three flat tiers, same models on all, differentiated by a monthly spend allowance.** Use opencode's
@@ -85,9 +92,26 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
       **2 entries** — Claude (`format: "anthropic"`, cost = Claude pricing) and DeepSeek (`format: "oa-compat"`,
       DeepSeek endpoint, cost = DeepSeek pricing). Schema: `console/core/src/model.ts` `ZenData.ModelSchema`.
 - [ ] (Recommended) **Validate model quality on PLC tasks** before launch — run real ST/FBD tasks through DeepSeek
-      vs Claude via the corpus/conformance harness; price/tier accordingly (budget=DeepSeek, pro=Claude).
+      vs Claude via the corpus/conformance harness. (Both models are on every tier — this is to size the DeepSeek
+      cost/quality story and set allowances, not to gate models per tier.)
 - [ ] Verify end-to-end: subscribe → get API key → point a client at `zen/v1/{chat/completions,messages}` →
       request proxies upstream, metered + rate-limited.
+
+## ⚠ Open gaps / decisions still needed (found in review — not yet in the plan)
+- [ ] **THE LINCHPIN — agent ↔ gateway wiring.** Selling subs only works if a Volt user's opencode actually routes
+      LLM calls through the gateway with their subscription key. `volt-config` (or the CLI/desktop) must point
+      opencode's provider at `https://volt-ai.dev/zen/v1` with the user's key. This connects the *product* (PLC
+      agent) to the *business* (subs) and is currently **nowhere in the plan**. Design this before launch.
+- [ ] **Unit economics — do the math.** Set each tier's `fixedLimit` allowance vs. real DeepSeek/Claude token
+      costs vs. the $24/$59/$99 price so every tier is margin-positive at max usage. No numbers exist yet.
+- [ ] **Free-trial terms** — define `free` limits (`promoTokens`, `dailyRequests`): what a non-subscriber gets.
+- [ ] **Overage behavior** — decide hard-stop vs. metered pay-as-you-go at the cap (affects churn vs. revenue).
+- [ ] **Stripe go-live** — we deploy with **test** keys; real charging needs Stripe account activation + live keys
+      + the live webhook. Separate from the dev deploy.
+- [ ] **Production apex domain** — `volt-ai.dev` apex still has Hostnet's A record; a prod deploy (vs `dev.`) will
+      collide. Resolve when going past the `dev` stage.
+- [ ] **Email (SES)** — only needed for workspace invites + the enterprise-contact page, not login. Stub `AWS_SES_*`
+      now; wire real SES keys if/when invites matter.
 
 ## Stage 5 — adapt branding/product (separate follow-up change)
 - [ ] Replace `console/app`'s marketing/branding with Volt's (keep the functional app + gateway).
