@@ -7,9 +7,8 @@ import { SECRET } from "./secret"
 ////////////////
 
 const cluster = planetscale.getDatabaseOutput({
-  // TODO(volt): your PlanetScale database name + organization (create the DB in the PlanetScale dashboard first).
   name: "volt",
-  organization: "VOLT_PLANETSCALE_ORG",
+  organization: "mheijmans",
 })
 
 const branch =
