@@ -1,0 +1,67 @@
+# Deploy the Volt commercial backend (console/app + SST) from CI.
+#
+# WHY CI: console/app's SolidStart web build fails on Windows (the pinned @solidjs/start preview mangles
+# Windows paths — proven: vite build/dev both fail). `sst deploy` runs that build locally, so the deploy
+# must run on Linux. This job (ubuntu) is that Linux builder — you stay on Windows.
+#
+# Mirrors opencode's own deploy.yml, adapted for Volt's *verified* differences:
+#   - no AWS step (we removed the aws provider; the infra creates zero AWS resources)
+#   - no Sentry (dropped — 0 code refs in opencode)
+#   - PLANETSCALE_SERVICE_TOKEN_ID (current/recommended per the Pulumi provider docs), not the
+#     deprecated _NAME opencode's older workflow used
+#
+# PREREQUISITES (not done here — opencode also sets secrets out of band):
+#   1. volt-ai.dev must be Active on Cloudflare (custom domains resolve).
+#   2. The ~48 SST secrets must already be set for the stage. Generate + load them once (from a host with
+#      SST + Cloudflare auth — sst secret load does NOT build the web app, so it is not Windows-blocked):
+#        bun volt-scripts/deploy-secrets.ts            # writes .env.deploy from .env
+#        bunx sst secret load .env.deploy --stage <stage>
+#   3. GitHub environment secrets (per stage — create "dev"/"production" environments):
+#        CLOUDFLARE_API_TOKEN, PLANETSCALE_SERVICE_TOKEN, PLANETSCALE_SERVICE_TOKEN_ID,
+#        STRIPE_SECRET_KEY, HONEYCOMB_API_KEY
+#   (DB migrations run separately — `bun run db:dev migrate` — like opencode; the dev branch also inherits
+#    the schema by forking main.)
+
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: SST stage to deploy
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - production
+
+concurrency: deploy-${{ github.event.inputs.stage }}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.stage }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: bun install --frozen-lockfile
+
+      - run: bunx sst deploy --stage ${{ github.event.inputs.stage }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
