@@ -50,18 +50,23 @@ Scope this precisely (tested on Windows):
 - [x] **SST secrets set (dev) — done + Windows-verified.** `sst secret load` ran on Windows (exit 0, no build, not
       blocked), set all **48 secrets** for the `dev` stage, and bootstrapped the SST state. Confirmed:
       `sst secret list --stage dev` = 48.
-- [~] **Deploy via `.github/workflows/deploy.yml`** (workflow_dispatch → pick stage). Merged to `dev`, dispatched.
-      **Attempt #1 (2026-07-14) ran 20 min and got deep** — created the SST secrets, the `AuthApi` Worker,
-      `AUTH_API_URL` — then failed on two issues, both now handled except one human step:
-    - ✅ *Fixed — empty-secret `SecretMissingError`.* sst treats an empty secret as unset; `deploy-secrets` now
-      stubs unfilled secrets non-empty (`PLACEHOLDER_UNSET`). Reloaded dev → 0 empty. Also dropped `HONEYCOMB_API_KEY`
-      from the deploy env so monitoring (Honeycomb→Discord trigger) doesn't run until Discord is provisioned.
-    - ⛔ *BLOCKER — Cloudflare token lacks "Regional Services".* `403` on `POST zones/{zone}/addressing/
-      regional_hostnames` — SST binds the worker's custom domain via a regional hostname. **Add the zone permission
-      "Regional Services → Edit" to the `CLOUDFLARE_API_TOKEN`** (My Profile → API Tokens → edit → Permissions), then
-      re-dispatch. This is the only thing gating attempt #2.
-    - Env from GitHub secrets: `CLOUDFLARE_API_TOKEN`, `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), `STRIPE_SECRET_KEY`. No
-      AWS/Sentry/Honeycomb (deploy #1). (Or `bun run deploy:dev` from WSL/Linux — same thing, not Windows.)
+- [x] **DEPLOYED — the spine is LIVE on `dev.volt-ai.dev`** (deploy #8, 2026-07-14). `https://dev.volt-ai.dev` → 200
+      serving the console; workers `volt-dev-{authapi,consoleworker,logprocessor,stat}script` created; PlanetScale
+      DB migrated. It took 8 runs, each failure root-caused (not guessed) — the load-bearing lessons:
+    1. **Cloudflare token type** — a `cfat_` (account-owned) token verifies only at `/accounts/{id}/tokens/verify`
+       and SST rejects it (`Authentication error 10000`). Must be a **`cfut_` user-owned** token (`/user/tokens/verify`).
+    2. **RegionalHostname** — opencode pinned a US regional hostname (Data Localization Suite, paid add-on) → 403.
+       Removed (`infra/stage.ts`); re-add only for EU/US residency.
+    3. **Stripe provider** — `pulumi-stripe` is fetched from GitHub releases; unauthenticated CI hits the 60/hr
+       rate limit. Pass `GITHUB_TOKEN: ${{ github.token }}` to the deploy step.
+    4. **SST secrets are per-runner** — state is local + cloud-backed + passphrase-encrypted, so secrets set from a
+       laptop are invisible to a fresh CI runner (CI saw 0/48). Fix: load them **in the deploy job** (deploy-secrets
+       reads process.env → GitHub secrets → `PLACEHOLDER_UNSET`). This is THE key lesson for anyone re-running.
+    5. **De-fork leftover** — `console/app` build ran `../../opencode/script/schema.ts` (deleted package). Dropped it.
+    6. **Tail Workers need Workers Paid** — the console tail consumer (log pipeline) 403'd on Free. Gated on
+       `HONEYCOMB_API_KEY` (monitoring flag), so Free deploys; returns with Workers Paid + monitoring.
+    - Env from GitHub secrets: `CLOUDFLARE_API_TOKEN` (user-owned!), `PLANETSCALE_SERVICE_TOKEN`(+`_ID`),
+      `STRIPE_SECRET_KEY`, `GITHUB_TOKEN`. No AWS/Sentry/Honeycomb (deferred).
 - **Provisioning debt (deploy-as-is):** the stubbed (`PLACEHOLDER_UNSET`) secrets mean those features are INERT
   until real values are set (`sst secret set NAME <v> --stage dev`): OAuth login (`GITHUB_CLIENT_*_CONSOLE`,
   `GOOGLE_CLIENT_SECRET`), gateway rate-limit (`UpstashRedis*`, `ZEN_LIMITS`), gateway upstream keys (`ZEN_MODELS*`),
