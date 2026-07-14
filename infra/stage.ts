@@ -10,8 +10,6 @@ export const zoneID = "ebac4f049c913d03ae11f89114379d6c"
 export const awsStage = $app.stage === "production" ? "production" : "dev"
 export const deployAws = $app.stage === awsStage
 
-new cloudflare.RegionalHostname("RegionalHostname", {
-  hostname: domain,
-  regionKey: "us",
-  zoneId: zoneID,
-})
+// (opencode pinned the domain to a US RegionalHostname — Cloudflare's Data Localization Suite, a paid add-on.
+// Volt doesn't need data-residency pinning, and requiring it forced a "Regional Services" token permission most
+// accounts don't have. Dropped. Re-add `new cloudflare.RegionalHostname(...)` here if EU/US residency is ever needed.)
