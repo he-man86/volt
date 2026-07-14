@@ -125,6 +125,22 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
 - [ ] (Future, optional) enterprise features — orgs/roles/seats/SSO — built on `console-core`. NOT by vendoring
       opencode's `enterprise` package (session-sharing app; opencode has no real SSO/SCIM code — see proposal).
 
+## Reference: external providers the backend relies on
+**Required:** Cloudflare (host/R2/KV/Workers), PlanetScale (DB), Stripe (billing), Anthropic + DeepSeek (LLM
+upstreams), Upstash Redis (gateway limits), GitHub + Google OAuth (login).
+**Optional/observability:** AWS SES (email — invites only, NOT login), Honeycomb (tracing), Sentry (`SENTRY_*`).
+**Prune (opencode-specific):** Discord (community + support bot), Feishu, EmailOctopus (newsletter), Salesforce (CRM).
+
+### Analytics / "chat analysis" (gap)
+- The gateway emits rich per-request **usage telemetry** (`inference.event`: model/tier/provider/tokens/cost/
+  latency/status/errors/geo/session) — but **metadata only, no prompt/completion content** (content analysis
+  would be a new build + a privacy decision).
+- **Destination dropped:** telemetry flows via `function/src/log-processor.ts` → Honeycomb + a data **Lake**, but
+  we deleted `infra/lake.ts` + `packages/stats`. So `log-processor` references a non-existent `Resource.LakeIngest`
+  (skips it, Honeycomb-only) and the `stats`/`data`/`bench` dashboard routes in `console/app` are vestigial.
+- **Decision (post-launch):** to get usage dashboards (per-user spend, model mix, margin), re-add a sink — Honeycomb
+  for observability, or a simple ClickHouse/Tinybird/Postgres warehouse for product analytics. Not needed to launch.
+
 ## Reference: initial spine dependency manifest (from opencode `v1.17.20`)
 Kept for the record — versions the vendored `console/{core,resource,mail,function}` pin (resolved against
 opencode's catalog). `console/app` + `console/support` add solid/kobalte/stripe-js deps; `ui`-only catalog
