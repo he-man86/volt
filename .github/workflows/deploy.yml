@@ -64,6 +64,9 @@ jobs:
           PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
           PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          # The Stripe provider (pulumi-stripe) is a community plugin fetched from GitHub releases. Unauthenticated
+          # downloads hit GitHub's 60/hr/IP limit on CI (403 rate-limit). The Actions token raises it to 5000/hr.
+          GITHUB_TOKEN: ${{ github.token }}
           # HONEYCOMB_API_KEY intentionally omitted: setting it activates infra/monitoring.ts, which creates a
           # Honeycomb→Discord alert trigger — and there's no real DISCORD_INCIDENT_WEBHOOK_URL yet. Add it back
           # (re-enabling monitoring) once Discord is provisioned. The monitoring code is in place and ready.
