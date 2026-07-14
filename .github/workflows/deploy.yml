@@ -45,6 +45,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.stage }}
+    env:
+      # Job-level so the gateway step's `if:` can test it. Empty until you add the ZEN_MODELS_JSON secret.
+      ZEN_MODELS_JSON: ${{ secrets.ZEN_MODELS_JSON }}
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +71,27 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
+          # Real values where the GitHub secret exists; anything unset → PLACEHOLDER_UNSET (feature inert).
+          # Add these secrets to the environment to make the feature live on the next deploy.
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          ZEN_SESSION_SECRET: ${{ secrets.ZEN_SESSION_SECRET }}
+          GITHUB_CLIENT_ID_CONSOLE: ${{ secrets.GITHUB_CLIENT_ID_CONSOLE }}
+          GITHUB_CLIENT_SECRET_CONSOLE: ${{ secrets.GITHUB_CLIENT_SECRET_CONSOLE }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
+          UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
+
+      # Gateway model catalog → ZEN_MODELS1..30 (see set-models.ts / models.example.json). Skipped until you
+      # add the ZEN_MODELS_JSON secret (the whole models.json as one value). Runs in-job so the keys reach the
+      # deploy's own state; overrides the placeholders deploy-secrets set above.
+      - name: Provision gateway model catalog
+        if: ${{ env.ZEN_MODELS_JSON != '' }}
+        run: bun volt-scripts/set-models.ts --apply ${{ github.event.inputs.stage }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - run: bunx sst deploy --stage ${{ github.event.inputs.stage }} --print-logs
         env:

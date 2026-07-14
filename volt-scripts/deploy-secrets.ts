@@ -38,13 +38,15 @@ for (const f of readdirSync("infra").filter((f) => f.endsWith(".ts"))) {
 }
 const sorted = [...names].sort()
 
-// SST rejects an empty secret as "missing", so unfilled secrets get a non-empty sentinel, not "".
+// Resolve each declared secret: process.env (CI GitHub secrets) → .env (local) → non-empty placeholder.
+// SST rejects an empty secret as "missing", so the fallback must be non-empty, not "".
 const PLACEHOLDER = "PLACEHOLDER_UNSET"
-const body = sorted.map((n) => `${n}=${env[n]?.trim() ? env[n] : PLACEHOLDER}`).join("\n") + "\n"
+const valueOf = (n: string) => (process.env[n]?.trim() ? process.env[n]! : env[n]?.trim() ? env[n] : PLACEHOLDER)
+const body = sorted.map((n) => `${n}=${valueOf(n)}`).join("\n") + "\n"
 writeFileSync(".env.deploy", body)
 
-const filled = sorted.filter((n) => (env[n] ?? "").trim() !== "")
-console.log(`Wrote .env.deploy — ${sorted.length} secrets (${filled.length} with a value, ${sorted.length - filled.length} stubbed "").`)
+const filled = sorted.filter((n) => valueOf(n) !== PLACEHOLDER)
+console.log(`Wrote .env.deploy — ${sorted.length} secrets (${filled.length} real, ${sorted.length - filled.length} PLACEHOLDER_UNSET).`)
 
 const apply = process.argv.includes("--apply")
 const stage = process.argv[process.argv.indexOf("--apply") + 1] || "dev"
