@@ -18,13 +18,15 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 
 ## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
 
-### ⚠ DEPLOY FROM LINUX / WSL / CI — NOT Windows
-`console/app`'s SolidStart toolchain (the pinned `@solidjs/start` `pkg.pr.new` preview) **mangles Windows paths** —
-both `vite dev` and `vite build` fail (`Rollup failed to resolve "C:Usersmarce…"` — backslashes eaten). `sst deploy`
-runs `vite build` locally, so **it cannot run from the Windows dev box.** Options: run the deploy from **WSL**, a
-Linux/mac machine, or **CI (GitHub Actions on ubuntu — opencode's own approach)**. The volt product (bridges/LSP)
-stays Windows-native; only the backend deploy needs a Unix builder. Same reason local `dev:console` won't render
-on Windows — use WSL for a local run.
+### ⚠ Only the `console/app` WEB APP needs Unix — everything else is Windows-native
+Scope this precisely (tested on Windows):
+- ✅ **Windows works** for: the Volt product (`bun run dev` — opencode 1.17.18 + volt-config load, `tools.volt:
+  true`), the **agent↔gateway login** (`provider.volt` + `volt-auth.ts` — `opencode models` shows `volt/deepseek-chat`
+  + `volt/claude-sonnet-4-5`, auth plugin loads clean), the console **unit tests**, typecheck, and DB work.
+- ❌ **Needs Unix (WSL/Linux/CI):** only `console/app`'s SolidStart web build/dev. The pinned `@solidjs/start`
+  `pkg.pr.new` preview **mangles Windows paths** — `vite dev` AND `vite build` fail (`Rollup … "C:Usersmarce…"`,
+  backslashes eaten). Since `sst deploy` runs `vite build` locally, the **deploy** must run on WSL/Linux/**CI**
+  (opencode's approach). Local `dev:console` also needs WSL. That's the whole Unix requirement — nothing else.
 
 ### Pre-deploy blockers — clear these FIRST or `sst deploy` crashes
 - [x] **PlanetScale token — done + verified.** New service token in `.env` can list databases and it
