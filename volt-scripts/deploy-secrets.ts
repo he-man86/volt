@@ -4,7 +4,9 @@
  *
  * The infra declares ~50 `sst.Secret`s (incl. ZEN_MODELS1..30) and `sst deploy` errors on the first UNSET
  * one. Your hand-edited `.env` only carries the ones you actually fill; this expands that to every declared
- * secret — real value from `.env` where present, empty "" stub otherwise — so the deploy is satisfied.
+ * secret — real value from `.env` where present, else a non-empty `PLACEHOLDER` stub (SST treats an EMPTY
+ * secret as unset and still errors, so the stub must be non-empty). Stubbed features are inert until the real
+ * value is set with `sst secret set NAME <value> --stage <stage>`.
  *
  * Usage:
  *   bun volt-scripts/deploy-secrets.ts                 # writes .env.deploy + prints the load command
@@ -35,7 +37,9 @@ for (const f of readdirSync("infra").filter((f) => f.endsWith(".ts"))) {
 }
 const sorted = [...names].sort()
 
-const body = sorted.map((n) => `${n}=${env[n] ?? ""}`).join("\n") + "\n"
+// SST rejects an empty secret as "missing", so unfilled secrets get a non-empty sentinel, not "".
+const PLACEHOLDER = "PLACEHOLDER_UNSET"
+const body = sorted.map((n) => `${n}=${env[n]?.trim() ? env[n] : PLACEHOLDER}`).join("\n") + "\n"
 writeFileSync(".env.deploy", body)
 
 const filled = sorted.filter((n) => (env[n] ?? "").trim() !== "")

@@ -64,4 +64,6 @@ jobs:
           PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
           PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
+          # HONEYCOMB_API_KEY intentionally omitted: setting it activates infra/monitoring.ts, which creates a
+          # Honeycomb→Discord alert trigger — and there's no real DISCORD_INCIDENT_WEBHOOK_URL yet. Add it back
+          # (re-enabling monitoring) once Discord is provisioned. The monitoring code is in place and ready.
