@@ -1,4 +1,4 @@
-# Volt CI — typecheck + lint + the key-free integration check on every push/PR.
+# Volt CI — typecheck + lint + console unit tests + the key-free integration check on every push/PR.
 # Volt is opencode-independent (opencode is a runtime dependency, not a fork), so there is no fork-surface
 # guard. Provider-dependent runtime verifiers (verify-lsp / verify-volt-tool) need an installed opencode +
 # API keys, so they run locally / on version bumps, not here.
@@ -26,6 +26,11 @@ jobs:
         run: |
           bun run --filter='*' typecheck
           bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+
+      - name: Test (console — gateway + billing logic, offline)
+        run: |
+          (cd packages/console/core && bun test)
+          (cd packages/console/app && bun test)
 
       - name: Build binaries (feeds the integration check)
         run: |
