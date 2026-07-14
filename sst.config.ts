@@ -27,6 +27,9 @@ export default $config({
         },
         random: "4.19.2",
         planetscale: "0.4.1",
+        // Honeycomb (observability alerts) — only declared once you have an account, so a deploy without
+        // HONEYCOMB_API_KEY still works. Set the env var to activate success-rate monitoring (infra/monitoring.ts).
+        ...(process.env.HONEYCOMB_API_KEY ? { honeycomb: "0.49.0" } : {}),
       },
     }
   },
@@ -34,6 +37,9 @@ export default $config({
     const stage = await import("./infra/stage.js")
     // console.ts pulls in ./app (secrets), the DB, auth issuer, Stripe, and the console frontend.
     const { stat } = await import("./infra/console.js")
+    // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. Gated on the key so it can't break a
+    // pre-Honeycomb deploy. Telemetry SEND (log-processor → Honeycomb) activates via the HONEYCOMB_API_KEY secret.
+    if (process.env.HONEYCOMB_API_KEY) await import("./infra/monitoring.js")
     return {
       StatWorkerUrl: stat.url,
       AwsStage: stage.awsStage,

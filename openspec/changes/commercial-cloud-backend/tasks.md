@@ -122,14 +122,14 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
 Goal: **see the success rate of the app** — gateway completion rate, API health, and errors — plus alerting.
 Four layers; #1 and #2 are the core "success rate" ask.
 
-1. **Success-rate & ops metrics — Honeycomb** (the telemetry *send* is already coded in
-   `function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`, needs only `HONEYCOMB_API_KEY`):
-   - [ ] Create a Honeycomb account → set `HONEYCOMB_API_KEY`. Inference events (`status`, `llm.error`, latency,
-         model, provider, geo…) start flowing → queryable dashboards + SLOs.
-   - [ ] **Re-add `infra/monitoring.ts`** (adapt opencode's — it's the success-rate monitor): re-add the
-         `honeycomb` provider to `sst.config.ts`, plus the error-rate fields/formulas (`FAILED/TOTAL`) and
-         triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse) → alert to **Volt's Discord/
-         Slack** webhook (`DISCORD_INCIDENT_WEBHOOK_URL` or a Slack equivalent).
+1. **Success-rate & ops metrics — Honeycomb** — **`infra/monitoring.ts` + the `honeycomb` provider are re-added**
+   (both gated on `HONEYCOMB_API_KEY` so a pre-Honeycomb deploy still works). Telemetry *send* is already coded
+   (`function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`). To activate:
+   - [ ] Create a Honeycomb account → set `HONEYCOMB_API_KEY` (env, for the provider) + the secret (for the send).
+         Then `sst install` pulls the honeycomb provider → `monitoring.ts` typechecks → `sst deploy` creates the
+         error-rate SLOs + triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse).
+   - [ ] Alerts route via `honeycomb/webhook` route → set `DISCORD_INCIDENT_WEBHOOK_URL` (Discord/Slack) for Volt.
+   - Note: `monitoring.ts` alerts self-disable off-production (`alertsDisabled = stage !== "production"`).
 2. **Error tracking — Sentry (NEW — not currently wired; `SENTRY_*` .env keys are orphans, no `@sentry` code):**
    - [ ] Add `@sentry/*` to the console app (SolidStart) + the workers (auth issuer, gateway, log-processor) for
          exception capture + stack traces + release health. Wire `SENTRY_DSN` (+ source-map upload via
