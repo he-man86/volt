@@ -11,6 +11,8 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
 - `resource/` (`@opencode-ai/console-resource`) — SST `Resource.*` secret bindings.
 - `mail/` (`@opencode-ai/console-mail`) — jsx-email templates.
 - `function/` (`@opencode-ai/console-function`) — OpenAuth issuer (`auth.ts`) + log/stat handlers.
+- `support/` (`@opencode-ai/console-support`) — small SolidStart support-lookup portal (`index` + `lookup`
+  routes); depends only on `console-core`. Byte-identical to opencode; kept for completeness (usefulness TBD).
 
 ## Frontend (the app — vendored to run/test the backend as-is)
 

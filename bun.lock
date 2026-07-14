@@ -122,6 +122,26 @@
         "cloudflare": "5.2.0",
       },
     },
+    "packages/console/support": {
+      "name": "@opencode-ai/console-support",
+      "version": "1.17.20",
+      "dependencies": {
+        "@cloudflare/vite-plugin": "1.15.2",
+        "@opencode-ai/console-core": "workspace:*",
+        "@solidjs/meta": "catalog:",
+        "@solidjs/router": "catalog:",
+        "@solidjs/start": "catalog:",
+        "nitro": "3.0.1-alpha.1",
+        "solid-js": "catalog:",
+        "vite": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+        "wrangler": "4.50.0",
+      },
+    },
     "packages/volt-bridge": {
       "name": "@volt/bridge",
       "version": "0.1.0",
@@ -679,6 +699,8 @@
     "@opencode-ai/console-mail": ["@opencode-ai/console-mail@workspace:packages/console/mail"],
 
     "@opencode-ai/console-resource": ["@opencode-ai/console-resource@workspace:packages/console/resource"],
+
+    "@opencode-ai/console-support": ["@opencode-ai/console-support@workspace:packages/console/support"],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
 
