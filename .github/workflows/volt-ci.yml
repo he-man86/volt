@@ -24,7 +24,7 @@ jobs:
 
       - name: Typecheck (volt packages + volt-scripts)
         run: |
-          bun run --filter='*' typecheck
+          bun run --filter='./packages/volt-*' typecheck
           bunx tsgo --noEmit -p volt-scripts/tsconfig.json
 
       - name: Build binaries (feeds the integration check)
