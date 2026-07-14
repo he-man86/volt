@@ -6,6 +6,19 @@
       "extensions": [".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]
     }
   },
+  "provider": {
+    "volt": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Volt AI",
+      "options": {
+        "baseURL": "https://volt-ai.dev/zen/v1"
+      },
+      "models": {
+        "deepseek-chat": { "name": "DeepSeek (Volt)" },
+        "claude-sonnet-4-5": { "name": "Claude (Volt)" }
+      }
+    }
+  },
   "permission": {
     "bash": {
       "*": "allow",
