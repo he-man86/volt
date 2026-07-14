@@ -12,6 +12,23 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
 - `mail/` (`@opencode-ai/console-mail`) — jsx-email templates.
 - `function/` (`@opencode-ai/console-function`) — OpenAuth issuer (`auth.ts`) + log/stat handlers.
 
+## Frontend (the app — vendored to run/test the backend as-is)
+
+- `app/` (`@opencode-ai/console-app`) — opencode.ai's SolidStart site: **is both the marketing pages
+  (`index`/`brand`/`zen`/`black`/`changelog`/`download`/`legal`…) AND the functional app** (`auth`/`stripe`/
+  `workspace`/`workspace-picker`/`user-menu`). Test all backend features via the functional routes; the marketing
+  pages tag along. It's opencode-branded — the plan is to replace it with Volt's own frontend on `console-core`.
+- `/packages/ui` (`@opencode-ai/ui`) — opencode's design system (`app` depends on it). Standalone — only
+  third-party npm deps, **no opencode-core coupling**.
+
+**Two minimal deviations from verbatim** (a verbatim copy can't reference packages we excluded):
+1. `app/package.json` build — dropped the trailing `bun ../../opencode/script/schema.ts …` step (it generated
+   opencode-CLI config JSON from `packages/opencode`, which we don't vendor). Sitemap + `vite build` remain.
+2. Deleted `ui/script/publish.ts` — it imported `@opencode-ai/script` (opencode's internal npm-publish tool).
+   Volt doesn't publish `@opencode-ai/ui`.
+
+`diff -rq` vs opencode `v1.17.20` shows *only* these two. Everything else is byte-identical.
+
 **Deploy entrypoint:** `/sst.config.ts` + `/infra/*.ts` (also vendored verbatim). These are opencode-hardcoded
 (domains `opencode.ai`, their Cloudflare zone, PlanetScale org `anomalyco`, AWS profiles, and `lake`/`stats`/
 `monitoring`/`enterprise` deploys we don't use) — **rewrite for Volt at Stage 0**, don't deploy as-is.
@@ -19,12 +36,13 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
 ## Not vendored (deliberately)
 
 `packages/enterprise` (couples to opencode's agent `@opencode-ai/core` + `session-ui`), `packages/function` (api
-worker: GitHub-app + sync), the `app`/`web` GUIs. See the proposal for why.
+worker: GitHub-app + sync), `packages/web` (docs site). See the proposal for why.
 
-## State: GREEN — the spine typechecks clean, in the normal `*` gate
+## State: GREEN — everything typechecks clean, in the normal `*` gate
 
-All four packages typecheck with **0 errors** and are byte-identical to opencode `v1.17.20` (verified by full
-`diff -rq`). They're in the standard root `typecheck` gate (`--filter='*'`), same as any volt package.
+The whole vendored surface (spine `core`/`resource`/`mail`/`function` + frontend `app` + `ui`) typechecks with
+**0 errors** and is byte-identical to opencode `v1.17.20` except the two documented tooling deviations above
+(verified by full `diff -rq`). All in the standard root `typecheck` gate (`--filter='*'`), same as any volt package.
 
 What makes it green (matching opencode exactly):
 - Root **`/sst-env.d.ts`** — opencode's committed, auto-generated `declare module "sst"` + `Resource` interface.
