@@ -104,13 +104,15 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
       - [x] **`volt-config/plugins/volt-auth.ts` — the login** (opencode-native `AuthHook`): `opencode auth login`
             → Volt → paste the `sk-` key from the dashboard; loader feeds it to the provider. Typechecks against
             `@opencode-ai/plugin`. Credential stored by opencode's auth (no env var, survives config merges).
+      - The paste-key method **is opencode's real flow** (confirmed via opencode.ai/docs/zen: "copy your API key"
+        → "run `/connect` … paste your API key"). So this matches Zen 1:1 — not an MVP to replace.
       - [ ] **Align model IDs** with the gateway catalog at Stage 4b (`deepseek-chat`/`claude-sonnet-4-5` must
             match what `/v1/models` serves).
-      - [ ] **Add the `oauth` (browser) method** to the auth hook once the OpenAuth issuer is live — the AuthHook
-            already supports `type: "oauth"` (authorize()/callback). Then login is one click, no dashboard paste.
       - [ ] **Set opencode's default model** to the cheap tier (DeepSeek) so users don't accidentally burn Claude.
-      - [ ] **Test end-to-end** once the backend is deployed + a subscription key exists.
-      - Metering headers (`x-opencode-*`) are read-if-present; key-based limiting works regardless — nothing to build.
+      - [ ] **Test end-to-end** once the backend is deployed + a subscription key exists (sign up → keys page →
+            copy → `/connect` → Volt → paste → `/models`).
+      - Optional later: a browser device-flow (`type: "oauth"`) would remove the copy-paste, but it's a nicety —
+        opencode itself doesn't do it for Zen. Not a gap.
 - [ ] **Unit economics — do the math.** Set each tier's `fixedLimit` allowance vs. real DeepSeek/Claude token
       costs vs. the $24/$59/$99 price so every tier is margin-positive at max usage. No numbers exist yet.
 - [ ] **Free-trial terms** — define `free` limits (`promoTokens`, `dailyRequests`): what a non-subscriber gets.
