@@ -13,7 +13,5 @@ if (!semver.satisfies(process.versions.bun, `^${expectedBunVersion}`)) {
 }
 '
 # Typecheck the workspace + volt-scripts (not a workspace package, so typecheck it directly).
-# Scoped to volt-* — the vendored packages/console/* spine is not green until SST is wired (see
-# packages/console/VENDORED.md); it stays out of the gate until Stage 3.
-bun run --filter='./packages/volt-*' typecheck
+bun run --filter='*' typecheck
 bunx tsgo --noEmit -p volt-scripts/tsconfig.json

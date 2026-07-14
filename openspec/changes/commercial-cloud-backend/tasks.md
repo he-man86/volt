@@ -6,16 +6,16 @@ usable checkpoint.
 - [ ] Volt Cloudflare account (Workers + R2 enabled), AWS profile, PlanetScale org/DB, **Volt Stripe account**, domain.
 - [ ] Record which provider settings in `sst.config.ts` change (app `name`, aws `profile`, planetscale org, domain).
 
-## Stage 1 — vendor the spine (pinned v1.17.20) — MOSTLY DONE (commit 9ebfd0b)
-- [x] Vendor `packages/console/{core,resource,mail,function}` — each package whole. NOT `enterprise`/`function`.
+## Stage 1 — vendor the spine (pinned v1.17.20) — DONE ✅ (green)
+- [x] Vendor `packages/console/{core,resource,mail,function}` — each whole. NOT `enterprise`/`function`.
 - [x] Vendor `infra/*.ts` + `sst.config.ts` **verbatim as reference** (opencode-hardcoded; rewire at Stage 0).
-- [x] Keep `@opencode-ai/console-*` naming; add `packages/console/*` to workspaces + the 6 catalog entries.
-- [x] `bun install` resolves the spine (1905 pkgs). Root/hook/CI typecheck scoped to `volt-*` → gate stays green.
-- [x] Verified clean copy: spine typechecks with **0 non-SST errors** (core/resource/mail/function). The only
-      red is **3 `Cannot find module 'sst'`** errors — the SST gate below. (An earlier "drizzle rc.2" gate was a
-      false alarm from a corrupted bun cache; `bun pm cache rm` fixed it.)
-- [ ] **Gate (SST):** `sst` module + `Resource` member types need `sst install` + configured app → Stage 3.
-- [ ] Once it clears: flip `packages/console/*` back into the typecheck gate.
+- [x] Keep `@opencode-ai/console-*` naming; add `packages/console/*` to workspaces + catalog (incl. `sst@4.13.1`).
+- [x] Vendor opencode's committed root **`sst-env.d.ts`** + `sst` package → `Resource` types resolve.
+- [x] **Verified byte-identical to opencode** (`diff -rq`, 0 drift) AND **typechecks green** (0 errors, whole
+      spine, in the normal `--filter='*'` gate). The "drizzle rc.2" gate was a false alarm (corrupted bun cache).
+- [x] Full gate green: 6 volt packages + console-core + console-function (resource/mail have no typecheck script,
+      same as opencode). `bun install` resolves everything.
+- Runtime (not typecheck) still needs real cloud provisioning — that's Stage 0/3 below.
 
 ## Stage 2 — DB up
 - [ ] Provision the PlanetScale branch via `infra/console.ts`; set DB secrets.

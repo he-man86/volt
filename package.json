@@ -10,7 +10,7 @@
     "build": "bun run --filter='*' build",
     "dist": "bun volt-scripts/dist.ts",
     "compat": "bun volt-scripts/sync.ts",
-    "typecheck": "bun run --filter='./packages/volt-*' typecheck",
+    "typecheck": "bun run --filter='*' typecheck",
     "lint": "oxlint",
     "prepare": "husky",
     "test": "echo 'do not run tests from root' && exit 1"
@@ -35,6 +35,7 @@
       "drizzle-kit": "1.0.0-rc.2",
       "drizzle-orm": "1.0.0-rc.2",
       "solid-js": "1.9.10",
+      "sst": "4.13.1",
       "typescript": "5.8.2",
       "ulid": "3.0.1",
       "zod": "4.1.8"
@@ -46,6 +47,7 @@
     "oxlint": "1.60.0",
     "oxlint-tsgolint": "0.21.0",
     "prettier": "3.6.2",
+    "sst": "catalog:",
     "typescript": "catalog:"
   },
   "repository": {

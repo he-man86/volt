@@ -21,15 +21,21 @@ Source: **`sst/opencode` @ tag `v1.17.20`** (MIT). Copied verbatim, un-modified.
 `packages/enterprise` (couples to opencode's agent `@opencode-ai/core` + `session-ui`), `packages/function` (api
 worker: GitHub-app + sync), the `app`/`web` GUIs. See the proposal for why.
 
-## Not green yet — ONE gate (these packages are OUT of the root `typecheck` gate on purpose)
+## State: GREEN — the spine typechecks clean, in the normal `*` gate
 
-**SST types.** The spine typechecks **clean except 3 `Cannot find module 'sst'` errors** (console/core ×2,
-console/function ×1). `billing.ts`/`drizzle.config.ts`/`resource.node.ts` import `sst` and read
-`Resource.Database`/`ZEN_SESSION_SECRET`, which SST provides only after `sst install` + the app is configured
-with real secrets (it generates `sst-env.d.ts`). resource=0, mail=0 errors; nothing else is red.
+All four packages typecheck with **0 errors** and are byte-identical to opencode `v1.17.20` (verified by full
+`diff -rq`). They're in the standard root `typecheck` gate (`--filter='*'`), same as any volt package.
 
-Flip `packages/console/*` back into the typecheck gate at Stage 3 once SST is wired.
+What makes it green (matching opencode exactly):
+- Root **`/sst-env.d.ts`** — opencode's committed, auto-generated `declare module "sst"` + `Resource` interface.
+  The per-package `sst-env.d.ts` files `/// <reference>` it. **It describes opencode's cloud resources**; when
+  Volt wires its own SST (Stage 0), `sst dev`/`deploy` regenerates it with Volt's resources. Don't hand-edit it.
+- **`sst@4.13.1`** (opencode's catalog version) as a root devDependency, so `import … from "sst"` resolves.
 
-> Note: an earlier revision of this file also listed a `drizzle-orm@1.0.0-rc.2` resolution gate. That was a
-> **false alarm** — a corrupted bun cache (from install-thrashing) extracted drizzle-orm as empty dirs, cascading
-> ~196 phantom errors. `bun pm cache rm` + a clean reinstall fixed it; drizzle resolves fine. Not a code defect.
+> The runtime is still gated on real cloud setup (a working DB/Stripe/secrets needs `sst deploy` with Volt's
+> accounts — Stage 0). Typecheck is green because the committed `sst-env.d.ts` types the code; execution needs
+> the actual provisioned resources.
+
+> History: an earlier revision listed two "gates" (drizzle + SST). The drizzle one was a false alarm — a
+> corrupted bun cache extracted `drizzle-orm@1.0.0-rc.2` as empty dirs, cascading ~196 phantom errors;
+> `bun pm cache rm` fixed it. The SST one is closed by the two items above.
