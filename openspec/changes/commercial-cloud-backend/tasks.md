@@ -135,8 +135,10 @@ Four layers; #1 and #2 are the core "success rate" ask.
          exception capture + stack traces + release health. Wire `SENTRY_DSN` (+ source-map upload via
          `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN`). Complements Honeycomb (metrics/traces) with
          debuggable exceptions.
-3. **Product-analytics warehouse (re-add the dropped sink)** — for per-user spend / model mix / margin / funnel
-   (see the analytics gap note). ClickHouse/Tinybird/Postgres, or wire back a lake-style ingest into `log-processor`.
+3. **Product-analytics warehouse** — for per-user spend / model mix / margin / funnel. **Do NOT re-add opencode's
+   `infra/lake.ts`** (a full AWS S3-Tables+Glue+Athena+Firehose lake) or `packages/stats` (a second SolidStart app
+   needing the removed `ui`) — both are opencode-scale overkill. Use a **lightweight sink**: Tinybird / ClickHouse
+   Cloud / Postgres, pointed at from `log-processor` (swap the `lake` fetch for the new sink's ingest URL).
 4. **Infra health — Cloudflare-native** — enable Workers logpush + Workers Analytics for worker/DB uptime (free).
 
 **What "success rate" concretely means here** (all derivable once #1 is live):
