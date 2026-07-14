@@ -12,9 +12,8 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       Stripe keys, GitHub+Google OAuth, generated `ZEN_SESSION_SECRET`. `.env.example` documents the required vars.
 - [x] **`sst install` passed** + infra typechecks clean vs real SST/provider types (fixed a latent opencode bug:
       Stripe `appliesToProducts`→`appliesTos`).
-- [ ] **BLOCKED — DNS propagation.** Nameservers still `ns01/ns02.hostnet.nl`; changed to CF's `bob/kira.ns.
-      cloudflare.com` but Hostnet locked further edits for ~24h and it hasn't propagated. Zone status = `pending`.
-      Re-check: `nslookup -type=ns volt-ai.dev 1.1.1.1` — when it shows `cloudflare.com`, the zone goes Active.
+- [x] **DNS propagated — domain LIVE.** Nameservers are Cloudflare's (`bob`/`kira.ns.cloudflare.com`), zone
+      status = **`active`** (verified via CF API). The hard blocker is cleared.
 
 ## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
 
