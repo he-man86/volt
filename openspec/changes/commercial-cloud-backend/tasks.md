@@ -23,6 +23,12 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       **created + deleted a throwaway branch** (proved `create_branch`/`delete_branch`/`create_password` scope).
 - [x] **PlanetScale branch — done.** `volt` uses PlanetScale's default `main` as its production branch (there was
       no `production` branch). `infra/console.ts` now targets `main` (prod stage uses `main`; other stages fork it).
+- [x] **Schema migrated + migration path verified.** Ran the migrations against `main` — **24 tables created**
+      (account/auth/user/workspace/billing/subscription/key/model/provider/usage/…). The `dev` branch forks from
+      `main`, so it **inherits the schema**; `db:dev migrate` at deploy is then idempotent. **Use `drizzle-kit
+      migrate` (applies the committed `migration.sql` files), NOT `drizzle-kit push`** — `push` on
+      `drizzle-kit@1.0.0-rc.2` generates invalid PlanetScale SQL for the `ON UPDATE CURRENT_TIMESTAMP` columns
+      (`DEFAULT (… ON UPDATE …)` — Vitess rejects it). `migrate` uses the correct committed SQL.
 - [x] **AWS provider removed** — infra creates zero AWS resources (email is SES-over-HTTP, not the provider), so
       the unused `aws` provider is gone from `sst.config.ts` (no init-fail on a missing profile).
 - [ ] **Set ALL linked SST secrets** — `sst deploy` errors on the first *unset* one (the Console worker links 48,
