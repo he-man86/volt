@@ -19,12 +19,10 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 ## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
 
 ### Pre-deploy blockers — clear these FIRST or `sst deploy` crashes
-- [ ] **PlanetScale token perms (HIGH RISK).** The current service token can't even list databases/branches
-      (`not_found`) → it can't create the branch/password the deploy needs. Issue a new token with **create
-      branch + create password** (DB-admin) scope on `mheijmans/volt`, update `.env`.
-- [ ] **PlanetScale `production` branch.** The `dev` stage forks `parentBranch: "production"` (`infra/console.ts`).
-      PlanetScale's default branch is usually `main` — create/rename a `production` branch on `volt`, or change
-      `parentBranch` to the DB's actual default.
+- [x] **PlanetScale token — done + verified.** New service token in `.env` can list databases and it
+      **created + deleted a throwaway branch** (proved `create_branch`/`delete_branch`/`create_password` scope).
+- [x] **PlanetScale branch — done.** `volt` uses PlanetScale's default `main` as its production branch (there was
+      no `production` branch). `infra/console.ts` now targets `main` (prod stage uses `main`; other stages fork it).
 - [x] **AWS provider removed** — infra creates zero AWS resources (email is SES-over-HTTP, not the provider), so
       the unused `aws` provider is gone from `sst.config.ts` (no init-fail on a missing profile).
 - [ ] **Set ALL linked SST secrets** — `sst deploy` errors on the first *unset* one (the Console worker links 48,

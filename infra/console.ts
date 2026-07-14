@@ -12,9 +12,11 @@ const cluster = planetscale.getDatabaseOutput({
 })
 
 const branch =
+  // Volt's `volt` DB uses PlanetScale's default `main` as the production branch (not a branch named
+  // "production" as opencode assumed). Production stage → use `main` directly; other stages fork from it.
   $app.stage === "production"
     ? planetscale.getBranchOutput({
-        name: "production",
+        name: "main",
         organization: cluster.organization,
         database: cluster.name,
       })
@@ -22,7 +24,7 @@ const branch =
         database: cluster.name,
         organization: cluster.organization,
         name: $app.stage,
-        parentBranch: "production",
+        parentBranch: "main",
       })
 const password = new planetscale.Password("DatabasePassword", {
   name: $app.stage,
