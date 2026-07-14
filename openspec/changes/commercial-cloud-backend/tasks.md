@@ -47,12 +47,20 @@ Scope this precisely (tested on Windows):
       the script's `--apply <stage>`). Verified: generates all 48 (7 filled today; Upstash/ZEN_MODELS/SES get real
       values later at Stage 4b/invites).
 
-### Then deploy (root scripts wrap these)
-- [ ] `bun run secrets:dev` — sets all SST secrets (deploy-secrets `--apply dev`).
-- [ ] `bun run deploy:dev` — `sst deploy --stage dev`: auth issuer, Stripe products, console app on `dev.volt-ai.dev`.
-- [ ] `bun run db:dev migrate` — drizzle-kit migrate inside the dev `sst shell` (populates the empty DB).
-- [ ] `bun run dev:console` (optional) to run the console frontend locally against the dev resources.
+### Then deploy — from CI (Windows can't build the web app) or WSL/Linux
+- [ ] **Set the SST secrets once** (from a host with SST + Cloudflare auth — `sst secret load` doesn't build the
+      web app, so it isn't Windows-blocked): `bun run secrets:dev` (= `deploy-secrets --apply dev` →
+      `sst secret load .env.deploy --stage dev`).
+- [ ] **Deploy via `.github/workflows/deploy.yml`** (workflow_dispatch → pick stage). Mirrors opencode's proven
+      deploy.yml — ubuntu, `bunx sst deploy`, provider-auth env from GitHub environment secrets
+      (`CLOUDFLARE_API_TOKEN`, `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), `STRIPE_SECRET_KEY`, `HONEYCOMB_API_KEY`). No
+      AWS/Sentry. **Prereqs:** domain Active + secrets set + create `dev`/`production` GitHub environments with
+      those secrets. (Or run `bun run deploy:dev` from WSL/Linux — same thing, not Windows.)
+- [ ] `bun run db:dev migrate` — schema already on `main` (24 tables) and the dev branch inherits it, so this is a
+      no-op confirm for the first dev deploy; run it after future schema changes.
 - [ ] Verify: sign up (GitHub/Google OAuth — **no email needed for login**) writes account/user/workspace rows.
+- Note: the workflow's *structure* is proven (mirrors opencode + verified adaptations). The **first real deploy**
+  is the end-to-end proof — it needs the domain + secrets + first-run SST bootstrap, which can't be dry-run.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to
