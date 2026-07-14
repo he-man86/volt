@@ -1,16 +1,29 @@
 Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned to opencode **`v1.17.20`**
 (git-recoverable priors: `db73e8d459`). Stages 0/2/3/4 remain; Stage 1 (vendor + green) is done.
 
-## Stage 0 — accounts & providers
-- [x] **Infra rewired for Volt** (done): `sst.config.ts` app `name`→`volt`, AWS profiles→`volt-*`, dropped the
-      `honeycomb` provider + `lake`/`stats`/`monitoring`/`enterprise`/`app` imports; deleted `infra/{lake,stats,
-      monitoring,enterprise}.ts`; gutted `infra/app.ts` (deployed only dropped packages) to just its one used
-      secret; `stage.ts` domain/zone → Volt placeholders; `console.ts` PlanetScale name/org + Stripe product
-      names → Volt. All values only Volt can fill are marked `TODO(volt)`.
-- [ ] **Fill the `TODO(volt)` markers** (`grep -rn "TODO(volt)" infra/ sst.config.ts`): domain + Cloudflare zone
-      ID (`stage.ts`), PlanetScale db name + org (`console.ts`), AWS profile names (`sst.config.ts`).
-- [ ] **Create the accounts** — HUMAN-GATED, blocks deploy: Cloudflare (Workers + R2) + domain on it, AWS profile,
-      PlanetScale org/DB, **Volt Stripe account** (test mode to start).
+## Stage 0 — accounts & providers — NEARLY DONE (blocked only on DNS propagation)
+- [x] **Infra rewired for Volt**: `sst.config.ts` name→`volt`, AWS profiles→`volt-*`, dropped `honeycomb` provider
+      + `lake`/`stats`/`monitoring`/`enterprise`/`app` imports; deleted `infra/{lake,stats,monitoring,enterprise}.ts`;
+      gutted `infra/app.ts` to its one used secret; `stage.ts` + `console.ts` → Volt values.
+- [x] **TODO(volt) values filled**: domain `volt-ai.dev`, CF zone `ebac4f049c913d03ae11f89114379d6c` (`stage.ts`);
+      PlanetScale `volt`/`mheijmans` (`console.ts`). AWS profiles left as `volt-*` (set if/when AWS SES is used).
+- [x] **Accounts exist + creds in `.env`** (gitignored): Cloudflare (token verified for R2/Workers/KV/DNS +
+      account/zone IDs), PlanetScale (DB `volt` reachable, `SELECT 1` ok, **0 tables — schema not migrated yet**),
+      Stripe keys, GitHub+Google OAuth, generated `ZEN_SESSION_SECRET`. `.env.example` documents the required vars.
+- [x] **`sst install` passed** + infra typechecks clean vs real SST/provider types (fixed a latent opencode bug:
+      Stripe `appliesToProducts`→`appliesTos`).
+- [ ] **BLOCKED — DNS propagation.** Nameservers still `ns01/ns02.hostnet.nl`; changed to CF's `bob/kira.ns.
+      cloudflare.com` but Hostnet locked further edits for ~24h and it hasn't propagated. Zone status = `pending`.
+      Re-check: `nslookup -type=ns volt-ai.dev 1.1.1.1` — when it shows `cloudflare.com`, the zone goes Active.
+
+## ▶ RESUME HERE (once `volt-ai.dev` is Active on Cloudflare)
+- [ ] `bunx sst deploy --stage dev` — provisions DB branch/password, auth issuer, Stripe products, console app on
+      `dev.volt-ai.dev`. First real cloud deploy (creates resources).
+- [ ] Migrate the schema into the (empty) DB — opencode's way: `sst shell` + `drizzle-kit` from `packages/console/core`.
+- [ ] Verify sign-up writes account/user/workspace rows.
+- Watch-outs surfaced during setup: PlanetScale service token could list the org but not databases — confirm it
+  can create branch/password at deploy (the `planetscale.Branch`/`Password` step) or the deploy will fail there.
+  The `dev` branch forks `parentBranch: "production"` — ensure a `production` branch exists on the `volt` DB.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
 - [x] Vendor all 6 console subpackages: `console/{core,resource,mail,function,app,support}` (byte-identical to
