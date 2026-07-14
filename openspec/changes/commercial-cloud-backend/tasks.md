@@ -57,13 +57,22 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
       resolves; drive signup → Stripe Checkout → webhook → subscription row in DB.
 - [ ] Verify the loop end-to-end on the `dev` stage. **This is "deployed and working."**
 
-## Stage 5 — adapt to Volt's product (separate follow-up change)
-- [ ] Replace `console/app` with a thin Volt frontend on `console-core` (the `volt-landing` shape) — full
-      de-brand of opencode's marketing site happens here, not piecemeal.
-- [ ] Swap opencode's Zen/lite billing product + Stripe price IDs for Volt's.
-- [ ] (Future, optional) Build enterprise features — orgs/roles/seats/SSO — on `console-core` (it already models
-      workspace/user/role/account). NOT by vendoring opencode's `enterprise` package (it's a session-sharing app,
-      and opencode has no real SSO/SCIM code — see proposal).
+## Stage 4b — LLM gateway (IN scope — Volt sells subscriptions too)
+The Zen gateway (`console/app/routes/zen/*`) is kept and functional. To make it serve/resell:
+- [ ] **Upstash Redis** account → `UpstashRedisRestUrl` / `UpstashRedisRestToken` (rate-limit + budget state).
+- [ ] **Upstream provider keys** (Anthropic/OpenAI/etc.) → the `ZEN_MODELS1..30` secrets (the pool the gateway
+      rotates across). Set `ZEN_LIMITS`.
+- [ ] Configure the **model catalog + pricing** via console-core scripts: `update-models`, `update-limits`,
+      `promote-models-to-{dev,prod}`.
+- [ ] Verify end-to-end: subscribe → get API key → point a client at `zen/v1/{chat/completions,messages}` →
+      request proxies to the upstream provider, metered + rate-limited.
+
+## Stage 5 — adapt branding/product (separate follow-up change)
+- [ ] Replace `console/app`'s marketing/branding with Volt's (keep the functional app + gateway).
+- [ ] Rename the Stripe products/pricing to Volt's real plans (the Zen/Go/Black structure stays — it's the sub
+      product Volt is selling).
+- [ ] (Future, optional) enterprise features — orgs/roles/seats/SSO — built on `console-core`. NOT by vendoring
+      opencode's `enterprise` package (session-sharing app; opencode has no real SSO/SCIM code — see proposal).
 
 ## Reference: initial spine dependency manifest (from opencode `v1.17.20`)
 Kept for the record — versions the vendored `console/{core,resource,mail,function}` pin (resolved against

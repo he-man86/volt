@@ -33,6 +33,14 @@ needs real provisioning — Stage 0/3.)
 
 ## Deliberately NOT vendored (decisions — don't revisit)
 
+> **SCOPE UPDATE (gateway is IN — Volt will sell LLM subscriptions too).** The Zen LLM gateway
+> (`console/app/routes/zen/` — OpenAI+Anthropic-compatible endpoints, multi-provider routing, IP/key/TPM/TPS rate
+> limiting, provider-key pooling via `ZEN_MODELS`, budget/usage metering, Upstash-backed) + its `console-core`
+> modules (`provider`/`model`/`key`/`lite`/`black`/`referral`) are a **kept, load-bearing part of the product**,
+> not dead weight. This means: **keep** `UpstashRedisRedis*`, `ZEN_MODELS` (fill with Volt's own upstream provider
+> keys), `ZEN_LIMITS`, the Zen/Go/Black Stripe products; configure the model catalog + pricing via console-core's
+> `update-models`/`update-limits` scripts. Earlier notes calling these "strip in the adapt stage" are superseded.
+
 - **`packages/ui` (`@opencode-ai/ui`)** — `console/app` used 8 of its 191 files, really just `createSimpleContext`
   + `Favicon` (+ a no-op `Font`). Inlined those into `console/app/src/ui.tsx`; dropped the package (1642 files,
   all `v2/`/icons/audio/agent-GUI components) + 15 catalog entries only it needed. No new deps.

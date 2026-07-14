@@ -40,9 +40,12 @@ the handful of import lines in `console/app` that now point at the local `./ui` 
 **Deploy entrypoint:** `/sst.config.ts` + `/infra/{console,stage,secret,app}.ts`. **Rewired for Volt** (no longer
 verbatim): app name→`volt`, opencode domains/zone/PlanetScale-org/AWS-profiles → Volt placeholders marked
 `TODO(volt)`; the `lake`/`stats`/`monitoring`/`enterprise` infra + the `app.ts` deploys of dropped packages are
-removed. Fill the `TODO(volt)` markers + create the cloud accounts (Stage 0) before `sst deploy`. Still carries
-opencode-product secret slots (ZEN_MODELS, Salesforce, Discord, Upstash, SES) — unset placeholders, prune in the
-adapt stage.
+removed. Fill the `TODO(volt)` markers + create the cloud accounts (Stage 0) before `sst deploy`.
+
+**Gateway is IN scope** (Volt sells LLM subscriptions too): `ZEN_MODELS` (Volt's pooled upstream provider keys),
+`Upstash*` (rate-limit/budget state), `ZEN_LIMITS`, and the Zen/Go/Black Stripe products are **kept and needed** —
+fill them, don't prune. Only truly opencode-specific integrations (`Salesforce*`, `Discord*`, `AWS_SES_*`,
+`EMAILOCTOPUS`, `Honeycomb*`) are prune-able placeholders.
 
 ## Not vendored (deliberately)
 
