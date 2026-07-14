@@ -58,20 +58,22 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 - [ ] Verify the loop end-to-end on the `dev` stage. **This is "deployed and working."**
 
 ## Pricing model (decided — configure at Stage 4b)
-**Two flat tiers, same models on both, differentiated by a monthly spend allowance.** The gateway meters each
-request in real model cost (`costInfo.totalCostInCent`), so allowances are in **dollars of model usage**, which
-makes this margin-safe and model-agnostic.
-- **Go — $24/mo** → ~$15 of model usage included.
-- **Black — $59/mo** → ~$40 of model usage included.
-- Both tiers can use **DeepSeek + Claude**. No model gating — cost-metering does the upselling: Claude costs ~10×
-  DeepSeek/token, so Claude-heavy users burn their allowance ~10× faster, hit the Go cap, and upgrade to Black.
-  DeepSeek users stretch their allowance and stay happy on Go.
-- **Tunable knobs** (all supported by `Subscription.LimitsSchema`: `rollingLimit`/`rollingWindow`/`weeklyLimit`/
-  `monthlyLimit`): size Go so a Claude-heavy user hits it in ~2–3 weeks (the upgrade trigger); rolling window
-  guards against burst-and-churn.
-- **Overage behavior** at the cap — decide: hard stop ("upgrade to continue", stronger upsell) vs. metered
-  pay-as-you-go on top (opencode's "Zen" model — more revenue, weaker upgrade pressure).
-- Collapse opencode's 3-variant Black pricing (`$200/$100/$20`) to a single $59 price; set Go price $10→$24.
+**One product, three flat tiers, same models on all, differentiated by a monthly spend allowance.** Use opencode's
+`black` structure only (drop `lite`/Go) — every tier shares one clean limit mechanic: `fixedLimit` (the $ allowance)
++ `rollingLimit`/`rollingWindow` (burst guard). The gateway meters each request in real model cost
+(`costInfo.totalCostInCent`), so allowances are in **dollars of model usage** → margin-safe and model-agnostic.
+- **3 tiers**, e.g. **$24 / $59 / $99** (start with 2 rungs if simpler; switch the 3rd on later — no rework).
+- All tiers can use **DeepSeek + Claude**. No model gating — cost-metering does the upselling: Claude costs ~10×
+  DeepSeek/token, so Claude-heavy users burn their allowance faster and climb the ladder; DeepSeek users stay low.
+- **Keep the DB enum keys `"20"/"100"/"200"` as internal plan IDs** (`BlackPlans`, `mysqlEnum("subscription_plan")`
+  — renaming is a schema change, not worth it). Remap each key's **Stripe price** + **`fixedLimit`** to your
+  numbers. Customer-facing names ("Starter/Pro/Max") come from Stripe, not the enum.
+- **Drop `lite`/Go**: the `zen/go/v1/*` routes + Go pricing UI become vestigial (cleanup at Stage 5, not a blocker).
+  The **free trial tier** (`free` limits) stays regardless.
+- **Overage at the cap** — decide: hard stop ("upgrade to continue", stronger upsell) vs. metered pay-as-you-go on
+  top (opencode's "Zen" model — more revenue, weaker upgrade pressure).
+- Config touch-points: `infra/console.ts` (3 Stripe prices under `ZenBlack`), `ZEN_LIMITS` (the `black.{20,100,200}`
+  `fixedLimit`/rolling values), `Subscription.LimitsSchema`.
 
 ## Stage 4b — LLM gateway (IN scope — Volt sells subscriptions too)
 The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch model set: DeepSeek (budget/margin)
