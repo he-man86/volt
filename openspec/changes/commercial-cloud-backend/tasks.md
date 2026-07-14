@@ -132,11 +132,17 @@ Three layers; #1 is the core "success rate" ask.
          error-rate SLOs + triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse).
    - [ ] Alerts route via `honeycomb/webhook` route → set `DISCORD_INCIDENT_WEBHOOK_URL` (Discord/Slack) for Volt.
    - Note: `monitoring.ts` alerts self-disable off-production (`alertsDisabled = stage !== "production"`).
-2. **Product-analytics warehouse** — for per-user spend / model mix / margin / funnel. **Do NOT re-add opencode's
-   `infra/lake.ts`** (a full AWS S3-Tables+Glue+Athena+Firehose lake) or `packages/stats` (a second SolidStart app
-   needing the removed `ui`) — both are opencode-scale overkill (a real project, not a flip-on package). Use a
-   **lightweight sink**: Tinybird / ClickHouse Cloud / Postgres, pointed at from `log-processor` (swap the `lake`
-   fetch for the new sink's ingest URL). Thin slice that matters: per-user spend vs. revenue = margin.
+2. **AI usage statistics** — **per-user usage is ALREADY built + vendored, not a gap.** The gateway meters every
+   request into `UsageTable` (`input_tokens`/`output_tokens`/`cache_read_tokens`/`reasoning_tokens`/`cost`/model)
+   and `BillingTable` (`monthly_usage`/`rolling_usage`), and `console/app`'s `workspace/[id]/billing/*` sections
+   **display each subscriber their usage + limit** out of the box. That data path is in `console-core`, intact —
+   dropping the lake did not remove it.
+   - Only the **operator/aggregate rollup** (all users: total tokens, model mix, top consumers, success rate) is a
+     choice. Out-of-the-box options, cheapest first: **SQL on the PlanetScale DB you already run** (`UsageTable`
+     has it — a small admin view; MVP winner) · **Honeycomb** (the `inference.event` stream = live usage stats) ·
+     **Tinybird** (managed dashboards, feed from `log-processor`). **Do NOT re-add** opencode's `infra/lake.ts`
+     (AWS S3-Tables+Glue+Athena+Firehose) or `packages/stats` (2nd SolidStart app needing the removed `ui`) —
+     a real project, not a flip-on package.
 3. **Infra health — Cloudflare-native** — Workers logpush + Workers Analytics for worker/DB uptime + exception
    logs (free). Covers app-level errors alongside Honeycomb.
 
