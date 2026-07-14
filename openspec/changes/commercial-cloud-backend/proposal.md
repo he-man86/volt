@@ -7,7 +7,11 @@ and it's **public in their released repo** (verified at tag `v1.17.20`; the old 
 note was stale). The play: vendor opencode's commercial packages, get them green in the monorepo, then repoint
 providers at Volt's own cloud accounts and deploy — *then* adapt (own frontend, own billing product).
 
-## Status: deploy-ready — waiting only on DNS propagation.
+## Status: DEPLOYED — the spine is LIVE on `dev.volt-ai.dev` (deploy #8, 2026-07-14).
+
+`https://dev.volt-ai.dev` → 200; workers `volt-dev-{authapi,consoleworker,logprocessor,stat}script`; DB migrated.
+The spine stands up; login/gateway/billing are still `PLACEHOLDER_UNSET` — see `PROVISIONING.md` for the exact
+external steps to make it usable, and `tasks.md` for the 6 root-caused deploy fixes.
 
 Far past the initial vendor. Done + verified: all 6 console packages vendored + green; **infra rewired for Volt**
 (domain/zone/account/DB/`main` branch, aws provider removed, honeycomb monitoring re-added gated); **`sst install`
