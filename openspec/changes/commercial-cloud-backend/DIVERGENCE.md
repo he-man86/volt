@@ -73,8 +73,12 @@ from **one Volt-owned file**:
 - `app/src/routes/workspace/[id]/index.tsx` — the Zen landing (opencode's PAYG model catalog + BYOK-gateway
   `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
   product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.
-- `app/src/routes/workspace/[id].tsx` — the "Zen" nav tab is wrapped in `<Show when={false}>` (both the desktop and
-  mobile nav), **and** opencode's `<Legal>` footer is removed (see the strip section — legal lives on volt-www).
+- `app/src/routes/workspace/[id].tsx` — **Volt-owned workspace shell.** Rewritten from opencode's layout route so
+  Volt owns the nav/tabs/chrome (its restyle surface), while the view routes (`billing`/`keys`/`members`/`settings`/
+  `usage`/`go`) stay 100% vendored, rendered as `props.children`. Drops opencode's Zen product (Volt sells Go), the
+  i18n/language-switch layer (unused), and the `<Legal>` footer — no `<Show when={false}>` hacks. Keeps opencode's
+  `data-component` structure so the token-themed `[id].css` applies. Only backend touch: `querySessionInfo` (isAdmin).
+  Trade-off: no longer pulls opencode's *shell-layout* changes (the views still do); the shell is trivial + stable.
 
 **Volt-only (not opencode source):** `VENDORED.md` (provenance).
 

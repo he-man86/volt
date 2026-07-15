@@ -26,7 +26,7 @@ const ALLOW = new Set([
   // use-case edits (dev-only / presentation, marked VOLT:)
   "function/src/auth.ts",
   "app/src/routes/workspace/[id]/index.tsx", // Zen landing → redirect to Go
-  "app/src/routes/workspace/[id].tsx", // Zen nav tab hidden + opencode <Legal> footer removed (legal lives on volt-www)
+  "app/src/routes/workspace/[id].tsx", // Volt-owned workspace SHELL (nav/layout); views stay vendored as children
   // Volt branding — an ADDITIVE override, not an edit to opencode source. This is the ONLY branding file in the
   // divergence footprint: opencode's own style/token/*.css stay byte-identical (they pull bugfixes conflict-free).
   "app/src/style/volt-theme.css",
