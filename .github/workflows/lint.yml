@@ -1,0 +1,19 @@
+# Lint — oxlint over the volt surface. One concern per workflow (opencode-style).
+name: lint
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bunx oxlint packages/volt-git packages/volt-lsp-iec packages/volt-vscode volt-scripts

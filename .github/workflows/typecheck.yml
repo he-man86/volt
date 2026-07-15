@@ -1,0 +1,22 @@
+# Typecheck — tsgo --noEmit across all volt packages + volt-scripts. One concern per workflow (opencode-style)
+# so it shows as its own check on a PR.
+name: typecheck
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: |
+          bun run --filter='*' typecheck
+          bunx tsgo --noEmit -p volt-scripts/tsconfig.json

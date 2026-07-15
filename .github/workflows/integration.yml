@@ -1,0 +1,26 @@
+# Integration — build the volt binaries, then the key-free integration check (config layer + bins + wiring).
+# Volt-specific (opencode has no equivalent); kept as its own concern alongside typecheck/test/lint.
+name: integration
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Build binaries (feeds the integration check)
+        run: |
+          bun run --cwd packages/volt-lsp-iec build   # lsp-iec first (dependency order)
+          bun run --cwd packages/volt-git build
+          bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
+      - name: Integration check (config layer + bins + wiring)
+        run: bun run volt-scripts/check-volt-integration.ts
