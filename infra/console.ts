@@ -254,7 +254,7 @@ const logProcessor = new sst.cloudflare.Worker("LogProcessor", {
   link: [SECRET.HoneycombApiKey],
 })
 
-new sst.cloudflare.x.SolidStart("Console", {
+export const web = new sst.cloudflare.x.SolidStart("Console", {
   domain: consoleDomain, // app.${domain} — the apex is volt-www (Volt's marketing site)
   path: "packages/console/app",
   link: [
