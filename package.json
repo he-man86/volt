@@ -28,6 +28,7 @@
       "packages/volt-git",
       "packages/volt-lsp-iec",
       "packages/volt-vscode",
+      "packages/volt-www",
       "packages/console/*"
     ],
     "catalog": {

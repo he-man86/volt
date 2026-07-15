@@ -18,12 +18,53 @@ Every source edit is tagged with a `VOLT:` comment so it's obvious on merge.
 Only these differ in `packages/console/*` — everything else is byte-identical to opencode:
 
 **De-fork necessities** (the `@opencode-ai/ui` + `opencode` packages were deleted in the de-fork):
-- `app/package.json` — dropped the `@opencode-ai/ui` dep + the `../../opencode/script/schema.ts` build step (that package is gone).
+- `app/package.json` — dropped the `@opencode-ai/ui` dep + the `../../opencode/script/schema.ts` build step (that
+  package is gone); added `@fontsource-variable/{inter,jetbrains-mono}` for the self-hosted Volt brand type (below).
 - `app/src/ui.tsx` (new) — the two things `console/app` used from `@opencode-ai/ui` (`createSimpleContext`, `Favicon`), inlined.
-- `app/src/app.tsx`, `app/src/context/i18n.tsx`, `app/src/context/language.tsx` — three import-line rewrites (`@opencode-ai/ui` → `~/ui`).
+- `app/src/app.tsx` — the `@opencode-ai/ui` → `~/ui` import rewrite, **plus one line**: `import
+  "./style/volt-theme.css"` (the brand override, after `./app.css`). `app/src/context/i18n.tsx`,
+  `app/src/context/language.tsx` — import-line rewrites.
+
+**Branding reskin (volt-branding Phase 1) — an ADDITIVE override, zero edits to opencode source.** The console
+consumes every brand-able value through a CSS custom-property token layer, so the whole authenticated app reskins
+from **one Volt-owned file**:
+- `app/src/style/volt-theme.css` (new, Volt-owned) — re-declares the base color + font tokens with Volt's values
+  (light + dark), self-hosting Inter/JetBrains via `@fontsource` (no CDN). Loaded from `app.tsx` **after**
+  `./app.css`, so it wins at equal `:root` specificity; opencode's derived tokens (`--color-primary`, `--color-surface`,
+  the `*-text` vars) inherit automatically.
+- **opencode's own `app/src/style/token/*.css` stay BYTE-IDENTICAL** to upstream — the reskin adds no edit to any
+  opencode source file, so those tokens pull opencode's bugfixes with zero merge conflict. The only footprint is
+  the one new Volt file + one `app.tsx` import line (already a divergent file) + the two `@fontsource` deps in
+  `app/package.json` (already divergent).
+- Trade-off: because the token files aren't in the divergence diff, an upstream token **rename** shows opencode's
+  default for that var (a visible glitch) instead of tripping the gate — preferred over rewriting vendored files
+  (renames are rare, the break is obvious). See `volt-branding/design.md` Decision 2.
+- The (marketing-only) header keeps opencode's logo for now — it is **not** touched. Phase 2 replaces the marketing
+  routes with `volt-www` wholesale, so branding that header would be churn on a soon-deleted vendored file.
 
 **Branding neutralization:**
 - Removed opencode's `app/public/social-share*.png` and `web-app-manifest*.png`.
+
+**Public-surface strip (volt-branding Phase 2)** — the console is now **app-only**; the public site is `volt-www`
+(separate, Volt-owned). Deliberately a **hybrid** to touch opencode as little as possible:
+- **Kept BYTE-IDENTICAL + dormant** — opencode's marketing PAGES (`routes/{go, download, enterprise, bench, brand,
+  changelog, black.*, black, legal, zen/index.*}`). They only render; they're unlinked and off the public face
+  (volt-www owns it), so deleting them buys nothing and would just add divergence. Left pristine, they fall off the
+  gate entirely and pull opencode bugfixes conflict-free. (`changelog.json.ts` API + gateway `zen/{go,util,v1}`:
+  also kept.)
+- **Deleted** — only the active PROXY/REDIRECT routes that *serve or redirect to opencode's own infra*:
+  `routes/{docs, data, stats, s, t, desktop-feedback.ts, discord.ts, feishu.ts}` (+ opencode's `index.*` landing).
+  These DO something wrong for Volt (serve opencode docs/binaries, redirect to opencode's Discord), so they go.
+  Encoded as the gate's `DROPPED` prefix list (a dir or any file under it) so the deletions don't balloon `ALLOW`.
+- **Added** `routes/index.ts` (Volt, in `ALLOW`) — `/` → `redirect("/auth")` (the console home is the app, not
+  opencode's landing).
+- **Legal footer removed from the authed shell** — `routes/workspace/[id].tsx` no longer renders opencode's
+  `<Legal>` (which showed "© Anomaly" + opencode's `/brand` and ToS/Privacy links, whose text binds users to
+  ANOMALY INNOVATIONS, INC.). Volt's legal lives on the public site (`volt-www`), not the account console, so the
+  console footer just drops it. `component/legal.tsx` is therefore left **pristine + unused** (off the gate) — not
+  edited. NB: the footer language picker went with it (it was only rendered inside `<Legal>`); the console is
+  account-management and locale still resolves from cookie/browser, so this is acceptable.
+- `config.ts` (opencode.ai/anomalyco) is imported by **no** kept route after the strip → dormant, left pristine.
 
 **Use-case edits (minimal, marked, both non-load-bearing):**
 - `function/src/auth.ts` — ~17 lines: replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a
@@ -32,10 +73,15 @@ Only these differ in `packages/console/*` — everything else is byte-identical 
 - `app/src/routes/workspace/[id]/index.tsx` — the Zen landing (opencode's PAYG model catalog + BYOK-gateway
   `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
   product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.
-- `app/src/routes/workspace/[id].tsx` — the "Zen" nav tab is wrapped in `<Show when={false}>` (both the desktop and
-  mobile nav). Reverts by deleting the two `Show`s.
+- `app/src/routes/workspace/[id].tsx` — **Volt-owned workspace shell.** Rewritten from opencode's layout route so
+  Volt owns the nav/tabs/chrome (its restyle surface), while the view routes (`billing`/`keys`/`members`/`settings`/
+  `usage`/`go`) stay 100% vendored, rendered as `props.children`. Drops opencode's Zen product (Volt sells Go), the
+  i18n/language-switch layer (unused), and the `<Legal>` footer — no `<Show when={false}>` hacks. Keeps opencode's
+  `data-component` structure so the token-themed `[id].css` applies. Only backend touch: `querySessionInfo` (isAdmin).
+  Trade-off: no longer pulls opencode's *shell-layout* changes (the views still do); the shell is trivial + stable.
 
-**Volt-only (not opencode source):** `VENDORED.md` (provenance).
+**Volt-only files:** none — this doc + `check-console-divergence.ts` are the provenance record (the old
+`packages/console/VENDORED.md` was removed to keep the vendored tree byte-clean vs. opencode).
 
 **Explicitly reverted to opencode-original** (do NOT re-introduce): `app/src/middleware.ts` (a route-redirect
 experiment) and `app/src/routes/zen/v1/models.ts` (debug logging) — both confirmed byte-identical again. And

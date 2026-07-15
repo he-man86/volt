@@ -1,0 +1,30 @@
+:root {
+  /* 4px base spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Radii — gentle, soft-square */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Shadows — subtle, low elevation */
+  --shadow-sm: 0 1px 2px rgba(13, 13, 13, 0.04);
+  --shadow-md: 0 2px 8px rgba(13, 13, 13, 0.06);
+  --shadow-lg: 0 8px 24px rgba(13, 13, 13, 0.08);
+
+  /* Borders */
+  --border-width: 1px;
+
+  /* Layout */
+  --container-max: 1120px;
+}

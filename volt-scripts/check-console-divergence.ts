@@ -3,31 +3,54 @@
  * check-console-divergence — guard the vendored-console structural symmetry.
  *
  * `packages/console/*` is opencode source pinned at OPENCODE_VERSION. This diffs it against that exact tag and
- * FAILS if any file diverges (differs / added / removed) that isn't on ALLOW — so an accidental edit to opencode
- * source can't slip in. Intended divergences live on ALLOW and in openspec/.../DIVERGENCE.md; the two must agree.
+ * FAILS on any divergence (differs / added / removed) that isn't declared — so an accidental edit to opencode
+ * source can't slip in. Declared divergence is two lists, both of which must agree with openspec/.../DIVERGENCE.md:
+ *   • ALLOW   — opencode files Volt EDITS, plus Volt-added files (e.g. volt-theme.css, the `/` redirect).
+ *   • DROPPED — opencode files Volt DELETES (the public-surface strip: the active proxy/redirect routes).
  *
  * Run: bun volt-scripts/check-console-divergence.ts   (exit 0 = only expected divergence; 1 = drift)
- * On an opencode bump: change OPENCODE_VERSION, re-run, and reconcile ALLOW + DIVERGENCE.md with the new output.
+ * On an opencode bump: change OPENCODE_VERSION, re-run, and reconcile ALLOW + DROPPED + DIVERGENCE.md with output.
  */
 import { $ } from "bun"
 
 const OPENCODE_VERSION = "v1.17.20"
 
-// The full, intended divergence footprint (see DIVERGENCE.md). Paths are relative to packages/console/.
+// The full, intended divergence footprint — opencode files Volt EDITS or ADDS (deleted files live in DROPPED,
+// below). Grouped by concern; see DIVERGENCE.md. Paths are relative to packages/console/.
 const ALLOW = new Set([
-  // de-fork: @opencode-ai/ui + opencode packages were deleted
-  "app/package.json",
-  "app/src/ui.tsx",
-  "app/src/app.tsx",
-  "app/src/context/i18n.tsx",
-  "app/src/context/language.tsx",
-  // use-case edits (dev-only / presentation, marked VOLT:)
-  "function/src/auth.ts",
-  "app/src/routes/workspace/[id]/index.tsx", // Zen landing → redirect to Go
-  "app/src/routes/workspace/[id].tsx", // Zen nav tab hidden
-  // Volt-only
-  "VENDORED.md",
+  // ── De-fork glue: the @opencode-ai/ui + opencode packages were deleted, so a few imports were re-pointed ──
+  "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
+  "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon now emits Volt's /volt-mark.svg
+  "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + one import: ./style/volt-theme.css
+  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui — i18n plumbing the vendored views still call (English-only in practice)
+  "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
+
+  // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
+  "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+
+  // ── Volt-owned surfaces: Volt writes these fresh, not as patches on opencode ──
+  "app/src/routes/index.ts", // `/` → redirect to /auth (console is app-only; the public site is volt-www)
+  "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
+  "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Go tab (Volt's default view)
+
+  // ── Backend use-case edit ──
+  "function/src/auth.ts", // dev-only CONSOLE_DEV_EMAILS login allowlist (production runs opencode's original)
 ])
+
+// Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —
+// DELETED in the Phase-2 strip. (Opencode's marketing PAGES — go/download/enterprise/brand/legal/… — are instead
+// left BYTE-IDENTICAL and dormant: unlinked, off the public face via volt-www, so they don't need deleting and
+// pull opencode bugfixes conflict-free. The console is app-only via the `/`→/auth redirect + deploy at a subdomain.)
+// Deleted paths appear as "Only in opencode" and are EXPECTED. Listed as prefixes (a dir OR any file under it).
+// See DIVERGENCE.md.
+const DROPPED = [
+  // opencode's `/` marketing landing → replaced by routes/index.ts (a redirect to /auth), so index.* is gone
+  "app/src/routes/index.tsx", "app/src/routes/index.css",
+  // proxies/redirects to opencode's own docs / stats / community (they actively serve/redirect to opencode)
+  "app/src/routes/docs", "app/src/routes/data", "app/src/routes/stats", "app/src/routes/s", "app/src/routes/t",
+  "app/src/routes/desktop-feedback.ts", "app/src/routes/discord.ts", "app/src/routes/feishu.ts",
+]
+const isDropped = (p: string) => DROPPED.some((d) => p === d || p.startsWith(d + "/"))
 // NB: app/public/* (favicons, social-share, manifests) is EXCLUDED from the check — it's branding, which Volt
 // owns and is expected to diverge. This gate protects SOURCE symmetry (.ts/.tsx/.json), where drift breaks merges.
 
@@ -58,12 +81,16 @@ for (const line of raw.split("\n")) {
   else if (only) diverged.push(rel(`${only[1]}/${only[2]}`).replace(/\/+/g, "/"))
 }
 
-const drift = diverged.filter((p) => !ALLOW.has(p)).sort()
-const expected = diverged.filter((p) => ALLOW.has(p))
+const drift = diverged.filter((p) => !ALLOW.has(p) && !isDropped(p)).sort()
+const expected = diverged.filter((p) => ALLOW.has(p) || isDropped(p))
 const staleAllow = [...ALLOW].filter((p) => !diverged.includes(p))
+// A DROPPED entry is stale if nothing diverged under it — i.e. the opencode file is back (restored / re-added
+// upstream), so the deletion no longer applies and the entry should be pruned.
+const staleDropped = DROPPED.filter((d) => !diverged.some((p) => p === d || p.startsWith(d + "/")))
 
 console.log(`console divergence vs opencode ${OPENCODE_VERSION}: ${expected.length} intended, ${drift.length} unexpected`)
 if (staleAllow.length) console.log(`  note: allowlisted but no longer divergent (can prune): ${staleAllow.join(", ")}`)
+if (staleDropped.length) console.log(`  note: DROPPED but present again (can prune): ${staleDropped.join(", ")}`)
 if (drift.length) {
   console.error(`\n  ✗ UNEXPECTED DRIFT in vendored opencode source:`)
   for (const p of drift) console.error(`      packages/console/${p}`)

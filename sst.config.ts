@@ -28,8 +28,10 @@ export default $config({
   },
   async run() {
     const stage = await import("./infra/stage.js")
-    // console.ts pulls in ./app (secrets), the DB, auth issuer, Stripe, and the console frontend.
+    // console.ts pulls in ./app (secrets), the DB, auth issuer, Stripe, and the console frontend (at app.${domain}).
     const { stat } = await import("./infra/console.js")
+    // www.ts: Volt's public marketing site (packages/volt-www) at the apex domain.
+    await import("./infra/www.js")
     // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. Gated on the key so it can't break a
     // pre-Honeycomb deploy. Telemetry SEND (log-processor → Honeycomb) activates via the HONEYCOMB_API_KEY secret.
     if (process.env.HONEYCOMB_API_KEY) await import("./infra/monitoring.js")

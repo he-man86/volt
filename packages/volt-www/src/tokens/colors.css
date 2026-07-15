@@ -1,0 +1,34 @@
+:root {
+  /* Base neutrals — warm, soft */
+  --color-background: #F7F6F3;
+  --color-surface: #EFEDE9;
+  --color-surface-hover: #E6E4DF;
+  --color-border: #E0DED8;
+  --color-text-primary: #0D0D0D;
+  --color-text-secondary: #525252;
+
+  /* Accent — focused orange */
+  --color-accent: #D97706;
+  --color-accent-hover: #B45309;
+  --color-link: #C2410C;
+
+  /* Semantic */
+  --color-success: #16A344;
+
+  /* Derived */
+  --color-text-on-accent: #FFFFFF;
+  --color-surface-dark: #0D0D0D;
+  --color-text-on-dark: #F7F6F3;
+
+  /* Semantic aliases */
+  --surface-page: var(--color-background);
+  --surface-card: var(--color-surface);
+  --surface-card-hover: var(--color-surface-hover);
+  --border-default: var(--color-border);
+  --text-body: var(--color-text-primary);
+  --text-muted: var(--color-text-secondary);
+  --text-link: var(--color-link);
+  --action-primary: var(--color-accent);
+  --action-primary-hover: var(--color-accent-hover);
+  --focus-ring: var(--color-link);
+}

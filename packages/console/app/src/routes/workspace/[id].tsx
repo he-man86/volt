@@ -1,84 +1,57 @@
-import { Show } from "solid-js"
+import { For } from "solid-js"
 import { createAsync, RouteSectionProps, useParams, A } from "@solidjs/router"
 import { querySessionInfo } from "./common"
 import "./[id].css"
-import { useI18n } from "~/context/i18n"
-import { Legal } from "~/component/legal"
 
+// VOLT: this workspace SHELL is Volt-owned. It composes the nav/layout and renders the vendored view routes as
+// `props.children` (billing / keys / members / settings / usage / go stay 100% opencode — the complex content is
+// untouched). Rewritten from opencode's shell so it's ours to restyle, and so the earlier hacks disappear rather
+// than pile up: no Zen product (Volt sells Go), no i18n/language-switch layer (unused), no legal footer (legal
+// lives on volt-www). It keeps opencode's `data-component` structure so the token-themed ./[id].css still applies —
+// the CSS is the redesign surface from here.
 export default function WorkspaceLayout(props: RouteSectionProps) {
   const params = useParams()
-  const i18n = useI18n()
   const userInfo = createAsync(() => querySessionInfo(params.id!))
+
+  // The tab bar. `props.children` renders the selected view under it. Admin-only tabs appear when isAdmin.
+  const tabs = () => [
+    { path: "go", label: "Go" },
+    { path: "usage", label: "Usage" },
+    { path: "keys", label: "API keys" },
+    { path: "members", label: "Members" },
+    ...(userInfo()?.isAdmin
+      ? [
+          { path: "billing", label: "Billing" },
+          { path: "settings", label: "Settings" },
+        ]
+      : []),
+  ]
+
+  const NavItems = () => (
+    <div data-component="workspace-nav-items">
+      <For each={tabs()}>
+        {(t) => (
+          <A href={`/workspace/${params.id}/${t.path}`} activeClass="active" data-nav-button>
+            {t.label}
+          </A>
+        )}
+      </For>
+    </div>
+  )
 
   return (
     <main data-page="workspace">
       <div data-component="workspace-container">
         <nav data-component="workspace-nav">
           <nav data-component="nav-desktop">
-            <div data-component="workspace-nav-items">
-              {/* VOLT: Zen tab hidden — Volt's product is Go (see index.tsx redirect). Revert by deleting the Show. */}
-              <Show when={false}>
-                <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.zen")}
-                </A>
-              </Show>
-              <A href={`/workspace/${params.id}/go`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.go")}
-              </A>
-              <A href={`/workspace/${params.id}/usage`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.usage")}
-              </A>
-              <A href={`/workspace/${params.id}/keys`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.apiKeys")}
-              </A>
-              <A href={`/workspace/${params.id}/members`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.members")}
-              </A>
-              <Show when={userInfo()?.isAdmin}>
-                <A href={`/workspace/${params.id}/billing`} activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.billing")}
-                </A>
-                <A href={`/workspace/${params.id}/settings`} activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.settings")}
-                </A>
-              </Show>
-            </div>
+            <NavItems />
           </nav>
-
           <nav data-component="nav-mobile">
-            <div data-component="workspace-nav-items">
-              {/* VOLT: Zen tab hidden — Volt's product is Go (see index.tsx redirect). Revert by deleting the Show. */}
-              <Show when={false}>
-                <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.zen")}
-                </A>
-              </Show>
-              <A href={`/workspace/${params.id}/go`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.go")}
-              </A>
-              <A href={`/workspace/${params.id}/usage`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.usage")}
-              </A>
-              <A href={`/workspace/${params.id}/keys`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.apiKeys")}
-              </A>
-              <A href={`/workspace/${params.id}/members`} activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.members")}
-              </A>
-              <Show when={userInfo()?.isAdmin}>
-                <A href={`/workspace/${params.id}/billing`} activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.billing")}
-                </A>
-                <A href={`/workspace/${params.id}/settings`} activeClass="active" data-nav-button>
-                  {i18n.t("workspace.nav.settings")}
-                </A>
-              </Show>
-            </div>
+            <NavItems />
           </nav>
         </nav>
         <div data-component="workspace-content">
           <div data-component="workspace-main">{props.children}</div>
-          <Legal />
         </div>
       </div>
     </main>

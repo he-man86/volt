@@ -33,6 +33,7 @@ on:
     branches: [dev]
     paths:
       - "packages/console/**" # the console app + gateway code (the deployed artifact)
+      - "packages/volt-www/**" # the public marketing site (StaticSite, infra/www.ts)
       - "infra/**" # SST infra definitions
       - "sst.config.ts" # SST entrypoint
       - "models.json" # gateway model catalog (set-models.ts reads it)

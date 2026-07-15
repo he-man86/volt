@@ -1,8 +1,8 @@
 // Inlined from opencode's @opencode-ai/ui — only the bits console/app actually used
 // (createSimpleContext + Favicon). The rest of that package (v2/, icons, agent-GUI
-// components) was unused here, so it's not vendored. See packages/console/VENDORED.md.
+// components) was unused here, so it's not vendored. See openspec/changes/commercial-cloud-backend/DIVERGENCE.md.
 import { createContext, createMemo, Show, useContext, type ParentProps, type Accessor } from "solid-js"
-import { Meta } from "@solidjs/meta"
+import { Meta, Link } from "@solidjs/meta"
 
 export function createSimpleContext<T, Props extends Record<string, any>>(
   input: {
@@ -41,7 +41,12 @@ export function createSimpleContext<T, Props extends Record<string, any>>(
 }
 
 export const Favicon = () => {
-  // Neutralized — opencode's favicon assets were removed. Add Volt's own icon
-  // <Link> tags here (favicon, apple-touch, manifest) when the frontend is branded.
-  return <Meta name="apple-mobile-web-app-title" content="Volt" />
+  // Volt brand icon. SVG favicon (the orange lightning mark, /public/volt-mark.svg) covers modern browsers; the
+  // apple-touch-icon (PNG) is still TODO — Safari ignores SVG there, so add a raster when one exists.
+  return (
+    <>
+      <Link rel="icon" href="/volt-mark.svg" type="image/svg+xml" />
+      <Meta name="apple-mobile-web-app-title" content="Volt" />
+    </>
+  )
 }
