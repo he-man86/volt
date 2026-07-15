@@ -25,9 +25,20 @@
 name: deploy
 
 on:
-  # Auto-deploy dev on every merge to dev (opencode-style CD) — "merged = live", no drift between code and site.
+  # Auto-deploy dev when the DEPLOYED surface changes on dev (opencode-style CD) — "merged = live", no drift.
+  # Path-filtered so docs / openspec / other-workflow commits don't fire a pointless (idempotent) redeploy.
+  # Kept deliberately broad — every input the deploy actually builds from — so a real change never slips through.
+  # (workflow_dispatch below is unaffected by paths: a manual deploy always runs.)
   push:
     branches: [dev]
+    paths:
+      - "packages/console/**" # the console app + gateway code (the deployed artifact)
+      - "infra/**" # SST infra definitions
+      - "sst.config.ts" # SST entrypoint
+      - "models.json" # gateway model catalog (set-models.ts reads it)
+      - "volt-scripts/deploy-secrets.ts" # deploy-time secret provisioning
+      - "volt-scripts/set-models.ts" # deploy-time catalog provisioning
+      - ".github/workflows/deploy.yml" # the deploy workflow itself
   # Manual for production (or an on-demand dev redeploy).
   workflow_dispatch:
     inputs:
