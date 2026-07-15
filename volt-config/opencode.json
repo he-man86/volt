@@ -11,7 +11,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Volt AI",
       "options": {
-        "baseURL": "https://app.volt-ai.dev/zen/go/v1"
+        "baseURL": "https://volt-ai.dev/zen/go/v1"
       },
       "models": {
         "deepseek-chat": { "name": "DeepSeek (Volt)" },
