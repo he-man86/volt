@@ -40,8 +40,10 @@ Callbacks (verified live): `https://auth.dev.volt-ai.dev/{github,google}/callbac
 - [x] **Gateway wiring** — the deploy's `Provision gateway model catalog` step always runs (NOT gated on a secret
       — GitHub masks secrets in `if:`, which silently skipped it and left placeholder `ZEN_MODELS` → the JSON.parse
       500). Fixed: no gate, keys passed to the step, catalog padded so all 30 chunks are non-empty.
-- [ ] **`ZEN_LIMITS`** — still a zeroed default (valid JSON, no real allowances). Set real per-tier limits when
-      pricing is finalized (schema in `console-core/subscription.ts`):
+- [x] **`ZEN_LIMITS` set** (deploy #20) — spend allowances derived from provider cost + **50% gross margin**:
+      black `fixedLimit` = $12/$29/$49 (whole $/mo) for the $24/$59/$99 tiers; `rollingLimit` ~half over 24h as an
+      anti-burst cap; free = 1M-token trial + 50 req/day. Units verified: `centsToMicroCents(limit*100)` ⇒ whole $.
+      Revisit if the input:output ratio (assumed ~4:1) or margin changes. Schema in `console-core/subscription.ts`:
       ```json
       { "free":  { "promoTokens": <int>, "dailyRequests": <int>, "dailyRequestsFallback": <int>, "checkHeaders": {} },
         "lite":  { "rollingLimit": <cents>, "rollingWindow": <hours>, "weeklyLimit": <cents>, "monthlyLimit": <cents> },
