@@ -149,12 +149,12 @@ const zenLiteCouponTwelveMonths100 = new stripe.Coupon("ZenLiteCoupon12Months100
 })
 const zenLitePrice = new stripe.Price("ZenLitePrice", {
   product: zenLiteProduct.id,
-  currency: "usd",
+  currency: "eur", // Volt Go — priced in euros
   recurring: {
     interval: "month",
     intervalCount: 1,
   },
-  unitAmount: 1000,
+  unitAmount: 2400, // €24/month
 })
 const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
   properties: {

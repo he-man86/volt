@@ -16,12 +16,12 @@
   "zenModels": {
     "deepseek-chat": {
       "name": "DeepSeek (Volt)",
-      "cost": { "input": 0.00000027, "output": 0.0000011 },
+      "cost": { "input": 0.00000054, "output": 0.0000022 },
       "providers": [{ "id": "deepseek", "model": "deepseek-chat" }]
     },
     "claude-sonnet-4-5": {
       "name": "Claude (Volt)",
-      "cost": { "input": 0.000003, "output": 0.000015 },
+      "cost": { "input": 0.000006, "output": 0.00003 },
       "providers": [{ "id": "anthropic", "model": "claude-sonnet-4-5" }]
     }
   },
