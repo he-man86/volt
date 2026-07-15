@@ -14,7 +14,6 @@ import { withActor } from "~/context/auth.withActor"
 import { queryBillingInfo } from "../../common"
 import styles from "./lite-section.module.css"
 import { useI18n } from "~/context/i18n"
-import { useLanguage } from "~/context/language"
 import { formError } from "~/lib/form-error"
 import { formatResetTime, liteResetTimeKeys } from "~/lib/format-reset-time"
 import { createReferralFromCookie } from "~/lib/referral-invite"
@@ -177,7 +176,6 @@ function LiteUsageItem(props: { label: string; usage: { usagePercent: number; re
 export function LiteSection(props: { lite: LiteSubscription | undefined }) {
   const params = useParams()
   const i18n = useI18n()
-  const language = useLanguage()
   const billingInfo = createAsync(() => queryBillingInfo(params.id!))
   const isBlack = createMemo(() => billingInfo()?.subscriptionID || billingInfo()?.timeSubscriptionBooked)
   const sessionAction = useAction(createSessionUrl)
@@ -234,11 +232,8 @@ export function LiteSection(props: { lite: LiteSubscription | undefined }) {
               </div>
             </div>
             <div data-slot="beta-notice">
-              {i18n.t("workspace.lite.subscription.selectProvider")}{" "}
-              <a href={language.route("/docs/providers/#opencode-go")} target="_blank" rel="noopener noreferrer">
-                {i18n.t("common.learnMore")}
-              </a>
-              .
+              {/* VOLT: dropped the "Learn more" link — it pointed at opencode's deleted /docs (#opencode-go, 404). */}
+              {i18n.t("workspace.lite.subscription.selectProvider")}
             </div>
             <div data-slot="usage">
               <LiteUsageItem label={i18n.t("workspace.lite.subscription.rollingUsage")} usage={sub().rollingUsage} />
