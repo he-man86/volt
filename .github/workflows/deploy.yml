@@ -46,8 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.stage }}
     env:
-      # Job-level so the gateway step's `if:` can test it. Empty until you add the ZEN_MODELS_JSON secret.
-      ZEN_MODELS_JSON: ${{ secrets.ZEN_MODELS_JSON }}
+      # Job-level so the gateway step's `if:` can test it. Empty until you add the provider-key secrets.
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 

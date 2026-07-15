@@ -3,13 +3,13 @@
     "deepseek": {
       "displayName": "DeepSeek",
       "api": "https://api.deepseek.com/v1",
-      "apiKey": "<your-deepseek-api-key>",
+      "apiKey": "${DEEPSEEK_API_KEY}",
       "format": "oa-compat"
     },
     "anthropic": {
       "displayName": "Anthropic",
       "api": "https://api.anthropic.com/v1",
-      "apiKey": "<your-anthropic-api-key>",
+      "apiKey": "${ANTHROPIC_API_KEY}",
       "format": "anthropic"
     }
   },

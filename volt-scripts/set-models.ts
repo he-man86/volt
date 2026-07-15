@@ -8,16 +8,13 @@
  * it into 30 chunks, and `sst secret load` them — the exact scheme opencode's `update-models.ts` uses.
  *
  * Usage:
- *   bun volt-scripts/set-models.ts [models.json]              # write .env.models + print the load command
- *   bun volt-scripts/set-models.ts [models.json] --apply dev  # ...and `sst secret load` it for the stage
+ *   bun volt-scripts/set-models.ts              # write .env.models + print the load command
+ *   bun volt-scripts/set-models.ts --apply dev  # ...and `sst secret load` it for the stage
  *
- * Source of the catalog:
- *   - local:  `models.json` (gitignored — copy `models.example.json` → `models.json` and fill your keys)
- *   - CI:     the whole JSON in the `ZEN_MODELS_JSON` env var (a GitHub secret), so gateway keys land in the
- *             CI deploy's own SST state. Add a step to deploy.yml when you provision the gateway:
- *               - run: bun volt-scripts/set-models.ts --apply ${{ inputs.stage }}
- *                 env: { CLOUDFLARE_API_TOKEN, ZEN_MODELS_JSON: ${{ secrets.ZEN_MODELS_JSON }} }
- *             (SST state is per-runner — see deploy-secrets.ts — so gateway keys must be set IN the deploy job.)
+ * `models.json` is COMMITTED (no secrets) — provider API keys are `${VAR}` references. The values come from:
+ *   - local:  `.env`   (DEEPSEEK_API_KEY=…, ANTHROPIC_API_KEY=…)
+ *   - CI:     GitHub secrets passed to the deploy.yml set-models step (SST state is per-runner — see
+ *             deploy-secrets.ts — so gateway keys must be substituted + set IN the deploy job).
  *
  * models.json shape (see packages/console/core/src/model.ts for the authoritative Zod schema):
  *   {
@@ -38,22 +35,40 @@ const stage = apply ? (args[args.indexOf("--apply") + 1] ?? "dev") : "dev"
 const file = args.find((a) => !a.startsWith("--") && a !== stage) ?? "models.json"
 
 let raw: string
-if (process.env.ZEN_MODELS_JSON?.trim()) {
-  raw = process.env.ZEN_MODELS_JSON // CI: whole models.json passed as one GitHub secret
-} else {
-  try {
-    raw = readFileSync(file, "utf8")
-  } catch {
-    console.error(`No ${file} (and no ZEN_MODELS_JSON) — copy models.example.json to ${file} and fill your keys.`)
-    process.exit(1)
+try {
+  raw = readFileSync(file, "utf8")
+} catch {
+  console.error(`No ${file} — the committed gateway catalog.`)
+  process.exit(1)
+}
+
+// models.json is committed WITHOUT secrets — API keys are `${VAR}` refs. Substitute from process.env (CI GitHub
+// secrets) → .env (local). Every ${VAR} must resolve, so the keys stay bundled in .env like the other secrets.
+const dotenv: Record<string, string> = {}
+try {
+  for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)
+    if (m) dotenv[m[1]] = m[2].trim()
   }
+} catch {
+  /* no .env (e.g. CI) — rely on process.env */
+}
+const missing: string[] = []
+raw = raw.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, v) => {
+  const val = process.env[v]?.trim() || dotenv[v]
+  if (!val) missing.push(v)
+  return val ?? ""
+})
+if (missing.length) {
+  console.error(`Missing values for: ${[...new Set(missing)].join(", ")} — set them in .env (local) or GitHub secrets (CI).`)
+  process.exit(1)
 }
 
 let json: any
 try {
   json = JSON.parse(raw)
 } catch (e) {
-  console.error(`${file} is not valid JSON: ${(e as Error).message}`)
+  console.error(`${file} is not valid JSON after substitution: ${(e as Error).message}`)
   process.exit(1)
 }
 
@@ -71,11 +86,6 @@ for (const [mid, m] of Object.entries<any>(json.zenModels)) {
         process.exit(1)
       }
 }
-if (raw.includes("<") && raw.includes(">")) {
-  console.error(`${file}: still contains <placeholder> values — fill in your real API keys first.`)
-  process.exit(1)
-}
-
 // Minify (the runtime concatenates chunks then JSON.parses, so store compact), then slice into 30 parts.
 const compact = JSON.stringify(json)
 const size = Math.ceil(compact.length / PARTS)

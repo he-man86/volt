@@ -4,7 +4,6 @@ node_modules
 .sst
 .env*
 !.env.example
-models.json
 .env.models
 .idea
 .vscode
