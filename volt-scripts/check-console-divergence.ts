@@ -30,6 +30,7 @@ const ALLOW = new Set([
 
   // ── Volt-owned surfaces: Volt writes these fresh, not as patches on opencode ──
   "app/src/routes/index.ts", // `/` → redirect to /auth (console is app-only; the public site is volt-www)
+  "app/src/routes/auth/logout.ts", // logout → /auth (opencode sent logged-out users to its /zen marketing page)
   "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
   "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Go tab (Volt's default view)
   "app/src/routes/v1", // clean public gateway path (/v1/*, no opencode "zen/go" branding); re-runs the vendored config

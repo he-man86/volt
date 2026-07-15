@@ -59,6 +59,9 @@ from **one Volt-owned file**:
   Encoded as the gate's `DROPPED` prefix list (a dir or any file under it) so the deletions don't balloon `ALLOW`.
 - **Added** `routes/index.ts` (Volt, in `ALLOW`) — `/` → `redirect("/auth")` (the console home is the app, not
   opencode's landing).
+- **Edited** `routes/auth/logout.ts` (in `ALLOW`) — one line: `redirect("/zen")` → `redirect("/auth")`. opencode
+  sent logged-out users to its `/zen` marketing page (opencode branding + a page Volt doesn't serve publicly); the
+  app-only console returns them to the login screen.
 - **Legal footer removed from the authed shell** — `routes/workspace/[id].tsx` no longer renders opencode's
   `<Legal>` (which showed "© Anomaly" + opencode's `/brand` and ToS/Privacy links, whose text binds users to
   ANOMALY INNOVATIONS, INC.). Volt's legal lives on the public site (`volt-www`), not the account console, so the
