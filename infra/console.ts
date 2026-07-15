@@ -171,7 +171,7 @@ const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
 })
 
 const zenBlackProduct = new stripe.Product("ZenBlack", {
-  name: "OpenCode Black", // reverted to opencode original — Black is unused; Volt's product is Go (below)
+  name: "Volt Black", // Black is unused (Volt sells Go); renamed off opencode branding in the Stripe dashboard
 })
 const zenBlackPriceProps = {
   product: zenBlackProduct.id,

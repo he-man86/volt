@@ -34,9 +34,17 @@ export const subjects = createSubjects({
   }),
 })
 
+// VOLT: brand the login page (the OpenAuth issuer UI at auth.${domain} that every user sees at login) — Volt mark
+// + orange accent + "Volt" title, replacing opencode's logo. The logo is a self-contained data URI (no dependency
+// on any host being up).
+const VOLT_MARK =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyOCI+PHBhdGggZmlsbD0iI2Q5NzcwNiIgZD0iTTE0IDFMNCAxNUwxMSAxNUw5IDI3TDIwIDExTDEzIDExTDE0IDFaIi8+PC9zdmc+"
 const MY_THEME: Theme = {
   ...THEME_OPENAUTH,
-  logo: "https://opencode.ai/favicon-v3.svg",
+  title: "Volt",
+  primary: "#d97706",
+  logo: VOLT_MARK,
+  favicon: VOLT_MARK,
 }
 
 export default {
@@ -112,14 +120,14 @@ export default {
           const emails = (await fetch("https://api.github.com/user/emails", {
             headers: {
               Authorization: `Bearer ${response.tokenset.access}`,
-              "User-Agent": "opencode",
+              "User-Agent": "volt",
               Accept: "application/vnd.github+json",
             },
           }).then((x) => x.json())) as any
           const user = (await fetch("https://api.github.com/user", {
             headers: {
               Authorization: `Bearer ${response.tokenset.access}`,
-              "User-Agent": "opencode",
+              "User-Agent": "volt",
               Accept: "application/vnd.github+json",
             },
           }).then((x) => x.json())) as any
