@@ -29,7 +29,6 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsgo --noEmit",
     "lint": "bun run scripts/check-layering.ts",
