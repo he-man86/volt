@@ -38,10 +38,26 @@ for (const f of readdirSync("infra").filter((f) => f.endsWith(".ts"))) {
 }
 const sorted = [...names].sort()
 
-// Resolve each declared secret: process.env (CI GitHub secrets) → .env (local) → non-empty placeholder.
+// Resolve each declared secret: process.env (CI GitHub secrets) → .env (local) → default → placeholder.
 // SST rejects an empty secret as "missing", so the fallback must be non-empty, not "".
 const PLACEHOLDER = "PLACEHOLDER_UNSET"
-const valueOf = (n: string) => (process.env[n]?.trim() ? process.env[n]! : env[n]?.trim() ? env[n] : PLACEHOLDER)
+
+// Some secrets are JSON-parsed / URL-constructed at runtime — a bare "PLACEHOLDER_UNSET" makes those pages throw
+// (e.g. Subscription.getLimits does JSON.parse(ZEN_LIMITS)). Give them a valid-SHAPED default so the app renders
+// (the feature stays inert / zeroed) until a real value is set. Match the Zod schema in console-core.
+const DEFAULTS: Record<string, string> = {
+  ZEN_LIMITS: JSON.stringify({
+    free: { promoTokens: 0, dailyRequests: 0, dailyRequestsFallback: 0, checkHeaders: {} },
+    lite: { rollingLimit: 0, rollingWindow: 1, weeklyLimit: 0, monthlyLimit: 0 },
+    black: {
+      "20": { fixedLimit: 0, rollingLimit: 0, rollingWindow: 1 },
+      "100": { fixedLimit: 0, rollingLimit: 0, rollingWindow: 1 },
+      "200": { fixedLimit: 0, rollingLimit: 0, rollingWindow: 1 },
+    },
+  }),
+}
+const valueOf = (n: string) =>
+  process.env[n]?.trim() ? process.env[n]! : env[n]?.trim() ? env[n] : (DEFAULTS[n] ?? PLACEHOLDER)
 const body = sorted.map((n) => `${n}=${valueOf(n)}`).join("\n") + "\n"
 writeFileSync(".env.deploy", body)
 
