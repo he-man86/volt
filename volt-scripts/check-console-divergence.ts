@@ -26,13 +26,12 @@ const ALLOW = new Set([
   // use-case edits (dev-only / presentation, marked VOLT:)
   "function/src/auth.ts",
   "app/src/routes/workspace/[id]/index.tsx", // Zen landing → redirect to Go
-  "app/src/routes/workspace/[id].tsx", // Zen nav tab hidden
+  "app/src/routes/workspace/[id].tsx", // Zen nav tab hidden + opencode <Legal> footer removed (legal lives on volt-www)
   // Volt branding — an ADDITIVE override, not an edit to opencode source. This is the ONLY branding file in the
   // divergence footprint: opencode's own style/token/*.css stay byte-identical (they pull bugfixes conflict-free).
   "app/src/style/volt-theme.css",
   // Phase-2 public-surface strip: opencode's marketing landing (`/`) is replaced by a redirect to the app.
   "app/src/routes/index.ts",
-  "app/src/component/legal.tsx", // "© Anomaly" + opencode /brand link → "© Volt" (renders in the authed shell)
   // Volt-only
   "VENDORED.md",
 ])

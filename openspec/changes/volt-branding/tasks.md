@@ -97,14 +97,15 @@ vs. replace/drop) is the table in Decision 3.
       Kept functional set: `workspace*`, `auth/`, gateway `zen/{go,util,v1}`, `api/`, `stripe/`, `honeycomb/`,
       `openapi/changelog.json`. **typecheck green** (no broken imports).
 - [x] `routes/index.ts` (new) — `/` → `redirect("/auth")` (console home is the app, not opencode's landing).
-- [x] `component/legal.tsx` — renders in the AUTHED shell, so its "© Anomaly" + opencode `/brand`/ToS/Privacy links
-      → "© Volt" + language picker. `config.ts` (opencode.ai/anomalyco) imported by **no** kept route → dormant,
-      left pristine.
+- [x] **Legal footer removed from the authed shell** — `workspace/[id].tsx` no longer renders opencode's `<Legal>`
+      ("© Anomaly" + opencode ToS/Privacy). Volt's legal lives on volt-www, not the account console, so
+      `component/legal.tsx` is left **pristine + off the gate** (not edited). `config.ts` (opencode.ai/anomalyco)
+      imported by no kept route → dormant, left pristine.
 - [x] Divergence gate: `DROPPED` prefix list for the deleted proxies so they don't balloon `ALLOW`; `DIVERGENCE.md`
       updated to the hybrid. Gate green (**22 intended, 0 unexpected** — down from 34; marketing pages left the diff).
-- [ ] **Legal follow-up — Volt's own ToS/Privacy on volt-www.** opencode's legal text (binds users to Anomaly
-      Innovations) is left dormant, NOT reused. Author Volt's ToS/Privacy (Volt/counsel), host them as `volt-www`
-      pages, and wire the console's `legal.tsx` footer to link there cross-site. The binding text is Volt's to provide.
+- [ ] **Legal follow-up — Volt's own ToS/Privacy on volt-www.** The volt-www legal pages are placeholders; author
+      Volt's real ToS/Privacy (Volt/counsel) to replace them. The console no longer shows a legal footer at all
+      (removed), so there's nothing to wire back — legal is purely a volt-www concern now.
 ### Deploy + domain split (infra)
 - [x] **`infra/www.ts`** (new) — `sst.cloudflare.StaticSite` for `volt-www`: `build: bun run build → dist`, served
       at the **apex** `domain` with `www.${domain}` → apex redirect; bakes `VITE_CONSOLE_URL=https://app.${domain}`

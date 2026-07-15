@@ -58,11 +58,12 @@ from **one Volt-owned file**:
   Encoded as the gate's `DROPPED` prefix list (a dir or any file under it) so the deletions don't balloon `ALLOW`.
 - **Added** `routes/index.ts` (Volt, in `ALLOW`) — `/` → `redirect("/auth")` (the console home is the app, not
   opencode's landing).
-- **`component/legal.tsx`** (marked edit, in `ALLOW`; it renders in the AUTHED shell, so it had to change) —
-  opencode's footer said "© Anomaly", linked opencode's `/brand` kit, and linked opencode's ToS/Privacy **whose
-  text binds users to ANOMALY INNOVATIONS, INC.** (legally wrong for Volt). Stripped to "© Volt" + the language
-  picker. **Volt's own ToS/Privacy are a follow-up: authored by Volt, hosted on `volt-www`, linked here
-  cross-site** — do NOT reuse opencode's legal text (which is why opencode's `legal/` is left dormant, not adopted).
+- **Legal footer removed from the authed shell** — `routes/workspace/[id].tsx` no longer renders opencode's
+  `<Legal>` (which showed "© Anomaly" + opencode's `/brand` and ToS/Privacy links, whose text binds users to
+  ANOMALY INNOVATIONS, INC.). Volt's legal lives on the public site (`volt-www`), not the account console, so the
+  console footer just drops it. `component/legal.tsx` is therefore left **pristine + unused** (off the gate) — not
+  edited. NB: the footer language picker went with it (it was only rendered inside `<Legal>`); the console is
+  account-management and locale still resolves from cookie/browser, so this is acceptable.
 - `config.ts` (opencode.ai/anomalyco) is imported by **no** kept route after the strip → dormant, left pristine.
 
 **Use-case edits (minimal, marked, both non-load-bearing):**
@@ -73,7 +74,7 @@ from **one Volt-owned file**:
   `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
   product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.
 - `app/src/routes/workspace/[id].tsx` — the "Zen" nav tab is wrapped in `<Show when={false}>` (both the desktop and
-  mobile nav). Reverts by deleting the two `Show`s.
+  mobile nav), **and** opencode's `<Legal>` footer is removed (see the strip section — legal lives on volt-www).
 
 **Volt-only (not opencode source):** `VENDORED.md` (provenance).
 

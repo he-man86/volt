@@ -3,7 +3,6 @@ import { createAsync, RouteSectionProps, useParams, A } from "@solidjs/router"
 import { querySessionInfo } from "./common"
 import "./[id].css"
 import { useI18n } from "~/context/i18n"
-import { Legal } from "~/component/legal"
 
 export default function WorkspaceLayout(props: RouteSectionProps) {
   const params = useParams()
@@ -78,7 +77,8 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
         </nav>
         <div data-component="workspace-content">
           <div data-component="workspace-main">{props.children}</div>
-          <Legal />
+          {/* VOLT: opencode's <Legal> footer (© Anomaly + its ToS/Privacy) removed — Volt's legal lives on the
+              public site (volt-www), not the account console. This leaves component/legal.tsx pristine + unused. */}
         </div>
       </div>
     </main>
