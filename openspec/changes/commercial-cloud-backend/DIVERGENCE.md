@@ -80,7 +80,8 @@ from **one Volt-owned file**:
   `data-component` structure so the token-themed `[id].css` applies. Only backend touch: `querySessionInfo` (isAdmin).
   Trade-off: no longer pulls opencode's *shell-layout* changes (the views still do); the shell is trivial + stable.
 
-**Volt-only (not opencode source):** `VENDORED.md` (provenance).
+**Volt-only files:** none — this doc + `check-console-divergence.ts` are the provenance record (the old
+`packages/console/VENDORED.md` was removed to keep the vendored tree byte-clean vs. opencode).
 
 **Explicitly reverted to opencode-original** (do NOT re-introduce): `app/src/middleware.ts` (a route-redirect
 experiment) and `app/src/routes/zen/v1/models.ts` (debug logging) — both confirmed byte-identical again. And

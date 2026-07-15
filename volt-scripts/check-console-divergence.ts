@@ -35,9 +35,6 @@ const ALLOW = new Set([
 
   // ── Backend use-case edit ──
   "function/src/auth.ts", // dev-only CONSOLE_DEV_EMAILS login allowlist (production runs opencode's original)
-
-  // ── Volt-only file (no opencode counterpart) ──
-  "VENDORED.md", // provenance
 ])
 
 // Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —

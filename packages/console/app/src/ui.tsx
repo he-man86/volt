@@ -1,6 +1,6 @@
 // Inlined from opencode's @opencode-ai/ui — only the bits console/app actually used
 // (createSimpleContext + Favicon). The rest of that package (v2/, icons, agent-GUI
-// components) was unused here, so it's not vendored. See packages/console/VENDORED.md.
+// components) was unused here, so it's not vendored. See openspec/changes/commercial-cloud-backend/DIVERGENCE.md.
 import { createContext, createMemo, Show, useContext, type ParentProps, type Accessor } from "solid-js"
 import { Meta, Link } from "@solidjs/meta"
 
