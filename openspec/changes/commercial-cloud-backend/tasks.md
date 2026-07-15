@@ -1,5 +1,12 @@
 Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned to opencode **`v1.17.20`**
-(git-recoverable priors: `db73e8d459`). Stages 0/2/3/4 remain; Stage 1 (vendor + green) is done.
+(git-recoverable priors: `db73e8d459`).
+
+**STATUS (2026-07-15): LIVE + working end-to-end on `dev.volt-ai.dev`.** Stages 0–4b are DONE — deployed, Google
+login → **€24 Go subscription** → metered gateway completion, all proven. The product is **Go only** (€24/mo, 50%
+margin via 2× markup, top-up for overage; Black dropped). Auto-deploys on merge to `dev`. **What genuinely remains:**
+(1) **Stripe go-live** (test→live keys) to take real money; (2) **production stage** (env + secrets + apex domain);
+(3) **Discord webhook** to switch on the ready-to-go Honeycomb monitoring; (4) **email/SES** for invites (not login);
+(5) **Stage 5 rebrand** (deferred, own change). Everything below is marked to reality.
 
 ## Stage 0 — accounts & providers — NEARLY DONE (blocked only on DNS propagation)
 - [x] **Infra rewired for Volt**: `sst.config.ts` name→`volt`, AWS profiles→`volt-*`, dropped `honeycomb` provider
@@ -40,11 +47,10 @@ Scope this precisely (tested on Windows):
       (`DEFAULT (… ON UPDATE …)` — Vitess rejects it). `migrate` uses the correct committed SQL.
 - [x] **AWS provider removed** — infra creates zero AWS resources (email is SES-over-HTTP, not the provider), so
       the unused `aws` provider is gone from `sst.config.ts` (no init-fail on a missing profile).
-- [ ] **Set ALL linked SST secrets** — `sst deploy` errors on the first *unset* one (the Console worker links 48,
-      incl. `ZEN_MODELS1..30`). **Tooling ready:** `bun volt-scripts/deploy-secrets.ts` expands `.env` → a complete
-      `.env.deploy` (real where present, `""` stubbed), then `bunx sst secret load .env.deploy --stage <stage>` (or
-      the script's `--apply <stage>`). Verified: generates all 48 (7 filled today; Upstash/ZEN_MODELS/SES get real
-      values later at Stage 4b/invites).
+- [x] **All linked SST secrets set** — the 48 (incl. `ZEN_MODELS1..30`) are loaded per-stage via
+      `deploy-secrets.ts` + `set-models.ts` in the deploy job. Real values now filled: Stripe, OAuth (Google +
+      GitHub), `ZEN_SESSION_SECRET`, Upstash, DeepSeek + Anthropic (`ZEN_MODELS`), `ZEN_LIMITS`, Honeycomb. Still
+      placeholder (feature inert): SES/email, Discord webhook, Salesforce.
 
 ### Then deploy — from CI (Windows can't build the web app) or WSL/Linux
 - [x] **SST secrets set (dev) — done + Windows-verified.** `sst secret load` ran on Windows (exit 0, no build, not
@@ -72,17 +78,16 @@ Scope this precisely (tested on Windows):
   `GOOGLE_CLIENT_SECRET`), gateway rate-limit (`UpstashRedis*`, `ZEN_LIMITS`), gateway upstream keys (`ZEN_MODELS*`),
   email (`AWS_SES_*`, `EMAILOCTOPUS_API_KEY`), support portal, Salesforce, Discord alerts. Real today: Stripe,
   `ZEN_SESSION_SECRET`, `GOOGLE_CLIENT_ID`, Honeycomb. Deploy #1 proves the spine stands up; provisioning is next.
-- [ ] `bun run db:dev migrate` — schema already on `main` (24 tables) and the dev branch inherits it, so this is a
-      no-op confirm for the first dev deploy; run it after future schema changes.
-- [ ] Verify: sign up (GitHub/Google OAuth — **no email needed for login**) writes account/user/workspace rows.
+- [x] `bun run db:dev migrate` — schema on `main` (24 tables), dev inherits it; confirmed at deploy (idempotent).
+      Re-run only after future schema changes.
+- [x] Verify: sign up (Google OAuth — **no email needed for login**) writes account/user/workspace rows. Proven —
+      the funnel is live end-to-end.
 - Note: the workflow's *structure* is proven (mirrors opencode + verified adaptations). The **first real deploy**
   is the end-to-end proof — it needs the domain + secrets + first-run SST bootstrap, which can't be dry-run.
 
 ## Open process items (found in review — not deploy-blockers but required)
-- [ ] **Merge `commercial-cloud-backend` → `dev`** (43 commits). Required twice over: `deploy.yml` is only
-      dispatchable from the **default branch** (`dev`), and none of this ships until merged. Big diff — review
-      first (the volt product surface is untouched; the change is additive `packages/console/*` + `infra/*` +
-      config). The volt `--filter='*'` gate + console tests are green, so CI should pass.
+- [x] **Merged `commercial-cloud-backend` → `dev`.** The change shipped to `dev`; `dev` is now the protected trunk
+      with auto-deploy on merge (see `.github/workflows/deploy.yml`).
 - [ ] **Production GitHub environment + secrets** — only `dev` is set. Create the `production` environment with
       **production** values (live Stripe key, etc.) when going live — do NOT reuse dev/test values.
 - [ ] **`adapt-commercial-backend`** — the Stage 5 rebrand + billing-product swap is referenced as its own change
@@ -106,46 +111,49 @@ Scope this precisely (tested on Windows):
 
 ## Stages 2–3 — DB + deploy → see **▶ RESUME HERE** above (consolidated; these were duplicates).
 
-## Stage 4 — billing loop (prove a subscription end-to-end)
-- [ ] `console/app` is the as-is feature-test frontend (opencode-branded — fine for now; rebrand at Stage 5).
-- [ ] Since we use the **`black`** product (Go/`lite` dropped), drive the checkout via the **black plan** path
-      (`BlackData.planToPriceID`, not `Billing.generateLiteCheckoutUrl`). Make sure `ZenBlack`'s 3 prices exist
-      (they're created by `infra/console.ts` on deploy).
-- [ ] Sign up → pick a plan → Stripe Checkout (**test mode**) → webhook (`/stripe/webhook`) writes a subscription
-      row. Verify the loop end-to-end on `dev`. **This is "billing works."** Gateway serving = Stage 4b.
+## Stage 4 — billing loop — DONE ✅ (subscription proven end-to-end)
+- [x] `console/app` is the as-is feature-test frontend (opencode-branded — fine for now; rebrand at Stage 5). The
+      **Zen tab is retired** and the workspace home redirects to **Go** (see DIVERGENCE.md).
+- [x] We use the **Go / `lite`** product (Black dropped) — checkout goes through `Billing.generateLiteCheckoutUrl`
+      → `ZenLite` €24 price (created by `infra/console.ts` on deploy).
+- [x] Sign up → Go checkout → Stripe (test mode) → webhook (`/stripe/webhook`) writes the subscription row.
+      **Verified end-to-end on `dev`:** Google login → €24 Go subscription → the `lite` row synced correctly.
 
-## Pricing model (decided — configure at Stage 4b)
-**One product, three flat tiers, same models on all, differentiated by a monthly spend allowance.** Use opencode's
-`black` structure only (drop `lite`/Go) — every tier shares one clean limit mechanic: `fixedLimit` (the $ allowance)
-+ `rollingLimit`/`rollingWindow` (burst guard). The gateway meters each request in real model cost
-(`costInfo.totalCostInCent`), so allowances are in **dollars of model usage** → margin-safe and model-agnostic.
-- **3 tiers**, e.g. **$24 / $59 / $99** (start with 2 rungs if simpler; switch the 3rd on later — no rework).
-- All tiers can use **DeepSeek + Claude**. No model gating — cost-metering does the upselling: Claude costs ~10×
-  DeepSeek/token, so Claude-heavy users burn their allowance faster and climb the ladder; DeepSeek users stay low.
-- **Keep the DB enum keys `"20"/"100"/"200"` as internal plan IDs** (`BlackPlans`, `mysqlEnum("subscription_plan")`
-  — renaming is a schema change, not worth it). Remap each key's **Stripe price** + **`fixedLimit`** to your
-  numbers. Customer-facing names ("Starter/Pro/Max") come from Stripe, not the enum.
-- **Drop `lite`/Go**: the `zen/go/v1/*` routes + Go pricing UI become vestigial (cleanup at Stage 5, not a blocker).
-  The **free trial tier** (`free` limits) stays regardless.
-- **Overage at the cap** — decide: hard stop ("upgrade to continue", stronger upsell) vs. metered pay-as-you-go on
-  top (opencode's "Zen" model — more revenue, weaker upgrade pressure).
-- Config touch-points: `infra/console.ts` (3 Stripe prices under `ZenBlack`), `ZEN_LIMITS` (the `black.{20,100,200}`
-  `fixedLimit`/rolling values), `Subscription.LimitsSchema`.
+## Pricing model — DECIDED + IMPLEMENTED ✅ (the inverse of the earlier Black plan below)
+**One product: Go — €24/month, flat.** We use opencode's **`lite`** path (NOT `black` — the 3-tier idea was
+reversed). DeepSeek + Claude are both available, no model gating. Margin is guaranteed **structurally by a 2×
+markup**: `models.json` prices every model at double the provider's real rate and the gateway meters each request in
+that marked-up cost — so every request nets ~50% regardless of model mix, no per-tier math needed. Live + proven
+end-to-end (Google login → €24 Go subscription → metered DeepSeek completion on `dev.volt-ai.dev`).
+- [x] **Price €24/mo** — `infra/console.ts` `zenLitePrice` (`unitAmount: 2400`, `currency: "eur"`).
+- [x] **50% margin via 2× markup** — `models.json`: DeepSeek `5.4e-7/2.2e-6`, Claude `6e-6/3e-5` (exactly double the
+      real rates). Margin-safe and model-agnostic by construction — the "unit economics" question is answered.
+- [x] **Allowance + free trial** — `ZEN_LIMITS` set with real values: `lite` = `monthlyLimit 24` + rolling guards
+      (rollingLimit 12 / window 24 / weekly 8); `free` = 1M promo tokens, 50 daily requests. `liteModels` =
+      deepseek-chat + claude-sonnet-4-5.
+- [x] **Overage = top-up** (decided) — beyond the allowance, users top up a Zen balance (PAYG, kept on the Billing
+      tab). No hard stop; metered-on-top.
+- [x] **Black dropped** — the 3-tier Black product + `zen/black` routes stay dormant/pristine (unlinked, unbilled);
+      the Zen tab is already retired from the dashboard. Full route cleanup is a Stage 5 nicety, not a blocker.
+- Config touch-points (all set): `infra/console.ts` (`ZenLite` €24 price), `models.json` (`liteModels` + 2× cost),
+  `ZEN_LIMITS` (`lite`/`free`), `volt-config/opencode.json` (agent → `/zen/go/v1`).
 
-## Stage 4b — LLM gateway (IN scope — Volt sells subscriptions too)
-The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch model set: DeepSeek (budget/margin)
-+ Claude (premium quality)** — start lean, not opencode's 20-model catalog. To make it serve/resell:
-- [ ] **Upstash Redis** account → `UpstashRedisRestUrl` / `UpstashRedisRestToken` (rate-limit + budget state).
-- [ ] **Provider keys** → `ZEN_MODELS*` secrets: your **Anthropic** key + your **DeepSeek** key (the pool the
-      gateway rotates). Set `ZEN_LIMITS`.
-- [ ] **Model catalog** (DB `model` table, edited via `update-models` against the live DB — post-migration): add
-      **2 entries** — Claude (`format: "anthropic"`, cost = Claude pricing) and DeepSeek (`format: "oa-compat"`,
-      DeepSeek endpoint, cost = DeepSeek pricing). Schema: `console/core/src/model.ts` `ZenData.ModelSchema`.
-- [ ] (Recommended) **Validate model quality on PLC tasks** before launch — run real ST/FBD tasks through DeepSeek
-      vs Claude via the corpus/conformance harness. (Both models are on every tier — this is to size the DeepSeek
-      cost/quality story and set allowances, not to gate models per tier.)
-- [ ] Verify end-to-end: subscribe → get API key → point a client at `zen/v1/{chat/completions,messages}` →
-      request proxies upstream, metered + rate-limited.
+> _Superseded plan (kept for context): the original design was one product with **three Black tiers** ($24/$59/$99)
+> differentiated by `fixedLimit`, dropping `lite`/Go. We reversed it — single Go/`lite` tier + top-up for overage —
+> because one flat price + PAYG overage is simpler to sell and the 2× markup makes tiering unnecessary for margin._
+
+## Stage 4b — LLM gateway — DONE ✅ (serving, metered, proven)
+The Zen gateway (`console/app/routes/zen/*`) is live. **Launch model set: DeepSeek (budget/margin) + Claude (premium
+quality)** — lean, not opencode's 20-model catalog.
+- [x] **Upstash Redis** — `UpstashRedisRestUrl` / `UpstashRedisRestToken` set (rate-limit + budget state).
+- [x] **Provider keys** → `ZEN_MODELS*`: Anthropic + DeepSeek keys loaded (via `set-models.ts` from `models.json`,
+      chunked into `ZEN_MODELS1..30`). `ZEN_LIMITS` set.
+- [x] **Model catalog** — `models.json` carries the 2 entries (deepseek-chat `oa-compat`, claude-sonnet-4-5
+      `anthropic`) at 2× cost; `liteModels` exposes both on Go. Provisioned into the gateway on every deploy.
+- [ ] (Recommended, not a blocker) **Validate model quality on PLC tasks** — run real ST/FBD tasks through DeepSeek
+      vs Claude via the corpus/conformance harness, to size the DeepSeek cost/quality story.
+- [x] **Verified end-to-end** — a real DeepSeek completion flowed through the Go/`lite` endpoint (`/zen/go/v1`)
+      honoring the subscription, metered + rate-limited. The agent (`volt-config`) is wired to it and proven.
 
 ## ⚠ Open gaps / decisions still needed (found in review — not yet in the plan)
 - **THE LINCHPIN — agent ↔ gateway wiring — LARGELY BUILT** (commit adds it to `volt-config`):
@@ -156,19 +164,18 @@ The Zen gateway (`console/app/routes/zen/*`) is kept and functional. **Launch mo
             `@opencode-ai/plugin`. Credential stored by opencode's auth (no env var, survives config merges).
       - The paste-key method **is opencode's real flow** (confirmed via opencode.ai/docs/zen: "copy your API key"
         → "run `/connect` … paste your API key"). So this matches Zen 1:1 — not an MVP to replace.
-      - [ ] **Align model IDs** with the gateway catalog at Stage 4b (`deepseek-chat`/`claude-sonnet-4-5` must
-            match what `/v1/models` serves).
+      - [x] **Model IDs aligned** — `deepseek-chat`/`claude-sonnet-4-5` match what the Go endpoint serves (`liteModels`).
       - [ ] **Set opencode's default model** to the cheap tier (DeepSeek) so users don't accidentally burn Claude.
-      - [ ] **Test end-to-end** once the backend is deployed + a subscription key exists (sign up → keys page →
-            copy → `/connect` → Volt → paste → `/models`).
+            (Small config nicety in `volt-config`; not blocking.)
+      - [x] **Tested end-to-end** — sign up → subscribe → key → agent completion proven on `dev`.
       - Optional later: a browser device-flow (`type: "oauth"`) would remove the copy-paste, but it's a nicety —
         opencode itself doesn't do it for Zen. Not a gap.
-- [ ] **Unit economics — do the math.** Set each tier's `fixedLimit` allowance vs. real DeepSeek/Claude token
-      costs vs. the $24/$59/$99 price so every tier is margin-positive at max usage. No numbers exist yet.
-- [ ] **Free-trial terms** — define `free` limits (`promoTokens`, `dailyRequests`): what a non-subscriber gets.
-- [ ] **Overage behavior** — decide hard-stop vs. metered pay-as-you-go at the cap (affects churn vs. revenue).
+- [x] **Unit economics — solved structurally.** The 2× markup makes every request ~50% margin regardless of model
+      mix, so no per-tier allowance math is needed. `lite` `monthlyLimit` = $24 of (marked-up) usage.
+- [x] **Free-trial terms — set.** `ZEN_LIMITS.free` = 1M promo tokens, 50 daily requests (10 fallback).
+- [x] **Overage behavior — decided.** Metered top-up (Zen balance, PAYG) on the Billing tab; no hard stop.
 - [ ] **Stripe go-live** — we deploy with **test** keys; real charging needs Stripe account activation + live keys
-      + the live webhook. Separate from the dev deploy.
+      + the live webhook. Separate from the dev deploy. **(The one true remaining gate to take real money.)**
 - [ ] **Production apex domain** — `volt-ai.dev` apex still has Hostnet's A record; a prod deploy (vs `dev.`) will
       collide. Resolve when going past the `dev` stage.
 - [ ] **Email (SES)** — only needed for workspace invites + the enterprise-contact page, not login. Stub `AWS_SES_*`
@@ -183,10 +190,11 @@ Three layers; #1 is the core "success rate" ask.
    (`function/src/log-processor.ts` → `api.honeycomb.io/1/batch/zen`); the event carries error signals too
    (`status`, `llm.error`, `error_type`, `error.response`), so **error visibility comes from Honeycomb — no
    separate error tracker needed**. To activate:
-   - [ ] Create a Honeycomb account → set `HONEYCOMB_API_KEY` (env, for the provider) + the secret (for the send).
-         Then `sst install` pulls the honeycomb provider → `monitoring.ts` typechecks → `sst deploy` creates the
-         error-rate SLOs + triggers (Increased Model/Provider HTTP Errors, Low TPS, Free-tier abuse).
+   - [x] Honeycomb account + `HONEYCOMB_API_KEY` set (`.env` + `dev` GitHub secret). **Note:** the deploy job still
+         omits it *on purpose* — enabling it activates `monitoring.ts`, which needs a real `DISCORD_INCIDENT_WEBHOOK_URL`
+         (still empty). Wire both together: add `HONEYCOMB_API_KEY` to the deploy env once Discord is provisioned.
    - [ ] Alerts route via `honeycomb/webhook` route → set `DISCORD_INCIDENT_WEBHOOK_URL` (Discord/Slack) for Volt.
+         **This is the one thing gating monitoring** — the Honeycomb half is ready.
    - Note: `monitoring.ts` alerts self-disable off-production (`alertsDisabled = stage !== "production"`).
 2. **AI usage statistics** — **per-user usage is ALREADY built + vendored, not a gap.** The gateway meters every
    request into `UsageTable` (`input_tokens`/`output_tokens`/`cache_read_tokens`/`reasoning_tokens`/`cost`/model)
