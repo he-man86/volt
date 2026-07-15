@@ -77,8 +77,9 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           ZEN_SESSION_SECRET: ${{ secrets.ZEN_SESSION_SECRET }}
-          GITHUB_CLIENT_ID_CONSOLE: ${{ secrets.GITHUB_CLIENT_ID_CONSOLE }}
-          GITHUB_CLIENT_SECRET_CONSOLE: ${{ secrets.GITHUB_CLIENT_SECRET_CONSOLE }}
+          # GitHub Actions reserves the GITHUB_ secret-name prefix, so these are stored as GH_* and mapped here.
+          GITHUB_CLIENT_ID_CONSOLE: ${{ secrets.GH_CLIENT_ID_CONSOLE }}
+          GITHUB_CLIENT_SECRET_CONSOLE: ${{ secrets.GH_CLIENT_SECRET_CONSOLE }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
           UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
