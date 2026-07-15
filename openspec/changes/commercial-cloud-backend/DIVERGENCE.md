@@ -29,8 +29,11 @@ Only these differ in `packages/console/*` — everything else is byte-identical 
 - `function/src/auth.ts` — ~17 lines: replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a
   configurable `CONSOLE_DEV_EMAILS` allowlist. **Dev-only** — the gate is `stage !== "production"`, so **production
   runs opencode's original untouched.**
-- `app/src/routes/workspace/[id]/index.tsx` — one `<Show when={false}>` hiding the opencode Zen banner on the
-  workspace home (our product is Go). Reverts by deleting one line.
+- `app/src/routes/workspace/[id]/index.tsx` — the Zen landing (opencode's PAYG model catalog + BYOK-gateway
+  `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
+  product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.
+- `app/src/routes/workspace/[id].tsx` — the "Zen" nav tab is wrapped in `<Show when={false}>` (both the desktop and
+  mobile nav). Reverts by deleting the two `Show`s.
 
 **Volt-only (not opencode source):** `VENDORED.md` (provenance).
 

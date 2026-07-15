@@ -23,7 +23,8 @@ const ALLOW = new Set([
   "app/src/context/language.tsx",
   // use-case edits (dev-only / presentation, marked VOLT:)
   "function/src/auth.ts",
-  "app/src/routes/workspace/[id]/index.tsx",
+  "app/src/routes/workspace/[id]/index.tsx", // Zen landing → redirect to Go
+  "app/src/routes/workspace/[id].tsx", // Zen nav tab hidden
   // Volt-only
   "VENDORED.md",
 ])

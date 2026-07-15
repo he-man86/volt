@@ -16,9 +16,12 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
         <nav data-component="workspace-nav">
           <nav data-component="nav-desktop">
             <div data-component="workspace-nav-items">
-              <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.zen")}
-              </A>
+              {/* VOLT: Zen tab hidden — Volt's product is Go (see index.tsx redirect). Revert by deleting the Show. */}
+              <Show when={false}>
+                <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
+                  {i18n.t("workspace.nav.zen")}
+                </A>
+              </Show>
               <A href={`/workspace/${params.id}/go`} activeClass="active" data-nav-button>
                 {i18n.t("workspace.nav.go")}
               </A>
@@ -44,9 +47,12 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
 
           <nav data-component="nav-mobile">
             <div data-component="workspace-nav-items">
-              <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
-                {i18n.t("workspace.nav.zen")}
-              </A>
+              {/* VOLT: Zen tab hidden — Volt's product is Go (see index.tsx redirect). Revert by deleting the Show. */}
+              <Show when={false}>
+                <A href={`/workspace/${params.id}`} end activeClass="active" data-nav-button>
+                  {i18n.t("workspace.nav.zen")}
+                </A>
+              </Show>
               <A href={`/workspace/${params.id}/go`} activeClass="active" data-nav-button>
                 {i18n.t("workspace.nav.go")}
               </A>
