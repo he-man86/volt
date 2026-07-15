@@ -46,6 +46,9 @@ const ALLOW = new Set([
 const DROPPED = [
   // opencode's `/` marketing landing → replaced by routes/index.ts (a redirect to /auth), so index.* is gone
   "app/src/routes/index.tsx", "app/src/routes/index.css",
+  // temp.tsx — opencode's scratch home mockup (opencode branding; imported the now-deleted root index.css). Not a
+  // real page; deleted (can't be "kept pristine" — its CSS import broke the SolidStart build).
+  "app/src/routes/temp.tsx",
   // proxies/redirects to opencode's own docs / stats / community (they actively serve/redirect to opencode)
   "app/src/routes/docs", "app/src/routes/data", "app/src/routes/stats", "app/src/routes/s", "app/src/routes/t",
   "app/src/routes/desktop-feedback.ts", "app/src/routes/discord.ts", "app/src/routes/feishu.ts",
