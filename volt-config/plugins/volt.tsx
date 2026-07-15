@@ -9,7 +9,11 @@
  * `scriptName` in help/usage stays "opencode" (opencode source — non-additive), deferred.
  */
 import { TextAttributes } from "@opentui/core"
-import type { TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
+
+// Minimal local shapes for opencode's TUI plugin surface — Volt depends on the opencode BINARY at runtime (which
+// injects `api` and provides @opentui), not on the @opencode-ai/plugin npm package. We only use slots.register.
+type TuiPluginApi = { slots: { register(input: { slots: Record<string, () => unknown> }): void } }
+type TuiPluginModule = { tui(api: TuiPluginApi): void }
 
 const ACCENT = "#E0651F" // Volt orange (theme `accent`)
 const MUTED = "#6E665B" // theme `muted`

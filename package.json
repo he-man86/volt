@@ -56,6 +56,7 @@
   "devDependencies": {
     "@typescript/native-preview": "catalog:",
     "husky": "9.1.7",
+    "zod": "catalog:",
     "oxlint": "1.60.0",
     "oxlint-tsgolint": "0.21.0",
     "prettier": "3.6.2",

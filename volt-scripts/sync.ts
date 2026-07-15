@@ -2,10 +2,10 @@
 /**
  * Volt ⇄ opencode compat gate.
  *
- * Volt is opencode-independent: opencode is a user-provided runtime (`@opencode-ai/plugin` from npm + the
- * installed binary), not a fork. This is the single command to run on each opencode version bump — it confirms
- * the current opencode still loads Volt's config: deps resolve, the wiring is intact, and the LSP + `volt` tool
- * actually load in the installed opencode.
+ * Volt is opencode-independent: opencode is a user-provided runtime (the installed binary — no npm dependency;
+ * the `volt` tool/plugins carry no `@opencode-ai/plugin`), not a fork. This is the single command to run on each
+ * opencode binary bump — it confirms the current opencode still loads Volt's config: deps resolve, the wiring is
+ * intact, and the LSP + `volt` tool actually load in the installed opencode.
  *
  *     bun volt-scripts/sync.ts
  *
