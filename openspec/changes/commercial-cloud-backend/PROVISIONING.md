@@ -20,19 +20,16 @@ secrets + a redeploy. `set-models.ts` handles the gateway catalog the same way (
 ## Tier 0 — SECURITY (do first)
 - [x] **Deleted the exposed `cfat_` token** (2026-07-15). The working `cfut_` deploy token verified still active.
 
-## Tier 1 — Login (a user can sign in)
-Callback URLs (confirmed live, `/{provider}/callback` on the issuer):
-- GitHub: `https://auth.dev.volt-ai.dev/github/callback`
-- Google: `https://auth.dev.volt-ai.dev/google/callback`
-
-- [ ] **GitHub OAuth app** — github.com → Settings → Developer settings → OAuth Apps → New.
-      Homepage `https://dev.volt-ai.dev`, callback = the GitHub URL above. Then add secrets:
-      `GITHUB_CLIENT_ID_CONSOLE`, `GITHUB_CLIENT_SECRET_CONSOLE`.
-- [ ] **Google OAuth** — the client ID (`GOOGLE_CLIENT_ID`) already exists in `.env`; add it as a GitHub secret
-      (authorize the secret write). In Google Cloud Console → the OAuth client → add the Google callback URL above
-      to "Authorized redirect URIs". (OIDC uses only the client ID — no `GOOGLE_CLIENT_SECRET` needed by the code.)
-- [ ] Add `ZEN_SESSION_SECRET` (already real in `.env`) as a GitHub secret — signs auth sessions.
-- [ ] Redeploy → `/github/authorize` + `/google/authorize` should stop 503'ing, and `dev.volt-ai.dev` login works.
+## Tier 1 — Login ✅ LIVE (deploy #11, 2026-07-15)
+Callbacks (verified live): `https://auth.dev.volt-ai.dev/{github,google}/callback`.
+- [x] **GitHub OAuth** — app created; creds stored as GitHub secrets **`GH_CLIENT_ID_CONSOLE` / `GH_CLIENT_SECRET_CONSOLE`**
+      (the `GITHUB_` name prefix is reserved by Actions), mapped to `GITHUB_CLIENT_*_CONSOLE` in `deploy.yml`.
+      `/github/authorize` → 302 to GitHub with real `client_id` + correct callback + scopes `read:user`,`user:email`.
+      ⚠️ **The client SECRET was 20 chars** (GitHub secrets are usually 40) — if a real login bounces at the callback
+      (token exchange), re-copy the full secret and reset `GH_CLIENT_SECRET_CONSOLE`.
+- [x] **Google OAuth** — `GOOGLE_CLIENT_ID` set (OIDC, no secret needed); callback registered in Google Cloud.
+      `/google/authorize` → 302. Functionally live.
+- [x] **`ZEN_SESSION_SECRET`** set (real) — signs the console session; was the root of the earlier `503`s.
 
 ## Tier 2 — Gateway (it serves models)
 - [ ] **Provider keys** — get a **DeepSeek** API key (platform.deepseek.com) and an **Anthropic** API key
