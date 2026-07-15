@@ -21,9 +21,9 @@ Only these differ in `packages/console/*` — everything else is byte-identical 
 - `app/package.json` — dropped the `@opencode-ai/ui` dep + the `../../opencode/script/schema.ts` build step (that
   package is gone); added `@fontsource-variable/{inter,jetbrains-mono}` for the self-hosted Volt brand type (below).
 - `app/src/ui.tsx` (new) — the two things `console/app` used from `@opencode-ai/ui` (`createSimpleContext`, `Favicon`), inlined.
-- `app/src/app.tsx` — the `@opencode-ai/ui` → `~/ui` import rewrite, **plus one line**: `import
-  "./style/volt-theme.css"` (the brand override, after `./app.css`). `app/src/context/i18n.tsx`,
-  `app/src/context/language.tsx` — import-line rewrites.
+- `app/src/app.tsx` — the `@opencode-ai/ui` → `~/ui` import rewrite; the `import "./style/volt-theme.css"` brand
+  override (after `./app.css`); and the authed-app `<Title>` `"opencode"` → `"Volt"` (browser tab).
+  `app/src/context/i18n.tsx`, `app/src/context/language.tsx` — import-line rewrites.
 
 **Branding reskin (volt-branding Phase 1) — an ADDITIVE override, zero edits to opencode source.** The console
 consumes every brand-able value through a CSS custom-property token layer, so the whole authenticated app reskins
@@ -68,9 +68,11 @@ from **one Volt-owned file**:
 - `config.ts` (opencode.ai/anomalyco) is imported by **no** kept route after the strip → dormant, left pristine.
 
 **Use-case edits (minimal, marked, both non-load-bearing):**
-- `function/src/auth.ts` — ~17 lines: replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a
-  configurable `CONSOLE_DEV_EMAILS` allowlist. **Dev-only** — the gate is `stage !== "production"`, so **production
-  runs opencode's original untouched.**
+- `function/src/auth.ts` — (a) replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a configurable
+  `CONSOLE_DEV_EMAILS` allowlist (**dev-only**; `stage !== "production"`, so production runs opencode's original);
+  (b) **PUBLIC branding** — the OpenAuth login page (the UI every user sees at `auth.${domain}`) now uses the Volt
+  mark (self-contained data URI) + `title: "Volt"` + orange `primary`, replacing opencode's `favicon-v3.svg`;
+  (c) the GitHub email-fetch `User-Agent` `"opencode"` → `"volt"`.
 - `app/src/routes/workspace/[id]/index.tsx` — the Zen landing (opencode's PAYG model catalog + BYOK-gateway
   `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
   product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.
