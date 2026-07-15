@@ -2,10 +2,20 @@
 function ContactPage() {
   const { Input, Button, Card } = window.VoltDesignSystem_704691;
   const [sent, setSent] = React.useState(false);
+  // ponytail: no backend — submit opens the visitor's mail client to sales@. Add a real endpoint when volume needs an inbox/CRM.
+  const submit = (e) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const name = [f.get("first"), f.get("last")].filter(Boolean).join(" ");
+    const subject = `[Volt] ${f.get("topic") || "Enquiry"}${f.get("company") ? " — " + f.get("company") : ""}`;
+    const body = `${f.get("message")}\n\n—\n${name}${f.get("email") ? " <" + f.get("email") + ">" : ""}${f.get("company") ? "\n" + f.get("company") : ""}`;
+    window.location.href = `mailto:sales@volt-ai.dev?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setSent(true);
+  };
   const channels = [
-    { icon: "doc", t: "Sales", d: "Talk through Enterprise, deployment, and rollout.", a: "sales@volt.dev" },
-    { icon: "flask", t: "Support", d: "Help with the desktop app, CLI, or a connected project.", a: "support@volt.dev" },
-    { icon: "git", t: "Community", d: "Join other automation engineers building with Volt.", a: "Open community →" },
+    { icon: "doc", t: "Sales", d: "Talk through Enterprise, deployment, and rollout.", a: "sales@volt-ai.dev", href: "mailto:sales@volt-ai.dev" },
+    { icon: "flask", t: "Support", d: "Help with the desktop app, CLI, or a connected project.", a: "support@volt-ai.dev", href: "mailto:support@volt-ai.dev" },
+    { icon: "git", t: "Community", d: "Join other automation engineers building with Volt.", a: "Open on GitHub →", href: "https://github.com/he-man86/volt" },
   ];
   const labelStyle = { fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", marginBottom: 6, display: "block" };
   return (
@@ -20,24 +30,24 @@ function ContactPage() {
                 <Icon d={ICONS.check} size={22} stroke="var(--color-success)" />
               </div>
               <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--color-text-primary)", margin: "16px 0 0" }}>Thanks — message sent</h2>
-              <p style={{ fontSize: 15, color: "var(--color-text-secondary)", margin: "8px 0 0" }}>We'll be in touch at the email you provided.</p>
+              <p style={{ fontSize: 15, color: "var(--color-text-secondary)", margin: "8px 0 0" }}>Your mail client should have opened with the message ready to send. If not, email <a href="mailto:sales@volt-ai.dev" style={{ color: "var(--color-link)", textDecoration: "none" }}>sales@volt-ai.dev</a>.</p>
               <div style={{ marginTop: 20 }}><Button variant="outline" onClick={() => setSent(false)}>Send another</Button></div>
             </div>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}>
+            <form onSubmit={submit}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Input label="First name" placeholder="Jordan" required />
-                <Input label="Last name" placeholder="Keller" required />
+                <Input label="First name" name="first" placeholder="Jordan" required />
+                <Input label="Last name" name="last" placeholder="Keller" required />
               </div>
               <div style={{ height: 16 }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Input label="Work email" type="email" placeholder="you@company.com" required />
-                <Input label="Company" placeholder="Acme Automation" />
+                <Input label="Work email" name="email" type="email" placeholder="you@company.com" required />
+                <Input label="Company" name="company" placeholder="Acme Automation" />
               </div>
               <div style={{ height: 16 }} />
               <label style={{ display: "block" }}>
                 <span style={labelStyle}>What can we help with?</span>
-                <select defaultValue="" required style={{
+                <select name="topic" defaultValue="" required style={{
                   width: "100%", height: 40, padding: "0 12px", fontFamily: "var(--font-sans)", fontSize: 14,
                   color: "var(--color-text-primary)", background: "#fff", border: "1px solid var(--color-border)",
                   borderRadius: "var(--radius-md)", outline: "none", appearance: "none",
@@ -53,7 +63,7 @@ function ContactPage() {
               <div style={{ height: 16 }} />
               <label style={{ display: "block" }}>
                 <span style={labelStyle}>Message</span>
-                <textarea rows={4} placeholder="Tell us about your project and PLC platform…" required style={{
+                <textarea name="message" rows={4} placeholder="Tell us about your project and PLC platform…" required style={{
                   width: "100%", padding: "10px 12px", fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: "21px",
                   color: "var(--color-text-primary)", background: "#fff", border: "1px solid var(--color-border)",
                   borderRadius: "var(--radius-md)", outline: "none", resize: "vertical",
@@ -78,7 +88,7 @@ function ContactPage() {
                 <div>
                   <div style={{ fontSize: 15.5, fontWeight: 600, color: "var(--color-text-primary)" }}>{c.t}</div>
                   <div style={{ fontSize: 13.5, lineHeight: "20px", color: "var(--color-text-secondary)", margin: "2px 0 8px" }}>{c.d}</div>
-                  <a href="#" style={{ fontSize: 13.5, fontWeight: 500, color: "var(--color-link)", textDecoration: "none" }}>{c.a}</a>
+                  <a href={c.href} style={{ fontSize: 13.5, fontWeight: 500, color: "var(--color-link)", textDecoration: "none" }}>{c.a}</a>
                 </div>
               </div>
             </Card>
