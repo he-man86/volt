@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [dev]
 
+# Cancel a superseded run when a newer commit lands on the same ref (opencode convention).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
