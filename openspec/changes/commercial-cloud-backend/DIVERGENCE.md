@@ -70,6 +70,29 @@ from **one Volt-owned file**:
   account-management and locale still resolves from cookie/browser, so this is acceptable.
 - `config.ts` (opencode.ai/anomalyco) is imported by **no** kept route after the strip → dormant, left pristine.
 
+**Logged-in-surface branding sweep (volt-branding Phase 3)** — the strings/links a signed-in user or API client
+actually sees, found via a full audit of the active workspace surface:
+- **Edited** `i18n/en.ts` (in `ALLOW`) — the vendored views are English-only in practice; user-visible strings
+  rebranded: opencode's **"Go"** lite tier → **"Volt Gateway"**, `opencode` → `Volt` across `workspace.lite.*`,
+  `workspace.keys.*`, `workspace.usage.*`. The **"Black"** (premium) tier is left **pristine opencode** — Volt
+  doesn't sell it, so those strings never render and stay byte-identical.
+- **Edited** `routes/workspace/[id].tsx` — tab label `Go` → `Gateway`; **Members tab removed** from the nav
+  (team invites not offered yet; `/members` route stays dormant); dropped the shell's own `<main data-page=
+  "workspace">` wrapper (the parent `routes/workspace.tsx` already provides it — removes a nested `<main>`).
+- **Edited** `routes/workspace/[id]/go/index.tsx` + `go/lite-section.tsx` — dropped two "Learn more" links to
+  opencode's deleted `/docs` (`/docs/go`, `/docs/#opencode-go`, both 404); removed the now-unused `useLanguage`.
+- **Deleted** `routes/workspace/[id]/{new-user,model,provider}-section.tsx` (+ `.module.css`) — orphaned Zen-landing
+  sections (imported by nothing after the workspace-home → `/go` redirect), which still held opencode strings.
+  In `DROPPED`.
+- **Edited** `routes/zen/util/modelsHandler.ts` (in `ALLOW`) — `/v1/models` (and `/zen/go/v1/models`) returned
+  `owned_by: "opencode"` for every model → `"volt"` (visible to any API client).
+- **Edited** the team-invite email — `core/src/aws.ts` (sender `OpenCode Zen <contact@anoma.ly>` →
+  `Volt <noreply@volt-ai.dev>`), `core/src/user.ts` (subject + `assetsUrl`), `mail/…/InviteEmail.tsx` (opencode.ai
+  URLs + "OpenCode" copy → Volt). **Dormant** (Members UI disabled) and needs a verified `volt-ai.dev` SES sender
+  identity + `/email` asset hosting before it can actually deliver — rebranded now so it's correct when reactivated.
+- **Not changed:** `volt-config/opencode.json` `baseURL` stays `https://volt-ai.dev/v1` (production) — the correct
+  shipped end-state; the agent gateway goes live when the production stage deploys (not a code fix).
+
 **Use-case edits (minimal, marked, both non-load-bearing):**
 - `function/src/auth.ts` — (a) replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a configurable
   `CONSOLE_DEV_EMAILS` allowlist (**dev-only**; `stage !== "production"`, so production runs opencode's original);
