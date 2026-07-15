@@ -1,4 +1,5 @@
 # Lint — oxlint over the volt surface. One concern per workflow (opencode-style).
+# (ci smoke test — this line is thrown away; the PR is closed unmerged.)
 name: lint
 
 on:
