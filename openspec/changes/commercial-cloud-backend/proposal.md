@@ -7,11 +7,18 @@ and it's **public in their released repo** (verified at tag `v1.17.20`; the old 
 note was stale). The play: vendor opencode's commercial packages, get them green in the monorepo, then repoint
 providers at Volt's own cloud accounts and deploy — *then* adapt (own frontend, own billing product).
 
-## Status: DEPLOYED — the spine is LIVE on `dev.volt-ai.dev` (deploy #8, 2026-07-14).
+## Status: WORKING END-TO-END on `dev.volt-ai.dev` (2026-07-15).
 
-`https://dev.volt-ai.dev` → 200; workers `volt-dev-{authapi,consoleworker,logprocessor,stat}script`; DB migrated.
-The spine stands up; login/gateway/billing are still `PLACEHOLDER_UNSET` — see `PROVISIONING.md` for the exact
-external steps to make it usable, and `tasks.md` for the 6 root-caused deploy fixes.
+The full funnel is live and proven: **Google login → Go subscription (€24/mo) → metered gateway completion.** A real
+DeepSeek completion flowed through the `lite`/Go endpoint honoring the subscription. Volt runs **one product, Go**
+(opencode's Zen/Black stay dormant + pristine). Docs:
+- `PROVISIONING.md` — the external steps + tier economics (50% margin via 2× `models.json` markup).
+- `DIVERGENCE.md` — the vendored-console audit vs opencode `v1.17.20` + the "customize in config, not source" policy.
+- `tasks.md` — the deploy fixes + the config root-cause of the gateway (empty `liteModels` + wrong endpoint).
+
+The Go-only product and all pricing are **config-only** (`volt-config`, `models.json`, `ZEN_LIMITS`, Stripe price);
+`packages/console/*` diverges from opencode by only ~2 tiny, marked, non-load-bearing edits (see `DIVERGENCE.md`).
+Remaining: rebrand (deferred — styling later), production stage, and provisioning the still-placeholder secrets.
 
 Far past the initial vendor. Done + verified: all 6 console packages vendored + green; **infra rewired for Volt**
 (domain/zone/account/DB/`main` branch, aws provider removed, honeycomb monitoring re-added gated); **`sst install`
