@@ -53,7 +53,8 @@ from **one Volt-owned file**:
   gate entirely and pull opencode bugfixes conflict-free. (`changelog.json.ts` API + gateway `zen/{go,util,v1}`:
   also kept.)
 - **Deleted** — only the active PROXY/REDIRECT routes that *serve or redirect to opencode's own infra*:
-  `routes/{docs, data, stats, s, t, desktop-feedback.ts, discord.ts, feishu.ts}` (+ opencode's `index.*` landing).
+  `routes/{docs, data, stats, s, t, desktop-feedback.ts, discord.ts, feishu.ts}` (+ opencode's `index.*` landing and
+  `temp.tsx` — a scratch home mockup that imported the deleted root `index.css`, so it couldn't be kept pristine).
   These DO something wrong for Volt (serve opencode docs/binaries, redirect to opencode's Discord), so they go.
   Encoded as the gate's `DROPPED` prefix list (a dir or any file under it) so the deletions don't balloon `ALLOW`.
 - **Added** `routes/index.ts` (Volt, in `ALLOW`) — `/` → `redirect("/auth")` (the console home is the app, not
