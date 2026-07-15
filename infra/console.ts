@@ -1,4 +1,4 @@
-import { domain } from "./stage"
+import { domain, consoleDomain } from "./stage"
 import { EMAILOCTOPUS_API_KEY } from "./app"
 import { SECRET } from "./secret"
 
@@ -80,7 +80,8 @@ export const auth = new sst.cloudflare.Worker("AuthApi", {
 // the adapt stage. console/app reads ZEN_LITE_PRICE / ZEN_BLACK_PRICE, so keep those linkables until then.
 
 export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint", {
-  url: $interpolate`https://${domain}/stripe/webhook`,
+  // The console (and its /stripe/webhook route) now lives at app.${domain}, not the apex (apex = volt-www).
+  url: $interpolate`https://${consoleDomain}/stripe/webhook`,
   enabledEvents: [
     "checkout.session.async_payment_failed",
     "checkout.session.async_payment_succeeded",
@@ -254,7 +255,7 @@ const logProcessor = new sst.cloudflare.Worker("LogProcessor", {
 })
 
 new sst.cloudflare.x.SolidStart("Console", {
-  domain,
+  domain: consoleDomain, // app.${domain} — the apex is volt-www (Volt's marketing site)
   path: "packages/console/app",
   link: [
     bucket,

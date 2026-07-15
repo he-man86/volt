@@ -1,0 +1,85 @@
+# Cut a Volt desktop release: build the Velopack one-installer and publish it — the installer (Volt-win-Setup.exe),
+# the portable zip, and the auto-update feed (nupkgs + RELEASES) — to GitHub Releases on he-man86/volt (this repo).
+# The always-running C# connector consumes that feed to self-update.
+#
+# WHY THIS EXISTS: releases used to be built + uploaded by hand (`bun volt-scripts/build-app.ts --upload` on a dev
+# box). That is how v0.2.1 shipped with only the update feed and NO installer asset — a manual run dropped it. This
+# automates the whole cut so every release is consistent and complete, and verifies the installer landed.
+#
+# Follows opencode's publish.yml SHAPE (build → publish, verify signatures/assets) adapted to Volt's reality:
+#   - Velopack (one Windows installer + connector-driven auto-update), not electron-updater — so a single
+#     windows-latest job, not a per-OS matrix. Volt's PLC tooling (bridges, CODESYS) is Windows-native anyway.
+#   - Triggered by a version tag, per Volt's "cut releases by tagging dev" convention (CLAUDE.md).
+#
+# TO CUT A RELEASE: bump packages/volt-desktop/package.json, commit to dev, then tag `vX.Y.Z` (matching that
+# version) and push the tag. This workflow builds version X.Y.Z and publishes release vX.Y.Z.
+#
+# Signing: intentionally PARKED — the installer ships unsigned (Windows SmartScreen warns on first run). opencode
+# signs via Azure Trusted Signing (see their publish.yml); add an equivalent step here if/when signing is revisited.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {} # manual re-run — uses the current packages/volt-desktop/package.json version
+
+concurrency: release-${{ github.ref }}
+
+permissions:
+  contents: write # vpk creates/updates the GitHub Release on this repo
+
+jobs:
+  release:
+    if: github.repository == 'he-man86/volt' # never run from a fork (opencode's publish.yml does the same)
+    runs-on: windows-latest # Velopack (vpk), electron-builder, and the C# connector are all Windows-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Velopack CLI (vpk)
+        run: dotnet tool install -g vpk
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # On a tag push, the tag MUST match `v` + the desktop package version — vpk names the release from the
+      # package version, so a mismatch would publish under a different tag than the one that triggered this.
+      - name: Guard — tag matches desktop version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version=$(node -p "require('./packages/volt-desktop/package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} != v${version} (packages/volt-desktop/package.json). Bump the package version to match the tag."
+            exit 1
+          fi
+          echo "releasing v${version}"
+
+      - name: Build + publish the Volt installer
+        run: bun volt-scripts/build-app.ts --upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # Guard against the exact v0.2.1 failure: a publish that omits the installer. Fail loudly if Setup.exe (the
+      # thing new users download) isn't on the release.
+      - name: Verify the installer was published
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./packages/volt-desktop/package.json').version")
+          assets=$(gh release view "v${version}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
+          echo "published assets:"; echo "$assets"
+          echo "$assets" | grep -qx "Volt-win-Setup.exe" || {
+            echo "::error::release v${version} is missing Volt-win-Setup.exe — the installer did not publish"
+            exit 1
+          }
+          echo "✓ Volt-win-Setup.exe published on v${version}"

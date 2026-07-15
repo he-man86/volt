@@ -27,7 +27,9 @@ const upload = process.argv.includes("--upload")
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
-    console.error(`✗ failed: ${cmd} ${args.join(" ")}`)
+    // Redact secret values (e.g. the vpk `--token <PAT>`) so a failure never echoes them into CI logs.
+    const safe = args.map((a, i) => (args[i - 1] === "--token" ? "***" : a))
+    console.error(`✗ failed: ${cmd} ${safe.join(" ")}`)
     process.exit(1)
   }
 }
@@ -96,7 +98,11 @@ run(vpk, ["pack",
 
 if (upload) {
   console.log("• vpk upload github → he-man86/volt")
-  run(vpk, ["upload", "github", "--repoUrl", "https://github.com/he-man86/volt", "--publish", "true", "--outputDir", release], repo, false)
+  // Pass the token explicitly when present (CI: GH_TOKEN/GITHUB_TOKEN) so the upload doesn't depend on an ambient
+  // `gh` login. Local runs without the env var fall back to vpk's own credential resolution (unchanged).
+  const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
+  run(vpk, ["upload", "github", "--repoUrl", "https://github.com/he-man86/volt", "--publish", "true",
+    "--outputDir", release, ...(ghToken ? ["--token", ghToken] : [])], repo, false)
 }
 
 console.log(`\n✓ ${resolve(release, "Volt-win-Setup.exe")}`)

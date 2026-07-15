@@ -1,25 +1,13 @@
-import { A } from "@solidjs/router"
 import { LanguagePicker } from "~/component/language-picker"
-import { useI18n } from "~/context/i18n"
-import { useLanguage } from "~/context/language"
 
+// VOLT: opencode's footer said "© Anomaly", linked opencode's /brand kit, and linked opencode's own
+// Terms/Privacy pages — whose text binds users to ANOMALY INNOVATIONS, INC. / "OpenCode", legally wrong for Volt.
+// Stripped to the Volt copyright + the language picker. Volt's OWN Terms/Privacy (authored by Volt, to live on
+// volt-www) get linked here once they exist — see openspec/changes/volt-branding (Phase 2, legal follow-up).
 export function Legal() {
-  const i18n = useI18n()
-  const language = useLanguage()
   return (
     <div data-component="legal">
-      <span>
-        ©{new Date().getFullYear()} <a href="https://anoma.ly">Anomaly</a>
-      </span>
-      <span>
-        <A href={language.route("/brand")}>{i18n.t("legal.brand")}</A>
-      </span>
-      <span>
-        <A href={language.route("/legal/privacy-policy")}>{i18n.t("legal.privacy")}</A>
-      </span>
-      <span>
-        <A href={language.route("/legal/terms-of-service")}>{i18n.t("legal.terms")}</A>
-      </span>
+      <span>©{new Date().getFullYear()} Volt</span>
       <span>
         <LanguagePicker align="right" />
       </span>

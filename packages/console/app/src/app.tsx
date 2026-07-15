@@ -5,6 +5,7 @@ import { Suspense } from "solid-js"
 import { Favicon } from "./ui"
 import "@ibm/plex/css/ibm-plex.css"
 import "./app.css"
+import "./style/volt-theme.css" // VOLT: brand theme override — loaded after ./app.css so it wins (see the file)
 import { LanguageProvider } from "~/context/language"
 import { I18nProvider, useI18n } from "~/context/i18n"
 import { strip } from "~/lib/language"
