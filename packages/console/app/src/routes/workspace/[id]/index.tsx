@@ -33,6 +33,8 @@ export default function () {
 
   return (
     <div data-page="workspace-[id]">
+      {/* VOLT: opencode's Zen banner hidden (our product is Go). Single-line wrapper — revert by deleting the Show. */}
+      <Show when={false}>
       <section data-component="header-section">
         <IconZen />
         <p>
@@ -68,6 +70,7 @@ export default function () {
           </Show>
         </p>
       </section>
+      </Show>
 
       <div data-slot="sections">
         <NewUserSection />
