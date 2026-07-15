@@ -31,14 +31,24 @@ Callbacks (verified live): `https://auth.dev.volt-ai.dev/{github,google}/callbac
       `/google/authorize` → 302. Functionally live.
 - [x] **`ZEN_SESSION_SECRET`** set (real) — signs the console session; was the root of the earlier `503`s.
 
-## Tier 2 — Gateway (it serves models)
-- [ ] **Provider keys** — get a **DeepSeek** API key (platform.deepseek.com) and an **Anthropic** API key
-      (console.anthropic.com). Copy `models.example.json` → `models.json`, paste both keys. (Format is verbatim
-      opencode `ZenData`; cost is $/token = price-per-million ÷ 1e6 — see `set-models.ts` header.)
-- [ ] Add the whole `models.json` as one secret: `gh secret set ZEN_MODELS_JSON --env dev` (paste file contents).
-      The gated `Provision gateway model catalog` step chunks it into `ZEN_MODELS1..30` on the next deploy.
-- [ ] **Upstash Redis** (rate-limit + spend metering) — upstash.com → create a Redis DB → REST API →
-      add `UpstashRedisRestUrl`, `UpstashRedisRestToken` as GitHub secrets.
+## Tier 2 — Gateway ✅ SERVING (deploy #18, 2026-07-15)
+`/zen/v1/models` → 200 listing `deepseek-chat` + `claude-sonnet-4-5`; `/zen/v1/chat/completions` returns a clean
+`401 AuthError` for a bad key (rate-limiter + auth + catalog all working). A real subscription key would complete.
+- [x] **Provider keys** — DeepSeek + Anthropic keys live in `.env` (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`) and as
+      GitHub secrets. `models.json` (committed) references them as `${VAR}`; `set-models.ts` substitutes + chunks.
+- [x] **Upstash Redis** — `UpstashRedisRestUrl` + `UpstashRedisRestToken` set (verified `PONG`).
+- [x] **Gateway wiring** — the deploy's `Provision gateway model catalog` step always runs (NOT gated on a secret
+      — GitHub masks secrets in `if:`, which silently skipped it and left placeholder `ZEN_MODELS` → the JSON.parse
+      500). Fixed: no gate, keys passed to the step, catalog padded so all 30 chunks are non-empty.
+- [ ] **`ZEN_LIMITS`** — still a zeroed default (valid JSON, no real allowances). Set real per-tier limits when
+      pricing is finalized (schema in `console-core/subscription.ts`):
+      ```json
+      { "free":  { "promoTokens": <int>, "dailyRequests": <int>, "dailyRequestsFallback": <int>, "checkHeaders": {} },
+        "lite":  { "rollingLimit": <cents>, "rollingWindow": <hours>, "weeklyLimit": <cents>, "monthlyLimit": <cents> },
+        "black": { "20":  { "fixedLimit": <cents>, "rollingLimit": <cents>, "rollingWindow": <hours> },
+                   "100": { "fixedLimit": <cents>, "rollingLimit": <cents>, "rollingWindow": <hours> },
+                   "200": { "fixedLimit": <cents>, "rollingLimit": <cents>, "rollingWindow": <hours> } } }
+      ```
 - [ ] **`ZEN_LIMITS`** — per-tier limits JSON (schema in `console-core/subscription.ts`):
       ```json
       { "free":  { "promoTokens": <int>, "dailyRequests": <int>, "dailyRequestsFallback": <int>, "checkHeaders": {} },
