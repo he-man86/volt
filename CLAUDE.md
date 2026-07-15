@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Volt** — a toolchain for managing IEC 61131-3 PLC projects (CODESYS and TwinCAT/Beckhoff) as version-controllable text. The repo is a standalone Bun monorepo of `volt-*` packages.
 
-Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-source AI coding agent) is a **runtime dependency** — a user-provided install — not a fork. Volt makes the user's opencode PLC-aware by handing it one config dir via the `OPENCODE_CONFIG_DIR` env var (LSP + `volt` tool + agent + theme + permissions). We depend on opencode two ways: the installed **binary** at runtime, and **`@opencode-ai/plugin`** (from npm) that the `volt` tool imports. Nothing of opencode's source lives here.
+Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-source AI coding agent) is a **runtime dependency** — a user-provided install — not a fork. Volt makes the user's opencode PLC-aware by handing it one config dir via the `OPENCODE_CONFIG_DIR` env var (LSP + `volt` tool + agent + theme + permissions). We depend on opencode **one way**: the installed **binary** at runtime (it loads `volt-config` and runs the `volt` tool + plugins). No `@opencode-ai/plugin` npm dependency — its `tool()` helper is just `(x) => x` + zod, so the tool exports the plain shape directly and the plugins use minimal local types. Nothing of opencode's source lives here.
 
 > History: this repo began as a fork of opencode's monorepo. The `extract-clean-repo` / `minimize-opencode-fork` changes (see `openspec/`) removed all opencode source and re-rooted it as the standalone Volt repo. If you find a stray reference to `packages/opencode`, `packages/app`, `check-divergence`, or "the fork" — it's stale; fix it.
 
@@ -23,7 +23,7 @@ Bun workspaces (no Turbo — task-running is bun-native `--filter`). All product
 
 The commercial landing site is **not in this repo** — it was removed pending a fresh implementation; the plan lives in `openspec/changes/commercial-landing/` (it will re-enter once opencode's private `console-*` deps are resolved).
 
-**`volt-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. `@opencode-ai/plugin` is vendored into it (npm) so the tool loads with no registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`.
+**`volt-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. It's dependency-free — the tool bundles only `zod`; nothing here needs `@opencode-ai/plugin`, so the shipped dir loads with no npm/registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`.
 
 Each `volt-*` package has its own `README.md` — read it before deep work there.
 
@@ -113,7 +113,7 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 
 ## Tracking opencode (the compat gate)
 
-Volt tracks opencode by **dependency version + a compat test**, not by merging its source. On an opencode version bump (or `@opencode-ai/plugin` bump), run:
+Volt tracks opencode by **a compat test**, not by merging its source (and no longer by an npm dep — the `volt` tool/plugins carry no `@opencode-ai/plugin`; compatibility is purely against the installed **binary**'s config/tool/plugin contract). On an opencode binary bump, run:
 
 ```
 bun volt-scripts/sync.ts     # install → integration → lsp loads → tool loads (stops at first ✗)

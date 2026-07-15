@@ -1,4 +1,4 @@
-import { tool } from "@opencode-ai/plugin"
+import { z } from "zod"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -6,10 +6,34 @@ import { promisify } from "node:util"
 // (the installer adds resources/volt/bin), so nothing machine-specific is baked — this file is STATIC.
 // A bare command name means execFile PATH-resolves it; a missing/unresolvable binary surfaces as the
 // caught ENOENT below rather than a stat check, so no `existsSync` guard is needed.
+//
+// opencode's `tool()` helper is just `(x) => x` and `tool.schema` is just zod — so we skip the dependency
+// entirely and export the plain shape opencode loads: { description, args, execute }. That keeps this file
+// (and its self-contained bundle) free of @opencode-ai/plugin; the only bundled dep is zod.
 const run = promisify(execFile)
 const MUTATING = new Set(["init", "pull", "push", "merge"])
 
-export default tool({
+// The subset of opencode's ToolContext this tool uses — typed locally so volt-config needs no opencode package.
+type ToolContext = {
+  directory: string
+  abort: AbortSignal
+  ask(input: {
+    permission: string
+    patterns: string[]
+    always: string[]
+    metadata: Record<string, unknown>
+  }): Promise<void>
+}
+
+const args = {
+  command: z
+    .enum(["status", "build", "show", "log", "init", "pull", "push", "merge"])
+    .describe("Volt subcommand to run."),
+  args: z.array(z.string()).optional().describe("Extra CLI flags/operands."),
+  cwd: z.string().optional().describe("Workspace directory; defaults to the session directory."),
+}
+
+export default {
   description: `Drive a CODESYS / TwinCAT 3 (IEC 61131-3) PLC IDE through the Volt CLI — a git-style workflow over text. Prefer this over guessing shell commands.
 
 Verbs (pass via "command"):
@@ -23,27 +47,21 @@ Verbs (pass via "command"):
 - merge   finish a conflicted pull (--continue/--abort/--resolve).  Mutating.
 
 Extra flags/operands go in "args" (e.g. ["--json"]). Mutating verbs prompt for human approval.`,
-  args: {
-    command: tool.schema
-      .enum(["status", "build", "show", "log", "init", "pull", "push", "merge"])
-      .describe("Volt subcommand to run."),
-    args: tool.schema.array(tool.schema.string()).optional().describe("Extra CLI flags/operands."),
-    cwd: tool.schema.string().optional().describe("Workspace directory; defaults to the session directory."),
-  },
-  async execute(args, ctx) {
-    const rest = args.args ?? []
-    if (MUTATING.has(args.command)) {
+  args,
+  async execute(input: z.infer<z.ZodObject<typeof args>>, ctx: ToolContext) {
+    const rest = input.args ?? []
+    if (MUTATING.has(input.command)) {
       await ctx.ask({
         permission: "volt",
-        patterns: ["volt " + args.command],
-        always: ["volt " + args.command],
-        metadata: { command: args.command, args: rest },
+        patterns: ["volt " + input.command],
+        always: ["volt " + input.command],
+        metadata: { command: input.command, args: rest },
       })
     }
-    const title = ["volt", args.command, ...rest].join(" ").trim()
+    const title = ["volt", input.command, ...rest].join(" ").trim()
     try {
-      const { stdout, stderr } = await run("volt", [args.command, ...rest], {
-        cwd: args.cwd ?? ctx.directory,
+      const { stdout, stderr } = await run("volt", [input.command, ...rest], {
+        cwd: input.cwd ?? ctx.directory,
         signal: ctx.abort,
         maxBuffer: 10 * 1024 * 1024,
       })
@@ -53,4 +71,4 @@ Extra flags/operands go in "args" (e.g. ["--json"]). Mutating verbs prompt for h
       return { title, output: ("exit " + (e.code ?? 1) + "\n" + (body || e.message || "volt failed")).trim() }
     }
   },
-})
+}

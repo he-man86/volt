@@ -6,7 +6,7 @@ package. Package-specific scripts live in that package's `scripts/` dir (see the
 
 ## When do I run these?
 
-**Bumped opencode (or `@opencode-ai/plugin`)? Run the compat gate:**
+**Bumped the opencode binary? Run the compat gate:**
 
 ```bash
 bun run compat        # → volt-scripts/sync.ts

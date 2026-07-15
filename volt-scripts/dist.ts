@@ -78,20 +78,16 @@ if (run("bun", ["run", "package"], vsixDir)) {
 
 // Volt config dir — the whole agent-facing layer (LSP, `volt` tool, agent, theme, permissions) shipped ONCE
 // and handed to opencode via OPENCODE_CONFIG_DIR (set on the desktop sidecar + the CLI launcher). Static —
-// the LSP/tool resolve off PATH (bare names), so nothing machine-specific is baked. The only thing vendored
-// is @opencode-ai/plugin (the tool's import), so the tool loads with no npm/registry at runtime.
+// the LSP/tool resolve off PATH (bare names), so nothing machine-specific is baked.
 console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
 const cfgSrc = resolve(repo, "volt-config")
-// The `volt` tool imports @opencode-ai/plugin. volt-config isn't a workspace member (bare deps-only package.json),
-// so it's declared in the ROOT package.json devDependencies too → present in node_modules after `bun install`,
-// which is what the from-source bundle below resolves against.
 const cfgOut = resolve(out, "volt-config")
 // Copy everything EXCEPT node_modules — the tool is bundled self-contained below, so the shipped dir needs none.
 cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !src.includes(`${sep}node_modules`) })
-// Bundle the `volt` tool to a self-contained .js (its @opencode-ai/plugin import + zod inlined — the rest of the
-// plugin is type-only) and drop the .ts source. Bundle from the SOURCE tool/volt.ts so the import resolves via
-// volt-config/node_modules. The shipped dir then needs NO node_modules: opencode scans {tool,tools}/*.{js,ts}
-// and loads the bundle directly.
+// Bundle the `volt` tool to a self-contained .js (its only dep, zod, inlined) and drop the .ts source. The tool
+// no longer imports @opencode-ai/plugin — opencode's `tool()` is just identity + zod, so it exports the plain
+// { description, args, execute } shape directly. zod resolves from the root node_modules. The shipped dir then
+// needs NO node_modules: opencode scans {tool,tools}/*.{js,ts} and loads the bundle directly.
 if (!run("bun", ["build", "--target=node", "--outfile", resolve(cfgOut, "tool/volt.js"), resolve(cfgSrc, "tool/volt.ts")])) {
   console.error("✗ failed to bundle the volt tool into volt-config")
   process.exit(1)
