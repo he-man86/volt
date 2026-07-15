@@ -64,6 +64,10 @@ export const auth = new sst.cloudflare.Worker("AuthApi", {
   domain: `auth.${domain}`,
   handler: "packages/console/function/src/auth.ts",
   url: true,
+  environment: {
+    // Dev-only login allowlist (comma-separated emails / @domains). Empty = open. Ignored on production.
+    CONSOLE_DEV_EMAILS: process.env.CONSOLE_DEV_EMAILS ?? "",
+  },
   link: [database, authStorage, GITHUB_CLIENT_ID_CONSOLE, GITHUB_CLIENT_SECRET_CONSOLE, GOOGLE_CLIENT_ID],
 })
 

@@ -138,9 +138,22 @@ export default {
         if (!email) throw new Error("No email found")
         if (!subject) throw new Error("No subject found")
 
-        // (opencode gated non-prod logins to their team domain `@anoma.ly`. Volt has no such team domain, dev is
-        // unadvertised, and the gateway is inert on placeholders — so dev login is open like prod. If staging ever
-        // needs locking down, re-add a Volt email/domain allowlist check here.)
+        // Dev-only login allowlist. opencode hardcoded `@anoma.ly`; Volt makes it configurable via the
+        // CONSOLE_DEV_EMAILS worker var — comma-separated entries, each either a full email (exact match) or an
+        // `@domain` (suffix match). Empty = open. No effect on the production stage.
+        const devAllowlist = ((env as any).CONSOLE_DEV_EMAILS || "")
+          .split(",")
+          .map((s: string) => s.trim().toLowerCase())
+          .filter(Boolean)
+        if (
+          Resource.App.stage !== "production" &&
+          devAllowlist.length &&
+          !devAllowlist.some((a: string) =>
+            a.startsWith("@") ? email!.toLowerCase().endsWith(a) : email!.toLowerCase() === a,
+          )
+        ) {
+          throw new Error("This email is not on the dev allowlist")
+        }
 
         // Get account
         let newAccount = false
