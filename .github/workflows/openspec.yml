@@ -1,0 +1,25 @@
+# openspec — validate the proposals in openspec/changes are well-formed (openspec validate --all).
+# NOT path-filtered: this is a required check, and a path-filtered required check would block PRs that don't
+# touch openspec/ (GitHub waits forever for a check that never reports). It's cheap, so it runs on every PR.
+name: openspec
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+# Cancel a superseded run when a newer commit lands on the same ref (opencode convention).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bunx @fission-ai/openspec@1.4.1 validate --all
