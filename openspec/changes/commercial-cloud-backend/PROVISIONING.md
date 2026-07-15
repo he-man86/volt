@@ -18,8 +18,7 @@ secrets + a redeploy. `set-models.ts` handles the gateway catalog the same way (
 ---
 
 ## Tier 0 — SECURITY (do first)
-- [ ] **Delete the exposed `cfat_` token.** An account-wide-write token was pasted in chat during setup. Cloudflare
-      → My Profile → API Tokens → delete it (name was `hidden-credit-9887`). Your working `cfut_` token is separate.
+- [x] **Deleted the exposed `cfat_` token** (2026-07-15). The working `cfut_` deploy token verified still active.
 
 ## Tier 1 — Login (a user can sign in)
 Callback URLs (confirmed live, `/{provider}/callback` on the issuer):
