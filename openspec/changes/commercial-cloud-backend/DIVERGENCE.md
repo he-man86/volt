@@ -43,10 +43,16 @@ The switch to a single Go product is expressed entirely in config: `volt-config/
 `/zen/go/v1` (the Go/`lite` endpoint, `modelList: "lite"`); `models.json` populates `liteModels`; `ZEN_LIMITS.lite`
 sets the caps; the Go Stripe price is €24. opencode's Zen/Black routes stay pristine (unlinked, dormant).
 
-## How to re-audit on an opencode bump
+## Enforced automatically — the symmetry gate
+`volt-scripts/check-console-divergence.ts` diffs `packages/console/*` against the pinned opencode tag and **exits
+non-zero if any SOURCE file diverges outside the allowlist** (the list above, encoded as `ALLOW` in the script).
+It runs in **`volt-ci`** on every push/PR, so an accidental edit to opencode source can't merge. `app/public/*`
+(branding assets) is excluded — that's Volt's to own.
+
 ```
-curl -sL https://github.com/sst/opencode/archive/refs/tags/<tag>.tar.gz | tar xz -C /tmp
-diff -r --strip-trailing-cr -q -x node_modules -x dist -x .output \
-  /tmp/opencode-<tag>/packages/console packages/console
+bun volt-scripts/check-console-divergence.ts     # local check; 0 = clean, 1 = drift
 ```
-Anything unexpected there is drift to reconcile. The list above is the full, intended footprint.
+
+**On an opencode bump:** change `OPENCODE_VERSION` in the script, re-run, and reconcile `ALLOW` + this doc with the
+output. Adding a new intended edit = add it to `ALLOW` **and** here (the two must agree). Anything the gate flags
+that isn't intended is drift to revert.

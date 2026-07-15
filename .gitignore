@@ -43,3 +43,4 @@ tsconfig.tsbuildinfo
 .opencode/opencode.json
 .opencode/tool/volt.ts
 .turbo
+.oc-console-check
