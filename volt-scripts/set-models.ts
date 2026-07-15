@@ -59,9 +59,11 @@ raw = raw.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, v) => {
   if (!val) missing.push(v)
   return val ?? ""
 })
+// Missing keys → deploy an EMPTY-but-valid catalog (gateway serves nothing) rather than fail the deploy or leave
+// a placeholder that JSON.parse chokes on. With keys present, this branch is skipped and the real catalog loads.
 if (missing.length) {
-  console.error(`Missing values for: ${[...new Set(missing)].join(", ")} — set them in .env (local) or GitHub secrets (CI).`)
-  process.exit(1)
+  console.warn(`No value for: ${[...new Set(missing)].join(", ")} — loading an EMPTY gateway catalog (no models).`)
+  raw = JSON.stringify({ providers: {}, zenModels: {}, liteModels: {} })
 }
 
 let json: any
@@ -86,14 +88,16 @@ for (const [mid, m] of Object.entries<any>(json.zenModels)) {
         process.exit(1)
       }
 }
-// Minify (the runtime concatenates chunks then JSON.parses, so store compact), then slice into 30 parts.
-const compact = JSON.stringify(json)
-const size = Math.ceil(compact.length / PARTS)
+// Minify, then pad to a multiple of PARTS so every one of the 30 chunks is non-empty (SST rejects an empty
+// secret — a short catalog would otherwise leave trailing chunks ""). JSON.parse ignores the trailing spaces.
+const compact = JSON.stringify(json).padEnd(Math.ceil(JSON.stringify(json).length / PARTS) * PARTS, " ")
+const size = compact.length / PARTS
 const parts = Array.from({ length: PARTS }, (_, i) =>
   compact.slice(size * i, i === PARTS - 1 ? undefined : size * (i + 1)),
 )
-// Sanity: chunks must reconstruct the document exactly (guards against an off-by-one in the slicing).
+// Sanity: chunks must reconstruct the document exactly, and none may be empty.
 if (parts.join("") !== compact) throw new Error("chunking is lossy — refusing to write corrupt ZEN_MODELS")
+if (parts.some((p) => p.length === 0)) throw new Error("empty chunk — SST would reject it")
 
 const outFile = ".env.models"
 writeFileSync(outFile, parts.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n") + "\n")

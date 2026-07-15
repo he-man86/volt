@@ -45,10 +45,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.stage }}
-    env:
-      # Job-level so the gateway step's `if:` can test it. Empty until you add the provider-key secrets.
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,15 +81,17 @@ jobs:
           UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
           UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
 
-      # Gateway model catalog → ZEN_MODELS1..30 (see set-models.ts / models.example.json). Skipped until you
-      # add the ZEN_MODELS_JSON secret (the whole models.json as one value). Runs in-job so the keys reach the
-      # deploy's own state; overrides the placeholders deploy-secrets set above.
+      # Gateway model catalog → ZEN_MODELS1..30. ALWAYS runs — no secret-gated `if:` (GitHub masks secrets in
+      # `if` conditions, which silently skipped this). set-models substitutes the provider keys into models.json,
+      # or loads an empty-but-valid catalog if they're absent. Runs in-job so the chunks reach the deploy's own
+      # state, overriding the placeholders deploy-secrets set above.
       - name: Provision gateway model catalog
-        if: ${{ env.ZEN_MODELS_JSON != '' }}
         run: bun volt-scripts/set-models.ts --apply ${{ github.event.inputs.stage }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - run: bunx sst deploy --stage ${{ github.event.inputs.stage }} --print-logs
         env:
