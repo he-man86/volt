@@ -138,9 +138,9 @@ export default {
         if (!email) throw new Error("No email found")
         if (!subject) throw new Error("No subject found")
 
-        if (Resource.App.stage !== "production" && !email.endsWith("@anoma.ly")) {
-          throw new Error("Invalid email")
-        }
+        // (opencode gated non-prod logins to their team domain `@anoma.ly`. Volt has no such team domain, dev is
+        // unadvertised, and the gateway is inert on placeholders — so dev login is open like prod. If staging ever
+        // needs locking down, re-add a Volt email/domain allowlist check here.)
 
         // Get account
         let newAccount = false
