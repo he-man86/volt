@@ -82,15 +82,9 @@ if (run("bun", ["run", "package"], vsixDir)) {
 // is @opencode-ai/plugin (the tool's import), so the tool loads with no npm/registry at runtime.
 console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
 const cfgSrc = resolve(repo, "volt-config")
-// The `volt` tool imports @opencode-ai/plugin. volt-config is NOT a workspace member, so root `bun install` never
-// installs its deps — ensure they're present (idempotent) before bundling, or a clean CI runner can't resolve it.
-if (!existsSync(resolve(cfgSrc, "node_modules/@opencode-ai/plugin"))) {
-  console.log("  installing volt-config deps (@opencode-ai/plugin)…")
-  if (!run("bun", ["install"], cfgSrc)) {
-    console.error("✗ failed to install volt-config deps")
-    process.exit(1)
-  }
-}
+// The `volt` tool imports @opencode-ai/plugin. volt-config isn't a workspace member (bare deps-only package.json),
+// so it's declared in the ROOT package.json devDependencies too → present in node_modules after `bun install`,
+// which is what the from-source bundle below resolves against.
 const cfgOut = resolve(out, "volt-config")
 // Copy everything EXCEPT node_modules — the tool is bundled self-contained below, so the shipped dir needs none.
 cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !src.includes(`${sep}node_modules`) })

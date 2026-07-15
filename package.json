@@ -54,6 +54,7 @@
     }
   },
   "devDependencies": {
+    "@opencode-ai/plugin": "1.17.18",
     "@typescript/native-preview": "catalog:",
     "husky": "9.1.7",
     "oxlint": "1.60.0",
