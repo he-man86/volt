@@ -15,7 +15,7 @@
 import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
-import { resolve } from "node:path"
+import { resolve, sep } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
 const out = resolve(repo, "dist/volt")
@@ -51,6 +51,16 @@ compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 cpSync(resolve(repo, "packages/volt-lsp-iec/docs"), resolve(out, "docs"), { recursive: true })
 console.log("  ✓ docs corpus → dist/volt/docs")
 
+// The .vsix build + the volt-config tool bundle below use `bun build --target=node`, which resolves workspace
+// packages via the "default" export condition → dist/ (not the "bun" → src condition that --compile above uses).
+// So @volt/lsp-iec must have its dist built or those bundles can't resolve it. Build it here — this runs AFTER a
+// full `bun install`, so there's no prepare-during-install race (which is why the prepare scripts were removed).
+console.log("• build @volt/lsp-iec dist (for --target=node resolution)")
+if (!run("bun", ["run", "--filter=@volt/lsp-iec", "build"])) {
+  console.error("✗ failed to build @volt/lsp-iec dist")
+  process.exit(1)
+}
+
 // Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
 console.log("• volt-vscode extension (.vsix)")
 const vsixDir = resolve(repo, "packages/volt-vscode")
@@ -71,18 +81,28 @@ if (run("bun", ["run", "package"], vsixDir)) {
 // the LSP/tool resolve off PATH (bare names), so nothing machine-specific is baked. The only thing vendored
 // is @opencode-ai/plugin (the tool's import), so the tool loads with no npm/registry at runtime.
 console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
+const cfgSrc = resolve(repo, "volt-config")
+// The `volt` tool imports @opencode-ai/plugin. volt-config is NOT a workspace member, so root `bun install` never
+// installs its deps — ensure they're present (idempotent) before bundling, or a clean CI runner can't resolve it.
+if (!existsSync(resolve(cfgSrc, "node_modules/@opencode-ai/plugin"))) {
+  console.log("  installing volt-config deps (@opencode-ai/plugin)…")
+  if (!run("bun", ["install"], cfgSrc)) {
+    console.error("✗ failed to install volt-config deps")
+    process.exit(1)
+  }
+}
 const cfgOut = resolve(out, "volt-config")
-cpSync(resolve(repo, "volt-config"), cfgOut, { recursive: true })
-// Bundle the `volt` tool to a self-contained .js (its @opencode-ai/plugin import + zod inlined — the rest of
-// the plugin is type-only) and drop the .ts source. The shipped dir then needs NO node_modules: opencode
-// scans {tool,tools}/*.{js,ts} and loads the bundle directly. (electron-builder's extraResources copy strips
-// a node_modules subtree, so vendoring into one is moot — bundling sidesteps it entirely.)
-const toolTs = resolve(cfgOut, "tool/volt.ts")
-if (!run("bun", ["build", "--target=node", "--outfile", resolve(cfgOut, "tool/volt.js"), toolTs])) {
+// Copy everything EXCEPT node_modules — the tool is bundled self-contained below, so the shipped dir needs none.
+cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !src.includes(`${sep}node_modules`) })
+// Bundle the `volt` tool to a self-contained .js (its @opencode-ai/plugin import + zod inlined — the rest of the
+// plugin is type-only) and drop the .ts source. Bundle from the SOURCE tool/volt.ts so the import resolves via
+// volt-config/node_modules. The shipped dir then needs NO node_modules: opencode scans {tool,tools}/*.{js,ts}
+// and loads the bundle directly.
+if (!run("bun", ["build", "--target=node", "--outfile", resolve(cfgOut, "tool/volt.js"), resolve(cfgSrc, "tool/volt.ts")])) {
   console.error("✗ failed to bundle the volt tool into volt-config")
   process.exit(1)
 }
-rmSync(toolTs, { force: true })
+rmSync(resolve(cfgOut, "tool/volt.ts"), { force: true })
 console.log("  ✓ volt-config → dist/volt/volt-config (volt tool bundled self-contained)")
 
 if (!skipBridge) {
