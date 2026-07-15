@@ -247,7 +247,7 @@ export const dict = {
     "All Zen models are hosted in the US. Providers follow a zero-retention policy and do not use your data for model training, with the",
   "zen.privacy.exceptionsLink": "following exceptions",
 
-  "go.title": "OpenCode Go | Low cost coding models for everyone",
+  "go.title": "Volt Gateway | Low cost coding models for everyone",
   "go.meta.description":
     "Go starts at $5 for your first month, then $10/month, with generous 5-hour request limits for GLM-5.2, GLM-5.1, Kimi K2.7 Code, Kimi K2.6, MiMo-V2.5-Pro, MiMo-V2.5, Qwen3.7 Max, Qwen3.7 Plus, Qwen3.6 Plus, MiniMax M2.7, MiniMax M3, DeepSeek V4 Pro, and DeepSeek V4 Flash.",
   "go.hero.title": "Low cost coding models for everyone",
@@ -291,7 +291,7 @@ export const dict = {
   "go.testimonials.frank.quote": "I wish I was still at Nvidia.",
   "go.problem.title": "What problem is Go solving?",
   "go.problem.body":
-    "We're focused on bringing the OpenCode experience to as many people as possible. OpenCode Go is a low cost subscription: $5 for your first month, then $10/month. It provides generous limits and reliable access to the most capable open source models.",
+    "We're focused on bringing the OpenCode experience to as many people as possible. Volt Gateway is a low cost subscription: $5 for your first month, then $10/month. It provides generous limits and reliable access to the most capable open source models.",
   "go.problem.subtitle": " ",
   "go.problem.item1": "Low cost subscription pricing",
   "go.problem.item2": "Generous limits and reliable access",
@@ -315,7 +315,7 @@ export const dict = {
   "go.privacy.beforeExceptions":
     "Go models are hosted in the US. Providers follow a zero-retention policy and do not use your data for model training, with the",
   "go.privacy.exceptionsLink": "following exceptions",
-  "go.faq.q1": "What is OpenCode Go?",
+  "go.faq.q1": "What is Volt Gateway?",
   "go.faq.a1":
     "Go is a low-cost subscription that gives you reliable access to capable open-source models for agentic coding.",
   "go.faq.q2": "What models does Go include?",
@@ -372,7 +372,7 @@ export const dict = {
   "zen.api.error.regionNotAllowed":
     "This model is hosted in China. If you would like to use this model, enable it in your settings: {{consoleGoUrl}}",
   "zen.api.error.trialEnded":
-    "Free promotion has ended for {{model}}. You can continue using the model by subscribing to OpenCode Go - {{link}}",
+    "Free promotion has ended for {{model}}. You can continue using the model by subscribing to Volt Gateway - {{link}}",
 
   "black.meta.title": "OpenCode Black | Access all the world's best coding models",
   "black.meta.description": "Get access to Claude, GPT, Gemini and more with OpenCode Black subscription plans.",
@@ -485,7 +485,7 @@ export const dict = {
   "workspace.usage.breakdown.output": "Output",
   "workspace.usage.breakdown.reasoning": "Reasoning",
   "workspace.usage.subscription": "Black (${{amount}})",
-  "workspace.usage.lite": "Go (${{amount}})",
+  "workspace.usage.lite": "Gateway (${{amount}})",
   "workspace.usage.byok": "BYOK (${{amount}})",
 
   "workspace.cost.title": "Cost",
@@ -497,10 +497,10 @@ export const dict = {
   "workspace.cost.subscriptionShort": "sub",
 
   "workspace.keys.title": "API Keys",
-  "workspace.keys.subtitle": "Manage your API keys for accessing opencode services.",
+  "workspace.keys.subtitle": "Manage your API keys for accessing Volt services.",
   "workspace.keys.create": "Create API Key",
   "workspace.keys.placeholder": "Enter key name",
-  "workspace.keys.empty": "Create an opencode Gateway API key",
+  "workspace.keys.empty": "Create a Volt Gateway API key",
   "workspace.keys.table.name": "Name",
   "workspace.keys.table.key": "Key",
   "workspace.keys.table.createdBy": "Created By",
@@ -641,7 +641,7 @@ export const dict = {
   "workspace.lite.time.minute": "minute",
   "workspace.lite.time.minutes": "minutes",
   "workspace.lite.time.fewSeconds": "a few seconds",
-  "workspace.lite.subscription.message": "You are subscribed to OpenCode Go.",
+  "workspace.lite.subscription.message": "You are subscribed to the Volt Gateway plan.",
   "workspace.lite.subscription.manage": "Manage Subscription",
   "workspace.lite.subscription.rollingUsage": "Rolling Usage",
   "workspace.lite.subscription.weeklyUsage": "Weekly Usage",
@@ -649,21 +649,21 @@ export const dict = {
   "workspace.lite.subscription.resetsIn": "Resets in",
   "workspace.lite.subscription.useBalance": "Use your available balance after reaching the usage limits",
   "workspace.lite.subscription.selectProvider":
-    'Select "OpenCode Go" as the provider in your opencode configuration to use Go models.',
+    'Select "Volt Gateway" as the provider in your Volt configuration to use Go models.',
   "workspace.lite.providers.title": "Providers",
   "workspace.lite.providers.description": "Control which providers are used for routing.",
   "workspace.lite.providers.useChina": "Enable models hosted in China",
   "workspace.lite.black.message":
-    "You're currently subscribed to OpenCode Black or on the waitlist. Please unsubscribe first if you'd like to switch to Go.",
+    "You're currently subscribed to OpenCode Black or on the waitlist. Please unsubscribe first if you'd like to switch to Gateway.",
   "workspace.lite.other.message":
-    "Another member in this workspace is already subscribed to OpenCode Go. Only one member per workspace can subscribe.",
+    "Another member in this workspace is already subscribed to Volt Gateway. Only one member per workspace can subscribe.",
   "workspace.lite.promo.description":
-    "OpenCode Go starts at {{price}}, then $10/month, and provides reliable access to popular open coding models with generous usage limits.",
+    "Volt Gateway starts at {{price}}, then $10/month, and provides reliable access to popular open coding models with generous usage limits.",
   "workspace.lite.promo.price": "$5 for your first month",
   "workspace.lite.promo.modelsTitle": "What's Included",
   "workspace.lite.promo.footer":
     "The plan is designed primarily for international users, with models hosted in the US, EU, and Singapore for stable global access. Pricing and usage limits may change as we learn from early usage and feedback.",
-  "workspace.lite.promo.subscribe": "Subscribe to Go",
+  "workspace.lite.promo.subscribe": "Subscribe to Gateway",
   "workspace.lite.promo.subscribing": "Redirecting...",
   "workspace.lite.promo.otherMethods": "Other payment methods",
   "workspace.lite.promo.selectMethod": "Select payment method",

@@ -15,10 +15,10 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
 
   // The tab bar. `props.children` renders the selected view under it. Admin-only tabs appear when isAdmin.
   const tabs = () => [
-    { path: "go", label: "Go" },
+    { path: "go", label: "Gateway" }, // route dir stays /go (vendored); the visible label is Volt's "Gateway"
     { path: "usage", label: "Usage" },
     { path: "keys", label: "API keys" },
-    { path: "members", label: "Members" },
+    // members tab intentionally omitted for now (team invites not offered yet); the /members route stays dormant.
     ...(userInfo()?.isAdmin
       ? [
           { path: "billing", label: "Billing" },

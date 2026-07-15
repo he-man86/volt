@@ -113,7 +113,7 @@ export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint",
 })
 
 const zenLiteProduct = new stripe.Product("ZenLite", {
-  name: "Volt Go", // TODO(volt): your plan name
+  name: "Volt Gateway", // the Volt gateway subscription (opencode's "Go"/lite plan)
 })
 const zenLiteCouponFirstMonth50 = new stripe.Coupon("ZenLiteCouponFirstMonth50", {
   name: "First month 50% off",
@@ -150,7 +150,7 @@ const zenLiteCouponTwelveMonths100 = new stripe.Coupon("ZenLiteCoupon12Months100
 })
 const zenLitePrice = new stripe.Price("ZenLitePrice", {
   product: zenLiteProduct.id,
-  currency: "eur", // Volt Go — priced in euros
+  currency: "eur", // Volt Gateway — priced in euros
   recurring: {
     interval: "month",
     intervalCount: 1,
@@ -171,7 +171,7 @@ const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
 })
 
 const zenBlackProduct = new stripe.Product("ZenBlack", {
-  name: "Volt Black", // Black is unused (Volt sells Go); renamed off opencode branding in the Stripe dashboard
+  name: "OpenCode Black", // Black is unused — Volt only sells the Gateway plan — so this stays 100% opencode (unbranded, never shown to Volt users)
 })
 const zenBlackPriceProps = {
   product: zenBlackProduct.id,
