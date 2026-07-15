@@ -18,8 +18,8 @@ export const www = new sst.cloudflare.StaticSite(
       command: "bun run build",
       output: "dist",
     },
-    // Apex only. (The `www.` → apex redirect needs a Cloudflare Page Rule, which the deploy token isn't scoped for;
-    // add `redirects: [\`www.${domain}\`]` once the token has the Page Rules permission.)
+    // Apex only. (A `www.` → apex redirect would need SST's Page Rule, i.e. the deploy token scoped for
+    // Zone → Page Rules → Edit — add `redirects: [\`www.${domain}\`]` here if/when you want it.)
     domain: { name: domain },
     environment: {
       VITE_CONSOLE_URL: `https://${consoleDomain}`,

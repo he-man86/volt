@@ -70,9 +70,13 @@ from **one Volt-owned file**:
 **Use-case edits (minimal, marked, both non-load-bearing):**
 - `function/src/auth.ts` — (a) replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a configurable
   `CONSOLE_DEV_EMAILS` allowlist (**dev-only**; `stage !== "production"`, so production runs opencode's original);
-  (b) **PUBLIC branding** — the OpenAuth login page (the UI every user sees at `auth.${domain}`) now uses the Volt
-  mark (self-contained data URI) + `title: "Volt"` + orange `primary`, replacing opencode's `favicon-v3.svg`;
+  (b) **PUBLIC branding**: the OpenAuth login page (the UI every user sees at `auth.${domain}`) now uses the Volt
+  mark (self-contained data URI) + `title: "Volt"` + orange `primary`, replacing opencode's `favicon-v3.svg` logo;
   (c) the GitHub email-fetch `User-Agent` `"opencode"` → `"volt"`.
+- `app/src/routes/v1/*` (new, Volt-owned) — the **clean public gateway path**: `/v1/{chat/completions, messages,
+  models}` (the OpenAI/Anthropic convention), so a subscriber's `baseURL` is `app.${domain}/v1` with no opencode
+  `zen/go` branding in the URL. Each re-runs the same thin config as the vendored `zen/go/v1` handler (kept intact;
+  the handler keys off the request body, not the path). `volt-config/opencode.json` points the agent at `/v1`.
 - `app/src/routes/workspace/[id]/index.tsx` — the Zen landing (opencode's PAYG model catalog + BYOK-gateway
   `ProviderSection`) is retired; the index now `<Navigate>`s to Go, which becomes the workspace home. Volt sells one
   product (Go); we don't resell the gateway/BYOK. **Top-up/balance is untouched** — it lives on the Billing tab.

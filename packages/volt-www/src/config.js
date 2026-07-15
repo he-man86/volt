@@ -1,9 +1,8 @@
 // volt-www runtime config. The console (auth + download resolver) runs on its own host; volt-www is the static
 // marketing site, so its CTAs link *across* to the console. The host is set at build time via VITE_CONSOLE_URL.
-// The console host, baked in at build time via VITE_CONSOLE_URL (infra/www.ts sets it when volt-www deploys).
-// Defaults to the production console at the apex. (When the console→app.${domain} domain split ships, update this
-// + infra/www.ts to `app.volt-ai.dev`.)
-export const CONSOLE_URL = (import.meta.env.VITE_CONSOLE_URL || "https://volt-ai.dev").replace(/\/+$/, "")
+// The console host, baked in at build time via VITE_CONSOLE_URL (infra/www.ts → `https://app.${domain}`). This
+// default is the fallback for a local `vite dev` and points at the production console (app.volt-ai.dev).
+export const CONSOLE_URL = (import.meta.env.VITE_CONSOLE_URL || "https://app.volt-ai.dev").replace(/\/+$/, "")
 
 // /auth is the console's OpenAuth entry — it handles both sign-in and sign-up (new users are created on first
 // login), so "Sign in" and "Start free" both point here.
