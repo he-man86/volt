@@ -46,8 +46,10 @@ sets the caps; the Go Stripe price is €24. opencode's Zen/Black routes stay pr
 ## Enforced automatically — the symmetry gate
 `volt-scripts/check-console-divergence.ts` diffs `packages/console/*` against the pinned opencode tag and **exits
 non-zero if any SOURCE file diverges outside the allowlist** (the list above, encoded as `ALLOW` in the script).
-It runs in **`volt-ci`** on every push/PR, so an accidental edit to opencode source can't merge. `app/public/*`
-(branding assets) is excluded — that's Volt's to own.
+It runs as the dedicated **`.github/workflows/console-symmetry.yml`** workflow — **path-filtered** to fire only
+when `packages/console/**` or the check script changes (the only time drift can appear), so unrelated pushes don't
+pay the opencode download. An accidental edit to opencode source can't merge. `app/public/*` (branding assets) is
+excluded — that's Volt's to own.
 
 ```
 bun volt-scripts/check-console-divergence.ts     # local check; 0 = clean, 1 = drift

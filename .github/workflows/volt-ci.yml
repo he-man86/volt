@@ -43,8 +43,3 @@ jobs:
 
       - name: Lint (volt surface)
         run: bunx oxlint packages/volt-git packages/volt-lsp-iec packages/volt-vscode volt-scripts
-
-      # Structural-symmetry gate: packages/console/* must stay opencode-verbatim except the documented allowlist,
-      # so we can keep pulling opencode's bugfixes. Fails if any opencode source drifts (see DIVERGENCE.md).
-      - name: Console divergence gate (vs pinned opencode)
-        run: bun volt-scripts/check-console-divergence.ts
