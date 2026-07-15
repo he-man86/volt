@@ -80,6 +80,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
           UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
+          ZEN_LIMITS: ${{ secrets.ZEN_LIMITS }}
 
       # Gateway model catalog → ZEN_MODELS1..30. ALWAYS runs — no secret-gated `if:` (GitHub masks secrets in
       # `if` conditions, which silently skipped this). set-models substitutes the provider keys into models.json,
