@@ -21,9 +21,9 @@ Only these differ in `packages/console/*` — everything else is byte-identical 
 - `app/package.json` — dropped the `@opencode-ai/ui` dep + the `../../opencode/script/schema.ts` build step (that
   package is gone); added `@fontsource-variable/{inter,jetbrains-mono}` for the self-hosted Volt brand type (below).
 - `app/src/ui.tsx` (new) — the two things `console/app` used from `@opencode-ai/ui` (`createSimpleContext`, `Favicon`), inlined.
-- `app/src/app.tsx` — the `@opencode-ai/ui` → `~/ui` import rewrite, **plus one line**: `import
-  "./style/volt-theme.css"` (the brand override, after `./app.css`). `app/src/context/i18n.tsx`,
-  `app/src/context/language.tsx` — import-line rewrites.
+- `app/src/app.tsx` — the `@opencode-ai/ui` → `~/ui` import rewrite; the `import "./style/volt-theme.css"` brand
+  override (after `./app.css`); and the authed-app `<Title>` `"opencode"` → `"Volt"` (browser tab).
+  `app/src/context/i18n.tsx`, `app/src/context/language.tsx` — import-line rewrites.
 
 **Branding reskin (volt-branding Phase 1) — an ADDITIVE override, zero edits to opencode source.** The console
 consumes every brand-able value through a CSS custom-property token layer, so the whole authenticated app reskins
