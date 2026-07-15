@@ -25,6 +25,10 @@
 name: deploy
 
 on:
+  # Auto-deploy dev on every merge to dev (opencode-style CD) — "merged = live", no drift between code and site.
+  push:
+    branches: [dev]
+  # Manual for production (or an on-demand dev redeploy).
   workflow_dispatch:
     inputs:
       stage:
@@ -36,7 +40,9 @@ on:
           - dev
           - production
 
-concurrency: deploy-${{ github.event.inputs.stage }}
+# Serialize deploys per stage; a push resolves to the dev stage (no input). Not cancel-in-progress — never kill
+# an in-flight deploy; queue behind it.
+concurrency: deploy-${{ github.event.inputs.stage || 'dev' }}
 
 permissions:
   contents: read
@@ -44,7 +50,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.stage }}
+    environment: ${{ github.event.inputs.stage || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +70,7 @@ jobs:
       # deploy-secrets fills each declared secret from process.env (the GitHub secrets below), else a
       # non-empty PLACEHOLDER_UNSET (SST rejects empty). Placeholder'd features stay inert until provisioned.
       - name: Load SST secrets into this run's state
-        run: bun volt-scripts/deploy-secrets.ts --apply ${{ github.event.inputs.stage }}
+        run: bun volt-scripts/deploy-secrets.ts --apply ${{ github.event.inputs.stage || 'dev' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -87,14 +93,14 @@ jobs:
       # or loads an empty-but-valid catalog if they're absent. Runs in-job so the chunks reach the deploy's own
       # state, overriding the placeholders deploy-secrets set above.
       - name: Provision gateway model catalog
-        run: bun volt-scripts/set-models.ts --apply ${{ github.event.inputs.stage }}
+        run: bun volt-scripts/set-models.ts --apply ${{ github.event.inputs.stage || 'dev' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-      - run: bunx sst deploy --stage ${{ github.event.inputs.stage }} --print-logs
+      - run: bunx sst deploy --stage ${{ github.event.inputs.stage || 'dev' }} --print-logs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
