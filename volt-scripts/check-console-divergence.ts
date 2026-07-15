@@ -40,6 +40,12 @@ const ALLOW = new Set([
 
   // ── Backend use-case edit ──
   "function/src/auth.ts", // dev-only CONSOLE_DEV_EMAILS login allowlist (production runs opencode's original)
+
+  // ── Gateway + email branding (values a client / recipient sees) ──
+  "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
+  "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
+  "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
+  "mail/emails/templates/InviteEmail.tsx", // invite email body: opencode.ai URLs + "OpenCode" copy → Volt
 ])
 
 // Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —
@@ -57,6 +63,11 @@ const DROPPED = [
   // proxies/redirects to opencode's own docs / stats / community (they actively serve/redirect to opencode)
   "app/src/routes/docs", "app/src/routes/data", "app/src/routes/stats", "app/src/routes/s", "app/src/routes/t",
   "app/src/routes/desktop-feedback.ts", "app/src/routes/discord.ts", "app/src/routes/feishu.ts",
+  // Orphaned Zen-landing sections (imported by nothing after the workspace-home → /go redirect); contained
+  // opencode strings ("opencode auth login", /docs/zen). Deleted as dead code.
+  "app/src/routes/workspace/[id]/new-user-section.tsx", "app/src/routes/workspace/[id]/new-user-section.module.css",
+  "app/src/routes/workspace/[id]/model-section.tsx", "app/src/routes/workspace/[id]/model-section.module.css",
+  "app/src/routes/workspace/[id]/provider-section.tsx", "app/src/routes/workspace/[id]/provider-section.module.css",
 ]
 const isDropped = (p: string) => DROPPED.some((d) => p === d || p.startsWith(d + "/"))
 // NB: app/public/* (favicons, social-share, manifests) is EXCLUDED from the check — it's branding, which Volt

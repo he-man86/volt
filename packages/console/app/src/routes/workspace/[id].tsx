@@ -39,21 +39,21 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
     </div>
   )
 
+  // No wrapping <main data-page="workspace"> here — the parent layout (routes/workspace.tsx) already provides it
+  // (with the header: logo, workspace picker, user menu + logout). This shell just adds the tab nav + content.
   return (
-    <main data-page="workspace">
-      <div data-component="workspace-container">
-        <nav data-component="workspace-nav">
-          <nav data-component="nav-desktop">
-            <NavItems />
-          </nav>
-          <nav data-component="nav-mobile">
-            <NavItems />
-          </nav>
+    <div data-component="workspace-container">
+      <nav data-component="workspace-nav">
+        <nav data-component="nav-desktop">
+          <NavItems />
         </nav>
-        <div data-component="workspace-content">
-          <div data-component="workspace-main">{props.children}</div>
-        </div>
+        <nav data-component="nav-mobile">
+          <NavItems />
+        </nav>
+      </nav>
+      <div data-component="workspace-content">
+        <div data-component="workspace-main">{props.children}</div>
       </div>
-    </main>
+    </div>
   )
 }

@@ -32,7 +32,9 @@ export namespace AWS {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          FromEmailAddress: `OpenCode Zen <contact@anoma.ly>`,
+          // VOLT: sender rebranded off opencode. NOTE: volt-ai.dev must be a verified SES sender identity before
+          // this actually delivers (currently only used by the dormant team-invite flow — Members UI is disabled).
+          FromEmailAddress: `Volt <noreply@volt-ai.dev>`,
           Destination: {
             ToAddresses: [input.to],
           },
