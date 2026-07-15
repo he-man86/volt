@@ -30,9 +30,9 @@ export default $config({
     const stage = await import("./infra/stage.js")
     // console.ts pulls in ./app (secrets), the DB, auth issuer, Stripe, and the console frontend (at the apex).
     const { stat } = await import("./infra/console.js")
-    // NOTE: infra/www.ts (volt-www at the apex + console→app.${domain} split) is DEFERRED — the live apex handover
-    // needs an interactive `sst deploy` + a Cloudflare token scoped for Page Rules. Re-enable this import (and the
-    // consoleDomain change in console.ts) once that migration is done. See openspec/changes/volt-branding tasks.
+    // www.ts: Volt's public marketing site (packages/volt-www) at `www.${domain}`. The console keeps the apex, so
+    // there's no domain migration — a fresh StaticSite on a new hostname.
+    await import("./infra/www.js")
     // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. Gated on the key so it can't break a
     // pre-Honeycomb deploy. Telemetry SEND (log-processor → Honeycomb) activates via the HONEYCOMB_API_KEY secret.
     if (process.env.HONEYCOMB_API_KEY) await import("./infra/monitoring.js")

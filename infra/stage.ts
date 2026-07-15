@@ -5,10 +5,6 @@ export const domain = (() => {
   return `${$app.stage}.dev.volt-ai.dev`
 })()
 
-// Domain split (volt-branding Phase 2): the public marketing site (volt-www) owns the apex `domain`; the vendored
-// console app moves to `app.${domain}`, so the apex is Volt's, not opencode's. Auth issuer stays at `auth.${domain}`.
-export const consoleDomain = `app.${domain}`
-
 // Cloudflare Zone ID for volt-ai.dev.
 export const zoneID = "ebac4f049c913d03ae11f89114379d6c"
 export const awsStage = $app.stage === "production" ? "production" : "dev"
