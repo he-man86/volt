@@ -15,25 +15,29 @@ import { $ } from "bun"
 
 const OPENCODE_VERSION = "v1.17.20"
 
-// The full, intended divergence footprint (see DIVERGENCE.md). Paths are relative to packages/console/.
+// The full, intended divergence footprint — opencode files Volt EDITS or ADDS (deleted files live in DROPPED,
+// below). Grouped by concern; see DIVERGENCE.md. Paths are relative to packages/console/.
 const ALLOW = new Set([
-  // de-fork: @opencode-ai/ui + opencode packages were deleted
-  "app/package.json", // + @fontsource-variable/{inter,jetbrains-mono} for the self-hosted Volt brand type
-  "app/src/ui.tsx",
-  "app/src/app.tsx", // + one import line: ./style/volt-theme.css (the brand override, loaded after ./app.css)
-  "app/src/context/i18n.tsx",
-  "app/src/context/language.tsx",
-  // use-case edits (dev-only / presentation, marked VOLT:)
-  "function/src/auth.ts",
-  "app/src/routes/workspace/[id]/index.tsx", // Zen landing → redirect to Go
-  "app/src/routes/workspace/[id].tsx", // Volt-owned workspace SHELL (nav/layout); views stay vendored as children
-  // Volt branding — an ADDITIVE override, not an edit to opencode source. This is the ONLY branding file in the
-  // divergence footprint: opencode's own style/token/*.css stay byte-identical (they pull bugfixes conflict-free).
-  "app/src/style/volt-theme.css",
-  // Phase-2 public-surface strip: opencode's marketing landing (`/`) is replaced by a redirect to the app.
-  "app/src/routes/index.ts",
-  // Volt-only
-  "VENDORED.md",
+  // ── De-fork glue: the @opencode-ai/ui + opencode packages were deleted, so a few imports were re-pointed ──
+  "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
+  "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon now emits Volt's /volt-mark.svg
+  "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + one import: ./style/volt-theme.css
+  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui — i18n plumbing the vendored views still call (English-only in practice)
+  "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
+
+  // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
+  "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+
+  // ── Volt-owned surfaces: Volt writes these fresh, not as patches on opencode ──
+  "app/src/routes/index.ts", // `/` → redirect to /auth (console is app-only; the public site is volt-www)
+  "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
+  "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Go tab (Volt's default view)
+
+  // ── Backend use-case edit ──
+  "function/src/auth.ts", // dev-only CONSOLE_DEV_EMAILS login allowlist (production runs opencode's original)
+
+  // ── Volt-only file (no opencode counterpart) ──
+  "VENDORED.md", // provenance
 ])
 
 // Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —
