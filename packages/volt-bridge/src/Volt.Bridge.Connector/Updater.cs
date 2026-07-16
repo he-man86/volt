@@ -1,44 +1,59 @@
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
-using Velopack;
-using Velopack.Sources;
 
 namespace Volt.Bridge.Connector
 {
     /// <summary>
-    /// Auto-update, driven by the always-running connector — the one Volt process alive in every configuration
-    /// (the Electron GUI may never be opened). Standard framework (Velopack). Market-normal (VS Code / Electron)
-    /// flow: the connector CHECKS + DOWNLOADS in the background (seamless), then the tray shows a toast + a
-    /// "Restart to update to <ver>" menu item — the user picks WHEN it applies. It also applies automatically on
-    /// the next natural restart (SetAutoApplyOnStartup, Program.cs), so nothing forces a mid-session restart.
-    /// No-op unless Velopack-installed (dev + any bundled copy are inert). Never touches opencode.
+    /// Auto-update for the always-running connector — the one Volt process alive in every configuration (the
+    /// Electron GUI may never be opened). Full-Inno model (no Velopack): poll GitHub's "latest release" API and,
+    /// when a newer version is published, surface it in the tray. "Restart to update" downloads that release's
+    /// Volt-win-Setup.exe and runs it /VERYSILENT — Inno upgrades the install in place — then exits so files
+    /// unlock. Same tray UX as before (CurrentVersion / PendingVersion / RestartToApply), simpler mechanism.
+    /// No-op on dev/unmanaged runs (no version.txt beside the exe). Never touches opencode.
     /// </summary>
     internal static class Updater
     {
-        private const string Feed = "https://github.com/he-man86/volt";
+        private const string Owner = "he-man86";
+        private const string Repo = "volt";
+        private const string LatestApi = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases/latest";
         private static readonly TimeSpan Every = TimeSpan.FromHours(6);
+        private static readonly HttpClient Http = CreateClient();
 
-        private static UpdateManager? _mgr;
         // volatile: written on the background check Task, read on the tray's UI thread (PendingVersion).
-        private static volatile UpdateInfo? _staged; // downloaded + ready to apply on restart, or null
+        private static volatile string? _pending; // a newer version is available to apply, or null
 
-        /// <summary>The installed version, shown in the tray menu ("(dev)" when not Velopack-managed).</summary>
+        /// <summary>The installed version, shown in the tray ("(dev)" when not installed via the Setup).</summary>
         public static string CurrentVersion { get; private set; } = "(dev)";
 
-        /// <summary>The version downloaded and waiting to apply on restart, or null. Polled by the tray (UI thread).</summary>
-        public static string? PendingVersion => _staged?.TargetFullRelease.Version.ToString();
+        /// <summary>A newer version available to apply, or null. Polled by the tray (UI thread).</summary>
+        public static string? PendingVersion => _pending;
+
+        private static HttpClient CreateClient()
+        {
+            var c = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            // GitHub's REST API rejects requests without a User-Agent.
+            c.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("VoltConnector", "1.0"));
+            return c;
+        }
 
         /// <summary>Fire-and-forget: check now, then on a timer, for the life of the tray.</summary>
         public static void Start()
         {
-            try { _mgr = new UpdateManager(new GithubSource(Feed, accessToken: null, prerelease: false)); }
-            catch (Exception e) { Log.Warn($"updater: init failed: {e.Message}"); return; }
-
-            // Version read is its own try so an I/O hiccup here doesn't lose the whole updater (and vice-versa).
-            try { if (_mgr.CurrentVersion != null) CurrentVersion = _mgr.CurrentVersion.ToString(); }
+            // The installer writes the release version next to the connector (version.txt); its absence marks a
+            // dev build or a bundled copy run out of the tree — no update surface there.
+            try
+            {
+                var f = Path.Combine(AppContext.BaseDirectory, "version.txt");
+                if (File.Exists(f)) CurrentVersion = File.ReadAllText(f).Trim();
+            }
             catch (Exception e) { Log.Warn($"updater: version read failed: {e.Message}"); }
 
-            if (!_mgr.IsInstalled) return; // dev build / non-Velopack copy — no update surface
+            if (!Version.TryParse(CurrentVersion, out _)) return; // "(dev)" / unparseable — no update surface
 
             _ = Task.Run(async () =>
             {
@@ -53,24 +68,37 @@ namespace Volt.Bridge.Connector
 
         private static async Task CheckOnce()
         {
-            var updates = await _mgr!.CheckForUpdatesAsync();
-            if (updates == null) return; // up to date
-            var v = updates.TargetFullRelease.Version.ToString();
-            if (v == PendingVersion) return; // already downloaded this target; waiting on the user / restart
-            Log.Info($"updater: downloading {v}…");
-            await _mgr.DownloadUpdatesAsync(updates);
-            _staged = updates;
-            Log.Info($"updater: {v} ready — applies on restart");
+            using var doc = JsonDocument.Parse(await Http.GetStringAsync(LatestApi));
+            var tag = doc.RootElement.GetProperty("tag_name").GetString();
+            if (tag == null) return;
+            var latest = tag.TrimStart('v'); // tags are bare X.Y.Z, but tolerate a stray v prefix
+            if (Version.TryParse(latest, out var lv) && Version.TryParse(CurrentVersion, out var cv) && lv > cv)
+            {
+                _pending = latest;
+                Log.Info($"updater: {latest} available (current {CurrentVersion})");
+            }
         }
 
-        /// <summary>User clicked "Restart to update": apply the staged update + relaunch onto the new version.
-        /// The user chose the moment, so restarting now is fine.</summary>
+        /// <summary>User clicked "Restart to update": download the new Setup.exe and run it silently (Inno upgrades
+        /// in place), then exit so the installer can replace our files. The user chose the moment.</summary>
         public static void RestartToApply()
         {
-            var updates = _staged;
-            if (_mgr == null || updates == null) return;
-            try { _mgr.ApplyUpdatesAndRestart(updates); } // exits + relaunches on the new version
-            catch (Exception e) { Log.Warn($"updater: apply failed: {e.Message}"); }
+            var v = _pending;
+            if (v == null) return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var url = $"https://github.com/{Owner}/{Repo}/releases/download/{v}/Volt-win-Setup.exe";
+                    var tmp = Path.Combine(Path.GetTempPath(), $"Volt-{v}-Setup.exe");
+                    File.WriteAllBytes(tmp, await Http.GetByteArrayAsync(url));
+                    // /VERYSILENT: the user already chose to update — don't re-prompt. CloseApplications (in the
+                    // .iss) lets the installer replace this running connector; it relaunches us when done.
+                    Process.Start(new ProcessStartInfo(tmp, "/VERYSILENT /NORESTART") { UseShellExecute = true });
+                    Environment.Exit(0); // release file locks so the installer can overwrite us
+                }
+                catch (Exception e) { Log.Warn($"updater: apply failed: {e.Message}"); }
+            });
         }
     }
 }

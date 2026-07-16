@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Windows.Forms;
-using Velopack;
 
 namespace Volt.Bridge.Connector
 {
@@ -13,18 +12,15 @@ namespace Volt.Bridge.Connector
         [STAThread]
         private static void Main(string[] args)
         {
-            // Velopack MUST run first: it handles the install/update/uninstall hook invocations (Velopack calls
-            // the app with special args at those lifecycle points) and process-exits for them. As the always-on
-            // process, the connector is the update agent — this is where PATH + OPENCODE_CONFIG_DIR get set,
-            // replacing the retired NSIS installer. Inert on non-Velopack (dev / desktop-bundled) runs.
-            VelopackApp.Build()
-                .SetAutoApplyOnStartup(true) // apply any update the Updater staged, at login before the GUI opens
-                .OnAfterInstallFastCallback(_ => VoltEnv.Install())
-                .OnAfterUpdateFastCallback(_ => VoltEnv.Install())   // re-assert env after each update (idempotent)
-                .OnBeforeUninstallFastCallback(_ => VoltEnv.Uninstall())
-                .Run();
+            // Uninstall hook: the Inno uninstaller runs `VoltConnector.exe --uninstall` BEFORE deleting files, so
+            // we revert env (OPENCODE_CONFIG_DIR + PATH) and stop the running tray/workers here, then exit.
+            if (Array.IndexOf(args, "--uninstall") >= 0)
+            {
+                VoltEnv.Uninstall();
+                return;
+            }
 
-            // --silent: launched by the extension/login rather than a user double-click.
+            // --silent: launched by the installer/login/extension rather than a user double-click.
             var silent = Array.IndexOf(args, "--silent") >= 0;
 
             _single = new Mutex(initiallyOwned: true, "Local\\VoltConnector", out var isNew);
@@ -36,13 +32,15 @@ namespace Volt.Bridge.Connector
                 return;
             }
 
-            // Keep the tray running across reboots so the bridges are always supervised.
-            LoginItem.EnsureRegistered();
+            // Self-configure on startup (idempotent, best-effort): set OPENCODE_CONFIG_DIR + PATH, create the
+            // Start Menu shortcut, and register the login item so the tray survives reboots. Runs right after the
+            // installer launches us, and every login — replacing what the retired Velopack install hooks did.
+            VoltEnv.Install();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
-            Updater.Start(); // always-on auto-update (no-op unless Velopack-installed)
+            Updater.Start(); // always-on auto-update (no-op on dev builds without a version.txt)
             Application.Run(new TrayContext());
 
             GC.KeepAlive(_single);
