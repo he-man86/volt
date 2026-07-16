@@ -18,8 +18,10 @@ Fulfills `commercial-cloud-backend`'s deferred "Stage 5 rebrand." Source of trut
 ### Brand assets
 - [x] Grabbed `volt-logo.svg` + `volt-mark.svg` from the design → `app/public/` (Volt-owned, gate-excluded) for the
       favicon step below.
-- [ ] Swap favicons (needs raster PNGs from the mark) / `app/public/theme.json` / web manifest to Volt art
-      (gate-excluded; opencode's `social-share*` already removed).
+- [x] Favicons swapped to Volt art. `app/scripts/gen-favicon.ts` (zero-dep) rasterizes `volt-mark.svg` → the brand
+      `apple-touch-icon.png` + `web-app-manifest-{192,512}.png`; `ui.tsx` links SVG + apple-touch, `entry-server.tsx`
+      `og:image` → the 512 PNG. Deleted opencode's broken `social-share*.png` symlink-stubs (dead refs into the
+      removed `ui`). (`theme.json` left as-is — it's an unreferenced theme JSON *schema*, not brand art.)
 - [~] Marketing header keeps opencode's logo — intentionally NOT touched (Phase 2 replaces those routes with
       volt-www; branding a soon-deleted vendored file is churn).
 
@@ -64,8 +66,9 @@ vs. replace/drop) is the table in Decision 3.
       `pages/feature.jsx` entry drives all 8 (each HTML sets `window.__FEATURE` inline); pulled `FeaturePage`,
       `ChangelogPage`, core `Badge`. Feature "Start Free" → console `/auth`. (Sign-in is NOT a page — CTAs go to
       `/auth`.)
-- [ ] Contact form is a design mock (`setSent(true)`, no backend) + placeholder `@volt.dev` emails → wire a real
-      submit + `@volt-ai.dev` addresses.
+- [x] Contact form wired to a real submit — `ContactPage.jsx` builds a subject/body and opens the visitor's mail
+      client via `mailto:sales@volt-ai.dev` (no backend needed for a static site); all channels use `@volt-ai.dev`.
+      Add a real endpoint/CRM only when volume needs an inbox.
 - [x] **Auth wired**: "Sign in" + "Start Free" (Nav, Pricing, FinalCTA) → console `/auth` (OpenAuth handles
       sign-in *and* sign-up). Cross-site via `src/config.js` `CONSOLE_URL` (env `VITE_CONSOLE_URL`, defaults to
       **prod** `volt-ai.dev` so a forgotten env is safe; dev opts in). No auth re-implemented.

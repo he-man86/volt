@@ -4,8 +4,9 @@ Bring opencode's commercial backend up on Volt's own cloud. Vendoring is pinned 
 **STATUS (2026-07-15): LIVE + working end-to-end on `dev.volt-ai.dev`.** Stages 0–4b are DONE — deployed, Google
 login → **€24 Go subscription** → metered gateway completion, all proven. The product is **Go only** (€24/mo, 50%
 margin via 2× markup, top-up for overage; Black dropped). Auto-deploys on merge to `dev`. **What genuinely remains:**
-(1) **Stripe go-live** (test→live keys) to take real money; (2) **production stage** (env + secrets + apex domain);
-(3) **Discord webhook** to switch on the ready-to-go Honeycomb monitoring; (4) **email/SES** for invites (not login);
+(1) **Stripe go-live** (test→live keys) to take real money; (2) **production stage** (live secrets — env shell + apex domain now DONE);
+(3) ~~Discord webhook~~ **DONE** (server + webhook + prod secret + tested; needs Workers Paid + prod deploy to fire);
+(4) **email/SES** for invites (not login);
 (5) **Stage 5 rebrand** (deferred, own change). Everything below is marked to reality.
 
 ## Stage 0 — accounts & providers — NEARLY DONE (blocked only on DNS propagation)
@@ -88,11 +89,13 @@ Scope this precisely (tested on Windows):
 ## Open process items (found in review — not deploy-blockers but required)
 - [x] **Merged `commercial-cloud-backend` → `dev`.** The change shipped to `dev`; `dev` is now the protected trunk
       with auto-deploy on merge (see `.github/workflows/deploy.yml`).
-- [ ] **Production GitHub environment + secrets** — only `dev` is set. Create the `production` environment with
-      **production** values (live Stripe key, etc.) when going live — do NOT reuse dev/test values.
-- [ ] **`adapt-commercial-backend`** — the Stage 5 rebrand + billing-product swap is referenced as its own change
-      but not yet created. Spin it up when the first deploy is proven (rebrand `console/app`, swap Zen→Volt product,
-      align model IDs, prune the marketing integrations). Not part of this change.
+- [~] **Production GitHub environment** — created as a **locked-down shell** (`gh api PUT …/environments/production`):
+      required-reviewer approval (`he-man86`) on every live-money deploy + protected-branches-only (`dev`). Still
+      **YOU:** set the `production` **secrets** with live/prod values (live Stripe key, prod OAuth, fresh session
+      secret — never reuse dev/test). Full go-live runbook in PROVISIONING.md.
+- [x] **Stage 5 rebrand spun up as its own change** — created as **`volt-branding`** (fulfills this deferred item:
+      console reskin + volt-www landing + marketing-surface prune). Phase 1 done; Phase 2 built, pending the prod
+      deploy. Not part of this change.
 - [x] **`sst secret load` on Windows — verified working** (exit 0, 48 secrets set for dev). Not Windows-blocked.
 
 ## Stage 1 — vendor the console packages — DONE ✅ (green, committed)
@@ -176,8 +179,11 @@ quality)** — lean, not opencode's 20-model catalog.
 - [x] **Overage behavior — decided.** Metered top-up (Zen balance, PAYG) on the Billing tab; no hard stop.
 - [ ] **Stripe go-live** — we deploy with **test** keys; real charging needs Stripe account activation + live keys
       + the live webhook. Separate from the dev deploy. **(The one true remaining gate to take real money.)**
-- [ ] **Production apex domain** — `volt-ai.dev` apex still has Hostnet's A record; a prod deploy (vs `dev.`) will
-      collide. Resolve when going past the `dev` stage.
+      _Infra is ready: the code is fully key/stage-driven (webhook URL, products, provider key all follow the stage),
+      no test-mode hardcoding, and the `production` env exists. Blocked only on Stripe account activation → live keys._
+- [x] **Production apex domain freed** — deleted the 4 Hostnet records (apex A/AAAA, `www` CNAME, `*` wildcard) from
+      the Cloudflare zone; kept SPF + DMARC (no MX existed). Apex is now free for SST to bind at the prod deploy;
+      `dev.volt-ai.dev` unaffected (still 200). See PROVISIONING.md.
 - [ ] **Email (SES)** — only needed for workspace invites + the enterprise-contact page, not login. Stub `AWS_SES_*`
       now; wire real SES keys if/when invites matter.
 
@@ -193,8 +199,12 @@ Three layers; #1 is the core "success rate" ask.
    - [x] Honeycomb account + `HONEYCOMB_API_KEY` set (`.env` + `dev` GitHub secret). **Note:** the deploy job still
          omits it *on purpose* — enabling it activates `monitoring.ts`, which needs a real `DISCORD_INCIDENT_WEBHOOK_URL`
          (still empty). Wire both together: add `HONEYCOMB_API_KEY` to the deploy env once Discord is provisioned.
-   - [ ] Alerts route via `honeycomb/webhook` route → set `DISCORD_INCIDENT_WEBHOOK_URL` (Discord/Slack) for Volt.
-         **This is the one thing gating monitoring** — the Honeycomb half is ready.
+   - [x] Alerts route via `honeycomb/webhook` route → Discord — **wired + tested.** Blanked opencode's hardcoded
+         Discord role ID in `webhook.ts` (mention now opt-in via `DISCORD_ALERT_ROLE_ID`); `deploy.yml` passes
+         `DISCORD_INCIDENT_WEBHOOK_URL` + activates `HONEYCOMB_API_KEY` **production-only** (dev stays Workers-Free —
+         the tail pipeline needs Workers Paid). Discord server + webhook created; a live test message posted (HTTP
+         204); `DISCORD_INCIDENT_WEBHOOK_URL` set in the **production** GitHub env. **Remaining to actually fire:**
+         be on Workers Paid + the production deploy (alerts self-disable off-production).
    - Note: `monitoring.ts` alerts self-disable off-production (`alertsDisabled = stage !== "production"`).
 2. **AI usage statistics** — **per-user usage is ALREADY built + vendored, not a gap.** The gateway meters every
    request into `UsageTable` (`input_tokens`/`output_tokens`/`cache_read_tokens`/`reasoning_tokens`/`cost`/model)

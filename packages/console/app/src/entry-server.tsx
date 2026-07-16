@@ -17,8 +17,8 @@ export default createHandler(
             <head>
               <meta charset="utf-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <meta property="og:image" content="/social-share.png" />
-              <meta property="twitter:image" content="/social-share.png" />
+              <meta property="og:image" content="/web-app-manifest-512x512.png" />
+              <meta property="twitter:image" content="/web-app-manifest-512x512.png" />
               <style>{criticalCSS}</style>
               {assets}
             </head>

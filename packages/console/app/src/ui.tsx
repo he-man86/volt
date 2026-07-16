@@ -41,11 +41,12 @@ export function createSimpleContext<T, Props extends Record<string, any>>(
 }
 
 export const Favicon = () => {
-  // Volt brand icon. SVG favicon (the orange lightning mark, /public/volt-mark.svg) covers modern browsers; the
-  // apple-touch-icon (PNG) is still TODO — Safari ignores SVG there, so add a raster when one exists.
+  // Volt brand icon (the orange lightning mark). SVG favicon covers modern browsers; the apple-touch-icon PNG is
+  // for Safari/iOS (it ignores SVG there). Rasters generated from volt-mark.svg by scripts/gen-favicon.ts.
   return (
     <>
       <Link rel="icon" href="/volt-mark.svg" type="image/svg+xml" />
+      <Link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       <Meta name="apple-mobile-web-app-title" content="Volt" />
     </>
   )

@@ -20,7 +20,9 @@ const OPENCODE_VERSION = "v1.17.20"
 const ALLOW = new Set([
   // ── De-fork glue: the @opencode-ai/ui + opencode packages were deleted, so a few imports were re-pointed ──
   "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
-  "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon now emits Volt's /volt-mark.svg
+  "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
+  "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
+  "app/scripts", // Volt-added: gen-favicon.ts rasterizes volt-mark.svg → the brand PNGs in public/ (zero-dep)
   "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + one import: ./style/volt-theme.css
   "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui — i18n plumbing the vendored views still call (English-only in practice)
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
@@ -43,6 +45,7 @@ const ALLOW = new Set([
 
   // ── Gateway + email branding (values a client / recipient sees) ──
   "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
+  "app/src/routes/honeycomb/webhook.ts", // blanked opencode's hardcoded Discord alert role ID (wrong server); mention now opt-in
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
   "mail/emails/templates/InviteEmail.tsx", // invite email body: opencode.ai URLs + "OpenCode" copy → Volt

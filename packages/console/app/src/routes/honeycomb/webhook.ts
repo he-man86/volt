@@ -3,7 +3,10 @@ import { z } from "zod"
 import { Resource } from "@opencode-ai/console-resource"
 import { safeEqual } from "@opencode-ai/console-core/util/crypto.js"
 
-const DISCORD_ALERT_ROLE_ID = "1520924666359713863"
+// Volt Discord on-call role to @-mention on an incident. Empty = no role ping (the alert still posts).
+// Set to your server's role ID (Discord → User Settings → Advanced → Developer Mode on → right-click the
+// role → Copy Role ID). Was opencode's role ID — wrong for Volt's server, so blanked.
+const DISCORD_ALERT_ROLE_ID = ""
 
 const basePayload = z.object({
   name: z.string().optional(),
@@ -57,8 +60,7 @@ const postDiscordMessage = async (payload: z.infer<typeof honeycombWebhookPayloa
   const content = [
     `[**${payload.isTest ? "[TEST] " : ""}${payload.name ?? "Honeycomb alert"}**](${payload.url})`,
     ...names,
-    "",
-    `<@&${DISCORD_ALERT_ROLE_ID}>`,
+    ...(DISCORD_ALERT_ROLE_ID ? ["", `<@&${DISCORD_ALERT_ROLE_ID}>`] : []),
   ]
     .filter((line) => line !== undefined)
     .join("\n")
@@ -68,7 +70,7 @@ const postDiscordMessage = async (payload: z.infer<typeof honeycombWebhookPayloa
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content,
-      allowed_mentions: { roles: [DISCORD_ALERT_ROLE_ID] },
+      allowed_mentions: { roles: DISCORD_ALERT_ROLE_ID ? [DISCORD_ALERT_ROLE_ID] : [] },
       flags: 4,
     }),
   })
