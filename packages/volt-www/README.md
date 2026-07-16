@@ -14,17 +14,24 @@ bun run --cwd packages/volt-www build     # -> dist/ (static, deploy anywhere)
 bun run --cwd packages/volt-www preview    # serve the built dist/
 ```
 
-## Design system
-`src/tokens/*` are the Volt Design System tokens (same warm-neutral + orange as the console theme, so landing and
-app match). The home page's components live **verbatim** in `src/design/*.jsx` — authored the way the Claude Design
-preview loads them (global scripts reading `window` helpers). `src/globals.js` sets the required globals (`React`,
-the DS `Button`); `src/main.jsx` imports the design files in order and renders `<App>`. To re-sync from the design
-project, drop updated `.jsx` into `src/design/` — no rewiring. Remaining pages (pricing, FAQ, feature-\*, …) are the
-next import.
+## Structure
+
+Plain Vite + React (ES modules — no `window`-globals indirection). Multi-page: one `*.html` per route (see
+`vite.config.js`) → `src/pages/<page>.jsx`, each calling `renderPage(<body/>)` from `src/shell.jsx` (which wraps the
+body in `<Nav>` + `<Footer>`).
+
+- **`src/tokens/*`** — design tokens (Cursor-derived palette/scale; warm off-white + `#f54e00`). Reference lives in
+  `design-ref/` (a committed skillui extraction of cursor.com; **not imported** by the build).
+- **`src/content.js`** — all marketing copy in one place (nav, features, pricing, FAQ, testimonials, footer).
+- **`src/components/*`** — `Nav`, `Footer`, `Hero`, `Features`, `FeatureShowcase` (alternating copy ↔ mockup band,
+  optional Turner backdrop), `SocialProof`, `ui` (buttons/logo), `LegalPage`, `FeatureDetail`.
+- **`src/components/mockups/*`** — interactive product mockups reused across hero + feature sections:
+  `DesktopApp` (opencode chat + IDE panel + explorer), `Codesys`, `VSCode` (explorer / source-control / Volt views),
+  `Bridge` (tray connector), and `Draggable` (grab-to-move + click-to-front window wrapper).
+- **`src/reveal.jsx`** — `Reveal` scroll-in + `useInView` (drives the mockups' staged animations).
 
 ## Auth & download (cross-links to the console)
-The CTAs link out; this site implements no auth/billing of its own. Targets live in `src/config.js` (exposed as
-`window.VOLT`):
+The CTAs link out; this site implements no auth/billing of its own. Targets live in `src/config.js`:
 - `authUrl()` → `<console>/auth` (OpenAuth, sign-in *and* sign-up). Console host = `VITE_CONSOLE_URL` (default
   `https://dev.volt-ai.dev`).
 - `downloadUrl()` → the **Volt installer**: `he-man86/volt` GitHub Releases `latest/download/Volt-win-Setup.exe`

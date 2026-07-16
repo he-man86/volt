@@ -1,0 +1,234 @@
+/* CODESYS mockup — Windows-gray IDE chrome, scoped to .cds. Light syntax coloring (keywords blue, types teal). */
+.cds {
+  --cds-chrome: #ececeb;
+  --cds-chrome-2: #e2e1df;
+  --cds-editor: #ffffff;
+  --cds-border: #c9c7c3;
+  --cds-text: #1f1f1f;
+  --cds-muted: #6b6963;
+  --cds-blue: #1667c8;
+  --cds-teal: #128a7d;
+  --cds-sel: #d5e4f7;
+  --cds-title: #24557f;
+
+  width: 452px;
+  max-width: 84vw;
+  border: 1px solid #b6b4b0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  background: var(--cds-chrome);
+  color: var(--cds-text);
+  font: 12px/1.4 var(--font-sans);
+  user-select: none;
+}
+.cds-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  background: linear-gradient(var(--cds-title), color-mix(in srgb, var(--cds-title) 82%, #000));
+  color: #fff;
+}
+.cds-title-name {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.cds-winctl {
+  display: flex;
+  gap: 2px;
+}
+.cds-winctl b {
+  width: 26px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 400;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.cds-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--cds-chrome-2);
+  border-bottom: 1px solid var(--cds-border);
+}
+.cds-tool {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  background: #cfcdc9;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.cds-tool.sep {
+  width: 1px;
+  height: 16px;
+  border-radius: 0;
+  background: var(--cds-border);
+  box-shadow: none;
+  margin: 0 3px;
+}
+.cds-body {
+  display: grid;
+  grid-template-columns: 156px 1fr;
+  min-height: 216px;
+}
+.cds-tree {
+  background: var(--cds-editor);
+  border-right: 1px solid var(--cds-border);
+  padding: 4px 0;
+  overflow: hidden;
+}
+.cds-tree-head {
+  padding: 3px 10px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--cds-muted);
+}
+.cds-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cds-tree-row:hover {
+  background: #eef4fb;
+}
+.cds-tree-row.is-active,
+.cds-tree-row.is-active:hover {
+  background: var(--cds-sel);
+}
+.cds-chev {
+  width: 0;
+  height: 0;
+  flex: none;
+  border-left: 4px solid var(--cds-muted);
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  transition: transform 150ms ease;
+}
+.cds-chev.open {
+  transform: rotate(90deg);
+}
+.cds-chev-sp {
+  width: 4px;
+  flex: none;
+}
+.cds-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cds-ico {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  flex: none;
+}
+.cds-ico.device {
+  background: #7a7a7a;
+}
+.cds-ico.folder {
+  background: #e0b64d;
+}
+.cds-ico.app {
+  background: #4d90e0;
+}
+.cds-ico.pou {
+  background: #6cae57;
+}
+.cds-ico.gvl {
+  background: #b06cae;
+}
+.cds-editor {
+  display: flex;
+  flex-direction: column;
+  background: var(--cds-editor);
+}
+.cds-tabs {
+  display: flex;
+  background: var(--cds-chrome-2);
+  border-bottom: 1px solid var(--cds-border);
+}
+.cds-tab {
+  padding: 5px 14px;
+  font-size: 11.5px;
+  background: var(--cds-editor);
+  border-right: 1px solid var(--cds-border);
+  border-top: 2px solid var(--cds-blue);
+}
+.cds-code {
+  margin: 0;
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.cds-line {
+  display: flex;
+  white-space: pre;
+}
+.cds-ln {
+  width: 2.4em;
+  flex: none;
+  text-align: right;
+  padding-right: 10px;
+  color: #b7b5b0;
+  background: #f4f3f1;
+  user-select: none;
+}
+.cds-src {
+  padding-left: 10px;
+}
+.cds-kw {
+  color: var(--cds-blue);
+  font-weight: 600;
+}
+.cds-ty {
+  color: var(--cds-teal);
+}
+.cds-cm {
+  color: #8a8a8a;
+  font-style: italic;
+}
+.cds-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--cds-chrome-2);
+  border-top: 1px solid var(--cds-border);
+  font-size: 10.5px;
+  color: var(--cds-muted);
+}
+.cds-ok {
+  color: #2e8b57;
+}
+
+/* reveal-in (matches the desktop app's staging) */
+.cds {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.cds.is-live {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 500ms ease,
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cds {
+    opacity: 1;
+    transform: none;
+  }
+}

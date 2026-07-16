@@ -18,3 +18,13 @@ export const INSTALLER_URL =
   "https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe"
 
 export const downloadUrl = () => INSTALLER_URL
+
+// Signed-in hint: the console sets a **readable** (non-httpOnly) cookie on the shared parent domain when a session
+// exists, so this static site can swap "Sign in" for "Dashboard" without its own auth. Name overridable.
+// (httpOnly session cookies stay on the console; this is only a presence hint, never a credential.)
+export const SESSION_COOKIE = import.meta.env.VITE_SESSION_COOKIE || "volt_session"
+export const isSignedIn = () =>
+  typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith(SESSION_COOKIE + "="))
+
+// Where a signed-in user lands (the console app root).
+export const dashboardUrl = () => `${CONSOLE_URL}/`

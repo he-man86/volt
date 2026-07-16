@@ -1,22 +1,29 @@
 :root {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Inter ≈ CursorGothic (display/UI), JetBrains Mono ≈ Berkeley Mono (code), EB Garamond = in-mockup serif */
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: "EB Garamond", Georgia, "Times New Roman", serif;
 
-  /* Type scale (size / line-height) */
-  --text-h1-size: 48px;   --text-h1-line: 56px;
-  --text-h2-size: 32px;   --text-h2-line: 40px;
-  --text-h3-size: 24px;   --text-h3-line: 32px;
-  --text-body-size: 16px; --text-body-line: 24px;
-  --text-small-size: 14px;--text-small-line: 20px;
-  --text-caption-size: 12px; --text-caption-line: 16px;
+  /* Type scale — cursor's: fluid display, tight tracking. Body kept readable (16px), not the extractor's .75rem. */
+  --text-display: clamp(2.25rem, 4vw, 3.25rem); /* hero H1 — cursor-sized, not oversized */
+  --text-display-line: 1.1;
+  --text-h1-size: 40px;   --text-h1-line: 1.1;
+  --text-h2-size: 28px;   --text-h2-line: 1.2;
+  --text-h3-size: 20px;   --text-h3-line: 1.3;
+  --text-body-size: 16px; --text-body-line: 1.55;
+  --text-lead-size: 20px; --text-lead-line: 1.5;
+  --text-small-size: 14px; --text-small-line: 1.5;
+  --text-caption-size: 12px; --text-caption-line: 1.4;
 
   /* Weights */
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+  --weight-bold: 700;
 
-  /* Tracking */
+  /* Tracking — cursor's display type is tight */
   --tracking-tight: -0.02em;
+  --tracking-tighter: -0.03em;
   --tracking-normal: 0;
-  --tracking-wide: 0.04em;
+  --tracking-wide: 0.06em; /* eyebrows / uppercase labels */
 }
