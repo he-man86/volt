@@ -42,8 +42,14 @@ from **one Volt-owned file**:
 - The (marketing-only) header keeps opencode's logo for now — it is **not** touched. Phase 2 replaces the marketing
   routes with `volt-www` wholesale, so branding that header would be churn on a soon-deleted vendored file.
 
-**Branding neutralization:**
-- Removed opencode's `app/public/social-share*.png` and `web-app-manifest*.png`.
+**Branding neutralization / favicons:**
+- Removed opencode's broken `app/public/social-share*.png` (they were dangling git-symlink stubs into the deleted
+  `@opencode-ai/ui` — served text, not images).
+- **Volt favicons rasterized from the mark** — `app/scripts/gen-favicon.ts` (Volt-added, zero-dep) scanline-fills
+  `public/volt-mark.svg` (a straight-line polygon) onto the brand background and writes `apple-touch-icon.png` +
+  `web-app-manifest-{192,512}.png`. `ui.tsx` `Favicon` links the SVG (modern) + apple-touch PNG (Safari/iOS);
+  `entry-server.tsx` points `og:image`/`twitter:image` at the 512 PNG (was the deleted opencode `social-share.png`).
+  `public/*` is gate-excluded (branding); `app/scripts` + `entry-server.tsx` are ALLOW-listed.
 
 **Public-surface strip (volt-branding Phase 2)** — the console is now **app-only**; the public site is `volt-www`
 (separate, Volt-owned). Deliberately a **hybrid** to touch opencode as little as possible:

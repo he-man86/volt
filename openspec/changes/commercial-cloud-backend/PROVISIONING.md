@@ -76,9 +76,35 @@ Callbacks (verified live): `https://auth.dev.volt-ai.dev/{github,google}/callbac
 - [ ] Re-enable monitoring: add `HONEYCOMB_API_KEY` back to the `sst deploy` step env in `deploy.yml` (it's already
       a GitHub secret + real). This ungates `infra/monitoring.ts` and the console tail consumer.
 
-## Production go-live (later)
-- [ ] Create the `production` GitHub environment with **production** values (live Stripe key, prod OAuth callbacks
-      at `auth.volt-ai.dev`, etc. — never reuse dev/test values).
-- [ ] `gh workflow run deploy.yml -f stage=production` → deploys to the apex `volt-ai.dev`.
+## Production go-live runbook (Stripe live + apex)
+
+**Code/infra is already prod-ready — nothing to write.** Everything is stage/key-driven: `stage.ts` `domain` →
+`volt-ai.dev` for `production`; the Stripe provider reads `STRIPE_SECRET_KEY` from env; the webhook URL is
+`https://${domain}/stripe/webhook` (→ apex in prod); Pulumi creates the products/prices/coupons/webhook in whatever
+Stripe account the key points at. `deploy.yml` already exposes `production` as a `workflow_dispatch` choice and
+resolves the `production` GitHub environment. No hardcoded test-mode anywhere in `console/*`.
+
+- [x] **`production` GitHub environment created** (locked-down shell, no secrets yet): required-reviewer approval
+      = `he-man86` (a human must approve every live-money deploy) + deployments restricted to protected branches
+      (`dev`). Created via `gh api -X PUT repos/he-man86/volt/environments/production`.
+- [ ] **YOU: activate the Stripe account** (business + bank + identity in the Stripe dashboard) and copy the **live**
+      keys — `sk_live_…` / `pk_live_…`. Live charging is gated on activation; nothing below works until this is done.
+- [ ] **YOU: set the `production` environment secrets** (live/prod values — NEVER reuse dev/test):
+      `STRIPE_SECRET_KEY=sk_live_…`, `STRIPE_PUBLISHABLE_KEY=pk_live_…`, plus prod `CLOUDFLARE_API_TOKEN` (user-owned
+      `cfut_`), `PLANETSCALE_SERVICE_TOKEN`(+`_ID`), a fresh `ZEN_SESSION_SECRET`, prod OAuth (`GOOGLE_CLIENT_*`,
+      `GH_CLIENT_*_CONSOLE`), `Upstash*`, `ZEN_LIMITS`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`. e.g.
+      `gh secret set STRIPE_SECRET_KEY --env production --repo he-man86/volt`.
+- [x] **Apex DNS collision cleared** — deleted the 4 Hostnet records from the Cloudflare zone (`volt-ai.dev` A
+      `91.184.0.200` + AAAA `2a02:2268:…`, `www.volt-ai.dev` CNAME, `*.volt-ai.dev` wildcard A). They only served a
+      Hostnet parking page; no MX/inbound email existed, and the SPF + DMARC TXT records were kept. The apex is now
+      free (returns 530 until the prod deploy binds it); `dev.volt-ai.dev` verified still 200. SST will create the
+      apex / `www.` / `auth.volt-ai.dev` records at the prod deploy.
+- [ ] **YOU: add prod OAuth redirect URIs** — `https://auth.volt-ai.dev/{github,google}/callback` to the Google +
+      GitHub OAuth apps (login 401s otherwise).
+- [ ] **Deploy:** `gh workflow run deploy.yml -f stage=production` → approve the environment gate → SST deploys the
+      apex, creates the **live** Stripe products/prices + the live webhook (`volt-ai.dev/stripe/webhook`), whose
+      signing secret flows into `STRIPE_WEBHOOK_SECRET` automatically.
+- [ ] **Verify live:** a real card checkout → subscription row written; Stripe dashboard (live mode) shows the €24
+      product + the webhook delivering 200s.
 - [ ] (Optional) auto-deploy on push to `dev`/`production` like opencode — add `push:` triggers to `deploy.yml`.
 - [ ] Spin up the `adapt-commercial-backend` change: rebrand `console/app`, swap Zen→Volt product, align pricing.
