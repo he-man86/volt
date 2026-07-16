@@ -19,8 +19,9 @@ namespace Volt.Bridge.Connector
         {
             try
             {
-                using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-                if (key == null) return;
+                // CreateSubKey (not OpenSubKey) so registration works on a fresh profile where the Run key doesn't
+                // exist yet — OpenSubKey returns null there and we'd silently never register.
+                using var key = Registry.CurrentUser.CreateSubKey(RunKey);
                 var desired = "\"" + Application.ExecutablePath + "\" --silent";
                 var current = key.GetValue(ValueName) as string;
                 if (!string.Equals(current, desired, StringComparison.OrdinalIgnoreCase))

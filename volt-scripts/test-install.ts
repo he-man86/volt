@@ -58,9 +58,11 @@ const waitFor = async (pred: () => boolean, seconds: number): Promise<boolean> =
 }
 
 let failures = 0
-const check = (label: string, ok: boolean): void => {
-  console.log(`  ${ok ? "✓" : "✗"} ${label}`)
-  if (!ok) failures++
+// soft = best-effort feature (per the connector's own "best-effort" comments): report but don't gate the release.
+// The load-bearing install checks + ALL cleanup checks stay hard — cleanliness is the guarantee.
+const check = (label: string, ok: boolean, soft = false): void => {
+  console.log(`  ${ok ? "✓" : soft ? "⚠" : "✗"} ${label}${!ok && soft ? "  (best-effort — not gated)" : ""}`)
+  if (!ok && !soft) failures++
 }
 
 if (existsSync(connector)) console.warn("⚠ Volt already installed — results reflect an upgrade-over-install, not a clean one.")
@@ -81,7 +83,7 @@ console.log("• verifying install:")
 check("install dir + VoltConnector.exe", existsSync(connector))
 check("OPENCODE_CONFIG_DIR → volt-config", envHas("OPENCODE_CONFIG_DIR", configDir))
 check("PATH contains \\bin", envHas("Path", binDir))
-check("Start Menu shortcut", existsSync(shortcut))
+check("Start Menu shortcut", existsSync(shortcut), true) // WScript.Shell COM — no-ops in a headless session
 check("login item (Run\\VoltConnector)", regGet(runKey, "VoltConnector") != null)
 check("Add/Remove entry", appId != null && regGet(uninstallKey) != null)
 check("tray process running", await waitFor(() => procRunning("VoltConnector.exe"), 10))
