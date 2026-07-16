@@ -15,6 +15,7 @@ export default defineConfig({
         changelog: "changelog.html",
         "legal-terms": "legal/terms.html",
         "legal-privacy": "legal/privacy.html",
+        "legal-cookies": "legal/cookies.html",
         "feature-project-understanding": "feature-project-understanding.html",
         "feature-ai-native-plc-languages": "feature-ai-native-plc-languages.html",
         "feature-modern-engineering-workflows": "feature-modern-engineering-workflows.html",

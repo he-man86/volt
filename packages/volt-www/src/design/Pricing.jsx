@@ -99,8 +99,13 @@ function Footer() {
           </div>
         ))}
       </div>
-      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 24px 40px", fontSize: 12.5, color: "var(--color-text-secondary)" }}>
-        © 2026 Volt. All rights reserved.
+      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "0 24px 40px", fontSize: 12.5, color: "var(--color-text-secondary)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
+        <span>© 2026 Volt. All rights reserved.</span>
+        {[{ l: "Terms", h: "legal/terms.html" }, { l: "Privacy", h: "legal/privacy.html" }, { l: "Cookies", h: "legal/cookies.html" }].map((l) => (
+          <a key={l.l} href={l.h} style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}
+             onMouseEnter={(e) => e.currentTarget.style.color = "var(--color-text-primary)"}
+             onMouseLeave={(e) => e.currentTarget.style.color = "var(--color-text-secondary)"}>{l.l}</a>
+        ))}
       </div>
     </footer>
   );
