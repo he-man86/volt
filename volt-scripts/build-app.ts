@@ -39,14 +39,21 @@ function run(cmd: string, args: string[], cwd = repo, shell = true): void {
 }
 
 // Create the release for this version (bare tag X.Y.Z) with the installer attached; if it already exists (re-cut
-// tag / re-run), fall back to uploading + clobbering the asset. --verify-tag: the tag MUST already exist, else
-// `gh release create` would silently mint it at HEAD. gh reads GH_TOKEN/GITHUB_TOKEN from env.
+// tag / re-run), fall back to uploading + clobbering the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.
 function publish(setupExe: string): void {
+  // The tag MUST already exist on the REMOTE, else `gh release create` would mint it at HEAD (finding #7). Check
+  // the remote, not the local ref — actions/checkout on a tag push doesn't populate refs/tags/<v> locally, which
+  // is why `gh release create --verify-tag` failed in CI even though the tag was pushed.
+  const onRemote = spawnSync("git", ["ls-remote", "--tags", "origin", version], { cwd: repo, encoding: "utf8" })
+  if (!(onRemote.stdout ?? "").trim()) {
+    console.error(`✗ tag ${version} is not on the remote — push it first (bun run release)`)
+    process.exit(1)
+  }
   console.log("• gh release → he-man86/volt")
+  // No --title (its space would need quoting under shell:true; gh defaults the title to the tag).
   const created = spawnSync(
     "gh",
-    // prettier-ignore
-    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--verify-tag", "--title", `Volt ${version}`, "--generate-notes"],
+    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--generate-notes"],
     { cwd: repo, stdio: "inherit", shell: true },
   )
   if (created.status !== 0) run("gh", ["release", "upload", version, setupExe, "--repo", "he-man86/volt", "--clobber"])
