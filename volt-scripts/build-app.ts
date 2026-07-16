@@ -25,14 +25,42 @@ const desktopDir = resolve(repo, "packages/volt-desktop")
 const icon = resolve(desktopDir, "assets/volt-icon.ico")
 const skipDist = process.argv.includes("--skip-dist")
 const upload = process.argv.includes("--upload")
+// --upload-only: skip the whole build, just publish the already-built dist/release installer. Lets CI run the
+// install/uninstall smoke test (bun run test:install) BETWEEN build and publish, gating the release on it.
+const uploadOnly = process.argv.includes("--upload-only")
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
-    // Redact secret values (e.g. the vpk `--token <PAT>`) so a failure never echoes them into CI logs.
+    // Redact secret values (e.g. a `--token <PAT>`) so a failure never echoes them into CI logs.
     const safe = args.map((a, i) => (args[i - 1] === "--token" ? "***" : a))
     console.error(`✗ failed: ${cmd} ${safe.join(" ")}`)
     process.exit(1)
   }
+}
+
+// Create the release for this version (bare tag X.Y.Z) with the installer attached; if it already exists (re-cut
+// tag / re-run), fall back to uploading + clobbering the asset. --verify-tag: the tag MUST already exist, else
+// `gh release create` would silently mint it at HEAD. gh reads GH_TOKEN/GITHUB_TOKEN from env.
+function publish(setupExe: string): void {
+  console.log("• gh release → he-man86/volt")
+  const created = spawnSync(
+    "gh",
+    // prettier-ignore
+    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--verify-tag", "--title", `Volt ${version}`, "--generate-notes"],
+    { cwd: repo, stdio: "inherit", shell: true },
+  )
+  if (created.status !== 0) run("gh", ["release", "upload", version, setupExe, "--repo", "he-man86/volt", "--clobber"])
+}
+
+if (uploadOnly) {
+  const setupExe = resolve(release, "Volt-win-Setup.exe")
+  if (!existsSync(setupExe)) {
+    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-app.ts) first`)
+    process.exit(1)
+  }
+  publish(setupExe)
+  console.log(`\n✓ uploaded ${setupExe}`)
+  process.exit(0)
 }
 
 // ISCC (the Inno Setup 6 compiler) — machine-wide dirs, then the per-user winget location, else assume PATH.
@@ -109,21 +137,6 @@ run(iscc, [
 ], repo, false)
 
 const setup = resolve(release, "Volt-win-Setup.exe")
-if (upload) {
-  console.log("• gh release → he-man86/volt")
-  // Create the release for this version (bare tag X.Y.Z) with the installer attached; if it already exists
-  // (re-cut tag / re-run), fall back to uploading + clobbering the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.
-  // --verify-tag: the tag MUST already exist — otherwise `gh release create` would silently mint it at HEAD (a
-  // local --upload run on the wrong commit). CI is fine (the tag push triggered this).
-  const created = spawnSync(
-    "gh",
-    // prettier-ignore
-    ["release", "create", version, setup, "--repo", "he-man86/volt", "--verify-tag", "--title", `Volt ${version}`, "--generate-notes"],
-    { cwd: repo, stdio: "inherit", shell: true },
-  )
-  if (created.status !== 0) {
-    run("gh", ["release", "upload", version, setup, "--repo", "he-man86/volt", "--clobber"])
-  }
-}
+if (upload) publish(setup)
 
 console.log(`\n✓ ${setup}`)
