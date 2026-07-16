@@ -111,9 +111,12 @@ if (upload) {
   console.log("• gh release → he-man86/volt")
   // Create the release for this version (bare tag X.Y.Z) with the installer attached; if it already exists
   // (re-cut tag / re-run), fall back to uploading + clobbering the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.
+  // --verify-tag: the tag MUST already exist — otherwise `gh release create` would silently mint it at HEAD (a
+  // local --upload run on the wrong commit). CI is fine (the tag push triggered this).
   const created = spawnSync(
     "gh",
-    ["release", "create", version, setup, "--repo", "he-man86/volt", "--title", `Volt ${version}`, "--generate-notes"],
+    // prettier-ignore
+    ["release", "create", version, setup, "--repo", "he-man86/volt", "--verify-tag", "--title", `Volt ${version}`, "--generate-notes"],
     { cwd: repo, stdio: "inherit", shell: true },
   )
   if (created.status !== 0) {

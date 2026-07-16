@@ -40,18 +40,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	// PLC-aware via OPENCODE_CONFIG_DIR). New Session always starts a fresh one. opencode is a PREREQUISITE the
 	// extension doesn't bundle — if it's absent we prompt to install it (see agent.ts / promptInstallOpencode).
 	let agentTerm: vscode.Terminal | undefined
+	let opening = false // guard: the hasOpencode() await lets a second invocation race in and create a 2nd terminal
 	const openAgent = async (newSession: boolean): Promise<void> => {
 		if (!newSession && agentTerm !== undefined) {
 			agentTerm.show()
 			return
 		}
-		if (!(await hasOpencode())) {
-			void promptInstallOpencode()
-			return
+		if (opening) return
+		opening = true
+		try {
+			if (!(await hasOpencode())) {
+				void promptInstallOpencode()
+				return
+			}
+			const cwd = workspaceFolders()[0]?.uri.fsPath
+			agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveOpencodeExe() })
+			agentTerm.show()
+		} finally {
+			opening = false
 		}
-		const cwd = workspaceFolders()[0]?.uri.fsPath
-		agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveOpencodeExe() })
-		agentTerm.show()
 	}
 	context.subscriptions.push(
 		vscode.commands.registerCommand("volt.openAgent", () => void openAgent(false)),

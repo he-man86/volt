@@ -160,8 +160,15 @@ namespace Volt.Bridge.Connector
             }
 
             menu.Items.Add(new ToolStripSeparator());
-            // Appears (with the version) once the updater has downloaded a newer build; the user picks the moment.
-            _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) => Updater.RestartToApply()) { Visible = false };
+            // Appears (with the version) once the updater has detected a newer release; the user picks the moment.
+            // On click we disable + relabel it — the download (100MB+) then runs, so there's visible feedback that
+            // something's happening rather than a menu that looks frozen for the minute it takes.
+            _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) =>
+            {
+                _updateItem.Enabled = false;
+                _updateItem.Text = "Downloading update…";
+                Updater.RestartToApply();
+            }) { Visible = false };
             menu.Items.Add(_updateItem);
             menu.Items.Add("Show logs", null, (_, _) => ShowLogs());
             menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
@@ -239,22 +246,25 @@ namespace Volt.Bridge.Connector
         }
 
         // Normally runs on the UI thread (the WinForms timer tick). The one exception is the first, ctor-fired
-        // TickAsync (no sync context yet) — but PendingVersion is null that early (nothing downloaded), so it
-        // returns before touching the tray. The updater downloads in the background and just exposes
-        // PendingVersion; here we surface it — a one-time toast + the menu action.
+        // TickAsync (no sync context yet) — but PendingVersion is null that early (nothing detected), so it
+        // returns before touching the tray. The updater exposes PendingVersion once it sees a newer release;
+        // here we surface it — a one-time toast + the menu action (which downloads on click).
         private void ShowUpdateIfReady()
         {
             var pending = Updater.PendingVersion;
-            if (pending == null || pending == _updateShown) return;
-            _updateShown = pending;
-            _updateItem.Text = $"Restart to update to {pending}";
+            if (pending == null) return;
+            // Reconcile the item every tick (4s): "Downloading…" while applying, else the enabled action — so a
+            // failed download (which clears the guard) re-enables retry rather than sticking on "Downloading…".
             _updateItem.Visible = true;
-            // Be precise about how it applies: the tray action (below) installs it now; otherwise it applies
-            // automatically at your next sign-in. Closing/reopening the Volt window does NOT — the connector is
-            // a separate always-on process.
-            _icon.ShowBalloonTip(8000, "Volt update ready",
-                $"Volt {pending} is ready. Pick “Restart to update to {pending}” from the tray to install it now — "
-                    + "otherwise it installs automatically the next time you sign in to Windows.",
+            _updateItem.Enabled = !Updater.IsApplying;
+            _updateItem.Text = Updater.IsApplying ? "Downloading update…" : $"Restart to update to {pending}";
+            if (pending == _updateShown) return; // toast once per version
+            _updateShown = pending;
+            // The tray action downloads the new version and restarts Volt onto it. If you don't, we'll remind you
+            // again — the connector is a separate always-on process, so closing/reopening the Volt window won't.
+            _icon.ShowBalloonTip(8000, "Volt update available",
+                $"Volt {pending} is available. Pick “Restart to update to {pending}” from the tray — Volt downloads "
+                    + "it and restarts onto the new version.",
                 ToolTipIcon.Info);
         }
 
