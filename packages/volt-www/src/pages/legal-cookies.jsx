@@ -1,4 +1,5 @@
 import { renderPage } from "../shell.jsx"
+import { LegalPage } from "../components/LegalPage.jsx"
 
 // Volt Cookie Policy. Adapted from the PLC Assist production doc; reconciled with Volt's stack (OpenAuth for
 // sessions, Stripe for payments; no analytics or advertising trackers). Pending final counsel review.
@@ -37,34 +38,11 @@ const SECTIONS = [
     "Questions about our use of cookies? Email privacy@volt-ai.dev."],
 ]
 
-renderPage(() => {
-  const { PageHero, Container } = window
-  const h = { fontSize: 18, fontWeight: 600, color: "var(--color-text-primary)", margin: "32px 0 8px" }
-  const p = { fontSize: 15, lineHeight: "25px", color: "var(--color-text-secondary)", margin: 0 }
-  const ul = { margin: "8px 0 0", paddingLeft: 22, color: "var(--color-text-secondary)" }
-  const li = { fontSize: 15, lineHeight: "25px", marginBottom: 4 }
-  return (
-    <>
-      <PageHero eyebrow="Legal" title="Cookie Policy" subtitle={`Last updated ${UPDATED}`} />
-      <Container style={{ padding: "40px 24px 96px", maxWidth: 740 }}>
-        <div style={{ background: "rgba(194,65,12,0.06)", border: "1px solid var(--color-border)", borderRadius: 12, padding: "14px 16px", marginBottom: 24 }}>
-          <p style={{ fontSize: 13.5, lineHeight: "21px", color: "var(--color-text-secondary)", margin: 0 }}>
-            <strong style={{ color: "var(--color-text-primary)" }}>Pending review.</strong> This policy is being
-            finalized ahead of Volt’s general availability. Questions? Email privacy@volt-ai.dev.
-          </p>
-        </div>
-        {SECTIONS.map(([title, body, bullets]) => (
-          <div key={title}>
-            <h2 style={h}>{title}</h2>
-            <p style={p}>{body}</p>
-            {bullets && (
-              <ul style={ul}>
-                {bullets.map((b) => <li key={b} style={li}>{b}</li>)}
-              </ul>
-            )}
-          </div>
-        ))}
-      </Container>
-    </>
-  )
-})
+renderPage(
+  <LegalPage
+    title="Cookie Policy"
+    updated={UPDATED}
+    notice="This policy is being finalized ahead of Volt’s general availability. Questions? Email privacy@volt-ai.dev."
+    sections={SECTIONS}
+  />,
+)

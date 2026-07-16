@@ -1,58 +1,39 @@
 ## Why
 
-The vendored console (`packages/console/*`) still wears opencode's brand: opencode colors, the mono-only
-"terminal" type system, opencode logos, and opencode's marketing pages (`index`, `go`, `download`, `enterprise`,
-`bench`, `brand`, `changelog`). `commercial-cloud-backend` deliberately shipped it un-rebranded ("Stage 5 rebrand
-— deferred, own change") to get the funnel live. This is that change.
-
-We now have a finished **Volt Design System** (Claude Design project `7046914d-…`, "Volt Design System"): tokens
-(`colors.css`/`fonts.css`/`typography.css`/`spacing.css`), core components (Button/Badge/Card/Input), a full
-marketing `ui_kits/website/*` (Hero, Features, Pricing, FAQ, Changelog, Contact, SignIn), brand guidelines, and
-`volt-mark.svg`/`volt-logo.svg`. The brief: calm, mature, technical — *"Cursor for industrial automation
-engineers."*
-
-The constraint that shapes everything: `packages/console/*` is **vendored opencode**, guarded by
-`check-console-divergence.ts` (fails CI if any source file diverges outside the `ALLOW` list) so we can keep
-pulling opencode's bugfixes. So we cannot fork the console to rebrand it. Two facts make a clean split possible:
-
-1. The console already isolates all brand-able values into a **CSS custom-property token layer**
-   (`app/src/style/token/color.css` + `font.css`), applied globally in `base.css`. Every route reads
-   `var(--color-bg)` / `var(--color-accent)` / `var(--font-sans)`. **Reskinning the entire authenticated app is a
-   values-only edit to those two files** — no route touched.
-2. The design's marketing site is a **separate surface** from the authenticated app. Volt's landing pages can live
-   outside the vendored tree entirely (DIVERGENCE.md already names "Volt's own frontend" as the home for branding),
-   so opencode's marketing routes are neutralized, not forked-and-edited.
+`packages/volt-www` currently holds thin placeholder pages carried over from the deferred first branding attempt
+(now archived as `2026-07-16-volt-branding`). Volt has no real public face. We want a marketing site that reads
+like a mature developer tool — the brief is *"Cursor for industrial automation engineers"* — so the fastest way to a
+credible result is to adopt Cursor's proven landing-page design (layout, palette, type scale, motion) and dress it in
+Volt's own name, logo, copy, and product mockups.
 
 ## What Changes
 
-Two phases, sequenced — Phase 1 is shippable on its own.
+- **Extract cursor.com's design system** with the `skillui` CLI into a committed reference skill
+  (`packages/volt-www/design-ref/`): design tokens (colors, spacing, type), component/layout maps, and motion specs.
+  This is a *reference*, not shipped code.
+- **Rebuild `packages/volt-www`** as a Cursor-styled static Vite site: adopt Cursor's light/minimal palette
+  (`#f54e00` accent — near-identical to Volt's existing orange — warm off-white surfaces, near-black text), Cursor's
+  section rhythm (large hero → dark demo strip → feature blocks → social proof → footer), and its expressive motion,
+  with **Volt's name, logo, copy, and PLC-engineering mockups** throughout.
+- **Retire the placeholder pages/components** left from the archived attempt — replace `src/design/*`, `src/pages/*`,
+  and the root `*.html` stubs with the new Cursor-styled set. Keep `src/config.js` (auth/download cross-links) intact.
+- **Use licensable font/asset equivalents**, not Cursor's proprietary CursorGothic / Berkeley Mono or its logos —
+  matched to the same aesthetic (a clean grotesque sans + a mono), self-hosted via `@fontsource`.
+- **No new infra.** Still a static Vite/React build that runs and deploys from Windows (Cloudflare Pages/R2),
+  independent of the vendored console. Console reskin stays out of scope (separate change).
 
-**Phase 1 — Console reskin (the first step).** Reskin the authenticated console to Volt's brand by rewriting the
-**values** of the existing tokens (keeping opencode's variable *names* so every `var(--…)` reference still
-resolves) + swapping brand image assets and favicons. Diff footprint: ~2 marked source files, added to the
-divergence allowlist. No new infra. Ships a Volt-branded console immediately.
+## Capabilities
 
-**Phase 2 — Volt landing site.** Stand up Volt's marketing pages from the design's `ui_kits/website/*` as a
-**separate, static `packages/volt-www`** (the design ships plain HTML/CSS, so no SST/SolidStart SSR is needed) —
-which also means it **builds and runs on Windows**, so landing pages are iterable without a deploy. The opencode
-public surface is then **deleted** from the console (marketing routes + dead opencode-infra proxies), leaving the
-vendored tree as just the app + gateway + API. See `design.md` Decision 3 for the route map and why static-`volt-www`
-beat a gate-excluded route group.
+### New Capabilities
+- `volt-www`: the public Volt marketing site — its page set, Cursor-derived visual design, static build/deploy
+  contract, and the cross-links out to the console (auth) and GitHub Releases (installer download).
 
-Out of scope: the product/pricing copy itself (already config-driven — Go, €24), auth/billing flows (unchanged —
-the landing links into the existing console auth), and any change to opencode's dormant Zen/Black routes.
+### Modified Capabilities
+<!-- none — volt-www is a fresh capability; the archived attempt shipped no spec. -->
 
 ## Impact
 
-- **`packages/console`** — Phase 1: values-only edits to `app/src/style/token/{color,font}.css`; brand image +
-  favicon swaps. Phase 2: delete opencode's marketing routes + dead proxies, point `/` at the app.
-- **`volt-scripts/check-console-divergence.ts`** — extend `ALLOW` (+ `DIVERGENCE.md`) for the branded token files
-  (Phase 1) and the route deletions (Phase 2).
-- **New `packages/volt-www` (Phase 2)** — a static Volt-owned landing site sourced from the Volt Design System via
-  `/design-sync`, with its own static deploy target (Cloudflare Pages/R2). Its CTAs cross-link to the console
-  (`/auth`) and the Volt installer (GitHub Releases).
-- **Release pipeline (Phase 2)** — `.github/workflows/release.yml` automates the Velopack desktop release (so the
-  landing's Download always points at a complete, verified release); `volt-scripts/build-app.ts` gains CI token
-  auth. See `design.md` Decision 5.
-- **`commercial-cloud-backend`** — this change fulfills its deferred "Stage 5 rebrand."
-- **No change** to product/pricing config, auth, billing, or the LLM gateway.
+- **Code:** `packages/volt-www/**` (rebuilt), new `packages/volt-www/design-ref/` (committed skillui reference).
+- **Dependencies:** `@fontsource` font packages for the chosen sans/mono; no new runtime infra.
+- **Build/CI:** static build only; no change to the console divergence gate or the Linux console pipeline.
+- **Out of scope:** the vendored `packages/console` reskin (tokens/favicons) — deferred to its own change.
