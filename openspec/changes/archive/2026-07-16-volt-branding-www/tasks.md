@@ -53,10 +53,10 @@ Rebuild `packages/volt-www` to look like cursor.com with Volt brand/content. Des
 
 ## 7. Content pass (after the shell holds)
 
-- [ ] 7.1 Replace draft copy with real Volt messaging across home hero/features/social-proof and every page.
-- [ ] 7.2 Feature detail copy: volt-git, LSP/compiler intelligence, desktop & CLI, privacy/enterprise, project
+- [x] 7.1 Replace draft copy with real Volt messaging across home hero/features/social-proof and every page.
+- [x] 7.2 Feature detail copy: volt-git, LSP/compiler intelligence, desktop & CLI, privacy/enterprise, project
       understanding, AI-native PLC languages.
-- [ ] 7.3 Pricing tiers, FAQ answers, changelog entries, contact page — real content.
+- [x] 7.3 Pricing tiers, FAQ answers, changelog entries, contact page — real content.
 
 ## 8. Verify
 

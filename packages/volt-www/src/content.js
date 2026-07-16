@@ -1,5 +1,4 @@
-// All marketing copy in one place (draft — refined in the content pass). Pages/components read from here so the
-// content pass is a single-file edit.
+// All marketing copy in one place. Pages/components read from here so copy edits are a single-file change.
 
 export const BRAND = {
   name: "Volt",
