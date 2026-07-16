@@ -35,10 +35,11 @@ function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   }
 }
 
-// ISCC (the Inno Setup 6 compiler) — the default install dir wins, else assume it's on PATH.
+// ISCC (the Inno Setup 6 compiler) — machine-wide dirs, then the per-user winget location, else assume PATH.
 const iscc = [
   `${process.env["ProgramFiles(x86)"]}\\Inno Setup 6\\ISCC.exe`,
   `${process.env.ProgramFiles}\\Inno Setup 6\\ISCC.exe`,
+  `${process.env.LOCALAPPDATA}\\Programs\\Inno Setup 6\\ISCC.exe`,
   "ISCC",
 ].find((p) => existsSync(p) || p === "ISCC")!
 
