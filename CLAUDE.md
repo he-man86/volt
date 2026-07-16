@@ -102,7 +102,7 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 
 - The **installer** sets two persistent user env vars: `OPENCODE_CONFIG_DIR` = the shipped `volt-config`, and `PATH += <bin>` (so the config's bare-name `volt-lsp-iec` / `volt` commands resolve). This is the single mechanism — nothing per-spawn.
 - **Additive & safe:** opencode always merges the user's own global config, and `OPENCODE_CONFIG_DIR` is just an *extra* merged directory. Auth lives in opencode's data dir (untouched). So the user's settings + provider keys are preserved; Volt's config merges on top. Uninstall removes the env vars → opencode reverts to vanilla.
-- **opencode is a prerequisite** — Volt never bundles, downloads, updates, or uninstalls it. The desktop precheck aborts if `opencode` is absent; the CLI works without it (the agent lights up if/when opencode is present).
+- **opencode is a prerequisite** — Volt never bundles, updates, or uninstalls it. The CLI works without it (the agent lights up if/when opencode is present). One exception to "hands off": if `opencode` is absent, the desktop's agent view offers an **opt-in, one-click install** of the official CLI (`winget install SST.opencode`) — user-initiated, the official package, with an "install it yourself from opencode.ai" fallback. Volt still never downloads/manages opencode on its own; it just triggers the OS package manager on the user's click.
 
 ## Conventions
 
