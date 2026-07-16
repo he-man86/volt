@@ -83,8 +83,10 @@ console.log("• verifying install:")
 check("install dir + VoltConnector.exe", existsSync(connector))
 check("OPENCODE_CONFIG_DIR → volt-config", envHas("OPENCODE_CONFIG_DIR", configDir))
 check("PATH contains \\bin", envHas("Path", binDir))
-check("Start Menu shortcut", existsSync(shortcut), true) // WScript.Shell COM — no-ops in a headless session
-check("login item (Run\\VoltConnector)", regGet(runKey, "VoltConnector") != null)
+// Both best-effort per the connector's code, and both behave differently in a headless session (COM shortcut,
+// per-user Run key) — report but don't gate. Their CLEANUP checks below stay hard, so a leftover still fails.
+check("Start Menu shortcut", existsSync(shortcut), true)
+check("login item (Run\\VoltConnector)", regGet(runKey, "VoltConnector") != null, true)
 check("Add/Remove entry", appId != null && regGet(uninstallKey) != null)
 check("tray process running", await waitFor(() => procRunning("VoltConnector.exe"), 10))
 
