@@ -1,14 +1,24 @@
 import { existsSync } from "node:fs"
-import { join } from "node:path"
+import { spawn } from "node:child_process"
 
 /**
- * The Volt agent binary is a PREREQUISITE — exactly like opencode's CLI, the extension neither bundles nor
- * downloads it. It comes from the Volt install (the app bundles `volt` + puts it on PATH). Resolves the
- * install's bundled binary if present, else falls back to `volt` on PATH; if neither exists the editor
- * terminal surfaces a clear "not found" so the user installs Volt.
+ * The AI agent is opencode's CLI — a PREREQUISITE the extension neither bundles nor downloads. Volt makes the
+ * user's opencode PLC-aware via OPENCODE_CONFIG_DIR (set by the Volt install); here we only locate/launch it.
+ * Resolve an explicit OPENCODE_BIN, else `opencode` on PATH. If it's absent the caller prompts to install it
+ * (see extension.ts) — exactly like the desktop app's agent view.
  */
-export function resolveAgentExe(): string {
-	const local = process.env.LOCALAPPDATA
-	const installed = local ? join(local, "Programs", "Volt", "resources", "volt", "bin", "volt.exe") : undefined
-	return installed !== undefined && existsSync(installed) ? installed : "volt"
+export function resolveOpencodeExe(): string {
+	return process.env.OPENCODE_BIN || "opencode"
+}
+
+/** True if the opencode CLI can be launched — an OPENCODE_BIN that exists, or `opencode` resolvable on PATH. */
+export function hasOpencode(): Promise<boolean> {
+	const bin = process.env.OPENCODE_BIN
+	if (bin) return Promise.resolve(existsSync(bin))
+	const finder = process.platform === "win32" ? "where" : "which"
+	return new Promise((resolve) => {
+		const p = spawn(finder, ["opencode"], { stdio: "ignore", shell: true })
+		p.on("error", () => resolve(false))
+		p.on("exit", (code) => resolve(code === 0))
+	})
 }

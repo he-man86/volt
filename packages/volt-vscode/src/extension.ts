@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { resolveAgentExe } from "./agent.js"
+import { resolveOpencodeExe, hasOpencode } from "./agent.js"
 import { startLsp } from "./lsp.js"
 import { setBundledCli } from "@volt/control"
 import { registerCommands } from "./commands.js"
@@ -13,26 +13,49 @@ import { aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@vol
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
 
+// opencode is missing — offer the same two paths as the desktop app: a one-click winget install (run live in
+// a terminal so the user sees progress) or the opencode.ai download page. The rest of Volt works without it.
+async function promptInstallOpencode(): Promise<void> {
+	const install = "Install opencode",
+		get = "Get it from opencode.ai"
+	const pick = await vscode.window.showWarningMessage(
+		"The Volt agent is powered by the opencode CLI, which isn't installed. Sync, the language server and the IDE bridge work without it.",
+		install,
+		get,
+	)
+	if (pick === install) {
+		const t = vscode.window.createTerminal("Install opencode")
+		t.show()
+		t.sendText("winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements")
+	} else if (pick === get) {
+		void vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/download"))
+	}
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
 	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
 
-	// "Volt: Open Agent" — open, or focus an already-open, agent terminal.
-	// New Session always starts a fresh one. The agent binary is a PREREQUISITE (desktop install or `volt`
-	// on PATH) — the extension doesn't bundle or download it (see agent.ts).
+	// "Volt: Open Agent" — open, or focus an already-open, agent terminal running opencode (which Volt makes
+	// PLC-aware via OPENCODE_CONFIG_DIR). New Session always starts a fresh one. opencode is a PREREQUISITE the
+	// extension doesn't bundle — if it's absent we prompt to install it (see agent.ts / promptInstallOpencode).
 	let agentTerm: vscode.Terminal | undefined
-	const openAgent = (newSession: boolean): void => {
+	const openAgent = async (newSession: boolean): Promise<void> => {
 		if (!newSession && agentTerm !== undefined) {
 			agentTerm.show()
 			return
 		}
+		if (!(await hasOpencode())) {
+			void promptInstallOpencode()
+			return
+		}
 		const cwd = workspaceFolders()[0]?.uri.fsPath
-		agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveAgentExe() })
+		agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveOpencodeExe() })
 		agentTerm.show()
 	}
 	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.openAgent", () => openAgent(false)),
-		vscode.commands.registerCommand("volt.newAgentSession", () => openAgent(true)),
+		vscode.commands.registerCommand("volt.openAgent", () => void openAgent(false)),
+		vscode.commands.registerCommand("volt.newAgentSession", () => void openAgent(true)),
 		vscode.window.onDidCloseTerminal((t) => {
 			if (t === agentTerm) agentTerm = undefined
 		}),
