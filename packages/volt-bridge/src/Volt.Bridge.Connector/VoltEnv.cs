@@ -7,10 +7,10 @@ using Microsoft.Win32;
 namespace Volt.Bridge.Connector
 {
     /// <summary>
-    /// The opencode-integration + PATH wiring, run from Velopack's install/uninstall hooks (see Program.cs).
-    /// This is the C# home of what the retired NSIS/PowerShell installer used to do — set per-user env vars so
-    /// opencode picks up Volt's config and the shell resolves `volt` / `volt-lsp-iec`. Idempotent + best-effort:
-    /// a hook must never throw. Additive to opencode (an extra merged config dir) — uninstall reverts it.
+    /// The opencode-integration + PATH wiring. Install() runs on every connector startup (idempotent); Uninstall()
+    /// runs from the Inno uninstaller via `VoltConnector.exe --uninstall` (see Program.cs). Sets per-user env vars
+    /// so opencode picks up Volt's config and the shell resolves `volt` / `volt-lsp-iec`. Idempotent + best-effort:
+    /// never throws. Additive to opencode (an extra merged config dir) — uninstall reverts it.
     /// </summary>
     internal static class VoltEnv
     {

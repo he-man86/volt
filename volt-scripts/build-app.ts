@@ -1,18 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Volt one-installer builder (Windows). Produces a single Velopack installer for ALL Volt apps — desktop GUI +
- * `volt` CLI + LSP + tray connector + config — whose always-running C# connector drives auto-update. The VS
- * Code extension is NOT included (Marketplace). See openspec/changes/distribution/design.md.
+ * Volt one-installer builder (Windows). Produces a single Inno Setup wizard for ALL Volt apps — desktop GUI +
+ * `volt` CLI + LSP + tray connector + config, plus opt-in opencode CLI + the VS Code extension — whose
+ * always-running C# connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
  *
  *   bun volt-scripts/build-app.ts                 # full build → dist/release/Volt-win-Setup.exe
  *   bun volt-scripts/build-app.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
- *   bun volt-scripts/build-app.ts --upload        # also `vpk upload github` → he-man86/volt (the update feed)
+ *   bun volt-scripts/build-app.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
- * Pipeline: dist.ts (CLI+LSP+connector+config) → electron-builder --dir (the branded Electron app) → assemble
- * the Velopack packDir (connector at root = mainExe; bin/ volt-config/ docs/ desktop/ as siblings) → vpk pack.
+ * Pipeline: dist.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
+ * assemble the payload (connector at root; bin/ volt-config/ docs/ desktop/ + version.txt + .vsix as siblings)
+ * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -24,18 +25,51 @@ const desktopDir = resolve(repo, "packages/volt-desktop")
 const icon = resolve(desktopDir, "assets/volt-icon.ico")
 const skipDist = process.argv.includes("--skip-dist")
 const upload = process.argv.includes("--upload")
+// --upload-only: skip the whole build, just publish the already-built dist/release installer. Lets CI run the
+// install/uninstall smoke test (bun run test:install) BETWEEN build and publish, gating the release on it.
+const uploadOnly = process.argv.includes("--upload-only")
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
-    // Redact secret values (e.g. the vpk `--token <PAT>`) so a failure never echoes them into CI logs.
+    // Redact secret values (e.g. a `--token <PAT>`) so a failure never echoes them into CI logs.
     const safe = args.map((a, i) => (args[i - 1] === "--token" ? "***" : a))
     console.error(`✗ failed: ${cmd} ${safe.join(" ")}`)
     process.exit(1)
   }
 }
 
-// vpk (Velopack CLI, a global dotnet tool) — the default tools dir wins, else assume it's on PATH.
-const vpk = [`${process.env.USERPROFILE}\\.dotnet\\tools\\vpk.exe`, "vpk"].find((p) => existsSync(p) || p === "vpk")!
+// Create the release for this version (bare tag X.Y.Z) with the installer attached; if it already exists (re-cut
+// tag / re-run), fall back to uploading + clobbering the asset. --verify-tag: the tag MUST already exist, else
+// `gh release create` would silently mint it at HEAD. gh reads GH_TOKEN/GITHUB_TOKEN from env.
+function publish(setupExe: string): void {
+  console.log("• gh release → he-man86/volt")
+  const created = spawnSync(
+    "gh",
+    // prettier-ignore
+    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--verify-tag", "--title", `Volt ${version}`, "--generate-notes"],
+    { cwd: repo, stdio: "inherit", shell: true },
+  )
+  if (created.status !== 0) run("gh", ["release", "upload", version, setupExe, "--repo", "he-man86/volt", "--clobber"])
+}
+
+if (uploadOnly) {
+  const setupExe = resolve(release, "Volt-win-Setup.exe")
+  if (!existsSync(setupExe)) {
+    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-app.ts) first`)
+    process.exit(1)
+  }
+  publish(setupExe)
+  console.log(`\n✓ uploaded ${setupExe}`)
+  process.exit(0)
+}
+
+// ISCC (the Inno Setup 6 compiler) — machine-wide dirs, then the per-user winget location, else assume PATH.
+const iscc = [
+  `${process.env["ProgramFiles(x86)"]}\\Inno Setup 6\\ISCC.exe`,
+  `${process.env.ProgramFiles}\\Inno Setup 6\\ISCC.exe`,
+  `${process.env.LOCALAPPDATA}\\Programs\\Inno Setup 6\\ISCC.exe`,
+  "ISCC",
+].find((p) => existsSync(p) || p === "ISCC")!
 
 // 1. The Volt payload (CLI + LSP + connector + config + docs).
 if (!skipDist) run("bun", ["volt-scripts/dist.ts"])
@@ -77,32 +111,32 @@ cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
 cpSync(resolve(payload, "volt-config"), resolve(stage, "volt-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
+// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the "install
+// VS Code extension" wizard task sideloads via `code --install-extension`.
+writeFileSync(resolve(stage, "version.txt"), version)
+const vsix = resolve(payload, "volt-vscode.vsix")
+if (existsSync(vsix)) cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
+else console.warn("⚠ volt-vscode.vsix missing from dist/volt — the installer's VS Code task will have nothing to install")
 if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
-  console.error("✗ VoltConnector.exe not at packDir root — the connector bundle is missing it")
+  console.error("✗ VoltConnector.exe not at payload root — the connector bundle is missing it")
   process.exit(1)
 }
 
-// 4. Pack the one installer. mainExe = the connector (its VelopackApp hooks own env + the update loop).
-// --shortcuts None: the connector auto-starts via its login item; its install hook makes the GUI shortcut.
-console.log(`• vpk pack → Volt ${version}`)
-// Clear release so only THIS version's assets remain — else vpk computes deltas from (and an --upload pushes)
-// stale prior-version nupkgs left in the dir. ponytail: full-only updates; cross-version deltas would need a
-// maintained base-nupkg dir — add that if update bandwidth matters.
+// 4. Compile the one installer (Inno Setup). The connector self-configures env + hosts auto-update at runtime,
+// so the .iss just lays down the payload + optional-component tasks (opencode / VS Code extension).
+console.log(`• ISCC → Volt ${version}`)
 rmSync(release, { recursive: true, force: true })
 mkdirSync(release, { recursive: true })
-run(vpk, ["pack",
-  "--packId", "Volt", "--packVersion", version, "--packTitle", "Volt",
-  "--packDir", stage, "--mainExe", "VoltConnector.exe",
-  "--icon", icon, "--shortcuts", "None", "--outputDir", release,
+// shell:false — the ISCC path contains spaces ("Inno Setup 6"); a shell would split it on the space.
+run(iscc, [
+  `/DAppVersion=${version}`,
+  `/DStageDir=${stage}`,
+  `/DOutputDir=${release}`,
+  `/DSetupIcon=${icon}`,
+  resolve(repo, "installer/Volt.iss"),
 ], repo, false)
 
-if (upload) {
-  console.log("• vpk upload github → he-man86/volt")
-  // Pass the token explicitly when present (CI: GH_TOKEN/GITHUB_TOKEN) so the upload doesn't depend on an ambient
-  // `gh` login. Local runs without the env var fall back to vpk's own credential resolution (unchanged).
-  const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
-  run(vpk, ["upload", "github", "--repoUrl", "https://github.com/he-man86/volt", "--publish", "true",
-    "--outputDir", release, ...(ghToken ? ["--token", ghToken] : [])], repo, false)
-}
+const setup = resolve(release, "Volt-win-Setup.exe")
+if (upload) publish(setup)
 
-console.log(`\n✓ ${resolve(release, "Volt-win-Setup.exe")}`)
+console.log(`\n✓ ${setup}`)

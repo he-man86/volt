@@ -16,9 +16,7 @@
          however different the vendor internals get (TwinCAT COM vs Siemens Openness
          vs Allen-Bradley LDSDK). -->
   </PropertyGroup>
-  <ItemGroup>
-    <!-- Velopack: the connector is the always-on process, so it hosts auto-update (Updater.cs) + the
-         install/env hooks (VoltEnv.cs). Standard framework — the one installer is `vpk pack`ed. -->
-    <PackageReference Include="Velopack" Version="1.2.0" />
-  </ItemGroup>
+  <!-- No update/installer framework dependency: the one installer is Inno Setup (installer/Volt.iss), and the
+       connector hosts a dependency-free updater (Updater.cs polls GitHub + re-runs the Setup) + the env hooks
+       (VoltEnv.cs). System.Net.Http + System.Text.Json are part of net8 — nothing to reference. -->
 </Project>
