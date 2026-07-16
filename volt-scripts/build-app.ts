@@ -99,13 +99,14 @@ if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
 console.log(`• ISCC → Volt ${version}`)
 rmSync(release, { recursive: true, force: true })
 mkdirSync(release, { recursive: true })
+// shell:false — the ISCC path contains spaces ("Inno Setup 6"); a shell would split it on the space.
 run(iscc, [
   `/DAppVersion=${version}`,
   `/DStageDir=${stage}`,
   `/DOutputDir=${release}`,
   `/DSetupIcon=${icon}`,
   resolve(repo, "installer/Volt.iss"),
-])
+], repo, false)
 
 const setup = resolve(release, "Volt-win-Setup.exe")
 if (upload) {
