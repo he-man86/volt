@@ -10,6 +10,7 @@
     "dev:console": "bun run --cwd packages/console/app dev",
     "build": "bun run --filter='*' build",
     "dist": "bun volt-scripts/dist.ts",
+    "release": "bun volt-scripts/release.ts",
     "compat": "bun volt-scripts/sync.ts",
     "secrets:dev": "bun volt-scripts/deploy-secrets.ts --apply dev",
     "deploy:dev": "bunx sst deploy --stage dev",
