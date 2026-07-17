@@ -21,15 +21,17 @@ import { join, resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
 
-/** Drive the installed `opencode` against a Volt config dir. shell:true on Windows — `opencode` is a .cmd shim. */
-function opencode(args: string[], cfgDir: string, cwd: string): string {
+/** Drive the installed `opencode` against a Volt config dir. shell:true on Windows — `opencode` is a .cmd shim.
+ *  Returns the streams SEPARATELY: `debug agent` prints JSON on stdout, and anything opencode writes to stderr
+ *  (a Node deprecation warning, a provider notice) would corrupt a JSON.parse of the two concatenated. */
+function opencode(args: string[], cfgDir: string, cwd: string): { stdout: string; stderr: string } {
   const r = spawnSync("opencode", args, {
     cwd,
     env: { ...process.env, OPENCODE_CONFIG_DIR: cfgDir },
     encoding: "utf8",
     shell: process.platform === "win32",
   })
-  return (r.stdout ?? "") + (r.stderr ?? "")
+  return { stdout: r.stdout ?? "", stderr: r.stderr ?? "" }
 }
 
 function report(name: string, ok: boolean, passMsg: string, failMsg: string, detail: string): boolean {
@@ -51,6 +53,10 @@ function verifyLsp(): boolean {
   if (!existsSync(lspBin))
     return report("lsp ", false, "", "volt LSP not built", `run: bun --cwd packages/volt-lsp-iec run build\n${lspBin}`)
 
+  // Scratch lives in tmpdir(), never the repo, and the finally below is the only cleanup — so nothing in this
+  // try may process.exit(), which would skip it. (The retired sync.ts wrapped these runs in a repo-root
+  // leak check for exactly that reason; it's unnecessary once the scratch is out of the repo and the failure
+  // path is a `return`, not an exit.)
   const cfgDir = mkdtempSync(join(tmpdir(), "volt-verify-cfg-"))
   const projDir = mkdtempSync(join(tmpdir(), "volt-verify-proj-"))
   try {
@@ -62,8 +68,10 @@ function verifyLsp(): boolean {
     )
     const sample = join(projDir, "verify.fb")
     writeFileSync(sample, MALFORMED_ST)
-    // `debug lsp` has no --directory flag; it derives the project dir from process.cwd().
-    const out = opencode(["debug", "lsp", "diagnostics", sample], cfgDir, projDir)
+    // `debug lsp` has no --directory flag; it derives the project dir from process.cwd(). Scan BOTH streams —
+    // this is a substring probe, not a parse, and opencode has printed diagnostics to either.
+    const { stdout, stderr } = opencode(["debug", "lsp", "diagnostics", sample], cfgDir, projDir)
+    const out = stdout + stderr
     return report(
       "lsp ",
       out.includes('"source": "volt-lsp-iec"'),
@@ -87,12 +95,19 @@ function verifyTool(): boolean {
   if (!existsSync(resolve(cfgDir, "tool/volt.ts")))
     return report("tool", false, "", `volt-config/tool/volt.ts missing under ${cfgDir}`, "")
 
-  const out = opencode(["debug", "agent", "volt"], cfgDir, repoRoot)
+  // Parse stdout ONLY — stderr is diagnostics, and concatenating it would break the parse on any warning.
+  const { stdout, stderr } = opencode(["debug", "agent", "volt"], cfgDir, repoRoot)
   let tools: Record<string, boolean> | undefined
   try {
-    tools = (JSON.parse(out) as { tools?: Record<string, boolean> }).tools
+    tools = (JSON.parse(stdout) as { tools?: Record<string, boolean> }).tools
   } catch {
-    return report("tool", false, "", "could not parse `debug agent volt` (opencode on PATH? provider configured?)", out)
+    return report(
+      "tool",
+      false,
+      "",
+      "could not parse `debug agent volt` (opencode on PATH? provider configured?)",
+      stderr + stdout,
+    )
   }
   return report(
     "tool",

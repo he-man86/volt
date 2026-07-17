@@ -46,11 +46,20 @@ Name: "cursor";   Description: "Install the Volt extension into Cursor";   Group
 
 [InstallDelete]
 ; [Files] only ADDS/overwrites — it never removes what an older version left, so stale files survive upgrades
-; forever. volt-config is 100% installer-owned (opencode merges the user's own global config separately, and
-; auth lives in opencode's data dir), so wipe it and lay down exactly what shipped. This is what retires the
-; pre-0.2.0 leak: older payloads carried a package.json, and opencode INSTALLS a config dir's declared deps at
-; runtime — creating volt-config\node_modules and requiring a registry on machines that may have none.
-Type: filesandordirs; Name: "{app}\volt-config"
+; forever. This retires the pre-0.2.0 leak: those payloads carried a package.json, and opencode INSTALLS a config
+; dir's declared deps at runtime — creating volt-config\node_modules and needing a registry on machines that may
+; have none. Keep in sync with CFG_NEVER_SHIP in volt-scripts/build-payload.ts: same list, two enforcement points
+; (never ship it / delete what older versions shipped).
+;
+; NAMED ENTRIES, not the whole dir: InstallDelete runs BEFORE [Files], and Inno does NOT roll back deletions when
+; an install aborts (a locked file, a cancel). Wiping {app}\volt-config would leave an aborted upgrade with the
+; dir GONE and OPENCODE_CONFIG_DIR still pointing at it — opencode silently degrades to vanilla, no error. These
+; five are junk in every version, so deleting them is safe even if the install then fails.
+Type: files; Name: "{app}\volt-config\package.json"
+Type: files; Name: "{app}\volt-config\package-lock.json"
+Type: files; Name: "{app}\volt-config\bun.lock"
+Type: files; Name: "{app}\volt-config\.gitignore"
+Type: filesandordirs; Name: "{app}\volt-config\node_modules"
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -75,12 +84,25 @@ Type: filesandordirs; Name: "{app}\volt-config"
 Filename: "{app}\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
 
 [Code]
+var
+  LauncherCache: TStringList; // "<launcher>=1" / "<launcher>=0" — see EditorOnPath
+
 function EditorOnPath(Launcher: String): Boolean;
 var Code: Integer;
 begin
   // Offer an editor's extension task only if its launcher is on PATH. All three (code/windsurf/cursor) are
   // VS Code forks and take the same `--install-extension <vsix> --force`, so PATH presence is the whole check.
+  //
+  // Memoized: Inno re-evaluates a [Tasks] Check every time it rebuilds the task list, and each miss costs a
+  // hidden cmd.exe. Three launchers × every evaluation adds up — including on the connector's /VERYSILENT
+  // auto-update, where the tasks can't run at all (Check: NotSilent gates their [Run] lines). PATH won't change
+  // mid-install, so one probe per launcher is enough.
+  if LauncherCache = nil then LauncherCache := TStringList.Create;
+  if LauncherCache.IndexOf(Launcher + '=1') >= 0 then begin Result := True; exit; end;
+  if LauncherCache.IndexOf(Launcher + '=0') >= 0 then begin Result := False; exit; end;
+
   Result := Exec(ExpandConstant('{cmd}'), '/c where ' + Launcher, '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+  if Result then LauncherCache.Add(Launcher + '=1') else LauncherCache.Add(Launcher + '=0');
 end;
 
 function NotSilent(): Boolean;
@@ -97,7 +119,13 @@ begin
   // Inno leaves its log in %TEMP% under a name nobody thinks to look for, and an auto-update install runs with
   // no human watching at all. DeinitializeSetup always runs, including on an aborted install — which is exactly
   // the case worth keeping. Best-effort: never let logging break an install.
+  //
+  // Timestamped to the SECOND, not the day: a failed auto-update is usually followed within minutes by a retry
+  // or a manual reinstall, and a per-day name would let that success overwrite the failure — destroying the one
+  // log worth having. Cheap (~300 KB each) and the store is the tray Log window's, so they're visible, not lost.
   Dir := ExpandConstant('{localappdata}\Volt\logs');
   if ForceDirectories(Dir) then
-    FileCopy(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd', '-', '-') + '.log', False);
+    // Both separators must be a real Char — GetDateTimeString takes Char, not String, and '' breaks it at
+    // runtime (silently: the copy just never happens). They're unused here anyway: the format has no '/' or ':'.
+    FileCopy(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
 end;

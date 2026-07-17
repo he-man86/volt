@@ -101,16 +101,31 @@ const voltExe = resolve(unpacked, "Volt.exe")
 // on main.mjs alone silently shipped a stale package.json — a 0.1.0 app inside a 0.2.0 installer. If you add a
 // file to electron-builder.yml `files:`, add it here. assets/ is excluded: icons only, and a stale icon is
 // cosmetic — use --rebuild-app after changing one.
-const PACKED_INPUTS = ["main.mjs", "package.json", "preload.cjs", "shell.html"]
 const packedApp = resolve(unpacked, "resources", "app")
-const inputsChanged = PACKED_INPUTS.some((f) => {
+const BYTE_INPUTS = ["main.mjs", "preload.cjs", "shell.html"]
+// package.json needs a PROJECTION, not a byte compare: electron-builder rewrites it when packing, stripping
+// `scripts` and `devDependencies`. Byte-comparing source vs packed can therefore never match, which would make
+// this whole reuse branch unreachable — every build re-running the flaky winCodeSign step the branch exists to
+// avoid. Sorted keys so a reordering by either side doesn't force a rebuild.
+const BUILDER_STRIPS = ["scripts", "devDependencies"]
+const pkgProjection = (file: string): string => {
+  const j = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>
+  for (const k of BUILDER_STRIPS) delete j[k]
+  return JSON.stringify(Object.keys(j).sort().map((k) => [k, j[k]]))
+}
+const differs = (f: string): boolean => {
   const packed = resolve(packedApp, f)
-  return !existsSync(packed) || !readFileSync(packed).equals(readFileSync(resolve(desktopDir, f)))
-})
+  if (!existsSync(packed)) return true
+  const src = resolve(desktopDir, f)
+  return f === "package.json"
+    ? pkgProjection(packed) !== pkgProjection(src)
+    : !readFileSync(packed).equals(readFileSync(src))
+}
+const inputsChanged = [...BYTE_INPUTS, "package.json"].some(differs)
 if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || inputsChanged) {
   run("bunx", ["electron-builder", "--dir"], desktopDir) // auto-finds electron-builder.yml
 } else {
-  console.log("  ✓ reusing win-unpacked (shell unchanged)")
+  console.log("  ✓ reusing win-unpacked (packed inputs unchanged)")
 }
 if (!existsSync(voltExe)) {
   console.error("✗ no Volt.exe in dist/win-unpacked (electron-builder failed — see the winCodeSign note above)")

@@ -68,11 +68,13 @@ const check = (label: string, ok: boolean, soft = false): void => {
 
 if (existsSync(connector)) console.warn("⚠ Volt already installed — results reflect an upgrade-over-install, not a clean one.")
 
-// A running tray connector holds the install dir locked, and Inno's Restart Manager can't close a tray app under
-// /VERYSILENT — Setup aborts with exit 5 before any check runs. The real auto-update path never hits this: the
-// connector Environment.Exit(0)s itself right after launching Setup (Updater.cs). Match that here. No-op on CI,
-// where nothing is running; this is what lets the gate also run on a dev box.
-for (const name of ["VoltConnector.exe", "Volt.Bridge.Beckhoff.exe"]) {
+// Any Volt process running out of the install dir holds it locked, and Inno's Restart Manager can't close a tray
+// app (or an Electron window) under /VERYSILENT — Setup aborts with exit 5 before any check runs. The real
+// auto-update path never hits this: the connector Environment.Exit(0)s itself right after launching Setup
+// (Updater.cs). Match that here. No-op on CI, where nothing is running; this is what lets the gate run on a dev
+// box too. ALL THREE matter: Volt.exe (the Electron GUI) locks {app}\desktop, and omitting it left the gate
+// failing on exactly the machine most likely to run it.
+for (const name of ["Volt.exe", "VoltConnector.exe", "Volt.Bridge.Beckhoff.exe"]) {
   if (procRunning(name)) {
     console.log(`• stopping ${name} (it holds the install dir locked)`)
     spawnSync("taskkill", ["/F", "/IM", name], { stdio: "ignore" })
