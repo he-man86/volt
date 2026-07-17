@@ -56,20 +56,48 @@ from **one Volt-owned file**:
   `entry-server.tsx` points `og:image`/`twitter:image` at the 512 PNG (was the deleted opencode `social-share.png`).
   `public/*` is gate-excluded (branding); `app/scripts` + `entry-server.tsx` are ALLOW-listed.
 
-**Public-surface strip (volt-branding Phase 2)** — the console is now **app-only**; the public site is `volt-www`
-(separate, Volt-owned). Deliberately a **hybrid** to touch opencode as little as possible:
-- **Kept BYTE-IDENTICAL + dormant** — opencode's marketing PAGES (`routes/{enterprise, bench, brand, changelog,
-  black.*, black, legal, zen/index.*}`). They only render; they're unlinked and off the public face (volt-www owns
-  it), so deleting them buys nothing and would just add divergence. Left pristine, they fall off the gate entirely
-  and pull opencode bugfixes conflict-free. (`changelog.json.ts` API + gateway `zen/{go,util,v1}`: also kept.)
-  **The dormancy test is "is it actually unreachable?"** — `/go` failed it (see below), so dormancy is a claim to
-  re-check on each bump, not a permanent label.
-- **Deleted** — only the active PROXY/REDIRECT routes that *serve or redirect to opencode's own infra*:
+**Public-surface strip (volt-branding Phase 2 → completed by console-volt-frontend Stage 2)** — the console is
+**app-only**; the public site is `volt-www` (separate, Volt-owned).
+
+- ~~**Kept BYTE-IDENTICAL + dormant**~~ — **this policy is retired.** It said opencode's marketing PAGES
+  (`routes/{enterprise, bench, brand, changelog, black.*, black, legal, zen/index.*}`) "only render", are unlinked,
+  and so "deleting them buys nothing and would just add divergence". The premise was **asserted and never tested,
+  and it was wrong four times**:
+  - **`/go`** was the **referral landing page** — `component/go-referral` hands out `/go?ref=CODE`, so every invitee
+    Volt sent met an "OpenCode Go" page linking our deleted `/docs`.
+  - **`/download`** was not a page: its `[channel]/[platform].ts` **proxied opencode-desktop binaries** from
+    `github.com/anomalyco/opencode` releases, off Volt's domain.
+  - **`bench/submission.ts`** is an **unauthenticated public POST** (`:14-31`) writing straight into the production
+    `BenchmarkTable` — no actor or API-key check, unlike every sibling route.
+  - **`/black/subscribe/[plan].tsx`** is entered by an **auth redirect** (`:33`), not an href — which is why "nothing
+    links to it" scans missed it — and its stage gate is **inverted** (`:22-25`): the checkout is enabled precisely
+    on `dev.volt-ai.dev` and paused only on production.
+
+  The flaw is structural, not a run of bad luck: **SolidStart serves every file under `routes/**` by URL**, so
+  "unlinked" never meant "unexposed". The tree also cost more than it looked: it kept `i18n/en.ts` at 700 lines of
+  opencode product copy, and its sitemap generator shipped **90 `https://opencode.ai/*` URLs** into a *gitignored*
+  `public/sitemap.xml` on every build — invisible to source review, and crawled.
+- **Now: the console serves NO marketing.** The pages and the components/libs/assets that existed only for them are
+  **deleted and declared in `DROPPED`**, which never conflicts on a bump. See the sweep's entries in
+  `check-console-divergence.ts` — grouped and individually justified there.
+  **The set is atomic on purpose:** those components had live importers right up to the delete (`footer` 6,
+  `header` 6, `legal` 6, `locale-links` 7, `config.ts` 6+), because every `routes/**` file compiles whether or not
+  anything links to it. Deleting either half alone breaks `vite build` while typecheck stays green — the reason
+  `console-build.yml` exists. The delete set was computed from an import-reachability walk over `app/src` rooted at
+  the routes Volt actually serves (following `@import` as well as `import`), not from a hand list.
+  (Gateway `zen/{go,util,v1}` + `api/support`: **kept** — those are the product.)
+- **Also deleted** — the active PROXY/REDIRECT routes that *serve or redirect to opencode's own infra*:
   `routes/{docs, data, stats, s, t, desktop-feedback.ts, discord.ts, feishu.ts, download}` (+ opencode's `index.*`
   landing and `temp.tsx` — a scratch home mockup that imported the deleted root `index.css`, so it couldn't be kept
   pristine). These DO something wrong for Volt (serve opencode docs/binaries, redirect to opencode's Discord), so
   they go. Encoded as the gate's `DROPPED` prefix list (a dir or any file under it) so the deletions don't balloon
   `ALLOW`.
+- **Windows build (a prediction that did NOT pan out — recorded so nobody re-tests it).** `black/subscribe/[plan].tsx`
+  was expected to be the sole reason `console/app` cannot build on Windows. It was **a** blocker, not **the**
+  blocker: with the Black tree gone its `vite:define` error is gone, and a *second* Windows path bug surfaces
+  underneath — `Rollup failed to resolve import "C:UsersmarceGithubolt…"`, i.e. backslashes eaten (`Github\volt` →
+  `Githubolt`, the `\v` escape). **The console still builds on Linux only**, so `console-build.yml` remains the only
+  place a console change is compiled before it reaches `dev`.
   - `routes/download` was moved here in the **v1.18.3 bump** (2026-07-17): it wasn't just a page — its
     `[channel]/[platform].ts` endpoint **proxies opencode-Desktop binaries** (`opencode-desktop-mac-arm64.dmg`, …)
     from `github.com/anomalyco/opencode` releases, i.e. serves opencode's app off Volt's domain. Same category as
