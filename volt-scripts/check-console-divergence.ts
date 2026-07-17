@@ -24,12 +24,14 @@ const ALLOW = new Set([
   "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
   "app/scripts", // Volt-added: gen-favicon.ts rasterizes volt-mark.svg → the brand PNGs in public/ (zero-dep)
   "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + ./style/volt-theme.css, + Title "Volt"; SKIPS upstream's <Font/> (@opencode-ai/ui, deleted — Volt self-hosts fonts) and <DesktopPromo/> (opencode-Desktop ad, rendered app-wide incl. our workspace)
-  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui + merges the ~/i18n/volt rebrand overlay over the locale dict
+  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui (ditto)
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
-  "app/src/i18n/volt.ts", // Volt-added: the rebrand string OVERLAY (merged in context/i18n) — opencode's en.ts + every other locale stay byte-identical
+  "app/src/i18n/volt.test.ts", // Volt-added: pins the overlay merge point (see the file) — red if it regresses to a context-only merge
+  "app/src/i18n/volt.ts", // Volt-added: the rebrand string OVERLAY — opencode's en.ts + every other locale stay byte-identical
+  "app/src/i18n/index.ts", // merges the volt overlay into i18n() itself — the ONE factory both the client render AND the six server call sites (gateway handler, rate limiters, /auth callback) share
 
   // ── Volt-owned surfaces: Volt writes these fresh, not as patches on opencode ──
   "app/src/routes/index.ts", // `/` → redirect to /auth (console is app-only; the public site is volt-www)
