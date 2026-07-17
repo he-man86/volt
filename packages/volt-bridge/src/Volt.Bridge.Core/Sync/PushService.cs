@@ -28,9 +28,12 @@ public static class PushService
         // extension-less). The WIRE carries FULL names on every endpoint; op.Name is converted to bare at
         // the apply boundary via Materializer.Bare. Responses use FULL names (mat.FullName) — like /refs/fetch.
         // Pre-apply walk for conflict detection (per-item ifVersion guards) + the apply-boundary item cache.
-        // Deliberately NOT gated like /refs: it must see EVERY item (incl. container-managers / excluded) so a
-        // lookup/delete never misses one. The RECEIPT below is the /refs-gated snapshot, taken fresh post-apply.
+        // `currentVersions` is deliberately UNGATED: per-item lookup/delete must see EVERY item (incl.
+        // container-managers) so an op never misses one. But the PROJECT-level lease version MUST hash the same
+        // gated set /refs/fetch/receipt use (ProjectSnapshot.IsTracked) — else a divergent gate makes the client
+        // baseline mismatch the pre-apply hash and every push wrongly reports "pull first".
         var currentVersions = new Dictionary<string, string>();
+        var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
         {
@@ -40,10 +43,11 @@ public static class PushService
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
             currentVersions[it.Name] = version;
+            if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[it.Name] = version;
             if (it.IsTopLevelCrud) itemCache[it.Name] = (it.Item, it.Folder);
         }
 
-        var currentProjectVersion = Hasher.ComputeProjectVersion(currentVersions);
+        var currentProjectVersion = Hasher.ComputeProjectVersion(gatedVersions);
         var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
         {

@@ -139,7 +139,7 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 
 	s.onDidChange.event(() => {
 		views?.update(statuses)
-		if (s.cached !== undefined) decorations.refresh(s.cached, s.workspaceRoot)
+		if (s.cached !== undefined) decorations.refresh(s.cached)
 		updateGlobalUi(statusBar)
 	})
 	statuses.set(folder.uri.fsPath, s)

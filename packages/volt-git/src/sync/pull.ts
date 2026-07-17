@@ -95,7 +95,9 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const outcome = gitMerge(root, RANGE, `volt: merge IDE @ ${fetched.projectVersion}`);
 	if (outcome.kind === "conflict") {
-		return { kind: "conflict", paths: outcome.paths.map(stripSrcPrefix) };
+		// postStatus() reads the (intentionally un-advanced) sidecar + live MERGE_HEAD, so it reports the
+		// merging state a follow-up `volt status` would — the UI adopts it with no extra bridge call.
+		return { kind: "conflict", paths: outcome.paths.map(stripSrcPrefix), status: postStatus() };
 	}
 	saveIdeRefs(root, newSidecar);
 	return { kind: "ok", synced: changeList(incoming), status: postStatus() };

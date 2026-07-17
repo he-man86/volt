@@ -20,12 +20,14 @@ const HEALTH_MS = 4_000;
 const MTIME_MS = 3_000;
 
 /** After a pull/push: adopt the resulting status the action already returned (ONE bridge call, no follow-up
- *  `volt status`); only re-fetch when it didn't succeed (state uncertain). ok-without-status (e.g. nothing to
- *  push) leaves the view unchanged. The ONE settle rule — both shells call this, so they can't diverge. */
+ *  `volt status`). Adopt on ANY outcome that carried a status (ok, and a pull conflict — which already fetched
+ *  everything needed to build the merging status); only re-fetch when no status came back (state uncertain,
+ *  e.g. a push rejected before the receipt, or an error). The ONE settle rule — both shells call it, so they
+ *  can't diverge. */
 export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutcome): Promise<void> {
-	if (out.kind === "ok") {
-		if (out.status) st.adopt(out.status);
-	} else await st.refresh(true);
+	const status = "status" in out ? out.status : undefined;
+	if (status) st.adopt(status);
+	else if (out.kind !== "ok") await st.refresh(true);
 }
 
 /** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a project

@@ -107,14 +107,18 @@ export class BridgeClient implements Remote {
 	 */
 	private async guardEmptyItems(itemCount: number): Promise<void> {
 		if (itemCount > 0) return;
+		// Fail CLOSED: an empty set is treated as truth ONLY on positive proof the IDE is attached
+		// (health.connected === true). A health probe that errors/times out, or reports not-connected, means we
+		// CANNOT confirm — so refuse, rather than let a disconnected bridge's empty response wipe every file. (A
+		// legitimately-empty project with the IDE attached still passes: connected === true.)
 		const health = await this.getHealth().catch(() => undefined);
-		if (health !== undefined && health.connected !== true) {
+		if (health?.connected !== true) {
 			process.stderr.write(
-				`[bridge-client] empty item set + /health.connected=false (status=${health.status}) — refusing to interpret as "engineer deleted everything"\n`,
+				`[bridge-client] empty item set + could not confirm an IDE is attached (health=${health ? `connected:${health.connected},status:${health.status}` : "unreachable"}) — refusing to interpret as "engineer deleted everything"\n`,
 			);
 			throw new BridgeError(
 				"PLC_DISCONNECTED",
-				"bridge reported zero items AND /health says no IDE is attached — refusing to treat an empty project as truth",
+				"bridge reported zero items and Volt could not confirm an IDE is attached — refusing to treat an empty project as truth (is the project open in the IDE?)",
 				503,
 			);
 		}

@@ -18,7 +18,7 @@ import type { StatusJson } from "../view/types.js"
 export type PullOutcome =
   | { kind: "ok"; synced: string[]; status?: StatusJson }
   | { kind: "refused"; reason: string }
-  | { kind: "conflict"; paths: string[] }
+  | { kind: "conflict"; paths: string[]; status?: StatusJson }
   | { kind: "error"; message: string }
 
 export type PushOutcome =

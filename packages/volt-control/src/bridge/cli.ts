@@ -64,12 +64,15 @@ export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts = {
 		let stderr = ""
 		let pending = "" // stderr carry across chunk boundaries, only when parsing progress lines
 		child.stdout.on("data", (d: Buffer) => chunks.push(d))
-		child.stderr.on("data", (d: Buffer) => {
+		// setEncoding installs a stateful StringDecoder, so a multibyte UTF-8 sequence split across two chunks
+		// isn't corrupted into replacement chars (a non-ASCII item name in an error line would otherwise mojibake).
+		child.stderr.setEncoding("utf-8")
+		child.stderr.on("data", (d: string) => {
 			if (!onProgress) {
-				stderr += d.toString("utf-8")
+				stderr += d
 				return
 			}
-			pending += d.toString("utf-8")
+			pending += d
 			let nl: number
 			while ((nl = pending.indexOf("\n")) >= 0) {
 				const line = pending.slice(0, nl)

@@ -17,10 +17,9 @@ namespace Volt.Bridge.Core.Sync;
 /// Aggregate versions (projectVersion, structureVersion) use bare-name keys — same as /refs and
 /// PushService conflict detection. The wire Items and Changed[].Name use full-name keys.
 ///
-/// The bridge omits objects the IDE won't compile (excluded-from-build) — they have no compiler ground
-/// truth, so the LSP would only false-positive on them, and there is no side-channel marker field. Dead
-/// (uncalled) code IS returned as ordinary source; the LSP decides reachability itself. Everything the
-/// bridge returns is analyzable.</summary>
+/// Every walked item is returned as ordinary source — the bridge draws no build-relevance distinction.
+/// Dead (uncalled) code and exclude-from-build objects alike ship as plain files; the LSP decides
+/// reachability itself.</summary>
 public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
@@ -55,7 +54,6 @@ public static class FetchService
         var done = 0;
         var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
         var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Warn)
-        var excluded = 0;    // excluded-from-build — a DELIBERATE omission (no compiler ground truth), not a loss
         onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total, Phase = "reading" });
 
         foreach (var it in walked)
@@ -73,10 +71,6 @@ public static class FetchService
             // emitting it; this is the Core backstop so the invariant holds for EVERY vendor structurally, not
             // per-driver — a stray manager can never materialize as a stub file.
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
-            // Excluded-from-build objects have no compiler ground truth — omit them so the LSP never
-            // false-positives on code the IDE itself doesn't compile. Deliberate, but LOG the name so a customer
-            // sees a missing POU was EXCLUDED, not lost (bridge-diagnostics-observability edge case #4).
-            if (it.ExcludeFromBuild) { excluded++; VoltLog.Debug($"fetch skip: exclude-from-build '{it.Name}'"); continue; }
 
             // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
             // can't be materialized), never throw for the whole batch.
@@ -141,7 +135,7 @@ public static class FetchService
 
         var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
 
-        var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable), ("exclude-from-build", excluded),
+        var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         VoltLog.Info($"fetch{(isInit ? " init" : "")}: {fullVersions.Count} items, {changed.Count} changed, {removed.Count} removed{drops} ({sw.ElapsedMilliseconds}ms)");
 

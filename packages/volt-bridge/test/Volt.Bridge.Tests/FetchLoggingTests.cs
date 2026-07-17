@@ -9,9 +9,9 @@ using Xunit;
 
 namespace Volt.Bridge.Tests;
 
-/// <summary>Observability (bridge-diagnostics-observability): a silently-skipped item now leaves a durable log
-/// trace — the field signal for "my POU / library type isn't in the workspace". The drop BEHAVIOUR is covered by
-/// <see cref="FetchExclusionTests"/>; here we assert the log ENTRY (name + reason) each drop produces.</summary>
+/// <summary>Observability (bridge-diagnostics-observability): a silently-skipped item leaves a durable log
+/// trace — the field signal for "my POU / library type isn't in the workspace". Here we assert the log ENTRY
+/// (name + reason) each drop produces.</summary>
 public class FetchLoggingTests
 {
     private static string ToLog(FakeIde ide, FetchRequest req)
@@ -25,18 +25,6 @@ public class FetchLoggingTests
             return string.Concat(Directory.GetFiles(dir, "codesys-*.log").Select(File.ReadAllText));
         }
         finally { VoltLog.Level = VoltLogLevel.Info; try { Directory.Delete(dir, true); } catch { } }
-    }
-
-    private static FakeIde.Item Pou(string name, bool excluded = false) =>
-        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\nEND_FUNCTION_BLOCK\n", "") with { ExcludeFromBuild = excluded };
-
-    [Fact]
-    public void An_excluded_from_build_item_is_logged_with_its_name_and_reason()
-    {
-        var log = ToLog(new FakeIde(Pou("Good"), Pou("Bad", excluded: true)), new FetchRequest { KnownItems = new() });
-
-        Assert.Contains("exclude-from-build 'Bad'", log);           // the per-item entry names what was skipped + why
-        Assert.Contains("(skipped: 1 exclude-from-build)", log);    // and the completion line tallies it
     }
 
     [Fact]

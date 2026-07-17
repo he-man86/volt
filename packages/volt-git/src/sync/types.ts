@@ -10,7 +10,9 @@ export interface ChangeSet {
 export type PullResult =
 	| { kind: "ok"; synced: string[]; message?: string; status?: StatusJson }
 	| { kind: "refused"; reason: string }
-	| { kind: "conflict"; paths: string[] };
+	// conflict carries the post-merge (merging) status — pull already fetched everything needed to build it, so
+	// the UI adopts it directly instead of a follow-up `volt status` (/refs) round-trip.
+	| { kind: "conflict"; paths: string[]; status?: StatusJson };
 
 export type PushResult = { kind: "ok"; items: string[]; message?: string; status?: StatusJson } | { kind: "rejected"; reason: string };
 
