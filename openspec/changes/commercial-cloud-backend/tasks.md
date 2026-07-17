@@ -7,7 +7,7 @@ margin via 2× markup, top-up for overage; Black dropped). Auto-deploys on merge
 (1) **Stripe go-live** (test→live keys) to take real money; (2) **production stage** (live secrets — env shell + apex domain now DONE);
 (3) ~~Discord webhook~~ **DONE** (server + webhook + prod secret + tested; needs Workers Paid + prod deploy to fire);
 (4) **email/SES** for invites (not login);
-(5) **Stage 5 rebrand** (deferred, own change). Everything below is marked to reality.
+(5) **Stage 5 rebrand** — DONE, delivered as the `console-volt-frontend` change. Everything below is marked to reality.
 
 ## Stage 0 — accounts & providers — NEARLY DONE (blocked only on DNS propagation)
 - [x] **Infra rewired for Volt**: `sst.config.ts` name→`volt`, AWS profiles→`volt-*`, dropped `honeycomb` provider
@@ -229,12 +229,18 @@ error tracker only if grouped stack traces / release health become worth the bui
 - API/auth: 5xx rate on the console app + auth worker.
 - Business funnel: signup → subscribe → active (DB + Stripe), for conversion health.
 
-## Stage 5 — adapt branding/product (separate follow-up change)
-- [ ] Replace `console/app`'s marketing/branding with Volt's (keep the functional app + gateway).
-- [ ] Rename the Stripe products/pricing to Volt's real plans (the Zen/Go/Black structure stays — it's the sub
-      product Volt is selling).
+## Stage 5 — adapt branding/product — DONE (delivered as the `console-volt-frontend` change)
+- [x] Replace `console/app`'s marketing/branding with Volt's (kept the functional app + gateway). The marketing
+      routes/components/assets were deleted (not "kept dormant" — that policy failed four reachability checks), the
+      authed surface is Volt-branded via the i18n overlay + `volt-theme.css` + `volt-components.css`, and the
+      standing rule ("never edit vendored source; overlay / delete-and-declare / import") is written into `CLAUDE.md`
+      and enforced by `check-console-divergence.ts`. See `console-volt-frontend`.
+- [x] Pricing is Volt's: **flat €24/month** (opencode's automatic 50%-off-first-month coupon removed), copy tied to
+      the Stripe Price by `volt-price.test.ts`. The Zen/lite plumbing stays; only the product presentation is Volt's.
 - [ ] (Future, optional) enterprise features — orgs/roles/seats/SSO — built on `console-core`. NOT by vendoring
       opencode's `enterprise` package (session-sharing app; opencode has no real SSO/SCIM code — see proposal).
+- Open, tracked in `console-volt-frontend`/`DIVERGENCE.md`: the console mixes currencies (EUR subscription, USD
+      usage/credits) — a pricing decision, not a string bug.
 
 ## Reference: external providers the backend relies on
 **Required:** Cloudflare (host/R2/KV/Workers), PlanetScale (DB), Stripe (billing), Anthropic + DeepSeek (LLM

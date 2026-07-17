@@ -16,9 +16,16 @@ DeepSeek completion flowed through the `lite`/Go endpoint honoring the subscript
 - `DIVERGENCE.md` — the vendored-console audit vs opencode `v1.17.20` + the "customize in config, not source" policy.
 - `tasks.md` — the deploy fixes + the config root-cause of the gateway (empty `liteModels` + wrong endpoint).
 
-The Go-only product and all pricing are **config-only** (`volt-config`, `models.json`, `ZEN_LIMITS`, Stripe price);
-`packages/console/*` diverges from opencode by only ~2 tiny, marked, non-load-bearing edits (see `DIVERGENCE.md`).
-Remaining: rebrand (deferred — styling later), production stage, and provisioning the still-placeholder secrets.
+The one-product ("Volt Gateway") pricing is **config** (`volt-config`, `models.json`, `ZEN_LIMITS`, Stripe price);
+`packages/console/*` diverges from opencode only by the declared `ALLOW`/`DROPPED` footprint in `DIVERGENCE.md`,
+each entry marked and justified, none editing vendored source where a beside-file could do the job.
+
+**The rebrand is DONE** (was "deferred — styling later"): the console is now Volt-branded end-to-end — see the
+`console-volt-frontend` change and its "IMPLEMENTED" banner. Shipped: the i18n overlay (opencode's dicts stay
+byte-identical), the marketing tree deleted, volt-www's palette + fonts + pill buttons + wordmark ported, the
+Gateway view, the Volt 404, **flat €24/month pricing** (opencode's auto 50%-off-first-month removed), and a set of
+guard tests (`packages/console/app/test/volt-*`) plus `check-console-divergence.ts` holding the invariants. Remaining
+on THIS change: production stage + provisioning the still-placeholder secrets.
 
 Far past the initial vendor. Done + verified: all 6 console packages vendored + green; **infra rewired for Volt**
 (domain/zone/account/DB/`main` branch, aws provider removed, honeycomb monitoring re-added gated); **`sst install`
