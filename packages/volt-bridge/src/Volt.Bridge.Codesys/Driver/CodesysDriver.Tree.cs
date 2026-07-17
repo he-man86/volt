@@ -63,7 +63,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
                 var deviceFolder = FolderPath.Append(folderPath, name);
                 var hasChildren = HasChildren(child);
                 items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice, false,
-                    hasChildren ? deviceFolder : folderPath, _om.IsExcludedFromBuild(child)));
+                    hasChildren ? deviceFolder : folderPath));
                 if (hasChildren) Walk(child, deviceFolder, items);
                 continue;
             }
@@ -97,7 +97,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
                 continue;
             }
 
-            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
+            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath));
         }
     }
 

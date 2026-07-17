@@ -34,13 +34,6 @@ function pickStatus(statuses: Map<string, VoltStatus>): VoltStatus | undefined {
 	return [...statuses.values()][0]
 }
 
-async function refreshFor(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
-	const s = statuses.get(workspaceRoot)
-	// Force past the 1s debounce: an explicit action just changed state, so the
-	// tree must update now (otherwise the item lingers in the diff list).
-	if (s !== undefined) await s.refresh(true)
-}
-
 // The adopt-on-ok / refresh-on-fail rule lives once in @volt/control (settleOutcome); resolve the tracker here.
 async function settleFor(statuses: Map<string, VoltStatus>, workspaceRoot: string, outcome: PullOutcome | PushOutcome): Promise<void> {
 	const s = statuses.get(workspaceRoot)
@@ -148,7 +141,6 @@ async function initTarget(): Promise<string | undefined> {
 }
 
 async function doInit(
-	statuses: Map<string, VoltStatus>,
 	ensureWorkspace: (folder: string) => void,
 	workspaceRoot: string,
 	port: number,
@@ -167,10 +159,10 @@ async function doInit(
 		return
 	}
 	vscode.window.showInformationMessage("Workspace initialized.")
-	// The folder now has .git/volt/config.json — register it so the IDE Sync view, status
-	// bar and decorations come alive without a reload.
+	// The folder now has .git/volt/config.json — register it so the IDE Sync view, status bar and
+	// decorations come alive without a reload. ensureWorkspace refreshes the tracker itself (mirrors the
+	// desktop's single-refresh bind), so no extra refresh here.
 	ensureWorkspace(workspaceRoot)
-	await refreshFor(statuses, workspaceRoot)
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {
@@ -190,9 +182,9 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 	const reg = vscode.commands.registerCommand
 
 	return [
-		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
-		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("codesys"), false) }),
-		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(statuses, ensureWorkspace, w, readBridgePort(w) ?? vendorPort("twincat"), true) }),
+		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, vendorPort("twincat"), false) }),
+		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, vendorPort("codesys"), false) }),
+		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(ensureWorkspace, w, readBridgePort(w) ?? vendorPort("twincat"), true) }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),

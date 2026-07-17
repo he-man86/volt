@@ -203,12 +203,13 @@
     render()
   }
 
-  async function doPull() { busy = "Pulling…"; render(); try { await volt.pull() } catch {} }
-  async function doPush() { busy = "Pushing…"; render(); try { await volt.push() } catch {} }
-  async function doBuild() { busy = "Building…"; render(); try { await volt.build() } catch {} }
+  // The main process surfaces errors + clears the progress note itself (runGuarded), so these never reject.
+  async function doPull() { busy = "Pulling…"; render(); await volt.pull() }
+  async function doPush() { busy = "Pushing…"; render(); await volt.push() }
+  async function doBuild() { busy = "Building…"; render(); await volt.build() }
   function doRefresh() { volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
-  async function doInit(vendor) { busy = "Initializing…"; render(); try { await volt.initWorkspace(vendor) } catch {} }
+  async function doInit(vendor) { busy = "Initializing…"; render(); await volt.initWorkspace(vendor) }
 
   // Live progress from any action (main sends formatProgress's {pct,message}); null clears the note.
   volt.onProgress((p) => {

@@ -32,10 +32,16 @@ public sealed class ProjectSnapshot
 
     public int Unmapped { get; private set; }
     public int Unreadable { get; private set; }
-    public int Excluded { get; private set; }
 
     public string ProjectVersion => Hasher.ComputeProjectVersion(Versions);
     public string StructureVersion => Hasher.ComputeStructureVersion(Versions);
+
+    /// <summary>The single gate that decides whether an item is TRACKED (counts toward the version maps + the
+    /// project/structure hash). Used by <see cref="Walk"/> AND by <c>/push</c>'s lease baseline so both hash the
+    /// SAME item set — a divergent gate there would spuriously reject a push with "pull first". Skips: unmapped
+    /// kinds and container-managers (folders, not items).</summary>
+    public static bool IsTracked(int kindCode) =>
+        ItemKind.Map(kindCode) != null && !ItemKind.IsContainerManager(kindCode);
 
     /// <summary>Walk every tracked item once, applying the <c>/refs</c> gates. <paramref name="operation"/>
     /// labels the streamed progress frames + skip logs (e.g. "refs").</summary>
@@ -56,7 +62,8 @@ public sealed class ProjectSnapshot
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) { snap.Unmapped++; VoltLog.Debug($"{operation} skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
-            if (it.ExcludeFromBuild) { snap.Excluded++; VoltLog.Debug($"{operation} skip: exclude-from-build '{it.Name}'"); continue; }
+            // The two skips above == !IsTracked(it.KindCode) — kept expanded here for the per-reason counters/logs;
+            // PushService's lease hash reuses IsTracked to stay byte-identical.
 
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             snap.Versions[it.Name] = version;

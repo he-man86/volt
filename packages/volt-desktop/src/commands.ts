@@ -34,6 +34,20 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     if (shell.win) void dialog.showMessageBox(shell.win, { type, message })
   }
 
+  // Every action runs through here: a throw ALWAYS surfaces as an error dialog and ALWAYS clears the progress
+  // note (the renderer's busy spinner is cleared only by clearProgress's null frame). Without this, a thrown
+  // action — e.g. the volt CLI binary missing on a partial install — left the spinner stuck forever with no
+  // error shown. This is the desktop's report-on-failure, mirroring how vscode surfaces a command that throws.
+  const runGuarded = async (fn: () => Promise<void>): Promise<void> => {
+    try {
+      await fn()
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : String(err))
+    } finally {
+      clearProgress()
+    }
+  }
+
   // The outcome flow (filter → confirm destructive → dispatch) is @volt/control's presentOutcome; the desktop
   // supplies only the dialog primitives. The destructive "cannot be undone" confirm now fires here too.
   const presenter: OutcomePresenter = {
@@ -83,26 +97,30 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     )
   }
 
-  ipcMain.handle("volt:pull", () => runPull())
-  ipcMain.handle("volt:push", () => runPush())
-  ipcMain.handle("volt:build", async () => {
-    const st = shell.status
-    if (!st) return
-    const r = await build(st.workspaceRoot, { onProgress: report })
-    clearProgress()
-    await st.refresh(true)
-    void runDiagnostics(shell) // a build can change diagnostics
-    if (r.code !== 0) notify("error", `Build failed: ${firstLine(r.stderr) || `exit ${r.code}`}`)
-  })
+  ipcMain.handle("volt:pull", () => runGuarded(() => runPull()))
+  ipcMain.handle("volt:push", () => runGuarded(() => runPush()))
+  ipcMain.handle("volt:build", () =>
+    runGuarded(async () => {
+      const st = shell.status
+      if (!st) return
+      const r = await build(st.workspaceRoot, { onProgress: report })
+      clearProgress()
+      await st.refresh(true)
+      void runDiagnostics(shell) // a build can change diagnostics
+      if (r.code !== 0) notify("error", `Build failed: ${firstLine(r.stderr) || `exit ${r.code}`}`)
+    }),
+  )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
   ipcMain.on("volt:refreshDiagnostics", () => void runDiagnostics(shell))
-  ipcMain.handle("volt:init", async (_e, vendor: "codesys" | "twincat") => {
-    // Init the project opencode is on — no folder picker (like the extension initing its open workspace).
-    const root = shell.boundRoot
-    if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
-    const out = await init(root, vendorPort(vendor), { onProgress: report })
-    clearProgress()
-    if (out.code === 0) await bindWorkspace(shell, root)
-    else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
-  })
+  ipcMain.handle("volt:init", (_e, vendor: "codesys" | "twincat") =>
+    runGuarded(async () => {
+      // Init the project opencode is on — no folder picker (like the extension initing its open workspace).
+      const root = shell.boundRoot
+      if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
+      const out = await init(root, vendorPort(vendor), { onProgress: report })
+      clearProgress()
+      if (out.code === 0) await bindWorkspace(shell, root)
+      else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
+    }),
+  )
 }

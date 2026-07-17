@@ -5,28 +5,16 @@ using Xunit;
 
 namespace Volt.Bridge.Tests;
 
-/// <summary>The bridge omits excluded-from-build objects (no compiler ground truth) from /fetch and /refs
-/// entirely (no changed entry, no version) — the client never tracks a file the LSP would false-positive on,
-/// and there is no side-channel marker field. Dead (uncalled) code, by contrast, is returned as ordinary
-/// source; reachability is the LSP's job now, not the bridge's.</summary>
+/// <summary>What /fetch and /refs materialize: every walked item ships as ordinary source (dead/uncalled code
+/// and exclude-from-build objects alike — the bridge draws no build-relevance distinction; reachability is the
+/// LSP's job), and referenced-library element signatures fold beside their own `.library` file.</summary>
 public class FetchExclusionTests
 {
-    private static FakeIde.Item Pou(string name, bool excluded = false) =>
-        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\nEND_FUNCTION_BLOCK\n", "") with { ExcludeFromBuild = excluded };
+    private static FakeIde.Item Pou(string name) =>
+        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\nEND_FUNCTION_BLOCK\n", "");
 
-    [Fact]
-    public void Fetch_omits_excluded_from_build_items()
-    {
-        var ide = new FakeIde(Pou("Good"), Pou("Bad", excluded: true));
-        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
-
-        Assert.Contains(resp.Changed, c => c.Name.StartsWith("Good"));
-        Assert.DoesNotContain(resp.Changed, c => c.Name.StartsWith("Bad"));
-        Assert.DoesNotContain(resp.Items.Keys, k => k.StartsWith("Bad"));
-    }
-
-    /// <summary>Dead (uncalled) project POUs are ordinary source now — the bridge always returns them. Reachability
-    /// moved to the LSP, so there is no fetch flag and no compiled-POU dependency to drop them.</summary>
+    /// <summary>Dead (uncalled) project POUs are ordinary source — the bridge always returns them. Reachability
+    /// is the LSP's job, so there is no fetch flag and no compiled-POU dependency to drop them.</summary>
     [Fact]
     public void Dead_code_is_always_returned()
     {
@@ -35,16 +23,6 @@ public class FetchExclusionTests
         var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true, KnownItems = new() });
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Live"));
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Dead"));
-    }
-
-    [Fact]
-    public void Refs_omits_excluded_from_build_items()
-    {
-        var ide = new FakeIde(Pou("Good"), Pou("Bad", excluded: true));
-        var resp = RefsService.Handle(ide);
-
-        Assert.Contains(resp.Items.Keys, k => k.StartsWith("Good"));
-        Assert.DoesNotContain(resp.Items.Keys, k => k.StartsWith("Bad"));
     }
 
     /// <summary>A `.library` ref is nested INTO its own library folder (`Library Manager/&lt;lib&gt;/&lt;lib&gt;.library`),
