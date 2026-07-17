@@ -1,39 +1,33 @@
 import "./[...404].css"
 import { Title } from "@solidjs/meta"
 import { HttpStatusCode } from "@solidjs/start"
-import logoLight from "../asset/logo-ornate-light.svg"
-import logoDark from "../asset/logo-ornate-dark.svg"
-import { useI18n } from "~/context/i18n"
-import { useLanguage } from "~/context/language"
 
+// VOLT: the app's only catch-all, and Volt-owned rather than patched.
+//
+// opencode's version was a marketing 404: its ornate wordmark, `"Not Found | opencode"`, a link to
+// github.com/anomalyco/opencode, and links to `/docs` and `/discord` — two routes the public-surface strip deleted,
+// so the 404 page 404'd onto itself. Every mistyped URL on Volt's console handed the user opencode's brand and
+// three dead ends.
+//
+// The console is the account app, so there is exactly one useful action: get back to your workspace. `/auth`
+// resolves to the last workspace or the login screen, so it is correct for a signed-in and a signed-out visitor
+// alike. Volt's public site is a separate package (volt-www) and is deliberately not linked from here — this page
+// is only ever reached from inside the app.
 export default function NotFound() {
-  const i18n = useI18n()
-  const language = useLanguage()
   return (
     <main data-page="not-found">
-      <Title>{i18n.t("notFound.title")}</Title>
+      <Title>Page not found — Volt</Title>
       <HttpStatusCode code={404} />
       <div data-component="content">
         <section data-component="top">
-          <a href={language.route("/")} data-slot="logo-link">
-            <img data-slot="logo light" src={logoLight} alt={i18n.t("notFound.logoLightAlt")} />
-            <img data-slot="logo dark" src={logoDark} alt={i18n.t("notFound.logoDarkAlt")} />
-          </a>
-          <h1 data-slot="title">{i18n.t("notFound.heading")}</h1>
+          {/* Served from public/ — the same mark ui.tsx uses as the favicon. No light/dark pair: Volt ships one. */}
+          <img data-slot="logo" src="/volt-mark.svg" alt="Volt" width="56" height="56" />
+          <h1 data-slot="title">Page not found</h1>
         </section>
 
         <section data-component="actions">
           <div data-slot="action">
-            <a href={language.route("/")}>{i18n.t("notFound.home")}</a>
-          </div>
-          <div data-slot="action">
-            <a href={language.route("/docs")}>{i18n.t("notFound.docs")}</a>
-          </div>
-          <div data-slot="action">
-            <a href="https://github.com/anomalyco/opencode">{i18n.t("notFound.github")}</a>
-          </div>
-          <div data-slot="action">
-            <a href={language.route("/discord")}>{i18n.t("notFound.discord")}</a>
+            <a href="/auth">Go to your workspace</a>
           </div>
         </section>
       </div>

@@ -41,6 +41,8 @@ const ALLOW = new Set([
   "app/src/routes/auth/logout.ts", // logout → /auth (opencode sent logged-out users to its /zen marketing page)
   "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
   "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Gateway tab (Volt's default view)
+  "app/src/routes/[...404].tsx", // Volt-owned: opencode's 404 was a marketing page (its wordmark, an anomalyco/opencode link, and /docs + /discord — both DELETED, so the 404 page 404'd)
+  "app/src/routes/[...404].css", // Volt-owned: dropped its local hsl palette, which pinned the one page a lost user sees to opencode's colours and made volt-theme.css a no-op there
   "app/src/routes/workspace/[id]/gateway", // Volt-added: the Gateway tab (Volt's copy + quick-connect); IMPORTS the vendored /go sections, so /go itself stays pristine + unlinked
   "app/src/routes/v1", // clean public gateway path (/v1/*, no opencode "zen/go" branding); re-runs the vendored config
 
@@ -64,25 +66,67 @@ const ALLOW = new Set([
 // Deleted paths appear as "Only in opencode" and are EXPECTED. Listed as prefixes (a dir OR any file under it).
 // See DIVERGENCE.md.
 const DROPPED = [
-  // opencode's `/` marketing landing → replaced by routes/index.ts (a redirect to /auth), so index.* is gone
+  // ── opencode's `/` marketing landing → replaced by routes/index.ts (a redirect to /auth), so index.* is gone
   "app/src/routes/index.tsx", "app/src/routes/index.css",
-  // temp.tsx — opencode's scratch home mockup (opencode branding; imported the now-deleted root index.css). Not a
-  // real page; deleted (can't be "kept pristine" — its CSS import broke the SolidStart build).
+  // temp.tsx — opencode's scratch home mockup; imported the now-deleted root index.css, so it could never be "kept
+  // pristine" anyway.
   "app/src/routes/temp.tsx",
-  // proxies/redirects to opencode's own docs / stats / community (they actively serve/redirect to opencode)
+  // ── Routes that actively SERVE or REDIRECT to opencode's own infra/community.
   "app/src/routes/docs", "app/src/routes/data", "app/src/routes/stats", "app/src/routes/s", "app/src/routes/t",
   "app/src/routes/desktop-feedback.ts", "app/src/routes/discord.ts", "app/src/routes/feishu.ts",
-  // opencode's Desktop download page + its binary PROXY (`/download/[channel]/[platform]` streams opencode-desktop-*
-  // assets from github.com/anomalyco/opencode releases — i.e. serves opencode's app off Volt's domain). Same
-  // serve-opencode's-infra category as the routes above; Volt ships its own installer. v1.18.0 also tied the page to
-  // a 15MB promo video, so keeping it dormant would vendor that too.
+  // opencode's Desktop download page + its binary PROXY (`/download/[channel]/[platform]` streamed
+  // opencode-desktop-* assets from github.com/anomalyco/opencode releases — opencode's app served off Volt's
+  // domain). v1.18.0 also tied the page to a 15MB promo video.
   "app/src/routes/download",
-  "app/src/component/desktop-promo.tsx", "app/src/component/desktop-promo.css", // v1.18.0: opencode-Desktop ad; app.tsx renders it app-wide (see ALLOW) — not vendored, so nothing imports it
-  "app/src/asset/lander/desktop-tabs-landscape.mp4", // 15MB video, only used by the two entries above
-  // `/go` — opencode's Go marketing page, REPLACED by routes/go/index.ts (a redirect to /auth) because the referral
-  // invite link (`/go?ref=…`) makes this path public; see that file. Same shape as routes/index.tsx → index.ts.
+  "app/src/component/desktop-promo.tsx", "app/src/component/desktop-promo.css", // v1.18.0: opencode-Desktop ad, rendered app-wide from app.tsx (see ALLOW) — not vendored, so nothing imports it
+  // `/go` — opencode's Go marketing page, REPLACED by routes/go/index.ts (a redirect to /auth): the referral invite
+  // link (`/go?ref=…`) makes this path public, so it was never dormant. Same shape as routes/index.tsx → index.ts.
   "app/src/routes/go/index.tsx", "app/src/routes/go/index.css",
-  // Orphaned Zen-landing sections (imported by nothing after the workspace-home → /go redirect); contained
+
+  // ── THE MARKETING SWEEP (console-volt-frontend Stage 2). The console is the ACCOUNT APP; volt-www is Volt's
+  // public face. These are deleted rather than "kept byte-identical + dormant" because that policy was asserted
+  // four times and wrong four times: /go was the referral landing page, /download proxied opencode's binaries,
+  // bench/submission.ts is an unauthenticated public POST into the production BenchmarkTable, and
+  // /black/subscribe is entered by an AUTH REDIRECT with an inverted stage gate — live precisely on dev. SolidStart
+  // serves every file under routes/** by URL: unlinked is not unexposed. DROPPED never conflicts on a bump.
+  "app/src/routes/bench",            // opencode's model leaderboard + that unauthenticated POST
+  "app/src/routes/black", "app/src/routes/black.tsx", "app/src/routes/black.css", // the premium tier Volt doesn't sell; black.tsx was its LAYOUT, not a page
+  "app/src/routes/brand",            // opencode's brand kit; its index.css was also the legal pages' only token source, so they leave together
+  "app/src/routes/changelog", "app/src/routes/changelog.json.ts",
+  "app/src/routes/enterprise",       // opencode's sales page …
+  "app/src/routes/api/enterprise.ts", // … and its form handler: mailed prospect PII to contact@anoma.ly + opencode's EmailOctopus list + opencode's Salesforce. Only caller was the page above.
+  "app/src/routes/legal",            // terms binding users to ANOMALY INNOVATIONS, INC.; Volt's legal lives on volt-www
+  "app/src/routes/openapi.json.ts",  // republished opencode's SDK spec from Volt's domain
+  "app/src/routes/zen/index.tsx", "app/src/routes/zen/index.css", // the Zen MARKETING page. The zen/{go,util,v1} GATEWAY stays — it is the product.
+
+  // Components those pages owned. They had live importers right up until the delete above: SolidStart compiles
+  // every routes/** file whether or not anything links to it, so deleting either half alone breaks `vite build`
+  // (typecheck stays green). This is one atomic set for that reason.
+  "app/src/component/header.tsx", "app/src/component/header-context-menu.css",
+  "app/src/component/footer.tsx", "app/src/component/faq.tsx", "app/src/component/legal.tsx",
+  "app/src/component/locale-links.tsx",
+  "app/src/component/language-picker.tsx", "app/src/component/language-picker.css",
+  "app/src/component/email-signup.tsx", "app/src/component/spotlight.tsx", "app/src/component/spotlight.css",
+
+  // Libs those pages owned.
+  "app/src/config.ts",               // opencode.ai / anomalyco URLs + social handles
+  "app/src/lib/changelog.ts", "app/src/lib/github.ts",
+  "app/src/lib/salesforce.ts",       // pushed enterprise leads into opencode's Salesforce
+  "app/src/lib/stats-proxy.ts",      // already dead before this sweep
+  "app/src/context/auth.session.ts", // zero importers repo-wide (verified across app/, function/, infra/)
+
+  // opencode's marketing imagery — logos, wordmarks, the brand kit, lander screenshots/videos, the ornate
+  // go/zen/logo marks: 63 files, all of it opencode's brand. The last two (logo-ornate-*.svg) were the 404 page's
+  // wordmark; that page is Volt-owned now and uses public/volt-mark.svg.
+  "app/src/asset",
+
+  // The sitemap generator. It ran as step 1 of app/package.json's build (`&&`-chained before vite, so every build
+  // and every deploy) and emitted 90 https://opencode.ai/* marketing URLs into public/sitemap.xml — a GITIGNORED
+  // artifact, so it never appeared in review, and it shipped and got crawled. Three of its five routes were not
+  // Volt pages. Its `&&`-chain is removed from app/package.json.
+  "app/script",
+
+  // Orphaned Zen-landing sections (imported by nothing after the workspace-home → Gateway redirect); contained
   // opencode strings ("opencode auth login", /docs/zen). Deleted as dead code.
   "app/src/routes/workspace/[id]/new-user-section.tsx", "app/src/routes/workspace/[id]/new-user-section.module.css",
   "app/src/routes/workspace/[id]/model-section.tsx", "app/src/routes/workspace/[id]/model-section.module.css",

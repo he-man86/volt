@@ -1,23 +1,11 @@
-[data-page="not-found"] {
-  --color-text: hsl(224, 10%, 10%);
-  --color-text-secondary: hsl(224, 7%, 46%);
-  --color-text-dimmed: hsl(224, 6%, 63%);
-  --color-text-inverted: hsl(0, 0%, 100%);
-
-  --color-border: hsl(224, 6%, 77%);
-}
-
-[data-page="not-found"] {
-  @media (prefers-color-scheme: dark) {
-    --color-text: hsl(0, 0%, 100%);
-    --color-text-secondary: hsl(224, 6%, 66%);
-    --color-text-dimmed: hsl(224, 7%, 46%);
-    --color-text-inverted: hsl(224, 10%, 10%);
-
-    --color-border: hsl(224, 6%, 36%);
-  }
-}
-
+/* VOLT: Volt-owned, adapted from opencode's 404 stylesheet. Two changes; the layout is otherwise theirs.
+ *
+ * 1. It no longer re-declares --color-text / --color-text-secondary / --color-border with its own hsl greys. That
+ *    block pinned this page to opencode's palette and made volt-theme.css a no-op on the ONE page a lost user
+ *    actually lands on — the brand tokens now apply here like everywhere else, light and dark included (which is
+ *    also why the dark block below is gone: the tokens already carry it).
+ * 2. The light/dark wordmark swap is gone — Volt ships a single mark, so there is no pair to toggle.
+ */
 [data-page="not-found"] {
   --padding: 3rem;
   --vertical-padding: 1.5rem;
@@ -31,6 +19,7 @@
 
   font-family: var(--font-mono);
   color: var(--color-text);
+  background: var(--color-bg);
   padding: calc(var(--padding) + 1rem);
   min-height: 100vh;
   display: flex;
@@ -48,6 +37,8 @@
     max-width: 40rem;
     width: 100%;
     border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-bg-surface);
   }
 
   [data-component="top"] {
@@ -58,26 +49,9 @@
     gap: calc(var(--vertical-padding) / 2);
     text-align: center;
 
-    [data-slot="logo-link"] {
-      text-decoration: none;
-    }
-
-    img {
+    [data-slot="logo"] {
       height: auto;
-      width: clamp(200px, 85vw, 400px);
-    }
-
-    [data-slot="logo dark"] {
-      display: none;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      [data-slot="logo light"] {
-        display: none;
-      }
-      [data-slot="logo dark"] {
-        display: block;
-      }
+      max-width: 100%;
     }
 
     [data-slot="title"] {
