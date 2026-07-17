@@ -63,6 +63,21 @@ jobs:
           fi
           echo "releasing ${version}"
 
+      # Volt ships ONE version: volt-desktop is the source of truth, and the .vsix the installer sideloads must
+      # carry the same number. They're separate package.json files (the extension also publishes to the
+      # Marketplace on its own), so nothing but this keeps them from drifting apart again. Runs on
+      # workflow_dispatch too — there's no tag to compare there, but the two packages must still agree.
+      - name: Guard — extension version matches the release
+        shell: bash
+        run: |
+          version=$(node -p "require('./packages/volt-desktop/package.json').version")
+          ext=$(node -p "require('./packages/volt-vscode/package.json').version")
+          if [ "${ext}" != "${version}" ]; then
+            echo "::error::volt-vscode ${ext} != volt-desktop ${version}. Volt ships one version — bump both."
+            exit 1
+          fi
+          echo "extension ${ext} matches"
+
       - name: Build the Volt installer
         run: bun volt-scripts/build-app.ts
 

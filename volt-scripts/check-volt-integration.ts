@@ -121,6 +121,26 @@ check("bridge WireProtocol.Version (C#) == client WIRE_VERSION (TS)", () => {
 	return cs[1] === ts[1] || `mismatch: C#=${cs[1]} TS=${ts[1]} — bump BOTH together on an incompatible wire change`;
 });
 
+console.log("\nProduct version parity");
+// Volt ships ONE version. volt-desktop is the source of truth (it names the release tag + version.txt, which the
+// connector's auto-updater compares); the .vsix the installer sideloads must carry the same number. They're
+// separate package.json files because the extension also self-publishes to the Marketplace. release.ts and
+// release.yml both refuse a mismatch — but those only run at release, by which point a half-bump is already on
+// dev. This runs on every push/PR, so the drift fails in the PR that introduces it.
+// NOTE: packages/console/* is deliberately excluded — its version tracks the vendored opencode, not Volt.
+check("volt-desktop version == volt-vscode version", () => {
+	const read = (p: string): string | undefined => {
+		const f = join(REPO_ROOT, p, "package.json");
+		if (!existsSync(f)) return undefined;
+		return JSON.parse(readFileSync(f, "utf-8")).version;
+	};
+	const desktop = read("packages/volt-desktop");
+	const ext = read("packages/volt-vscode");
+	if (!desktop) return "packages/volt-desktop/package.json has no version";
+	if (!ext) return "packages/volt-vscode/package.json has no version";
+	return desktop === ext || `mismatch: volt-desktop=${desktop} volt-vscode=${ext} — Volt ships one version, bump BOTH`;
+});
+
 console.log("\nVS Code extension");
 check("volt-vscode extension entry compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))
