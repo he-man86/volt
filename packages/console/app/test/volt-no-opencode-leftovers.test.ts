@@ -19,8 +19,15 @@ import { i18n } from "~/i18n"
 
 const SRC = join(import.meta.dir, "..", "src")
 
-/** opencode's brand surface: its domains, its company, its contacts, its product names. */
-const BRANDING = /opencode\.ai|anomalyco|anoma\.ly|opencode\s+(go|black|zen)|"opencode"/i
+/**
+ * opencode's brand surface: its domains, its company, its contacts, its product names.
+ *
+ * The `\bGo\b` arm was added after this test passed a page reading "Your friend joins and subscribes to Go" and
+ * "toward your Go usage limits" — opencode names its tier bare, so an `opencode go` pattern never matched it. The
+ * bare word is safe to ban HERE because this only scans keys the app RENDERS: opencode's own `go.*` marketing keys
+ * ("Subscribe to Go", "How Go works") belong to a page Volt deleted, so nothing reaches them.
+ */
+const BRANDING = /opencode\.ai|anomalyco|anoma\.ly|opencode\s+(go|black|zen)|"opencode"|\bGo\b/i
 
 /**
  * i18n keys that legitimately mention opencode, each with the reason it is not a leftover.

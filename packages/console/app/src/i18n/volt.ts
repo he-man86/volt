@@ -28,9 +28,26 @@ export const volt: Partial<Record<Key, string>> = {
     "You're currently subscribed to OpenCode Black or on the waitlist. Please unsubscribe first if you'd like to switch to Gateway.",
   "workspace.lite.other.message":
     "Another member in this workspace is already subscribed to Volt Gateway. Only one member per workspace can subscribe.",
+  // PRICING — these are the numbers a customer reads before paying, so they track infra/console.ts, not opencode.
+  // Volt's Gateway price is €24/month (`zenLitePrice`: currency "eur", unitAmount 2400) and checkout auto-applies
+  // the 50%-off-first-month coupon unless already redeemed (core/src/billing.ts:331 → firstMonth50Coupon), so the
+  // first month is €12. opencode's own strings said "$5 for your first month, then $10/month" — the same STRUCTURE
+  // with their numbers and their currency, which is exactly why it read as plausible and shipped. A Volt customer
+  // was told $10/month and charged €24. volt-price.test.ts pins these to the infra values.
+  "workspace.lite.promo.price": "€12 for your first month",
   "workspace.lite.promo.description":
-    "Volt Gateway starts at {{price}}, then $10/month, and provides reliable access to popular open coding models with generous usage limits.",
+    "Volt Gateway starts at {{price}}, then €24/month, and provides reliable access to popular open coding models with generous usage limits.",
   "workspace.lite.promo.subscribe": "Subscribe to Gateway",
+
+  // REFERRAL — opencode named its tier "Go" bare here, which the overlay's "OpenCode Go" pattern never matched.
+  // The $5 is deliberately NOT changed to €5: the reward is credited against USAGE (core/src/referral.ts:18
+  // REWARD_AMOUNT = 500 cents → Billing.subtractLiteUsage), and usage is metered from models.json's per-token
+  // provider rates, which are USD. The subscription is EUR and the usage credit is USD — see the note in
+  // DIVERGENCE.md; that mismatch is a product decision, not a string bug, so it is flagged rather than papered over.
+  "workspace.referral.instructions.subscribe": "Your friend joins and subscribes to Volt Gateway",
+  "workspace.referral.instructions.claim":
+    "You both get a $5 usage credit to apply toward your Volt Gateway usage limits",
+  "workspace.referral.rewards.description": "Apply available referral credits toward your Volt Gateway usage.",
 
   // Shown in the CLI when a free-trial model lapses — user-visible outside the console, so it rebrands too.
   "zen.api.error.trialEnded":

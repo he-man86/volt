@@ -40,6 +40,7 @@ const ALLOW = new Set([
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-components.css", // Volt-added: the few component SHAPES no token can express (the pill button — its radius token is shared with 39 inputs/progress bars, so it cannot be retuned globally)
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+  "app/test/volt-price.test.ts", // Volt-added: the price a customer READS (i18n overlay) must match the price infra/console.ts CHARGES — they lived in two files with nothing connecting them, so the console advertised opencode's $10/mo while Stripe billed €24
   "app/test/volt-no-opencode-leftovers.test.ts", // Volt-added: fails if any string the app renders carries opencode BRANDING (its products/domains/contacts) — the bar review keeps missing
   "app/test/volt-theme.cascade.test.ts", // Volt-added: every token volt-theme.css overrides must be declared at a selector that WINS (opencode splits :root for colour vs body for font/space — a :root font override silently loses)
   "app/test/volt-theme.contrast.test.ts", // Volt-added: pins the brand palette's WCAG contrast (CSS is type-checked by nothing; a value tweak can silently break readability)
