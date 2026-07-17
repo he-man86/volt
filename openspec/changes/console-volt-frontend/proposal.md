@@ -82,8 +82,12 @@ legal, black, black.tsx, black.css, zen/index.*, openapi.json.ts}` **plus** thei
 (`header, footer, faq, legal, locale-links, language-picker, email-signup, spotlight`), `config.ts`, and
 `script/generate-sitemap.ts`; rewrite `DIVERGENCE.md`'s dormant-marketing policy; declare it all in `DROPPED`.
 Before deleting `brand/index.css`, move the `[data-page="legal"]` tokens it owns (or delete the legal pages with it).
-**Expected side-benefit to verify, not assume:** `black/subscribe/[plan].tsx` is the file whose `vite:define` bug
-breaks the Windows build — if the Black tree goes, local console builds may come back on the primary dev platform.
+**Windows build — predicted, then disproved (kept as a caution):** `black/subscribe/[plan].tsx` was expected to be
+the *only* reason the console can't build on Windows, so dropping the Black tree was expected to bring local builds
+back. It did not. With that file gone its `vite:define` error is indeed gone — but a *second* Windows path bug
+surfaces underneath (`Rollup failed to resolve import "C:UsersmarceGithubolt…"`, the `\v` in `…\volt` eaten as a
+vertical-tab escape). **The console still builds on Linux only**, so `console-build` on CI remains the single place
+a console change is compiled before it reaches `dev`. Recorded here so the prediction isn't re-attempted.
 
 **Stage 3 — own the authed chrome** (`VOLT_OWN`): `[...404].tsx` (today it links `/docs` and `/discord`, both
 deleted — the 404 page 404s), `workspace.tsx` (opencode wordmark on every authed page), `user-menu.tsx`.
