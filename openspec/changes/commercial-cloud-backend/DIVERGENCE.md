@@ -247,3 +247,21 @@ nothing and forfeits upstream's fixes to it forever, so they stay vendored. Only
 touch: a hardcoded `" (go)"` legend suffix the overlay could not reach (its sibling suffix goes through i18n; this
 one didn't). One line, not a 794-line rewrite. **The backend seam — `zen/util/**` (the gateway), `stripe/webhook.ts`,
 `core/`, `function/`, `mail/` — is imported, never rewritten.**
+
+### Open question: the console mixes currencies (found 2026-07-17, not fixed)
+
+Volt **subscribes in EUR and meters usage in USD**, and both numbers appear on the same page:
+
+- The Gateway subscription is **€24/month** — `infra/console.ts` `zenLitePrice` (`currency: "eur"`,
+  `unitAmount: 2400`), with checkout auto-applying the 50%-off-first-month coupon (`core/src/billing.ts:331`), so
+  the first month is €12. The i18n overlay now states exactly this, pinned by `app/test/volt-price.test.ts`.
+- **Usage, balance and referral credits are USD.** `core/src/referral.ts:18` credits `REWARD_AMOUNT = 500` cents via
+  `Billing.subtractLiteUsage`, i.e. against usage — and usage is computed from `models.json`'s per-token provider
+  rates, which are USD (the file declares no currency at all; those are the providers' published USD rates). So the
+  referral copy's "$5 usage credit" is *accurate*, and it sits beside a €24 subscription.
+
+This is why the rebrand left the "$" alone in the referral strings: changing them to "€5" would have made the copy
+**wrong**, not localised. The mismatch is a **product decision, not a string bug** — either usage/credits get priced
+in EUR (a real change: `models.json` rates, `calculateCost`, the usage graph, top-up), or the console explains that
+the plan is billed in EUR while usage is denominated in USD. Flagged here rather than silently harmonised, because
+picking one is a pricing decision and this file is not where pricing gets decided.
