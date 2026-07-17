@@ -10,6 +10,12 @@ public class PushRequest
 
     [JsonPropertyName("expectedProjectVersion")]
     public string? ExpectedProjectVersion { get; set; }
+
+    /// <summary>Force: apply unconditionally — skip the per-item optimistic-concurrency (ifVersion) checks so
+    /// `push --force` clobbers the live IDE in ONE call (no pre-push /refs). The project-level
+    /// <see cref="ExpectedProjectVersion"/> gate still runs when set (that IS the --force-with-lease check).</summary>
+    [JsonPropertyName("force")]
+    public bool Force { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
@@ -80,14 +86,20 @@ public class PushResponse
     [JsonPropertyName("newItems")]
     public Dictionary<string, string>? NewItems { get; set; }
 
+    /// <summary>Full name → folder path for the post-apply state, so the client refreshes its sidecar
+    /// folder map from the push receipt instead of a follow-up /refs. Additive (nullable): an older client
+    /// ignores it, so this needs no wire-version bump. Populated only on an accepted push.</summary>
+    [JsonPropertyName("newFolders")]
+    public Dictionary<string, string>? NewFolders { get; set; }
+
     [JsonPropertyName("conflicts")]
     public List<PushConflict>? Conflicts { get; set; }
 
     [JsonPropertyName("currentProjectVersion")]
     public string? CurrentProjectVersion { get; set; }
 
-    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems };
+    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems, Dictionary<string, string> newFolders) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders };
 
     public static PushResponse RejectedResult(List<PushConflict> conflicts, string currentProjectVersion) =>
         new() { Accepted = false, Conflicts = conflicts, CurrentProjectVersion = currentProjectVersion };

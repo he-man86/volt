@@ -15,32 +15,44 @@ import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import type { ChangeSet, ProjectMismatch, StatusData } from "./types.js";
 
-export async function status(root: string, bridge: Remote): Promise<StatusData> {
-	const gitDir = resolveGitDir(root);
-	const initialized = configExists(root);
-	const cfg = initialized ? loadConfig(root) : undefined;
+/** The bridge-side inputs a status computation needs. `volt status` fetches these live; `pull`/`push`
+ *  pass the data they ALREADY fetched, so they build the post-action status with no extra bridge call. */
+export interface BridgeSnapshot {
+	online: boolean;
+	detail: string;
+	projectMismatch: ProjectMismatch | null;
+	items: Record<string, string>;
+	folders: Record<string, string>;
+	projectVersion: string;
+}
 
-	let online = false;
-	let detail = "";
-	let bridgeItems: Record<string, string> = {};
-	let bridgeFolders: Record<string, string> = {};
-	let bridgeProjectVersion = "";
-	let projectMismatch: ProjectMismatch | null = null;
+export async function status(root: string, bridge: Remote): Promise<StatusData> {
+	const cfg = configExists(root) ? loadConfig(root) : undefined;
+	let snap: BridgeSnapshot = { online: false, detail: "offline", projectMismatch: null, items: {}, folders: {}, projectVersion: "" };
 	try {
 		const health = await bridge.getHealth();
-		online = health.connected === true;
-		detail = online ? `${health.platform}/${health.projectName ?? "?"}` : (health.status ?? "offline");
-		if (cfg !== undefined) projectMismatch = mismatch(cfg, health);
-		if (projectMismatch === null) {
+		const online = health.connected === true;
+		const projectMismatch = cfg !== undefined ? mismatch(cfg, health) : null;
+		const detail = online ? `${health.platform}/${health.projectName ?? "?"}` : (health.status ?? "offline");
+		if (online && projectMismatch === null) {
 			const refs = await bridge.getRefs();
-			bridgeItems = refs.items;
-			bridgeFolders = refs.folders;
-			bridgeProjectVersion = refs.projectVersion;
+			snap = { online, detail, projectMismatch, items: refs.items, folders: refs.folders, projectVersion: refs.projectVersion };
+		} else {
+			snap = { online, detail, projectMismatch, items: {}, folders: {}, projectVersion: "" };
 		}
 	} catch (err) {
-		online = false;
-		detail = err instanceof Error ? err.message : "bridge offline";
+		snap = { ...snap, online: false, detail: err instanceof Error ? err.message : "bridge offline" };
 	}
+	return buildStatusData(root, snap);
+}
+
+/** Compute StatusData from a bridge snapshot + the local git state — NO bridge calls. Shared by `volt status`
+ *  (which fetches the snapshot live) and by `pull`/`push` (which pass the snapshot they already fetched, so a
+ *  UI action stays one bridge call: the action itself, whose response carries the resulting status). */
+export function buildStatusData(root: string, snap: BridgeSnapshot): StatusData {
+	const gitDir = resolveGitDir(root);
+	const initialized = configExists(root);
+	const { online, detail, projectMismatch, items: bridgeItems, folders: bridgeFolders, projectVersion: bridgeProjectVersion } = snap;
 
 	const sidecar = loadIdeRefs(root);
 	const incoming: ChangeSet =

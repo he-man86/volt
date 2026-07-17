@@ -35,6 +35,20 @@ public class PushServiceTests
     }
 
     [Fact]
+    public void Accepted_push_returns_newFolders_in_parity_with_newItems()
+    {
+        // The accepted receipt carries newFolders so the client refreshes its sidecar folder map without a
+        // follow-up /refs. It must cover exactly the same full-name space as newItems (the version map).
+        var ide = OneProgram(folder: "POUs");
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
+        Assert.True(resp.Accepted);
+        Assert.NotNull(resp.NewFolders);
+        Assert.Equal(resp.NewItems!.Keys.OrderBy(k => k), resp.NewFolders!.Keys.OrderBy(k => k));
+        Assert.Equal("POUs", resp.NewFolders!["MOTOR.prg"]); // a rename keeps the folder
+    }
+
+    [Fact]
     public void Set_move_recreates_in_new_folder()
     {
         var ide = OneProgram();

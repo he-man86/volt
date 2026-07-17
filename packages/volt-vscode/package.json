@@ -282,94 +282,30 @@
           "default": "auto",
           "description": "Which vendor's ST dialect this project targets. `auto` scans the workspace for vendor signals (.TcPOU, Tc-prefix pragmas → twincat; .project, OSCAT → codesys). Affects hover/completion filtering and the wrong-vendor-pragma diagnostic."
         },
-        "volt.iec.hover.showSource": {
+        "volt.iec.diagnostics.deadCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Report unreachable (dead) code — units no direct/indirect task-called path reaches. Off by default, matching the compiler, which never checks code it doesn't compile."
+        },
+        "volt.iec.lints.shadowing": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in style lint: flag a local declaration that shadows a same-name symbol in an outer scope. Not a compiler error, so off by default."
+        },
+        "volt.iec.lints.unknownAttribute": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in style lint: flag an {attribute '<name>'} whose name is not in the pragma catalog. Off by default — a catalog gap would false-positive."
+        },
+        "volt.iec.lints.unknownType": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in style lint: flag a declared type name that resolves nowhere. Off by default — types defined inside referenced libraries have no offline definition yet (the 'library floor'), so this can false-positive."
+        },
+        "volt.iec.lints.inoutOwnAccess": {
           "type": "boolean",
           "default": true,
-          "description": "Append the CODESYS documentation source URL to hover content."
-        },
-        "volt.iec.completion.snippetSupport": {
-          "type": "boolean",
-          "default": true,
-          "description": "Use snippet expansions for completion items (e.g., pragmas with placeholder values)."
-        },
-        "volt.iec.diagnostics.reservedKeyword": {
-          "type": "boolean",
-          "default": true,
-          "description": "Flag identifiers that collide with CODESYS reserved keywords."
-        },
-        "volt.iec.diagnostics.doubleUnderscore": {
-          "type": "boolean",
-          "default": true,
-          "description": "Flag identifiers starting with __ (reserved for system-generated names)."
-        },
-        "volt.iec.diagnostics.consecutiveUnderscores": {
-          "type": "boolean",
-          "default": true,
-          "description": "Flag identifiers containing multiple consecutive underscores."
-        },
-        "volt.iec.diagnostics.duplicateDeclaration": {
-          "type": "boolean",
-          "default": true,
-          "description": "Flag two declarations with the same name in the same scope."
-        },
-        "volt.iec.diagnostics.unresolvedIdentifier": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn on identifiers in bodies that don't resolve in any reachable scope. Can false-positive on library-imported symbols."
-        },
-        "volt.iec.diagnostics.unknownPragma": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn on pragma names not in either vendor's catalog."
-        },
-        "volt.iec.diagnostics.wrongVendorPragma": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn when a pragma is known but belongs to the OTHER vendor (e.g. {attribute 'TcRpcEnable'} in a CODESYS project). Includes equivalent suggestion when available."
-        },
-        "volt.iec.diagnostics.pragmaMissingCompanion": {
-          "type": "boolean",
-          "default": true,
-          "description": "Error when a pragma is missing its required companion (e.g., instance-path requires reflection)."
-        },
-        "volt.iec.diagnostics.pragmaConflict": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn on mutually-exclusive pragmas applied to the same target."
-        },
-        "volt.iec.diagnostics.fbLifecycleSignature": {
-          "type": "boolean",
-          "default": true,
-          "description": "Validate FB_Init / FB_Reinit / FB_Exit signatures."
-        },
-        "volt.iec.diagnostics.shadowingDeclaration": {
-          "type": "boolean",
-          "default": true,
-          "description": "Inform when a declaration shadows a same-name symbol in an outer scope."
-        },
-        "volt.iec.diagnostics.initSlotCollision": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn when {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot."
-        },
-        "volt.iec.diagnostics.conversionSourceMismatch": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn when a type-conversion function (e.g. INT_TO_DINT) is called with an argument whose declared type doesn't match the function's expected source type. Includes a suggested replacement (e.g. STRING_TO_DINT)."
-        },
-        "volt.bridge.twincatPort": {
-          "type": "number",
-          "default": 8555,
-          "minimum": 1,
-          "maximum": 65535,
-          "description": "Port the TwinCAT / Beckhoff bridge listens on. Used by the `Initialize for TwinCAT` welcome-view button. Once a workspace is initialized, the port stored in `.git/volt/config.json` takes precedence for that workspace."
-        },
-        "volt.bridge.codesysPort": {
-          "type": "number",
-          "default": 8556,
-          "minimum": 1,
-          "maximum": 65535,
-          "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.git/volt/config.json` takes precedence for that workspace."
+          "description": "A method/action/property accessing its enclosing FB's VAR_IN_OUT (CODESYS C0371). On by default to match CODESYS (which enables this warning); turn off for a project that disabled the compiler warning."
         }
       }
     },

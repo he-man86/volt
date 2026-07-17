@@ -1,13 +1,9 @@
 /**
- * UI-agnostic **display model** — the one place health/aggregate/drift becomes user-facing text.
- *
- * Node-free by contract (no `node:*` value imports; `HealthState`/`StatusJson` are `import type`,
- * erased at runtime) so the **sandboxed** Solid renderer can import it via the
- * `@volt/control/display` subpath — the same trick as `/channels`. Before this module,
- * the health→string mapping was derived three times (volt-control `healthLabel`, volt-vscode
- * `updateGlobalUi`, volt-desktop `HealthDot`) and drifted; every surface now renders these functions.
+ * UI-agnostic **display model** — the one place bridge health + the cross-workspace aggregate become
+ * user-facing text. Node-free by contract (`HealthState`/`StatusJson` are `import type`, erased at runtime)
+ * so it stays renderer-safe. The per-workspace drift projection lives beside this in `./workspace.js`.
  */
-import type { HealthState } from "./health.js"
+import type { HealthState } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { changeCount } from "./types.js"
 

@@ -94,6 +94,8 @@ export function spawnVolt(workspaceRoot: string, args: string[]): Promise<{ stdo
 	})
 }
 
+/** Like spawnVolt but returns raw stdout bytes — the `volt show <ref> <rel>` content provider needs the
+ *  exact bytes (a binary/opaque item's blob), not a UTF-8 round-trip. */
 export function spawnVoltBuffer(workspaceRoot: string, args: string[]): Promise<{ stdout: Buffer; stderr: string; code: number }> {
 	return new Promise((resolve) => {
 		const child = spawnCli(workspaceRoot, args)

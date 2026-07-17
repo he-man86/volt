@@ -712,6 +712,11 @@ components:
           additionalProperties:
             type: string
           description: "Refreshed ref map — client can adopt as new cache"
+        newFolders:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Full name → folder for the post-apply state, so the client refreshes its sidecar folder map without a follow-up /refs. Additive/optional."
 
     PushRejected:
       type: object

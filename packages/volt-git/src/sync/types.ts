@@ -8,11 +8,11 @@ export interface ChangeSet {
 }
 
 export type PullResult =
-	| { kind: "ok"; synced: string[]; message?: string }
+	| { kind: "ok"; synced: string[]; message?: string; status?: StatusJson }
 	| { kind: "refused"; reason: string }
 	| { kind: "conflict"; paths: string[] };
 
-export type PushResult = { kind: "ok"; items: string[]; message?: string } | { kind: "rejected"; reason: string };
+export type PushResult = { kind: "ok"; items: string[]; message?: string; status?: StatusJson } | { kind: "rejected"; reason: string };
 
 export interface ProjectMismatch {
 	configuredAs: { platform: string; projectName: string };

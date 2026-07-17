@@ -6,7 +6,7 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { installCorpus, type DetectedVendor } from "@volt/lsp-iec";
-import type { Remote } from "./bridge/types.js";
+import type { ProgressHandler, Remote } from "./bridge/types.js";
 import { configExists, saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo, commitAll, headCommit, currentBranch, readTreeToIndex, resolveGitDir, updateRef } from "./git/plumbing.js";
 import { materializeItem } from "./translate/materialize.js";
@@ -19,7 +19,7 @@ export type InitResult =
 	| { kind: "ok"; project: string; gitCreated: boolean; pulled: number; scaffold: number; corpus: number; note?: string }
 	| { kind: "error"; reason: string };
 
-export async function init(workspace: string, bridge: Remote): Promise<InitResult> {
+export async function init(workspace: string, bridge: Remote, opts: { onProgress?: ProgressHandler } = {}): Promise<InitResult> {
 	const root = resolve(workspace);
 	mkdirSync(root, { recursive: true });
 
@@ -49,7 +49,7 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 
 	if (gitCreated) commitAll(root, `volt init: ${health.projectName}`);
 
-	const fetched = await bridge.init();
+	const fetched = await bridge.init(opts.onProgress);
 	const ideFiles = fetched.changed.flatMap(materializeItem);
 	const gitDir = resolveGitDir(root);
 	const head = headCommit(root);

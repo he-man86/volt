@@ -105,9 +105,10 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, initialized: false, paused: false, incoming: [], outgoing: [] }
+  let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [] }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
+  let initMsg = null // live "volt init" progress text while binding a workspace
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
@@ -149,7 +150,9 @@
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized)
-      syncBody = `<div class="note">Not a Volt workspace yet — bind this project to the live IDE:</div>
+      syncBody = initMsg
+        ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(initMsg)}</div>`
+        : `<div class="note">Not a Volt workspace yet — bind this project to the live IDE:</div>
         <div class="init-row">
           <button class="btn primary" onclick="doInit('codesys')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for CODESYS</button>
           <button class="btn" onclick="doInit('twincat')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for TwinCAT</button>
@@ -203,8 +206,13 @@
   async function doBuild() { try { await volt.build() } catch {} }
   function doRefresh() { volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
-  async function doInit(vendor) { try { await volt.initWorkspace(vendor) } catch {} }
+  async function doInit(vendor) { initMsg = "Initializing…"; render(); try { await volt.initWorkspace(vendor) } catch {} finally { initMsg = null; render() } }
 
+  // Live progress frames from `volt init`: show the phase, else a percentage, else a generic note.
+  volt.onInitProgress((p) => {
+    initMsg = p ? (p.phase || (p.total ? Math.floor((p.done / p.total) * 100) + "%" : "Working…")) : null
+    render()
+  })
   volt.onStatus((s) => { snap = s; render() })
   volt.onDiagnostics((d) => { diag = d; render() })
   render()

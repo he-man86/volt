@@ -69,7 +69,7 @@ import {
   type WorkspaceDiagnosticReport,
 } from "vscode-languageserver-protocol/node.js"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { messagesFor, resolveConfig, type Vendor } from "../analysis/index.js"
+import { messagesFor, resolveConfig, type AnalysisInitOptions, type Vendor } from "../analysis/index.js"
 import { scanWorkspace, SOURCE_EXTENSIONS } from "../workspace-refs.js"
 import type { Scope, Symbol } from "../symbols/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
@@ -178,15 +178,14 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     })
   }
 
-  /** Live-apply a config change (`diagnoseDeadCode`) and re-publish open diagnostics. Returns false when the
-   *  settings blob doesn't carry a recognized key (so the caller can fall back to a `workspace/configuration`
-   *  pull). Vendor is fixed at launch, so only the dead-code toggle is live. */
+  /** Live-apply a config change (`diagnoseDeadCode` + the opt-in `lints`) and re-publish open diagnostics.
+   *  Returns false when the settings blob carries no recognized key (so the caller can fall back to a
+   *  `workspace/configuration` pull). Vendor is fixed at launch, so it is not re-read here. */
   function applyConfig(settings: unknown): boolean {
-    if (settings === null || typeof settings !== "object" || !("diagnoseDeadCode" in settings)) return false
-    store.config = resolveConfig({
-      vendor,
-      diagnoseDeadCode: (settings as { diagnoseDeadCode?: unknown }).diagnoseDeadCode === true,
-    })
+    if (settings === null || typeof settings !== "object") return false
+    const s = settings as AnalysisInitOptions
+    if (s.diagnoseDeadCode === undefined && s.lints === undefined) return false
+    store.config = resolveConfig({ vendor, diagnoseDeadCode: s.diagnoseDeadCode === true, lints: s.lints })
     store.invalidate()
     for (const uri of store.openUris()) pushDiagnostics(uri)
     return true
@@ -209,9 +208,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
   conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
-    const opts = params.initializationOptions as { diagnoseDeadCode?: boolean } | undefined
-    if (opts?.diagnoseDeadCode !== undefined)
-      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
+    const opts = params.initializationOptions as AnalysisInitOptions | undefined
+    if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.lints !== undefined))
+      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode, lints: opts.lints })
     root = workspaceRoot(params.rootUri, params.rootPath)
     const ws = params.capabilities.workspace
     clientWatchDynReg = ws?.didChangeWatchedFiles?.dynamicRegistration === true

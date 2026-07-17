@@ -1,20 +1,32 @@
 /**
  * VoltStatus — the reactive IDE-changes state for ONE workspace: bridge health + `volt status --json` drift,
- * refreshed on bridge `change` events, a heartbeat, and state-file mtime. Pure over volt-control (no `vscode`),
- * so the VS Code extension and the desktop shell share ONE tracker and each renders `onDidChange` in its own UI.
+ * refreshed by a single cheap `/health` poll (drives the health indicator AND detects IDE-side edits) plus a
+ * state-file mtime poll. Pure over volt-control (no `vscode`), so the VS Code extension and the desktop shell
+ * share ONE tracker and each renders `onDidChange` in its own UI.
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { fetchStatus } from "./actions.js";
+import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
-import { subscribeChanges } from "./events.js";
-import { isMutationInFlight } from "./gate.js";
-import { probeHealth, readBridgePort, type HealthState } from "./health.js";
-import type { StatusJson } from "./types.js";
-import { isPouFile, readStateMtime } from "./workspace.js";
+import { isMutationInFlight } from "../bridge/gate.js";
+import { probeHealth, readBridgePort, type HealthState } from "../bridge/health.js";
+import type { StatusJson } from "../view/types.js";
+import { isPouFile, readStateMtime } from "./files.js";
 
-const HEALTH_MS = 30_000;
+// One cheap /health poll cadence for BOTH the health indicator and IDE-change detection. ~4s keeps
+// edit-detection latency close to the old /refs poll without a full-project scan (which is what /refs was).
+const HEALTH_MS = 4_000;
 const MTIME_MS = 3_000;
+
+/** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a project
+ *  switch. `seen` gates the very first read (start()'s explicit refresh covers the initial state). Pure so
+ *  the branching is unit-tested without a live bridge. */
+export function isIdeChangeEdge(
+	prev: { seen: boolean; dirty: boolean; name: string | undefined },
+	next: { dirty: boolean; name: string | undefined },
+): boolean {
+	return prev.seen && ((next.dirty && !prev.dirty) || next.name !== prev.name);
+}
 
 export class VoltStatus {
 	readonly workspaceRoot: string;
@@ -28,10 +40,14 @@ export class VoltStatus {
 
 	private heartbeat: ReturnType<typeof setInterval> | null = null;
 	private mtimePoll: ReturnType<typeof setInterval> | null = null;
-	private unsubChanges: (() => void) | null = null;
 	private lastMtime = 0;
 	private lastRefreshMs = 0;
 	private bridgePort: number | undefined;
+	// Change-detection baselines: the health poll fires a refresh on a projectDirty false→true edge or a
+	// projectName change. `seenHealth` gates the first probe (start()'s explicit refresh covers the initial state).
+	private lastDirty = false;
+	private lastProjectName: string | undefined;
+	private seenHealth = false;
 
 	constructor(workspaceRoot: string) {
 		this.workspaceRoot = workspaceRoot;
@@ -39,11 +55,9 @@ export class VoltStatus {
 
 	async start(): Promise<void> {
 		this.bridgePort = readBridgePort(this.workspaceRoot);
+		// One /health poll drives health AND IDE-change detection (no separate /refs poll, no slow heartbeat).
 		this.heartbeat = setInterval(() => this.probeHealth(), HEALTH_MS);
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
-		// Reactive IDE-change detection: the bridge signals a `change` when the engineer edits, so the drift view
-		// refreshes on its own — no manual "refresh" for IDE-side edits, and no bridge polling.
-		if (this.bridgePort !== undefined) this.unsubChanges = subscribeChanges(this.bridgePort, () => void this.refresh());
 		this.probeHealth();
 		await this.refresh();
 	}
@@ -51,8 +65,17 @@ export class VoltStatus {
 	dispose(): void {
 		if (this.heartbeat !== null) clearInterval(this.heartbeat);
 		if (this.mtimePoll !== null) clearInterval(this.mtimePoll);
-		this.unsubChanges?.();
 		this.onDidChange.dispose();
+	}
+
+	/** Adopt the status a pull/push already returned — no bridge round-trip. The action's own response carries
+	 *  the resulting state, so a UI action stays ONE bridge call (the action). Absorbs the state-file mtime the
+	 *  mutation just wrote so the mtime poll doesn't re-refresh on our own write. */
+	adopt(status: StatusJson): void {
+		this.cached = status;
+		this.statusError = undefined;
+		this.lastMtime = readStateMtime(this.workspaceRoot);
+		this.onDidChange.fire();
 	}
 
 	async refresh(force = false): Promise<void> {
@@ -88,14 +111,42 @@ export class VoltStatus {
 	}
 
 	private async probeHealth(): Promise<void> {
-		if (isMutationInFlight(this.workspaceRoot)) return;
+		// Skip while a mutation holds the gate: a push/pull dirties the project itself, and we must not read
+		// that as an engineer edit (nor contend with the op). Reset the edge baseline so the FIRST post-mutation
+		// poll re-baselines to the new dirty state WITHOUT firing a spurious refresh (our own push isn't an edit).
+		if (isMutationInFlight(this.workspaceRoot)) {
+			this.seenHealth = false;
+			return;
+		}
 		const port = this.bridgePort;
 		if (port === undefined) return;
 		this.health = await probeHealth(port, 2000);
+
+		// Detect an IDE-side edit from the cheap health payload: a projectDirty false→true edge, or a project
+		// switch. Either fires exactly one refresh (its own debounce collapses bursts). No /refs scan.
+		const h =
+			this.health.kind === "connected" || this.health.kind === "degraded" || this.health.kind === "disconnected"
+				? this.health.health
+				: undefined;
+		const dirty = h?.projectDirty ?? false;
+		const name = h?.projectName ?? undefined;
+		const edge = isIdeChangeEdge({ seen: this.seenHealth, dirty: this.lastDirty, name: this.lastProjectName }, { dirty, name });
+		this.lastDirty = dirty;
+		this.lastProjectName = name;
+		this.seenHealth = true;
+
 		this.onDidChange.fire();
+		if (edge) void this.refresh();
 	}
 
 	private pollMtime(): void {
+		// Absorb the state-file write our OWN mutation makes (saveIdeRefs) — the UI already adopts the action's
+		// returned status, so this write must not trigger a redundant refresh. Out-of-band changes (a terminal
+		// `volt pull`) don't hold the gate, so they still refresh.
+		if (isMutationInFlight(this.workspaceRoot)) {
+			this.lastMtime = readStateMtime(this.workspaceRoot);
+			return;
+		}
 		const mtime = readStateMtime(this.workspaceRoot);
 		if (mtime > this.lastMtime && this.lastMtime > 0) {
 			this.lastMtime = mtime;
