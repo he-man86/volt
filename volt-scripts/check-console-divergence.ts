@@ -13,7 +13,7 @@
  */
 import { $ } from "bun"
 
-const OPENCODE_VERSION = "v1.17.20"
+const OPENCODE_VERSION = "v1.18.3"
 
 // The full, intended divergence footprint — opencode files Volt EDITS or ADDS (deleted files live in DROPPED,
 // below). Grouped by concern; see DIVERGENCE.md. Paths are relative to packages/console/.
@@ -23,21 +23,21 @@ const ALLOW = new Set([
   "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
   "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
   "app/scripts", // Volt-added: gen-favicon.ts rasterizes volt-mark.svg → the brand PNGs in public/ (zero-dep)
-  "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + one import: ./style/volt-theme.css
-  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui — i18n plumbing the vendored views still call (English-only in practice)
+  "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + ./style/volt-theme.css, + Title "Volt"; SKIPS upstream's <Font/> (@opencode-ai/ui, deleted — Volt self-hosts fonts) and <DesktopPromo/> (opencode-Desktop ad, rendered app-wide incl. our workspace)
+  "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui + merges the ~/i18n/volt rebrand overlay over the locale dict
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
-  "app/src/i18n/en.ts", // user-visible strings rebranded off opencode: "OpenCode Go" → "Volt Gateway", "opencode" → "Volt" (Black tier left pristine — Volt doesn't sell it)
+  "app/src/i18n/volt.ts", // Volt-added: the rebrand string OVERLAY (merged in context/i18n) — opencode's en.ts + every other locale stay byte-identical
 
   // ── Volt-owned surfaces: Volt writes these fresh, not as patches on opencode ──
   "app/src/routes/index.ts", // `/` → redirect to /auth (console is app-only; the public site is volt-www)
+  "app/src/routes/go/index.ts", // `/go?ref=…` (the referral invite link) → redirect to /auth; middleware.ts still captures ?ref first
   "app/src/routes/auth/logout.ts", // logout → /auth (opencode sent logged-out users to its /zen marketing page)
   "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
   "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Gateway tab (Volt's default view)
-  "app/src/routes/workspace/[id]/go/index.tsx", // Gateway tab: dropped the "Learn more" → opencode /docs/go (deleted, 404)
-  "app/src/routes/workspace/[id]/go/lite-section.tsx", // Gateway tab: dropped the "Learn more" → opencode /docs (#opencode-go, 404)
+  "app/src/routes/workspace/[id]/gateway", // Volt-added: the Gateway tab (Volt's copy + quick-connect); IMPORTS the vendored /go sections, so /go itself stays pristine + unlinked
   "app/src/routes/v1", // clean public gateway path (/v1/*, no opencode "zen/go" branding); re-runs the vendored config
 
   // ── Backend use-case edit ──
@@ -66,6 +66,16 @@ const DROPPED = [
   // proxies/redirects to opencode's own docs / stats / community (they actively serve/redirect to opencode)
   "app/src/routes/docs", "app/src/routes/data", "app/src/routes/stats", "app/src/routes/s", "app/src/routes/t",
   "app/src/routes/desktop-feedback.ts", "app/src/routes/discord.ts", "app/src/routes/feishu.ts",
+  // opencode's Desktop download page + its binary PROXY (`/download/[channel]/[platform]` streams opencode-desktop-*
+  // assets from github.com/anomalyco/opencode releases — i.e. serves opencode's app off Volt's domain). Same
+  // serve-opencode's-infra category as the routes above; Volt ships its own installer. v1.18.0 also tied the page to
+  // a 15MB promo video, so keeping it dormant would vendor that too.
+  "app/src/routes/download",
+  "app/src/component/desktop-promo.tsx", "app/src/component/desktop-promo.css", // v1.18.0: opencode-Desktop ad; app.tsx renders it app-wide (see ALLOW) — not vendored, so nothing imports it
+  "app/src/asset/lander/desktop-tabs-landscape.mp4", // 15MB video, only used by the two entries above
+  // `/go` — opencode's Go marketing page, REPLACED by routes/go/index.ts (a redirect to /auth) because the referral
+  // invite link (`/go?ref=…`) makes this path public; see that file. Same shape as routes/index.tsx → index.ts.
+  "app/src/routes/go/index.tsx", "app/src/routes/go/index.css",
   // Orphaned Zen-landing sections (imported by nothing after the workspace-home → /go redirect); contained
   // opencode strings ("opencode auth login", /docs/zen). Deleted as dead code.
   "app/src/routes/workspace/[id]/new-user-section.tsx", "app/src/routes/workspace/[id]/new-user-section.module.css",

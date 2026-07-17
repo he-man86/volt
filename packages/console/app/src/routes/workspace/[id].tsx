@@ -4,10 +4,10 @@ import { querySessionInfo } from "./common"
 import "./[id].css"
 
 // VOLT: this workspace SHELL is Volt-owned. It composes the nav/layout and renders the vendored view routes as
-// `props.children` (billing / keys / members / settings / usage / go stay 100% opencode — the complex content is
+// `props.children` (billing / keys / members / settings / usage stay 100% opencode — the complex content is
 // untouched). Rewritten from opencode's shell so it's ours to restyle, and so the earlier hacks disappear rather
-// than pile up: no Zen product (Volt sells Go), no i18n/language-switch layer (unused), no legal footer (legal
-// lives on volt-www). It keeps opencode's `data-component` structure so the token-themed ./[id].css still applies —
+// than pile up: no Zen product (Volt sells the Gateway plan), no i18n/language-switch layer (unused), no legal
+// footer (legal lives on volt-www). It keeps opencode's `data-component` structure so ./[id].css still applies —
 // the CSS is the redesign surface from here.
 export default function WorkspaceLayout(props: RouteSectionProps) {
   const params = useParams()
@@ -15,7 +15,7 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
 
   // The tab bar. `props.children` renders the selected view under it. Admin-only tabs appear when isAdmin.
   const tabs = () => [
-    { path: "go", label: "Gateway" }, // route dir stays /go (vendored); the visible label is Volt's "Gateway"
+    { path: "gateway", label: "Gateway" }, // Volt's own view; opencode's /go stays vendored + unlinked
     { path: "usage", label: "Usage" },
     { path: "keys", label: "API keys" },
     // members tab intentionally omitted for now (team invites not offered yet); the /members route stays dormant.

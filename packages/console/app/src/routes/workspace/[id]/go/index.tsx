@@ -3,11 +3,13 @@ import { Show } from "solid-js"
 import { IconGo } from "~/component/icon"
 import { GoReferralSection, queryGoReferral } from "~/component/go-referral"
 import { useI18n } from "~/context/i18n"
+import { useLanguage } from "~/context/language"
 import { LiteSection, queryLiteSubscription } from "./lite-section"
 
 export default function () {
   const params = useParams()
   const i18n = useI18n()
+  const language = useLanguage()
   const referral = createAsync(() => queryGoReferral(params.id!))
   const lite = createAsync(() => queryLiteSubscription(params.id!))
 
@@ -16,8 +18,13 @@ export default function () {
       <section data-component="header-section">
         <IconGo />
         <p>
-          {/* VOLT: dropped the "Learn more" link — it pointed at opencode's deleted /docs/go (404). */}
-          <span>{i18n.t("workspace.lite.banner.beforeLink")}</span>
+          <span>
+            {i18n.t("workspace.lite.banner.beforeLink")}{" "}
+            <a target="_blank" href={language.route("/docs/go")}>
+              {i18n.t("common.learnMore")}
+            </a>
+            .
+          </span>
         </p>
       </section>
 
