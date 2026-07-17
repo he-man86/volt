@@ -29,6 +29,7 @@ const ALLOW = new Set([
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+  "app/test/volt-gateway-observability.test.ts", // Volt-added: asserts every POST route under routes/v1 is in the tail worker's allowlist (the beside-file hazard — see the file)
   "app/src/i18n/volt.test.ts", // Volt-added: pins the overlay merge point (see the file) — red if it regresses to a context-only merge
   "app/src/i18n/volt.ts", // Volt-added: the rebrand string OVERLAY — opencode's en.ts + every other locale stay byte-identical
   "app/src/i18n/index.ts", // merges the volt overlay into i18n() itself — the ONE factory both the client render AND the six server call sites (gateway handler, rate limiters, /auth callback) share
@@ -44,9 +45,11 @@ const ALLOW = new Set([
 
   // ── Backend use-case edit ──
   "function/src/auth.ts", // dev-only CONSOLE_DEV_EMAILS login allowlist (production runs opencode's original)
+  "function/src/log-processor.ts", // ADDITIVE: also ship Volt's own gateway path (/v1/*) to Honeycomb — opencode only allowlists its /zen/*, so every live Volt request was dropped
 
   // ── Gateway + email branding (values a client / recipient sees) ──
   "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
+  "app/src/routes/zen/util/handler.ts", // gateway errors linked hardcoded opencode.ai/workspace/… → request-derived origin + Volt's /gateway tab; ADMIN_WORKSPACES (opencode's own ids, isFree+allowlist bypass) emptied
   "app/src/routes/honeycomb/webhook.ts", // blanked opencode's hardcoded Discord alert role ID (wrong server); mention now opt-in
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev

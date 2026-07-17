@@ -7,6 +7,11 @@ import type { Key } from "~/i18n"
 // Scope: only keys the LOGGED-IN console renders. opencode's dormant marketing pages (go.*, black.*, zen.*) keep
 // their own copy — unlinked, never shown, not worth diverging over. A missing key just falls through to opencode's.
 export const volt: Partial<Record<Key, string>> = {
+  // Rendered by app.tsx:18 as the meta description of EVERY page, authed included — opencode's value is
+  // "OpenCode - The open source coding agent." The <Title> next to it was rebranded and this was missed. Fixed here
+  // rather than in app.tsx: the overlay costs no divergence, app.tsx is already a hand-merge on every bump.
+  "app.meta.description": "Volt — version-controllable PLC projects, with an agent that understands them.",
+
   "workspace.usage.lite": "Gateway (${{amount}})",
 
   "workspace.keys.subtitle": "Manage your API keys for accessing Volt services.",
