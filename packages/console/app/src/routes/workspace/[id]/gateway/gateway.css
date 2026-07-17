@@ -1,0 +1,37 @@
+/* VOLT: styles for the Gateway tab. The page reuses opencode's workspace-[id] structure, so [id].css does the
+   heavy lifting — this only covers the two Volt-owned bits. */
+
+[data-volt="gateway"] {
+  /* The imported LiteSection's beta-notice links to opencode's /docs (deleted → 404), and its copy is superseded
+     by quick-connect below. Hidden here instead of patched into the vendored file. */
+  [data-slot="beta-notice"] {
+    display: none;
+  }
+
+  [data-volt-slot="quick-connect"] {
+    h2 {
+      font-size: var(--font-size-md);
+      font-weight: 500;
+      margin: 0 0 var(--space-4);
+    }
+
+    ol {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      margin: 0;
+      padding-left: var(--space-5);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: var(--font-family-mono);
+      background: var(--color-background-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--border-radius-sm);
+      padding: 0 var(--space-1);
+    }
+  }
+}
