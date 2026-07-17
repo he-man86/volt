@@ -18,6 +18,16 @@ const OPENCODE_VERSION = "v1.18.3"
 // The full, intended divergence footprint — opencode files Volt EDITS or ADDS (deleted files live in DROPPED,
 // below). Grouped by concern; see DIVERGENCE.md. Paths are relative to packages/console/.
 const ALLOW = new Set([
+  // ══ THE EDIT FLOOR ══════════════════════════════════════════════════════════════════════════════════════════
+  // Volt does NOT edit opencode's source to customize it. Every customization takes one of three shapes:
+  //   • a Volt file BESIDE opencode's  (an overlay, a new route, a new stylesheet) — costs nothing on a bump
+  //   • a DELETION declared in DROPPED (below)                                     — never conflicts
+  //   • an IMPORT of opencode's exported server code                               — stays in sync by definition
+  // The entries in THIS section are the exceptions, and the list is closed. Each one is a framework entry point
+  // that cannot be shadowed by a beside-file: vite/SolidStart resolve them by FILENAME, so there is no "beside".
+  // Every one of them is a hand-merge on every opencode bump, so adding to this list has a permanent cost —
+  // justify it here and in DIVERGENCE.md or don't do it. See openspec/changes/console-volt-frontend.
+  //
   // ── De-fork glue: the @opencode-ai/ui + opencode packages were deleted, so a few imports were re-pointed ──
   "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
   "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
@@ -57,6 +67,7 @@ const ALLOW = new Set([
   "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
   "app/src/routes/zen/util/handler.ts", // gateway errors linked hardcoded opencode.ai/workspace/… → request-derived origin + Volt's /gateway tab; ADMIN_WORKSPACES (opencode's own ids, isFree+allowlist bypass) emptied
   "app/src/routes/honeycomb/webhook.ts", // blanked opencode's hardcoded Discord alert role ID (wrong server); mention now opt-in
+  "app/src/routes/workspace/[id]/usage/graph-section.tsx", // chart legend hardcoded " (go)" — opencode's tier name on the page that itemises what a Volt customer pays for (its sibling suffix goes through i18n; this one didn't, so the overlay couldn't reach it)
   "app/src/routes/workspace/[id]/billing/billing-section.tsx", // "contact us" mailto:help@anoma.ly (opencode's support inbox, live on Volt's Billing tab) → hello@volt-ai.dev
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
@@ -129,6 +140,13 @@ const DROPPED = [
   // artifact, so it never appeared in review, and it shipped and got crawled. Three of its five routes were not
   // Volt pages. Its `&&`-chain is removed from app/package.json.
   "app/script",
+
+  // The workspace /go TAB — a dormant duplicate of Volt's Gateway view since routes/workspace/[id]/index.tsx
+  // redirects there and the shell's tab points at it. Its lite-section.tsx + .module.css STAY, byte-identical:
+  // they are a module, not a route (no default export), and gateway/index.tsx imports LiteSection +
+  // queryLiteSubscription from them. That is the seam — Volt owns the presentation, opencode keeps the
+  // subscription/checkout logic, and it keeps tracking upstream.
+  "app/src/routes/workspace/[id]/go/index.tsx",
 
   // Orphaned Zen-landing sections (imported by nothing after the workspace-home → Gateway redirect); contained
   // opencode strings ("opencode auth login", /docs/zen). Deleted as dead code.
