@@ -68,3 +68,18 @@ test("the price shown is the flat price — no first-month discount is advertise
   expect(price.toLowerCase()).not.toContain("first month")
   expect(renderedPromo().toLowerCase()).not.toContain("first month")
 })
+
+test("the removed first-month coupon is a dead sentinel that matches no real coupon", async () => {
+  // The Stripe coupon resource is deleted, but ZEN_LITE_PRICE.firstMonth50Coupon must stay defined: stripe/
+  // webhook.ts compares the APPLIED coupon (undefined when no discount) against it, and a missing property would
+  // make that `undefined === undefined`, fire, and mark GO1MONTH50 redeemed for subscribers who never got it. So
+  // the value has to be present AND has to be something no real Stripe coupon id can equal — that is what keeps the
+  // comparison false forever. This pins both facts; the comment in infra/console.ts is otherwise the only guard.
+  const infra = await Bun.file(INFRA).text()
+  const sentinel = infra.match(/firstMonth50Coupon:\s*"([^"]*)"/)?.[1]
+  expect(sentinel).toBeDefined() // present — not deleted, not left as a live coupon id
+  // Stripe coupon ids never contain spaces; a spaced human-readable string cannot collide with one.
+  expect(sentinel).toMatch(/\s|no-first-month|volt-/) // recognisably a sentinel, not an id
+  // And it is NOT wired to a real coupon: no `stripe.Coupon("...FirstMonth50...")` resource remains.
+  expect(infra).not.toContain("ZenLiteCouponFirstMonth50")
+})

@@ -22,12 +22,14 @@ const SRC = join(import.meta.dir, "..", "src")
 /**
  * opencode's brand surface: its domains, its company, its contacts, its product names.
  *
- * The `\bGo\b` arm was added after this test passed a page reading "Your friend joins and subscribes to Go" and
- * "toward your Go usage limits" — opencode names its tier bare, so an `opencode go` pattern never matched it. The
- * bare word is safe to ban HERE because this only scans keys the app RENDERS: opencode's own `go.*` marketing keys
- * ("Subscribe to Go", "How Go works") belong to a page Volt deleted, so nothing reaches them.
+ * "Go" is opencode's tier name and also an ordinary English word, so it is matched by CONTEXT, not bare. `\bGo\b`
+ * alone flagged "Go to your workspace" and any future "let's Go" copy — a green-to-red flip that has nothing to do
+ * with branding. Instead we ban the phrasings that actually mean opencode's tier: "OpenCode Go", and "Go" used as a
+ * PRODUCT noun ("subscribes to Go", "your Go usage", "the Go plan"). Volt's tier is "Volt Gateway", so a real leak
+ * takes one of these shapes; plain-word uses of "go" do not.
  */
-const BRANDING = /opencode\.ai|anomalyco|anoma\.ly|opencode\s+(go|black|zen)|"opencode"|\bGo\b/i
+const BRANDING =
+  /opencode\.ai|anomalyco|anoma\.ly|opencode\s+(go|black|zen)|"opencode"|\b(?:to|the|your|a)\s+Go\b|\bGo\s+(?:plan|usage|subscription|tier|credit|models?)\b/i
 
 /**
  * i18n keys that legitimately mention opencode, each with the reason it is not a leftover.
