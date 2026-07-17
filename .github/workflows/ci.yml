@@ -14,6 +14,7 @@
 name: ci
 
 on:
+  workflow_dispatch: {} # on-demand — lets the gate be proven without waiting for a PR into dev
   push:
     branches: [dev]
   pull_request:
