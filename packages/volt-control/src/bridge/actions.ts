@@ -38,7 +38,8 @@ export interface CliResult {
   code: number
 }
 
-function firstLine(s: string): string | undefined {
+/** First non-blank line of CLI stderr — the human-readable reason both shells surface on a failed action. */
+export function firstLine(s: string): string | undefined {
   return s
     .split(/\r?\n/)
     .find((l) => l.trim().length > 0)
