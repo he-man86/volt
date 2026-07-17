@@ -136,9 +136,9 @@ function pushStatus() {
   win?.webContents.send("volt:status", snapshot(status))
 }
 
-// Point volt-control at the volt CLI + LSP. Packaged (Velopack): the compiled .exe's sit beside the connector
-// at the app-dir root (…\current\bin), and this GUI runs from …\current\desktop\resources\app — so hop up to
-// current\ from process.resourcesPath (…\current\desktop\resources). Dev: the sibling packages' .js entries
+// Point volt-control at the volt CLI + LSP. Packaged: the compiled .exe's sit beside the connector at the
+// install-dir root (…\Volt\bin), and this GUI runs from …\Volt\desktop\resources\app — so hop up to the install
+// root from process.resourcesPath (…\Volt\desktop\resources). Dev: the sibling packages' .js entries
 // (run via ELECTRON_RUN_AS_NODE). volt-control spawns .exe directly, .js via node — see cli.ts/diagnostics.ts.
 function configureTools() {
   if (app.isPackaged) {

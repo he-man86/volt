@@ -21,18 +21,18 @@ name: release
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+" # bare semver (Velopack's tag convention); e.g. 0.2.2
+      - "[0-9]+.[0-9]+.[0-9]+" # bare semver — the connector's updater compares it to the installed version; e.g. 0.2.2
   workflow_dispatch: {} # manual re-run — uses the current packages/volt-desktop/package.json version
 
 concurrency: release-${{ github.ref }}
 
 permissions:
-  contents: write # vpk creates/updates the GitHub Release on this repo
+  contents: write # `gh release create` (build-app.ts --upload-only) creates/updates the GitHub Release on this repo
 
 jobs:
   release:
     if: github.repository == 'he-man86/volt' # never run from a fork (opencode's publish.yml does the same)
-    runs-on: windows-latest # Velopack (vpk), electron-builder, and the C# connector are all Windows-native
+    runs-on: windows-latest # Inno Setup (ISCC), electron-builder, and the C# connector are all Windows-native
     steps:
       - uses: actions/checkout@v4
 

@@ -1,5 +1,5 @@
-; Volt one-installer — a full wizard (Welcome -> components -> install -> finish), replacing the silent Velopack
-; Setup. ONE exe sets up both use cases: the desktop app + (optionally) the opencode CLI and the VS Code extension.
+; Volt one-installer — a full wizard (Welcome -> components -> install -> finish). ONE exe sets up both use
+; cases: the desktop app + (optionally) the opencode CLI and the VS Code-family extension.
 ; Per-user install (no admin/UAC): Volt's env vars + login item + Start Menu shortcut are all HKCU, so
 ; PrivilegesRequired=lowest. Auto-update is the connector's job (Updater.cs) — it downloads a newer Setup.exe and
 ; re-runs it /VERYSILENT, so Inno upgrades in place; CloseApplications lets that replace the running connector.

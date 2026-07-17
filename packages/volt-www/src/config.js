@@ -9,8 +9,8 @@ export const CONSOLE_URL = (import.meta.env.VITE_CONSOLE_URL || "https://volt-ai
 // login), so "Sign in" and "Start free" both point here.
 export const authUrl = () => `${CONSOLE_URL}/auth`
 
-// The Volt desktop installer: the Velopack one-installer that volt-scripts/build-app.ts publishes to GitHub
-// Releases (he-man86/volt) via `vpk upload github`. Windows-only — Volt's PLC tooling (bridges, CODESYS) is
+// The Volt desktop installer: the one-installer that volt-scripts/build-app.ts publishes to GitHub Releases
+// (he-man86/volt) via `gh release create`. Windows-only — Volt's PLC tooling (bridges, CODESYS) is
 // Windows-native. `latest/download/...` always resolves to the newest release carrying the asset, so this never
 // needs bumping per release. Override with VITE_INSTALLER_URL if the release repo/asset name changes.
 export const INSTALLER_URL =

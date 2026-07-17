@@ -109,8 +109,8 @@ if (!existsSync(voltExe)) {
   process.exit(1)
 }
 
-// 3. Assemble the Velopack packDir: connector (mainExe) at root; bin/ volt-config/ docs/ desktop/ as siblings.
-console.log("• assembling the Velopack packDir")
+// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ volt-config/ docs/ desktop/ as siblings.
+console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
@@ -118,12 +118,17 @@ cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
 cpSync(resolve(payload, "volt-config"), resolve(stage, "volt-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
-// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the "install
-// VS Code extension" wizard task sideloads via `code --install-extension`.
+// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the per-editor
+// extension wizard tasks sideload via `<editor> --install-extension`. A missing .vsix used to only warn — but the
+// tasks then silently install nothing, and no test catches it (test:install runs /VERYSILENT, which skips them by
+// Check: NotSilent). Fail like every other missing payload piece.
 writeFileSync(resolve(stage, "version.txt"), version)
 const vsix = resolve(payload, "volt-vscode.vsix")
-if (existsSync(vsix)) cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
-else console.warn("⚠ volt-vscode.vsix missing from dist/volt — the installer's VS Code task will have nothing to install")
+if (!existsSync(vsix)) {
+  console.error("✗ volt-vscode.vsix missing from dist/volt — the installer's extension tasks would install nothing")
+  process.exit(1)
+}
+cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
 if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
   console.error("✗ VoltConnector.exe not at payload root — the connector bundle is missing it")
   process.exit(1)

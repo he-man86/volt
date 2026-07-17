@@ -34,6 +34,7 @@ const connector = join(installDir, "VoltConnector.exe")
 const uninstaller = join(installDir, "unins000.exe")
 const binDir = join(installDir, "bin")
 const configDir = join(installDir, "volt-config")
+const vsix = join(installDir, "volt-vscode.vsix")
 const shortcut = join(process.env.APPDATA!, "Microsoft", "Windows", "Start Menu", "Programs", "Volt.lnk")
 const runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 // Inno's per-user uninstall subkey is {AppId}_is1 — read AppId from the .iss so this can't drift.
@@ -83,6 +84,9 @@ console.log("• verifying install:")
 check("install dir + VoltConnector.exe", existsSync(connector))
 check("OPENCODE_CONFIG_DIR → volt-config", envHas("OPENCODE_CONFIG_DIR", configDir))
 check("PATH contains \\bin", envHas("Path", binDir))
+// The extension tasks themselves are skipped under /VERYSILENT (Check: NotSilent), so all we can assert here is
+// that the .vsix they sideload actually shipped — without it those tasks are no-ops on a real install.
+check("volt-vscode.vsix present", existsSync(vsix))
 // Both best-effort per the connector's code, and both behave differently in a headless session (COM shortcut,
 // per-user Run key) — report but don't gate. Their CLEANUP checks below stay hard, so a leftover still fails.
 check("Start Menu shortcut", existsSync(shortcut), true)
