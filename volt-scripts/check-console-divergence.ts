@@ -32,7 +32,7 @@ const ALLOW = new Set([
   "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
   "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
   "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
-  "app/scripts", // Volt-added: gen-favicon.ts rasterizes volt-mark.svg → the brand PNGs in public/ (zero-dep)
+  "app/scripts", // Volt-added: gen-favicon.ts generates public/volt-mark.svg + the brand PNGs from component/volt-mark-path.ts (zero-dep)
   "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + ./style/volt-theme.css, + Title "Volt"; SKIPS upstream's <Font/> (@opencode-ai/ui, deleted — Volt self-hosts fonts) and <DesktopPromo/> (opencode-Desktop ad, rendered app-wide incl. our workspace)
   "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui (ditto)
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
@@ -52,6 +52,7 @@ const ALLOW = new Set([
   "app/src/routes/auth/logout.ts", // logout → /auth (opencode sent logged-out users to its /zen marketing page)
   "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
   "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Gateway tab (Volt's default view)
+  "app/src/component/volt-mark-path.ts", // Volt-added: the mark's geometry + brand colours, the SINGLE source the component AND scripts/gen-favicon.ts (svg + pngs) read — they were 3 hand-kept copies and drifted
   "app/src/component/volt-mark.tsx", // Volt-added: Volt's mark, inline for currentColor — replaces opencode's IconWorkspaceLogo in the authed header + 404 (repoint consumers, never edit the vendored icon barrel)
   "app/src/routes/workspace.tsx", // Volt-owned chrome: opencode's mark on EVERY authed page → VoltMark; logo link `/` (which redirects to /auth, bouncing you out of your own workspace) → the workspace root
   "app/src/routes/[...404].tsx", // Volt-owned: opencode's 404 was a marketing page (its wordmark, an anomalyco/opencode link, and /docs + /discord — both DELETED, so the 404 page 404'd)

@@ -1,16 +1,21 @@
-// Rasterize the Volt mark (public/volt-mark.svg) to opaque brand PNGs — zero deps.
+// Generate every rasterized/standalone form of the Volt mark from ONE source — zero deps.
+// Emits: public/volt-mark.svg (the favicon) + the opaque brand PNGs (apple-touch, PWA manifest).
 // The mark is a single straight-line polygon, so a scanline fill is all it takes.
-// Re-run if volt-mark.svg or the brand colors change: `bun scripts/gen-favicon.ts`.
+//
+// The geometry and colours come from src/component/volt-mark-path.ts, which the VoltMark component also reads —
+// so the header/404 mark, the favicon and the PNGs cannot disagree. They used to be three hand-maintained copies,
+// and they did drift: the brand port moved --color-accent to #f54e00 and left the svg + this script on #d97706.
+// Re-run after changing volt-mark-path.ts: `bun scripts/gen-favicon.ts`.
 import { deflateSync } from "node:zlib"
 import { writeFileSync } from "node:fs"
+import { MARK_BG, MARK_FG, MARK_PATH, MARK_VIEWBOX, markPolygon } from "../src/component/volt-mark-path"
 
-// volt-mark.svg path in its 24x28 viewBox (all L commands → one closed polygon).
-const POLY: [number, number][] = [
-  [14, 1], [4, 15], [11, 15], [9, 27], [20, 11], [13, 11], [14, 1],
-]
-const VB = { w: 24, h: 28 }
-const BG = [0xf7, 0xf7, 0xf4] // --color-bg (volt-www --color-background)
-const FG = [0xf5, 0x4e, 0x00] // --color-accent (volt-www --color-accent)
+const hex = (h: string): number[] => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+
+const POLY = markPolygon()
+const VB = MARK_VIEWBOX
+const BG = hex(MARK_BG)
+const FG = hex(MARK_FG)
 
 function render(size: number): Buffer {
   // Fit the mark into the center with 18% padding (iOS/PWA safe zone).
@@ -90,6 +95,18 @@ function crc32(buf: Buffer): number {
 }
 
 const dir = new URL("../public/", import.meta.url)
+
+// The favicon itself (ui.tsx links it, and it is the one form that ships as a standalone file rather than inline).
+// Generated from the same source as the component and the rasters below — this is what stops the three drifting.
+writeFileSync(
+  new URL("volt-mark.svg", dir),
+  `<svg width="${VB.w * 5}" height="${VB.h * 5}" viewBox="0 0 ${VB.w} ${VB.h}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="${MARK_PATH}" fill="${MARK_FG}"></path>
+</svg>
+`,
+)
+console.log("wrote volt-mark.svg")
+
 for (const [name, size] of [
   ["apple-touch-icon.png", 180],
   ["web-app-manifest-192x192.png", 192],

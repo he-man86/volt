@@ -30,8 +30,20 @@ const base = en satisfies Dict
 // routes/api/enterprise.ts, routes/auth/[...callback].ts, routes/bench/submission.ts. The gateway handler is one of
 // them, so the overlay's "Volt Gateway" trial-ended string never reached the CLI it was written for.
 // The overlay is spread LAST so it wins over the locale dict (opencode's translations carry its product names).
+//
+// Memoized because i18n() is on the gateway's PER-REQUEST path — handler.ts and both rate limiters each build a
+// dict for every /v1 request. opencode could return `base` by reference for "en" (zero allocation); merging here
+// would otherwise spread 713 keys on every call, several times per request, inside a Worker, to overlay ~12
+// strings. The dicts are immutable and the locale set is fixed, so one build per locale per isolate is enough.
+const merged = new Map<Locale, Dict>()
+
 export function i18n(locale: Locale): Dict {
-  return { ...localeDict(locale), ...volt }
+  let dict = merged.get(locale)
+  if (!dict) {
+    dict = { ...localeDict(locale), ...volt }
+    merged.set(locale, dict)
+  }
+  return dict
 }
 
 function localeDict(locale: Locale): Dict {
