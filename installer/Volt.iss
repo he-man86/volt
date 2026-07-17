@@ -29,6 +29,9 @@ WizardStyle=modern
 SetupIconFile={#SetupIcon}
 UninstallDisplayName=Volt
 UninstallDisplayIcon={app}\desktop\Volt.exe
+; Always log. Without this a failed install (e.g. exit 5 = Setup couldn't close a running Volt process) leaves
+; NOTHING to diagnose — just an exit code. DeinitializeSetup mirrors the log into Volt's shared log store below.
+SetupLogging=yes
 ; Close a running connector/GUI so an in-place update can replace their files (Restart Manager).
 CloseApplications=yes
 
@@ -71,4 +74,17 @@ function NotSilent(): Boolean;
 begin
   // On the connector's /VERYSILENT self-update we only refresh the app — don't re-run winget/code.
   Result := not WizardSilent();
+end;
+
+procedure DeinitializeSetup();
+var Dir: String;
+begin
+  // Mirror Setup's own log into Volt's shared log store (%LOCALAPPDATA%\Volt\logs — the same folder the
+  // connector + bridges write, which the tray's Log window reads). Install failures are otherwise invisible:
+  // Inno leaves its log in %TEMP% under a name nobody thinks to look for, and an auto-update install runs with
+  // no human watching at all. DeinitializeSetup always runs, including on an aborted install — which is exactly
+  // the case worth keeping. Best-effort: never let logging break an install.
+  Dir := ExpandConstant('{localappdata}\Volt\logs');
+  if ForceDirectories(Dir) then
+    FileCopy(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd', '-', '-') + '.log', False);
 end;
