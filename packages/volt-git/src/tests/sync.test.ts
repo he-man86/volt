@@ -266,6 +266,25 @@ describe("volt-git sync", () => {
 		expect(s.incoming.added).toContain("B.fb");
 	});
 
+	test("9b. pull never strands a local edit to an item the IDE didn't change (no silent data loss)", async () => {
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }, { name: "B.fb", sourceText: "b1\n" }]);
+		// User edits A locally and commits; the IDE independently edits an UNRELATED item B.
+		writeSrc(root, "A.fb", "a1\nmine\n");
+		commitAll(root, "edit A");
+		bridge.set("B.fb", "b1\nide\n");
+		// Pull merges B in. A must NOT be absorbed into the IDE baseline.
+		expect((await pull(root, bridge)).kind).toBe("ok");
+		// A is still outgoing (the user's edit hasn't reached the IDE); B is in sync (pulled).
+		const s = await status(root, bridge);
+		expect(s.outgoing.modified).toContain("A.fb");
+		expect(s.incoming.added).not.toContain("B.fb");
+		// And a push actually delivers A to the IDE — then it's in sync.
+		const p = await push(root, bridge);
+		expect(p.kind).toBe("ok");
+		if (p.kind === "ok") expect(p.items).toContain("A.fb");
+		expect((await status(root, bridge)).outgoing.modified).not.toContain("A.fb");
+	});
+
 	const keys = (items: Record<string, string>): string[] => Object.keys(items).sort();
 
 	test("10. pure rename → one `set` op carrying just the new name", async () => {
@@ -455,7 +474,7 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 	// ── build ──
 	test("build delegates to the bridge + returns normalized diagnostics", async () => {
 		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
-		const r = await build(bridge, false);
+		const r = await build(root, bridge, false);
 		expect(r.success).toBe(true);
 		expect(Array.isArray(r.diagnostics)).toBe(true);
 	});

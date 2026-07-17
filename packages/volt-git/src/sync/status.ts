@@ -7,7 +7,7 @@
  * view.) merging = MERGE_HEAD present.
  */
 import type { HealthResponse, Remote } from "../bridge/types.js";
-import { configExists, loadConfig, type WorkspaceConfig } from "../config/workspace.js";
+import { configExists, loadConfig, projectMismatch } from "../config/workspace.js";
 import { diffWorktree, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
 import { computeIncoming, countChanges, hasChanges } from "./diff.js";
@@ -32,13 +32,13 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 	try {
 		const health = await bridge.getHealth();
 		const online = health.connected === true;
-		const projectMismatch = cfg !== undefined ? mismatch(cfg, health) : null;
+		const mismatch = cfg !== undefined ? projectMismatch(cfg, health) : null;
 		const detail = online ? `${health.platform}/${health.projectName ?? "?"}` : (health.status ?? "offline");
-		if (online && projectMismatch === null) {
+		if (online && mismatch === null) {
 			const refs = await bridge.getRefs();
-			snap = { online, detail, projectMismatch, items: refs.items, folders: refs.folders, projectVersion: refs.projectVersion };
+			snap = { online, detail, projectMismatch: mismatch, items: refs.items, folders: refs.folders, projectVersion: refs.projectVersion };
 		} else {
-			snap = { online, detail, projectMismatch, items: {}, folders: {}, projectVersion: "" };
+			snap = { online, detail, projectMismatch: mismatch, items: {}, folders: {}, projectVersion: "" };
 		}
 	} catch (err) {
 		snap = { ...snap, online: false, detail: err instanceof Error ? err.message : "bridge offline" };
@@ -103,13 +103,6 @@ export function buildStatusData(root: string, snap: BridgeSnapshot): StatusData 
 }
 
 const empty = (): ChangeSet => ({ added: [], removed: [], modified: [] });
-
-function mismatch(cfg: WorkspaceConfig, health: HealthResponse): ProjectMismatch | null {
-	const bridgeReports = { platform: health.platform, projectName: health.projectName ?? "" };
-	const configuredAs = { platform: cfg.project.platform, projectName: cfg.project.projectName };
-	const diffFields = (["platform", "projectName"] as const).filter((f) => configuredAs[f] !== bridgeReports[f]);
-	return diffFields.length > 0 ? { configuredAs, bridgeReports, diffFields: [...diffFields] } : null;
-}
 
 function countSummary(incoming: ChangeSet, outgoing: ChangeSet): string {
 	const i = countChanges(incoming);

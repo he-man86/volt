@@ -83,10 +83,13 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 		folders: fetched.folders,
 	};
 	const head = headCommit(root);
+	const parentIde = voltIdeHead(gitDir);
 
-	// Steady state: commit the IDE tree onto the volt/ide chain, then merge into the branch.
-	const tree = buildVoltIdeTree(gitDir, head, ideFiles, fetched.removed);
-	const parent = voltIdeHead(gitDir) ?? head;
+	// Steady state: overlay the fetched items onto the PREVIOUS volt/ide tree (the IDE's last-known state),
+	// commit onto the volt/ide chain, then merge into the branch. Sourcing unchanged items from the parent
+	// (not HEAD) is what keeps the user's un-pushed edits distinct from the IDE baseline.
+	const tree = buildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.removed);
+	const parent = parentIde ?? head;
 	const commit = commitVoltIde(gitDir, tree, parent, `volt: IDE @ ${fetched.projectVersion}`);
 	updateRef(gitDir, RANGE, commit);
 

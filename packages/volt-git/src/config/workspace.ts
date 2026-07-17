@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { HealthResponse } from "../bridge/types.js";
+import type { ProjectMismatch } from "../sync/types.js";
 import { resolveGitDir } from "../git/plumbing.js";
 
 export interface WorkspacePaths {
@@ -60,11 +61,25 @@ export function saveConfig(root: string, cfg: WorkspaceConfig): void {
 	writeFileSync(p.configPath, JSON.stringify(cfg, null, 2) + "\n");
 }
 
-/** undefined when the bridge's loaded project matches this workspace's binding; else an error string. */
+/** Structured platform/projectName mismatch between the workspace binding and the bridge's loaded project,
+ *  or null when they agree. The ONE binding comparison — `status` renders it and `verifyBinding` formats it. */
+export function projectMismatch(cfg: WorkspaceConfig, health: HealthResponse): ProjectMismatch | null {
+	const bridgeReports = { platform: health.platform, projectName: health.projectName ?? "" };
+	const configuredAs = { platform: cfg.project.platform, projectName: cfg.project.projectName };
+	const diffFields = (["platform", "projectName"] as const).filter((f) => configuredAs[f] !== bridgeReports[f]);
+	return diffFields.length > 0 ? { configuredAs, bridgeReports, diffFields: [...diffFields] } : null;
+}
+
+/** undefined when this workspace can safely act on the bridge; else a refuse string. Checks BOTH that an IDE
+ *  is actually attached (`connected`) and that its project matches the binding — a mutating verb (pull/push/
+ *  build) must never act on a detached bridge or the wrong project. */
 export function verifyBinding(cfg: WorkspaceConfig, health: HealthResponse): string | undefined {
-	const proj = health.projectName ?? "";
-	if (proj !== cfg.project.projectName) {
-		return `bridge is on ${health.platform}/${proj}, but this workspace is bound to ${cfg.project.platform}/${cfg.project.projectName} — open the bound project in the IDE`;
+	if (health.connected !== true) {
+		return "the IDE has no project loaded — open the bound project in the IDE and start its bridge, then retry";
+	}
+	const mm = projectMismatch(cfg, health);
+	if (mm !== null) {
+		return `bridge is on ${mm.bridgeReports.platform}/${mm.bridgeReports.projectName}, but this workspace is bound to ${mm.configuredAs.platform}/${mm.configuredAs.projectName} — open the bound project in the IDE`;
 	}
 	return undefined;
 }

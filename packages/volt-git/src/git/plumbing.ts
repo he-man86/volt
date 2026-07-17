@@ -7,7 +7,7 @@
  * (deterministic — lets the no-churn skip and cross-machine comparison work).
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -265,6 +265,10 @@ export function diffWorktree(root: string, ref: string, pathspec: string): DiffR
 	const idxDir = mkdtempSync(join(tmpdir(), "voltg-wt-"));
 	try {
 		const env = { GIT_INDEX_FILE: join(idxDir, "index") };
+		// `git add -A -- src` errors ("pathspec did not match any files") when BOTH the ref and the worktree
+		// have no `src/` (a legitimately-empty project, or after every item was deleted). Guarantee the
+		// pathspec target exists so the add is a well-defined no-op instead of a crash.
+		mkdirSync(join(root, pathspec), { recursive: true });
 		git(["-C", root, "read-tree", ref], { env });
 		git(["-C", root, "add", "-A", "--", pathspec], { env });
 		return parseDiffRows(git(["-C", root, "diff", "-M", "--cached", "--name-status", ref, "--", pathspec], { env }).stdout);
@@ -284,6 +288,7 @@ export function outgoingDiffs(root: string, ref: string, pathspec: string): File
 	const idxDir = mkdtempSync(join(tmpdir(), "voltg-diff-"));
 	try {
 		const env = { GIT_INDEX_FILE: join(idxDir, "index") };
+		mkdirSync(join(root, pathspec), { recursive: true }); // see diffWorktree: keep `git add -- src` well-defined on an empty project
 		git(["-C", root, "read-tree", ref], { env });
 		git(["-C", root, "add", "-A", "--", pathspec], { env });
 
