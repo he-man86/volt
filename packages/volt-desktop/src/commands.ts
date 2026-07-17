@@ -13,6 +13,7 @@ import {
   presentOutcome,
   settleOutcome,
   formatProgress,
+  firstLine,
   vendorPort,
   type OutcomePresenter,
   type OutcomeActionTag,
@@ -24,8 +25,6 @@ import { bindWorkspace, runDiagnostics } from "./panel.js"
 // The desktop has no merge editor, so it can't act on `open-conflicts`; presentOutcome filters to this
 // capability set (a conflict's message is self-explanatory). Force / pull-first it can do.
 const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push"])
-
-const firstLine = (s: string): string => s.split(/\r?\n/).find((l) => l.trim().length > 0)?.trim() ?? ""
 
 export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell): void {
   // One progress channel for EVERY action (formatProgress is shared with vscode); null clears it.

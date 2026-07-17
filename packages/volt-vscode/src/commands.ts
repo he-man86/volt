@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, init as voltInit, readBridgePort, vendorPort,
-	describePull, describePush, presentOutcome, settleOutcome, formatProgress, FORCE_PULL, FORCE_PUSH,
+	describePull, describePush, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome,
 } from "@volt/control"
 
@@ -182,11 +182,6 @@ async function doBuild(workspaceRoot: string): Promise<void> {
 	if (r.stderr.length > 0) output().appendLine(r.stderr)
 	output().show()
 	if (r.code !== 0) vscode.window.showWarningMessage("Build reported errors — see the Volt output.")
-}
-
-function firstLine(s: string): string | undefined {
-	const line = s.split(/\r?\n/).find((l) => l.trim().length > 0)
-	return line?.trim()
 }
 
 // ── registration (IDs MUST match package.json contributions) ────────────

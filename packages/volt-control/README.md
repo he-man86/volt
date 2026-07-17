@@ -26,7 +26,7 @@ Mutating actions (`pull`/`push`/`init`) take a per-workspace mutation gate (`gat
 
 **Channels (`channels.ts`)** — `VOLT_CHANNELS` is the single source of truth for the channel names (`volt:detect`, `volt:status`, …) shared by the main-process handlers and the preload bridge.
 
-**CLI spawning (`cli.ts`)** — `setBundledCli` pins the CLI shipped inside the host (so a PLC workspace needs no Node toolchain or `node_modules/.bin/volt`); `cliScript` falls back to the workspace's installed `volt-git`. `spawnVolt` / `spawnVoltBuffer` run it as a Node script via the editor's own runtime (`process.execPath` + `ELECTRON_RUN_AS_NODE=1`), so it works under VS Code, Cursor, Windsurf, or Electron with no external node.
+**CLI spawning (`cli.ts`)** — `setBundledCli` pins the CLI shipped inside the host (so a PLC workspace needs no Node toolchain or `node_modules/.bin/volt`); `cliScript` falls back to the workspace's installed `volt-git`. One `runVolt` runs it as a Node script via the editor's own runtime (`process.execPath` + `ELECTRON_RUN_AS_NODE=1`), so it works under VS Code, Cursor, Windsurf, or Electron with no external node — `onProgress` opts into streamed progress frames, `binary` returns raw stdout bytes (the `volt show` blob).
 
 **Health & workspace (`health.ts`, `workspace.ts`, `display.ts`)** — `probeHealth` GETs `/health` on `127.0.0.1:<port>` and maps it to a `HealthState` (connected / degraded / disconnected / unreachable); `probeVendors` checks both bridge ports; `readBridgePort` / `readExtensionAccess` read `.git/volt/config.json`. The `healthLabel` one-line renderer lives in `display.ts` (the display model). `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime (`.git/volt/ide-refs.json`) for last-sync time.
 
@@ -54,7 +54,7 @@ bun test         # bun test runner (gate + workspace-detection tests)
 | `emitter.ts` | tiny framework-agnostic event emitter shaped like `vscode.EventEmitter` |
 | `ipc.ts` | `registerVoltIpcHandlers` — wires the actions over Electron IPC; `IpcMainLike` |
 | `channels.ts` | `VOLT_CHANNELS` — Node-free channel-name source of truth (the `/channels` subpath) |
-| `cli.ts` | Bundled-CLI resolution + `spawnVolt` / `spawnVoltBuffer` child-process spawning |
+| `cli.ts` | Bundled-CLI resolution + one `runVolt` child-process spawn (text or binary stdout, optional streamed progress) |
 | `health.ts` | Bridge `/health` probe, `HealthState`, `probeVendors`, port/extension-access config reads |
 | `workspace.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
 | `gate.ts` | Per-workspace mutation gate (`withGate`, `isMutationInFlight`) |
