@@ -33,8 +33,13 @@ internal sealed class StaDispatcher
         }
     }
 
-    /// <summary>Run <paramref name="fn"/> on the STA thread, block (up to 30s) for its result, and
-    /// re-throw any exception on the calling thread.</summary>
+    /// <summary>Run <paramref name="fn"/> on the STA thread, block for its result, and re-throw any exception
+    /// on the calling thread. No artificial time cap: a build (or a large refs walk) legitimately runs for
+    /// minutes, and the per-operation budget already lives on the caller side — the CLI's per-endpoint HTTP
+    /// timeouts and the streaming keep-alive. A waiter-timeout here could not unwedge a genuinely stuck STA
+    /// thread anyway (the queued action stays stuck; the next item never runs), so it would only mistranslate
+    /// "slow but healthy" into a failure. This matches the CODESYS bridge, which marshals via the IDE's own
+    /// InvokeInPrimaryThread with no artificial cap.</summary>
     public T Run<T>(Func<T> fn)
     {
         using var evt = new ManualResetEventSlim(false);
@@ -46,7 +51,7 @@ internal sealed class StaDispatcher
             catch (Exception ex) { error = ex; }
             finally { evt.Set(); }
         });
-        if (!evt.Wait(TimeSpan.FromSeconds(30))) throw new TimeoutException("STA operation timed out");
+        evt.Wait();
         if (error != null) throw error;
         return result;
     }
