@@ -1,5 +1,11 @@
-# Integration — build the volt binaries, then the key-free integration check (config layer + bins + wiring).
+# Integration — build the volt binaries, then the key-free wiring check (config layer + bins + version parity).
 # Volt-specific (opencode has no equivalent); kept as its own concern alongside typecheck/test/lint.
+#
+# Key-free ON PURPOSE: this is the half of `bun run compat` that needs no opencode and no provider key, which is
+# what lets it gate every PR. Its sibling, verify-opencode.ts, drives the real opencode binary and can't run here.
+#
+# The job name below is a required status check on `dev` — renaming it blocks every PR until branch protection
+# is updated to match.
 name: integration
 
 on:

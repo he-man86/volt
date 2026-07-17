@@ -1,4 +1,8 @@
-# Lint — oxlint over the volt surface. One concern per workflow (opencode-style).
+# Lint — oxlint over the volt surface. One concern per workflow (opencode-style) — see typecheck.yml for what
+# that does and doesn't buy.
+#
+# The job name below is a required status check on `dev` — renaming it blocks every PR until branch protection
+# is updated to match.
 name: lint
 
 on:
