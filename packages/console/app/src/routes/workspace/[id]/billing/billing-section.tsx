@@ -143,7 +143,10 @@ export function BillingSection() {
         <h2>{i18n.t("workspace.billing.title")}</h2>
         <p>
           {i18n.t("workspace.billing.subtitle.beforeLink")}{" "}
-          <a href="mailto:help@anoma.ly">{i18n.t("workspace.billing.contactUs")}</a>{" "}
+          {/* VOLT: was mailto:help@anoma.ly — opencode's support inbox, live on Volt's Billing tab, so a paying
+              Volt customer with a billing problem emailed a different company. hello@volt-ai.dev is the address
+              volt-www's contact page publishes. */}
+          <a href="mailto:hello@volt-ai.dev">{i18n.t("workspace.billing.contactUs")}</a>{" "}
           {i18n.t("workspace.billing.subtitle.afterLink")}
         </p>
       </div>

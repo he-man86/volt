@@ -1,6 +1,7 @@
 import "./[...404].css"
 import { Title } from "@solidjs/meta"
 import { HttpStatusCode } from "@solidjs/start"
+import { VoltMark } from "~/component/volt-mark"
 
 // VOLT: the app's only catch-all, and Volt-owned rather than patched.
 //
@@ -20,8 +21,8 @@ export default function NotFound() {
       <HttpStatusCode code={404} />
       <div data-component="content">
         <section data-component="top">
-          {/* Served from public/ — the same mark ui.tsx uses as the favicon. No light/dark pair: Volt ships one. */}
-          <img data-slot="logo" src="/volt-mark.svg" alt="Volt" width="56" height="56" />
+          {/* Inline so it inherits the page colour — one mark reads in light and dark, no light/dark pair. */}
+          <VoltMark data-slot="logo" width="48" height="56" aria-label="Volt" />
           <h1 data-slot="title">Page not found</h1>
         </section>
 

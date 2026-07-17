@@ -9,8 +9,8 @@ const POLY: [number, number][] = [
   [14, 1], [4, 15], [11, 15], [9, 27], [20, 11], [13, 11], [14, 1],
 ]
 const VB = { w: 24, h: 28 }
-const BG = [0xf7, 0xf6, 0xf3] // --color-bg
-const FG = [0xd9, 0x77, 0x06] // --color-accent
+const BG = [0xf7, 0xf7, 0xf4] // --color-bg (volt-www --color-background)
+const FG = [0xf5, 0x4e, 0x00] // --color-accent (volt-www --color-accent)
 
 function render(size: number): Buffer {
   // Fit the mark into the center with 18% padding (iOS/PWA safe zone).
