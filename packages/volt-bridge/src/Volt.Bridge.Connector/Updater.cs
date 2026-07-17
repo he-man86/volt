@@ -11,10 +11,10 @@ namespace Volt.Bridge.Connector
 {
     /// <summary>
     /// Auto-update for the always-running connector — the one Volt process alive in every configuration (the
-    /// Electron GUI may never be opened). Full-Inno model (no Velopack): poll GitHub's "latest release" API and,
-    /// when a newer version is published, surface it in the tray. "Restart to update" downloads that release's
-    /// Volt-win-Setup.exe and runs it /VERYSILENT — Inno upgrades the install in place — then exits so files
-    /// unlock. Same tray surface as before (CurrentVersion / PendingVersion / RestartToApply), simpler mechanism.
+    /// Electron GUI may never be opened). Poll GitHub's "latest release" API and, when a newer version is
+    /// published, surface it in the tray. "Restart to update" downloads that release's Volt-win-Setup.exe and
+    /// runs it /VERYSILENT — Inno upgrades the install in place — then exits so files unlock. The tray surface is
+    /// CurrentVersion / PendingVersion / RestartToApply.
     /// No-op on dev/unmanaged runs (no version.txt beside the exe). Never touches opencode.
     /// </summary>
     internal static class Updater

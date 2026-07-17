@@ -28,7 +28,7 @@ Bun workspaces + Turbo. Requires `bun@1.3.14` and, for the agent, an installed `
 bun install
 bun run dev            # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
 bun run build          # build the TS packages
-bun run dist           # release bundle → dist/volt/
+bun run build:installer # the product → dist/release/Volt-win-Setup.exe
 bun run compat         # opencode compat gate (integration → lsp → tool)
 bun run typecheck && bun run lint
 ```

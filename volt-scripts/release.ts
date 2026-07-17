@@ -14,6 +14,10 @@ import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
 const version: string = (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
+// Volt ships ONE version. volt-desktop is the source of truth (it names the tag + the release); the .vsix the
+// installer sideloads must carry the same number. release.yml guards this too — a tag can be pushed by hand,
+// bypassing this script — but failing here is cheaper than failing after the tag is already on the remote.
+const extVersion: string = (await import(resolve(repo, "packages/volt-vscode/package.json"))).default.version
 
 function git(args: string[], capture = false): string {
   const r = spawnSync("git", args, { cwd: repo, encoding: "utf8", stdio: capture ? "pipe" : "inherit" })
@@ -26,6 +30,10 @@ function git(args: string[], capture = false): string {
 }
 
 // Guard rails — a release must be a clean, on-dev, not-already-tagged state, else the published version is wrong.
+if (extVersion !== version) {
+  console.error(`✗ volt-vscode ${extVersion} != volt-desktop ${version}. Volt ships one version — bump both.`)
+  process.exit(1)
+}
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], true)
 if (branch !== "dev") {
   console.error(`✗ on '${branch}', not 'dev'. Releases cut from dev — merge the version bump first, then re-run.`)

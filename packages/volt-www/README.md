@@ -35,7 +35,7 @@ The CTAs link out; this site implements no auth/billing of its own. Targets live
 - `authUrl()` → `<console>/auth` (OpenAuth, sign-in *and* sign-up). Console host = `VITE_CONSOLE_URL` (default
   `https://dev.volt-ai.dev`).
 - `downloadUrl()` → the **Volt installer**: `he-man86/volt` GitHub Releases `latest/download/Volt-win-Setup.exe`
-  (the Velopack build from `volt-scripts/build-app.ts`). Windows-only. Override with `VITE_INSTALLER_URL`.
+  (built by `volt-scripts/build-installer.ts`). Windows-only. Override with `VITE_INSTALLER_URL`.
 
 ```bash
 VITE_CONSOLE_URL=https://volt-ai.dev bun run build   # production

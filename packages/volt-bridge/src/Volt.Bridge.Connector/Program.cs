@@ -34,7 +34,7 @@ namespace Volt.Bridge.Connector
 
             // Self-configure on startup (idempotent, best-effort): set OPENCODE_CONFIG_DIR + PATH, create the
             // Start Menu shortcut, and register the login item so the tray survives reboots. Runs right after the
-            // installer launches us, and every login — replacing what the retired Velopack install hooks did.
+            // installer launches us, and every login — which is why the .iss itself sets no env and no [Icons].
             VoltEnv.Install();
 
             Application.EnableVisualStyles();

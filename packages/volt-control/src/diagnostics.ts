@@ -77,8 +77,8 @@ export async function collectDiagnostics(
   const server = resolveServer(workspaceRoot)
   if (server === undefined) throw new Error("volt-lsp-iec server not found — build it or call setLspServer()")
 
-  // A `.js` server runs via the host runtime (ELECTRON_RUN_AS_NODE); a compiled `.exe` (the Velopack desktop
-  // install ships volt-lsp-iec.exe) spawns directly. Same .js/.exe split as the CLI spawn.
+  // A `.js` server runs via the host runtime (ELECTRON_RUN_AS_NODE); a compiled `.exe` (the desktop install
+  // ships volt-lsp-iec.exe) spawns directly. Same .js/.exe split as the CLI spawn.
   const lspArgs = ["--stdio", vendor === "twincat" ? "--twincat" : "--codesys"]
   const asNode = server.toLowerCase().endsWith(".js")
   const child = spawn(asNode ? process.execPath : server, asNode ? [server, ...lspArgs] : lspArgs, {

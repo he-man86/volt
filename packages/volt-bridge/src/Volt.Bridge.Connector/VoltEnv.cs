@@ -14,9 +14,9 @@ namespace Volt.Bridge.Connector
     /// </summary>
     internal static class VoltEnv
     {
-        // Layout inside the Velopack app dir (…\current\): the connector (mainExe) sits at the ROOT, with bin\
-        // (CLI + LSP) and volt-config\ (the agent layer) as sibling subdirs — see distribution/design.md. Resolve
-        // relative to the connector exe so it survives the stable `current\` path across updates.
+        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and volt-config\
+        // (the agent layer) as sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe
+        // so it survives wherever the user installed us.
         private static string ConnectorDir => AppContext.BaseDirectory;
         private static string BinDir => Path.GetFullPath(Path.Combine(ConnectorDir, "bin"));
         private static string ConfigDir => Path.GetFullPath(Path.Combine(ConnectorDir, "volt-config"));
@@ -26,7 +26,7 @@ namespace Volt.Bridge.Connector
 
         /// <summary>Install/update hook: set OPENCODE_CONFIG_DIR + add bin to PATH + register start-at-login +
         /// a Start Menu "Volt" shortcut to the desktop GUI (the connector itself auto-starts via the login item,
-        /// so it needs no shortcut; vpk is packed with --shortcuts None).</summary>
+        /// so it needs no shortcut of its own — which is why the .iss lays down no [Icons]).</summary>
         public static void Install()
         {
             try
@@ -56,15 +56,15 @@ namespace Volt.Bridge.Connector
             catch { /* best-effort — the app still runs from the tray/CLI without a shortcut */ }
         }
 
-        /// <summary>Uninstall hook: stop the running processes so Velopack can delete their files, then revert
-        /// every env change (opencode returns to vanilla).</summary>
+        /// <summary>Uninstall hook: stop the running processes so the uninstaller can delete their files, then
+        /// revert every env change (opencode returns to vanilla).</summary>
         public static void Uninstall()
         {
             try
             {
                 // Stop the running tray connector (a SEPARATE long-lived process from this uninstall-hook
-                // invocation) + the bridge workers it spawned — otherwise they hold …\current\ file-locked and
-                // Velopack can't remove the install. Exclude our own PID: killing ourselves aborts the hook.
+                // invocation) + the bridge workers it spawned — otherwise they hold the install dir file-locked
+                // and Inno can't remove it. Exclude our own PID: killing ourselves aborts the hook.
                 var self = Process.GetCurrentProcess().Id;
                 foreach (var name in new[] { "VoltConnector", "Volt.Bridge.Beckhoff" })
                     foreach (var p in Process.GetProcessesByName(name))

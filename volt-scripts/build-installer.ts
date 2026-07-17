@@ -4,11 +4,11 @@
  * `volt` CLI + LSP + tray connector + config, plus opt-in opencode CLI + the VS Code extension — whose
  * always-running C# connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
  *
- *   bun volt-scripts/build-app.ts                 # full build → dist/release/Volt-win-Setup.exe
- *   bun volt-scripts/build-app.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
- *   bun volt-scripts/build-app.ts --upload        # also publish the GitHub release (the update feed) via gh
+ *   bun volt-scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
+ *   bun volt-scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
+ *   bun volt-scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
- * Pipeline: dist.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
+ * Pipeline: build-payload.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
  * assemble the payload (connector at root; bin/ volt-config/ docs/ desktop/ + version.txt + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
@@ -62,7 +62,7 @@ function publish(setupExe: string): void {
 if (uploadOnly) {
   const setupExe = resolve(release, "Volt-win-Setup.exe")
   if (!existsSync(setupExe)) {
-    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-app.ts) first`)
+    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-installer.ts) first`)
     process.exit(1)
   }
   publish(setupExe)
@@ -79,7 +79,7 @@ const iscc = [
 ].find((p) => existsSync(p) || p === "ISCC")!
 
 // 1. The Volt payload (CLI + LSP + connector + config + docs).
-if (!skipDist) run("bun", ["volt-scripts/dist.ts"])
+if (!skipDist) run("bun", ["volt-scripts/build-payload.ts"])
 for (const dir of ["bin", "connector", "volt-config", "docs"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
@@ -92,25 +92,48 @@ console.log("• electron app (--dir)")
 run("bun", ["run", "build"], desktopDir) // src/main.ts → main.mjs (fast)
 const unpacked = resolve(desktopDir, "dist/win-unpacked")
 const voltExe = resolve(unpacked, "Volt.exe")
-// Rebuild the Electron app only when the shell actually changed — compare the freshly-built main.mjs to the
-// copy already packed into win-unpacked (asar:false → resources/app/main.mjs). Reuse otherwise, since
-// electron-builder's winCodeSign extraction is flaky without Windows Developer Mode ("Cannot create symbolic
-// link"). --rebuild-app forces it.
-const packedMain = resolve(unpacked, "resources", "app", "main.mjs")
-const shellChanged =
-  !existsSync(packedMain) || !readFileSync(packedMain).equals(readFileSync(resolve(desktopDir, "main.mjs")))
-if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || shellChanged) {
+// Rebuild the Electron app only when an input actually changed — reuse otherwise, since electron-builder's
+// winCodeSign extraction is flaky without Windows Developer Mode ("Cannot create symbolic link").
+// --rebuild-app forces it.
+//
+// The cache key must cover EVERY input electron-builder packs (electron-builder.yml `files:`), not just
+// main.mjs: package.json carries the version AND productName (which sets Electron's userData path), so keying
+// on main.mjs alone silently shipped a stale package.json — a 0.1.0 app inside a 0.2.0 installer. If you add a
+// file to electron-builder.yml `files:`, add it here. assets/ is excluded: icons only, and a stale icon is
+// cosmetic — use --rebuild-app after changing one.
+const packedApp = resolve(unpacked, "resources", "app")
+const BYTE_INPUTS = ["main.mjs", "preload.cjs", "shell.html"]
+// package.json needs a PROJECTION, not a byte compare: electron-builder rewrites it when packing, stripping
+// `scripts` and `devDependencies`. Byte-comparing source vs packed can therefore never match, which would make
+// this whole reuse branch unreachable — every build re-running the flaky winCodeSign step the branch exists to
+// avoid. Sorted keys so a reordering by either side doesn't force a rebuild.
+const BUILDER_STRIPS = ["scripts", "devDependencies"]
+const pkgProjection = (file: string): string => {
+  const j = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>
+  for (const k of BUILDER_STRIPS) delete j[k]
+  return JSON.stringify(Object.keys(j).sort().map((k) => [k, j[k]]))
+}
+const differs = (f: string): boolean => {
+  const packed = resolve(packedApp, f)
+  if (!existsSync(packed)) return true
+  const src = resolve(desktopDir, f)
+  return f === "package.json"
+    ? pkgProjection(packed) !== pkgProjection(src)
+    : !readFileSync(packed).equals(readFileSync(src))
+}
+const inputsChanged = [...BYTE_INPUTS, "package.json"].some(differs)
+if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || inputsChanged) {
   run("bunx", ["electron-builder", "--dir"], desktopDir) // auto-finds electron-builder.yml
 } else {
-  console.log("  ✓ reusing win-unpacked (shell unchanged)")
+  console.log("  ✓ reusing win-unpacked (packed inputs unchanged)")
 }
 if (!existsSync(voltExe)) {
   console.error("✗ no Volt.exe in dist/win-unpacked (electron-builder failed — see the winCodeSign note above)")
   process.exit(1)
 }
 
-// 3. Assemble the Velopack packDir: connector (mainExe) at root; bin/ volt-config/ docs/ desktop/ as siblings.
-console.log("• assembling the Velopack packDir")
+// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ volt-config/ docs/ desktop/ as siblings.
+console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
@@ -118,12 +141,17 @@ cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
 cpSync(resolve(payload, "volt-config"), resolve(stage, "volt-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
-// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the "install
-// VS Code extension" wizard task sideloads via `code --install-extension`.
+// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the per-editor
+// extension wizard tasks sideload via `<editor> --install-extension`. Hard-fail on a missing .vsix: the tasks
+// would silently install nothing, and nothing downstream catches it — test:install runs /VERYSILENT, which skips
+// those tasks entirely (Check: NotSilent in the .iss).
 writeFileSync(resolve(stage, "version.txt"), version)
 const vsix = resolve(payload, "volt-vscode.vsix")
-if (existsSync(vsix)) cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
-else console.warn("⚠ volt-vscode.vsix missing from dist/volt — the installer's VS Code task will have nothing to install")
+if (!existsSync(vsix)) {
+  console.error("✗ volt-vscode.vsix missing from dist/volt — the installer's extension tasks would install nothing")
+  process.exit(1)
+}
+cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
 if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
   console.error("✗ VoltConnector.exe not at payload root — the connector bundle is missing it")
   process.exit(1)

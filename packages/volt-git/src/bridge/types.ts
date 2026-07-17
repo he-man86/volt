@@ -14,7 +14,7 @@ import { z } from "zod";
 // ─── Wire-protocol version ──────────────────────────────────────────────────
 // The HTTP wire-contract version this client speaks. Bump ONLY on an incompatible wire change, and bump the C#
 // `WireProtocol.Version` in `Volt.Bridge.Core/Wire/HealthResponse.cs` to the SAME number — the two are kept in
-// lockstep by `volt-scripts/check-volt-integration.ts`. Distinct from a bridge's display `version` string.
+// lockstep by `volt-scripts/check-wiring.ts`. Distinct from a bridge's display `version` string.
 export const WIRE_VERSION = 1;
 
 // ─── Progress (streamed on a long op's own response, NDJSON) ─────────────────

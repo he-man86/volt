@@ -1,0 +1,98 @@
+# CI — the PR gate. Every check `dev` branch protection requires lives here, and nothing else does.
+#
+# WHY ONE FILE: these five ran as five workflows that were ~70% identical boilerplate (name/on/concurrency +
+# checkout/setup-bun/install), on the belief that a separate workflow was needed for a separate PR check. It
+# isn't: a check run is named after the JOB, not the workflow — console-build.yml is named "console-build" but
+# its job is `build`, and GitHub reports the check as "build". Same five checks, one set of triggers.
+#
+# The path-filtered workflows (console-build, console-symmetry, deploy) stay separate because they need their own
+# `on:` paths — that's the one thing a job can't override. release.yml is tag-triggered.
+#
+# LOAD-BEARING: `dev` protection requires the contexts typecheck / test / lint / integration / openspec. Those are
+# the JOB IDs below. Rename one and every PR blocks forever on a check that never reports, until an admin updates
+# branch protection to match.
+name: ci
+
+on:
+  workflow_dispatch: {} # on-demand — lets the gate be proven without waiting for a PR into dev
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+# Cancel a superseded run when a newer commit lands on the same ref (opencode convention).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.3.14
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: |
+          bun run --filter='*' typecheck
+          bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bunx oxlint packages/volt-git packages/volt-lsp-iec packages/volt-vscode volt-scripts
+
+  # The console gateway + billing unit tests (offline). Run from each package dir — a repo-root `bun test` is
+  # guarded off on purpose.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Console tests (gateway + billing logic)
+        run: |
+          (cd packages/console/core && bun test)
+          (cd packages/console/app && bun test)
+
+  # Build the volt binaries, then the key-free wiring check (config layer + bins + wire/product version parity).
+  # Key-free ON PURPOSE: this is the half of `bun run compat` that needs neither opencode nor a provider key,
+  # which is what lets it gate every PR. Its sibling verify-opencode.ts drives the real binary and can't run here.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Build binaries (feeds the wiring check)
+        run: |
+          bun run --cwd packages/volt-lsp-iec build   # lsp-iec first (dependency order)
+          bun run --cwd packages/volt-git build
+          bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
+      - name: Wiring check (config layer + bins + version parity)
+        run: bun run volt-scripts/check-wiring.ts
+
+  # Validate the proposals in openspec/changes. NOT path-filtered: it's a required check, and a path-filtered
+  # required check blocks PRs that don't touch openspec/ (GitHub waits forever for a check that never reports).
+  # It's cheap, so it runs on every PR.
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bunx @fission-ai/openspec@1.4.1 validate --all

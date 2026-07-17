@@ -47,13 +47,16 @@ bun run build
 bun run package
 ```
 
-`package` runs `vsce package --no-dependencies`, producing `volt-<version>.vsix`. Reinstalling the **same** version string is a no-op for VS Code, so bump `version` in `package.json` before each rebuild you intend to install.
+`package` runs `vsce package --no-dependencies`, producing `volt-<version>.vsix`. Reinstalling the **same** version string is a no-op for VS Code, so pass `--force` (below) when reinstalling the same build.
 
-Install the packaged extension into VS Code or Windsurf:
+**Versioning:** this `version` must match `packages/volt-desktop/package.json` — Volt ships one number, and both `bun run release` and `release.yml` refuse a mismatch. Don't bump it alone to force a local reinstall; use `--force`. It lives in its own `package.json` only because the extension also publishes to the Marketplace independently.
+
+Install the packaged extension into VS Code, Windsurf or Cursor (all take the same flag; the Volt installer runs exactly this per editor it finds on PATH):
 
 ```bash
-code     --install-extension volt-<version>.vsix
-windsurf --install-extension volt-<version>.vsix
+code     --install-extension volt-vscode-<version>.vsix --force
+windsurf --install-extension volt-vscode-<version>.vsix --force
+cursor   --install-extension volt-vscode-<version>.vsix --force
 ```
 
 ## Layout
