@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Volt release builder — compiles every shippable binary + the volt-config layer into dist/volt/ so the
- * installer just bundles one folder. The volt-desktop shell + NSIS installer are built separately
- * (packages/volt-desktop), which bundles this folder.
+ * installer just bundles one folder. The volt-desktop shell + the Inno Setup installer are built separately
+ * (volt-scripts/build-app.ts → installer/Volt.iss), which bundles this folder.
  *
  *   bun volt-scripts/dist.ts            # binaries + bridges
  *   bun volt-scripts/dist.ts --no-bridge  # binaries only (skip dotnet)
@@ -12,7 +12,6 @@
  *   dist/volt/bin/volt-lsp-iec[.exe]  the Structured Text LSP (no node needed)
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
-import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { resolve, sep } from "node:path"
@@ -65,12 +64,15 @@ if (!run("bun", ["run", "--filter=@volt/lsp-iec", "build"])) {
 console.log("• volt-vscode extension (.vsix)")
 const vsixDir = resolve(repo, "packages/volt-vscode")
 if (run("bun", ["run", "package"], vsixDir)) {
-  const vsix = [...new Glob("volt-vscode-*.vsix").scanSync({ cwd: vsixDir })].sort().at(-1)
-  if (vsix) {
+  // vsce names the package from volt-vscode's own version, so construct the exact filename. Do NOT glob+sort:
+  // this dir is never cleaned (old .vsix files accumulate, gitignored) and a sort is LEXICAL — at 0.10.0,
+  // "volt-vscode-0.10.0.vsix" sorts BEFORE "volt-vscode-0.2.0.vsix", which would silently ship a stale extension.
+  const vsix = `volt-vscode-${(await import(resolve(vsixDir, "package.json"))).default.version}.vsix`
+  if (existsSync(resolve(vsixDir, vsix))) {
     cpSync(resolve(vsixDir, vsix), resolve(out, "volt-vscode.vsix"))
     console.log(`  ✓ extension → dist/volt/volt-vscode.vsix (${vsix})`)
   } else {
-    console.warn("  ⚠ .vsix not found after package")
+    console.warn(`  ⚠ ${vsix} not found after package`)
   }
 } else {
   console.warn("  ⚠ extension package failed — installer ships without the bundled extension")
