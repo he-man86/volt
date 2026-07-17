@@ -557,8 +557,12 @@ export async function handler(
     if (modelData.trialEnded)
       throw new ModelError(
         `${t("zen.api.error.trialEnded", {
-          model: modelData.name,
-          link: "https://opencode.ai/go",
+          // VOLT: was https://opencode.ai/go — opencode's marketing page for its Go plan. This is interpolated into
+          // the message a subscriber reads IN THEIR CLI ("…continue using the model by subscribing to Volt Gateway
+          // - {{link}}"), so it advertised a competitor at the exact moment we ask for money. No workspaceID in
+          // scope here (validateModel doesn't take authInfo), and /auth needs none: it resolves to the user's
+          // workspace, whose root is the Gateway tab.
+          link: `${consoleOrigin}/auth`,
         })}`,
       )
 

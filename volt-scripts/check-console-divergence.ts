@@ -29,6 +29,7 @@ const ALLOW = new Set([
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+  "app/test/volt-no-opencode-leftovers.test.ts", // Volt-added: fails if any string the app renders carries opencode BRANDING (its products/domains/contacts) — the bar review keeps missing
   "app/test/volt-theme.contrast.test.ts", // Volt-added: pins the brand palette's WCAG contrast (CSS is type-checked by nothing; a value tweak can silently break readability)
   "app/test/volt-gateway-observability.test.ts", // Volt-added: asserts every POST route under routes/v1 is in the tail worker's allowlist (the beside-file hazard — see the file)
   "app/src/i18n/volt.test.ts", // Volt-added: pins the overlay merge point (see the file) — red if it regresses to a context-only merge
@@ -41,6 +42,8 @@ const ALLOW = new Set([
   "app/src/routes/auth/logout.ts", // logout → /auth (opencode sent logged-out users to its /zen marketing page)
   "app/src/routes/workspace/[id].tsx", // Volt-owned workspace shell (nav/layout); the views stay vendored as children
   "app/src/routes/workspace/[id]/index.tsx", // workspace root → the Gateway tab (Volt's default view)
+  "app/src/component/volt-mark.tsx", // Volt-added: Volt's mark, inline for currentColor — replaces opencode's IconWorkspaceLogo in the authed header + 404 (repoint consumers, never edit the vendored icon barrel)
+  "app/src/routes/workspace.tsx", // Volt-owned chrome: opencode's mark on EVERY authed page → VoltMark; logo link `/` (which redirects to /auth, bouncing you out of your own workspace) → the workspace root
   "app/src/routes/[...404].tsx", // Volt-owned: opencode's 404 was a marketing page (its wordmark, an anomalyco/opencode link, and /docs + /discord — both DELETED, so the 404 page 404'd)
   "app/src/routes/[...404].css", // Volt-owned: dropped its local hsl palette, which pinned the one page a lost user sees to opencode's colours and made volt-theme.css a no-op there
   "app/src/routes/workspace/[id]/gateway", // Volt-added: the Gateway tab (Volt's copy + quick-connect); IMPORTS the vendored /go sections, so /go itself stays pristine + unlinked
@@ -54,6 +57,7 @@ const ALLOW = new Set([
   "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
   "app/src/routes/zen/util/handler.ts", // gateway errors linked hardcoded opencode.ai/workspace/… → request-derived origin + Volt's /gateway tab; ADMIN_WORKSPACES (opencode's own ids, isFree+allowlist bypass) emptied
   "app/src/routes/honeycomb/webhook.ts", // blanked opencode's hardcoded Discord alert role ID (wrong server); mention now opt-in
+  "app/src/routes/workspace/[id]/billing/billing-section.tsx", // "contact us" mailto:help@anoma.ly (opencode's support inbox, live on Volt's Billing tab) → hello@volt-ai.dev
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
   "mail/emails/templates/InviteEmail.tsx", // invite email body: opencode.ai URLs + "OpenCode" copy → Volt
