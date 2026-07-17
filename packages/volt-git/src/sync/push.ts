@@ -5,13 +5,13 @@
  * so uncommitted edits are never silently skipped. The worktree is the editing surface, git is the truth.
  */
 import type { ProgressHandler, PushOp, Remote } from "../bridge/types.js";
-import { loadConfig, verifyBinding } from "../config/workspace.js";
+import { configExists, loadConfig, verifyBinding } from "../config/workspace.js";
 import { autoCommitSrc, diffRefs, diffWorktree, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { isPushable, isReadOnly, isTrackedPath } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
-import { computeIncoming, countChanges, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
+import { buildStatusData } from "./status.js";
 import type { PushResult } from "./types.js";
 
 export interface PushOptions {
@@ -24,9 +24,11 @@ export interface PushOptions {
 }
 
 export async function push(root: string, bridge: Remote, opts: PushOptions = {}): Promise<PushResult> {
+	if (!configExists(root)) return { kind: "rejected", reason: "not a Volt workspace — run `volt init` first" };
 	const gitDir = resolveGitDir(root);
 	const cfg = loadConfig(root);
-	const bindErr = verifyBinding(cfg, await bridge.getHealth());
+	const health = await bridge.getHealth();
+	const bindErr = verifyBinding(cfg, health);
 	if (bindErr !== undefined) return { kind: "rejected", reason: bindErr };
 
 	const sidecar = loadIdeRefs(root);
@@ -60,21 +62,15 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	// clean tree commits nothing — commit by hand first if you want to control the message/granularity.
 	autoCommitSrc(root);
 
-	const refs = await bridge.getRefs();
-	if (opts.forceWithLease !== undefined && opts.forceWithLease !== refs.projectVersion) {
-		return { kind: "rejected", reason: `--force-with-lease is stale: the IDE is at ${refs.projectVersion}, not ${opts.forceWithLease} — run \`volt pull\` first` };
-	}
-	const forcing = opts.force === true || opts.forceWithLease === refs.projectVersion;
-
-	// Drift: the IDE moved since our baseline → pull first (unless forcing).
-	const drift = computeIncoming(refs.items, sidecar.items);
-	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && !forcing) {
-		const n = countChanges(drift);
-		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt pull\` first (or push --force)` };
-	}
-	// Forcing clobbers the IDE's current state, so guard against THAT (not the stale baseline).
-	const guardItems = forcing ? refs.items : sidecar.items;
-	const guardProjectVersion = forcing ? refs.projectVersion : sidecar.projectVersion;
+	// Every path is ONE /push call — no pre-push /refs. The ops carry sidecar ifVersions; the bridge decides:
+	//   normal      → expectedProjectVersion = sidecar   (reject if the IDE moved → "pull first")
+	//   --force     → force=true, no project gate        (clobber, skip all concurrency checks)
+	//   --force-with-lease V → expectedProjectVersion = V + force=true (clobber IFF the IDE is still at V)
+	// `force` skips the per-item ifVersion checks; `expectedProjectVersion` is the independent project-level gate.
+	const forcing = opts.force === true || opts.forceWithLease !== undefined;
+	const guardItems = sidecar.items;
+	const expectedProjectVersion =
+		opts.forceWithLease !== undefined ? opts.forceWithLease : opts.force === true ? undefined : sidecar.projectVersion;
 
 	// Content comes from the committed blob (HEAD), not the worktree — the clean-tree guard above
 	// guarantees they're identical, but reading git keeps the engine's source of truth unambiguous.
@@ -145,8 +141,19 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	if (ops.length === 0) return { kind: "ok", items: [], message: "nothing to push — the IDE already matches your workspace" };
 	if (opts.dryRun === true) return { kind: "ok", items: ops.map((o) => o.name), message: "dry run — would push these item(s)" };
 
-	const resp = await bridge.pushBatch({ ops, expectedProjectVersion: guardProjectVersion }, opts.onProgress);
+	const resp = await bridge.pushBatch({ ops, expectedProjectVersion, force: forcing }, opts.onProgress);
 	if (!resp.accepted) {
+		// A `<project>` conflict is the project-version gate the bridge enforced: for a normal push the IDE
+		// moved since our baseline ("pull first"); for --force-with-lease the IDE isn't at the leased version.
+		if (resp.conflicts.some((c) => c.name === "<project>")) {
+			return {
+				kind: "rejected",
+				reason:
+					opts.forceWithLease !== undefined
+						? `--force-with-lease is stale: the IDE is at ${resp.currentProjectVersion}, not ${opts.forceWithLease} — run \`volt pull\` first`
+						: "the IDE changed since your last sync — run `volt pull` first (or push --force)",
+			};
+		}
 		const lines = resp.conflicts.map((c) => `  ${c.name}: ${c.reason}`).join("\n");
 		return { kind: "rejected", reason: `the bridge rejected the push:\n${lines}` };
 	}
@@ -154,9 +161,19 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	// Point refs/remotes/volt/ide AT HEAD — exactly what you just pushed. Like `git push` landing
 	// origin/main on main: the graph now shows `volt/ide` sitting on your pushed commit (in sync). As you
 	// commit more locally, main moves ahead of volt/ide → your unpushed work, shown the git-native way.
-	const after = await bridge.getRefs();
-	saveIdeRefs(root, { projectVersion: after.projectVersion, items: after.items, folders: after.folders });
+	// The new IDE state comes from the push receipt (no follow-up /refs — the receipt matches /refs exactly).
+	saveIdeRefs(root, { projectVersion: resp.newProjectVersion, items: resp.newItems, folders: resp.newFolders });
 	updateRef(gitDir, RANGE, headCommit(root)!);
 
-	return { kind: "ok", items: ops.map((o) => o.name) };
+	// Return the resulting status so the UI adopts it directly — no separate `volt status` (/refs) after a push.
+	// Built from the push receipt (newItems/newFolders) + local git: post-push the workspace is in sync.
+	const status = buildStatusData(root, {
+		online: true,
+		detail: `${health.platform}/${health.projectName ?? "?"}`,
+		projectMismatch: null,
+		items: resp.newItems,
+		folders: resp.newFolders,
+		projectVersion: resp.newProjectVersion,
+	});
+	return { kind: "ok", items: ops.map((o) => o.name), status };
 }

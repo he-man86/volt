@@ -4,11 +4,11 @@ import { resolveOpencodeExe, hasOpencode } from "./agent.js"
 import { startLsp } from "./lsp.js"
 import { setBundledCli } from "@volt/control"
 import { registerCommands } from "./commands.js"
-import { VoltStatus, hasVoltConfig, workspaceFolders } from "./state/status.js"
-import { VoltViews } from "./views/panel.js"
-import { VoltDecorations } from "./providers/decorations.js"
-import { VoltContentProvider, SCHEME } from "./providers/content.js"
-import { aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@volt/control"
+import { hasVoltConfig, workspaceFolders } from "./workspace.js"
+import { VoltViews } from "./panel.js"
+import { VoltDecorations } from "./decorations.js"
+import { VoltContentProvider, SCHEME } from "./content.js"
+import { VoltStatus, aggregate, probeVendors, isBridgeOnline, vendorPort, type VoltSeverity } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -71,9 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// vendor whose IDE is actually connected — `volt.twincatLive` / `volt.codesysLive` drive their
 	// command `enablement` (visible-but-disabled until the bridge is up). Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
-		const cfg = vscode.workspace.getConfiguration("volt.bridge")
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
-		const live = unbound ? await probeVendors(cfg.get<number>("twincatPort", 8555), cfg.get<number>("codesysPort", 8556)) : []
+		const live = unbound ? await probeVendors(vendorPort("twincat"), vendorPort("codesys")) : []
 		const isLive = (v: "twincat" | "codesys"): boolean => live.some((p) => p.vendor === v && isBridgeOnline(p.state))
 		void vscode.commands.executeCommand("setContext", "volt.twincatLive", isLive("twincat"))
 		void vscode.commands.executeCommand("setContext", "volt.codesysLive", isLive("codesys"))

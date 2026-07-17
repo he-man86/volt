@@ -7,20 +7,22 @@
  * see `isMutationInFlight`) and release it before returning, so the caller's outcome
  * dialogs never hold the lock.
  */
-import { spawnVolt, spawnVoltBuffer, spawnVoltProgress, type ProgressUpdate } from "./cli.js"
+import { spawnVolt, spawnVoltProgress, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { probeHealth, isBridgeOnline, readBridgePort, type HealthState } from "./health.js"
-import type { StatusJson } from "./types.js"
+import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
+// `status` (on ok) is the resulting drift state the CLI already computed — the caller adopts it into the
+// tracker, so a pull/push is ONE bridge call (the action) with no follow-up `volt status` (/refs).
 export type PullOutcome =
-  | { kind: "ok"; synced: string[] }
+  | { kind: "ok"; synced: string[]; status?: StatusJson }
   | { kind: "refused"; reason: string }
   | { kind: "conflict"; paths: string[] }
   | { kind: "error"; message: string }
 
 export type PushOutcome =
-  | { kind: "ok"; items: string[] }
+  | { kind: "ok"; items: string[]; status?: StatusJson }
   | { kind: "rejected"; reason: string }
   | { kind: "error"; message: string }
 
@@ -103,30 +105,15 @@ export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<Cl
   return runCli(workspaceRoot, ["build", "--workspace", workspaceRoot], opts.onProgress)
 }
 
-/** `volt init --port <port> [--force]`. Takes the mutation gate. */
-export function init(workspaceRoot: string, port: number, opts: { force?: boolean } = {}): Promise<CliResult> {
+/** `volt init --port <port> [--force]`. Takes the mutation gate; streams progress when `onProgress` is set
+ *  (parity with pull/push/build — the first pull inside init is the slow part on a large project). */
+export function init(workspaceRoot: string, port: number, opts: { force?: boolean } & ProgressOpt = {}): Promise<CliResult> {
   return withGate(workspaceRoot, () =>
-    spawnVolt(workspaceRoot, [
-      "init",
-      "--port",
-      String(port),
-      ...(opts.force ? ["--force"] : []),
-      "--workspace",
+    runCli(
       workspaceRoot,
-    ]),
+      ["init", "--port", String(port), ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot],
+      opts.onProgress,
+    ),
   )
 }
 
-/** `volt show <ref> <rel>` → raw bytes (for restoring a file). */
-export function showFile(
-  workspaceRoot: string,
-  ref: string,
-  rel: string,
-): Promise<{ stdout: Buffer; stderr: string; code: number }> {
-  return spawnVoltBuffer(workspaceRoot, ["show", ref, rel, "--workspace", workspaceRoot])
-}
-
-/** Cheap check: does this dir have an initialized `.git/volt` Volt workspace? (no bridge probe) */
-export function detect(workspaceRoot: string): boolean {
-  return readBridgePort(workspaceRoot) !== undefined
-}

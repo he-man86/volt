@@ -25,6 +25,8 @@ export class MockBridge implements Remote {
 	readonly port = 8555;
 	private items = new Map<string, MockItem>();
 	pushCalls: PushRequest[] = [];
+	refsCalls = 0;
+	fetchCalls = 0;
 	project = { platform: "twincat", projectName: "Proj" };
 	connected = true;
 
@@ -76,10 +78,12 @@ export class MockBridge implements Remote {
 	}
 
 	async getRefs(): Promise<RefsResponse> {
+		this.refsCalls++;
 		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), items: this.versions(), folders: this.folderMap() };
 	}
 
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
+		this.fetchCalls++;
 		const known = req.knownItems ?? {};
 		const changed = this.live()
 			.filter((it) => known[it.name] !== ver(it.sourceText))
@@ -100,16 +104,21 @@ export class MockBridge implements Remote {
 			conflicts: [{ name, reason }],
 			currentProjectVersion: this.projectVersion(),
 		});
+		// The project-level gate runs regardless of force (it IS the --force-with-lease check). Named "<project>"
+		// to mirror the real bridge (PushService), which push.ts maps to "pull first" / "lease stale".
 		if (req.expectedProjectVersion !== undefined && req.expectedProjectVersion !== this.projectVersion()) {
-			return reject("*", "project version mismatch");
+			return reject("<project>", "expected project version does not match current project version");
 		}
-		for (const op of req.ops) {
-			const cur = this.items.get(op.name);
-			if (op.op === "set") {
-				if (op.ifVersion === null && cur !== undefined) return reject(op.name, "already exists");
-				if (op.ifVersion !== null && (cur === undefined || ver(cur.sourceText) !== op.ifVersion)) return reject(op.name, "version mismatch");
-			} else if (cur === undefined || ver(cur.sourceText) !== op.ifVersion) {
-				return reject(op.name, "version mismatch"); // deleteItem
+		// force skips the per-item ifVersion checks (apply unconditionally); the project gate above still ran.
+		if (req.force !== true) {
+			for (const op of req.ops) {
+				const cur = this.items.get(op.name);
+				if (op.op === "set") {
+					if (op.ifVersion === null && cur !== undefined) return reject(op.name, "already exists");
+					if (op.ifVersion !== null && (cur === undefined || ver(cur.sourceText) !== op.ifVersion)) return reject(op.name, "version mismatch");
+				} else if (cur === undefined || ver(cur.sourceText) !== op.ifVersion) {
+					return reject(op.name, "version mismatch"); // deleteItem
+				}
 			}
 		}
 		for (const op of req.ops) {
@@ -125,7 +134,9 @@ export class MockBridge implements Remote {
 			if (op.toName !== undefined && op.toName !== op.name) this.items.delete(op.name);
 			this.items.set(finalName, { name: finalName, folder: finalFolder, sourceText: finalText });
 		}
-		return { accepted: true, newProjectVersion: this.projectVersion(), newItems: this.versions() };
+		const newFolders: Record<string, string> = {};
+		for (const it of this.live()) newFolders[it.name] = it.folder ?? ""; // keyset matches newItems (live only)
+		return { accepted: true, newProjectVersion: this.projectVersion(), newItems: this.versions(), newFolders };
 	}
 
 	async build(_req: BuildRequest): Promise<BuildResponse> {

@@ -1,8 +1,12 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
-import { buildUri } from "../providers/content.js"
-import { healthDisplay, isPouFile, readBridgePort, type StatusJson } from "@volt/control"
-import type { VoltStatus } from "../state/status.js"
+import { buildUri } from "./content.js"
+import { projectWorkspace, isPouFile, readBridgePort, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+
+// The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
+function viewOf(s: VoltStatus): WorkspaceView {
+	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, port: readBridgePort(s.workspaceRoot) })
+}
 
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
 //   IDE Sync    — incoming/outgoing drift, click-to-diff vs the last-synced baseline (was the SCM group)
@@ -90,8 +94,10 @@ export class VoltViews implements vscode.Disposable {
 
 	/** Re-render the sync + bridge views from all bound workspaces (called on any status change). */
 	update(statuses: ReadonlyMap<string, VoltStatus>): void {
-		this.sync.setRoots(syncRoots(statuses))
-		this.bridge.setRoots(bridgeRoots(statuses))
+		// Project each workspace ONCE (viewOf reads .git/volt/config.json); the sync + bridge views share it.
+		const views = [...statuses.values()].map(viewOf)
+		this.sync.setRoots(syncRoots(views))
+		this.bridge.setRoots(bridgeRoots(views))
 	}
 
 	refreshDiagnostics(): void {
@@ -104,20 +110,18 @@ export class VoltViews implements vscode.Disposable {
 }
 
 // ── IDE Sync ─────────────────────────────────────────────────────────────────
-function syncRoots(statuses: ReadonlyMap<string, VoltStatus>): VoltNode[] {
+function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	// Not initialized → return nothing so the viewsWelcome (Set Up Workspace / init buttons) renders.
-	if (statuses.size === 0) return []
+	if (views.length === 0) return []
 
 	const incoming: VoltNode[] = []
 	const outgoing: VoltNode[] = []
 	let paused = false
-	for (const s of statuses.values()) {
-		const st = s.cached
-		if (st === undefined) continue
+	for (const v of views) {
 		// While merging or on a project mismatch the IDE axis is paused — the bridge view explains why.
-		if (st.projectMismatch !== null || st.merging !== null) { paused = true; continue }
-		incoming.push(...itemNodes(st, s.workspaceRoot, "incoming"))
-		outgoing.push(...itemNodes(st, s.workspaceRoot, "outgoing"))
+		if (v.paused !== null) { paused = true; continue }
+		incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
+		outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
 	}
 	if (incoming.length === 0 && outgoing.length === 0) {
 		return paused
@@ -140,34 +144,28 @@ function group(dir: string, label: string, children: VoltNode[]): VoltNode {
 	}
 }
 
-function itemNodes(status: StatusJson, workspaceRoot: string, dir: "incoming" | "outgoing"): VoltNode[] {
-	const cs = dir === "incoming" ? status.incoming : status.outgoing
-	const names = [...cs.added, ...cs.modified, ...cs.removed]
-	return names.map((name) => {
-		// pathByName gives `src/…`; src is the tree root, so the on-disk path drops it.
-		const rawPath = status.pathByName[name] ?? name
-		const treePath = rawPath.startsWith("src/") ? rawPath.slice(4) : rawPath
-		const onDisk = vscode.Uri.file(join(workspaceRoot, "src", treePath))
-		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
-		// Both diff against the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
-		//   incoming → VOLTIDE ↔ BRIDGE    (the live IDE — what a pull brings in)
-		//   outgoing → VOLTIDE ↔ WORKSPACE (your working file — reflects uncommitted edits)
-		const rightRef = dir === "incoming" ? "BRIDGE" : "WORKSPACE"
-		const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
-		return {
-			key: `${dir}:${workspaceRoot}:${name}`,
-			label: name,
-			description: sub,
-			resourceUri: onDisk,
-			tooltip: `${verb} ${sub.toLowerCase()}: ${name}`,
-			contextValue: `volt:${dir}`,
-			command: {
-				command: "vscode.diff",
-				title: "Diff",
-				arguments: [buildUri(workspaceRoot, "VOLTIDE", treePath), buildUri(workspaceRoot, rightRef, treePath), `${name} — ${verb}`],
-			},
-		}
-	})
+// The item's name/sub/relPath come from the shared projection; only the VS Code widget + diff command
+// (the editor API) are built here.
+function itemNode(it: DriftItem, workspaceRoot: string, dir: "incoming" | "outgoing"): VoltNode {
+	const onDisk = vscode.Uri.file(join(workspaceRoot, "src", it.relPath))
+	// Both diff against the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
+	//   incoming → VOLTIDE ↔ BRIDGE    (the live IDE — what a pull brings in)
+	//   outgoing → VOLTIDE ↔ WORKSPACE (your working file — reflects uncommitted edits)
+	const rightRef = dir === "incoming" ? "BRIDGE" : "WORKSPACE"
+	const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
+	return {
+		key: `${dir}:${workspaceRoot}:${it.name}`,
+		label: it.name,
+		description: it.sub,
+		resourceUri: onDisk,
+		tooltip: `${verb} ${it.sub.toLowerCase()}: ${it.name}`,
+		contextValue: `volt:${dir}`,
+		command: {
+			command: "vscode.diff",
+			title: "Diff",
+			arguments: [buildUri(workspaceRoot, "VOLTIDE", it.relPath), buildUri(workspaceRoot, rightRef, it.relPath), `${it.name} — ${verb}`],
+		},
+	}
 }
 
 // ── Diagnostics summary (jumps to the native Problems panel) ──────────────────
@@ -216,21 +214,20 @@ function diagnosticRoots(): VoltNode[] {
 }
 
 // ── Bridge status ─────────────────────────────────────────────────────────────
-function bridgeRoots(statuses: ReadonlyMap<string, VoltStatus>): VoltNode[] {
+function bridgeRoots(views: WorkspaceView[]): VoltNode[] {
 	const nodes: VoltNode[] = []
-	for (const s of statuses.values()) {
-		const hd = healthDisplay(s.health)
+	for (const v of views) {
+		const hd = v.health
 		const icon = hd.tone === "ok" ? "pass" : hd.tone === "error" ? "error" : "warning"
-		nodes.push({ key: `bridge:${s.workspaceRoot}`, label: hd.label, icon: new vscode.ThemeIcon(icon), tooltip: s.workspaceRoot })
+		nodes.push({ key: `bridge:${v.workspaceRoot}`, label: hd.label, icon: new vscode.ThemeIcon(icon), tooltip: v.workspaceRoot })
 
-		const port = readBridgePort(s.workspaceRoot)
-		if (port !== undefined) nodes.push({ key: `port:${s.workspaceRoot}`, label: `Port ${port}`, icon: new vscode.ThemeIcon("plug") })
+		if (v.port !== undefined) nodes.push({ key: `port:${v.workspaceRoot}`, label: `Port ${v.port}`, icon: new vscode.ThemeIcon("plug") })
 
 		// Bridge lifecycle is the connector's job (tray) — the view only reports; it never starts bridges.
 		if (!hd.online)
-			nodes.push({ key: `offline:${s.workspaceRoot}`, label: "Offline — start it from the Volt Connector (tray)", icon: new vscode.ThemeIcon("info") })
-		if (s.cached?.projectMismatch != null)
-			nodes.push({ key: `rename:${s.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
+			nodes.push({ key: `offline:${v.workspaceRoot}`, label: "Offline — start it from the Volt Connector (tray)", icon: new vscode.ThemeIcon("info") })
+		if (v.paused === "mismatch")
+			nodes.push({ key: `rename:${v.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
 	}
 	return nodes.length > 0 ? nodes : [{ key: "bridge:none", label: "No workspace bound", icon: new vscode.ThemeIcon("circle-slash") }]
 }

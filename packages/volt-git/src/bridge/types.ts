@@ -152,6 +152,9 @@ export type PushOp = z.infer<typeof PushOpSchema>;
 export const PushRequestSchema = z.object({
 	ops: z.array(PushOpSchema),
 	expectedProjectVersion: z.string().optional(),
+	// Force: apply unconditionally — the bridge skips all optimistic-concurrency checks. Lets `push --force`
+	// clobber the IDE in ONE call (no pre-push /refs to read current versions to guard against).
+	force: z.boolean().optional(),
 });
 export type PushRequest = z.infer<typeof PushRequestSchema>;
 
@@ -171,6 +174,10 @@ export const PushAcceptedSchema = z.object({
 	accepted: z.literal(true),
 	newProjectVersion: z.string(),
 	newItems: z.record(z.string(), z.string()),
+	// Full name → folder for the post-apply state, so push refreshes the sidecar without a follow-up /refs.
+	// REQUIRED (no default): the bridge always sends it; a missing value means a bridge/CLI mismatch we want
+	// to surface as a loud parse error, not silently blank the folder map.
+	newFolders: z.record(z.string(), z.string()),
 });
 export type PushAccepted = z.infer<typeof PushAcceptedSchema>;
 

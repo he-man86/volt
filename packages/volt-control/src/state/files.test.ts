@@ -2,7 +2,7 @@
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isPouFile, readStateMtime } from "./workspace";
+import { isPouFile, readStateMtime } from "./files";
 
 describe("isPouFile", () => {
 	test("matches the kind-named source extensions", () => {

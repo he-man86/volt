@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { aggregate, healthDisplay, type WorkspaceState } from "./display.js"
-import type { HealthState } from "./health.js"
+import type { HealthState } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 
 const empty = { added: [], modified: [], removed: [] }

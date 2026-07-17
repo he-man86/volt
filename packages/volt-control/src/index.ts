@@ -1,19 +1,27 @@
 /**
- * @volt/control — the UI-agnostic core that drives the `volt` CLI / bridge.
- *
- * No UI-framework code: it spawns the CLI, parses `--json` output into typed outcomes, probes bridge
- * health, collects diagnostics, and owns the desktop IPC channel names. Rendered by both frontends —
- * `volt-vscode` (VS Code views) and `volt-desktop` (the Electron shell wrapping installed opencode).
+ * @volt/control — the UI-agnostic core between the volt CLI/bridge and the two frontends
+ * (`volt-vscode`, `volt-desktop`). No UI-framework code. Three layers:
+ *   bridge/ — the CLI + health surface (the only Node/process/HTTP code)
+ *   state/  — the reactive per-workspace tracker (framework-agnostic)
+ *   view/   — Node-free presentation models both shells render
  */
-export * from "./types.js" // ChangeSet, ProjectMismatch, StatusJson, changeCount
-export * from "./gate.js" // isMutationInFlight, withGate
-export * from "./workspace.js" // isPouFile, readStateMtime
-export * from "./cli.js" // setBundledCli, cliScript, spawnVolt, spawnVoltBuffer
-export * from "./health.js" // BridgeHealth, HealthState, isBridgeOnline, readBridgePort, readExtensionAccess, probeHealth, probeVendors
-export * from "./display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState (Node-free; also /display subpath)
-export * from "./actions.js" // fetchStatus, pull, push, build, init, showFile, detect + outcome types
-export * from "./events.js" // subscribeChanges (polls /refs to detect IDE edits)
-export * from "./ipc.js" // registerVoltIpcHandlers (desktop main process) + IpcMainLike
-export * from "./emitter.js" // Emitter, Disposable — framework-agnostic (vscode-EventEmitter-shaped)
-export * from "./status-tracker.js" // VoltStatus — the reactive per-workspace IDE-changes state (extension + desktop share it)
-export * from "./diagnostics.js" // collectDiagnostics — headless LSP-diagnostics collector (desktop's Diagnostics section)
+
+// bridge/ — talking to the volt CLI + the bridge's /health
+export * from "./bridge/cli.js" // setBundledCli, cliScript, spawnVolt, spawnVoltProgress, ProgressUpdate
+export * from "./bridge/gate.js" // isMutationInFlight, withGate
+export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, readBridgePort, readExtensionAccess, probeHealth, probeVendors, BRIDGE_PORT, vendorPort, vendorForPort
+export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init + PullOutcome/PushOutcome
+
+// state/ — the reactive per-workspace tracker
+export * from "./state/status.js" // VoltStatus, isIdeChangeEdge
+export * from "./state/emitter.js" // Emitter, Disposable (vscode-EventEmitter-shaped)
+export * from "./state/files.js" // isPouFile, readStateMtime
+
+// view/ — Node-free presentation models
+export * from "./view/types.js" // StatusJson, ChangeSet, ProjectMismatch, changeCount
+export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState
+export * from "./view/workspace.js" // projectWorkspace, WorkspaceView, WorkspaceInput, DriftItem
+export * from "./view/outcomes.js" // describePull, describePush, OutcomeView, OutcomeAction, OutcomeActionTag
+
+// headless LSP-diagnostics collector (desktop's Diagnostics section)
+export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics

@@ -24,6 +24,23 @@ export function isBridgeOnline(h: HealthState): boolean {
   return h.kind === "connected" || h.kind === "degraded"
 }
 
+export type Vendor = "codesys" | "twincat"
+
+/** The one fixed bridge port per vendor (CLAUDE.md: CODESYS 8556, TwinCAT/Beckhoff 8555). One source, no
+ *  per-user override — both shells and onboarding read these instead of duplicating the literals. */
+export const BRIDGE_PORT: Record<Vendor, number> = { codesys: 8556, twincat: 8555 }
+
+export function vendorPort(vendor: Vendor): number {
+  return BRIDGE_PORT[vendor]
+}
+
+/** Inverse: which vendor a bound workspace's port belongs to (the TwinCAT bridge is 8555, else CODESYS).
+ *  Takes a definite port — call it only for a bound workspace (readBridgePort !== undefined); an undefined
+ *  port means the caller ran on an unbound workspace, which is the bug to fix, not to default away. */
+export function vendorForPort(port: number): Vendor {
+  return port === BRIDGE_PORT.twincat ? "twincat" : "codesys"
+}
+
 export function readBridgePort(workspaceRoot: string): number | undefined {
   try {
     const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
@@ -90,7 +107,7 @@ export async function probeHealth(port: number, timeoutMs = 2_000): Promise<Heal
 }
 
 // healthLabel now lives in display.ts (Node-free, so the sandboxed renderer can import it too);
-// it reaches the package barrel via index.ts's `export * from "./display.js"`.
+// it reaches the package barrel via index.ts's `export * from "./view/display.js"`.
 
 export type VendorProbe = { vendor: "twincat" | "codesys"; port: number; state: HealthState }
 

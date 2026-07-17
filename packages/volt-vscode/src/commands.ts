@@ -1,7 +1,11 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { pull, push, build, init as voltInit, readBridgePort, type ProgressUpdate } from "@volt/control"
-import { VoltStatus } from "./state/status.js"
+import {
+	VoltStatus,
+	pull, push, build, init as voltInit, readBridgePort, vendorPort,
+	describePull, describePush,
+	type ProgressUpdate, type OutcomeView, type OutcomeActionTag, type PullOutcome, type PushOutcome,
+} from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
 const output = (() => {
@@ -37,6 +41,16 @@ async function refreshFor(statuses: Map<string, VoltStatus>, workspaceRoot: stri
 	if (s !== undefined) await s.refresh(true)
 }
 
+// After a pull/push: adopt the status the action already returned (ONE bridge call, no follow-up `volt status`
+// /refs); only re-fetch when it didn't succeed (state uncertain). ok-without-status (nothing to push) is a no-op.
+async function settleFor(statuses: Map<string, VoltStatus>, workspaceRoot: string, outcome: PullOutcome | PushOutcome): Promise<void> {
+	const s = statuses.get(workspaceRoot)
+	if (s === undefined) return
+	if (outcome.kind === "ok") {
+		if (outcome.status) s.adopt(outcome.status)
+	} else await s.refresh(true)
+}
+
 /** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root).
  *  Tolerates an already-src/-prefixed rel so we never produce src/src/…. */
 function onDiskPath(workspaceRoot: string, rel: string): string {
@@ -61,6 +75,23 @@ function progressBridge(progress: VsProgress): (p: ProgressUpdate) => void {
 }
 
 // ── pull / push with outcome-aware UX ───────────────────────────────────
+// The outcome → actions decision lives once in volt-control (describePull/describePush). Here we only render
+// that neutral descriptor as native VS Code dialogs and dispatch the chosen action tag to its handler.
+async function presentOutcome(view: OutcomeView, run: (tag: OutcomeActionTag) => Promise<void>): Promise<void> {
+	if (view.actions.length === 0) {
+		if (view.tone === "error") vscode.window.showErrorMessage(view.message)
+		else vscode.window.showInformationMessage(view.message)
+		return
+	}
+	const labels = view.actions.map((a) => a.label)
+	const picked =
+		view.tone === "error"
+			? await vscode.window.showErrorMessage(view.message, ...labels)
+			: await vscode.window.showWarningMessage(view.message, ...labels)
+	const action = view.actions.find((a) => a.label === picked)
+	if (action !== undefined) await run(action.tag)
+}
+
 async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
 	// volt-control.pull takes the gate + parses the outcome; the spinner wraps only
 	// the CLI run, and the outcome dialogs run after (so they never hold the gate).
@@ -68,25 +99,12 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 		{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
 		(progress) => pull(workspaceRoot, { force, onProgress: progressBridge(progress) }),
 	)
-	await refreshFor(statuses, workspaceRoot)
-	if (outcome.kind === "error") {
-		vscode.window.showErrorMessage(`volt pull failed: ${outcome.message}`)
-		logln(`pull: ${outcome.message}`)
-		return
-	}
-	if (outcome.kind === "ok") {
-		vscode.window.showInformationMessage(`Pulled ${outcome.synced.length} file(s) from the IDE.`)
-	} else if (outcome.kind === "refused") {
-		const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Force Pull")
-		if (pick === "Force Pull") await confirmForcePull(statuses, workspaceRoot)
-	} else {
-		// conflict — a standard `git merge` state; the editor's built-in Git tools resolve it.
-		const pick = await vscode.window.showWarningMessage(
-			`Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve them with your editor's merge tools, commit, then Pull again to finish.`,
-			"Open Conflicts",
-		)
-		if (pick === "Open Conflicts") await openConflicts(workspaceRoot, outcome.paths)
-	}
+	await settleFor(statuses, workspaceRoot, outcome)
+	if (outcome.kind === "error") logln(`pull: ${outcome.message}`)
+	await presentOutcome(describePull(outcome), async (tag) => {
+		if (tag === "open-conflicts" && outcome.kind === "conflict") await openConflicts(workspaceRoot, outcome.paths)
+		else if (tag === "force-pull") await confirmForcePull(statuses, workspaceRoot)
+	})
 }
 
 async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
@@ -97,20 +115,12 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 		{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
 		(progress) => push(workspaceRoot, { force, onProgress: progressBridge(progress) }),
 	)
-	await refreshFor(statuses, workspaceRoot)
-	if (outcome.kind === "error") {
-		vscode.window.showErrorMessage(`volt push failed: ${outcome.message}`)
-		logln(`push: ${outcome.message}`)
-		return
-	}
-	if (outcome.kind === "ok") {
-		vscode.window.showInformationMessage(`Pushed ${outcome.items.length} item(s) to the IDE.`)
-	} else {
-		// rejected (drift / policy / merge-in-progress / bridge error) — the reason is actionable.
-		const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Pull First", "Force Push")
-		if (pick === "Pull First") await doPull(statuses, workspaceRoot, false)
-		else if (pick === "Force Push") await confirmForcePush(statuses, workspaceRoot)
-	}
+	await settleFor(statuses, workspaceRoot, outcome)
+	if (outcome.kind === "error") logln(`push: ${outcome.message}`)
+	await presentOutcome(describePush(outcome), async (tag) => {
+		if (tag === "pull-first") await doPull(statuses, workspaceRoot, false)
+		else if (tag === "force-push") await confirmForcePush(statuses, workspaceRoot)
+	})
 }
 
 async function confirmForcePull(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
@@ -156,13 +166,6 @@ async function initTarget(): Promise<string | undefined> {
 	return pick?.uri.fsPath
 }
 
-/** Bridge port for a fresh init, from the per-vendor setting (defaults 8555/8556). */
-function vendorPort(vendor: "twincat" | "codesys"): number {
-	const cfg = vscode.workspace.getConfiguration("volt.bridge")
-	return vendor === "codesys" ? cfg.get<number>("codesysPort", 8556) : cfg.get<number>("twincatPort", 8555)
-}
-
-
 async function doInit(
 	statuses: Map<string, VoltStatus>,
 	ensureWorkspace: (folder: string) => void,
@@ -172,7 +175,7 @@ async function doInit(
 ): Promise<void> {
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
-		() => voltInit(workspaceRoot, port, { force }),
+		(progress) => voltInit(workspaceRoot, port, { force, onProgress: progressBridge(progress) }),
 	)
 	if (r.code !== 0) {
 		// init needs a reachable bridge with a project loaded. Bridge lifecycle is the connector's job (tray),

@@ -195,9 +195,63 @@ describe("volt-git sync", () => {
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("pull");
-		// --force adopts (pushes over the drift)
+		// --force adopts (pushes over the drift) in ONE /push call — no pre-push /refs — and returns the status.
+		bridge.refsCalls = 0;
+		const before = bridge.pushCalls.length;
 		const r2 = await push(root, bridge, { force: true });
 		expect(r2.kind).toBe("ok");
+		expect(bridge.refsCalls).toBe(0);
+		expect(bridge.pushCalls.length - before).toBe(1);
+		if (r2.kind === "ok") expect(r2.status).toBeDefined();
+	});
+
+	test("8b. one bridge call per action: pull → one /fetch (no /refs); normal push → one /push (no /refs)", async () => {
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		// A real pull (IDE drifted) issues exactly one /fetch and no /refs — the single response carries everything.
+		bridge.set("A.fb", "a1\nide\n");
+		bridge.refsCalls = 0;
+		bridge.fetchCalls = 0;
+		const p = await pull(root, bridge);
+		expect(p.kind).toBe("ok");
+		expect(bridge.fetchCalls).toBe(1);
+		expect(bridge.refsCalls).toBe(0);
+
+		// A normal push issues exactly one /push and no /refs (before or after) — the receipt is the new baseline.
+		writeSrc(root, "A.fb", "a1\nide\nmine\n");
+		commitAll(root, "edit A");
+		bridge.refsCalls = 0;
+		const before = bridge.pushCalls.length;
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("ok");
+		expect(bridge.pushCalls.length - before).toBe(1);
+		expect(bridge.refsCalls).toBe(0);
+	});
+
+	test("8c. --dry-run pull takes the SAME /fetch path as a real pull (one consistent path, no /refs)", async () => {
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		bridge.set("A.fb", "a1\nide\n");
+		bridge.refsCalls = 0;
+		bridge.fetchCalls = 0;
+		const r = await pull(root, bridge, { dryRun: true });
+		expect(r.kind).toBe("ok");
+		if (r.kind === "ok") expect(r.synced).toContain("A.fb"); // previews the incoming change
+		expect(bridge.fetchCalls).toBe(1);
+		expect(bridge.refsCalls).toBe(0);
+	});
+
+	test("8d. pull / push on an uninitialized workspace fail cleanly (run volt init), not a raw ENOENT", async () => {
+		const fresh = mkdtempSync(join(tmpdir(), "voltg-uninit-"));
+		try {
+			const bridge = new MockBridge([{ name: "A.fb", sourceText: "a1\n" }]);
+			const p = await pull(fresh, bridge);
+			expect(p.kind).toBe("refused");
+			if (p.kind === "refused") expect(p.reason.toLowerCase()).toContain("init");
+			const q = await push(fresh, bridge);
+			expect(q.kind).toBe("rejected");
+			if (q.kind === "rejected") expect(q.reason.toLowerCase()).toContain("init");
+		} finally {
+			rmSync(fresh, { recursive: true, force: true });
+		}
 	});
 
 	test("9. status reports incoming and outgoing", async () => {

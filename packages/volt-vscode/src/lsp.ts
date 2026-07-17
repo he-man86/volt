@@ -1,13 +1,30 @@
 import * as vscode from "vscode"
 import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
-import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node"
+import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind, DidChangeConfigurationNotification } from "vscode-languageclient/node"
 
 // Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.struct/.enum/.union/
 // .alias/.gvl) carrying Structured Text. A graphical (VG) body is detected by content (a leading
 // NETWORK token) and highlighted via a TextMate injection; the server routes per-body. Diagnostics
 // flow to the host's native Problems panel automatically via the language client.
 const LANGUAGE_IDS = ["structured-text"]
+
+// The LSP's real LIVE config surface (see volt-lsp-iec/src/analysis/config.ts): dead-code + the opt-in style
+// lints. Vendor is NOT here — the server takes it only from its launch CLI flag (a vendor change needs a
+// restart), so sending it would be dead wiring. Compiler-parity checks always run; nothing here maps to the
+// 80 diagnostic codes.
+function analysisOptions(): { diagnoseDeadCode: boolean; lints: Record<string, boolean> } {
+	const c = vscode.workspace.getConfiguration("volt.iec")
+	return {
+		diagnoseDeadCode: c.get<boolean>("diagnostics.deadCode", false),
+		lints: {
+			shadowing: c.get<boolean>("lints.shadowing", false),
+			unknownAttribute: c.get<boolean>("lints.unknownAttribute", false),
+			unknownType: c.get<boolean>("lints.unknownType", false),
+			inoutOwnAccess: c.get<boolean>("lints.inoutOwnAccess", true),
+		},
+	}
+}
 
 export async function startLsp(context: vscode.ExtensionContext): Promise<vscode.Disposable[]> {
 	// Read the manifest's declared namespace `volt.iec.*`. Was `volt.lsp.*` (never existed); the keys
@@ -34,22 +51,11 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: LANGUAGE_IDS.map((id) => ({ language: id })),
-		synchronize: {
-			// Source kinds + the reference files (.library/.device/.task) so the server re-indexes after a
-			// `volt pull` without a restart (open buffers still win over disk).
-			fileEvents: vscode.workspace.createFileSystemWatcher(
-				"**/*.{fb,prg,fun,itf,struct,enum,union,alias,gvl,library,device,task}",
-			),
-		},
-		// Forward the declared settings the server may consume (the `diagnostics.*` subtree resolves
-		// to a nested object). Was reading nonexistent `volt.lsp.*` keys.
-		initializationOptions: {
-			vendor,
-			trace: cfg.get("trace"),
-			diagnostics: cfg.get("diagnostics"),
-			hover: cfg.get("hover"),
-			completion: cfg.get("completion"),
-		},
+		// No file-watcher glob here: the server owns its file interest. On `initialized` it dynamically
+		// registers didChangeWatchedFiles watchers built from its authoritative SOURCE_EXTENSIONS list (see
+		// volt-lsp-iec/src/server/server.ts), so the client never enumerates PLC kinds — add a kind in the
+		// LSP and both the crawl and the watchers follow, with nothing to change here.
+		initializationOptions: analysisOptions(),
 	}
 
 	const client = new LanguageClient("volt-lsp", "Volt LSP", serverOptions, clientOptions)
@@ -57,6 +63,12 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 
 	return [
 		client,
+		// Push the live-togglable config (dead-code + lints) whenever a `volt.iec.*` setting changes, so a
+		// toggle takes effect without a restart. Vendor is fixed at launch (a change needs Volt LSP: Restart).
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration("volt.iec"))
+				void client.sendNotification(DidChangeConfigurationNotification.type, { settings: analysisOptions() })
+		}),
 		vscode.commands.registerCommand("volt.lsp.restart", async () => {
 			await client.restart()
 			vscode.window.showInformationMessage("Volt LSP restarted")
@@ -73,7 +85,7 @@ function resolveServerModule(context: vscode.ExtensionContext, override: string)
 	const candidates = [
 		override, // volt.iec.server
 		join(context.extensionPath, "dist", "lsp-server.js"), // packaged (the `bun run build` output)
-		join(context.extensionPath, "node_modules", "@opencode-ai", "volt-lsp-iec", "dist", "src", "bin.js"),
+		join(context.extensionPath, "node_modules", "@volt", "lsp-iec", "dist", "src", "bin.js"),
 		join(dirname(context.extensionPath), "volt-lsp-iec", "dist", "src", "bin.js"), // dev workspace
 	]
 	return candidates.find((p) => p.length > 0 && existsSync(p))

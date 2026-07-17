@@ -43,7 +43,7 @@ public static class PushService
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(currentVersions);
-        var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, currentVersions, currentProjectVersion);
+        var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
         {
             VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
@@ -84,23 +84,24 @@ public static class PushService
         }
         var receiptVersions = new Dictionary<string, string>();
         var receiptFullVersions = new Dictionary<string, string>();
+        var receiptFolders = new Dictionary<string, string>();  // full name → folder, so the client refreshes its sidecar without a follow-up /refs
         foreach (var it in ide.WalkItems())
         {
             if (currentVersions.TryGetValue(it.Name, out var preVersion) && !operatedNames.Contains(it.Name))
             {
                 receiptVersions[it.Name] = preVersion;
-                if (currentFullNames.TryGetValue(it.Name, out var fn)) receiptFullVersions[fn] = preVersion;
+                if (currentFullNames.TryGetValue(it.Name, out var fn)) { receiptFullVersions[fn] = preVersion; receiptFolders[fn] = it.Folder; }
                 continue;
             }
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             receiptVersions[it.Name] = version;
-            if (mat != null) receiptFullVersions[mat.FullName] = version;
+            if (mat != null) { receiptFullVersions[mat.FullName] = version; receiptFolders[mat.FullName] = it.Folder; }
         }
 
         VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receiptFullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
+        return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions, receiptFolders);
     }
 
     /// <summary>The write receipt for the accepted-push log line: each applied op grouped by what it did to the
@@ -122,11 +123,12 @@ public static class PushService
     }
 
     private static List<PushConflict> DetectConflicts(
-        List<PushOp> ops, string? expectedProjectVersion,
+        List<PushOp> ops, string? expectedProjectVersion, bool force,
         Dictionary<string, string> currentVersions, string currentProjectVersion)
     {
         var conflicts = new List<PushConflict>();
 
+        // The project-level gate runs regardless of force — it IS the --force-with-lease check.
         if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
             conflicts.Add(new PushConflict
             {
@@ -134,6 +136,9 @@ public static class PushService
                 CurrentVersion = currentProjectVersion,
                 Reason = "expected project version does not match current project version",
             });
+
+        // Force skips the per-item ifVersion checks entirely (apply unconditionally); the project gate above still ran.
+        if (force) return conflicts;
 
         // Forward simulation: name → version, mutated per op so in-batch dependencies validate. Every op
         // is a SetItemOp or a DeleteItemOp.
