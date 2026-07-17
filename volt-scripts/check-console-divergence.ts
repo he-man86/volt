@@ -74,6 +74,7 @@ const ALLOW = new Set([
   "app/src/component/go-referral.tsx", // the invite link — the most-shared URL the product has — was /go?ref=… (opencode's Go marketing page, now a redirect); → /?ref=… . middleware.ts captures ?ref on every path, so no route was needed
   "app/src/routes/workspace/[id]/usage/graph-section.tsx", // chart legend hardcoded " (go)" — opencode's tier name on the page that itemises what a Volt customer pays for (its sibling suffix goes through i18n; this one didn't, so the overlay couldn't reach it)
   "app/src/routes/workspace/[id]/billing/billing-section.tsx", // "contact us" mailto:help@anoma.ly (opencode's support inbox, live on Volt's Billing tab) → hello@volt-ai.dev
+  "core/src/billing.ts", // checkout default-applied opencode's 50%-off-first-month coupon to EVERY new subscriber (no opt-in, no campaign) — Volt sells the Gateway flat at €24/mo, so the default is removed; the opt-in campaign coupons stay
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
   "mail/emails/templates/InviteEmail.tsx", // invite email body: opencode.ai URLs + "OpenCode" copy → Volt

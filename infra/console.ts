@@ -115,12 +115,18 @@ export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint",
 const zenLiteProduct = new stripe.Product("ZenLite", {
   name: "Volt Gateway", // the Volt gateway subscription (opencode's "Go"/lite plan)
 })
-const zenLiteCouponFirstMonth50 = new stripe.Coupon("ZenLiteCouponFirstMonth50", {
-  name: "First month 50% off",
-  percentOff: 50,
-  appliesTos: [zenLiteProduct.id],
-  duration: "once",
-})
+// VOLT: opencode's "First month 50% off" coupon is GONE — the resource is deleted, so the deploy removes it from
+// Stripe and it never appears in the dashboard. Volt sells the Gateway at a flat €24/month.
+//
+// It was not a campaign: core/src/billing.ts handed it to EVERY new subscriber by default, with no opt-in, so half
+// of every first month was given away silently. That default is removed there too (a marked edit).
+//
+// The linkable property below survives as a DEAD SENTINEL, and that is deliberate. Vendored code still reads it:
+// core/src/lite.ts exports it, and app/src/routes/stripe/webhook.ts:164 compares it against the coupon carried in
+// the checkout session's metadata (webhook.ts:114). With no discount that metadata value is `undefined` — so if
+// this property were simply deleted, the comparison would become `undefined === undefined`, fire, and mark
+// GO1MONTH50 redeemed for subscribers who never received it. A sentinel that matches no coupon id keeps that
+// comparison false forever, and costs nothing.
 const zenLiteCouponFirstMonth100 = new stripe.Coupon("ZenLiteCouponFirstMonth100", {
   name: "First month 100% off",
   percentOff: 100,
@@ -162,7 +168,7 @@ const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
     product: zenLiteProduct.id,
     price: zenLitePrice.id,
     priceInr: 92900,
-    firstMonth50Coupon: zenLiteCouponFirstMonth50.id,
+    firstMonth50Coupon: "volt-no-first-month-discount", // dead sentinel — see above; matches no coupon id, applied by nothing
     firstMonth100Coupon: zenLiteCouponFirstMonth100.id,
     threeMonths100Coupon: zenLiteCouponThreeMonths100.id,
     sixMonths100Coupon: zenLiteCouponSixMonths100.id,
