@@ -108,7 +108,7 @@
   let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [] }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
-  let initMsg = null // live "volt init" progress text while binding a workspace
+  let busy = null // live progress text for the in-flight action (pull/push/build/init), else null
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
@@ -147,19 +147,21 @@
         icoBtn("i-build", "Build", "doBuild()") +
         icoBtn("i-refresh", "Refresh", "doRefresh()")
       : ""
+    // One live-progress note, shown above the sync body during any action (formatProgress feeds `busy`).
+    const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized)
-      syncBody = initMsg
-        ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(initMsg)}</div>`
+      syncBody = busy
+        ? busyNote
         : `<div class="note">Not a Volt workspace yet — bind this project to the live IDE:</div>
         <div class="init-row">
           <button class="btn primary" onclick="doInit('codesys')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for CODESYS</button>
           <button class="btn" onclick="doInit('twincat')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for TwinCAT</button>
         </div>`
-    else if (s.paused) syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
-    else if (n === 0) syncBody = `<div class="note">✓ In sync with the IDE.</div>`
-    else syncBody = grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
+    else if (s.paused) syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
+    else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>`
+    else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
 
     // 2. Diagnostics
     const diagActs = s.bound ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
@@ -201,16 +203,16 @@
     render()
   }
 
-  async function doPull() { try { await volt.pull() } catch {} }
-  async function doPush() { try { await volt.push() } catch {} }
-  async function doBuild() { try { await volt.build() } catch {} }
+  async function doPull() { busy = "Pulling…"; render(); try { await volt.pull() } catch {} }
+  async function doPush() { busy = "Pushing…"; render(); try { await volt.push() } catch {} }
+  async function doBuild() { busy = "Building…"; render(); try { await volt.build() } catch {} }
   function doRefresh() { volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
-  async function doInit(vendor) { initMsg = "Initializing…"; render(); try { await volt.initWorkspace(vendor) } catch {} finally { initMsg = null; render() } }
+  async function doInit(vendor) { busy = "Initializing…"; render(); try { await volt.initWorkspace(vendor) } catch {} }
 
-  // Live progress frames from `volt init`: show the phase, else a percentage, else a generic note.
-  volt.onInitProgress((p) => {
-    initMsg = p ? (p.phase || (p.total ? Math.floor((p.done / p.total) * 100) + "%" : "Working…")) : null
+  // Live progress from any action (main sends formatProgress's {pct,message}); null clears the note.
+  volt.onProgress((p) => {
+    busy = p ? ((p.message ?? "Working…") + (p.pct != null ? ` ${p.pct}%` : "")) : null
     render()
   })
   volt.onStatus((s) => { snap = s; render() })

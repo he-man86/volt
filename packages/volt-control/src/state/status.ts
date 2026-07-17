@@ -10,6 +10,7 @@ import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
 import { probeHealth, readBridgePort, type HealthState } from "../bridge/health.js";
+import type { PullOutcome, PushOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
 
@@ -17,6 +18,15 @@ import { isPouFile, readStateMtime } from "./files.js";
 // edit-detection latency close to the old /refs poll without a full-project scan (which is what /refs was).
 const HEALTH_MS = 4_000;
 const MTIME_MS = 3_000;
+
+/** After a pull/push: adopt the resulting status the action already returned (ONE bridge call, no follow-up
+ *  `volt status`); only re-fetch when it didn't succeed (state uncertain). ok-without-status (e.g. nothing to
+ *  push) leaves the view unchanged. The ONE settle rule — both shells call this, so they can't diverge. */
+export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutcome): Promise<void> {
+	if (out.kind === "ok") {
+		if (out.status) st.adopt(out.status);
+	} else await st.refresh(true);
+}
 
 /** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a project
  *  switch. `seen` gates the very first read (start()'s explicit refresh covers the initial state). Pure so

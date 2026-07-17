@@ -3,8 +3,8 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, init as voltInit, readBridgePort, vendorPort,
-	describePull, describePush,
-	type ProgressUpdate, type OutcomeView, type OutcomeActionTag, type PullOutcome, type PushOutcome,
+	describePull, describePush, presentOutcome, settleOutcome, formatProgress, FORCE_PULL, FORCE_PUSH,
+	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -41,14 +41,10 @@ async function refreshFor(statuses: Map<string, VoltStatus>, workspaceRoot: stri
 	if (s !== undefined) await s.refresh(true)
 }
 
-// After a pull/push: adopt the status the action already returned (ONE bridge call, no follow-up `volt status`
-// /refs); only re-fetch when it didn't succeed (state uncertain). ok-without-status (nothing to push) is a no-op.
+// The adopt-on-ok / refresh-on-fail rule lives once in @volt/control (settleOutcome); resolve the tracker here.
 async function settleFor(statuses: Map<string, VoltStatus>, workspaceRoot: string, outcome: PullOutcome | PushOutcome): Promise<void> {
 	const s = statuses.get(workspaceRoot)
-	if (s === undefined) return
-	if (outcome.kind === "ok") {
-		if (outcome.status) s.adopt(outcome.status)
-	} else await s.refresh(true)
+	if (s !== undefined) await settleOutcome(s, outcome)
 }
 
 /** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root).
@@ -58,38 +54,41 @@ function onDiskPath(workspaceRoot: string, rel: string): string {
 	return join(workspaceRoot, "src", treePath)
 }
 
-// Map the CLI's streamed progress frames to VS Code's notification bar (increment is a delta 0-100).
+// Map the CLI's streamed progress frames to VS Code's notification bar. The frame→% math lives once in
+// @volt/control (formatProgress); here we only turn the % into a delta increment for withProgress.
 type VsProgress = vscode.Progress<{ increment?: number; message?: string }>
 function progressBridge(progress: VsProgress): (p: ProgressUpdate) => void {
 	let lastPct = 0
 	return (p) => {
-		const pct = p.total && p.total > 0 ? Math.floor((p.done / p.total) * 100) : undefined
-		const message = p.phase ?? (pct !== undefined ? `${p.done}/${p.total}` : undefined)
+		const { pct, message } = formatProgress(p)
 		if (pct !== undefined) {
 			progress.report({ increment: Math.max(0, pct - lastPct), message })
 			lastPct = pct
-		} else {
-			progress.report({ message })
-		}
+		} else progress.report({ message })
 	}
 }
 
 // ── pull / push with outcome-aware UX ───────────────────────────────────
-// The outcome → actions decision lives once in volt-control (describePull/describePush). Here we only render
-// that neutral descriptor as native VS Code dialogs and dispatch the chosen action tag to its handler.
-async function presentOutcome(view: OutcomeView, run: (tag: OutcomeActionTag) => Promise<void>): Promise<void> {
-	if (view.actions.length === 0) {
-		if (view.tone === "error") vscode.window.showErrorMessage(view.message)
-		else vscode.window.showInformationMessage(view.message)
-		return
-	}
-	const labels = view.actions.map((a) => a.label)
-	const picked =
-		view.tone === "error"
-			? await vscode.window.showErrorMessage(view.message, ...labels)
-			: await vscode.window.showWarningMessage(view.message, ...labels)
-	const action = view.actions.find((a) => a.label === picked)
-	if (action !== undefined) await run(action.tag)
+// The flow — filter actions, confirm destructive ones, dispatch — is @volt/control's presentOutcome. VS Code
+// supplies only the dialog primitives; the destructive "cannot be undone" confirm is enforced there, not here.
+const vscodePresenter: OutcomePresenter = {
+	async choose(view) {
+		if (view.actions.length === 0) {
+			if (view.tone === "error") void vscode.window.showErrorMessage(view.message)
+			else void vscode.window.showInformationMessage(view.message)
+			return undefined
+		}
+		const labels = view.actions.map((a) => a.label)
+		const picked =
+			view.tone === "error"
+				? await vscode.window.showErrorMessage(view.message, ...labels)
+				: await vscode.window.showWarningMessage(view.message, ...labels)
+		return view.actions.find((a) => a.label === picked)?.tag
+	},
+	async confirm(action) {
+		const pick = await vscode.window.showWarningMessage(action.confirmMessage ?? `${action.label}?`, { modal: true }, action.label)
+		return pick === action.label
+	},
 }
 
 async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
@@ -101,9 +100,9 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`pull: ${outcome.message}`)
-	await presentOutcome(describePull(outcome), async (tag) => {
+	await presentOutcome(describePull(outcome), vscodePresenter, async (tag) => {
 		if (tag === "open-conflicts" && outcome.kind === "conflict") await openConflicts(workspaceRoot, outcome.paths)
-		else if (tag === "force-pull") await confirmForcePull(statuses, workspaceRoot)
+		else if (tag === "force-pull") await doPull(statuses, workspaceRoot, true)
 	})
 }
 
@@ -117,28 +116,10 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`push: ${outcome.message}`)
-	await presentOutcome(describePush(outcome), async (tag) => {
+	await presentOutcome(describePush(outcome), vscodePresenter, async (tag) => {
 		if (tag === "pull-first") await doPull(statuses, workspaceRoot, false)
-		else if (tag === "force-push") await confirmForcePush(statuses, workspaceRoot)
+		else if (tag === "force-push") await doPush(statuses, workspaceRoot, true)
 	})
-}
-
-async function confirmForcePull(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
-	const pick = await vscode.window.showWarningMessage(
-		"Force pull discards your local workspace edits and overwrites them with the IDE's state. This cannot be undone.",
-		{ modal: true },
-		"Discard & Pull",
-	)
-	if (pick === "Discard & Pull") await doPull(statuses, workspaceRoot, true)
-}
-
-async function confirmForcePush(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
-	const pick = await vscode.window.showWarningMessage(
-		"Force push overwrites the IDE with your workspace, ignoring changes the engineer made since your last pull.",
-		{ modal: true },
-		"Force Push",
-	)
-	if (pick === "Force Push") await doPush(statuses, workspaceRoot, true)
 }
 
 async function openConflicts(workspaceRoot: string, paths: readonly string[]): Promise<void> {
@@ -220,8 +201,8 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),
-		reg("volt.forcePull", async () => { const w = ws(); if (w) await confirmForcePull(statuses, w) }),
-		reg("volt.forcePush", async () => { const w = ws(); if (w) await confirmForcePush(statuses, w) }),
+		reg("volt.forcePull", async () => { const w = ws(); if (w && (await vscodePresenter.confirm(FORCE_PULL))) await doPull(statuses, w, true) }),
+		reg("volt.forcePush", async () => { const w = ws(); if (w && (await vscodePresenter.confirm(FORCE_PUSH))) await doPush(statuses, w, true) }),
 
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		reg("volt.status", async () => {

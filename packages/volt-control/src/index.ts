@@ -21,7 +21,8 @@ export * from "./state/files.js" // isPouFile, readStateMtime
 export * from "./view/types.js" // StatusJson, ChangeSet, ProjectMismatch, changeCount
 export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState
 export * from "./view/workspace.js" // projectWorkspace, WorkspaceView, WorkspaceInput, DriftItem
-export * from "./view/outcomes.js" // describePull, describePush, OutcomeView, OutcomeAction, OutcomeActionTag
+export * from "./view/outcomes.js" // describePull, describePush, presentOutcome, OutcomePresenter, OutcomeView, OutcomeAction, OutcomeActionTag
+export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 
 // headless LSP-diagnostics collector (desktop's Diagnostics section)
 export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics
