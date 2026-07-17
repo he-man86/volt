@@ -328,7 +328,19 @@ export namespace Billing {
           return LiteData.threeMonths100Coupon
         if (coupons.some((coupon) => coupon.type === "GOFREEMONTH" && !coupon.timeRedeemed))
           return LiteData.firstMonth100Coupon
-        if (!coupons.some((coupon) => coupon.type === "GO1MONTH50")) return LiteData.firstMonth50Coupon
+        // VOLT: no automatic first-month discount. This line read
+        //   `if (!coupons.some((c) => c.type === "GO1MONTH50")) return LiteData.firstMonth50Coupon`
+        // — i.e. opencode handed EVERY new subscriber 50% off month one, with no opt-in and no campaign behind it.
+        // Volt sells the Gateway at a flat €24/month (infra/console.ts zenLitePrice).
+        //
+        // The four campaign coupons above are untouched: each requires a CouponTable row for that email, so they
+        // only ever apply to someone who was deliberately given one.
+        //
+        // The Stripe coupon RESOURCE stays in infra/console.ts on purpose. Checkout sets no
+        // `allow_promotion_codes`, so a coupon that no code applies is unreachable — while deleting it would make
+        // LiteData.firstMonth50Coupon `undefined`, and app/src/routes/stripe/webhook.ts:164 compares the APPLIED
+        // coupon (also `undefined` when there is no discount) against it — marking GO1MONTH50 redeemed for
+        // subscribers who never received it.
         return undefined
       })()
       const createSession = () =>

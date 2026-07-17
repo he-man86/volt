@@ -28,15 +28,15 @@ export const volt: Partial<Record<Key, string>> = {
     "You're currently subscribed to OpenCode Black or on the waitlist. Please unsubscribe first if you'd like to switch to Gateway.",
   "workspace.lite.other.message":
     "Another member in this workspace is already subscribed to Volt Gateway. Only one member per workspace can subscribe.",
-  // PRICING — these are the numbers a customer reads before paying, so they track infra/console.ts, not opencode.
-  // Volt's Gateway price is €24/month (`zenLitePrice`: currency "eur", unitAmount 2400) and checkout auto-applies
-  // the 50%-off-first-month coupon unless already redeemed (core/src/billing.ts:331 → firstMonth50Coupon), so the
-  // first month is €12. opencode's own strings said "$5 for your first month, then $10/month" — the same STRUCTURE
-  // with their numbers and their currency, which is exactly why it read as plausible and shipped. A Volt customer
-  // was told $10/month and charged €24. volt-price.test.ts pins these to the infra values.
-  "workspace.lite.promo.price": "€12 for your first month",
+  // PRICING — the numbers a customer reads before paying, so they track infra/console.ts, not opencode. Volt's
+  // Gateway is a flat €24/month (`zenLitePrice`: currency "eur", unitAmount 2400) with no first-month discount
+  // (core/src/billing.ts no longer default-applies opencode's 50% coupon). opencode's strings said "$5 for your
+  // first month, then $10/month" — the same SHAPE as the truth-of-the-day with their currency and numbers, which is
+  // why it read as plausible and shipped: a Volt customer was told $10/month and charged €24.
+  // volt-price.test.ts pins both the figure and the no-discount default to the source.
+  "workspace.lite.promo.price": "€24/month",
   "workspace.lite.promo.description":
-    "Volt Gateway starts at {{price}}, then €24/month, and provides reliable access to popular open coding models with generous usage limits.",
+    "Volt Gateway is {{price}} and provides reliable access to popular open coding models with generous usage limits.",
   "workspace.lite.promo.subscribe": "Subscribe to Gateway",
 
   // REFERRAL — opencode named its tier "Go" bare here, which the overlay's "OpenCode Go" pattern never matched.

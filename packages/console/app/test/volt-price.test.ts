@@ -18,6 +18,14 @@ const BILLING = join(import.meta.dir, "..", "..", "core", "src", "billing.ts")
 
 const SYMBOL: Record<string, string> = { eur: "€", usd: "$", gbp: "£" }
 
+/** The promo copy as the customer reads it: lite-section.tsx splits the description on {{price}} and injects it. */
+const renderedPromo = () =>
+  volt["workspace.lite.promo.description"]!.replace("{{price}}", volt["workspace.lite.promo.price"]!)
+
+/** billing.ts's CODE, minus comments — this file explains the removed coupon by quoting it, and a naive substring
+ *  match cannot tell an explanation of the old behaviour from the behaviour itself. */
+const codeOf = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
+
 /** The Gateway (opencode calls it "lite") subscription price, read from the Stripe resource the deploy creates. */
 async function gatewayPrice(): Promise<{ currency: string; perMonth: number }> {
   const src = await Bun.file(INFRA).text()
@@ -34,21 +42,29 @@ test("the advertised monthly price is the price infra actually charges", async (
   const symbol = SYMBOL[currency]
   expect(symbol).toBeDefined() // a new currency needs a symbol here before the strings can be trusted
 
-  const description = volt["workspace.lite.promo.description"]!
-  expect(description).toContain(`${symbol}${perMonth}/month`)
+  const promo = renderedPromo()
+  expect(promo).toContain(`${symbol}${perMonth}/month`)
   // and must not quote anyone else's currency
   for (const other of Object.values(SYMBOL).filter((s) => s !== symbol)) {
-    expect(`${description} [must not mention ${other}]`).not.toContain(`${other}${perMonth}`)
+    expect(`${promo} [must not mention ${other}]`).not.toContain(`${other}${perMonth}`)
   }
 })
 
-test("the advertised first month matches the coupon checkout actually applies", async () => {
+test("the price shown is the flat price — no first-month discount is advertised or applied", async () => {
   const { currency, perMonth } = await gatewayPrice()
-  const billing = await Bun.file(BILLING).text()
+  const billing = codeOf(await Bun.file(BILLING).text())
 
-  // Checkout hands first-time subscribers firstMonth50Coupon unless they already redeemed GO1MONTH50.
-  // If that default ever changes, the "first month" sentence is a lie and this should fail rather than drift.
-  expect(billing).toContain("return LiteData.firstMonth50Coupon")
+  // Volt sells at a flat rate: checkout must NOT default-apply opencode's 50%-off-first-month coupon. If that line
+  // ever comes back (say, an opencode bump re-applies it), the copy below becomes a lie in the customer's favour
+  // and the margin quietly halves for every new subscriber — so fail here rather than find out in Stripe.
+  expect(billing).not.toContain("return LiteData.firstMonth50Coupon")
 
-  expect(volt["workspace.lite.promo.price"]).toContain(`${SYMBOL[currency]}${perMonth / 2}`)
+  // The campaign coupons are opt-in (they need a CouponTable row for that email) and stay.
+  expect(billing).toContain("return LiteData.firstMonth100Coupon")
+
+  const price = volt["workspace.lite.promo.price"]!
+  expect(price).toContain(`${SYMBOL[currency]}${perMonth}`)
+  // NB: assert on the value itself, not a labelled string — a label mentioning the banned phrase matches itself.
+  expect(price.toLowerCase()).not.toContain("first month")
+  expect(renderedPromo().toLowerCase()).not.toContain("first month")
 })

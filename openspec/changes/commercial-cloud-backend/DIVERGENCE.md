@@ -265,3 +265,23 @@ This is why the rebrand left the "$" alone in the referral strings: changing the
 in EUR (a real change: `models.json` rates, `calculateCost`, the usage graph, top-up), or the console explains that
 the plan is billed in EUR while usage is denominated in USD. Flagged here rather than silently harmonised, because
 picking one is a pricing decision and this file is not where pricing gets decided.
+
+### Pricing: flat €24/month, no first-month discount (2026-07-17)
+
+opencode's checkout handed **every** new subscriber 50% off their first month — not a campaign, just a default in
+`core/src/billing.ts` with no opt-in behind it. Volt sells the Gateway at a flat **€24/month**
+(`infra/console.ts` `zenLitePrice`: `currency: "eur"`, `unitAmount: 2400`), so:
+
+- **The Stripe coupon is deleted** (`zenLiteCouponFirstMonth50` removed from `infra/console.ts`), so it no longer
+  exists in the Stripe dashboard. The four **campaign** coupons stay — each needs a `CouponTable` row for that
+  email, so they only ever reach someone deliberately given one.
+- **`core/src/billing.ts` no longer default-applies it** (in `ALLOW`, marked). This is a real edit to the backend
+  seam, justified because the alternative silently gives away half of every first month.
+- **`ZEN_LITE_PRICE.firstMonth50Coupon` survives as a dead sentinel** (`"volt-no-first-month-discount"`). It cannot
+  simply be deleted: `core/src/lite.ts` exports it and `app/src/routes/stripe/webhook.ts:164` compares it against
+  the coupon in the checkout session's metadata (`webhook.ts:114`), which is `undefined` when no discount applied —
+  so a missing property makes that `undefined === undefined`, fire, and mark `GO1MONTH50` redeemed for subscribers
+  who never received it. A sentinel matching no coupon id keeps the comparison false forever.
+- **The copy follows the source**: `app/test/volt-price.test.ts` parses the Stripe Price out of `infra/console.ts`
+  and fails if the advertised figure drifts from it, **or** if the 50% default ever returns (e.g. via an opencode
+  bump) — which would halve the margin on every new subscriber silently.
