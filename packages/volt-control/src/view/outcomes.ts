@@ -8,12 +8,14 @@ import type { PullOutcome, PushOutcome } from "../bridge/actions.js"
 
 export type OutcomeTone = "info" | "warn" | "error"
 
-/** A follow-up the shell may offer. `destructive` ⇒ the shell should confirm (modal) before running it. */
+/** A follow-up the shell may offer. `destructive` ⇒ `presentOutcome` confirms (modal) before running it, using
+ *  `confirmMessage` — so the "cannot be undone" copy lives here, once, not re-written per shell. */
 export type OutcomeActionTag = "open-conflicts" | "force-pull" | "pull-first" | "force-push"
 export interface OutcomeAction {
   tag: OutcomeActionTag
   label: string
   destructive?: boolean
+  confirmMessage?: string
 }
 
 export interface OutcomeView {
@@ -23,9 +25,21 @@ export interface OutcomeView {
 }
 
 const OPEN_CONFLICTS: OutcomeAction = { tag: "open-conflicts", label: "Open Conflicts" }
-const FORCE_PULL: OutcomeAction = { tag: "force-pull", label: "Force Pull", destructive: true }
+/** The canonical force descriptors (with their "cannot be undone" confirm copy) — exported so a shell's
+ *  direct "Force Pull/Push" command reuses the SAME confirm as the outcome-driven path. */
+export const FORCE_PULL: OutcomeAction = {
+  tag: "force-pull",
+  label: "Force Pull",
+  destructive: true,
+  confirmMessage: "Force pull discards your local workspace edits and overwrites them with the IDE's state. This cannot be undone.",
+}
 const PULL_FIRST: OutcomeAction = { tag: "pull-first", label: "Pull First" }
-const FORCE_PUSH: OutcomeAction = { tag: "force-push", label: "Force Push", destructive: true }
+export const FORCE_PUSH: OutcomeAction = {
+  tag: "force-push",
+  label: "Force Push",
+  destructive: true,
+  confirmMessage: "Force push overwrites the IDE with your workspace, ignoring changes the engineer made since your last pull. This cannot be undone.",
+}
 
 export function describePull(outcome: PullOutcome): OutcomeView {
   switch (outcome.kind) {
@@ -53,4 +67,33 @@ export function describePush(outcome: PushOutcome): OutcomeView {
     case "rejected":
       return { tone: "warn", message: `volt: ${outcome.reason}`, actions: [PULL_FIRST, FORCE_PUSH] }
   }
+}
+
+/** The shell's platform primitives. volt-control owns the FLOW (filter by capability → confirm-if-destructive →
+ *  dispatch); the shell only shows dialogs. Injecting these keeps the destructive-confirm and action routing in
+ *  ONE place, so both UIs behave identically (e.g. neither can skip the "cannot be undone" confirm). */
+export interface OutcomePresenter {
+  /** Show the message + the (already capability-filtered) action buttons; resolve to the chosen tag, or
+   *  undefined if dismissed. Must handle the zero-action case (just surface the message). */
+  choose(view: OutcomeView): Promise<OutcomeActionTag | undefined>
+  /** Confirm a destructive action with a modal; resolve true to proceed. */
+  confirm(action: OutcomeAction): Promise<boolean>
+}
+
+/** Render an outcome and dispatch the chosen action — shared by both shells. Filters to `capabilities` (the
+ *  desktop has no merge editor, so it omits `open-conflicts`), confirms destructive actions, then runs. The
+ *  shell supplies only the dialog primitives (`presenter`) and the per-tag handlers (`run`). */
+export async function presentOutcome(
+  view: OutcomeView,
+  presenter: OutcomePresenter,
+  run: (tag: OutcomeActionTag) => Promise<void>,
+  capabilities?: ReadonlySet<OutcomeActionTag>,
+): Promise<void> {
+  const actions = capabilities === undefined ? view.actions : view.actions.filter((a) => capabilities.has(a.tag))
+  const tag = await presenter.choose({ ...view, actions })
+  if (tag === undefined) return
+  const action = actions.find((a) => a.tag === tag)
+  if (action === undefined) return
+  if (action.destructive === true && !(await presenter.confirm(action))) return
+  await run(tag)
 }

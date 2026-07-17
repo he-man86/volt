@@ -1,67 +1,86 @@
-// The pull/push/build/init actions — the desktop counterpart of the extension's commands.ts. Same shared
-// logic (@volt/control), same outcome descriptors; the difference is only how they're triggered (Electron
-// IPC from shell.html) and rendered (native dialogs vs VS Code notifications).
+// The pull/push/build/init actions — the desktop counterpart of the extension's commands.ts. The FLOW (adopt
+// vs refresh, outcome filtering + destructive-confirm, progress formatting) lives in @volt/control; this file
+// only supplies Electron's native primitives (dialogs + IPC) and wires them to the shared functions.
 import { existsSync } from "node:fs"
 import type { Dialog, IpcMain } from "electron"
 import {
-  VoltStatus,
   pull,
   push,
   build,
   init,
   describePull,
   describePush,
+  presentOutcome,
+  settleOutcome,
+  formatProgress,
   vendorPort,
-  type OutcomeView,
+  type OutcomePresenter,
   type OutcomeActionTag,
-  type PullOutcome,
-  type PushOutcome,
+  type ProgressUpdate,
 } from "@volt/control"
 import type { Shell } from "./context.js"
 import { bindWorkspace, runDiagnostics } from "./panel.js"
 
-// The desktop has no merge editor, so it offers only the outcome actions it can act on (force / pull-first);
-// a conflict's message is self-explanatory. The decision of WHICH actions exist lives in @volt/control.
-const DESKTOP_ACTIONS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push"])
+// The desktop has no merge editor, so it can't act on `open-conflicts`; presentOutcome filters to this
+// capability set (a conflict's message is self-explanatory). Force / pull-first it can do.
+const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push"])
+
+const firstLine = (s: string): string => s.split(/\r?\n/).find((l) => l.trim().length > 0)?.trim() ?? ""
 
 export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell): void {
-  // Render the neutral outcome descriptor as a native Electron dialog and dispatch the chosen action.
-  async function presentOutcome(view: OutcomeView, run: (tag: OutcomeActionTag) => Promise<void>): Promise<void> {
-    if (!shell.win) return
-    const actions = view.actions.filter((a) => DESKTOP_ACTIONS.has(a.tag))
-    const type = view.tone === "error" ? "error" : view.tone === "warn" ? "warning" : "info"
-    if (actions.length === 0) {
-      await dialog.showMessageBox(shell.win, { type, message: view.message })
-      return
-    }
-    const buttons = [...actions.map((a) => a.label), "Cancel"]
-    const { response } = await dialog.showMessageBox(shell.win, { type, message: view.message, buttons, defaultId: 0, cancelId: buttons.length - 1 })
-    const chosen = actions[response]
-    if (chosen !== undefined) await run(chosen.tag)
+  // One progress channel for EVERY action (formatProgress is shared with vscode); null clears it.
+  const report = (p: ProgressUpdate): void => void shell.win?.webContents.send("volt:progress", formatProgress(p))
+  const clearProgress = (): void => void shell.win?.webContents.send("volt:progress", null)
+  const notify = (type: "error" | "info", message: string): void => {
+    if (shell.win) void dialog.showMessageBox(shell.win, { type, message })
   }
 
-  // Adopt the status the action returned (ONE bridge call, no follow-up /refs); only re-fetch when the action
-  // didn't succeed (state uncertain) — the ok-without-status case (nothing to push) leaves the view unchanged.
-  async function settle(st: VoltStatus, out: PullOutcome | PushOutcome): Promise<void> {
-    if (out.kind === "ok") {
-      if (out.status) st.adopt(out.status)
-    } else await st.refresh(true)
+  // The outcome flow (filter → confirm destructive → dispatch) is @volt/control's presentOutcome; the desktop
+  // supplies only the dialog primitives. The destructive "cannot be undone" confirm now fires here too.
+  const presenter: OutcomePresenter = {
+    async choose(view) {
+      if (!shell.win) return undefined
+      const type = view.tone === "error" ? "error" : view.tone === "warn" ? "warning" : "info"
+      if (view.actions.length === 0) {
+        await dialog.showMessageBox(shell.win, { type, message: view.message })
+        return undefined
+      }
+      const buttons = [...view.actions.map((a) => a.label), "Cancel"]
+      const { response } = await dialog.showMessageBox(shell.win, { type, message: view.message, buttons, defaultId: 0, cancelId: buttons.length - 1 })
+      return view.actions[response]?.tag
+    },
+    async confirm(action) {
+      if (!shell.win) return false
+      const { response } = await dialog.showMessageBox(shell.win, {
+        type: "warning",
+        message: action.confirmMessage ?? `${action.label}?`,
+        buttons: [action.label, "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+      })
+      return response === 0
+    },
   }
 
   async function runPull(force = false): Promise<void> {
     const st = shell.status
     if (!st) return
-    const out = await pull(st.workspaceRoot, { force })
-    await settle(st, out)
-    await presentOutcome(describePull(out), (tag) => (tag === "force-pull" ? runPull(true) : Promise.resolve()))
+    const out = await pull(st.workspaceRoot, { force, onProgress: report })
+    clearProgress()
+    await settleOutcome(st, out)
+    await presentOutcome(describePull(out), presenter, (tag) => (tag === "force-pull" ? runPull(true) : Promise.resolve()), DESKTOP_CAPS)
   }
   async function runPush(force = false): Promise<void> {
     const st = shell.status
     if (!st) return
-    const out = await push(st.workspaceRoot, { force })
-    await settle(st, out)
-    await presentOutcome(describePush(out), (tag) =>
-      tag === "pull-first" ? runPull(false) : tag === "force-push" ? runPush(true) : Promise.resolve(),
+    const out = await push(st.workspaceRoot, { force, onProgress: report })
+    clearProgress()
+    await settleOutcome(st, out)
+    await presentOutcome(
+      describePush(out),
+      presenter,
+      (tag) => (tag === "pull-first" ? runPull(false) : tag === "force-push" ? runPush(true) : Promise.resolve()),
+      DESKTOP_CAPS,
     )
   }
 
@@ -69,23 +88,22 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.handle("volt:push", () => runPush())
   ipcMain.handle("volt:build", async () => {
     const st = shell.status
-    if (!st) return { stdout: "", stderr: "no workspace bound", code: 255 }
-    const r = await build(st.workspaceRoot)
+    if (!st) return
+    const r = await build(st.workspaceRoot, { onProgress: report })
+    clearProgress()
     await st.refresh(true)
     void runDiagnostics(shell) // a build can change diagnostics
-    return r
+    if (r.code !== 0) notify("error", `Build failed: ${firstLine(r.stderr) || `exit ${r.code}`}`)
   })
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
   ipcMain.on("volt:refreshDiagnostics", () => void runDiagnostics(shell))
   ipcMain.handle("volt:init", async (_e, vendor: "codesys" | "twincat") => {
     // Init the project opencode is on — no folder picker (like the extension initing its open workspace).
     const root = shell.boundRoot
-    if (root === undefined || !existsSync(root)) return { stdout: "", stderr: "No project open in opencode.", code: 255 }
-    const out = await init(root, vendorPort(vendor), {
-      onProgress: (p) => shell.win?.webContents.send("volt:initProgress", p), // live progress in the init row
-    })
-    shell.win?.webContents.send("volt:initProgress", null) // clear the progress note when done
+    if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
+    const out = await init(root, vendorPort(vendor), { onProgress: report })
+    clearProgress()
     if (out.code === 0) await bindWorkspace(shell, root)
-    return out
+    else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
   })
 }
