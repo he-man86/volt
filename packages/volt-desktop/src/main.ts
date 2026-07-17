@@ -30,8 +30,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // Installed opencode. Default: `opencode` on PATH (resolved via shell:true at spawn, so npm's `.cmd`/`.ps1`
 // shim works). Override with OPENCODE_BIN to point at a specific binary.
 const OPENCODE_BIN = process.env.OPENCODE_BIN || "opencode"
-// The agent banner's install button navigates here; will-navigate intercepts it (see whenReady). https + a
-// reserved `.invalid` host (RFC 2606, never resolves) so the click always fires will-navigate.
 const READY = /listening on (https?:\/\/\S+)/i // matches `opencode serve` stdout
 // Layout — keep in sync with shell.html. A thin icon rail is always reserved on the right; the panel
 // expands beside it. opencode fills whatever's left.
@@ -141,7 +139,7 @@ function pushStatus() {
 // (run via ELECTRON_RUN_AS_NODE). volt-control spawns .exe directly, .js via node — see cli.ts/diagnostics.ts.
 function configureTools() {
   if (app.isPackaged) {
-    const bin = join(process.resourcesPath, "..", "..", "bin") // …\current\desktop\resources → …\current\bin
+    const bin = join(process.resourcesPath, "..", "..", "bin") // …\Volt\desktop\resources → …\Volt\bin
     setBundledCli(join(bin, "volt.exe"))
     setLspServer(join(bin, "volt-lsp-iec.exe"))
   } else {
@@ -248,7 +246,7 @@ function esc(s: string): string {
 // opencode CLI as an opt-in wizard task, so this only points at opencode.ai rather than installing anything —
 // one install path to maintain, and Volt never manages opencode behind the user's back.
 // target=_blank → setWindowOpenHandler sends it to the real browser.
-function agentBanner(opts: { error?: string } = {}): Promise<void> {
+function agentBanner(opts: { error?: string }): Promise<void> {
   const footer = opts.error ? `<p style="opacity:.35;margin:2rem 0 0;font:12px ui-monospace,monospace">${esc(opts.error)}</p>` : ""
   return view!.webContents.loadURL(
     "data:text/html;charset=utf-8," +

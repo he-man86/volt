@@ -119,9 +119,9 @@ cpSync(resolve(payload, "volt-config"), resolve(stage, "volt-config"), { recursi
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
 // The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the per-editor
-// extension wizard tasks sideload via `<editor> --install-extension`. A missing .vsix used to only warn — but the
-// tasks then silently install nothing, and no test catches it (test:install runs /VERYSILENT, which skips them by
-// Check: NotSilent). Fail like every other missing payload piece.
+// extension wizard tasks sideload via `<editor> --install-extension`. Hard-fail on a missing .vsix: the tasks
+// would silently install nothing, and nothing downstream catches it — test:install runs /VERYSILENT, which skips
+// those tasks entirely (Check: NotSilent in the .iss).
 writeFileSync(resolve(stage, "version.txt"), version)
 const vsix = resolve(payload, "volt-vscode.vsix")
 if (!existsSync(vsix)) {
