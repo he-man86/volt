@@ -224,9 +224,17 @@ public sealed class BridgeHttpServer
         ctx.Response.ContentType = "application/x-ndjson; charset=utf-8";
         ctx.Response.SendChunked = true;
         // All frames go through `Frame` (single write lock), so the op's progress writes (STA thread) and this
-        // thread's heartbeats never race on the response stream.
+        // thread's heartbeats never race on the response stream. Frame delivery is BEST-EFFORT: a write to a
+        // disconnected client must never propagate into the running op — a progress frame is emitted from inside
+        // the push apply loop, so a throw here would abort a half-applied push and corrupt the IDE. The op runs
+        // to completion regardless; only the (undeliverable) frame is dropped, and the client reconciles on its
+        // next status refresh.
         var writeGate = new object();
-        void Frame(object f) { lock (writeGate) WriteFrame(ctx, f); }
+        void Frame(object f)
+        {
+            try { lock (writeGate) WriteFrame(ctx, f); }
+            catch { /* client gone / transport write failed — delivery is best-effort, the op still completes */ }
+        }
         Action<ProgressFrame> onProgress = f => Frame(new { progress = f });
         try
         {
