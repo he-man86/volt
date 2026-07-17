@@ -29,7 +29,7 @@ const ALLOW = new Set([
   // justify it here and in DIVERGENCE.md or don't do it. See openspec/changes/console-volt-frontend.
   //
   // ── De-fork glue: the @opencode-ai/ui + opencode packages were deleted, so a few imports were re-pointed ──
-  "app/package.json", // dropped @opencode-ai/ui + schema build; added @fontsource-variable/{inter,jetbrains-mono}
+  "app/package.json", // dropped @opencode-ai/ui + schema build + @ibm/plex (unused once the font is Inter); added @fontsource-variable/{inter,jetbrains-mono}
   "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
   "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
   "app/scripts", // Volt-added: gen-favicon.ts generates public/volt-mark.svg + the brand PNGs from component/volt-mark-path.ts (zero-dep)

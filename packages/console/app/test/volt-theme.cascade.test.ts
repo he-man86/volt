@@ -18,27 +18,36 @@ import { join } from "node:path"
 const STYLE = join(import.meta.dir, "..", "src", "style")
 
 /**
- * Map custom-property name -> the selector it is declared under. Tracks a selector stack so a declaration nested in
- * an at-rule (e.g. `@media (prefers-color-scheme: dark) { :root { … } }`) is attributed to `:root`, not the @media.
+ * Map custom-property name -> the selector it is declared under. Tokenizes on braces rather than lines, so a token
+ * is attributed correctly whether its rule spans lines OR is written on one (`:root { --x: #fff; }`). A selector
+ * stack handles nesting, so a declaration inside `@media (…) { :root { … } }` is attributed to `:root`, not @media.
+ *
+ * Scanning line-by-line (the first version) silently DROPPED single-line rules — the very silent-loss failure this
+ * test guards against, in the guard itself. It survived only because the vendored token files happen to be
+ * multi-line; a one-line override would have escaped the check entirely.
  */
 function declarations(css: string): Map<string, string> {
   const out = new Map<string, string>()
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "") // strip comments (may span lines)
   const stack: string[] = []
-  for (const raw of css.split("\n")) {
-    const line = raw.replace(/\/\*.*?\*\//g, "").trim()
-    if (!line) continue
+  let pending = "" // text since the last brace — a selector prelude or a declaration body
 
-    const open = line.match(/^([^{}]+)\{\s*$/) || line.match(/^([^{}]+)\{.*\}\s*$/)
-    if (open) stack.push(open[1]!.trim())
-
-    const decl = line.match(/^(--[a-z0-9-]+)\s*:/)
-    if (decl) {
-      const selector = [...stack].reverse().find((s) => !s.startsWith("@"))
-      if (selector) out.set(decl[1]!, selector)
-    }
-
-    if (/^\}/.test(line) || /\}\s*$/.test(line)) {
-      if (!open || !/\}\s*$/.test(line) || /^\}/.test(line)) stack.pop()
+  for (const ch of clean) {
+    if (ch === "{") {
+      stack.push(pending.trim())
+      pending = ""
+    } else if (ch === "}") {
+      stack.pop()
+      pending = ""
+    } else if (ch === ";") {
+      const decl = pending.match(/(--[a-z0-9-]+)\s*:/)
+      if (decl) {
+        const selector = [...stack].reverse().find((s) => s && !s.startsWith("@"))
+        if (selector) out.set(decl[1]!, selector)
+      }
+      pending = ""
+    } else {
+      pending += ch
     }
   }
   return out
