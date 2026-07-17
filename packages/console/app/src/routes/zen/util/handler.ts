@@ -89,11 +89,17 @@ export async function handler(
   const MAX_RETRYABLE_STATUS_RETRIES = 3
   const dict = i18n(localeFromRequest(input.request))
   const t = (key: Key, params?: Record<string, string | number>) => resolve(dict[key], params)
-  const ADMIN_WORKSPACES = [
-    "wrk_01K46JDFR0E75SG2Q8K172KF3Y", // anomaly
-    "wrk_01K6W1A3VE0KMNVSCQT43BG2SX", // benchmark
-    "wrk_01KKZDKDWCS1VTJF8QTX62DD50", // contributors
-  ]
+  // VOLT: the console a rejected request points the user at. opencode hardcoded `https://opencode.ai/...`, which in
+  // Volt's deployment tells a paying Volt user to go fix their billing on a competitor's console. Derived from the
+  // request rather than hardcoded to volt-ai.dev so every stage emits its own correct origin (dev.volt-ai.dev vs the
+  // apex) — the gateway and the console are the same app, so the request's origin IS the console's.
+  const consoleOrigin = new URL(input.request.url).origin
+  // VOLT: emptied. These were opencode's OWN workspace IDs (anomaly / benchmark / contributors) and they are not
+  // decoration: `isFree: true` below bills their traffic to nobody, and they also bypass the model allowlist. Those
+  // IDs live in opencode's database, so in Volt's deployment they are inert — but they are a free-usage backdoor
+  // keyed on another company's identifiers sitting in Volt's billing path. Volt grants no free workspaces; if that
+  // changes, put VOLT's OWN ids here. Left as an array so an upstream addition conflicts here and gets noticed.
+  const ADMIN_WORKSPACES: string[] = []
 
   try {
     const url = input.request.url
@@ -875,7 +881,7 @@ export async function handler(
     // Validate lite subscription billing
     if (opts.modelList === "lite" && authInfo.billing.lite && authInfo.lite) {
       try {
-        const consoleGoUrl = `https://opencode.ai/workspace/${authInfo.workspaceID}/go`
+        const consoleGoUrl = `${consoleOrigin}/workspace/${authInfo.workspaceID}/gateway` // VOLT: origin + Volt's tab (/go is opencode's, unlinked)
         const sub = authInfo.lite
         const liteData = LiteData.getLimits()
 
@@ -946,8 +952,8 @@ export async function handler(
 
     // Validate pay as you go billing
     const billing = authInfo.billing
-    const billingUrl = `https://opencode.ai/workspace/${authInfo.workspaceID}/billing`
-    const membersUrl = `https://opencode.ai/workspace/${authInfo.workspaceID}/members`
+    const billingUrl = `${consoleOrigin}/workspace/${authInfo.workspaceID}/billing` // VOLT: origin (was opencode.ai)
+    const membersUrl = `${consoleOrigin}/workspace/${authInfo.workspaceID}/members` // VOLT: origin (was opencode.ai)
     if (!billing.paymentMethodID && billing.balance <= 0)
       throw new CreditsError(t("zen.api.error.noPaymentMethod", { billingUrl }))
     if (billing.balance <= 0) throw new CreditsError(t("zen.api.error.insufficientBalance", { billingUrl }))

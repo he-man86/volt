@@ -17,7 +17,15 @@ export default {
         url.pathname !== "/zen/go/v1/chat/completions" &&
         url.pathname !== "/zen/go/v1/messages" &&
         url.pathname !== "/zen/go/v1/responses" &&
-        !url.pathname.startsWith("/zen/go/v1/models/")
+        !url.pathname.startsWith("/zen/go/v1/models/") &&
+        // VOLT: the clean public gateway path (app/src/routes/v1/*) — this is where Volt's agent actually posts
+        // (`volt-config/opencode.json` baseURL = https://volt-ai.dev/v1). Those routes were added beside opencode's
+        // `zen/go/v1` without repointing this allowlist, so EVERY live Volt gateway request fell through this
+        // `continue` and never reached Honeycomb: the dashboards in `infra/monitoring.ts` were reading an empty set.
+        // Added rather than rewritten so upstream's own path changes above still merge cleanly.
+        url.pathname !== "/v1/chat/completions" &&
+        url.pathname !== "/v1/messages" &&
+        !url.pathname.startsWith("/v1/models/")
       )
         continue
 
