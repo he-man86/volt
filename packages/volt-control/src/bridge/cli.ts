@@ -43,21 +43,32 @@ export interface ProgressUpdate {
 
 const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with volt-git's reporter (PROGRESS_JSON_PREFIX)
 
-/** Like {@link spawnVolt}, but sets VOLT_PROGRESS_JSON=1 so the CLI emits machine-readable progress frames on
- *  stderr, parses them out to `onProgress`, and keeps the rest of stderr in the buffered result. Lets a GUI
- *  drive a real progress bar from the same op the CLI runs — no separate bridge polling. */
-export function spawnVoltProgress(
-	workspaceRoot: string,
-	args: string[],
-	onProgress: (p: ProgressUpdate) => void,
-): Promise<{ stdout: string; stderr: string; code: number }> {
+/** Options for {@link runVolt}. `onProgress` opts into machine-readable progress frames (VOLT_PROGRESS_JSON=1)
+ *  parsed out of stderr; `binary` returns the exact stdout bytes instead of a UTF-8 string. */
+export interface RunOpts {
+	onProgress?: (p: ProgressUpdate) => void
+	binary?: boolean
+}
+
+/** Run the volt CLI — the ONE spawn path. stderr is buffered (minus progress frames, which stream to
+ *  `onProgress` so a GUI drives a real progress bar from the same op the CLI runs — no separate bridge poll).
+ *  stdout is a UTF-8 string, or the raw Buffer when `binary` (the `volt show` content provider needs exact
+ *  bytes of an opaque item's blob, not a round-trip). */
+export function runVolt(workspaceRoot: string, args: string[], opts?: RunOpts & { binary?: false }): Promise<{ stdout: string; stderr: string; code: number }>
+export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts & { binary: true }): Promise<{ stdout: Buffer; stderr: string; code: number }>
+export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts = {}): Promise<{ stdout: string | Buffer; stderr: string; code: number }> {
+	const { onProgress, binary } = opts
 	return new Promise((resolve) => {
-		const child = spawnCli(workspaceRoot, args, { VOLT_PROGRESS_JSON: "1" })
-		let stdout = ""
+		const child = spawnCli(workspaceRoot, args, onProgress ? { VOLT_PROGRESS_JSON: "1" } : undefined)
+		const chunks: Buffer[] = []
 		let stderr = ""
-		let pending = ""
-		child.stdout.on("data", (d: Buffer) => (stdout += d.toString("utf-8")))
+		let pending = "" // stderr carry across chunk boundaries, only when parsing progress lines
+		child.stdout.on("data", (d: Buffer) => chunks.push(d))
 		child.stderr.on("data", (d: Buffer) => {
+			if (!onProgress) {
+				stderr += d.toString("utf-8")
+				return
+			}
 			pending += d.toString("utf-8")
 			let nl: number
 			while ((nl = pending.indexOf("\n")) >= 0) {
@@ -76,34 +87,9 @@ export function spawnVoltProgress(
 		})
 		child.on("close", (code) => {
 			if (pending.length > 0) stderr += pending
-			resolve({ stdout, stderr, code: code ?? 255 })
+			const buf = Buffer.concat(chunks)
+			resolve({ stdout: binary ? buf : buf.toString("utf-8"), stderr, code: code ?? 255 })
 		})
-		child.on("error", (err) => resolve({ stdout: "", stderr: err.message, code: 255 }))
-	})
-}
-
-export function spawnVolt(workspaceRoot: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
-	return new Promise((resolve) => {
-		const child = spawnCli(workspaceRoot, args)
-		let stdout = ""
-		let stderr = ""
-		child.stdout.on("data", (d: Buffer) => stdout += d.toString("utf-8"))
-		child.stderr.on("data", (d: Buffer) => stderr += d.toString("utf-8"))
-		child.on("close", (code) => resolve({ stdout, stderr, code: code ?? 255 }))
-		child.on("error", (err) => resolve({ stdout: "", stderr: err.message, code: 255 }))
-	})
-}
-
-/** Like spawnVolt but returns raw stdout bytes — the `volt show <ref> <rel>` content provider needs the
- *  exact bytes (a binary/opaque item's blob), not a UTF-8 round-trip. */
-export function spawnVoltBuffer(workspaceRoot: string, args: string[]): Promise<{ stdout: Buffer; stderr: string; code: number }> {
-	return new Promise((resolve) => {
-		const child = spawnCli(workspaceRoot, args)
-		const chunks: Buffer[] = []
-		let stderr = ""
-		child.stdout.on("data", (d: Buffer) => chunks.push(d))
-		child.stderr.on("data", (d: Buffer) => stderr += d.toString("utf-8"))
-		child.on("close", (code) => resolve({ stdout: Buffer.concat(chunks), stderr, code: code ?? 255 }))
-		child.on("error", (err) => resolve({ stdout: Buffer.alloc(0), stderr: err.message, code: 255 }))
+		child.on("error", (err) => resolve({ stdout: binary ? Buffer.alloc(0) : "", stderr: err.message, code: 255 }))
 	})
 }

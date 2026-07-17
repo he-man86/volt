@@ -65,7 +65,7 @@ export class BridgeClient implements Remote {
 	}
 
 	async getHealth(): Promise<HealthResponse> {
-		const health = await this.request("GET", "/health", HealthResponseSchema, undefined, this.timeouts.health);
+		const health = await this.request("GET", "/health", HealthResponseSchema, { timeoutMs: this.timeouts.health });
 		this.assertWireCompatible(health);
 		return health;
 	}
@@ -122,41 +122,33 @@ export class BridgeClient implements Remote {
 
 	async getRefs(): Promise<RefsResponse> {
 		await this.preflight();
-		const refs = await this.request("GET", "/refs", RefsResponseSchema, undefined, this.timeouts.refs);
+		const refs = await this.request("GET", "/refs", RefsResponseSchema, { timeoutMs: this.timeouts.refs });
 		await this.guardEmptyItems(Object.keys(refs.items).length);
 		return refs;
 	}
 
 	async fetchChanges(req: FetchRequest, onProgress?: ProgressHandler): Promise<FetchResponse> {
 		await this.preflight();
-		const resp = onProgress
-			? await this.requestStream("POST", "/fetch", FetchResponseSchema, req, onProgress, this.timeoutMs)
-			: await this.request("POST", "/fetch", FetchResponseSchema, req);
+		const resp = await this.request("POST", "/fetch", FetchResponseSchema, { body: req, onProgress });
 		await this.guardEmptyItems(Object.keys(resp.items).length);
 		return resp;
 	}
 
 	async init(onProgress?: ProgressHandler): Promise<FetchResponse> {
 		await this.preflight();
-		const resp = onProgress
-			? await this.requestStream("POST", "/init", FetchResponseSchema, {}, onProgress, this.timeoutMs)
-			: await this.request("POST", "/init", FetchResponseSchema, {});
+		const resp = await this.request("POST", "/init", FetchResponseSchema, { body: {}, onProgress });
 		await this.guardEmptyItems(Object.keys(resp.items).length);
 		return resp;
 	}
 
 	async pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse> {
 		await this.preflight();
-		return onProgress
-			? this.requestStream("POST", "/push", PushResponseSchema, req, onProgress, this.timeoutMs)
-			: this.request("POST", "/push", PushResponseSchema, req);
+		return this.request("POST", "/push", PushResponseSchema, { body: req, onProgress });
 	}
 
 	async build(req: BuildRequest, onProgress?: ProgressHandler): Promise<BuildResponse> {
 		await this.preflight();
-		return onProgress
-			? this.requestStream("POST", "/build", BuildResponseSchema, req, onProgress, this.timeouts.build)
-			: this.request("POST", "/build", BuildResponseSchema, req, this.timeouts.build);
+		return this.request("POST", "/build", BuildResponseSchema, { body: req, onProgress, timeoutMs: this.timeouts.build });
 	}
 
 	/** Poll `GET /refs` until the project version differs from the baseline, or reject on timeout.
@@ -186,40 +178,25 @@ export class BridgeClient implements Remote {
 		})
 	}
 
+	/**
+	 * The ONE request path. Every response is read as a stream: a bridge that answers `application/x-ndjson`
+	 * has each `progress` frame forwarded to `onProgress` and resolves with the terminal `result`; a bridge
+	 * that answers a single `application/json` object (a non-streaming endpoint, or one that ignored our
+	 * Accept) resolves with that body. So buffered and streamed callers share one code path — the only
+	 * difference is whether `onProgress` was passed (which also sets the Accept header). Result validated.
+	 */
 	private async request<T>(
 		method: "GET" | "POST",
 		path: string,
 		schema: z.ZodType<T>,
-		body?: unknown,
-		timeoutMs?: number,
+		opts: { body?: unknown; onProgress?: ProgressHandler; timeoutMs?: number } = {},
 	): Promise<T> {
-		const raw = await this.transport(method, path, body, timeoutMs);
-		try {
-			return schema.parse(raw);
-		} catch (err) {
-			if (isZodError(err)) {
-				throw new BridgeError("MALFORMED_RESPONSE", `bridge ${path} returned malformed payload: ${formatZodError(err)}`);
-			}
-			throw err;
-		}
-	}
-
-	/** Streamed variant: request NDJSON, forward each `progress` frame to `onProgress`, and resolve with the
-	 *  terminal `result` (validated) — or reject on an `error` frame. Falls back to a single buffered body if the
-	 *  bridge answered `application/json` anyway (an opted-in client hitting a non-streaming response). */
-	private async requestStream<T>(
-		method: "GET" | "POST",
-		path: string,
-		schema: z.ZodType<T>,
-		body: unknown,
-		onProgress: ProgressHandler,
-		timeoutMs?: number,
-	): Promise<T> {
+		const { body, onProgress, timeoutMs } = opts;
 		let result: unknown;
-		let bufferedBody: unknown; // set when the bridge returned a single JSON object, not NDJSON frames
+		let bufferedBody: unknown; // set when the bridge returned a single JSON object rather than NDJSON frames
 		let streamError: { code?: string; message?: string } | undefined;
 
-		await this.transportStream(method, path, body, timeoutMs, (frame, wasSingleBody) => {
+		await this.transport(method, path, { body, timeoutMs, stream: onProgress !== undefined }, (frame, wasSingleBody) => {
 			if (wasSingleBody) {
 				bufferedBody = frame;
 				return;
@@ -228,7 +205,7 @@ export class BridgeClient implements Remote {
 			const f = frame as Record<string, unknown>;
 			if (f.progress !== undefined) {
 				const p = ProgressFrameSchema.safeParse(f.progress);
-				if (p.success) onProgress(p.data);
+				if (p.success && onProgress) onProgress(p.data);
 			} else if (f.result !== undefined) {
 				result = f.result;
 			} else if (f.error !== undefined) {
@@ -242,7 +219,7 @@ export class BridgeClient implements Remote {
 
 		if (streamError !== undefined) throw new BridgeError(streamError.code ?? "BRIDGE_ERROR", streamError.message ?? `bridge ${path} streamed an error`);
 		const payload = result !== undefined ? result : bufferedBody;
-		if (payload === undefined) throw new BridgeError("MALFORMED_RESPONSE", `bridge ${path} stream ended without a result`);
+		if (payload === undefined) throw new BridgeError("MALFORMED_RESPONSE", `bridge ${path} returned no result`);
 		try {
 			return schema.parse(payload);
 		} catch (err) {
@@ -251,19 +228,20 @@ export class BridgeClient implements Remote {
 		}
 	}
 
-	/** Read an NDJSON response line by line (or, if the bridge sent `application/json`, the single body) and hand
-	 *  each parsed value to `onValue`. `wasSingleBody` is true only for the non-streamed fallback. */
-	private async transportStream(
+	/** Issue the HTTP request and read the response, handing each value to `onValue`: an NDJSON body yields one
+	 *  value per line (`wasSingleBody=false`); a single JSON body yields one value (`wasSingleBody=true`). Rejects
+	 *  on a non-2xx (parsing the bridge's error envelope) or a socket error. `stream` sets the NDJSON Accept. */
+	private transport(
 		method: "GET" | "POST",
 		path: string,
-		body: unknown,
-		timeoutMs: number | undefined,
+		opts: { body?: unknown; timeoutMs?: number; stream?: boolean },
 		onValue: (value: unknown, wasSingleBody: boolean) => void,
 	): Promise<void> {
 		const url = new URL(`${this.baseUrl}${path}`);
-		const payload = body !== undefined ? Buffer.from(JSON.stringify(body), "utf-8") : undefined;
-		const timeout = timeoutMs ?? this.timeoutMs;
-		const headers: Record<string, string> = { connection: "close", accept: "application/x-ndjson" };
+		const payload = opts.body !== undefined ? Buffer.from(JSON.stringify(opts.body), "utf-8") : undefined;
+		const timeout = opts.timeoutMs ?? this.timeoutMs;
+		const headers: Record<string, string> = { connection: "close" };
+		if (opts.stream === true) headers["accept"] = "application/x-ndjson";
 		if (payload !== undefined) {
 			headers["content-type"] = "application/json";
 			headers["content-length"] = String(payload.byteLength);
@@ -304,7 +282,7 @@ export class BridgeClient implements Remote {
 					}
 
 					if (!isNdjson) {
-						// Fallback: a non-streaming bridge answered a single JSON object — collect and hand it back.
+						// A single JSON object (non-streaming endpoint, or one that ignored our Accept) — hand it back whole.
 						res.on("data", (c: string) => chunks.push(c));
 						res.on("end", () => {
 							const raw = chunks.join("").trim();
@@ -312,7 +290,7 @@ export class BridgeClient implements Remote {
 								try {
 									onValue(JSON.parse(raw), true);
 								} catch {
-									/* ignore — requestStream reports "no result" */
+									/* ignore — request() reports "no result" */
 								}
 							}
 							resolve();
@@ -345,66 +323,6 @@ export class BridgeClient implements Remote {
 							}
 						}
 						resolve();
-					});
-					res.on("error", (err) => reject(err));
-				},
-			);
-			req.on("error", (err) => reject(err));
-			req.on("timeout", () => {
-				const err = new Error(`bridge ${path} timed out after ${timeout}ms`) as NodeJS.ErrnoException;
-				err.code = "ETIMEDOUT";
-				req.destroy(err);
-			});
-			if (payload !== undefined) req.write(payload);
-			req.end();
-		});
-	}
-
-	private async transport(method: "GET" | "POST", path: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
-		const url = new URL(`${this.baseUrl}${path}`);
-		const payload = body !== undefined ? Buffer.from(JSON.stringify(body), "utf-8") : undefined;
-		const timeout = timeoutMs ?? this.timeoutMs;
-		const headers: Record<string, string> = { connection: "close" };
-		if (payload !== undefined) {
-			headers["content-type"] = "application/json";
-			headers["content-length"] = String(payload.byteLength);
-		}
-
-		return new Promise<unknown>((resolve, reject) => {
-			const req = httpRequest(
-				{
-					method,
-					protocol: url.protocol,
-					hostname: url.hostname,
-					port: url.port || (url.protocol === "https:" ? 443 : 80),
-					path: url.pathname + url.search,
-					headers,
-					timeout,
-				},
-				(res) => {
-					const chunks: Buffer[] = [];
-					res.on("data", (c: Buffer) => chunks.push(c));
-					res.on("end", () => {
-						const raw = Buffer.concat(chunks).toString("utf-8");
-						let parsed: unknown;
-						try {
-							parsed = raw.length > 0 ? JSON.parse(raw) : undefined;
-						} catch {
-							parsed = undefined;
-						}
-						const status = res.statusCode ?? 0;
-						if (status < 200 || status >= 300) {
-							const errorInfo = extractBridgeError(parsed);
-							reject(
-								new BridgeError(
-									errorInfo?.code ?? `HTTP_${status}`,
-									errorInfo?.message ?? `bridge ${path} → ${status} ${res.statusMessage ?? ""}`.trim(),
-									status,
-								),
-							);
-							return;
-						}
-						resolve(parsed);
 					});
 					res.on("error", (err) => reject(err));
 				},

@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { spawnVoltBuffer } from "@volt/control"
+import { runVolt } from "@volt/control"
 
 export const SCHEME = "volt"
 export type ShowRef = "HEAD" | "MERGE_HEAD" | "ORIG_HEAD" | "WORKSPACE" | "BRIDGE" | string
@@ -22,10 +22,10 @@ export class VoltContentProvider implements vscode.TextDocumentContentProvider {
 		const parsed = parseUri(uri)
 		if (parsed === undefined) return "invalid volt:// URI"
 
-		const r = await spawnVoltBuffer(parsed.workspaceRoot, [
+		const r = await runVolt(parsed.workspaceRoot, [
 			"show", parsed.ref, parsed.path,
 			"--workspace", parsed.workspaceRoot,
-		])
+		], { binary: true })
 
 		if (r.code === 2) return ""
 		if (r.code !== 0) return `volt show failed: ${r.stderr || r.code}`

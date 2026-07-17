@@ -7,7 +7,7 @@
  * see `isMutationInFlight`) and release it before returning, so the caller's outcome
  * dialogs never hold the lock.
  */
-import { spawnVolt, spawnVoltProgress, type ProgressUpdate } from "./cli.js"
+import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { probeHealth, isBridgeOnline, readBridgePort, type HealthState } from "./health.js"
 import type { StatusJson } from "../view/types.js"
@@ -61,7 +61,7 @@ export async function fetchStatus(workspaceRoot: string, port?: number): Promise
   if (p === undefined) return { health: { kind: "unknown" }, error: "no bridge port in config" }
   const health = await probeHealth(p, 2000)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
-  const r = await spawnVolt(workspaceRoot, ["status", "--json", "--port", String(p)])
+  const r = await runVolt(workspaceRoot, ["status", "--json", "--port", String(p)])
   if (r.code !== 0) return { health, error: r.stderr || r.stdout }
   try {
     return { health, status: JSON.parse(r.stdout) as StatusJson }
@@ -74,7 +74,7 @@ export async function fetchStatus(workspaceRoot: string, port?: number): Promise
 type ProgressOpt = { onProgress?: (p: ProgressUpdate) => void }
 
 const runCli = (workspaceRoot: string, args: string[], onProgress?: (p: ProgressUpdate) => void) =>
-  onProgress ? spawnVoltProgress(workspaceRoot, args, onProgress) : spawnVolt(workspaceRoot, args)
+  runVolt(workspaceRoot, args, { onProgress })
 
 /** `volt pull [--force]`. Takes the mutation gate; returns the parsed outcome. */
 export function pull(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PullOutcome> {
