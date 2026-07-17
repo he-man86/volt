@@ -1,8 +1,13 @@
 import type { Key } from "~/i18n"
 
 // VOLT: the rebrand overlay. Volt-owned strings that replace opencode's product copy, merged OVER the locale dict
-// in ~/context/i18n — so i18n/en.ts (and every other locale) stays byte-identical to opencode and keeps merging
-// conflict-free on a bump. Editing en.ts to rebrand is the thing this file exists to prevent.
+// inside `i18n()` itself (~/i18n/index.ts) — so i18n/en.ts and every other locale stay byte-identical to opencode
+// and keep merging conflict-free on a bump. Editing en.ts to rebrand is the thing this file exists to prevent.
+//
+// The merge point is load-bearing, so it is pinned by volt.test.ts: it must be the FACTORY, not ~/context/i18n.
+// Merging in the render context covers the client only — six server call sites (the gateway handler, both rate
+// limiters, /auth's callback, …) build their dict straight from i18n() and never touch that context. That exact
+// mistake shipped "OpenCode Go" to paying users' CLIs while typechecking, building and rendering correctly.
 //
 // Scope: only keys the LOGGED-IN console renders. opencode's dormant marketing pages (go.*, black.*, zen.*) keep
 // their own copy — unlinked, never shown, not worth diverging over. A missing key just falls through to opencode's.
