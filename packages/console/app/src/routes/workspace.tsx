@@ -33,10 +33,12 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
             <VoltMark width="17" height="20" aria-hidden="true" />
             Volt
           </A>
-          {/* VOLT: opencode's WorkspacePicker is gone from the header. Volt is a one-workspace product, so a
-              dropdown to switch between workspaces offers a choice that never exists — and the same control was
-              also the only UI that CREATED more of them, which is worse than noise. Onboarding is unaffected:
-              function/src/auth.ts:239 creates the "Default" workspace at signup, not this picker. */}
+          {/* VOLT: opencode's WorkspacePicker is not rendered — Volt runs one workspace per account for now, so the
+              switch/create dropdown is UI complexity for a choice that isn't offered yet. The BACKEND is untouched
+              (workspaces, membership, Workspace.create all still work), and routes/workspace-picker.{tsx,css} are
+              left BYTE-IDENTICAL to opencode rather than deleted — so turning multi-workspace on later is just:
+              re-add the import above and put `<WorkspacePicker />` back here. Kept pristine, it stays off the
+              divergence gate and pulls opencode's fixes for free. */}
         </div>
         <div data-slot="header-actions">
           <UserMenu email={userEmail()} />

@@ -147,11 +147,6 @@ const DROPPED = [
   // Volt pages. Its `&&`-chain is removed from app/package.json.
   "app/script",
 
-  // opencode's workspace PICKER (header dropdown). Volt is a one-workspace product, so switching offers a choice
-  // that never exists — and this control was also the only UI that CREATED workspaces. Onboarding is unaffected:
-  // function/src/auth.ts:239 creates the "Default" workspace at signup.
-  "app/src/routes/workspace-picker.tsx", "app/src/routes/workspace-picker.css",
-
   // The workspace /go TAB — a dormant duplicate of Volt's Gateway view since routes/workspace/[id]/index.tsx
   // redirects there and the shell's tab points at it. Its lite-section.tsx + .module.css STAY, byte-identical:
   // they are a module, not a route (no default export), and gateway/index.tsx imports LiteSection +
