@@ -1,7 +1,7 @@
 // The AI agent — the INSTALLED opencode's server, shown in the content view. Volt neither bundles nor
 // downloads opencode (a provisioned runtime); here we only spawn it and, if it's absent, show the install
 // banner. Mirrors the extension's agent.ts (which locates/launches the same CLI).
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import type { WebContentsView } from "electron"
 
 // Installed opencode. Default: `opencode` on PATH (resolved via shell:true at spawn, so npm's `.cmd`/`.ps1`
@@ -31,9 +31,19 @@ export function startServer(): Promise<string> {
   })
 }
 
-/** Kill the opencode server child (on app quit). */
+/** Kill the opencode server on app quit. Because we spawn with shell:true, `child` is the shell (cmd.exe
+ *  running npm's .cmd shim), NOT opencode itself — a plain child.kill() reaps only the shell and orphans the
+ *  `opencode serve` process (and its children), which keeps holding its port after Volt exits. On Windows
+ *  (the desktop's platform) taskkill /T kills the whole tree; elsewhere fall back to the direct kill. */
 export function killServer(): void {
-  child?.kill()
+  const c = child
+  child = null
+  if (c === null || c.pid === undefined) return
+  if (process.platform === "win32") {
+    try { spawnSync("taskkill", ["/pid", String(c.pid), "/T", "/F"]) } catch { /* already gone */ }
+  } else {
+    try { c.kill() } catch { /* already gone */ }
+  }
 }
 
 /** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. */
