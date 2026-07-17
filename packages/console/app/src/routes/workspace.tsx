@@ -1,7 +1,6 @@
 import { query, createAsync, RouteSectionProps, useParams, A } from "@solidjs/router"
 import "./workspace.css"
 import { VoltMark } from "../component/volt-mark"
-import { WorkspacePicker } from "./workspace-picker"
 import { UserMenu } from "./user-menu"
 import { withActor } from "~/context/auth.withActor"
 import { User } from "@opencode-ai/console-core/user.js"
@@ -30,7 +29,10 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
           <A href={`/workspace/${params.id}`} data-component="site-title">
             <VoltMark />
           </A>
-          <WorkspacePicker />
+          {/* VOLT: opencode's WorkspacePicker is gone from the header. Volt is a one-workspace product, so a
+              dropdown to switch between workspaces offers a choice that never exists — and the same control was
+              also the only UI that CREATED more of them, which is worse than noise. Onboarding is unaffected:
+              function/src/auth.ts:239 creates the "Default" workspace at signup, not this picker. */}
         </div>
         <div data-slot="header-actions">
           <UserMenu email={userEmail()} />

@@ -38,6 +38,7 @@ const ALLOW = new Set([
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
+  "app/src/style/volt-components.css", // Volt-added: the few component SHAPES no token can express (the pill button — its radius token is shared with 39 inputs/progress bars, so it cannot be retuned globally)
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
   "app/test/volt-no-opencode-leftovers.test.ts", // Volt-added: fails if any string the app renders carries opencode BRANDING (its products/domains/contacts) — the bar review keeps missing
   "app/test/volt-theme.cascade.test.ts", // Volt-added: every token volt-theme.css overrides must be declared at a selector that WINS (opencode splits :root for colour vs body for font/space — a :root font override silently loses)
@@ -142,6 +143,11 @@ const DROPPED = [
   // artifact, so it never appeared in review, and it shipped and got crawled. Three of its five routes were not
   // Volt pages. Its `&&`-chain is removed from app/package.json.
   "app/script",
+
+  // opencode's workspace PICKER (header dropdown). Volt is a one-workspace product, so switching offers a choice
+  // that never exists — and this control was also the only UI that CREATED workspaces. Onboarding is unaffected:
+  // function/src/auth.ts:239 creates the "Default" workspace at signup.
+  "app/src/routes/workspace-picker.tsx", "app/src/routes/workspace-picker.css",
 
   // The workspace /go TAB — a dormant duplicate of Volt's Gateway view since routes/workspace/[id]/index.tsx
   // redirects there and the shell's tab points at it. Its lite-section.tsx + .module.css STAY, byte-identical:
