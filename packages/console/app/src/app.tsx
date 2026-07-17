@@ -15,6 +15,7 @@ import "@fontsource-variable/inter"
 import "@fontsource-variable/jetbrains-mono"
 import "./app.css"
 import "./style/volt-theme.css" // VOLT: brand theme override — loaded after ./app.css so it wins (see the file)
+import "./style/volt-components.css" // VOLT: the few component SHAPES no token can express (see the file)
 import { LanguageProvider } from "~/context/language"
 import { I18nProvider, useI18n } from "~/context/i18n"
 import { strip } from "~/lib/language"

@@ -1,0 +1,37 @@
+/* VOLT: component SHAPE overrides — the layer beside volt-theme.css, which owns token VALUES.
+ *
+ * Scope is deliberately tiny, and stays that way: everything else in the console styles itself from the tokens, so
+ * volt-theme.css already carries the brand there. This file is only for the few places where opencode's shape and
+ * volt-www's brand disagree and no token can express the difference.
+ *
+ * WHY A RULE AND NOT A TOKEN. opencode's buttons take their radius from --border-radius-sm — but so do 39 other
+ * things: inputs, progress bars, the credit-card panel, usage bars. Retuning that token would pill the progress
+ * bars. The shape belongs to the button, so it is overridden on the button.
+ *
+ * WHY `body` LEADS EACH SELECTOR. workspace.css declares `[data-page="workspace"] button`, specificity (0,1,1), and
+ * route CSS is emitted into its own chunk — so source order is not guaranteed to favour this file. Prefixing `body`
+ * makes it (0,1,2): it wins on specificity, whatever order the chunks land in.
+ *
+ * WHY TWO SELECTORS. Modals render through <Kobalte.Portal> (component/modal.tsx), which mounts them outside the
+ * [data-page="workspace"] subtree. Without the second scope their buttons would stay square while every other
+ * button rounded — the kind of inconsistency that reads as a bug.
+ *
+ * TRADE-OFF (the same one volt-theme.css makes; see DIVERGENCE.md): this hooks opencode's data-attributes rather
+ * than editing style/component/*.css. An upstream rename silently reverts the shape instead of tripping the gate —
+ * a visible glitch, never data loss. Worth it to keep the vendored stylesheets byte-identical.
+ */
+
+/* The pill is volt-www's button signature (--radius-pill, tokens/spacing.css). opencode ships a 3px rect, which is
+   what still read as "not our app" once the colour and type already matched. Padding and font-size are left alone:
+   the console's buttons sit in tables and toolbars that were laid out around them. */
+body [data-page="workspace"] button,
+body [data-component="modal"] button {
+  border-radius: 999px;
+}
+
+/* volt-www's press: the button dips half a pixel (styles.css `.btn:active`). Costs nothing, and it is most of what
+   makes a button feel like the site's. */
+body [data-page="workspace"] button:active:not(:disabled),
+body [data-component="modal"] button:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
