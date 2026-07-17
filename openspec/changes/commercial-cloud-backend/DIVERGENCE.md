@@ -204,3 +204,46 @@ bun volt-scripts/check-console-divergence.ts     # local check; 0 = clean, 1 = d
 **On an opencode bump:** change `OPENCODE_VERSION` in the script, re-run, and reconcile `ALLOW` + this doc with the
 output. Adding a new intended edit = add it to `ALLOW` **and** here (the two must agree). Anything the gate flags
 that isn't intended is drift to revert.
+
+---
+
+## The edit floor (console-volt-frontend Stage 5)
+
+**The standing rule: never edit opencode's source to customize it.** Customization takes one of three shapes, none
+of which costs anything on a bump:
+
+| Shape | Example | Bump cost |
+|---|---|---|
+| A Volt file **beside** theirs | `i18n/volt.ts` (the string overlay), `routes/workspace/[id]/gateway/`, `style/volt-theme.css`, `component/volt-mark.tsx` | none — new files never conflict |
+| A **deletion** declared in `DROPPED` | the marketing sweep | none — a deletion can't conflict |
+| An **import** of their exported server code | `gateway/index.tsx` imports `queryLiteSubscription` + `LiteSection` from the vendored `go/lite-section.tsx` | none — it *is* the upstream code |
+
+**Why the rule exists, measured:** rebranding by editing `i18n/en.ts` put 26 edits into the file opencode changes
+most. The very next bump (v1.17.20 → v1.18.3, three releases in four days) rewrote `en.ts` **and all 18 locales**.
+The overlay reduced that to one merge point. Of the 27 console files upstream moved in that bump, only **two**
+needed a human.
+
+**The exceptions are closed.** These cannot be shadowed by a beside-file because vite/SolidStart resolve them by
+**filename** — there is no "beside" for an entry point. Each is a hand-merge forever, so the list is a budget:
+
+| File | Why it cannot be a beside-file |
+|---|---|
+| `app/src/app.tsx` | the root layout; filename-bound. Carries `volt-theme.css`, `<Title>Volt</Title>`, and the deliberate omission of upstream's `<Font/>` + `<DesktopPromo/>` |
+| `app/src/entry-server.tsx` | the SSR entry; filename-bound. `og:image`/`twitter:image` |
+| `app/src/ui.tsx` | hand-inlined from `@opencode-ai/ui`, a package the de-fork deleted — there is nothing left to sit beside |
+| `app/vite.config.ts` | vite resolves this exact filename; the only lever on the global middleware slot |
+| `app/src/middleware.ts` | one global middleware slot, pinned by `vite.config.ts`. Also the sole `?ref=` capture point |
+| `app/src/routes/auth/logout.ts` | SolidStart maps path→URL, so a route cannot be shadowed — only replaced |
+
+Everything else in `ALLOW` is either a Volt-added file (no merge cost) or a **marked, minimal edit** whose reason is
+stated inline. Where a value edit was the only option, it was made **additive** (the Honeycomb allowlist appends
+Volt's paths rather than rewriting opencode's check) or **localized** (`consoleOrigin`, one variable, three
+line-level swaps) — never a restructure, so upstream's edits to the same block still merge.
+
+**What is deliberately NOT owned, and why.** The proposal's Stage 4 said "own the views". Three of the four turned
+out not to need it — `settings`, `members` and `go-referral` render every string through i18n, so the overlay
+already covers them, and `billing`'s only leak was one `mailto`. Rewriting a view that has no branding problem buys
+nothing and forfeits upstream's fixes to it forever, so they stay vendored. Only `usage/graph-section.tsx` needed a
+touch: a hardcoded `" (go)"` legend suffix the overlay could not reach (its sibling suffix goes through i18n; this
+one didn't). One line, not a 794-line rewrite. **The backend seam — `zen/util/**` (the gateway), `stripe/webhook.ts`,
+`core/`, `function/`, `mail/` — is imported, never rewritten.**

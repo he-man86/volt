@@ -255,7 +255,13 @@ export function GraphSection() {
     const colorTextSecondary = styles.getPropertyValue("--color-text-secondary").trim()
     const colorBorder = styles.getPropertyValue("--color-border").trim()
     const subSuffix = ` (${i18n.t("workspace.cost.subscriptionShort")})`
-    const liteSuffix = " (go)"
+    // VOLT: was " (go)" — opencode's tier name, rendered in the usage chart's legend and tooltips, so the one page
+    // that itemises what a Volt customer is paying for labelled it with a competitor's product. Note the line above:
+    // opencode put the subscription suffix through i18n and hardcoded this one, so the rebrand overlay could not
+    // reach it. Kept as a literal rather than a new i18n key because the overlay can only override keys that exist
+    // in opencode's dict (`Partial<Record<Key, string>>`) — adding one would mean editing the vendored en.ts, which
+    // is exactly what the overlay exists to avoid.
+    const liteSuffix = " (gateway)"
 
     const dailyDataRegular = new Map<string, Map<string, number>>()
     const dailyDataSub = new Map<string, Map<string, number>>()
