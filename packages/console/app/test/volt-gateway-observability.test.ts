@@ -22,7 +22,7 @@ async function postRoutePaths(dir: string): Promise<string[]> {
   const out: string[] = []
   for (const entry of await readdir(dir, { withFileTypes: true, recursive: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".ts") || entry.name.endsWith(".test.ts")) continue
-    const full = join(entry.parentPath ?? entry.path, entry.name)
+    const full = join(entry.parentPath, entry.name)
     if (!/export\s+(async\s+)?function\s+POST/.test(await Bun.file(full).text())) continue
     // src/routes/v1/chat/completions.ts -> /v1/chat/completions
     out.push("/v1/" + relative(V1_DIR, full).split(sep).join("/").replace(/\.ts$/, ""))

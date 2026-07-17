@@ -29,6 +29,7 @@ const ALLOW = new Set([
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
+  "app/test/volt-theme.contrast.test.ts", // Volt-added: pins the brand palette's WCAG contrast (CSS is type-checked by nothing; a value tweak can silently break readability)
   "app/test/volt-gateway-observability.test.ts", // Volt-added: asserts every POST route under routes/v1 is in the tail worker's allowlist (the beside-file hazard — see the file)
   "app/src/i18n/volt.test.ts", // Volt-added: pins the overlay merge point (see the file) — red if it regresses to a context-only merge
   "app/src/i18n/volt.ts", // Volt-added: the rebrand string OVERLAY — opencode's en.ts + every other locale stay byte-identical
