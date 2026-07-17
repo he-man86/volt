@@ -20,4 +20,19 @@ describe("withGate", () => {
 		await expect(withGate(ws, async () => { throw new Error("boom") })).rejects.toThrow("boom")
 		expect(isMutationInFlight(ws)).toBe(false)
 	})
+
+	test("overlapping mutations refcount — the first to finish must NOT clear the gate", async () => {
+		const ws = "/ws-overlap"
+		let releaseA!: () => void
+		let releaseB!: () => void
+		const a = withGate(ws, () => new Promise<void>((r) => (releaseA = r)))
+		const b = withGate(ws, () => new Promise<void>((r) => (releaseB = r)))
+		expect(isMutationInFlight(ws)).toBe(true)
+		releaseA()
+		await a
+		expect(isMutationInFlight(ws)).toBe(true) // B still running — a Set-based gate would report false here
+		releaseB()
+		await b
+		expect(isMutationInFlight(ws)).toBe(false)
+	})
 })
