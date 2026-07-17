@@ -98,40 +98,51 @@ export class BridgeClient implements Remote {
 		await this.getHealth(); // sets wireChecked, throws PROTOCOL_MISMATCH on a mismatch
 	}
 
+	/**
+	 * Defense against silent data loss: a bridge can return 200 with an EMPTY item set when its IDE handle has
+	 * gone stale (disconnected). Interpreting that as truth means a pull deletes every file ("engineer deleted
+	 * every POU"). This is the one place that cross-checks /health for any response carrying the item set —
+	 * `/refs`, `/fetch`, `/init` — so no consumer (pull included) can bypass it. An empty set with the IDE
+	 * genuinely attached (a legitimately empty project) is allowed through.
+	 */
+	private async guardEmptyItems(itemCount: number): Promise<void> {
+		if (itemCount > 0) return;
+		const health = await this.getHealth().catch(() => undefined);
+		if (health !== undefined && health.connected !== true) {
+			process.stderr.write(
+				`[bridge-client] empty item set + /health.connected=false (status=${health.status}) — refusing to interpret as "engineer deleted everything"\n`,
+			);
+			throw new BridgeError(
+				"PLC_DISCONNECTED",
+				"bridge reported zero items AND /health says no IDE is attached — refusing to treat an empty project as truth",
+				503,
+			);
+		}
+	}
+
 	async getRefs(): Promise<RefsResponse> {
 		await this.preflight();
 		const refs = await this.request("GET", "/refs", RefsResponseSchema, undefined, this.timeouts.refs);
-		// Defense: a bridge can return 200 with an empty items map when the IDE handle has gone stale.
-		// Treating that as truth risks a destructive pull ("engineer deleted every POU"). Cross-check
-		// /health; if no IDE is attached, throw the same disconnected error every consumer already routes.
-		if (Object.keys(refs.items).length === 0) {
-			const health = await this.getHealth().catch(() => undefined);
-			if (health !== undefined && health.connected !== true) {
-				process.stderr.write(
-					`[bridge-client] empty /refs + /health.connected=false (status=${health.status}) — refusing to interpret as "engineer deleted everything"\n`,
-				);
-				throw new BridgeError(
-					"PLC_DISCONNECTED",
-					"bridge reported zero items AND /health says no IDE is attached — refusing to treat empty refs as truth",
-					503,
-				);
-			}
-		}
+		await this.guardEmptyItems(Object.keys(refs.items).length);
 		return refs;
 	}
 
 	async fetchChanges(req: FetchRequest, onProgress?: ProgressHandler): Promise<FetchResponse> {
 		await this.preflight();
-		return onProgress
-			? this.requestStream("POST", "/fetch", FetchResponseSchema, req, onProgress, this.timeoutMs)
-			: this.request("POST", "/fetch", FetchResponseSchema, req);
+		const resp = onProgress
+			? await this.requestStream("POST", "/fetch", FetchResponseSchema, req, onProgress, this.timeoutMs)
+			: await this.request("POST", "/fetch", FetchResponseSchema, req);
+		await this.guardEmptyItems(Object.keys(resp.items).length);
+		return resp;
 	}
 
 	async init(onProgress?: ProgressHandler): Promise<FetchResponse> {
 		await this.preflight();
-		return onProgress
-			? this.requestStream("POST", "/init", FetchResponseSchema, {}, onProgress, this.timeoutMs)
-			: this.request("POST", "/init", FetchResponseSchema, {});
+		const resp = onProgress
+			? await this.requestStream("POST", "/init", FetchResponseSchema, {}, onProgress, this.timeoutMs)
+			: await this.request("POST", "/init", FetchResponseSchema, {});
+		await this.guardEmptyItems(Object.keys(resp.items).length);
+		return resp;
 	}
 
 	async pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse> {

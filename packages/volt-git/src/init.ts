@@ -55,7 +55,8 @@ export async function init(workspace: string, bridge: Remote, opts: { onProgress
 	const head = headCommit(root);
 
 	// Seed the workspace with the IDE's files.
-	const tree = buildVoltIdeTree(gitDir, head ?? undefined, ideFiles, []);
+	// Init seeds the whole IDE (no prior volt/ide tree), so `ideFiles` is everything and there is no parent.
+	const tree = buildVoltIdeTree(gitDir, head ?? undefined, undefined, ideFiles, []);
 	const commit = commitVoltIde(gitDir, tree, head ?? undefined, `volt: IDE @ ${fetched.projectVersion}`);
 	updateRef(gitDir, RANGE, commit);
 	writeSrcFiles(root, ideFiles);

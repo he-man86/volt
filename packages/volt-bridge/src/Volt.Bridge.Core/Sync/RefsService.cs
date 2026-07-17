@@ -15,51 +15,21 @@ public static class RefsService
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
         var sw = Stopwatch.StartNew();
-        var versions = new Dictionary<string, string>();
-        var fullVersions = new Dictionary<string, string>();
-        var folders = new Dictionary<string, string>();
-
-        var walked = ide.WalkItems();
-        var total = walked.Count;
-        var done = 0;
-        var unmapped = 0;    // KindCode the table doesn't map — dropped
-        var unreadable = 0;  // exists + tracked, body unreadable (SafeVersion logs the why at Warn)
-        var excluded = 0;    // excluded-from-build — deliberate omission (no compiler ground truth)
-        onProgress?.Invoke(new ProgressFrame { Operation = "refs", Done = 0, Total = total, Phase = "reading" });
-
-        foreach (var it in walked)
-        {
-            done++;
-            if (onProgress != null && (done % 25 == 0 || done == total))
-                onProgress(new ProgressFrame { Operation = "refs", Done = done, Total = total });
-
-            var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) { unmapped++; VoltLog.Debug($"refs skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
-            if (ItemKind.IsContainerManager(it.KindCode)) continue;
-            if (it.ExcludeFromBuild) { excluded++; VoltLog.Debug($"refs skip: exclude-from-build '{it.Name}'"); continue; }
-
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
-            versions[it.Name] = version;
-            if (mat != null)
-            {
-                fullVersions[mat.FullName] = version;
-                folders[mat.FullName] = it.Folder;
-            }
-            else unreadable++;
-        }
+        // /refs IS the project snapshot — the same walk the /push receipt uses, so the two never drift.
+        var snap = ProjectSnapshot.Walk(ide, onProgress, "refs");
 
         var hit = new List<string>();
-        if (unmapped > 0) hit.Add($"{unmapped} unmapped-kind");
-        if (unreadable > 0) hit.Add($"{unreadable} unreadable");
-        if (excluded > 0) hit.Add($"{excluded} exclude-from-build");
-        VoltLog.Info($"refs: {fullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
+        if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");
+        if (snap.Unreadable > 0) hit.Add($"{snap.Unreadable} unreadable");
+        if (snap.Excluded > 0) hit.Add($"{snap.Excluded} exclude-from-build");
+        VoltLog.Info($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
 
         return new RefsResponse
         {
-            ProjectVersion = Hasher.ComputeProjectVersion(versions),
-            StructureVersion = Hasher.ComputeStructureVersion(versions),
-            Items = fullVersions,
-            Folders = folders,
+            ProjectVersion = snap.ProjectVersion,
+            StructureVersion = snap.StructureVersion,
+            Items = snap.FullVersions,
+            Folders = snap.Folders,
         };
     }
 }

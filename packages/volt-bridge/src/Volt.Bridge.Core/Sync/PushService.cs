@@ -27,8 +27,10 @@ public static class PushService
         // Pre-apply snapshot: keyed by BARE IDE name because these maps mirror the IDE (which is
         // extension-less). The WIRE carries FULL names on every endpoint; op.Name is converted to bare at
         // the apply boundary via Materializer.Bare. Responses use FULL names (mat.FullName) — like /refs/fetch.
+        // Pre-apply walk for conflict detection (per-item ifVersion guards) + the apply-boundary item cache.
+        // Deliberately NOT gated like /refs: it must see EVERY item (incl. container-managers / excluded) so a
+        // lookup/delete never misses one. The RECEIPT below is the /refs-gated snapshot, taken fresh post-apply.
         var currentVersions = new Dictionary<string, string>();
-        var currentFullNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
         {
@@ -36,9 +38,8 @@ public static class PushService
             if (kind == null) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
             currentVersions[it.Name] = version;
-            if (mat != null) currentFullNames[it.Name] = mat.FullName;
             if (it.IsTopLevelCrud) itemCache[it.Name] = (it.Item, it.Folder);
         }
 
@@ -73,35 +74,14 @@ public static class PushService
 
         ide.FlushPendingWrites();
 
-        // Cold re-walk for the receipt — bare-name keys for aggregate version (matches /refs),
-        // full-name keys for the wire Items map. Reuse pre-apply versions for unchanged items;
-        // only the operated-on items need fresh materialization.
-        var operatedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var op in request.Ops)
-        {
-            operatedNames.Add(Materializer.Bare(op.Name));
-            if (op is SetItemOp { ToName: not null } s) operatedNames.Add(Materializer.Bare(s.ToName));
-        }
-        var receiptVersions = new Dictionary<string, string>();
-        var receiptFullVersions = new Dictionary<string, string>();
-        var receiptFolders = new Dictionary<string, string>();  // full name → folder, so the client refreshes its sidecar without a follow-up /refs
-        foreach (var it in ide.WalkItems())
-        {
-            if (currentVersions.TryGetValue(it.Name, out var preVersion) && !operatedNames.Contains(it.Name))
-            {
-                receiptVersions[it.Name] = preVersion;
-                if (currentFullNames.TryGetValue(it.Name, out var fn)) { receiptFullVersions[fn] = preVersion; receiptFolders[fn] = it.Folder; }
-                continue;
-            }
-            var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) continue;
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
-            receiptVersions[it.Name] = version;
-            if (mat != null) { receiptFullVersions[mat.FullName] = version; receiptFolders[mat.FullName] = it.Folder; }
-        }
+        // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
+        // pre-apply versions. A native rename rewrites the bodies of referencing items that are NOT in the op
+        // set, so reusing their pre-apply versions would report a stale baseline; the client persists this
+        // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
+        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
 
-        VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receiptFullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions, receiptFolders);
+        VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
+        return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders);
     }
 
     /// <summary>The write receipt for the accepted-push log line: each applied op grouped by what it did to the

@@ -35,6 +35,22 @@ public class PushServiceTests
     }
 
     [Fact]
+    public void Accepted_push_receipt_matches_a_fresh_refs()
+    {
+        // The client persists the push receipt as its IDE baseline with no follow-up /refs, so the receipt
+        // MUST equal a fresh /refs (the reuse-of-pre-apply-versions optimization broke this for renames).
+        var ide = OneProgram(folder: "POUs");
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
+        Assert.True(resp.Accepted);
+
+        var refs = RefsService.Handle(ide);
+        Assert.Equal(refs.ProjectVersion, resp.NewProjectVersion);
+        Assert.Equal(refs.Items.OrderBy(k => k.Key), resp.NewItems!.OrderBy(k => k.Key));
+        Assert.Equal(refs.Folders.OrderBy(k => k.Key), resp.NewFolders!.OrderBy(k => k.Key));
+    }
+
+    [Fact]
     public void Accepted_push_returns_newFolders_in_parity_with_newItems()
     {
         // The accepted receipt carries newFolders so the client refreshes its sidecar folder map without a

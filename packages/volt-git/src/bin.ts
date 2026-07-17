@@ -130,7 +130,7 @@ async function main(): Promise<number> {
 			if (pending > 0 && !args.has("--json"))
 				console.log(`note: ${pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run \`volt push\` first.`);
 			const rep = createReporter();
-			const r = await build(bridge, args.has("--full"), rep.onProgress);
+			const r = await build(root, bridge, args.has("--full"), rep.onProgress);
 			rep.finish();
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
