@@ -34,7 +34,12 @@ CloseApplications=yes
 
 [Tasks]
 Name: "opencode"; Description: "Install the opencode CLI — the AI agent (via winget)"; GroupDescription: "Optional components:"
-Name: "vscode";   Description: "Install the Volt VS Code extension";                    GroupDescription: "Optional components:"; Check: VSCodeInstalled
+; One task per VS Code-family editor — each offered only if its launcher is on PATH, each independently
+; checkable. This IS the configuration surface: the wizard checkboxes interactively, /TASKS="vscode,cursor"
+; for a scripted install.
+Name: "vscode";   Description: "Install the Volt extension into VS Code";  GroupDescription: "Optional components:"; Check: EditorOnPath('code')
+Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
+Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -45,18 +50,21 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdir
 Filename: "{app}\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
 ; Optional components — only on an interactive install (skip on the connector's silent in-place update).
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force"; Tasks: vscode; Check: NotSilent; StatusMsg: "Installing the Volt VS Code extension…"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Tasks: vscode;   Check: NotSilent; StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Tasks: windsurf; Check: NotSilent; StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Tasks: cursor;   Check: NotSilent; StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
 [UninstallRun]
 ; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.
 Filename: "{app}\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
 
 [Code]
-function VSCodeInstalled(): Boolean;
+function EditorOnPath(Launcher: String): Boolean;
 var Code: Integer;
 begin
-  // Offer the extension task only if VS Code's `code` launcher is on PATH.
-  Result := Exec(ExpandConstant('{cmd}'), '/c where code', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+  // Offer an editor's extension task only if its launcher is on PATH. All three (code/windsurf/cursor) are
+  // VS Code forks and take the same `--install-extension <vsix> --force`, so PATH presence is the whole check.
+  Result := Exec(ExpandConstant('{cmd}'), '/c where ' + Launcher, '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
 end;
 
 function NotSilent(): Boolean;
