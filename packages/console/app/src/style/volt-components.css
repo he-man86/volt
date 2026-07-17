@@ -29,6 +29,16 @@ body [data-component="modal"] button {
   border-radius: 999px;
 }
 
+/* The header lockup: mark + wordmark. opencode rendered its logo alone, so workspace.css styles [data-component=
+   "site-title"] as pure text (font-size-lg / 600 / -0.02em tracking) with no layout — the two would sit on
+   mismatched baselines. Aligning them here rather than in workspace.css keeps that file byte-identical. */
+body [data-component="site-title"] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+}
+
 /* volt-www's press: the button dips half a pixel (styles.css `.btn:active`). Costs nothing, and it is most of what
    makes a button feel like the site's. */
 body [data-page="workspace"] button:active:not(:disabled),

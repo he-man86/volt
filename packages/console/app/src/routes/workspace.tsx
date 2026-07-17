@@ -27,7 +27,11 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
       <header data-component="workspace-header">
         <div data-slot="header-brand">
           <A href={`/workspace/${params.id}`} data-component="site-title">
-            <VoltMark />
+            {/* Sized to the type, not to its own viewBox: the mark is 24×28, which towers over 18px text at full
+                size. aria-hidden because the wordmark beside it already says "Volt" — a screen reader should hear
+                it once, not twice. */}
+            <VoltMark width="17" height="20" aria-hidden="true" />
+            Volt
           </A>
           {/* VOLT: opencode's WorkspacePicker is gone from the header. Volt is a one-workspace product, so a
               dropdown to switch between workspaces offers a choice that never exists — and the same control was

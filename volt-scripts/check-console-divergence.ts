@@ -70,6 +70,7 @@ const ALLOW = new Set([
   "app/src/routes/zen/util/modelsHandler.ts", // /v1/models owned_by: "opencode" → "volt"
   "app/src/routes/zen/util/handler.ts", // gateway errors linked hardcoded opencode.ai/workspace/… → request-derived origin + Volt's /gateway tab; ADMIN_WORKSPACES (opencode's own ids, isFree+allowlist bypass) emptied
   "app/src/routes/honeycomb/webhook.ts", // blanked opencode's hardcoded Discord alert role ID (wrong server); mention now opt-in
+  "app/src/component/go-referral.tsx", // the invite link — the most-shared URL the product has — was /go?ref=… (opencode's Go marketing page, now a redirect); → /?ref=… . middleware.ts captures ?ref on every path, so no route was needed
   "app/src/routes/workspace/[id]/usage/graph-section.tsx", // chart legend hardcoded " (go)" — opencode's tier name on the page that itemises what a Volt customer pays for (its sibling suffix goes through i18n; this one didn't, so the overlay couldn't reach it)
   "app/src/routes/workspace/[id]/billing/billing-section.tsx", // "contact us" mailto:help@anoma.ly (opencode's support inbox, live on Volt's Billing tab) → hello@volt-ai.dev
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
