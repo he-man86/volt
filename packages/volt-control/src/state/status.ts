@@ -58,6 +58,7 @@ export class VoltStatus {
 	private lastDirty = false;
 	private lastProjectName: string | undefined;
 	private seenHealth = false;
+	private pendingForce = false; // a forced refresh requested while one was in flight — run it after, don't drop it
 
 	constructor(workspaceRoot: string) {
 		this.workspaceRoot = workspaceRoot;
@@ -89,7 +90,12 @@ export class VoltStatus {
 	}
 
 	async refresh(force = false): Promise<void> {
-		if (this.isRefreshing) return;
+		if (this.isRefreshing) {
+			// Don't drop a forced refresh (a user click, or an IDE-change edge) — coalesce it to run once the
+			// in-flight one settles, so the view reflects the latest state instead of waiting for the next poll.
+			if (force) this.pendingForce = true;
+			return;
+		}
 		if (!force && Date.now() - this.lastRefreshMs < 1_000) return;
 		this.lastRefreshMs = Date.now();
 		this.isRefreshing = true;
@@ -117,6 +123,10 @@ export class VoltStatus {
 		} finally {
 			this.isRefreshing = false;
 			this.onDidChange.fire();
+			if (this.pendingForce) {
+				this.pendingForce = false;
+				void this.refresh(true);
+			}
 		}
 	}
 
