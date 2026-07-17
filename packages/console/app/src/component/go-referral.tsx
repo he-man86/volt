@@ -85,7 +85,12 @@ function CopyInviteLink(props: { summary: GoReferralSummary }) {
       ? window.location.origin
       : undefined
   const inviteUrl = createMemo(() => {
-    const path = `/go?ref=${props.summary.referralCode}`
+    // VOLT: was `/go?ref=…` — opencode's Go marketing page, which Volt replaced with a redirect. The invite link is
+    // the most-shared URL the product has, so it should read as ours: `volt-ai.dev/?ref=CODE`, not `/go`. Nothing
+    // else is needed for this to work — `src/middleware.ts` captures `?ref=` on EVERY request, whatever the path,
+    // and `/` already redirects to /auth. routes/go/index.ts stays as a redirect so codes already handed out keep
+    // landing.
+    const path = `/?ref=${props.summary.referralCode}`
     if (!origin) return path
     return new URL(path, origin).toString()
   })
