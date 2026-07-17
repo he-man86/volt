@@ -68,11 +68,24 @@ const check = (label: string, ok: boolean, soft = false): void => {
 
 if (existsSync(connector)) console.warn("⚠ Volt already installed — results reflect an upgrade-over-install, not a clean one.")
 
+// A running tray connector holds the install dir locked, and Inno's Restart Manager can't close a tray app under
+// /VERYSILENT — Setup aborts with exit 5 before any check runs. The real auto-update path never hits this: the
+// connector Environment.Exit(0)s itself right after launching Setup (Updater.cs). Match that here. No-op on CI,
+// where nothing is running; this is what lets the gate also run on a dev box.
+for (const name of ["VoltConnector.exe", "Volt.Bridge.Beckhoff.exe"]) {
+  if (procRunning(name)) {
+    console.log(`• stopping ${name} (it holds the install dir locked)`)
+    spawnSync("taskkill", ["/F", "/IM", name], { stdio: "ignore" })
+  }
+}
+
 // ── install ───────────────────────────────────────────────────────────────────
 console.log(`• installing ${setup} (/VERYSILENT)`)
 const inst = spawnSync(setup, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
 if (inst.status !== 0) {
-  console.error(`✗ installer exited ${inst.status}`)
+  // 5 = Setup aborted during install; on a dev box that's almost always a Volt process it couldn't close.
+  const hint = inst.status === 5 ? " — a Volt process is holding the install dir (close Volt and retry)" : ""
+  console.error(`✗ installer exited ${inst.status}${hint}`)
   process.exit(1)
 }
 
