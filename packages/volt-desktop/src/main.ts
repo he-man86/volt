@@ -32,7 +32,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const OPENCODE_BIN = process.env.OPENCODE_BIN || "opencode"
 // The agent banner's install button navigates here; will-navigate intercepts it (see whenReady). https + a
 // reserved `.invalid` host (RFC 2606, never resolves) so the click always fires will-navigate.
-const INSTALL_SENTINEL = "https://volt.invalid/install-opencode"
 const READY = /listening on (https?:\/\/\S+)/i // matches `opencode serve` stdout
 // Layout — keep in sync with shell.html. A thin icon rail is always reserved on the right; the panel
 // expands beside it. opencode fills whatever's left.
@@ -223,11 +222,6 @@ app.whenReady().then(async () => {
   layoutView()
   win.on("resize", layoutView)
   view.webContents.setWindowOpenHandler(({ url }) => (shell.openExternal(url), { action: "deny" }))
-  // The agent banner's "Install" button navigates to this sentinel; we intercept and run winget in-app. It's an
-  // https URL on a reserved-TLD host (never resolves) so will-navigate reliably fires — a custom scheme may not.
-  view.webContents.on("will-navigate", (e, url) => {
-    if (url.startsWith(INSTALL_SENTINEL)) (e.preventDefault(), void installOpencode())
-  })
 
   configureTools()
   watchActiveProject() // bind to whatever project opencode's GUI is on
@@ -245,52 +239,27 @@ async function launchAgent(): Promise<void> {
   }
 }
 
-// One-click install of the opencode CLI via winget (Windows' built-in package manager), then relaunch.
-// ponytail: winget only. Its shim dir is already on PATH, so no relaunch needed to pick up the new binary.
-async function installOpencode(): Promise<void> {
-  await agentBanner({ busy: "Installing the opencode CLI via winget… this can take a minute." })
-  const code = await new Promise<number>((resolve) => {
-    const p = spawn(
-      "winget",
-      ["install", "--exact", "--id", "SST.opencode", "--accept-source-agreements", "--accept-package-agreements"],
-      { stdio: "ignore", shell: true },
-    )
-    p.on("error", () => resolve(-1))
-    p.on("exit", (c) => resolve(c ?? -1))
-  })
-  if (code === 0) {
-    // A fresh winget install may have added opencode's shim dir to the *persisted* PATH only; this process
-    // captured PATH at launch, so make the new binary resolvable now instead of forcing a Volt restart.
-    const links = process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Links")
-    if (links && !(process.env.PATH ?? "").split(";").includes(links)) process.env.PATH = `${process.env.PATH ?? ""};${links}`
-    await launchAgent()
-  } else await agentBanner({ error: `winget install failed (exit ${code}). Install manually from opencode.ai/download.` })
-}
-
 // Minimal HTML escape for text interpolated into the data: URL banner (error strings aren't trusted markup).
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
 }
 
-// The agent view's placeholder: install prompt, an in-progress state, or a failure. Loaded into `view`.
-function agentBanner(opts: { busy?: string; error?: string }): Promise<void> {
-  const action = opts.busy
-    ? `<div class="ring" style="width:34px;height:34px;margin:.25rem auto 1rem;border:3px solid #ffffff1a;border-top-color:#e8a94b;border-radius:50%;animation:spin 1s linear infinite"></div>
-        <p style="margin:0;font-weight:500">${opts.busy}</p>
-        <p style="opacity:.5;margin:.4rem 0 0;font-size:13px">Fetching the official opencode CLI via winget — this can take a minute.</p>`
-    : `<a href="${INSTALL_SENTINEL}" style="display:inline-block;padding:.7rem 1.6rem;border-radius:10px;background:#e8a94b;color:#16120e;font-weight:600;text-decoration:none;box-shadow:0 6px 20px rgba(232,169,75,.3)">Install opencode</a>
-        <p style="opacity:.6;margin:1rem 0 0;font-size:13px">or <a href="https://opencode.ai/download" target="_blank" style="color:#e8a94b">install it yourself from opencode.ai</a></p>
-        <p style="opacity:.5;margin:1.75rem 0 0;font-size:12.5px">Volt installs the <b>official opencode CLI</b> (<code style="font-family:ui-monospace,monospace">SST.opencode</code>) via winget — not the desktop app, which Volt already provides. To point at an existing install, set <code style="font-family:ui-monospace,monospace;opacity:.85">OPENCODE_BIN</code>.</p>`
+// The agent view's placeholder when opencode isn't installed (or failed to start). The Volt installer offers the
+// opencode CLI as an opt-in wizard task, so this only points at opencode.ai rather than installing anything —
+// one install path to maintain, and Volt never manages opencode behind the user's back.
+// target=_blank → setWindowOpenHandler sends it to the real browser.
+function agentBanner(opts: { error?: string } = {}): Promise<void> {
   const footer = opts.error ? `<p style="opacity:.35;margin:2rem 0 0;font:12px ui-monospace,monospace">${esc(opts.error)}</p>` : ""
   return view!.webContents.loadURL(
     "data:text/html;charset=utf-8," +
-      encodeURIComponent(`<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      encodeURIComponent(`
       <body style="margin:0;min-height:100vh;display:grid;place-items:center;font:14px/1.6 system-ui;background:radial-gradient(120% 120% at 50% 0%,#221a12 0%,#16120e 60%);color:#f3ead9">
       <main style="max-width:30rem;padding:2.5rem;text-align:center">
         <div style="width:52px;height:52px;margin:0 auto 1.25rem;display:grid;place-items:center;border-radius:14px;background:#e8a94b;color:#16120e;font-size:26px;box-shadow:0 8px 30px rgba(232,169,75,.25)">⚡</div>
         <h2 style="margin:0 0 .5rem;font-size:1.5rem;letter-spacing:-.01em">Turn on the AI agent</h2>
-        <p style="opacity:.7;margin:0 0 1.75rem">The agent view is powered by <a href="https://opencode.ai" target="_blank" style="color:#f3ead9;font-weight:600"><b>opencode</b></a>, an optional runtime. Everything else in Volt — sync, the language server, the IDE bridge — already works without it.</p>
-        ${action}
+        <p style="opacity:.7;margin:0 0 1.75rem">The agent view is powered by <b>opencode</b>, an optional runtime. Everything else in Volt — sync, the language server, the IDE bridge — already works without it.</p>
+        <a href="https://opencode.ai/download" target="_blank" style="display:inline-block;padding:.7rem 1.6rem;border-radius:10px;background:#e8a94b;color:#16120e;font-weight:600;text-decoration:none;box-shadow:0 6px 20px rgba(232,169,75,.3)">Install opencode</a>
+        <p style="opacity:.5;margin:1.75rem 0 0;font-size:12.5px">Install the <b>official opencode CLI</b>, then restart Volt. The Volt installer can also do this for you. To point at an existing install, set <code style="font-family:ui-monospace,monospace;opacity:.85">OPENCODE_BIN</code>.</p>
         ${footer}
       </main></body>`),
   )

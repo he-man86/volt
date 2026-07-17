@@ -13,23 +13,15 @@ import { aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@vol
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
 
-// opencode is missing — offer the same two paths as the desktop app: a one-click winget install (run live in
-// a terminal so the user sees progress) or the opencode.ai download page. The rest of Volt works without it.
+// opencode is missing — say so and point at opencode.ai. The Volt installer offers the winget install as an
+// opt-in task, so this doesn't reimplement one; the rest of Volt works without opencode either way.
 async function promptInstallOpencode(): Promise<void> {
-	const install = "Install opencode",
-		get = "Get it from opencode.ai"
+	const get = "Get it from opencode.ai"
 	const pick = await vscode.window.showWarningMessage(
 		"The Volt agent is powered by the opencode CLI, which isn't installed. Sync, the language server and the IDE bridge work without it.",
-		install,
 		get,
 	)
-	if (pick === install) {
-		const t = vscode.window.createTerminal("Install opencode")
-		t.show()
-		t.sendText("winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements")
-	} else if (pick === get) {
-		void vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/download"))
-	}
+	if (pick === get) void vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/download"))
 }
 
 export async function activate(context: vscode.ExtensionContext) {
