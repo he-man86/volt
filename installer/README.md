@@ -36,21 +36,18 @@ Yes, now. Four folders total: the install (`Programs\Volt`), the log store (`Vol
 (`%APPDATA%\Volt`), and `%TEMP%` scratch that Windows reaps. Plus three HKCU keys and one shortcut. That's the
 floor for an app that must survive reboot and configure another tool.
 
-Two things that were **not** optimal, both fixed — worth knowing so they don't come back:
+Two invariants keep it that way — don't remove either without knowing what breaks:
 
-**`%APPDATA%\@volt\desktop\`** — Electron derives `userData` from `app.getName()`, which reads `productName`
-before `name`. Without a `productName`, the name was `@volt/desktop` and Electron created a literal `@volt`
-folder. `packages/volt-desktop/package.json` now sets `"productName": "Volt"`. That key is **load-bearing** — it
-is not a duplicate of the `productName` in `electron-builder.yml` (which only brands the packaged `.exe`).
-Upgrading users keep an orphaned `%APPDATA%\@volt` (~15 MB); it's inert and safe to delete by hand.
+**`"productName": "Volt"` in `packages/volt-desktop/package.json` is load-bearing.** Electron derives `userData`
+from `app.getName()`, which reads `productName` before `name`; without it the name is `@volt/desktop` and Electron
+writes to a literal `%APPDATA%\@volt` folder. It is **not** a duplicate of the `productName` in
+`electron-builder.yml` (which only brands the packaged `.exe`).
 
-**`volt-config` shipped a `package.json`** — an untracked leftover from the retired `volt init` npm-install era.
-It was gitignored, so CI never saw it and only *local* builds shipped it — and opencode **installs a config
-dir's declared dependencies at runtime**, so it created `volt-config\node_modules` (27 packages) on first run and
-needed a registry, on machines that specifically may not have one. Retired at three levels: the files are gone,
-`build-payload.ts` refuses to copy them (`CFG_NEVER_SHIP`) so no dev box can leak them again, and `[InstallDelete]` wipes
-`{app}\volt-config` on every install so **upgrading** users lose it too — `[Files]` alone would have left it
-there forever.
+**`volt-config` must never ship a `package.json`.** opencode installs a config dir's declared dependencies at
+runtime, so a stray `package.json` makes it create `volt-config\node_modules` on first run and reach for a registry
+— on machines that may not have one. `build-payload.ts` refuses to copy config `package.json`/`node_modules`
+(`CFG_NEVER_SHIP`), and `[InstallDelete]` wipes `{app}\volt-config` on every install so the dir is always exactly
+what shipped.
 
 ## Upgrades delete nothing by default
 
@@ -89,20 +86,3 @@ outlives both processes; not worth it until it actually bites.
 **The extension tasks are never smoke-tested.** They're `Check: NotSilent`, and `test:install` runs
 `/VERYSILENT` — so CI proves the `.vsix` ships, never that it installs. Only a human clicking the wizard covers
 that.
-
-## Legacy directories (do NOT blind-delete)
-
-Machines that ran pre-Inno builds may still carry these. The installer deliberately does **not** touch them —
-an uninstaller that hunts for folders it didn't create is how you delete someone's data by accident.
-
-| Location | Status | Safe to delete? |
-|---|---|---|
-| `%LOCALAPPDATA%\volt-updater\installer.exe` | Velopack-era update staging. **Zero references in the current source.** ~230 MB. | Yes — dead weight. |
-| `%LOCALAPPDATA%\volt-bridge-new\` | old bridge worker pid/log dir. Zero references in the current source. | Yes. |
-| `%APPDATA%\@volt\` | pre-0.2.0 Electron `userData`, orphaned by the `productName` fix. ~15 MB of caches. | Yes — inert. |
-| `%LOCALAPPDATA%\volt-bridge\` | **still live** — `packages/volt-bridge/scripts/codesys-bridge.ps1` uses it as the headless dev-loop workdir. **Looks exactly like the dead ones.** | **No** — dev-only, but current. Users never create it. |
-| `%LOCALAPPDATA%\Volt\` | current log store. | No. |
-| `%APPDATA%\Volt\` | current Electron `userData`. | No. |
-
-If a legacy sweep is ever added, it belongs behind an explicit user action ("clean up old Volt data") that names
-what it will remove — never in the silent uninstall path.
