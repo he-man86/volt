@@ -18,13 +18,11 @@ export default function WorkspaceLayout(props: RouteSectionProps) {
     { path: "gateway", label: "Gateway" }, // Volt's own view; opencode's /go stays vendored + unlinked
     { path: "usage", label: "Usage" },
     { path: "keys", label: "API keys" },
-    // members tab intentionally omitted for now (team invites not offered yet); the /members route stays dormant.
-    ...(userInfo()?.isAdmin
-      ? [
-          { path: "billing", label: "Billing" },
-          { path: "settings", label: "Settings" },
-        ]
-      : []),
+    // Omitted on purpose, both still URL-reachable for the rare case (they are auth- and workspace-scoped, so
+    // "not in the nav" costs nothing but a click nobody wants):
+    //   • members  — team invites aren't offered yet.
+    //   • settings — its only control renames the workspace, which nobody does; a whole tab for it is noise.
+    ...(userInfo()?.isAdmin ? [{ path: "billing", label: "Billing" }] : []),
   ]
 
   const NavItems = () => (

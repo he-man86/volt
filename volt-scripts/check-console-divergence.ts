@@ -33,13 +33,14 @@ const ALLOW = new Set([
   "app/src/ui.tsx", // inlined createSimpleContext + Favicon; Favicon emits Volt's /volt-mark.svg + /apple-touch-icon.png
   "app/src/entry-server.tsx", // og:image/twitter:image → Volt's icon (opencode's /social-share.png was deleted)
   "app/scripts", // Volt-added: gen-favicon.ts generates public/volt-mark.svg + the brand PNGs from component/volt-mark-path.ts (zero-dep)
-  "app/src/app.tsx", // @opencode-ai/ui → ~/ui rewrite, + ./style/volt-theme.css, + Title "Volt"; SKIPS upstream's <Font/> (@opencode-ai/ui, deleted — Volt self-hosts fonts) and <DesktopPromo/> (opencode-Desktop ad, rendered app-wide incl. our workspace)
+  "app/src/app.tsx", // + self-hosted Inter/JetBrains via TS import (a bare CSS @import is NOT bundled by vite — the fonts silently never shipped) and DROPS @ibm/plex (~437 unused @font-face once --font-sans stops aliasing --font-mono); @opencode-ai/ui → ~/ui rewrite, + ./style/volt-theme.css, + Title "Volt"; SKIPS upstream's <Font/> (@opencode-ai/ui, deleted — Volt self-hosts fonts) and <DesktopPromo/> (opencode-Desktop ad, rendered app-wide incl. our workspace)
   "app/src/context/i18n.tsx", // @opencode-ai/ui → ~/ui (ditto)
   "app/src/context/language.tsx", // @opencode-ai/ui → ~/ui (ditto)
 
   // ── Volt branding: an ADDITIVE override — opencode's style/token/*.css stay byte-identical ──
   "app/src/style/volt-theme.css", // the ONLY branding source file: Volt token values + self-hosted fonts
   "app/test/volt-no-opencode-leftovers.test.ts", // Volt-added: fails if any string the app renders carries opencode BRANDING (its products/domains/contacts) — the bar review keeps missing
+  "app/test/volt-theme.cascade.test.ts", // Volt-added: every token volt-theme.css overrides must be declared at a selector that WINS (opencode splits :root for colour vs body for font/space — a :root font override silently loses)
   "app/test/volt-theme.contrast.test.ts", // Volt-added: pins the brand palette's WCAG contrast (CSS is type-checked by nothing; a value tweak can silently break readability)
   "app/test/volt-gateway-observability.test.ts", // Volt-added: asserts every POST route under routes/v1 is in the tail worker's allowlist (the beside-file hazard — see the file)
   "app/src/i18n/volt.test.ts", // Volt-added: pins the overlay merge point (see the file) — red if it regresses to a context-only merge

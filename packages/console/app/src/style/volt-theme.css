@@ -31,9 +31,9 @@
  * back to opencode's default for that one var (a visible color glitch), never silent data loss. Renames are rare
  * and the break is obvious, so this is preferred over rewriting vendored files in place.
  */
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
-
+/* The faces themselves are imported from app.tsx (a TS import — a bare CSS `@import` here does NOT get bundled by
+   vite, which is why the first version of this port shipped Inter in the token stack while the browser only ever
+   had IBM Plex to fall back on). */
 :root {
   /* Warm surface ladder — volt-www --color-{background,surface,surface-hover} */
   --color-bg: #f7f7f4;
@@ -79,7 +79,19 @@
   --color-danger-hover: #b32548;
   --color-danger-active: #961e3c;
 
-  /* Inter = UI/body, JetBrains Mono = code/technical — the same stacks as volt-www/src/tokens/typography.css */
+}
+
+/* The type. Declared on `body`, NOT `:root`, and that is load-bearing: opencode declares its font (and space)
+ * tokens in style/token/font.css on `body`, while its COLOUR tokens are on `:root`. A `:root` override loses to a
+ * `body` declaration for everything inside body — the nearer ancestor wins, specificity never enters into it. The
+ * first version of this port put the fonts on :root, so the colours applied and the type silently did not: the
+ * console kept rendering in IBM Plex Mono while the stack below sat unused one level up. Matching opencode's own
+ * selector means source order decides, and volt-theme.css loads after app.css.
+ *
+ * What this replaces: opencode aliases `--font-sans: var(--font-mono)` — its console is monospace end-to-end, an
+ * aesthetic that reads as "terminal", not as volt-www. Inter for UI, JetBrains Mono for code/keys/IDs: the same
+ * two faces, and the same stacks, as volt-www/src/tokens/typography.css. */
+body {
   --font-mono:
     "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
