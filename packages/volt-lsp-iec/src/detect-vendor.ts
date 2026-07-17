@@ -7,8 +7,8 @@
  * base globally).
  *
  * Called from:
- *   - `volt init` (volt-agent) — to write the detected vendor into
- *     `.volt/config.json`
+ *   - `volt init` (@volt/git) — to write the detected vendor into
+ *     `.git/volt/config.json`
  *   - VS Code extension — to resolve `volt.iec.vendor: "auto"`
  */
 import { readdir, readFile, stat } from "node:fs/promises";

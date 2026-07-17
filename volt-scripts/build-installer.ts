@@ -4,11 +4,11 @@
  * `volt` CLI + LSP + tray connector + config, plus opt-in opencode CLI + the VS Code extension — whose
  * always-running C# connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
  *
- *   bun volt-scripts/build-app.ts                 # full build → dist/release/Volt-win-Setup.exe
- *   bun volt-scripts/build-app.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
- *   bun volt-scripts/build-app.ts --upload        # also publish the GitHub release (the update feed) via gh
+ *   bun volt-scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
+ *   bun volt-scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
+ *   bun volt-scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
- * Pipeline: dist.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
+ * Pipeline: build-payload.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
  * assemble the payload (connector at root; bin/ volt-config/ docs/ desktop/ + version.txt + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
@@ -62,7 +62,7 @@ function publish(setupExe: string): void {
 if (uploadOnly) {
   const setupExe = resolve(release, "Volt-win-Setup.exe")
   if (!existsSync(setupExe)) {
-    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-app.ts) first`)
+    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-installer.ts) first`)
     process.exit(1)
   }
   publish(setupExe)
@@ -79,7 +79,7 @@ const iscc = [
 ].find((p) => existsSync(p) || p === "ISCC")!
 
 // 1. The Volt payload (CLI + LSP + connector + config + docs).
-if (!skipDist) run("bun", ["volt-scripts/dist.ts"])
+if (!skipDist) run("bun", ["volt-scripts/build-payload.ts"])
 for (const dir of ["bin", "connector", "volt-config", "docs"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
@@ -92,14 +92,22 @@ console.log("• electron app (--dir)")
 run("bun", ["run", "build"], desktopDir) // src/main.ts → main.mjs (fast)
 const unpacked = resolve(desktopDir, "dist/win-unpacked")
 const voltExe = resolve(unpacked, "Volt.exe")
-// Rebuild the Electron app only when the shell actually changed — compare the freshly-built main.mjs to the
-// copy already packed into win-unpacked (asar:false → resources/app/main.mjs). Reuse otherwise, since
-// electron-builder's winCodeSign extraction is flaky without Windows Developer Mode ("Cannot create symbolic
-// link"). --rebuild-app forces it.
-const packedMain = resolve(unpacked, "resources", "app", "main.mjs")
-const shellChanged =
-  !existsSync(packedMain) || !readFileSync(packedMain).equals(readFileSync(resolve(desktopDir, "main.mjs")))
-if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || shellChanged) {
+// Rebuild the Electron app only when an input actually changed — reuse otherwise, since electron-builder's
+// winCodeSign extraction is flaky without Windows Developer Mode ("Cannot create symbolic link").
+// --rebuild-app forces it.
+//
+// The cache key must cover EVERY input electron-builder packs (electron-builder.yml `files:`), not just
+// main.mjs: package.json carries the version AND productName (which sets Electron's userData path), so keying
+// on main.mjs alone silently shipped a stale package.json — a 0.1.0 app inside a 0.2.0 installer. If you add a
+// file to electron-builder.yml `files:`, add it here. assets/ is excluded: icons only, and a stale icon is
+// cosmetic — use --rebuild-app after changing one.
+const PACKED_INPUTS = ["main.mjs", "package.json", "preload.cjs", "shell.html"]
+const packedApp = resolve(unpacked, "resources", "app")
+const inputsChanged = PACKED_INPUTS.some((f) => {
+  const packed = resolve(packedApp, f)
+  return !existsSync(packed) || !readFileSync(packed).equals(readFileSync(resolve(desktopDir, f)))
+})
+if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || inputsChanged) {
   run("bunx", ["electron-builder", "--dir"], desktopDir) // auto-finds electron-builder.yml
 } else {
   console.log("  ✓ reusing win-unpacked (shell unchanged)")

@@ -43,7 +43,7 @@ Graphical/  graphical materialize  ── PlcOpen XML ⇄ VG text
 - **Wire-version guard.** `/health` carries an integer `wireVersion` (`WireProtocol.Version` in
   `Volt.Bridge.Core/Wire/HealthResponse.cs`); a client refuses a bridge whose version it doesn't recognize
   rather than misreading a drifted shape. Bump it together with the TS `WIRE_VERSION` in `volt-git` — only on an
-  *incompatible* wire change; `volt-scripts/check-volt-integration.ts` fails if the two drift.
+  *incompatible* wire change; `volt-scripts/check-wiring.ts` fails if the two drift.
 - **The item name is the identity.** The whole wire — `/refs`, `/fetch` `knownItems`, every push op,
   `structureVersion`, and the one-item-per-file layout — is keyed by bare item name. This is load-bearing across
   the bridge, `volt-git`, and `volt-vscode`. Same-name items collapse last-write-wins (fine for source items;

@@ -24,7 +24,7 @@ if (process.platform !== "win32") {
 const repo = resolve(import.meta.dirname, "..")
 const setup = resolve(process.argv[2] ?? resolve(repo, "dist/release/Volt-win-Setup.exe"))
 if (!existsSync(setup)) {
-  console.error(`✗ installer not found: ${setup}\n  build it first: bun volt-scripts/build-app.ts`)
+  console.error(`✗ installer not found: ${setup}\n  build it first: bun volt-scripts/build-installer.ts`)
   process.exit(1)
 }
 

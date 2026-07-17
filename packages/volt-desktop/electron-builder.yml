@@ -1,6 +1,6 @@
 # `--dir` mode only. electron-builder here builds + brands the Electron app (Volt.exe + runtime); it does NOT
 # produce an installer and does NOT wire electron-updater. The one installer (Inno Setup, installer/Volt.iss) and
-# auto-update are owned by the always-running C# connector. build-app.ts runs this, then folds win-unpacked/ into
+# auto-update are owned by the always-running C# connector. build-installer.ts runs this, then folds win-unpacked/ into
 # the installer payload as the desktop/ subdir. (YAML, not .ts — electron-builder's .ts loader needs Windows
 # symlink privileges we don't require here; the config is static anyway.)
 appId: dev.volt.desktop

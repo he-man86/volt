@@ -44,6 +44,14 @@ Name: "vscode";   Description: "Install the Volt extension into VS Code";  Group
 Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
 Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
 
+[InstallDelete]
+; [Files] only ADDS/overwrites — it never removes what an older version left, so stale files survive upgrades
+; forever. volt-config is 100% installer-owned (opencode merges the user's own global config separately, and
+; auth lives in opencode's data dir), so wipe it and lay down exactly what shipped. This is what retires the
+; pre-0.2.0 leak: older payloads carried a package.json, and opencode INSTALLS a config dir's declared deps at
+; runtime — creating volt-config\node_modules and requiring a registry on machines that may have none.
+Type: filesandordirs; Name: "{app}\volt-config"
+
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
@@ -56,6 +64,11 @@ Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --ac
 Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Tasks: vscode;   Check: NotSilent; StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Tasks: windsurf; Check: NotSilent; StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Tasks: cursor;   Check: NotSilent; StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
+
+[UninstallDelete]
+; Anything created inside volt-config AFTER install is untracked by Inno, so it would survive uninstall and keep
+; {app} alive — a dirty uninstall. test:install can't catch it (it never runs opencode, so nothing is created).
+Type: filesandordirs; Name: "{app}\volt-config"
 
 [UninstallRun]
 ; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.

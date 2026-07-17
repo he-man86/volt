@@ -2,10 +2,10 @@
 /**
  * Volt release builder — compiles every shippable binary + the volt-config layer into dist/volt/ so the
  * installer just bundles one folder. The volt-desktop shell + the Inno Setup installer are built separately
- * (volt-scripts/build-app.ts → installer/Volt.iss), which bundles this folder.
+ * (volt-scripts/build-installer.ts → installer/Volt.iss), which bundles this folder.
  *
- *   bun volt-scripts/dist.ts            # binaries + bridges
- *   bun volt-scripts/dist.ts --no-bridge  # binaries only (skip dotnet)
+ *   bun volt-scripts/build-payload.ts            # binaries + bridges
+ *   bun volt-scripts/build-payload.ts --no-bridge  # binaries only (skip dotnet)
  *
  * Output:
  *   dist/volt/bin/volt[.exe]              the PLC CLI (`volt <verb>` syncs; the agent is stock opencode)
@@ -14,7 +14,7 @@
  */
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
-import { resolve, sep } from "node:path"
+import { basename, resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
 const out = resolve(repo, "dist/volt")
@@ -84,8 +84,13 @@ if (run("bun", ["run", "package"], vsixDir)) {
 console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
 const cfgSrc = resolve(repo, "volt-config")
 const cfgOut = resolve(out, "volt-config")
-// Copy everything EXCEPT node_modules — the tool is bundled self-contained below, so the shipped dir needs none.
-cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !src.includes(`${sep}node_modules`) })
+// Ship ONLY what opencode loads. A package.json must NEVER reach the shipped dir: opencode installs a config
+// dir's declared dependencies at runtime, which needs a package manager + registry — the exact thing volt-config
+// exists to avoid (air-gapped PLC machines). These files are all gitignored leftovers from the retired
+// `volt init` npm-install era, so CI never sees them and a dev box would otherwise ship a DIFFERENT payload than
+// CI. Filtering here — not just deleting them once — is what makes the release reproducible from any machine.
+const CFG_NEVER_SHIP = new Set(["node_modules", "package.json", "package-lock.json", "bun.lock", ".gitignore"])
+cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !CFG_NEVER_SHIP.has(basename(src)) })
 // Bundle the `volt` tool to a self-contained .js (its only dep, zod, inlined) and drop the .ts source. The tool
 // no longer imports @opencode-ai/plugin — opencode's `tool()` is just identity + zod, so it exports the plain
 // { description, args, execute } shape directly. zod resolves from the root node_modules. The shipped dir then

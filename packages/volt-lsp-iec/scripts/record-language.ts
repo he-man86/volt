@@ -1,6 +1,6 @@
 /**
  * Conformance recorder — re-creates `test/conformance/recordings/expected-<vendor>.json` from a LIVE bridge.
- * (The original was removed with volt-agent; this is the self-contained replacement built on the raw wire.)
+ * Self-contained: speaks the raw HTTP wire, so it needs no CLI or bridge client.
  *
  *   VOLT_BRIDGE_PORT=8556 VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
  *   VOLT_BRIDGE_PORT=8555 VOLT_VENDOR=tc       bun run scripts/record-language.ts        # TwinCAT

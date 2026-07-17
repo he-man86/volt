@@ -37,14 +37,18 @@ Standard workflows are root `bun run` scripts — prefer these over invoking `vo
 bun install                 # install workspace deps
 bun run dev                 # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
 bun run build               # build the TS packages (bun --filter; the C# bridge builds in `dist`)
-bun run dist                # the release bundle → dist/volt/ (both exes + volt-config + .vsix + connector)
+bun run build:installer     # the product → dist/release/Volt-win-Setup.exe (payload + electron + Inno)
+bun run test:install        # install → verify → uninstall → verify-clean smoke gate (Windows)
 bun run compat              # opencode compat gate: integration → lsp-loads → tool-loads (run on an opencode bump)
 bun run typecheck           # tsgo --noEmit across all volt packages
 bun run lint                # oxlint
 ```
 
-`compat` and `dist` are implemented in `volt-scripts/` (product-level orchestration across all packages); the
-gate's sub-steps are runnable alone when one fails (`bun volt-scripts/{check-volt-integration,verify-lsp,verify-volt-tool}.ts`).
+All of these live in `volt-scripts/` (product-level orchestration across all packages) — **`volt-scripts/README.md`
+maps every script**; keep it accurate. `compat`'s sub-steps are runnable alone when one fails
+(`bun volt-scripts/{check-wiring,verify-opencode}.ts`). `build:installer` internally runs
+`build-payload.ts` (the `dist/volt/` payload); that stage has no `bun run` on purpose — it's a step, not a
+destination.
 
 The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`volt-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
 
@@ -116,9 +120,9 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 Volt tracks opencode by **a compat test**, not by merging its source (and no longer by an npm dep — the `volt` tool/plugins carry no `@opencode-ai/plugin`; compatibility is purely against the installed **binary**'s config/tool/plugin contract). On an opencode binary bump, run:
 
 ```
-bun volt-scripts/sync.ts     # install → integration → lsp loads → tool loads (stops at first ✗)
+bun run compat     # install → integration → lsp loads → tool loads (stops at first ✗)
 ```
 
-It confirms the current opencode still loads Volt's config: deps resolve, the wiring is intact (`check-volt-integration`), and the LSP + `volt` tool actually load in the **installed** `opencode` (`verify-lsp` / `verify-volt-tool` drive the real binary via `OPENCODE_CONFIG_DIR`). Exit 0 = Volt is compatible with this opencode. `volt-ci.yml` runs the key-free subset (typecheck + lint + integration) on every push/PR; the provider-dependent verifiers run locally / on bumps.
+It confirms the current opencode still loads Volt's config: deps resolve, the wiring is intact (`check-wiring`), and the LSP + `volt` tool actually load in the **installed** `opencode` (`verify-opencode` drives the real binary via `OPENCODE_CONFIG_DIR`). Exit 0 = Volt is compatible with this opencode. CI runs the key-free subset (typecheck + lint + integration) on every push/PR; `verify-opencode` needs an installed opencode + a configured provider, so it runs locally / on bumps. Full script map: `volt-scripts/README.md`.
 
 Adding another vendor LSP: `packages/volt-lsp-iec/README.md` → "Adding another vendor LSP".

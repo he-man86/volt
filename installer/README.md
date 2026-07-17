@@ -1,7 +1,7 @@
 # The Volt installer
 
 One Inno Setup wizard (`Volt.iss` → `Volt-win-Setup.exe`) for every Volt app. Built by
-`bun volt-scripts/build-app.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
+`bun volt-scripts/build-installer.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
 connector polls. **Per-user, no admin/UAC** — every location below is under the user's profile or HKCU.
 
 ## Every location Volt touches
@@ -17,7 +17,7 @@ app, an `UninstallDelete` entry.
 | `HKCU\Environment` → `OPENCODE_CONFIG_DIR`, `Path` | points opencode at `volt-config\`; puts `bin\` on PATH | connector (`VoltEnv.Install`) | yes (`VoltEnv.Uninstall`) |
 | `HKCU\...\CurrentVersion\Run` → `VoltConnector` | login item so the tray survives reboot | connector (`LoginItem.cs`) | yes (`VoltEnv.Uninstall`) |
 | `HKCU\...\Uninstall\{AppId}_is1` | Add/Remove Programs entry | Inno | yes |
-| `%APPDATA%\@volt\desktop\` | Electron `userData` (caches, blob storage) | Electron, implicitly | **no** — and the name is wrong, see below |
+| `%APPDATA%\Volt\` | Electron `userData` (caches, blob storage) | Electron, from `productName` in `volt-desktop/package.json` | no |
 | `%TEMP%\Volt-<version>-Setup.exe` | auto-update download | connector (`Updater.cs`) | no — `%TEMP%`, Windows reaps it |
 | `%TEMP%\Setup Log*.txt` | Inno's own log | Setup (`SetupLogging=yes`) | no — `%TEMP%`, mirrored into the log store |
 
@@ -32,21 +32,35 @@ Not Volt's, but Volt-adjacent — **never** touched by the installer:
 
 ## Is this optimal?
 
-Mostly yes. Two exceptions, both real:
+Yes, now. Four folders total: the install (`Programs\Volt`), the log store (`Volt\logs`), Electron's `userData`
+(`%APPDATA%\Volt`), and `%TEMP%` scratch that Windows reaps. Plus three HKCU keys and one shortcut. That's the
+floor for an app that must survive reboot and configure another tool.
 
-**`%APPDATA%\@volt\desktop\` is sprawl with an ugly name.** Electron derives `userData` from `app.getName()`,
-which reads `packages/volt-desktop/package.json` → `"name": "@volt/desktop"` → a literal `@volt` folder with a
-`desktop` subfolder. It should be `%APPDATA%\Volt`. Fixing it means adding `"productName": "Volt"` to that
-package.json — one line — but it **orphans** the existing `%APPDATA%\@volt` (~15 MB of Electron caches) on every
-current install, and silently drops any GUI state living there. Cheap to fix, not free to ship. Not done yet.
+Two things that were **not** optimal, both fixed — worth knowing so they don't come back:
 
-**Uninstall leaves the log store and `userData` behind.** Deliberate for logs — you usually want them *after*
-uninstalling something that misbehaved, and it's 5 KB. `%APPDATA%\@volt` at ~15 MB is harder to defend. If either
-should go, they're `[UninstallDelete]` one-liners; `test-install.ts` would need matching cleanup assertions,
-since "cleanliness is the guarantee" there.
+**`%APPDATA%\@volt\desktop\`** — Electron derives `userData` from `app.getName()`, which reads `productName`
+before `name`. Without a `productName`, the name was `@volt/desktop` and Electron created a literal `@volt`
+folder. `packages/volt-desktop/package.json` now sets `"productName": "Volt"`. That key is **load-bearing** — it
+is not a duplicate of the `productName` in `electron-builder.yml` (which only brands the packaged `.exe`).
+Upgrading users keep an orphaned `%APPDATA%\@volt` (~15 MB); it's inert and safe to delete by hand.
 
-Everything else is one folder (`Programs\Volt`) plus one data folder (`Volt\logs`) plus three HKCU keys. That's
-the floor for an app that must survive reboot and configure another tool.
+**`volt-config` shipped a `package.json`** — an untracked leftover from the retired `volt init` npm-install era.
+It was gitignored, so CI never saw it and only *local* builds shipped it — and opencode **installs a config
+dir's declared dependencies at runtime**, so it created `volt-config\node_modules` (27 packages) on first run and
+needed a registry, on machines that specifically may not have one. Retired at three levels: the files are gone,
+`build-payload.ts` refuses to copy them (`CFG_NEVER_SHIP`) so no dev box can leak them again, and `[InstallDelete]` wipes
+`{app}\volt-config` on every install so **upgrading** users lose it too — `[Files]` alone would have left it
+there forever.
+
+## Upgrades delete nothing by default
+
+Inno's `[Files]` only adds and overwrites. Anything an older version dropped survives every upgrade unless an
+`[InstallDelete]` line names it. `{app}\volt-config` is wiped on each install for exactly this reason — it's
+installer-owned, so "whatever shipped" is the only correct content.
+
+Symmetrically, anything created *inside* `{app}` after install is untracked by Inno and would survive uninstall,
+keeping `{app}` alive and making the uninstall dirty. `[UninstallDelete]` covers `{app}\volt-config` for that.
+`test:install` cannot catch this class: it never runs opencode, so nothing is ever created post-install.
 
 ## Install diagnostics
 
@@ -85,9 +99,10 @@ an uninstaller that hunts for folders it didn't create is how you delete someone
 |---|---|---|
 | `%LOCALAPPDATA%\volt-updater\installer.exe` | Velopack-era update staging. **Zero references in the current source.** ~230 MB. | Yes — dead weight. |
 | `%LOCALAPPDATA%\volt-bridge-new\` | old bridge worker pid/log dir. Zero references in the current source. | Yes. |
-| `%LOCALAPPDATA%\volt-bridge\` | **still live** — `packages/volt-bridge/scripts/codesys-bridge.ps1` uses it as the headless dev-loop workdir. | **No** — dev-only, but current. Users never create it. |
+| `%APPDATA%\@volt\` | pre-0.2.0 Electron `userData`, orphaned by the `productName` fix. ~15 MB of caches. | Yes — inert. |
+| `%LOCALAPPDATA%\volt-bridge\` | **still live** — `packages/volt-bridge/scripts/codesys-bridge.ps1` uses it as the headless dev-loop workdir. **Looks exactly like the dead ones.** | **No** — dev-only, but current. Users never create it. |
 | `%LOCALAPPDATA%\Volt\` | current log store. | No. |
-| `%APPDATA%\@volt\` | current Electron `userData` (see above). | No, while the name stands. |
+| `%APPDATA%\Volt\` | current Electron `userData`. | No. |
 
 If a legacy sweep is ever added, it belongs behind an explicit user action ("clean up old Volt data") that names
 what it will remove — never in the silent uninstall path.

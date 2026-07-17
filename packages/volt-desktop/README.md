@@ -34,9 +34,15 @@ bun run typecheck # tsgo --noEmit
 | `assets/` | Volt brand icons (window/taskbar `.ico` + marks for packaging) |
 | `electron-builder.yml` | electron-builder **`--dir`** config — brands `Volt.exe` only; it builds no installer (Inno packs it) |
 
+**`productName: "Volt"` in `package.json` is load-bearing — don't drop it as a duplicate of `electron-builder.yml`.**
+Electron's `app.getName()` reads `productName` before `name`, and it derives `userData` from it. Without it the
+name is `@volt/desktop`, and Electron writes its caches to a literal `%APPDATA%\@volt\desktop\`. With it, they
+land in `%APPDATA%\Volt\`. The electron-builder key only brands the packaged `.exe`; this one sets the runtime
+path. See `installer/README.md` for every location Volt writes.
+
 ## Packaging
 
-The shell runs from source with `bun run start`. The shipped app is built by `bun volt-scripts/build-app.ts` into
+The shell runs from source with `bun run start`. The shipped app is built by `bun volt-scripts/build-installer.ts` into
 **one Inno Setup installer** (`dist/release/Volt-win-Setup.exe`, see `installer/Volt.iss`) bundling the desktop GUI +
 `volt` CLI + LSP + tray connector + config. electron-builder (see `electron-builder.yml`) runs in `--dir` mode only —
 it brands `Volt.exe`, not an installer, and no `electron-updater` is wired. Env/shortcut setup and the **auto-update

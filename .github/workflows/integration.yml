@@ -28,4 +28,4 @@ jobs:
           bun run --cwd packages/volt-git build
           bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
       - name: Integration check (config layer + bins + wiring)
-        run: bun run volt-scripts/check-volt-integration.ts
+        run: bun run volt-scripts/check-wiring.ts

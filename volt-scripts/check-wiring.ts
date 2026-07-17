@@ -3,7 +3,7 @@
  * Sanity-check that Volt's opencode integration is wired correctly.
  *
  * Run from repo root:
- *   bun volt-scripts/check-volt-integration.ts
+ *   bun volt-scripts/check-wiring.ts
  *
  * Verifies:
  *   - Config layer (volt-config/opencode.json) exists, parses, and registers the LSP (bare-name)
@@ -13,7 +13,7 @@
  *   - CODESYS reference corpus is present in the LSP package
  *
  * For end-to-end LOAD checks (LSP attaches, tool registers in opencode), run the
- * dedicated verifiers: verify-lsp.ts and verify-volt-tool.ts.
+ * dedicated verifier: verify-opencode.ts.
  */
 import { resolve, join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
@@ -171,7 +171,7 @@ if (process.platform === "win32") {
 	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-git/scripts")}:$PATH"`);
 }
 
-console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
+console.log("\nVerify loading (automated): bun volt-scripts/verify-opencode.ts");
 console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun dev   # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode (Volt-aware)");
 console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-iec' diagnostics.");
