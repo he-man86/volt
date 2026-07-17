@@ -1,6 +1,13 @@
 Make the vendored console Volt's app without patching opencode's source. Grounded in the `console-surface-audit`
 (2026-07-17, 50 classifiers + 21 adversarial refuters); see `proposal.md` for the verdicts and the traps.
 
+> **Status (2026-07-17): IMPLEMENTED.** Stages 0–5 shipped in PR #36 (`fix/console-live-bugs`): the live-leak fixes,
+> the volt-www token port + fonts + pill buttons + wordmark, the atomic marketing sweep, the Volt-owned chrome, the
+> per-view work, and the documented edit floor — plus follow-ups this proposal did not foresee (flat €24 pricing,
+> the referral `/go`→`/` link, the dormant workspace picker). The invariants are pinned by tests under
+> `packages/console/app/test/volt-*` and by `check-console-divergence.ts`. Checkboxes below are the original plan,
+> left as the record of intent; a couple carry post-hoc notes where reality diverged.
+
 **Ground rule for every task below:** never edit a vendored file. Add a Volt file beside it, delete it and declare
 it in `DROPPED`, or import from it. The only exceptions are the 6 irreducible entry points in Stage 5.
 
@@ -53,9 +60,10 @@ it in `DROPPED`, or import from it. The only exceptions are the 6 irreducible en
       deleted `/enterprise` page).
 - [ ] Declare every deletion in `DROPPED` (`volt-scripts/check-console-divergence.ts`) and reconcile
       `DIVERGENCE.md`. `DROPPED` entries never conflict on a bump — that is the point.
-- [ ] **Verify, don't assume:** `black/subscribe/[plan].tsx` is the file whose `vite:define` bug breaks the Windows
-      build. If the Black tree going restores local `bun run build` on Windows, say so in `DIVERGENCE.md` and in
-      `commercial-cloud-backend/tasks.md`, which currently records "console/app builds only on Linux" as a fact.
+- [x] **Windows build — predicted, DISPROVED.** `black/subscribe/[plan].tsx` was expected to be the only blocker;
+      dropping the Black tree removed its `vite:define` error but exposed a second Windows path bug underneath
+      (`Rollup failed to resolve "C:UsersmarceGithubolt…"` — `\v` eaten). Still Linux-only. Recorded in
+      `DIVERGENCE.md`; `commercial-cloud-backend/tasks.md`'s "builds only on Linux" stands.
 - [ ] Gate: `console-build` (catches missed importers), `console-symmetry` (catches undeclared deletes), typecheck.
 
 ## Stage 3 — own the authed chrome (`VOLT_OWN`)
