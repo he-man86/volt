@@ -6,8 +6,25 @@
  * BYTE-IDENTICAL to upstream — they drop off the divergence gate entirely and pull opencode's bugfixes with zero
  * merge conflict. Fonts self-hosted via @fontsource (no third-party CDN), matching opencode's @ibm/plex pattern.
  *
- * Only the BASE tokens are overridden; opencode's derived tokens (--color-primary: var(--color-accent),
- * --color-surface: var(--color-bg-surface), the *-text vars) inherit the new values automatically.
+ * Only the BASE tokens are overridden; opencode's derived tokens (--color-surface: var(--color-bg-surface),
+ * --color-surface-border: var(--color-border), the *-text vars) inherit the new values automatically.
+ *
+ * ── The values below are ported from packages/volt-www (the marketing site) so the console and the landing page are
+ * one brand. volt-www is React and this is SolidJS, so no component is shared — only these values.
+ *
+ * Ported: COLOR + TYPE identity. Deliberately NOT ported:
+ *   • the SPACE scale. Both projects define --space-N and they MEAN DIFFERENT THINGS: opencode's is linear (N×4px,
+ *     so --space-6 = 24px) while volt-www's is a compressed cursor-style ramp (--space-6 = 32px, --space-7 = 48px).
+ *     Copying volt-www's values here would silently re-space every opencode component — with a green build, since
+ *     nothing type-checks CSS. Spacing is opencode's layout rhythm, not Volt's brand.
+ *   • the RADIUS scale. No port needed: opencode's --border-radius-{sm,md,lg} are already 3/5/8px against
+ *     volt-www's --radius-{sm,md,lg} 3/5/7px — the same sharp look under a different name.
+ *
+ * ── One deliberate structural override, not just a value swap: opencode derives --color-primary from --color-accent
+ * (token/color.css:27), so its buttons are accent-coloured. volt-www inverts that on purpose — the primary CTA is a
+ * DARK INK pill and the orange is reserved for links, focus, and highlights (see volt-www/src/tokens/colors.css:
+ * `--action-primary: var(--color-ink)`). So --color-primary is pinned to ink here rather than left to inherit the
+ * accent. In dark mode the pill inverts to off-white with ink text, which is the same idea against a dark page.
  *
  * Trade-off (deliberate, see openspec/changes/volt-branding/design.md Decision 2): because the token files are no
  * longer in the divergence diff, an upstream RENAME of a token variable won't trip the gate — the app would fall
@@ -18,33 +35,51 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 :root {
-  /* Volt light — warm off-white neutrals + near-black ink + focused-orange accent */
-  --color-bg: #f7f6f3;
-  --color-bg-surface: #efede9;
-  --color-bg-elevated: #fcfbf9;
-  --color-surface-hover: #e6e4df;
+  /* Warm surface ladder — volt-www --color-{background,surface,surface-hover} */
+  --color-bg: #f7f7f4;
+  --color-bg-surface: #f2f1ed;
+  /* No volt-www equivalent: opencode lifts modals/popovers with this, so it goes LIGHTER than the page (the ladder
+     below the page is already spoken for by surface / surface-hover). */
+  --color-bg-elevated: #fdfcfa;
+  --color-surface-hover: #ebeae5;
 
-  --color-text: #0d0d0d;
-  --color-text-secondary: #525252;
-  --color-text-muted: #78716c;
-  --color-text-disabled: #a8a29e;
+  /* Ink — volt-www --color-text-{primary,secondary} */
+  --color-text: #262626;
+  --color-text-secondary: #737373;
+  /* volt-www stops at two ink levels; opencode needs four. Derived down the same warm-grey ramp — and pinned by
+     contrast, not by eye: muted sits at 4.37:1 on the page (the console's previous muted was 4.44, so this is
+     parity, not a regression) while still reading lighter than secondary. On this background nothing lighter than
+     secondary can reach AA's 4.5 — see volt-theme.contrast.test.ts, which pins both facts. */
+  --color-text-muted: #75746e;
+  --color-text-disabled: #b3b2ac; /* WCAG 1.4.3 exempts disabled/inactive text */
 
-  --color-accent: #d97706;
-  --color-accent-hover: #b45309;
-  --color-accent-active: #92400e;
+  /* Restrained accent — links, focus, highlights. NOT the CTA (see --color-primary). volt-www --color-accent. */
+  --color-accent: #f54e00;
+  --color-accent-hover: #d94400;
+  --color-accent-active: #b03a00; /* derived: one step past volt-www's accent-hover */
 
-  --color-success: #16a344;
-  --color-warning: #f59e0b;
-  --color-warning-hover: #d97706;
-  --color-warning-active: #b45309;
-  --color-danger: #dc2626;
-  --color-danger-hover: #b91c1c;
-  --color-danger-active: #991b1b;
+  /* The CTA: a dark ink pill. volt-www --action-primary / --color-ink. Overrides opencode's
+     `--color-primary: var(--color-accent)` derivation on purpose. */
+  --color-primary: #171717;
+  --color-primary-hover: #262626;
+  --color-primary-active: #0d0d0d;
+  --color-primary-text: #f7f7f4; /* volt-www --color-text-on-dark */
 
-  --color-border: #e0ded8;
-  --color-border-muted: #eae8e3;
+  /* Warm low-alpha borders — volt-www --color-border / --color-border-faint. Alpha, not solid, so they sit
+     correctly on both the page and the surface ladder. */
+  --color-border: rgba(38, 37, 30, 0.1);
+  --color-border-muted: rgba(38, 37, 30, 0.06);
 
-  /* Inter = UI/body, JetBrains Mono = code/technical (opencode ships an all-mono aesthetic) */
+  /* Semantic — volt-www --color-{success,warning,danger} */
+  --color-success: #1f8a65;
+  --color-warning: #c08532;
+  --color-warning-hover: #a06d26;
+  --color-warning-active: #855a1e;
+  --color-danger: #cf2d56;
+  --color-danger-hover: #b32548;
+  --color-danger-active: #961e3c;
+
+  /* Inter = UI/body, JetBrains Mono = code/technical — the same stacks as volt-www/src/tokens/typography.css */
   --font-mono:
     "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
@@ -54,28 +89,37 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Volt dark — near-black with warm panels */
-    --color-bg: #0d0d0d;
-    --color-bg-surface: #171717;
-    --color-bg-elevated: #1f1f1e;
-    --color-surface-hover: #212120;
+    /* volt-www is a light-only marketing site; its dark strips are --color-ink (#171717), so the console's dark
+       scheme is built up from that same ink rather than invented. */
+    --color-bg: #171717;
+    --color-bg-surface: #1f1f1e;
+    --color-bg-elevated: #262626;
+    --color-surface-hover: #2b2b29;
 
-    --color-text: #f7f6f3;
-    --color-text-secondary: #a8a29e;
-    --color-text-muted: #78716c;
-    --color-text-disabled: #57534e;
+    --color-text: #f7f7f4; /* volt-www --color-text-on-dark */
+    --color-text-secondary: #a3a29c;
+    --color-text-muted: #8a8983;
+    --color-text-disabled: #5c5b56;
 
-    --color-accent: #d97706;
-    --color-accent-hover: #b45309;
-    --color-accent-active: #92400e;
+    /* Same accent; hover goes LIGHTER on a dark page (on light it goes darker) so the feedback direction reads. */
+    --color-accent: #f54e00;
+    --color-accent-hover: #ff6a24;
+    --color-accent-active: #d94400;
 
-    --color-success: #22c55e;
-    --color-warning: #f59e0b;
-    --color-danger: #ef4444;
-    --color-danger-hover: #dc2626;
-    --color-danger-active: #b91c1c;
+    /* The pill inverts: off-white on the dark page, ink text on the pill. */
+    --color-primary: #f7f7f4;
+    --color-primary-hover: #ebeae5;
+    --color-primary-active: #e6e5e0;
+    --color-primary-text: #171717;
 
-    --color-border: #2a2a28;
-    --color-border-muted: #201f1d;
+    --color-border: rgba(247, 247, 244, 0.12);
+    --color-border-muted: rgba(247, 247, 244, 0.06);
+
+    /* Semantic, lifted for a dark background */
+    --color-success: #2fa87d;
+    --color-warning: #d9a05c;
+    --color-danger: #e4507a;
+    --color-danger-hover: #ef6389;
+    --color-danger-active: #cf2d56;
   }
 }
