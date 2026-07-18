@@ -1,0 +1,13 @@
+TYPE XuUnit_Default_Data
+EXTENDS XUnits_Shared_Data :
+STRUCT
+		Takeout					: PositionWithProfileType;
+		Takeover				: ARRAY[1..XuUnits.NumberOfTakeoverPositions] OF PositionWithProfileType;
+		HalfwayTakeoutPos		: PositionWithLimitsType;
+
+		rDelayAfterVacuum		: REAL;
+		rReleaseProductsDelay	: REAL;
+
+		ReleaseProductPos		: PositionWithLimitsType;
+END_STRUCT
+END_TYPE

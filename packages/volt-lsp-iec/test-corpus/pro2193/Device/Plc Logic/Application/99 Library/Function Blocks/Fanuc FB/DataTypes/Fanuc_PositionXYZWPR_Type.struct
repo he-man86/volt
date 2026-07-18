@@ -1,0 +1,8 @@
+TYPE Fanuc_PositionXYZWPR_Type
+EXTENDS Fanuc_PositionXYZ_Type :
+STRUCT
+	rPosW	: REAL;
+	rPosP	: REAL;
+	rPosR	: REAL;
+END_STRUCT
+END_TYPE

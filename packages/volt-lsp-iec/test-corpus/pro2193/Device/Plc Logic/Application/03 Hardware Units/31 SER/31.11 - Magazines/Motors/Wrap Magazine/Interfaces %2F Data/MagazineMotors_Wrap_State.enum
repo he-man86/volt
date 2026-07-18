@@ -1,0 +1,19 @@
+{attribute 'qualified_only'}
+//{attribute 'strict'}
+{attribute 'to_string'}
+TYPE MagazineMotors_Wrap_State :
+(
+	None							:= 0,
+
+	Resetting_1						:= 100,
+	Resetting_2						:= 101,
+	Resetting_3						:= 102,
+	Resetting_4						:= 103,
+	Resetting_5						:= 104,
+
+	MovingToGetNewLabelsPos			:= 200,
+	MovingToTakeoverPos				:= 300,
+	MovingToBeforeGetNewLabelsPos	:= 400,
+	MovingToBeforeTakeoverPos		:= 500
+) DINT;
+END_TYPE

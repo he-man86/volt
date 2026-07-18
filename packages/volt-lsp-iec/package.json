@@ -34,7 +34,7 @@
     "lint": "bun run scripts/check-layering.ts",
     "test": "bun test",
     "record:language": "bun run scripts/record-language.ts",
-    "harvest:corpus": "bun run scripts/harvest-lsp-corpus.ts",
+    "refresh:corpus": "bun run scripts/refresh-corpus.ts",
     "audit:check": "bun run scripts/audit-check.ts"
   },
   "devDependencies": {

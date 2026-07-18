@@ -61,7 +61,7 @@ bun run build                   # tsc -> dist/ (also runs on prepare; bin is ./d
 bun run lint                    # the layer-boundary check (fails on an upward import)
 ```
 
-The `record:language` / `harvest:corpus` / `audit:check` scripts (in `scripts/`) talk to a **live bridge** to
+The `record:language` / `refresh:corpus` / `audit:check` scripts (in `scripts/`) talk to a **live bridge** to
 produce the recorded ground truth; they are run by hand, never by `bun test`. See [`TESTING.md`](./TESTING.md).
 
 ## Layout

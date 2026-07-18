@@ -1,0 +1,8 @@
+TYPE Fanuc_PositionXYZWPR_UINT_Type
+EXTENDS Fanuc_PositionXYZ_UINT_Type :
+STRUCT
+	_W	: Fanuc_HighLowUInt_Type;
+	_P	: Fanuc_HighLowUInt_Type;
+	_R	: Fanuc_HighLowUInt_Type;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,9 @@
+TYPE L_CT1P_FILECOMMAND :
+(
+	NONE := 0,
+	OPEN := 1,
+	CLOSE := 2,
+	WRITELN := 3,
+	READLN := 4
+);
+END_TYPE

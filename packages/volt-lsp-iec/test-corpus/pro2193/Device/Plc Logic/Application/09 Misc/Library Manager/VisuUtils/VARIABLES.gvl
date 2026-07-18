@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	G_ACTIONHANDLER_INST : FbActionHandler;
+	G_OCDETECTOR : FBOCStateDetector;
+END_VAR

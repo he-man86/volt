@@ -21,16 +21,27 @@ VAR
 	KeepShittyAlarmHigh : Standard.TOF;	// todo: test if this is still needed!!
 END_VAR
 
-(* @volt-graphical: CFC *)
-
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE CheckRefs
-(* @volt-graphical: CFC *)
+IF moduleHandler = 0 THEN
+	ThrowException('No modulehandler for SetErrorFB');
+END_IF
+
+IF textRefId = 0 THEN
+	ThrowException('No textrefid for SetErrorFB');
+END_IF
+
+IF SetErrorSingle.xSetError AND textRefId <> 15372 AND textRefId <> 15373 AND textRefId <> 15374 THEN
+	GlobalVars.activeAlarmInstance		:= CONCAT3(DWORD_TO_HEXSTRING(textRefId),':',TO_STRING(errorId));
+END_IF
 END_METHOD
 
 METHOD PRIVATE ConvertSeverityAndReaction
-(* @volt-graphical: CFC *)
+{warning disable C0327}	// Implicit conversion from one enumeration type to another.
+SetErrorSingle.eReaction		:= reaction;
+SetErrorSingle.eSeverity		:= severity;
+{warning restore C0327}	// Implicit conversion from one enumeration type to another.
 END_METHOD
 
 // Get the elapsed time of the alarm timer.

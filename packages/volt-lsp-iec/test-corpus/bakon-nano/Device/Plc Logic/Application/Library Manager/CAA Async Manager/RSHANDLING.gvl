@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	G_JOBCLASS : JobClass;
+END_VAR

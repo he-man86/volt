@@ -1,0 +1,7 @@
+TYPE L_UM1P_INTERFACEID :
+(
+	L_UM1P_ISETPOINTINFO := (L_UM1P_Internal.cdiEnumStartValue + 1),
+	L_UM1P_MULTICOREDATASENDER := (L_UM1P_Internal.cdiEnumStartValue + 2),
+	L_UM1P_IMCCALLINFO := (L_UM1P_Internal.cdiEnumStartValue + 3)
+);
+END_TYPE

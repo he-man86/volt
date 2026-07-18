@@ -1,0 +1,40 @@
+FUNCTION_BLOCK L_TS2P_TM_SYNCPOSBASE EXTENDS L_TB2M_TM_MotionControl
+VAR
+	TM_SYNCPOS : L_TB2P_ModuleHandlerConfig;
+	ITFSYNCPOSBASE : L_TS2P_ISyncPosBase := THIS^;
+	SCDATA_INT : L_TS2P_scData_TM_SyncPosBase;
+	_ITFSTRUCTPROVIDERSYNCPOS : L_TS2P_IStructProviderSyncPos;
+	PDATA : POINTER TO L_TS2P_scData_TM_SyncPosBase := ADR(scData_Int);
+	PPAR : POINTER TO L_TS2P_scPar_TM_SyncPosBase;
+	PSF : POINTER TO L_TS2P_scSF_TM_SyncPosBase;
+	PAP : POINTER TO L_TS2P_scAP_TM_SyncPosBase;
+	PINPUT2 : POINTER TO L_TS2P_SyncPosBaseIn;
+	POUTPUT2 : POINTER TO L_TS2P_SyncPosBaseOut;
+	FB_CONDAXISMOVING : L_TB2P_AxisMoving;
+	FB_CONDMASTERDIRECTION : L_TB2P_ConditionMasterDirection;
+	FB_CONDBASEVELOCITYDIRECTION : L_TB2P_ConditionBaseVelocityDirection;
+	FB_CONDSYNCPARAMETER : L_TS2P_ConditionSyncParameter;
+	FB_CONDITIONCHECKHOMINGNEEDED : L_UBUP_ConditionInput;
+	FB_CONDITIONJOGGINGACTIVE : L_UBUP_ConditionInput;
+	FB_CONDCOLLECTSYNCIN : L_UBUP_ConditionCollectionAND := STRUCT(aitfCondition := [fb_ConditionOperationEnabled, fb_ConditionLimiter, fb_CondMasterDirection, fb_CondSyncParameter, fb_ConditionJoggingActive, fb_ConditionAxisNotStopping, fb_ConditionCheckHomingNeeded]);
+	FB_CONDCOLLECTBASEVELOCITY : L_UBUP_ConditionCollectionAND := STRUCT(aitfCondition := [fb_CondBaseVelocityDirection, fb_CondCollectOperationEnabledLimiter, fb_ConditionJoggingActive, fb_ConditionAxisNotStopping]);
+	FB_TRANSITION2BASEVELOCITYACCDEC : L_UBUP_RequestTransitionLevel;
+	FB_TRANSITION2BASEVELOCITY : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2BASEVELOCITYZERO : L_UBUP_RequestTransitionLevel;
+	FB_TRANSITION2SYNCIN : L_UBUP_RequestTransitionLevel;
+	FB_TRANSITION2SYNCOUT : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2SYNCHRONIZED : L_UBUP_RequestTransitionLevel;
+	FB_OFFSETANDTRIMX : L_TS2P_OffsetAndTrim;
+	FB_ADDOFFSETCYCLICX : L_MC1P_AddOffsetCyclic;
+	FB_GEARBOXPOSITION : L_MB1P_GearboxPositionInput;
+	FB_AXISCONVERTER : L_MC2P_AxisConverterBase;
+	FB_SYNCPOSRESTOREOFFSET : L_TS2P_OffsetAndTrim;
+	FB_CLUTCHEXTENDEDBASE : L_TB2P_ClutchExtendedBase;
+	FB_ALLOWEDDIRECTION : L_TS2P_AllowedDirection;
+	FB_CONTROLSETVALUES : L_MC1P_ControlSetValues;
+	MASTERVALUES_INT : L_MC1P_SetAxisRefMasterValues;
+	_ITFREQUESTCONDITIONWARNINGHIGHPRIO : L_UBUP_IRequest;
+	CONNECTOR : __SYSTEM.IQueryInterface;
+	SYNCPOSBASEEXTENSION : L_TS2P_ISyncPosBase;
+END_VAR
+END_FUNCTION_BLOCK

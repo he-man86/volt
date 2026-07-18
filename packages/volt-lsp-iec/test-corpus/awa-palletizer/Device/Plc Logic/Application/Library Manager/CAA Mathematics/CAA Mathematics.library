@@ -1,0 +1,5 @@
+LIBRARY CAA Mathematics
+NAMESPACE MATH
+RESOLUTION CAA Mathematics, 3.5.19.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false

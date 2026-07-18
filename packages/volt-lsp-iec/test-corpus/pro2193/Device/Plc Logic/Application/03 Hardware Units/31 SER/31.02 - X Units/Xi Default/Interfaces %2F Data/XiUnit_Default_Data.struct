@@ -1,0 +1,16 @@
+TYPE XiUnit_Default_Data
+EXTENDS XUnits_Shared_Data :
+STRUCT
+		LabelPickup				: PositionWithProfileType;
+		LabelInsert				: PositionWithProfileType;
+
+		rSetPointCharger		: ARRAY[1..XiUnits.MaxChargers] OF RealWithLimitsType;
+		rWaitTimeInMould		: REAL;
+
+		rPreVacuumStartDelay	: REAL;
+		rWrapAroundCoresDelay	: REAL;
+
+		EarlyReleaseVacuumDistance	: ARRAY[1..XiUnits.MaxVacuums] OF RealWithLimitsType;
+		EarlyStartChargerDistance	: RealWithLimitsType;
+END_STRUCT
+END_TYPE

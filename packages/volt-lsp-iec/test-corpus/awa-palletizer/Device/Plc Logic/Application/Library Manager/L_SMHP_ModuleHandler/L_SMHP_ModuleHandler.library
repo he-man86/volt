@@ -1,0 +1,6 @@
+LIBRARY L_SMHP_ModuleHandler
+NAMESPACE L_SMHP
+RESOLUTION L_SMHP_ModuleHandler, 3.32.0.1 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTypes Interfaces, * (System)

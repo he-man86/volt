@@ -1,0 +1,423 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK MagazineBaseFB
+EXTENDS ModuleBaseHardwareFB
+IMPLEMENTS IMagazineTransfer_Commands, IMagazineUnitSupply_Commands
+VAR_INPUT
+	dwDisableCavityNumber		: DWORD;
+	xEmpty						: ARRAY[1..2] OF BOOL;
+	{attribute 'symbol' := 'readwrite'}	Vacuum						: ARRAY[1..MaxVacuums] OF VacuumWithPressureFB;
+	{attribute 'symbol' := 'readwrite'}	Hammer						: ARRAY[1..MaxHammers] OF HammerFB;
+	{attribute 'symbol' := 'readwrite'}	BufferAir					: AirBufferFB;
+	{attribute 'symbol' := 'readwrite'}	BlowBetweenLabels			: ARRAY[1..MaxBlowBetweenLabels] OF ActuatorWithManualControlFB;
+	motors						: IMagazineMotors_Commands;
+END_VAR
+VAR_IN_OUT
+	Data						: Magazine_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	MaxVacuums					: USINT	:= 4;
+	MaxHammers					: USINT	:= MaxVacuums;
+	MaxBlowBetweenLabels		: USINT	:= 1;
+	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum :=[Vacuum[1], Vacuum[2], Vacuum[3], Vacuum[4]];
+	itfHammers					: ARRAY[1..MaxHammers] OF IActuator := [Hammer[1], Hammer[2], Hammer[3], Hammer[4]];
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+END_METHOD
+
+METHOD PROTECTED Cyclic
+CycleTime[1](in := FALSE,	timeElapsed => rTimeActive,		timeMeasurement => );
+CycleTime[2](in := FALSE,	timeElapsed => rTimeIdle,		timeMeasurement => );
+
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Vacuum_Errors,
+		errorId					:= TO_WORD(i),
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 3.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		refVacuumHighTime		:= ,
+		refReleaseVacuumTime	:= Data.rPostReleaseLabelsDelay,
+		input1					:= );
+END_FOR
+
+FOR i := 1 TO MaxHammers DO
+	Hammer[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= MagazineBase_Errors,
+		errorId					:= TO_UINT(i) + 10,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 0.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		rTimeLow				:= Data.rHammerOffTime,
+		rTimeHigh				:= Data.rHammerOnTime,
+		usiLimitStop			:= ,
+		usiLimitAlarm			:= ,
+		uiCounter				=> );
+END_FOR
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i](
+		manualControlEnabled	:= SER.ManualControlEnabled);
+END_FOR
+
+BufferAir(
+	manualControlEnabled		:= FALSE,
+	vacuums						:= itfVacuums);
+END_METHOD
+
+// Await a delay before releasing labels
+METHOD PUBLIC DelayBeforeReleaseLabels : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+IF ActState = enumMagazineState.None AND NOT xCommandDone THEN
+	ActState := enumMagazineState.Transfer_DelayBeforeReleasingLabels;
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+DelayBeforeReleaseLabels := xCommandDone;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ActState := enumMagazineState.None;
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Reset();
+END_FOR
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+
+Arrays.Actuator_ResetAll(itfHammers);
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PUBLIC Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	ExchangeSets.Default:
+		Execute_Sequence1();
+//	ExchangeSets.Product2, ExchangeSets.Product3:
+//		Execute_Sequence2();
+	ELSE
+		ShowNoProgramWarning();
+		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	Timer	: BTON;
+END_VAR
+IF xEntryActionActive THEN
+	Timer.Reset();
+END_IF
+
+CASE ActState OF
+	enumMagazineState.None:
+		;
+	enumMagazineState.ReadyWithLabels:
+		;
+	enumMagazineState.ReadyWithoutLabels:
+		;
+
+	enumMagazineState.Resetting_1:
+		Resetting_1();
+	enumMagazineState.Resetting_2:
+		Resetting_2();
+
+	enumMagazineState.GettingNewLabels:
+		Arrays.Vacuum_ReleaseAll(itfVacuums);
+		ActState := enumMagazineState.GetNew_MovingToTakeLabel;
+
+	enumMagazineState.GetNew_MovingToTakeLabel:
+		IF motors.MoveToGetNewLabels() THEN
+			ActState := enumMagazineState.GetNew_GettingAllLabels;
+		END_IF
+
+	enumMagazineState.GetNew_GettingAllLabels:
+		IF GetAllLabels() THEN
+			ActState := enumMagazineState.GetNew_MovingToWaitingPos;
+		END_IF
+
+	enumMagazineState.GetNew_MovingToWaitingPos:
+		// Start blowing when act drive position is NOT near position id 1 (rGetLabelsPos)
+		FOR i := 1 TO MaxBlowBetweenLabels DO
+			BlowBetweenLabels[i].SetOrReset(
+				NOT motors.InPositionAt(
+						position := MagazineMotors_Positions.getNewLabelsPos,
+						tolerance := Data.rBlowBetweenLabelsDistance));
+		END_FOR
+
+		IF motors.MoveToTakeoverLabels() THEN
+			FOR i := 1 TO MaxBlowBetweenLabels DO
+				BlowBetweenLabels[i].Reset();
+			END_FOR
+			xCommandDone := TRUE;
+			ActState := SEL(HasPayload = enumPayload._All,
+							enumMagazineState.ReadyWithoutLabels,
+							enumMagazineState.ReadyWithLabels);
+		END_IF
+
+	enumMagazineState.Transfer_MovingToTakeover:
+		IF motors.MoveToTakeoverLabels() THEN
+			xCommandDone := TRUE;
+			ActState := enumMagazineState.None;
+		END_IF
+
+	enumMagazineState.Transfer_DelayBeforeReleasingLabels:
+		IF Timer.Set(TRUE, Data.rPreReleaseLabelsDelay) THEN
+			xCommandDone := TRUE;
+			ActState := enumMagazineState.None;
+		END_IF
+
+	enumMagazineState.Transfer_ReleasingLabels:
+		ReleasingLabels();
+
+END_CASE
+END_METHOD
+
+METHOD PROTECTED GetAllLabels : BOOL
+VAR_INST
+	Timer	: BTON;
+END_VAR
+%FOLDER States
+IF xEntryActionActive THEN
+	Timer.Reset();
+END_IF
+
+Timer.Set(TRUE, 0.3);
+FOR i := 1 TO MaxVacuums DO
+	IF Vacuum[i].HasPressure THEN
+		Vacuum[i].Set();
+		Hammer[i].Reset();
+	ELSIF Timer.Q AND NOT Vacuum[i].IsTurnedOn THEN
+		Hammer[i].Set();
+	END_IF
+END_FOR
+
+IF HasPayload = enumPayload._All THEN
+	GetAllLabels := TRUE;
+END_IF
+END_METHOD
+
+// Check if magazine needs to get new labels from the stockpile
+METHOD PUBLIC GetNewLabels : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+IF ActState = enumMagazineState.ReadyWithoutLabels AND NOT xCommandDone THEN
+	ActState := enumMagazineState.GettingNewLabels;
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+GetNewLabels := xCommandDone;
+END_METHOD
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	iParameter : INT;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+%FOLDER Commands
+IF ActState = enumMagazineState.None
+OR ActState = enumMagazineState.ReadyWithLabels
+OR ActState = enumMagazineState.ReadyWithoutLabels
+THEN
+	IF NOT xCommandDone THEN
+		iCommandParameter := iParameter;	// Copy parameters
+
+		ActState := enumMagazineState.Transfer_MovingToTakeover;
+	END_IF
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+MoveToTakeover := xCommandDone;
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC ReleaseLabels : BOOL
+VAR_INPUT
+	iParameter		: INT;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands
+IF ActState = enumMagazineState.ReadyWithLabels AND NOT xCommandDone THEN
+	iCommandParameter := iParameter;	// Copy parameters
+
+	ActState := enumMagazineState.Transfer_ReleasingLabels;
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+ReleaseLabels := xCommandDone;
+END_METHOD
+
+METHOD PROTECTED ReleasingLabels
+%FOLDER States
+IF iCommandParameter = 0 THEN
+	IF Arrays.Vacuum_ReleaseAll(itfVacuums) THEN
+		xCommandDone := TRUE;
+		ActState := enumMagazineState.ReadyWithoutLabels;
+	END_IF
+
+ELSE
+	IF Arrays.Vacuum_ReleaseSelected(itfVacuums, iCommandParameter) THEN
+
+		xCommandDone := TRUE;
+
+		IF Arrays.Vacuum_All(	vacuumArray	:= itfVacuums,
+								condition	:= FALSE,
+								channel		:= enumSelectIQ.Output)
+		THEN	// Reset Ready state only if all labels have been transferred.
+			ActState := enumMagazineState.ReadyWithoutLabels;
+		ELSE	// There is still 1 label on the magazine, so we are not yet ready to get new labels.
+			ActState := enumMagazineState.ReadyWithLabels;
+		END_IF
+
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER Commands
+IF ActState = enumMagazineState.None
+OR ActState = enumMagazineState.ReadyWithLabels
+OR ActState = enumMagazineState.ReadyWithoutLabels
+THEN
+	IF NOT xCommandDone THEN
+		ActState := enumMagazineState.Resetting_1;		// Resetting		<-- Press F12 here
+	END_IF
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+Reset := xCommandDone;
+END_METHOD
+
+METHOD PROTECTED Resetting_1
+%FOLDER States
+IF xEntryActionActive THEN
+	FOR i := 1 TO MaxBlowBetweenLabels DO
+		BlowBetweenLabels[i].Reset();
+	END_FOR
+
+	Arrays.Vacuum_ReleaseAll(itfVacuums);
+
+	Arrays.Actuator_ResetAll(itfHammers);
+END_IF
+
+ActState := enumMagazineState.Resetting_2;
+END_METHOD
+
+METHOD PROTECTED Resetting_2
+%FOLDER States
+IF motors.Reset() THEN
+	xCommandDone := TRUE;
+	ActState := enumMagazineState.ReadyWithoutLabels;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF  ActState <> enumMagazineState.None
+AND ActState <> enumMagazineState.ReadyWithLabels
+AND ActState <> enumMagazineState.ReadyWithoutLabels
+THEN
+	ActState := enumMagazineState.None;
+END_IF
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Reset();
+END_FOR
+
+Arrays.Actuator_ResetAll(itfHammers);
+IF HasPayload <> enumPayload._All THEN
+	Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums);
+END_IF
+Arrays.Vacuum_ResetIfNotHigh(itfVacuums);
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Label transfer is complete. Reset the ReadyWithLabels state.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+%FOLDER Commands
+IF ActState = enumMagazineState.None AND NOT xCommandDone THEN
+
+	IF HasPayload = enumPayload.None THEN		// Reset Ready state only if all labels have been transferred.
+		ActState := enumMagazineState.ReadyWithoutLabels;
+	ELSE									// There is still 1 label on the magazine, so we are not yet ready to get new labels.
+		ActState := enumMagazineState.ReadyWithLabels;
+	END_IF
+
+	TransferComplete := TRUE;
+END_IF
+END_METHOD
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+%FOLDER Properties
+SET
+motors.ExternalManualControlEnabled := ExternalManualControlEnabled;
+END_SET
+END_PROPERTY
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_All(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Input)
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Any(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY

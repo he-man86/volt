@@ -1,0 +1,20 @@
+{attribute 'qualified_only'}
+//{attribute 'strict'}
+{attribute 'to_string'}
+TYPE MagazinePeeling_State :
+(
+	None							:= 0,
+
+	Resetting_1						:= 100,
+	Resetting_2						:= 101,
+	Resetting_3						:= 102,
+	Resetting_4						:= 103,
+	Resetting_5						:= 104,
+
+	MoveStopperUp					:= 200,		// Magazine is getting new labels from the cassettes / drawers
+	MoveRollIn						:= 210,
+	PeelLabels						:= 220,
+	MoveRollOut						:= 230,
+	MoveStopperDown					:= 240
+) DINT;
+END_TYPE

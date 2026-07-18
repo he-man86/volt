@@ -1,0 +1,37 @@
+FUNCTION_BLOCK L_TF2P_TM_TABLEPOSITIONINGBASE EXTENDS L_TB2M_TM_MotionControl
+VAR
+	TM_TABLEPOS : L_TB2P_ModuleHandlerConfig;
+	ITFPOSITIONINGBASE : L_TF2P_ITablePositioningBase := THIS^;
+	SCDATA_INT : L_TF2P_scData_TM_TablePositioningBase;
+	PDATA : POINTER TO L_TF2P_scData_TM_TablePositioningBase := ADR(scData_Int);
+	PPAR : POINTER TO L_TF2P_scPar_TM_TablePositioningBase;
+	PSF : POINTER TO L_TF2P_scSF_TM_TablePositioningBase;
+	PAP : POINTER TO L_TF2P_scAP_TM_TablePositioningBase;
+	PINPUT : POINTER TO L_TF2P_TablePositioningBaseIn;
+	POUTPUT : POINTER TO L_TF2P_TablePositioningBaseOut;
+	_SCTPRECDATA : L_MC1P_TpReceiveData;
+	_FB_TPRECDATAPROXY : L_MC1P_TouchProbeRecDataProxy;
+	FB_CONDITIONPROFILEMANAGER : L_TF2P_ConditionProfileManager;
+	FB_CONDCOLLECTIONPROFILEMANAGER : L_UBUP_ConditionCollectionAND := STRUCT(aitfCondition := [fb_ConditionOperationEnabled, fb_ConditionProfileManager]);
+	FB_CONDCOLLECTION : L_UBUP_ConditionCollectionAND := STRUCT(aitfCondition := [fb_ConditionOperationEnabled, fb_ConditionLimiter]);
+	FB_CONDCOLLECTIONABSOLUTE : L_UBUP_ConditionCollectionAND := STRUCT(aitfCondition := [fb_CondCollection, fb_ConditionAxisHomed]);
+	FB_TRANSITION2MOVEABSTABLEPOS : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVEABSCONTTABLEPOS : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVERELTABLEPOS : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVERELCONTTABLEPOS : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVEVELTABLEPOS : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVEABSTABLEPOSFINISH : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVEABSCONTTABLEPOSFINISH : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVERELTABLEPOSFINISH : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVERELCONTTABLEPOSFINISH : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2MOVEVELTABLEPOSFINISH : L_UBUP_RequestTransitionEdge;
+	FB_TRANSITION2INVALIDPOSITIONINGMODE : L_UBUP_RequestTransitionLevel;
+	FB_MOVEBASIC : L_MC1P_MoveBasic := STRUCT(wCalcProfileMode := 1);
+	FB_PROFILEMANAGER : L_TB2A_ProfileManager;
+	FB_DUMMYTEMPLATE : L_MC1P_Template_ForAxis;
+	CONNECTOR : __SYSTEM.IQueryInterface;
+	REMAININGTIMEOFPROFILE : LREAL;
+	REMAININGTIMEOFPROFILEAVAILABLE : BOOL;
+	TABLEPOSBASEEXTENSION : L_TF2P_ITablePositioningBase;
+END_VAR
+END_FUNCTION_BLOCK

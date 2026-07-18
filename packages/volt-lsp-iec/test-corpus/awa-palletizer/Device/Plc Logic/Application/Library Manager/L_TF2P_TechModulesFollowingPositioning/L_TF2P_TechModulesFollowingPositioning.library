@@ -1,5 +1,6 @@
 LIBRARY L_TF2P_TechModulesFollowingPositioning
 NAMESPACE L_TF2P
-RESOLUTION L_TF2P_TechModulesFollowingPositioning, 3.33.0.8 (Lenze)
+RESOLUTION L_TF2P_TechModulesFollowingPositioning, 3.34.0.18 (Lenze)
 PLACEHOLDER true
 SYSTEM false
+DEPENDENCIES SysTask, CAA Mathematics, L_IE1P_ApplicationErrors, Standard, L_MC1P_MotionControlBasic, L_USPP_SignalProcessing, L_CT1P_ControlToolbox, L_TB2P_TechModulesBasic, L_TB1P_TechnologyBasics, L_MC2P_MotionControlCam, L_UMTP_Mathematics, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, SysTypes2 Interfaces, * (System), L_UM1P_MulticoreBasic, L_UBUP_BasicUtilities

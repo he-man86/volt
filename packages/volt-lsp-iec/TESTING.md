@@ -38,7 +38,7 @@ These talk to a **live bridge** to produce the data above. Run them by hand when
 | Script | package.json | Feeds | Job |
 |---|---|---|---|
 | `record-language.ts` | `bun run record:language` | `test/conformance/recordings/` | push every fixture to a live bridge, build, capture the IDE's diagnostics. Non-destructive by default (writes `*.new.json` + prints the diff vs committed); `--write` adopts it. Vendor auto-detected from the bridge. |
-| `harvest-lsp-corpus.ts` | `bun run harvest:corpus` | `test-corpus/<name>/` | pull a whole real project off a live bridge, verbatim, into the corpus. |
+| `refresh-corpus.ts` | `bun run refresh:corpus <name>` | `test-corpus/<name>/` | refresh a corpus project by dogfooding `volt pull` (a temp `volt init` → its `src/` tree); preserves the build oracle. |
 | `audit-check.ts` | `bun run audit:check <battery>` | nothing — prints to screen | ad-hoc "what does the live IDE say vs our LSP" for a battery of cases. The tool for *is this check actually right?* (it's what proved `constant-overflow` was wrong). Touches no test data. |
 | `check-layering.ts` | `bun run lint` | nothing — lint | fails on an illegal upward import between layers. |
 

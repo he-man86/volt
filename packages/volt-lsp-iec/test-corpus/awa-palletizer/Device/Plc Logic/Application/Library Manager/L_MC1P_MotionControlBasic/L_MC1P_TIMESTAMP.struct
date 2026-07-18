@@ -1,0 +1,19 @@
+TYPE L_MC1P_TIMESTAMP :
+STRUCT
+	TIME_01 : SysTime;
+	TIME_02 : SysTime;
+	TIME_03 : SysTime;
+	TIME_04 : SysTime;
+	TIME_05 : SysTime;
+	TIME_06 : SysTime;
+	TIME_07 : SysTime;
+	TIME_08 : SysTime;
+	TIME_DELTA_01_02 : SysTime;
+	TIME_DELTA_02_03 : SysTime;
+	TIME_DELTA_03_04 : SysTime;
+	TIME_DELTA_04_05 : SysTime;
+	TIME_DELTA_05_06 : SysTime;
+	TIME_DELTA_06_07 : SysTime;
+	TIME_DELTA_07_08 : SysTime;
+END_STRUCT
+END_TYPE
