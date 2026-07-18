@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using Volt.Cli.Core.Diagnostics;
-using Volt.Cli.Host;
+using Volt.Cli.Core.Wire;
 using Volt.Cli.Ide.Twincat;
 using Volt.Cli.Transport;
 

@@ -1,6 +1,6 @@
 using System;
 using Volt.Cli.Core.Diagnostics;
-using Volt.Cli.Host;
+using Volt.Cli.Core.Wire;
 using Volt.Cli.Transport;
 
 namespace Volt.Cli.Ide.Codesys;

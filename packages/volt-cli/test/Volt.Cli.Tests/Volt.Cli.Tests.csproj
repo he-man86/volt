@@ -12,10 +12,10 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Volt.Cli.Host\Volt.Cli.Host.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Cli.Core\Volt.Cli.Core.csproj" />
     <ProjectReference Include="..\..\src\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
-    <ProjectReference Include="..\..\src\Volt.Cli.Sync\Volt.Cli.Sync.csproj" />
-    <!-- Build the `volt` exe so the black-box test can spawn it; don't reference its assembly (avoid Program clash). -->
-    <ProjectReference Include="..\..\src\Volt.Cli\Volt.Cli.csproj" ReferenceOutputAssembly="false" />
+    <!-- The `volt` exe now holds the Sync/ client logic these tests exercise; referencing it also builds the exe
+         the black-box test spawns. Top-level Program is internal, so no entry-point clash. -->
+    <ProjectReference Include="..\..\src\Volt.Cli\Volt.Cli.csproj" />
   </ItemGroup>
 </Project>

@@ -5,27 +5,31 @@ Both vendors serve **byte-identical responses** for the same project even though
 completely different ways — because everything shareable lives in one Core and the parity boundary is the pipe
 wire, not the driver.
 
-## Three projects
+## The projects (bridge side)
 
 ```
-src/Volt.Cli.Core        netstandard2.0   shared engine — no vendor references
-src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge  — loaded IN-PROCESS by the IDE (reflection)
-src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge  — STANDALONE, attaches to XAE over COM
+src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) — the Connector references THIS
+                                          ALONE, so the tray stays decoupled from the engine + vendor code
+src/Volt.Cli.Core        netstandard2.0   shared engine (no vendor refs) + Wire/BridgePipeHost (serves it)
+src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge — driver + PipeHost, loaded IN-PROCESS by the IDE
+src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM
 src/Volt.Cli.Connector   net8 exe         tray supervisor — spawns/watches the bridges (not a bridge itself)
 ```
 
+(The `volt` CLI — `src/Volt.Cli`, the pipe *client* — is documented in `README.md`.)
+
 **The golden rule:** everything that can be shared lives in `Core`; only irreducible vendor glue lives in a
 bridge. `Core` targets `netstandard2.0` specifically so it loads inside the net48 in-proc CODESYS host *and* the
-net8 standalone Beckhoff exe unchanged.
+net8 standalone TwinCAT exe unchanged.
 
 ## How a request flows
 
-Every op is the same shape — `Volt.Cli.Host/BridgePipeHost` receives one request per connection, `Sync/*`
+Every op is the same shape — `Core/Wire/BridgePipeHost` receives one request per connection, `Sync/*`
 services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`Graphical` turn IDE items into canonical
 text:
 
 ```
-volt CLI ──pipe──▶ BridgePipeHost (Volt.Cli.Host)
+volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
                      │  reads one {op,body} frame; single error boundary (throws → error frame)
                      ▼
                    RunOp ── marshals onto the IDE's required thread; threads an onP() progress callback
@@ -49,7 +53,7 @@ A strict layer stack; each layer depends only on the ones above it. Read top-dow
 | Layer | Does | Key types |
 |---|---|---|
 | **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` provides the shared degraded-state machine + single-flight health probe. `ItemRef` is the opaque per-vendor handle that keeps native objects out of Core; `ProjectItem` carries name/folder/`ExcludeFromBuild`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `ItemRef`, `ProjectItem` |
-| **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse`). The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Volt.Cli.Host/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse` |
+| **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse`). The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Wire/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse` |
 | **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`, `DebugService` (`debug`). `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `DebugService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text; `SourceText/` splits/assembles ST (`StSplitter` ⇄ `StAssembler`, sharing `CodeHelper`). `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `SourceText/StSplitter`, `SourceText/StAssembler` |
 | **`Graphical/`** | **Graphical materialization** — PlcOpen XML ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` and `Vg/VgParser`/`Vg/VgWriter` are the two ends. | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `Vg/VgParser`, `Vg/VgWriter` |

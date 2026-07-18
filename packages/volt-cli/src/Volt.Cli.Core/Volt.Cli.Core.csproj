@@ -18,4 +18,8 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Wire/BridgePipeHost serves Core's services over the pipe (PipeServer). Transport is the wire-only layer. -->
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+  </ItemGroup>
 </Project>

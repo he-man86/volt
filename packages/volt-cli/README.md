@@ -17,24 +17,23 @@ the CLI and connector are clients.
 
 ```
 src/
-  Volt.Cli.Transport/    netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames)
-  Volt.Cli.Host/         netstandard2.0  wires the pipe to Core's services (refs/fetch/push/build + activeOp)
-  Volt.Cli.Core/         netstandard2.0  the transport-agnostic bridge logic (ST/PLCopen/VG, push/fetch/build,
-                                         versioning, the Ide-driver contract) — see ARCHITECTURE.md
-  Volt.Cli.Sync/         net8            the git-native sync (the volt/ide merge tree, changeset/status model,
-                                         materialize) — the guts of the `volt` verbs
-  Volt.Cli/              net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge)
+  Volt.Cli.Transport/    netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames + names). The
+                                         Connector references THIS ALONE, so it stays decoupled from the engine.
+  Volt.Cli.Core/         netstandard2.0  the bridge engine (ST/PLCopen/VG, push/fetch/build services, versioning,
+                                         the Ide-driver contract) + Wire/BridgePipeHost (serves it over the pipe)
+  Volt.Cli/              net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge) + Sync/ (the
+                                         git-native client: volt/ide merge tree, changeset/status, materialize)
   Volt.Cli.Ide.Codesys/  net48 lib       CodesysDriver + PipeHost — loaded in-proc by the CODESYS script host
   Volt.Cli.Ide.Twincat/  net8 exe        BeckhoffDriver + the worker the connector spawns (attaches to XAE via COM)
   Volt.Cli.Connector/    net8 winexe     the tray supervisor (spawns/monitors the workers; probes `health`)
 test/
-  Volt.Cli.Tests/        net8 xUnit      pipe transport + ported sync + black-box CLI parity
+  Volt.Cli.Tests/        net8 xUnit      pipe transport + the client sync + black-box CLI parity
   Volt.Cli.Core.Tests/   net8 xUnit      the shared Core (parsing / PLCopen / VG round-trip / push+fetch)
   e2e/                   bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
 
-`Transport` / `Host` / `Core` target `netstandard2.0` so the SAME assemblies load in the CODESYS net48 host, the
-net8 TwinCAT host, and the net8 CLI/tests.
+`Transport` and `Core` target `netstandard2.0` so the SAME assemblies load in the CODESYS net48 host, the net8
+TwinCAT host, and the net8 CLI/tests.
 
 ## Build & test
 

@@ -6,7 +6,7 @@ using Volt.Cli.Core.Sync;
 using Volt.Cli.Core.Wire;
 using Volt.Cli.Transport;
 
-namespace Volt.Cli.Host;
+namespace Volt.Cli.Core.Wire;
 
 /// <summary>
 /// Hosts the Volt bridge protocol over a named pipe instead of HTTP — the SAME Core services (RefsService /

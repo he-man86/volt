@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
-using Volt.Cli.Host;
+using Volt.Cli.Core.Wire;
 using Volt.Cli.Sync;
 using Volt.Cli.Transport;
 using Xunit;

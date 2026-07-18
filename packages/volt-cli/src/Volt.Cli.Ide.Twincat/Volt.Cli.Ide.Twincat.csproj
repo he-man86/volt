@@ -12,7 +12,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
-    <ProjectReference Include="..\Volt.Cli.Host\Volt.Cli.Host.csproj" />
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
   </ItemGroup>
 </Project>

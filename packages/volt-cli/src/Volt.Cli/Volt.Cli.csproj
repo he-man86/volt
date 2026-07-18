@@ -12,9 +12,8 @@
          unify-bridge-cli-language task 2.1). -->
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Volt.Cli.Sync\Volt.Cli.Sync.csproj" />
+    <!-- Sync/ (the git-native client logic) lives in this project; the pipe client + Core's wire DTOs are its deps. -->
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
-    <!-- Reuse Core's wire DTOs so the CLI's pipe client uses the SAME contract as the host (kills the TS zod). -->
     <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
   </ItemGroup>
 </Project>
