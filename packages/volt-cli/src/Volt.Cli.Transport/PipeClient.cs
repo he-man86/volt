@@ -23,7 +23,10 @@ public sealed class PipeClient
     public PipeClient(string pipeName) => _pipeName = pipeName;
 
     /// <summary>Call one op. Progress frames go to <paramref name="onProgress"/>; the terminal result is returned.</summary>
-    public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 5000)
+    // connectTimeoutMs caps the wait when no bridge answers. `Connect` POLLS for the pipe to appear, which tolerates
+    // the launch-IDE-then-run race — so keep polling, just cap it at 2s (a `volt status` with the IDE closed used to
+    // hang the old 5s default; 2s is the snappy-but-race-safe middle).
+    public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 2000)
     {
         using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
         client.Connect(connectTimeoutMs);

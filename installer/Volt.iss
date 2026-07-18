@@ -127,5 +127,5 @@ begin
   if ForceDirectories(Dir) then
     // Both separators must be a real Char — GetDateTimeString takes Char, not String, and '' breaks it at
     // runtime (silently: the copy just never happens). They're unused here anyway: the format has no '/' or ':'.
-    FileCopy(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
+    CopyFile(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
 end;
