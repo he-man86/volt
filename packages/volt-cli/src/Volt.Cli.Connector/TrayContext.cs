@@ -79,7 +79,7 @@ namespace Volt.Cli.Connector
                 if (p.Archetype == Archetype.ExternalAttach) _supervisor.EnsureWorker(p); // respawn if it died
 
                 var prev = _health[p.Id];
-                var now = await HealthProbe.ProbeAsync(p.Port);
+                var now = await HealthProbe.ProbeAsync(p.Id);
                 _health[p.Id] = now;
                 if (now.Status != prev.Status) OnStatusChanged(p, prev, now);
             }
@@ -89,7 +89,7 @@ namespace Volt.Cli.Connector
 
             // Publish the immutable snapshot the control plane serves on :8550.
             _snapshot = _providers.Select(p => new BridgeView(
-                p.Id, p.DisplayName, p.Port, p.Archetype.ToString(),
+                p.Id, p.DisplayName, p.Archetype.ToString(),
                 HealthProbe.Describe(_health[p.Id]),
                 p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id),
                 p.Installs.Count > 0 ? p.Installs : null,

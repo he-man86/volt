@@ -9,7 +9,7 @@ namespace Volt.Cli.Connector
     /// <summary>A bridge's orchestration-level view (NOT the per-vendor /health detail —
     /// the extension gets that from the bridge's own port). Immutable snapshot.</summary>
     public sealed record BridgeView(
-        string Id, string DisplayName, int Port, string Archetype,
+        string Id, string DisplayName, string Archetype,
         string Status, bool WorkerRunning,
         IReadOnlyList<IdeInstall>? Installs = null,    // CODESYS: launchable versions/forks
         IReadOnlyList<TcInstanceDto>? Instances = null, // TwinCAT: attachable instances/projects

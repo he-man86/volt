@@ -20,7 +20,7 @@ public class CommandTests
         var host = new BridgePipeHost(ide, pipe);
         host.Start();
         var root = TestUtil.NewRepo();
-        Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Port = 8556 }, Project = new() { Platform = "codesys", ProjectName = "Demo" }, LinkedAt = "t" });
+        Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "Demo" }, LinkedAt = "t" });
         return (root, host, new BridgeClient(pipe));
     }
 
@@ -75,7 +75,7 @@ public class CommandTests
         var client = new BridgeClient(pipe);
         try
         {
-            var r = Commands.Init(root, client, 8556);
+            var r = Commands.Init(root, client);
             Assert.Equal("ok", r.Kind);
             Assert.True(r.GitCreated);
             Assert.Equal("codesys/Demo", r.Project);
@@ -91,7 +91,7 @@ public class CommandTests
 
             // Post-init the workspace is in sync, and a second init refuses.
             Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
-            Assert.Equal("error", Commands.Init(root, client, 8556).Kind);
+            Assert.Equal("error", Commands.Init(root, client).Kind);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

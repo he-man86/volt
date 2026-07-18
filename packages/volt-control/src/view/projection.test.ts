@@ -23,14 +23,13 @@ function statusWith(over: Partial<StatusJson> = {}): StatusJson {
 }
 
 // ── projectWorkspace ─────────────────────────────────────────────────────────
-test("projectWorkspace: tags A/M/D, strips src/, and reports the port as initialized", () => {
+test("projectWorkspace: tags A/M/D, strips src/, and reports the vendor as initialized", () => {
   const status = statusWith({
     incoming: { added: ["New.fb"], modified: ["Edit.fb"], removed: ["Gone.fb"] },
     pathByName: { "New.fb": "src/POUs/New.fb", "Edit.fb": "src/Edit.fb", "Gone.fb": "src/Gone.fb" },
   })
-  const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, port: 8556 })
+  const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" })
   expect(v.initialized).toBe(true)
-  expect(v.port).toBe(8556)
   expect(v.vendor).toBe("codesys") // 8556 → CODESYS; the UI shows this, not the port
   expect(v.paused).toBeNull()
   expect(v.incoming).toEqual([
@@ -40,10 +39,10 @@ test("projectWorkspace: tags A/M/D, strips src/, and reports the port as initial
   ])
 })
 
-test("projectWorkspace: no port ⇒ not initialized", () => {
+test("projectWorkspace: no vendor ⇒ not initialized", () => {
   const v = projectWorkspace({ workspaceRoot: "/ws", status: statusWith(), health: connected })
   expect(v.initialized).toBe(false)
-  expect(v.port).toBeUndefined()
+  expect(v.vendor).toBeUndefined()
 })
 
 test("projectWorkspace: merging wins over mismatch and hides drift items", () => {
@@ -52,7 +51,7 @@ test("projectWorkspace: merging wins over mismatch and hides drift items", () =>
     projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] },
     incoming: { added: ["X.fb"], removed: [], modified: [] },
   })
-  const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, port: 8556 })
+  const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" })
   expect(v.paused).toBe("merging")
   expect(v.incoming).toEqual([]) // items hidden while paused
 })
@@ -61,7 +60,7 @@ test("projectWorkspace: a project mismatch alone reports the mismatch reason", (
   const status = statusWith({
     projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] },
   })
-  expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, port: 8556 }).paused).toBe("mismatch")
+  expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" }).paused).toBe("mismatch")
 })
 
 // ── outcome descriptors ──────────────────────────────────────────────────────

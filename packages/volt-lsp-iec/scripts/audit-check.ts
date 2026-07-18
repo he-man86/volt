@@ -3,16 +3,16 @@
  * compiler (/build) and prints the mismatch — the tool for a quick "is this check right?" during investigation.
  * It holds NO test cases: durable checks belong in `test/conformance/fixtures/` (recorded via record-language).
  *
- *   VOLT_BRIDGE_PORT=8556 bun run audit:check 'FUNCTION_BLOCK Scratch VAR x:INT:=40000; END_VAR END_FUNCTION_BLOCK'
+ *   VOLT_VENDOR=codesys bun run audit:check 'FUNCTION_BLOCK Scratch VAR x:INT:=40000; END_VAR END_FUNCTION_BLOCK'
  *
  * LSP-only = candidate false positive; IDE-only = a gap we miss. Non-destructive (scratch POU deleted after).
  */
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
-import { get, post, PORT } from "./bridge.js"
+import { get, post, VENDOR as V } from "./bridge.js"
 
-const VENDOR: Vendor = PORT === "8555" ? "twincat" : "codesys"
+const VENDOR: Vendor = V
 const source = process.argv[2]
 if (source === undefined) {
   console.error("usage: audit:check '<full POU source>'  (pushes it, builds, diffs LSP vs IDE)")
@@ -49,7 +49,7 @@ const ide = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d
 await pushOps([{ op: "deleteItem", name: wire, ifVersion: await ver(wire) }, { op: "set", name: plcName, toFolder: "", sourceText: plcOrig, ifVersion: await ver(plcName) }])
 
 console.log(`\nLSP(${VENDOR}):  ${lsp.join(" | ") || "(none)"}`)
-console.log(`IDE(:${PORT}): ${ide.join(" | ") || "(none)"}  success=${r.success}`)
+console.log(`IDE(${VENDOR}): ${ide.join(" | ") || "(none)"}  success=${r.success}`)
 const lspOnly = lsp.filter((m) => !ide.includes(m))
 const ideOnly = ide.filter((m: string) => !lsp.includes(m))
 console.log(lspOnly.length ? `\n⚠ LSP-only (candidate FALSE POSITIVE): ${lspOnly.join(" | ")}` : "")

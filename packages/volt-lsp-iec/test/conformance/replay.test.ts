@@ -3,8 +3,8 @@
  *
  * Runs the LSP's semantic diagnostics over every catalog fixture and compares against PER-VENDOR
  * recordings captured from the LIVE compilers:
- *   - recordings/expected-codesys.json  — CODESYS ground truth (VOLT_BRIDGE_PORT=8556)
- *   - recordings/expected-tc.json       — TwinCAT ground truth  (VOLT_BRIDGE_PORT=8555)
+ *   - recordings/expected-codesys.json  — CODESYS ground truth (VOLT_VENDOR=codesys)
+ *   - recordings/expected-tc.json       — TwinCAT ground truth  (VOLT_VENDOR=twincat)
  * The active vendor selects the recording AND the LSP's config, because the two IDEs diverge at times.
  *
  * The single criterion is byte-identical: the LSP's error+warning message SET must equal the

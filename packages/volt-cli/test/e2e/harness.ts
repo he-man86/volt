@@ -1,7 +1,7 @@
 /**
  * Shared harness for the e2e bridge suite. One typed client over EVERY op, version-snapshot + delta helpers
  * (the backbone of the hash-stability assertions), and test-item fixture cleanup. The SAME suite runs against
- * whichever live bridge the pipe points at (`VOLT_PIPE`, or derived from VOLT_TC_PORT: 8555 TwinCAT / 8556
+ * whichever live bridge the pipe points at (`VOLT_PIPE`, or `VOLT_VENDOR`: twincat /
  * CODESYS) — no vendor branches: a pass on one bridge and a fail on the other is a real parity bug, not an
  * expected difference. Tests provision their own fixtures (never read ambient project state) so this holds.
  *
@@ -10,9 +10,9 @@
 import { expect } from "bun:test"
 import { connect } from "node:net"
 
-const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
-// The named pipe of the bridge under test (8555 → TwinCAT, else CODESYS); VOLT_PIPE overrides.
-export const PIPE = process.env.VOLT_PIPE || (PORT === 8555 ? "volt.bridge.beckhoff" : "volt.bridge.codesys")
+const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
+// The named pipe of the bridge under test; VOLT_PIPE overrides.
+export const PIPE = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
 export const BASE = `pipe ${PIPE}` // a label for describe() titles (the wire is the pipe, not a URL)
 export const PREFIX = "VltE2E"
 export const FOLDER = "POUs"

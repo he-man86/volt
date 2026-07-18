@@ -52,7 +52,7 @@ public class BlackBoxTests
         var host = new BridgePipeHost(ide, pipe);
         host.Start();
         var root = TestUtil.NewRepo();
-        Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Port = 8556 }, Project = new() { Platform = "codesys", ProjectName = "Demo" }, LinkedAt = "t" });
+        Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "Demo" }, LinkedAt = "t" });
         try
         {
             // pull, driven by the real binary over the pipe.

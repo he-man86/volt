@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, probeVendors, isBridgeOnline, vendorPort, type VoltSeverity } from "@volt/control"
+import { VoltStatus, aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -71,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// command `enablement` (visible-but-disabled until the bridge is up). Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
-		const live = unbound ? await probeVendors(vendorPort("twincat"), vendorPort("codesys")) : []
+		const live = unbound ? await probeVendors() : []
 		const isLive = (v: "twincat" | "codesys"): boolean => live.some((p) => p.vendor === v && isBridgeOnline(p.state))
 		void vscode.commands.executeCommand("setContext", "volt.twincatLive", isLive("twincat"))
 		void vscode.commands.executeCommand("setContext", "volt.codesysLive", isLive("codesys"))

@@ -2,8 +2,8 @@
  * Conformance recorder — re-creates `test/conformance/recordings/expected-<vendor>.json` from a LIVE bridge.
  * Self-contained: speaks the raw HTTP wire, so it needs no CLI or bridge client.
  *
- *   VOLT_BRIDGE_PORT=8556 VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
- *   VOLT_BRIDGE_PORT=8555 VOLT_VENDOR=tc       bun run scripts/record-language.ts        # TwinCAT
+ *   VOLT_VENDOR=codesys VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
+ *   VOLT_VENDOR=twincat VOLT_VENDOR=tc       bun run scripts/record-language.ts        # TwinCAT
  *
  * Each fixture is recorded ISOLATED (push its unit(s) → instantiate in PLC_PRG → build → capture → restore),
  * so no cross-fixture batch short-circuit can drop diagnostics. Multi-unit fixtures (e.g. a struct + FB) are
@@ -44,7 +44,7 @@ const WRITE = process.argv.includes("--write")
 
 // Vendor (→ recording file) is auto-detected from the bridge's reported platform; VOLT_VENDOR overrides.
 const health = await get("/health")
-const VENDOR = process.env.VOLT_VENDOR ?? (health.platform === "beckhoff" ? "tc" : "codesys")
+const VENDOR = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" : "codesys")
 
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })

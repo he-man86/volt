@@ -3,22 +3,22 @@
  * NO filtering, NO materialization: every item the bridge returns (KIND source + referenced-library
  * signatures + `.library`/`.device`/… reference files) is written to `<outDir>/<folder>/<name>` exactly
  * as the bridge encoded it. For refreshing `packages/volt-lsp-iec/test-corpus/<name>`.
- *   bun packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts <outDir> [port]
+  *   bun packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts <outDir> [codesys|twincat]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { call, pipeName } from "./bridge.js"
 
 const outDir = process.argv[2]
-const port = process.argv[3] ?? "8556"
+const vendor = process.argv[3] ?? "codesys"
 if (!outDir) {
-	console.error("usage: bun run harvest:corpus <outDir> [port]")
+	console.error("usage: bun run harvest:corpus <outDir> [codesys|twincat]")
 	process.exit(1)
 }
 
 // `verbose` = full library-element signatures. Dead (uncalled) code rides through as ordinary source now —
 // the LSP suppresses its diagnostics structurally, so the corpus stays clean-compiling without a bridge flag.
-const { changed } = (await call("fetch", { knownItems: {}, verbose: true }, pipeName(port))) as {
+const { changed } = (await call("fetch", { knownItems: {}, verbose: true }, pipeName(vendor))) as {
 	changed: { name: string; folder?: string; sourceText: string }[]
 }
 

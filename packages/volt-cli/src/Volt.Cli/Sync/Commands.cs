@@ -11,7 +11,7 @@ public static class Commands
     /// (init) fetch and seed the workspace. C# port of commands/init.ts. NOTE: the ST language-reference corpus
     /// (installed from the TS @volt/lsp-iec package) is not yet ported — the workspace is fully functional without
     /// it; corpus stays 0 until it's bundled with volt-cli.</summary>
-    public static InitResult Init(string workspace, BridgeClient bridge, int port, Action<ProgressFrame>? onProgress = null)
+    public static InitResult Init(string workspace, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
         var root = System.IO.Path.GetFullPath(workspace);
         Directory.CreateDirectory(root);
@@ -29,7 +29,7 @@ public static class Commands
 
         Config.SaveConfig(root, new WorkspaceConfig
         {
-            Bridge = new() { Port = port },
+            Bridge = new() { Vendor = health.Platform },
             Project = new() { Platform = health.Platform, ProjectName = health.ProjectName! },
             LinkedAt = DateTime.UtcNow.ToString("o"),
         });

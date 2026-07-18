@@ -14,7 +14,6 @@ import {
   settleOutcome,
   formatProgress,
   firstLine,
-  vendorPort,
   type OutcomePresenter,
   type OutcomeActionTag,
   type ProgressUpdate,
@@ -117,7 +116,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // Init the project opencode is on — no folder picker (like the extension initing its open workspace).
       const root = shell.boundRoot
       if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
-      const out = await init(root, vendorPort(vendor), { onProgress: report })
+      const out = await init(root, vendor, { onProgress: report })
       clearProgress()
       if (out.code === 0) await bindWorkspace(shell, root)
       else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)

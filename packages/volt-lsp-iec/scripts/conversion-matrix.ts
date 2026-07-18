@@ -2,8 +2,8 @@
  * Conversion-matrix oracle (complete-type-checking C.2/C.3). Validates `classifyConversion` against the LIVE
  * compiler for EVERY elementary numeric pair — proves the classification is oracle-calibrated, not invented.
  *
- *   VOLT_BRIDGE_PORT=8556 bun run scripts/conversion-matrix.ts     # CODESYS
- *   VOLT_BRIDGE_PORT=8555 bun run scripts/conversion-matrix.ts     # TwinCAT
+ *   VOLT_VENDOR=codesys bun run scripts/conversion-matrix.ts     # CODESYS
+ *   VOLT_VENDOR=twincat bun run scripts/conversion-matrix.ts     # TwinCAT
  *
  * Packs all N×N `dst := src` assignments into ONE FB, INSTANTIATES it in PLC_PRG (unreferenced POUs aren't
  * compiled), builds ONCE, and matches each compiler diagnostic back to its pair by the type names in the
@@ -12,7 +12,7 @@
  */
 import { classifyConversion, type ConversionKind } from "../src/types/compat.js"
 import type { Type } from "../src/types/type.js"
-import { get, post, PORT } from "./bridge.js"
+import { get, post, VENDOR } from "./bridge.js"
 
 const TYPES = ["SINT", "USINT", "BYTE", "INT", "UINT", "WORD", "DINT", "UDINT", "DWORD", "LINT", "ULINT", "LWORD", "REAL", "LREAL"]
 const elem = (name: string): Type => ({ kind: "elementary", name }) as Type
@@ -68,7 +68,7 @@ for (const dst of TYPES)
     else disagreements.push(`${src.padEnd(6)}→ ${dst.padEnd(6)} classify=${kind.padEnd(12)} predict=${want.padEnd(8)} IDE=${ide}`)
   }
 
-console.log(`\nconversion matrix: ${agree}/${TYPES.length * TYPES.length} agree with the live compiler (port ${PORT})`)
+console.log(`\nconversion matrix: ${agree}/${TYPES.length * TYPES.length} agree with the live compiler (${VENDOR})`)
 console.log(`(build success=${r.success}, ${(r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").length} error+warning diagnostics matched)`)
 if (disagreements.length) {
   console.log(`\n${disagreements.length} DISAGREEMENTS (classify predicts ≠ compiler):`)

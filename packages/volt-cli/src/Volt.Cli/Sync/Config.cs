@@ -11,7 +11,7 @@ public sealed class WorkspaceConfig
     public ProjectCfg Project { get; set; } = new();
     public string LinkedAt { get; set; } = "";
 
-    public sealed class BridgeCfg { public int Port { get; set; } }
+    public sealed class BridgeCfg { public string Vendor { get; set; } = ""; }
     public sealed class ProjectCfg { public string Platform { get; set; } = ""; public string ProjectName { get; set; } = ""; }
 }
 
@@ -47,7 +47,7 @@ public static class Config
     public static WorkspaceConfig LoadConfig(string root)
     {
         var cfg = JsonSerializer.Deserialize<WorkspaceConfig>(File.ReadAllText(Paths(root).ConfigPath), Json);
-        if (cfg is null || cfg.Bridge.Port == 0 || string.IsNullOrEmpty(cfg.Project.Platform) || string.IsNullOrEmpty(cfg.Project.ProjectName))
+        if (cfg is null || string.IsNullOrEmpty(cfg.Bridge.Vendor) || string.IsNullOrEmpty(cfg.Project.Platform) || string.IsNullOrEmpty(cfg.Project.ProjectName))
             throw new InvalidOperationException(".git/volt/config.json is malformed — re-run `volt init`");
         return cfg;
     }
@@ -83,9 +83,9 @@ public static class Config
         return null;
     }
 
-    public static int? ConfiguredBridgePort(string root)
+    public static string? ConfiguredVendor(string root)
     {
-        try { return LoadConfig(root).Bridge.Port; }
+        try { return LoadConfig(root).Bridge.Vendor; }
         catch { return null; }
     }
 }
