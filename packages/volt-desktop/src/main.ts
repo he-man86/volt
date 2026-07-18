@@ -112,6 +112,11 @@ app.whenReady().then(async () => {
   await shell.win.loadFile(join(__dirname, "shell.html"))
 
   shell.view = new WebContentsView()
+  // Tell opencode's GUI our real locale. Without this the view sends an Accept-Language opencode's server-side
+  // detector maps to Turkish on first load; here we pin it to the OS locale (override with VOLT_LOCALE).
+  const locale = process.env.VOLT_LOCALE || app.getLocale() || "en-US"
+  const sess = shell.view.webContents.session
+  sess.setUserAgent(sess.getUserAgent(), locale)
   shell.win.contentView.addChildView(shell.view)
   layoutView()
   shell.win.on("resize", layoutView)

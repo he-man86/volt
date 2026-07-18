@@ -8,14 +8,18 @@ import type { WebContentsView } from "electron"
 // shim works). Override with OPENCODE_BIN to point at a specific binary.
 const OPENCODE_BIN = process.env.OPENCODE_BIN || "opencode"
 export const READY = /listening on (https?:\/\/\S+)/i // matches `opencode serve` stdout
+// Pin the port so the GUI's origin is stable across launches. opencode persists language/settings in
+// cookies+localStorage scoped to scheme://host:port; a random port each launch = a fresh origin = nothing
+// sticks (and re-runs Accept-Language locale detection every time). Override with OPENCODE_PORT.
+const OPENCODE_PORT = process.env.OPENCODE_PORT || "8547"
 
 let child: ReturnType<typeof spawn> | null = null
 
 export function startServer(): Promise<string> {
-  // ponytail: parse the URL opencode prints instead of pre-choosing a port. Reject if it never prints one.
+  // Still parse the URL opencode prints (robust to host/scheme) — we only pin the port. Reject if none prints.
   return new Promise((resolve, reject) => {
     // shell:true so Windows resolves the `.cmd`/`.ps1` PATH shim npm installs (bare spawn ENOENTs on it).
-    child = spawn(OPENCODE_BIN, ["serve"], { stdio: ["ignore", "pipe", "pipe"], shell: true })
+    child = spawn(OPENCODE_BIN, ["serve", "--port", OPENCODE_PORT], { stdio: ["ignore", "pipe", "pipe"], shell: true })
     const timer = setTimeout(() => reject(new Error("opencode server didn't report a URL within 20s")), 20_000)
     const onData = (buf: Buffer) => {
       const m = String(buf).match(READY)
