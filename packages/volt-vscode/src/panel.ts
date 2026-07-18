@@ -1,17 +1,17 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgePort, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
-	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, port: readBridgePort(s.workspaceRoot) })
+	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot) })
 }
 
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
 //   IDE Sync    — incoming/outgoing drift, click-to-diff vs the last-synced baseline (was the SCM group)
 //   Diagnostics — a summary + per-file counts sourced from the LSP's published diagnostics; jumps to Problems
-//   Bridge      — connection health / project / port (was status-bar only)
+//   Bridge      — connection health / project / vendor (was status-bar only)
 //   Reference   — Agent + language-reference launchers (were palette-only)
 // The git axis stays the editor's built-in Git; Volt owns only the IDE axis, now in its own area.
 
@@ -221,7 +221,7 @@ function bridgeRoots(views: WorkspaceView[]): VoltNode[] {
 		const icon = hd.tone === "ok" ? "pass" : hd.tone === "error" ? "error" : "warning"
 		nodes.push({ key: `bridge:${v.workspaceRoot}`, label: hd.label, icon: new vscode.ThemeIcon(icon), tooltip: v.workspaceRoot })
 
-		if (v.port !== undefined) nodes.push({ key: `port:${v.workspaceRoot}`, label: `Port ${v.port}`, icon: new vscode.ThemeIcon("plug") })
+		if (v.vendor !== undefined) nodes.push({ key: `vendor:${v.workspaceRoot}`, label: vendorLabel(v.vendor), icon: new vscode.ThemeIcon("plug") })
 
 		// Bridge lifecycle is the connector's job (tray) — the view only reports; it never starts bridges.
 		if (!hd.online)

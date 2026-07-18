@@ -25,9 +25,8 @@ namespace Volt.Cli.Connector
     /// </summary>
     public sealed class VendorProvider
     {
-        public required string Id { get; init; }            // "twincat", "codesys", …
+        public required string Id { get; init; }            // "twincat", "codesys", … (the vendor id → its pipe)
         public required string DisplayName { get; init; }   // "TwinCAT", "CODESYS"
-        public required int Port { get; init; }             // the bridge's HTTP port
         public required Archetype Archetype { get; init; }
 
         // ── ExternalAttach: the headless worker process ──
@@ -61,10 +60,9 @@ namespace Volt.Cli.Connector
                 {
                     Id = "twincat",
                     DisplayName = "TwinCAT",
-                    Port = 8555,
                     Archetype = Archetype.ExternalAttach,
                     // The pipe worker (Volt.Cli.Ide.Twincat → VoltBridgeTwincat.exe) serves the real BeckhoffDriver
-                    // over pipe `volt.bridge.beckhoff`. Dev build output lives under volt-cli, not volt-bridge.
+                    // over pipe `volt.bridge.twincat`. Dev build output lives under volt-cli, not volt-bridge.
                     WorkerExe = Resolve("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe",
                         Path.Combine("..", "volt-cli", "src", "Volt.Cli.Ide.Twincat")),
                 },
@@ -86,7 +84,6 @@ namespace Volt.Cli.Connector
             {
                 Id = "codesys",
                 DisplayName = "CODESYS",
-                Port = 8556,
                 Archetype = Archetype.InIdeLoad,
                 // No enable flag: an unused vendor (CODESYS not launched) reads as "not applicable" in the
                 // aggregate tray icon, so it never paints the icon a fault color — no opt-in toggle needed.

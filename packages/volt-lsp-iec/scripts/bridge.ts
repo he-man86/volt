@@ -4,16 +4,16 @@
  * ("/refs", "/build") to the pipe op ("refs", "build"); the pipe host serves byte-identical Core responses, so a
  * re-record over the pipe reproduces the same ground truth the HTTP recorder did.
  *
- * VOLT_BRIDGE_PORT stays the vendor selector (8555 = TwinCAT → pipe `volt.bridge.beckhoff`, else CODESYS →
- * `volt.bridge.codesys`); VOLT_PIPE overrides the pipe name outright.
+ * VOLT_VENDOR picks the vendor (`codesys` default / `twincat` → pipe `volt.bridge.twincat`); VOLT_PIPE overrides
+ * the pipe name outright.
  */
 import { connect } from "node:net"
 
-export const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
+export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
 
-/** The pipe for a given port (default: VOLT_BRIDGE_PORT), honoring a VOLT_PIPE override. */
-export function pipeName(port: string = PORT): string {
-  return process.env.VOLT_PIPE || (port === "8555" ? "volt.bridge.beckhoff" : "volt.bridge.codesys")
+/** The pipe for a given vendor (default: VOLT_VENDOR), honoring a VOLT_PIPE override. */
+export function pipeName(vendor: string = VENDOR): string {
+  return process.env.VOLT_PIPE || `volt.bridge.${vendor}`
 }
 
 export const TARGET = `pipe ${pipeName()}`

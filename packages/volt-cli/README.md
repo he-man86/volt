@@ -10,7 +10,7 @@ Core and speak one pipe wire.
 The CODESYS object model lives only inside `CODESYS.exe` (a net48 library the IDE's script host loads), so a
 process boundary between the CLI and the in-IDE bridge is unavoidable — but it doesn't need to be a socket. A
 local **named pipe** carries newline-delimited JSON frames (`{"progress":…}*` then one `{"result":…}` /
-`{"error":…}`) with no listening port: one pipe per live bridge (`volt.bridge.codesys` / `volt.bridge.beckhoff`),
+`{"error":…}`) with no listening port: one pipe per live bridge (`volt.bridge.codesys` / `volt.bridge.twincat`),
 the CLI and connector are clients.
 
 ## Layout

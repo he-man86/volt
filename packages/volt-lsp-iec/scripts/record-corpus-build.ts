@@ -6,7 +6,7 @@
  *
  *   1. Open the project in CODESYS (or TwinCAT) so the bridge serves it.
  *   2. Bring the bridge up (pwsh packages/volt-bridge/scripts/codesys-bridge.ps1 up), or point at your running IDE's bridge.
- *   3. PROJECT=lenze-mid VOLT_BRIDGE_PORT=8556 bun run scripts/record-corpus-build.ts
+ *   3. PROJECT=lenze-mid VOLT_VENDOR=codesys bun run scripts/record-corpus-build.ts
  *
  * Writes test-corpus/<PROJECT>/expected-build.<vendor>.json = every error+warning the FULL build emitted.
  * The comparison is project-level (message set), matching replay.test.ts — so our wording must match the IDE's
@@ -22,7 +22,7 @@ const dir = join(import.meta.dir, "..", "test-corpus", PROJECT)
 if (!existsSync(dir)) throw new Error(`no corpus project at ${dir}`)
 
 const health = await get("/health")
-const vendor = process.env.VOLT_VENDOR ?? (health.platform === "beckhoff" ? "tc" : "codesys")
+const vendor = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" : "codesys")
 
 console.log(`Building ${PROJECT} on ${TARGET} (${vendor}) …`)
 const r = await post("/build", { buildType: "full" })

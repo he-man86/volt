@@ -29,7 +29,7 @@ public class StatusModelTests
         {
             var gitDir = Git.ResolveGitDir(root);
             // Make it an initialized workspace with a sidecar baseline + a volt/ide ref.
-            Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Port = 8556 }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
+            Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
             Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = "v1", Items = new() { ["A.fb"] = "h1" }, Folders = new() });
             var ide = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[] { new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/A.fb") }), Array.Empty<string>(), "ide");
             Git.UpdateRef(gitDir, IdeTree.Range, ide);

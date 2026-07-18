@@ -230,7 +230,7 @@
       const h = s.health || { label: "…", tone: "warn", online: false }
       bridgeBody =
         `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span></div>` +
-        (s.port ? `<div class="row"><span class="stat">·</span><span class="path">Port ${s.port}</span></div>` : "") +
+        (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
         (!h.online ? `<div class="note">Bridge offline — start it via the connector.</div>` : "")
     }
     const bridgeActs = s.initialized ? icoBtn("i-refresh", "Refresh", "doRefresh()") : ""

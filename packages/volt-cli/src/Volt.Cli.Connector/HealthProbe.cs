@@ -26,14 +26,14 @@ namespace Volt.Cli.Connector
 
     public static class HealthProbe
     {
-        public static async Task<BridgeHealth> ProbeAsync(int port)
+        public static async Task<BridgeHealth> ProbeAsync(string vendor)
         {
             try
             {
-                // Same /health shape as before, now over the named pipe. Connect is blocking, so off the UI thread;
-                // a short timeout maps "nothing listening" → Unreachable, exactly like the old HTTP failure path.
+                // The `health` op over the vendor's named pipe. Connect is blocking, so off the UI thread; a short
+                // timeout maps "nothing listening" → Unreachable.
                 var root = await Task.Run(() =>
-                    new PipeClient(PipeNames.ForPort(port)).Call("health", connectTimeoutMs: 2000)).ConfigureAwait(false);
+                    new PipeClient(PipeNames.ForVendor(vendor)).Call("health", connectTimeoutMs: 2000)).ConfigureAwait(false);
                 return new BridgeHealth
                 {
                     Status = root.TryGetProperty("status", out var s) ? s.GetString() switch

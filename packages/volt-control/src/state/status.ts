@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { probeHealth, readBridgePort, bridgeActiveOp, healthOf, type HealthState } from "../bridge/health.js";
+import { probeHealth, readBridgeVendor, bridgeActiveOp, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
 import type { PullOutcome, PushOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
@@ -54,7 +54,7 @@ export class VoltStatus {
 	private mtimePoll: ReturnType<typeof setInterval> | null = null;
 	private lastMtime = 0;
 	private lastRefreshMs = 0;
-	private bridgePort: number | undefined;
+	private bridgeVendor: Vendor | undefined;
 	// Change-detection baselines: the health poll fires a refresh on a projectDirty false→true edge or a
 	// projectName change. `seenHealth` gates the first probe (start()'s explicit refresh covers the initial state).
 	private lastDirty = false;
@@ -67,7 +67,7 @@ export class VoltStatus {
 	}
 
 	async start(): Promise<void> {
-		this.bridgePort = readBridgePort(this.workspaceRoot);
+		this.bridgeVendor = readBridgeVendor(this.workspaceRoot);
 		// One /health poll drives health AND IDE-change detection (no separate /refs poll, no slow heartbeat).
 		this.heartbeat = setInterval(() => this.probeHealth(), HEALTH_MS);
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
@@ -112,7 +112,7 @@ export class VoltStatus {
 
 			// UI-agnostic probe + `volt status --json` live in volt-control. On any error keep the last good
 			// `cached` (just surface the error); only a successful fetch replaces it.
-			const res = await fetchStatus(this.workspaceRoot, this.bridgePort);
+			const res = await fetchStatus(this.workspaceRoot, this.bridgeVendor);
 			this.health = res.health;
 			if (res.status !== undefined) {
 				this.cached = res.status;
@@ -141,9 +141,9 @@ export class VoltStatus {
 			this.seenHealth = false;
 			return;
 		}
-		const port = this.bridgePort;
-		if (port === undefined) return;
-		this.health = await probeHealth(port, 2000);
+		const vendor = this.bridgeVendor;
+		if (vendor === undefined) return;
+		this.health = await probeHealth(vendor, 2000);
 
 		// A mutation is running on the SHARED bridge — ANOTHER frontend, or a terminal `volt init`, that the
 		// in-memory gate above (process-local) can't see. Treat it exactly like our own in-flight mutation: don't

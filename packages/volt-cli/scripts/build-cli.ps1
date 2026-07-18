@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 # Build the unified Volt CLI toolchain + the user-facing Connector (pipe transport):
 #   - volt.exe:            the PLC CLI (Volt.Cli) — git-native sync over the named pipe.
-#   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.beckhoff`.
+#   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.twincat`.
 #   - Volt.Cli.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys`.
 #   - Connector:           the one system-tray app that supervises every worker (probes `health` over the pipe).
 $ErrorActionPreference = "Stop"

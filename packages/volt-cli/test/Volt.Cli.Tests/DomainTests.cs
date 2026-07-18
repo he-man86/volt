@@ -47,7 +47,7 @@ public class DomainTests
             Assert.False(Config.ConfigExists(root));
             var cfg = new WorkspaceConfig
             {
-                Bridge = new() { Port = 8556 },
+                Bridge = new() { Vendor = "codesys" },
                 Project = new() { Platform = "codesys", ProjectName = "Demo" },
                 LinkedAt = "2026-07-18T00:00:00Z",
             };
@@ -57,13 +57,13 @@ public class DomainTests
             // Byte-compatible with the TS backup: the on-disk keys are camelCase.
             var raw = File.ReadAllText(Config.Paths(root).ConfigPath);
             Assert.Contains("\"projectName\": \"Demo\"", raw);
-            Assert.Contains("\"port\": 8556", raw);
+            Assert.Contains("\"vendor\": \"codesys\"", raw);
 
             var loaded = Config.LoadConfig(root);
-            Assert.Equal(8556, loaded.Bridge.Port);
+            Assert.Equal("codesys", loaded.Bridge.Vendor);
             Assert.Equal("codesys", loaded.Project.Platform);
             Assert.Equal("Demo", loaded.Project.ProjectName);
-            Assert.Equal(8556, Config.ConfiguredBridgePort(root));
+            Assert.Equal("codesys", Config.ConfiguredVendor(root));
 
             // Binding checks against a health payload.
             var ok = new HealthResponse { Platform = "codesys", ProjectName = "Demo", Connected = true };

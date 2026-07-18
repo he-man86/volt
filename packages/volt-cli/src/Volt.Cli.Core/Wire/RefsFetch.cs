@@ -32,12 +32,6 @@ public class FetchRequest
     /// seed the first workspace. A normal /fetch without knownItems AND without init=true is an error.</summary>
     [JsonPropertyName("init")]
     public bool Init { get; set; }
-
-    /// <summary>Opt-in: also return referenced-library element SIGNATURES (declaration-only), materialized under
-    /// each library's folder in the Library Manager. Off by default — a normal pull stays lightweight; the harvest
-    /// (corpus build) sets it. Extraction is build-free (AllPrecompiledSignatures), so this adds no build cost.</summary>
-    [JsonPropertyName("verbose")]
-    public bool Verbose { get; set; }
 }
 
 public class FetchedItem

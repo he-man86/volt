@@ -25,9 +25,9 @@ var sta = new Thread(() =>
 sta.SetApartmentState(ApartmentState.STA);
 sta.Start();
 
-using var host = new BridgePipeHost(driver, PipeNames.Beckhoff);
+using var host = new BridgePipeHost(driver, PipeNames.Twincat);
 host.Start();
-VoltLog.Info($"twincat bridge serving on pipe {PipeNames.Beckhoff}");
+VoltLog.Info($"twincat bridge serving on pipe {PipeNames.Twincat}");
 
 // Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.
 var done = new ManualResetEventSlim(false);

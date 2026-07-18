@@ -44,9 +44,9 @@ public class BridgeClientTests
     }
 
     [Fact]
-    public void ForPort_maps_8555_to_twincat_8556_to_codesys()
+    public void ForVendor_maps_the_vendor_id_to_its_pipe()
     {
-        Assert.Equal(PipeNames.Beckhoff, PipeNames.ForPort(8555));
-        Assert.Equal(PipeNames.Codesys, PipeNames.ForPort(8556));
+        Assert.Equal(PipeNames.Twincat, PipeNames.ForVendor("twincat"));
+        Assert.Equal(PipeNames.Codesys, PipeNames.ForVendor("codesys"));
     }
 }

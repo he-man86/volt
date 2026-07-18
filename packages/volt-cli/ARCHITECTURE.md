@@ -133,8 +133,8 @@ These are irreducible differences between how the two IDEs are reached, **not** 
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
 
-Pipes: CODESYS **`volt.bridge.codesys`**, Beckhoff **`volt.bridge.beckhoff`**. The workspace binding still
-persists a legacy port (8556 / 8555) that only selects the vendor; `VOLT_PIPE` overrides the pipe name directly.
+Pipes: CODESYS **`volt.bridge.codesys`**, TwinCAT **`volt.bridge.twincat`** — the workspace binding stores the
+vendor (`codesys`/`twincat`), which names the pipe; `VOLT_PIPE` overrides it directly.
 
 ## Build, run, test
 

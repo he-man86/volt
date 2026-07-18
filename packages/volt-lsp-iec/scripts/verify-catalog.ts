@@ -4,8 +4,8 @@
  * each PROVISIONAL wording into a confirmed one, catches a check that fires where the IDE is silent (a real FP
  * the offline corpus can't see), and (with --write) stamps `verified.<vendor>` + records the actual message.
  *
- *   VOLT_BRIDGE_PORT=8556 bun run scripts/verify-catalog.ts            # report only (non-destructive)
- *   VOLT_BRIDGE_PORT=8556 bun run scripts/verify-catalog.ts --write    # adopt: set verified + codesysActual
+ *   VOLT_VENDOR=codesys bun run scripts/verify-catalog.ts            # report only (non-destructive)
+ *   VOLT_VENDOR=codesys bun run scripts/verify-catalog.ts --write    # adopt: set verified + codesysActual
  *   ONLY=C0072,C0354 bun run scripts/verify-catalog.ts                 # just those codes
  *
  * Isolation model (learned the hard way): the repro's code must live in the TASKED PLC_PRG to be compiled — an
@@ -138,7 +138,7 @@ async function robustDelete(name: string): Promise<void> {
 }
 
 // Vendor (→ which catalog fields to stamp) auto-detected from the bridge's platform.
-const VENDOR: "codesys" | "twincat" = (await get("/health")).platform === "beckhoff" ? "twincat" : "codesys"
+const VENDOR: "codesys" | "twincat" = (await get("/health")).platform === "twincat" ? "twincat" : "codesys"
 const ACTUAL_FIELD = `${VENDOR}Actual`
 const refs0 = await get("/refs")
 const BASELINE = new Set(Object.keys(refs0.items)) // libs/device/task/PLC_PRG present before any fixture

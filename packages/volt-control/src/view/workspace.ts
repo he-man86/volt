@@ -1,10 +1,10 @@
 /**
  * Per-workspace drift view-model — one projection of a bound workspace's IDE-sync state, so neither shell
  * re-derives A/M/D tags, the paused reason, or the `src/`-strip. Node-free: the caller (VS Code extension
- * host / desktop main — both Node) supplies `port` (read via readBridgePort in their context); this stays
+ * host / desktop main — both Node) supplies `vendor` (read via readBridgeVendor in their context); this stays
  * pure so it's unit-testable without a filesystem and both frontends render the same model.
  */
-import type { HealthState } from "../bridge/health.js"
+import type { HealthState, Vendor } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { healthDisplay, type HealthDisplay } from "./display.js"
 
@@ -21,14 +21,15 @@ export interface WorkspaceInput {
   status?: StatusJson
   health: HealthState
   statusError?: string
-  /** From readBridgePort in the caller's Node context; defined ⇒ this folder is an initialized Volt workspace. */
-  port?: number
+  /** From readBridgeVendor in the caller's Node context; defined ⇒ this folder is an initialized Volt workspace. */
+  vendor?: Vendor
 }
 
 export interface WorkspaceView {
   initialized: boolean
   workspaceRoot: string
-  port?: number
+  /** The bound vendor — what the UI shows. */
+  vendor?: Vendor
   health: HealthDisplay
   /** Why the IDE axis is paused (distinct reasons drive distinct affordances), or null when live. */
   paused: "mismatch" | "merging" | null
@@ -52,9 +53,9 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
   // merging wins over mismatch (worst-state-first, matching aggregate); items hide while paused.
   const paused: WorkspaceView["paused"] = st?.merging != null ? "merging" : st?.projectMismatch != null ? "mismatch" : null
   return {
-    initialized: input.port !== undefined,
+    initialized: input.vendor !== undefined,
     workspaceRoot: input.workspaceRoot,
-    port: input.port,
+    vendor: input.vendor,
     health: healthDisplay(input.health),
     paused,
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],

@@ -23,16 +23,16 @@ internal static class Program
     {
         var a = ParseArgs(args);
         var root = Path.GetFullPath(a.Workspace);
-        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests); otherwise map the bound port to the
-        // vendor pipe. (Transition: the binding still stores a port; a future binding carries the vendor directly.)
+        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests); otherwise the vendor (from --vendor,
+        // else the workspace binding, else CODESYS) names the pipe directly.
         var pipeOverride = a.Value("--pipe") ?? Environment.GetEnvironmentVariable("VOLT_PIPE");
-        var port = a.Port ?? Config.ConfiguredBridgePort(root) ?? 8556;
-        var bridge = string.IsNullOrEmpty(pipeOverride) ? BridgeClient.ForPort(port) : new BridgeClient(pipeOverride);
+        var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? "codesys";
+        var bridge = string.IsNullOrEmpty(pipeOverride) ? BridgeClient.ForVendor(vendor) : new BridgeClient(pipeOverride);
         try
         {
             return a.Verb switch
             {
-                "init" => CmdInit(bridge, port, a),
+                "init" => CmdInit(bridge, a),
                 "pull" => CmdPull(root, bridge, a),
                 "push" => CmdPush(root, bridge, a),
                 "status" => CmdStatus(root, bridge, a),
@@ -59,9 +59,9 @@ internal static class Program
 
     // ── verbs ──────────────────────────────────────────────────────────────────
 
-    private static int CmdInit(BridgeClient bridge, int port, Args a)
+    private static int CmdInit(BridgeClient bridge, Args a)
     {
-        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, port, Reporter.Create());
+        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Kind == "ok" ? 0 : 1; }
         if (r.Kind == "error") { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine($"bound to {r.Project}");
@@ -170,7 +170,7 @@ internal static class Program
 
     // ── arg parsing (port of bin.ts parseArgs) ──────────────────────────────────
 
-    private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--port", "--limit", "--resolve", "--timeout", "--force-with-lease" };
+    private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--limit", "--resolve", "--timeout", "--force-with-lease" };
 
     private sealed class Args
     {
@@ -179,7 +179,7 @@ internal static class Program
         public HashSet<string> Flags = new();
         public Dictionary<string, string> Values = new();
         public string Workspace = "";
-        public int? Port;
+        public string? Vendor;
         public bool Has(string f) => Flags.Contains(f);
         public string? Value(string f) => Values.TryGetValue(f, out var v) ? v : null;
         public string? Operand(int i) => i < Operands.Count ? Operands[i] : null;
@@ -204,8 +204,7 @@ internal static class Program
         a.Verb = positional.Count > 0 ? positional[0] : null;
         a.Operands = positional.Skip(1).ToList();
         a.Workspace = a.Value("--workspace") ?? Environment.GetEnvironmentVariable("VOLT_WORKSPACE") ?? Directory.GetCurrentDirectory();
-        var portStr = a.Value("--port") ?? Environment.GetEnvironmentVariable("VOLT_BRIDGE_PORT");
-        a.Port = !string.IsNullOrEmpty(portStr) && int.TryParse(portStr, out var p) ? p : null;
+        a.Vendor = a.Value("--vendor") ?? Environment.GetEnvironmentVariable("VOLT_VENDOR");
         return a;
     }
 
@@ -231,5 +230,5 @@ internal static class Program
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
         "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
         "  diff     outgoing per-file diffs                          [--json]\n\n" +
-        "  flags: --workspace <dir>  --port <n>";
+        "  flags: --workspace <dir>  --vendor <codesys|twincat>";
 }

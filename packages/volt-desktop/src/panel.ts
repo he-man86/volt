@@ -4,9 +4,7 @@
 import {
   VoltStatus,
   projectWorkspace,
-  readBridgePort,
-  vendorForPort,
-  vendorPort,
+  readBridgeVendor,
   probeVendors,
   isBridgeOnline,
   collectDiagnostics,
@@ -36,7 +34,7 @@ function snapshot(shell: Shell): Snap {
       status: vs.cached,
       health: vs.health,
       statusError: vs.statusError,
-      port: readBridgePort(vs.workspaceRoot),
+      vendor: readBridgeVendor(vs.workspaceRoot),
     }),
   }
 }
@@ -51,8 +49,8 @@ export function pushStatus(shell: Shell): void {
 export async function refreshVendorsLive(shell: Shell): Promise<void> {
   // The Initialize buttons only show while no Volt workspace is bound (an initialized one shows the sync actions
   // instead), so once bound there's nothing to gate — skip the probe entirely, like VS Code probing only unbound.
-  if (shell.status && readBridgePort(shell.status.workspaceRoot) !== undefined) return
-  const probes = await probeVendors(vendorPort("twincat"), vendorPort("codesys"))
+  if (shell.status && readBridgeVendor(shell.status.workspaceRoot) !== undefined) return
+  const probes = await probeVendors()
   const live = (v: "twincat" | "codesys"): boolean => probes.some((p) => p.vendor === v && isBridgeOnline(p.state))
   const next = { codesys: live("codesys"), twincat: live("twincat") }
   if (next.codesys === shell.vendorsLive.codesys && next.twincat === shell.vendorsLive.twincat) return
@@ -65,8 +63,8 @@ let diagPending = false
 export async function runDiagnostics(shell: Shell): Promise<void> {
   const st = shell.status
   if (!st) return
-  const port = readBridgePort(st.workspaceRoot)
-  if (port === undefined) return // unbound workspace — nothing to diagnose (and no vendor to resolve)
+  const vendor = readBridgeVendor(st.workspaceRoot)
+  if (vendor === undefined) return // unbound workspace — nothing to diagnose
   // Latest-wins: if a run is already in flight, mark that the currently-bound workspace still needs one and
   // let the finishing run re-fire — a fast project switch must not drop the NEW workspace's diagnostics.
   if (diagRunning) {
@@ -75,7 +73,6 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
   }
   diagRunning = true
   const root = st.workspaceRoot
-  const vendor = vendorForPort(port)
   shell.win?.webContents.send("volt:diagnostics", { loading: true })
   try {
     const result = await collectDiagnostics(root, vendor)

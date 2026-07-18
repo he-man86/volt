@@ -9,7 +9,7 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { probeHealth, isBridgeOnline, bridgeActiveOp, readBridgePort, type HealthState } from "./health.js"
+import { probeHealth, isBridgeOnline, bridgeActiveOp, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
 import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
@@ -57,16 +57,16 @@ function parseJson<T>(stdout: string): T | null {
 }
 
 /** Probe the bridge, then `volt status --json`. UI-agnostic; never throws. */
-export async function fetchStatus(workspaceRoot: string, port?: number): Promise<StatusResult> {
-  const p = port ?? readBridgePort(workspaceRoot)
-  if (p === undefined) return { health: { kind: "unknown" }, error: "no bridge port in config" }
-  const health = await probeHealth(p, 2000)
+export async function fetchStatus(workspaceRoot: string, vendor?: Vendor): Promise<StatusResult> {
+  const v = vendor ?? readBridgeVendor(workspaceRoot)
+  if (v === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
+  const health = await probeHealth(v, 2000)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
   // A mutation (init/pull/push/build) is running on the shared bridge — from THIS process, another frontend, or a
   // terminal CLI. `volt status` would issue an expensive /refs into a single-threaded bridge that's mid-churn, so
   // hold off and keep the last drift. The state-file mtime poll fires the one reconcile when the mutation lands.
   if (bridgeActiveOp(health) !== undefined) return { health }
-  const r = await runVolt(workspaceRoot, ["status", "--json", "--port", String(p)])
+  const r = await runVolt(workspaceRoot, ["status", "--json"])
   if (r.code !== 0) return { health, error: r.stderr || r.stdout }
   try {
     return { health, status: JSON.parse(r.stdout) as StatusJson }
@@ -110,13 +110,13 @@ export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<Cl
   return runCli(workspaceRoot, ["build", "--workspace", workspaceRoot], opts.onProgress)
 }
 
-/** `volt init --port <port> [--force]`. Takes the mutation gate; streams progress when `onProgress` is set
- *  (parity with pull/push/build — the first pull inside init is the slow part on a large project). */
-export function init(workspaceRoot: string, port: number, opts: { force?: boolean } & ProgressOpt = {}): Promise<CliResult> {
+/** `volt init --vendor <codesys|twincat> [--force]`. Takes the mutation gate; streams progress when `onProgress`
+ *  is set (parity with pull/push/build — the first pull inside init is the slow part on a large project). */
+export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: boolean } & ProgressOpt = {}): Promise<CliResult> {
   return withGate(workspaceRoot, () =>
     runCli(
       workspaceRoot,
-      ["init", "--port", String(port), ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot],
+      ["init", "--vendor", vendor, ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot],
       opts.onProgress,
     ),
   )

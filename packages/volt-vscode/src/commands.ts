@@ -2,9 +2,9 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, init as voltInit, readBridgePort, vendorPort,
+	pull, push, build, init as voltInit, readBridgeVendor,
 	describePull, describePush, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
-	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome,
+	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type Vendor,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -143,12 +143,12 @@ async function initTarget(): Promise<string | undefined> {
 async function doInit(
 	ensureWorkspace: (folder: string) => void,
 	workspaceRoot: string,
-	port: number,
+	vendor: Vendor,
 	force: boolean,
 ): Promise<void> {
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
-		(progress) => voltInit(workspaceRoot, port, { force, onProgress: progressBridge(progress) }),
+		(progress) => voltInit(workspaceRoot, vendor, { force, onProgress: progressBridge(progress) }),
 	)
 	if (r.code !== 0) {
 		// init needs a reachable bridge with a project loaded. Bridge lifecycle is the connector's job (tray),
@@ -182,9 +182,9 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 	const reg = vscode.commands.registerCommand
 
 	return [
-		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, vendorPort("twincat"), false) }),
-		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, vendorPort("codesys"), false) }),
-		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(ensureWorkspace, w, readBridgePort(w) ?? vendorPort("twincat"), true) }),
+		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, "twincat", false) }),
+		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, "codesys", false) }),
+		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(ensureWorkspace, w, readBridgeVendor(w) ?? "twincat", true) }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),

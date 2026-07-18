@@ -42,42 +42,29 @@ export function bridgeActiveOp(h: HealthState): string | undefined {
 
 export type Vendor = "codesys" | "twincat"
 
-/** The fixed per-vendor selector the workspace binding still persists as a "port" (CODESYS 8556, TwinCAT/Beckhoff
- *  8555). The wire is now a named pipe, not HTTP — this number only picks the vendor (→ `pipeForPort`). One
- *  source, no per-user override — both shells and onboarding read these instead of duplicating the literals. */
-export const BRIDGE_PORT: Record<Vendor, number> = { codesys: 8556, twincat: 8555 }
+/** The two vendors, for probing both / iterating. */
+export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 
-/** The per-vendor named pipe the bridge serves (mirrors C#'s PipeNames.ForPort): 8555 → TwinCAT, else CODESYS. */
-function pipeForPort(port: number): string {
-  return port === BRIDGE_PORT.twincat ? "volt.bridge.beckhoff" : "volt.bridge.codesys"
+/** The per-vendor named pipe the bridge serves (mirrors C#'s PipeNames.ForVendor). */
+function pipeForVendor(vendor: Vendor): string {
+  return `volt.bridge.${vendor}`
 }
 
-export function vendorPort(vendor: Vendor): number {
-  return BRIDGE_PORT[vendor]
-}
-
-/** Inverse: which vendor a bound workspace's port belongs to (the TwinCAT bridge is 8555, else CODESYS).
- *  Takes a definite port — call it only for a bound workspace (readBridgePort !== undefined); an undefined
- *  port means the caller ran on an unbound workspace, which is the bug to fix, not to default away. */
-export function vendorForPort(port: number): Vendor {
-  return port === BRIDGE_PORT.twincat ? "twincat" : "codesys"
-}
-
-export function readBridgePort(workspaceRoot: string): number | undefined {
+/** The vendor a workspace is bound to, from `.git/volt/config.json` (`bridge.vendor`); undefined ⇒ unbound (not an
+ *  initialized Volt workspace). */
+export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {
   try {
     const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
-    const parsed = JSON.parse(raw) as { bridge?: { port?: unknown } }
-    const port = parsed.bridge?.port
-    if (typeof port === "number" && Number.isFinite(port)) return port
+    const vendor = (JSON.parse(raw) as { bridge?: { vendor?: unknown } }).bridge?.vendor
+    if (vendor === "codesys" || vendor === "twincat") return vendor
   } catch {}
   return undefined
 }
 
 /** Probe the bridge's `health` op over its named pipe (one request per connection, newline-delimited JSON frames —
- *  the same wire the CLI's PipeClient speaks). `port` only selects the vendor pipe. Never throws: every failure
- *  path resolves to `unreachable`. */
-export async function probeHealth(port: number, timeoutMs = 2_000): Promise<HealthState> {
-  const pipe = pipeForPort(port)
+ *  the same wire the CLI's PipeClient speaks). Never throws: every failure path resolves to `unreachable`. */
+export async function probeHealth(vendor: Vendor, timeoutMs = 2_000): Promise<HealthState> {
+  const pipe = pipeForVendor(vendor)
   return new Promise<HealthState>((resolve) => {
     const sock = connect(`\\\\.\\pipe\\${pipe}`)
     let buf = ""
@@ -126,14 +113,11 @@ export async function probeHealth(port: number, timeoutMs = 2_000): Promise<Heal
 // healthLabel now lives in display.ts (Node-free, so the sandboxed renderer can import it too);
 // it reaches the package barrel via index.ts's `export * from "./view/display.js"`.
 
-export type VendorProbe = { vendor: "twincat" | "codesys"; port: number; state: HealthState }
+export type VendorProbe = { vendor: Vendor; state: HealthState }
 
-/** Probe the two configured bridge ports in parallel → which vendor's IDE is live. The one place both
- *  renderers' onboarding shares: gating the init buttons + the "pick a live IDE" flow. */
-export async function probeVendors(twincatPort: number, codesysPort: number, timeoutMs = 1500): Promise<VendorProbe[]> {
-  const [tc, cs] = await Promise.all([probeHealth(twincatPort, timeoutMs), probeHealth(codesysPort, timeoutMs)])
-  return [
-    { vendor: "twincat", port: twincatPort, state: tc },
-    { vendor: "codesys", port: codesysPort, state: cs },
-  ]
+/** Probe both vendors' pipes in parallel → which vendor's IDE is live. The one place both renderers' onboarding
+ *  shares: gating the init buttons + the "pick a live IDE" flow. */
+export async function probeVendors(timeoutMs = 1500): Promise<VendorProbe[]> {
+  const states = await Promise.all(VENDORS.map((vendor) => probeHealth(vendor, timeoutMs)))
+  return VENDORS.map((vendor, i) => ({ vendor, state: states[i] }))
 }
