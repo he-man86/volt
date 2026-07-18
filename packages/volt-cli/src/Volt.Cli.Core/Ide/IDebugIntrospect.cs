@@ -1,0 +1,21 @@
+using System.Collections.Generic;
+
+namespace Volt.Cli.Core.Ide;
+
+/// <summary>
+/// Optional, diagnostic-only seam surfaced by <c>/debug</c> (DebugService): a vendor may expose the
+/// raw type identity it classifies a node by, so a kind that falls to Unknown can be diagnosed from
+/// ground truth instead of guesswork. CODESYS returns the <c>IObject</c> interface names (the exact basis
+/// <c>CodesysTypeMap.CodeForObject</c> keys on); a vendor that classifies by a native numeric code can
+/// return that. Never part of pull/push — a driver that doesn't implement it simply yields no tags.
+/// </summary>
+public interface IDebugIntrospect
+{
+    /// <summary>Vendor-specific type tags for a node (e.g. CODESYS IObject interface names). Empty if none.</summary>
+    IReadOnlyList<string> TypeTags(ItemRef item);
+
+    /// <summary>Diagnostic (/debug): the node's effective exclude-from-build state plus a raw member probe,
+    /// so the reflection path (`effectively_excluded_from_build` / `build_properties.exclude_from_build`) can
+    /// be confirmed against a live IDE. Empty string if the vendor offers no build-exclusion introspection.</summary>
+    string ExcludeFromBuildProbe(ItemRef item);
+}

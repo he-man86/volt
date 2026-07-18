@@ -20,6 +20,7 @@ import { join } from "node:path"
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { get, post, TARGET } from "./bridge.js"
 
 /** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
  *  `extra` are cross-file context units (a code's `reproFiles`); the symbol table is built from all of them but
@@ -42,16 +43,10 @@ function lspMessagesForCode(
     .map((d) => d.message)
 }
 
-const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
-const BASE = `http://127.0.0.1:${PORT}`
 const WRITE = process.argv.includes("--write")
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : undefined
 const CATALOG = join(import.meta.dir, "..", "docs", "codesys-reference", "error-catalog.json")
 const MINIMAL_PLC = "PROGRAM PLC_PRG\nEND_PROGRAM\n"
-
-const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
-const post = async (p: string, body: unknown): Promise<any> =>
-  (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json()
 async function pushOps(ops: unknown[]): Promise<any> {
   return post("/push", { expectedProjectVersion: null, ops })
 }
@@ -173,7 +168,7 @@ const targets = codes.filter(
     !((c.codesysOnly === true || c.twincatInternalError === true) && VENDOR !== "codesys"),
 )
 
-console.log(`Verifying ${targets.length} implemented codes against ${BASE} (${VENDOR}) …\n`)
+console.log(`Verifying ${targets.length} implemented codes against ${TARGET} (${VENDOR}) …\n`)
 // The true per-vendor mirror test: does the LSP's message (for `vendor`) appear among the IDE's messages?
 //   verified — every LSP message for this code is one the IDE also emits (LSP mirrors the IDE).
 //   mismatch — the LSP emits wording the IDE does NOT (a wording delta to adopt, or an FP if the IDE is silent).
@@ -225,7 +220,7 @@ const by = (o: Outcome) => results.filter((r) => r.outcome === o).length
 console.log(`\n─── ${results.length} codes ───`)
 console.log(`  ✓ verified: ${by("verified")}   ≠ mismatch: ${by("mismatch")}   ∅ silent: ${by("silent")}   ✗ error: ${by("error")}`)
 const report = join(import.meta.dir, "..", "docs", "codesys-reference", "catalog-verification.json")
-writeFileSync(report, JSON.stringify({ at: new Date().toISOString(), base: BASE, results }, null, 2) + "\n")
+writeFileSync(report, JSON.stringify({ at: new Date().toISOString(), base: TARGET, results }, null, 2) + "\n")
 console.log(`\nreport → ${report}`)
 
 // ── adopt (optional) ──────────────────────────────────────────────────────────

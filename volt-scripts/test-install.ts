@@ -73,8 +73,9 @@ if (existsSync(connector)) console.warn("⚠ Volt already installed — results 
 // auto-update path never hits this: the connector Environment.Exit(0)s itself right after launching Setup
 // (Updater.cs). Match that here. No-op on CI, where nothing is running; this is what lets the gate run on a dev
 // box too. ALL THREE matter: Volt.exe (the Electron GUI) locks {app}\desktop, and omitting it left the gate
-// failing on exactly the machine most likely to run it.
-for (const name of ["Volt.exe", "VoltConnector.exe", "Volt.Bridge.Beckhoff.exe"]) {
+// failing on exactly the machine most likely to run it. VoltBridgeTwincat.exe is the pipe worker the connector
+// spawns (formerly the HTTP Volt.Bridge.Beckhoff.exe).
+for (const name of ["Volt.exe", "VoltConnector.exe", "VoltBridgeTwincat.exe"]) {
   if (procRunning(name)) {
     console.log(`• stopping ${name} (it holds the install dir locked)`)
     spawnSync("taskkill", ["/F", "/IM", name], { stdio: "ignore" })

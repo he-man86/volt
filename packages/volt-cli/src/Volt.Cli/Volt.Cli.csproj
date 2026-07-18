@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Volt.Cli</RootNamespace>
+    <AssemblyName>volt</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Phase 2: evaluate NativeAOT/ReadyToRun cold-start — `volt status` is editor-polled (openspec
+         unify-bridge-cli-language task 2.1). -->
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Sync/ (the git-native client logic) lives in this project; the pipe client + Core's wire DTOs are its deps. -->
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
+  </ItemGroup>
+</Project>

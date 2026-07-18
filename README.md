@@ -8,8 +8,7 @@ Volt gives PLC code a git-native workflow and AI assistance: it syncs a live IDE
 
 | Package | What it is |
 |---|---|
-| `packages/volt-git` | the **`volt` CLI** — git-native PLC sync (`init/pull/push/status/build/log/show/merge`) |
-| `packages/volt-bridge` | C# bridges + connector: one live IDE (CODESYS / TwinCAT) over a small HTTP wire |
+| `packages/volt-cli` | the single C# toolchain: the **`volt` CLI** (git-native PLC sync — `init/pull/push/status/build/show/merge`) + the in-IDE bridges (CODESYS / TwinCAT) + the tray connector, over Windows named pipes |
 | `packages/volt-lsp-iec` | TypeScript-native LSP for Structured Text (diagnostics, nav, completion, hover, …) |
 | `packages/volt-control` | UI-agnostic core (status/pull/push/health/diagnostics) shared by both frontends |
 | `packages/volt-desktop` | Electron shell wrapping the installed opencode's GUI + a Volt IDE panel |
@@ -33,7 +32,7 @@ bun run compat         # opencode compat gate (integration → lsp → tool)
 bun run typecheck && bun run lint
 ```
 
-The bridges are .NET (Windows-only) — see `packages/volt-bridge/README.md`. Full guidance for contributors and agents is in `CLAUDE.md`; design + roadmap live in `openspec/` (`openspec list`).
+The CLI + bridges are .NET (Windows-only) — see `packages/volt-cli/README.md`. Full guidance for contributors and agents is in `CLAUDE.md`; design + roadmap live in `openspec/` (`openspec list`).
 
 ## License
 

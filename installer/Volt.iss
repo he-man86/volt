@@ -4,7 +4,7 @@
 ; PrivilegesRequired=lowest. Auto-update is the connector's job (Updater.cs) — it downloads a newer Setup.exe and
 ; re-runs it /VERYSILENT, so Inno upgrades in place; CloseApplications lets that replace the running connector.
 ;
-; Defines are passed by volt-scripts/build-app.ts:
+; Defines are passed by volt-scripts/build-installer.ts:
 ;   AppVersion  the release version (X.Y.Z)   StageDir   the assembled payload (connector at root + bin/ etc.)
 ;   OutputDir   where Volt-win-Setup.exe lands  SetupIcon  the app .ico
 
@@ -127,5 +127,5 @@ begin
   if ForceDirectories(Dir) then
     // Both separators must be a real Char — GetDateTimeString takes Char, not String, and '' breaks it at
     // runtime (silently: the copy just never happens). They're unused here anyway: the format has no '/' or ':'.
-    FileCopy(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
+    CopyFile(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
 end;

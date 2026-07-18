@@ -37,9 +37,10 @@ function compile(entry: string, name: string): void {
 rmSync(out, { recursive: true, force: true })
 mkdirSync(bin, { recursive: true })
 
-console.log("• volt binary (PLC CLI — no opencode; the agent is stock opencode)")
-compile("packages/volt-git/src/bin.ts", "volt")
-
+// The `volt` PLC CLI is the .NET binary (packages/volt-cli), built by build-cli.ps1 below alongside the pipe
+// workers + connector — one dotnet toolchain, one transport (named pipes). build-cli.ps1 needs the .NET SDK +
+// Windows, so on a box without it (or with --no-bridge) there is no `volt` binary — the self-check below reflects
+// that.
 console.log("• volt-lsp-iec")
 compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 
@@ -103,29 +104,33 @@ rmSync(resolve(cfgOut, "tool/volt.ts"), { force: true })
 console.log("  ✓ volt-config → dist/volt/volt-config (volt tool bundled self-contained)")
 
 if (!skipBridge) {
-  console.log("• bridges + connector (C#)")
-  // build-bridges.ps1 runs the Core tests, publishes the bridges, and assembles the connector bundle
-  // (VoltConnector.exe + workers) into packages/volt-bridge/dist/Connector. Best-effort: a machine without
-  // the .NET SDK still ships the TS binaries (the bridge is the IDE side; pass --no-bridge to silence).
+  console.log("• volt CLI + pipe workers + connector (C#)")
+  // build-cli.ps1 runs the Volt.Cli tests, publishes volt.exe + the two pipe IDE hosts, and assembles the
+  // connector bundle (VoltConnector.exe + workers) into packages/volt-cli/dist. Best-effort: a machine without
+  // the .NET SDK ships the LSP only (pass --no-bridge to silence). volt.exe lives in the connector-style Cli
+  // bundle, so it's copied into bin/ here.
   const built =
     process.platform === "win32" &&
-    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-bridge/scripts/build-bridges.ps1"])
-  const priorConnector = resolve(repo, "packages/volt-bridge/dist/Connector")
-  if (built) {
+    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-cli/scripts/build-cli.ps1"])
+  const cliDist = resolve(repo, "packages/volt-cli/dist")
+  const priorConnector = resolve(cliDist, "Connector")
+  const priorCli = resolve(cliDist, "Cli")
+  if (built || existsSync(resolve(priorConnector, "VoltConnector.exe"))) {
+    if (!built)
+      console.warn("⚠ CLI/connector build skipped/failed — reused the prior bundle (channel-neutral; CI rebuilds fresh)")
     cpSync(priorConnector, resolve(out, "connector"), { recursive: true })
-    console.log("  ✓ connector bundled → dist/volt/connector")
-  } else if (existsSync(resolve(priorConnector, "VoltConnector.exe"))) {
-    // The connector is channel-neutral (C# bridge — no version/channel embedded), so a prior bundle is safe to
-    // reuse when the build is skipped/fails (e.g. dotnet not resolvable). Beats a missing-connector installer.
-    cpSync(priorConnector, resolve(out, "connector"), { recursive: true })
-    console.warn("⚠ connector build skipped/failed — reused the prior bundle (channel-neutral; CI rebuilds fresh)")
+    // The self-contained volt.exe bundle → dist/volt/bin so the installer's PATH resolves `volt`.
+    cpSync(priorCli, bin, { recursive: true })
+    console.log("  ✓ volt.exe → dist/volt/bin, connector → dist/volt/connector")
   } else {
-    console.warn("⚠ bridge/connector build skipped or failed (dotnet missing? non-Windows?) — TS binaries only")
+    console.warn("⚠ CLI/connector build skipped or failed (dotnet missing? non-Windows?) — LSP only")
   }
 }
 
-// Self-check: the two binaries are the non-negotiable release artifacts.
-for (const name of ["volt", "volt-lsp-iec"]) {
+// Self-check: the shipped binaries are the non-negotiable release artifacts. `volt` needs the .NET build (skipped
+// on non-Windows / --no-bridge); the LSP always ships.
+const required = skipBridge ? ["volt-lsp-iec"] : ["volt", "volt-lsp-iec"]
+for (const name of required) {
   if (!existsSync(resolve(bin, name + ext))) {
     console.error(`✗ missing expected artifact: ${name}${ext}`)
     process.exit(1)

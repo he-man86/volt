@@ -1,0 +1,15 @@
+# .NET build outputs — bin/ and obj/ explode with each build. Ship via
+# build-cli.ps1 into dist/ instead.
+**/bin/
+**/obj/
+
+# .NET tooling caches
+*.user
+*.suo
+.vs/
+
+# Build bundles produced by build-cli.ps1
+dist/
+
+# TS deps for the e2e parity suite (test/e2e) — installed by the root bun workspace
+node_modules/

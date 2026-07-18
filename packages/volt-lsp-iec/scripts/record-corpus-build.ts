@@ -14,21 +14,17 @@
  */
 import { writeFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
+import { get, post, TARGET } from "./bridge.js"
 
 const PROJECT = process.env.PROJECT
 if (PROJECT === undefined) throw new Error("set PROJECT=<corpus folder name> (e.g. lenze-mid)")
 const dir = join(import.meta.dir, "..", "test-corpus", PROJECT)
 if (!existsSync(dir)) throw new Error(`no corpus project at ${dir}`)
 
-const BASE = `http://127.0.0.1:${process.env.VOLT_BRIDGE_PORT ?? "8556"}`
-const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
-const post = async (p: string, body: unknown): Promise<any> =>
-  (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json()
-
 const health = await get("/health")
 const vendor = process.env.VOLT_VENDOR ?? (health.platform === "beckhoff" ? "tc" : "codesys")
 
-console.log(`Building ${PROJECT} on ${BASE} (${vendor}) …`)
+console.log(`Building ${PROJECT} on ${TARGET} (${vendor}) …`)
 const r = await post("/build", { buildType: "full" })
 const diagnostics = (r.diagnostics ?? [])
   .filter((d: any) => d.severity === "error" || d.severity === "warning")

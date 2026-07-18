@@ -7,6 +7,7 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
+import { call, pipeName } from "./bridge.js"
 
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
@@ -17,16 +18,9 @@ if (!outDir) {
 
 // `verbose` = full library-element signatures. Dead (uncalled) code rides through as ordinary source now —
 // the LSP suppresses its diagnostics structurally, so the corpus stays clean-compiling without a bridge flag.
-const res = await fetch(`http://127.0.0.1:${port}/fetch`, {
-	method: "POST",
-	headers: { "content-type": "application/json" },
-	body: JSON.stringify({ knownItems: {}, verbose: true }),
-})
-if (!res.ok) {
-	console.error(`/fetch failed: ${res.status} ${await res.text()}`)
-	process.exit(1)
+const { changed } = (await call("fetch", { knownItems: {}, verbose: true }, pipeName(port))) as {
+	changed: { name: string; folder?: string; sourceText: string }[]
 }
-const { changed } = (await res.json()) as { changed: { name: string; folder?: string; sourceText: string }[] }
 
 rmSync(outDir, { recursive: true, force: true })
 for (const item of changed) {

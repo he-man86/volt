@@ -73,8 +73,7 @@ first fails — a broken LSP shouldn't hide the tool's result.
 
 | Script | Home |
 |---|---|
-| `volt`, `volt.cmd` (CLI dev wrappers) | `packages/volt-git/scripts/` |
-| `build-bridges.ps1`, `bridge.ps1`, `codesys-bridge.ps1`, `harvest-corpus.ts` | `packages/volt-bridge/scripts/` |
+| `build-cli.ps1` (publish the toolchain), `codesys-pipe.ps1` (headless CODESYS dev loop), `start_pipe.py`/`run_pipe_headless.py` | `packages/volt-cli/scripts/` |
 | LSP corpus/conformance recorders + oracles | `packages/volt-lsp-iec/scripts/` |
 
 The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md` documenting every location Volt
