@@ -2,7 +2,7 @@
 // Explorer (file tree), Source Control (git changes + commit), and Volt (IDE Sync / Diagnostics / Bridge). The
 // editor has drift coloring + a live IntelliSense completion; the bottom panel is a typeable agent CLI.
 import { useEffect, useRef, useState } from "react"
-import { useInView } from "../../reveal.jsx"
+import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./vscode.css"
 
 const KW = new Set(["FUNCTION_BLOCK", "PROGRAM", "VAR", "VAR_GLOBAL", "END_VAR", "IF", "THEN", "END_IF"])
@@ -117,7 +117,7 @@ const ICON = {
   explorer: "M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9zM13 3v6h6",
 }
 
-export function VSCode() {
+export function VSCode({ autoplay = false }) {
   const [ref, inView] = useInView()
   const [view, setView] = useState("volt")
   const [collapsed, setCollapsed] = useState(() => new Set())
@@ -167,6 +167,21 @@ export function VSCode() {
     setCommitMsg("")
   }
 
+  const play = useAutoplay(
+    [
+      () => setView("explorer"),
+      () => openFile("PLC_PRG.prg"),
+      () => setView("scm"),
+      () => openFile("GVL_Global.gvl"),
+      () => setView("volt"),
+      () => setActive("FB_Conveyor.fb"),
+      () => setCmpOpen(true),
+      () => (setInserted("Run();"), setCmpOpen(false)),
+      () => (setInserted(""), setTabs(["FB_Conveyor.fb"])),
+    ],
+    autoplay && inView,
+  )
+
   const renderTree = (nodes, depth) =>
     nodes.flatMap((n) => {
       const open = !collapsed.has(n.id)
@@ -190,7 +205,7 @@ export function VSCode() {
   const sidebarTitle = { explorer: "Explorer", scm: "Source Control", volt: "Volt" }[view]
 
   return (
-    <div ref={ref} className={"vsc" + (inView ? " is-live" : "")}>
+    <div ref={ref} {...play} className={"vsc" + (inView ? " is-live" : "")}>
       <div className="vsc-title" data-drag-handle>
         <span className="vsc-title-name">{active} — MyMachine — Volt</span>
         <span className="vsc-winctl">

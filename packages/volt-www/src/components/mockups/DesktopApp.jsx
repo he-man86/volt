@@ -3,7 +3,7 @@
 // the explorer, click a file to open it (updates the editor header), click a rail icon to open/close/switch the
 // IDE panel (Sync ↔ Diagnostics). Drag from the titlebar (data-drag-handle).
 import { useEffect, useRef, useState } from "react"
-import { useInView } from "../../reveal.jsx"
+import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./desktop-app.css"
 
 // Volt's gateway proxies these providers (see the privacy policy): Anthropic (Claude) + DeepSeek.
@@ -54,7 +54,7 @@ const DEFAULT_DRIFT = [
   { sub: "A", name: "GVL_Global" },
 ]
 
-export function DesktopApp({ panel = "sync", theme = "light", explorer = true, drift = DEFAULT_DRIFT, diagnostics }) {
+export function DesktopApp({ panel = "sync", theme = "light", explorer = true, autoplay = false, drift = DEFAULT_DRIFT, diagnostics }) {
   const [ref, inView] = useInView()
   const [panelState, setPanelState] = useState(panel)
   const [collapsed, setCollapsed] = useState(() => new Set())
@@ -96,6 +96,20 @@ export function DesktopApp({ panel = "sync", theme = "light", explorer = true, d
   // click a rail icon: open that panel, or close it if already showing
   const showPanel = (which) => setPanelState((p) => (p === which ? "off" : which))
 
+  const auto = useAutoplay(
+    [
+      () => showPanel("diagnostics"),
+      () => setSelected("PLC_PRG"),
+      () => setModelOpen(true),
+      () => (setModel("claude-sonnet-5"), setModelOpen(false)),
+      () => showPanel("sync"),
+      () => setSelected("FB_Conveyor"),
+      () => setModelOpen(true),
+      () => (setModel("claude-opus-4-8"), setModelOpen(false)),
+    ],
+    autoplay && inView,
+  )
+
   const renderNodes = (nodes, depth) =>
     nodes.flatMap((n) => {
       const open = !collapsed.has(n.id)
@@ -119,6 +133,7 @@ export function DesktopApp({ panel = "sync", theme = "light", explorer = true, d
   return (
     <div
       ref={ref}
+      {...auto}
       className={"vda" + (theme === "light" ? " vda--light" : "") + (explorer ? " vda--exp" : "") + (inView ? " is-live" : "")}
     >
       <div className="vda-titlebar" data-drag-handle>
