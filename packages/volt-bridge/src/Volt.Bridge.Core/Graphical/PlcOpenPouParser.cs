@@ -54,7 +54,7 @@ public static class PlcOpenPouParser
             if (string.IsNullOrEmpty(childName)) continue;
             var childDecl = DeclFromElement(e);
             var (childLang, childEl) = FindBody(e, ns);
-            children.Add(new ParsedChild(childName, pouType, childDecl, childLang, childEl));
+            children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
         }
 
         // CODESYS proprietary: <method>/<action> inside <addData> (lowercase in CODESYS exports)
@@ -68,7 +68,7 @@ public static class PlcOpenPouParser
             var childDecl = DeclFromElement(e)
                 ?? (pouType == "action" ? $"ACTION {childName}" : $"METHOD {childName}");
             var (childLang, childEl) = FindBodyChild(e);
-            children.Add(new ParsedChild(childName, pouType, childDecl, childLang, childEl));
+            children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
         }
 
         return new ParsedPou(declaration, bodyLang, bodyEl, children);

@@ -13,8 +13,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BridgeClient } from "../bridge/client.js";
-import { init } from "../init.js";
-import { push } from "../sync/push.js";
+import { init } from "../commands/init.js";
+import { push } from "../commands/push.js";
 import { commit as commitWs, freshWorkspace, PORT, purge, refs, suite } from "./live-harness.js";
 
 setDefaultTimeout(60_000);

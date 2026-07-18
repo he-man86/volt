@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
 using Volt.Bridge.Core.Workspace;
@@ -83,7 +84,7 @@ public sealed class FakeIde : IIdeDriver
     // ── ICodeStore ──
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
     public string ReadImplementation(ItemRef item) => Find(item).Implementation ?? "";
-    public void WriteText(ItemRef item, string? declaration, string implementation) => Recorded.Add($"write:{(string)item.Native}");
+    public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{(string)item.Native}");
     public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
     public string ReadXml(ItemRef item)
     {
@@ -179,7 +180,16 @@ public sealed class FakeIde : IIdeDriver
     /// library's folder(s). Set per-test; empty by default.</summary>
     public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> LibSignatures { get; init; } =
         new List<Volt.Bridge.Core.Library.LibSignature>();
-    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() => LibSignatures;
+    // Optional test hooks to hold a mutation IN FLIGHT: extraction signals it has been entered, then blocks until
+    // released — lets a test observe /health while the op runs (extraction is the FIRST thing a verbose /init does).
+    public ManualResetEventSlim? ExtractEntered { get; init; }
+    public ManualResetEventSlim? ExtractBlock { get; init; }
+    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures()
+    {
+        ExtractEntered?.Set();
+        ExtractBlock?.Wait();
+        return LibSignatures;
+    }
     public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         System.Array.Empty<IReadOnlyDictionary<string, string>>();
     public string DebugItemXml(string name) => "";

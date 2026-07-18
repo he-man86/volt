@@ -13,7 +13,7 @@ export interface Reporter {
 
 /** Prefix for the machine-readable progress line a GUI host (the VS Code extension) opts into via
  *  `VOLT_PROGRESS_JSON=1`. It parses `VOLT_PROGRESS <json>` off stderr to drive a real progress bar. */
-export const PROGRESS_JSON_PREFIX = "VOLT_PROGRESS ";
+const PROGRESS_JSON_PREFIX = "VOLT_PROGRESS ";
 
 export function createReporter(): Reporter {
 	// A GUI host sets VOLT_PROGRESS_JSON=1 to get structured frames on stderr (parseable); humans/AI get the

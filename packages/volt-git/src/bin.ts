@@ -5,20 +5,20 @@
  */
 import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
-import { build, unpushedCount } from "./build.js";
+import { build, unpushedCount } from "./commands/build.js";
 import { createReporter } from "./reporter.js";
-import { configuredBridgePort } from "./config/workspace.js";
-import { diff } from "./diff.js";
-import { init } from "./init.js";
-import { log } from "./log.js";
-import { merge } from "./merge.js";
-import { show } from "./show.js";
-import { pull } from "./sync/pull.js";
-import { push } from "./sync/push.js";
-import { status } from "./sync/status.js";
-import type { ChangeSet, StatusJson } from "./sync/types.js";
+import { configuredBridgePort } from "./config.js";
+import { diff } from "./commands/diff.js";
+import { init } from "./commands/init.js";
+import { log } from "./commands/log.js";
+import { merge } from "./commands/merge.js";
+import { show } from "./commands/show.js";
+import { pull } from "./commands/pull.js";
+import { push } from "./commands/push.js";
+import { status } from "./commands/status.js";
+import type { ChangeSet, StatusJson } from "./types.js";
 
-const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit", "--resolve"]);
+const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit", "--resolve", "--timeout", "--force-with-lease"]);
 
 function parseArgs(argv: string[]) {
 	const flags = new Set<string>();
@@ -42,6 +42,11 @@ function parseArgs(argv: string[]) {
 		workspace: values["--workspace"] ?? process.env.VOLT_WORKSPACE ?? process.cwd(),
 		port: portStr !== undefined && portStr !== "" ? Number(portStr) : undefined,
 	};
+}
+
+/** One JSON line on stdout — the `--json` shape every command emits (stdout stays clean of progress/pretty). */
+function emitJson(x: unknown): void {
+	process.stdout.write(`${JSON.stringify(x)}\n`);
 }
 
 function fmtChangeSet(label: string, c: ChangeSet): void {
@@ -95,7 +100,7 @@ async function main(): Promise<number> {
 			const r = await pull(root, bridge, { dryRun: args.has("--dry-run"), onProgress: rep.onProgress });
 			rep.finish();
 			if (args.has("--json")) {
-				process.stdout.write(`${JSON.stringify(r)}\n`);
+				emitJson(r);
 				return r.kind === "ok" ? 0 : 2;
 			}
 			if (r.kind === "refused") {
@@ -115,7 +120,7 @@ async function main(): Promise<number> {
 			const r = await push(root, bridge, { force: args.has("--force"), forceWithLease: args.value("--force-with-lease"), dryRun: args.has("--dry-run"), onProgress: rep.onProgress });
 			rep.finish();
 			if (args.has("--json")) {
-				process.stdout.write(`${JSON.stringify(r)}\n`);
+				emitJson(r);
 				return r.kind === "ok" ? 0 : 2;
 			}
 			if (r.kind === "rejected") {
@@ -133,7 +138,7 @@ async function main(): Promise<number> {
 			const r = await build(root, bridge, args.has("--full"), rep.onProgress);
 			rep.finish();
 			if (args.has("--json")) {
-				process.stdout.write(`${JSON.stringify(r)}\n`);
+				emitJson(r);
 				return r.success ? 0 : 2;
 			}
 			console.log(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`);
@@ -155,12 +160,12 @@ async function main(): Promise<number> {
 			}
 			try {
 				await bridge.waitForChange(ms);
-				if (args.has("--json")) process.stdout.write(`${JSON.stringify({ kind: "changed" })}\n`);
+				if (args.has("--json")) emitJson({ kind: "changed" });
 				else console.log("IDE changed — run `volt pull` to sync.");
 				return 0;
 			} catch (e) {
 				const message = e instanceof Error ? e.message : String(e);
-				if (args.has("--json")) process.stdout.write(`${JSON.stringify({ kind: "timeout", message })}\n`);
+				if (args.has("--json")) emitJson({ kind: "timeout", message });
 				else console.error(message);
 				return 1;
 			}
@@ -189,7 +194,7 @@ async function main(): Promise<number> {
 					projectMismatch: s.projectMismatch,
 					summary: s.summary,
 				};
-				process.stdout.write(`${JSON.stringify(json)}\n`);
+				emitJson(json);
 				return 0;
 			}
 			console.log(`bridge: ${s.online ? "connected" : "offline"} — ${s.detail}`);
@@ -207,7 +212,7 @@ async function main(): Promise<number> {
 			const limit = Number(args.value("--limit") ?? args.operands[0] ?? "20");
 			const entries = log(root, Number.isFinite(limit) ? limit : 20);
 			if (args.has("--json")) {
-				process.stdout.write(`${JSON.stringify(entries)}\n`);
+				emitJson(entries);
 				return 0;
 			}
 			if (entries.length === 0) {
@@ -220,11 +225,11 @@ async function main(): Promise<number> {
 		case "diff": {
 			const r = diff(root);
 			if (r.kind === "error") {
-				if (args.has("--json")) { process.stdout.write("[]\n"); return 0; } // unbound → no outgoing diff
+				if (args.has("--json")) { emitJson([]); return 0; } // unbound → no outgoing diff
 				console.error(r.reason);
 				return 1;
 			}
-			if (args.has("--json")) { process.stdout.write(`${JSON.stringify(r.diffs)}\n`); return 0; }
+			if (args.has("--json")) { emitJson(r.diffs); return 0; }
 			for (const d of r.diffs) console.log(`${d.status[0]!.toUpperCase()}  ${d.file}  +${d.additions} -${d.deletions}`);
 			return 0;
 		}

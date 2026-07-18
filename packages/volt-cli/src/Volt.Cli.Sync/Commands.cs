@@ -1,0 +1,355 @@
+using System.Text;
+using Volt.Bridge.Core.Wire;
+
+namespace Volt.Cli.Sync;
+
+/// <summary>The `volt` verbs — orchestration over BridgeClient + git + the sync model. C# port of
+/// packages/volt-git/src/commands/*. (status + pull here; push/build/log/show/merge/diff/init follow.)</summary>
+public static class Commands
+{
+    /// <summary>volt init — bind to the bridge, git-init the project, scaffold the Rust project, do the first
+    /// (init) fetch and seed the workspace. C# port of commands/init.ts. NOTE: the ST language-reference corpus
+    /// (installed from the TS @volt/lsp-iec package) is not yet ported — the workspace is fully functional without
+    /// it; corpus stays 0 until it's bundled with volt-cli.</summary>
+    public static InitResult Init(string workspace, BridgeClient bridge, int port, Action<ProgressFrame>? onProgress = null)
+    {
+        var root = System.IO.Path.GetFullPath(workspace);
+        Directory.CreateDirectory(root);
+
+        if (Config.ConfigExists(root))
+            return InitResult.Error("this workspace is already initialized — run `volt pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)");
+
+        var health = bridge.GetHealth();
+        if (string.IsNullOrEmpty(health.ProjectName))
+            return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
+
+        var gitCreated = !Git.IsInsideRepo(root);
+        if (gitCreated) Git.GitInit(root);
+        Files.EnsureGitignore(root);
+
+        Config.SaveConfig(root, new WorkspaceConfig
+        {
+            Bridge = new() { Port = port },
+            Project = new() { Platform = health.Platform, ProjectName = health.ProjectName! },
+            LinkedAt = DateTime.UtcNow.ToString("o"),
+        });
+
+        var scaffold = Scaffold.WriteWorkspaceScaffold(root, health.ProjectName!);
+        const int corpus = 0; // TODO: bundle + install the ST reference corpus (currently a TS/@volt/lsp-iec dep)
+        var project = $"{health.Platform}/{health.ProjectName}";
+
+        if (gitCreated) Git.CommitAll(root, $"volt init: {health.ProjectName}");
+
+        // Seed the workspace with the IDE's files — init seeds the whole IDE (no prior volt/ide tree).
+        var fetched = bridge.Init(onProgress);
+        var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
+        var gitDir = Git.ResolveGitDir(root);
+        var head = Git.HeadCommit(root);
+
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>());
+        var commit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {fetched.ProjectVersion}");
+        Git.UpdateRef(gitDir, IdeTree.Range, commit);
+        Files.WriteSrcFiles(root, ideFiles.Select(f => new SrcFile(f.Path, f.Content)).ToList());
+        Git.ReadTreeToIndex(root, commit);
+        Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
+
+        Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders });
+        return InitResult.Ok(project, gitCreated, ideFiles.Count, scaffold.Created.Count, corpus);
+    }
+
+    /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared
+    /// status model. C# port of commands/status.ts.</summary>
+    public static StatusData Status(string root, BridgeClient bridge)
+    {
+        var cfg = Config.ConfigExists(root) ? Config.LoadConfig(root) : null;
+        var snap = new BridgeSnapshot { Online = false, Detail = "offline" };
+        try
+        {
+            var health = bridge.GetHealth();
+            var online = health.Connected;
+            var mismatch = cfg is not null ? Config.ProjectMismatch(cfg, health) : null;
+            var detail = online ? $"{health.Platform}/{health.ProjectName ?? "?"}" : (health.Status ?? "offline");
+            snap = online && mismatch is null
+                ? BuildSnap(online, detail, mismatch, bridge.GetRefs())
+                : new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch };
+        }
+        catch (Exception ex)
+        {
+            snap = new BridgeSnapshot { Online = false, Detail = ex.Message };
+        }
+        return StatusModel.BuildStatusData(root, snap);
+    }
+
+    /// <summary>volt pull — fetch the IDE, commit it onto refs/remotes/volt/ide, then git-merge into the branch.
+    /// C# port of commands/pull.ts. On conflict the sidecar is intentionally NOT advanced.</summary>
+    public static PullResult Pull(string root, BridgeClient bridge, bool dryRun = false, Action<ProgressFrame>? onProgress = null)
+    {
+        if (!Config.ConfigExists(root)) return PullResult.Refused("not a Volt workspace — run `volt init` first");
+        var gitDir = Git.ResolveGitDir(root);
+        Files.EnsureGitignore(root);
+
+        if (Git.IsMerging(root))
+            return PullResult.Refused("a merge is already in progress — finish it with `git merge --continue` or `git merge --abort` first");
+
+        var cfg = Config.LoadConfig(root);
+        var health = bridge.GetHealth();
+        var bindErr = Config.VerifyBinding(cfg, health);
+        if (bindErr is not null) return PullResult.Refused(bindErr);
+
+        var sidecar = Sidecar.LoadIdeRefs(root);
+
+        // ONE path for dry-run and real pull. Always /fetch (incremental), compute incoming, then the up-to-date
+        // short-circuit; dry-run returns the preview, the real pull falls through to the merge.
+        var fetched = bridge.FetchChanges(new FetchRequest { KnownItems = sidecar?.Items ?? new Dictionary<string, string>() }, onProgress);
+        var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>());
+        var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+        StatusData PostStatus() => StatusModel.BuildStatusData(root, new BridgeSnapshot
+        {
+            Online = true,
+            Detail = $"{health.Platform}/{health.ProjectName ?? "?"}",
+            ProjectMismatch = null,
+            Items = fetched.Items,
+            Folders = fetched.Folders,
+            ProjectVersion = fetched.ProjectVersion,
+        });
+
+        if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
+            return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
+        if (dryRun)
+            return PullResult.Ok(synced, PostStatus(), "dry run — these IDE items would be merged in");
+
+        // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree).
+        Git.AutoCommitSrc(root);
+        var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
+        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders };
+        var head = Git.HeadCommit(root);
+        var parentIde = IdeTree.VoltIdeHead(gitDir);
+
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed);
+        var parent = parentIde ?? head;
+        var commit = IdeTree.CommitVoltIde(gitDir, tree, parent, $"volt: IDE @ {fetched.ProjectVersion}");
+        Git.UpdateRef(gitDir, IdeTree.Range, commit);
+
+        var outcome = Git.GitMerge(root, IdeTree.Range, $"volt: merge IDE @ {fetched.ProjectVersion}");
+        if (outcome.Kind == "conflict")
+            return PullResult.Conflict(outcome.Paths.Select(Files.StripSrcPrefix).ToList(), PostStatus());
+
+        Sidecar.SaveIdeRefs(root, newSidecar);
+        return PullResult.Ok(synced, PostStatus());
+    }
+
+    /// <summary>volt push — diff HEAD against the IDE baseline, send the changes (with ifVersion guards), then
+    /// fast-forward refs/remotes/volt/ide to HEAD's tree. C# port of commands/push.ts. Operates on COMMITTED
+    /// history; a dirty tree is auto-committed first.</summary>
+    public static PushResult Push(string root, BridgeClient bridge, bool force = false, string? forceWithLease = null, bool dryRun = false, Action<ProgressFrame>? onProgress = null)
+    {
+        if (!Config.ConfigExists(root)) return PushResult.Rejected("not a Volt workspace — run `volt init` first");
+        var gitDir = Git.ResolveGitDir(root);
+        var cfg = Config.LoadConfig(root);
+        var health = bridge.GetHealth();
+        var bindErr = Config.VerifyBinding(cfg, health);
+        if (bindErr is not null) return PushResult.Rejected(bindErr);
+
+        var sidecar = Sidecar.LoadIdeRefs(root);
+        var voltHead = IdeTree.VoltIdeHead(gitDir);
+        if (sidecar is null || voltHead is null)
+            return PushResult.Rejected("no IDE baseline yet — run `volt pull` once before pushing");
+
+        // Unrecognized-extension guard (BEFORE committing anything): a `.dut` etc. can't sync — fail loud instead
+        // of silently skipping and reporting "nothing to push".
+        var foreign = Git.DiffWorktree(root, IdeTree.Range, "src")
+            .Where(r => r.Kind != "delete")
+            .Select(r => Files.StripSrcPrefix(r.Kind == "rename" ? r.NewPath : r.Path))
+            .Where(rel => !Extensions.IsTrackedPath(rel))
+            .ToList();
+        if (foreign.Count > 0)
+            return PushResult.Rejected(
+                "unrecognized file extension — these can't sync to the IDE and were NOT pushed. Rename each to its " +
+                "Volt kind extension (struct→.struct, enum→.enum, union→.union, alias→.alias; POUs .fb/.prg/.fun/.itf; " +
+                "global var list .gvl):\n" + string.Join("\n", foreign.Select(p => "  " + p)));
+
+        Git.AutoCommitSrc(root);
+
+        var forcing = force || forceWithLease is not null;
+        var guardItems = sidecar.Items;
+        var expectedProjectVersion = forceWithLease is not null ? forceWithLease : force ? null : sidecar.ProjectVersion;
+
+        string HeadSrc(string rel) => Git.GitShowBytes(root, "HEAD", $"src/{rel}") is { } b ? Encoding.UTF8.GetString(b) : "";
+
+        var rows = Git.DiffRefs(root, IdeTree.Range, "HEAD", "src");
+
+        var affected = rows.SelectMany(r => r.Kind == "rename"
+            ? new[] { Files.StripSrcPrefix(r.OldPath), Files.StripSrcPrefix(r.NewPath) }
+            : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
+        var readOnly = affected.Where(Extensions.IsReadOnly).ToList();
+        if (readOnly.Count > 0)
+            return PushResult.Rejected("read-only items can't be pushed — revert these:\n" + string.Join("\n", readOnly.Select(p => "  " + p)));
+
+        var ops = new List<PushOp>();
+        void SetForChange(string rel)
+        {
+            var item = Materialize.PathToItem(rel);
+            if (item is null || !Extensions.IsPushable(rel)) return;
+            var ifVersion = guardItems.TryGetValue(item.Value.Name, out var v) ? v : null;
+            ops.Add(new SetItemOp
+            {
+                Name = item.Value.Name,
+                ToFolder = ifVersion is null ? item.Value.Folder : null, // create: placement; update: unchanged
+                SourceText = HeadSrc(rel),
+                IfVersion = ifVersion,
+            });
+        }
+
+        foreach (var row in rows)
+        {
+            if (row.Kind == "delete")
+            {
+                var rel = Files.StripSrcPrefix(row.Path);
+                var item = Materialize.PathToItem(rel);
+                if (item is null || !Extensions.IsPushable(rel)) continue;
+                if (guardItems.TryGetValue(item.Value.Name, out var v))
+                    ops.Add(new DeleteItemOp { Name = item.Value.Name, IfVersion = v });
+            }
+            else if (row.Kind == "rename")
+            {
+                var newRel = Files.StripSrcPrefix(row.NewPath);
+                if (!Extensions.IsPushable(newRel)) continue;
+                var o = Materialize.PathToItem(Files.StripSrcPrefix(row.OldPath));
+                var n = Materialize.PathToItem(newRel)!.Value;
+                if (o is null) { SetForChange(newRel); continue; }
+                if (!guardItems.TryGetValue(o.Value.Name, out var ver))
+                    throw new InvalidOperationException($"renamed item '{o.Value.Name}' has no known IDE version — run `volt pull` first");
+                ops.Add(new SetItemOp
+                {
+                    Name = o.Value.Name,
+                    ToName = o.Value.Name != n.Name ? n.Name : null,
+                    ToFolder = o.Value.Folder != n.Folder ? n.Folder : null,
+                    SourceText = row.Identical ? null : HeadSrc(newRel),
+                    IfVersion = ver,
+                });
+            }
+            else SetForChange(Files.StripSrcPrefix(row.Path));
+        }
+
+        if (ops.Count == 0) return PushResult.Ok(new List<string>(), null, "nothing to push — the IDE already matches your workspace");
+        if (dryRun) return PushResult.Ok(ops.Select(o => o.Name).ToList(), null, "dry run — would push these item(s)");
+
+        var resp = bridge.PushBatch(new PushRequest { Ops = ops, ExpectedProjectVersion = expectedProjectVersion, Force = forcing }, onProgress);
+        if (!resp.Accepted)
+        {
+            if (resp.Conflicts?.Any(c => c.Name == "<project>") == true)
+                return PushResult.Rejected(forceWithLease is not null
+                    ? $"--force-with-lease is stale: the IDE is at {resp.CurrentProjectVersion}, not {forceWithLease} — run `volt pull` first"
+                    : "the IDE changed since your last sync — run `volt pull` first (or push --force)");
+            var lines = string.Join("\n", (resp.Conflicts ?? new()).Select(c => $"  {c.Name}: {c.Reason}"));
+            return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
+        }
+
+        // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up /refs).
+        Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = resp.NewProjectVersion!, Items = resp.NewItems!, Folders = resp.NewFolders! });
+        Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
+
+        var status = StatusModel.BuildStatusData(root, new BridgeSnapshot
+        {
+            Online = true,
+            Detail = $"{health.Platform}/{health.ProjectName ?? "?"}",
+            ProjectMismatch = null,
+            Items = resp.NewItems!,
+            Folders = resp.NewFolders!,
+            ProjectVersion = resp.NewProjectVersion!,
+        });
+        return PushResult.Ok(ops.Select(o => o.Name).ToList(), status);
+    }
+
+    /// <summary>volt build — build via the IDE, return normalized diagnostics. C# port of commands/build.ts.</summary>
+    public static BuildResult Build(string root, BridgeClient bridge, bool full, Action<ProgressFrame>? onProgress = null)
+    {
+        if (!Config.ConfigExists(root)) return BuildResult.Refuse("not a Volt workspace — run `volt init` first");
+        var bindErr = Config.VerifyBinding(Config.LoadConfig(root), bridge.GetHealth());
+        if (bindErr is not null) return BuildResult.Refuse(bindErr);
+
+        var r = bridge.Build(new BuildRequest { BuildType = full ? "full" : "incremental" }, onProgress);
+        return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
+    }
+
+    /// <summary>How many workspace items differ from the IDE baseline — local changes not yet pushed. 0 when unbound.</summary>
+    public static int UnpushedCount(string root)
+    {
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            if (IdeTree.VoltIdeHead(gitDir) is null) return 0;
+            return Git.DiffWorktree(root, IdeTree.Range, "src").Count;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>volt show &lt;ref&gt; &lt;src-rel-path&gt; — raw file bytes at a ref (HEAD / VOLTIDE / MERGE_* /
+    /// WORKSPACE / BRIDGE). C# port of commands/show.ts.</summary>
+    public static (byte[]? Bytes, string? Error) Show(string root, BridgeClient bridge, string @ref, string rel)
+    {
+        if (@ref == "BRIDGE")
+        {
+            var name = Extensions.FullNameFromPath(rel);
+            if (name is null) return (null, $"unrecognized path: {rel}");
+            var resp = bridge.FetchChanges(new FetchRequest { KnownItems = new() { [name] = "" }, OnlyItems = new() { name } });
+            var item = resp.Changed.FirstOrDefault(i => i.Name == name);
+            return item is not null ? (Encoding.UTF8.GetBytes(item.SourceText), null) : (null, $"bridge has no item {name}");
+        }
+        if (@ref == "WORKSPACE")
+        {
+            var p = System.IO.Path.Combine(root, Files.SrcDir, rel);
+            return File.Exists(p) ? (File.ReadAllBytes(p), null) : (null, $"{rel} is not in the workspace");
+        }
+        var gitRef = @ref switch
+        {
+            "VOLTIDE" => IdeTree.Range,
+            "MERGE_OURS" => "HEAD",
+            "MERGE_THEIRS" => "MERGE_HEAD",
+            "MERGE_BASE" => Git.MergeBase(root, "HEAD", "MERGE_HEAD"),
+            _ => @ref,
+        };
+        if (gitRef is null) return (null, "no merge in progress (MERGE_BASE unavailable)");
+        var bytes = Git.GitShowBytes(root, gitRef, $"{Files.SrcDir}/{rel}");
+        return bytes is not null ? (bytes, null) : (null, $"{rel} not found at {@ref}");
+    }
+
+    /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve. C# port of commands/merge.ts.</summary>
+    public static (int Code, string Message) Merge(string root, bool cont = false, bool abort = false, string? resolve = null, bool useOurs = false, bool useTheirs = false)
+    {
+        if (abort) { Git.MergeAbort(root); return (0, "merge aborted — workspace restored"); }
+        if (resolve is not null)
+        {
+            var side = useTheirs ? "theirs" : "ours";
+            Git.CheckoutSide(root, $"{Files.SrcDir}/{resolve}", side);
+            return (0, $"resolved {resolve} using {side}");
+        }
+        if (cont)
+        {
+            var unresolved = Git.UnmergedPaths(root);
+            if (unresolved.Count > 0)
+                return (2, $"still {unresolved.Count} unresolved file(s) — resolve the markers (or `volt merge --resolve <path> --use-ours|--use-theirs`) first");
+            Git.MergeContinue(root);
+            return (0, "merge completed");
+        }
+        return (1, "merge: pass --continue, --abort, or --resolve <path> [--use-ours|--use-theirs]");
+    }
+
+    /// <summary>volt diff — outgoing per-file unified diffs (worktree vs volt/ide). C# port of commands/diff.ts.</summary>
+    public static (bool Ok, List<FileDiff> Diffs, string? Error) Diff(string root)
+    {
+        try { return (true, Git.OutgoingDiffs(root, IdeTree.Range, "src"), null); }
+        catch (Exception ex) { return (false, new List<FileDiff>(), ex.Message); }
+    }
+
+    private static BridgeSnapshot BuildSnap(bool online, string detail, ProjectMismatch? mismatch, RefsResponse refs) => new()
+    {
+        Online = online,
+        Detail = detail,
+        ProjectMismatch = mismatch,
+        Items = refs.Items,
+        Folders = refs.Folders,
+        ProjectVersion = refs.ProjectVersion,
+    };
+}

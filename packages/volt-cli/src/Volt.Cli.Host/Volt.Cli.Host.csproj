@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- netstandard2.0 so it loads in the CODESYS in-proc net48 host too. Wires the pipe transport to the SAME
+         Core services the HTTP host used — no IDE logic here. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Volt.Cli.Host</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <!-- REUSE the existing, tested bridge Core (backup package, unmodified). When volt-bridge is retired, Core
+         migrates into volt-cli; until then this is a read-only reference, not a fork. -->
+    <ProjectReference Include="..\..\..\volt-bridge\src\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+  </ItemGroup>
+</Project>

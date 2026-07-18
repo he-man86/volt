@@ -37,6 +37,16 @@ public sealed class BridgeHttpServer
     private HttpListener? _listener;
     private volatile bool _running;
 
+    // The mutating op currently in flight (init/fetch/push/build), surfaced in /health so a SECOND frontend — or
+    // a terminal `volt init` — sees the shared bridge is busy and holds off on /refs while the project is being
+    // churned. Refcounted: overlapping mutations (rare — one live IDE) must both clear before it reads idle.
+    // `Volatile.Read` pairs with the Interlocked writes so the (off-thread) health probe sees a consistent depth.
+    // The `?? "busy"` guards ONLY the sub-tick overlap-teardown race — a single op always publishes its label
+    // before the depth becomes visible (see RunOp), so the common path never needs it.
+    private int _activeOpDepth;
+    private volatile string? _activeOpLabel;
+    private string? ActiveOp => System.Threading.Volatile.Read(ref _activeOpDepth) > 0 ? _activeOpLabel ?? "busy" : null;
+
     public BridgeHttpServer(IIdeDriver ide, int port)
     {
         _ide = ide;
@@ -124,7 +134,13 @@ public sealed class BridgeHttpServer
             }
 
             // Health is cache-only (off the marshalled thread) and reports degraded state, never gated by it.
-            if (path == "/health" && method == "GET") { Write(ctx, 200, _ide.BuildHealthResponse()); return; }
+            if (path == "/health" && method == "GET")
+            {
+                var health = _ide.BuildHealthResponse();
+                health.ActiveOp = ActiveOp; // the server owns request lifecycle, so it stamps the busy signal
+                Write(ctx, 200, health);
+                return;
+            }
             if (path == "/shutdown" && method == "POST") { Write(ctx, 200, new { stopped = true }); ThreadPool.QueueUserWorkItem(_ => Stop()); return; }
             // The OpenAPI contract (single source of truth) + a static Swagger UI.
             if (path == "/openapi.yaml" && method == "GET") { WriteText(ctx, 200, "application/yaml; charset=utf-8", OpenApiYaml.Value); return; }
@@ -153,25 +169,25 @@ public sealed class BridgeHttpServer
                 case "GET /refs": RunOp(ctx, stream, onP => RefsService.Handle(_ide, onP)); return;
                 case "POST /init":
                 {
-                    RunOp(ctx, stream, onP => FetchService.Handle(_ide, new FetchRequest { Init = true, Verbose = true }, onP));
+                    RunOp(ctx, stream, onP => FetchService.Handle(_ide, new FetchRequest { Init = true, Verbose = true }, onP), busyOp: "init");
                     return;
                 }
                 case "POST /fetch":
                 {
                     var req = ReadBody<FetchRequest>(ctx) ?? new FetchRequest();
-                    RunOp(ctx, stream, onP => FetchService.Handle(_ide, req, onP));
+                    RunOp(ctx, stream, onP => FetchService.Handle(_ide, req, onP), busyOp: "fetch");
                     return;
                 }
                 case "POST /push":
                 {
                     var req = ReadBody<PushRequest>(ctx) ?? new PushRequest();
-                    RunOp(ctx, stream, onP => PushService.Handle(_ide, req, onP));
+                    RunOp(ctx, stream, onP => PushService.Handle(_ide, req, onP), busyOp: "push");
                     return;
                 }
                 case "POST /build":
                 {
                     var req = ReadBody<BuildRequest>(ctx) ?? new BuildRequest();
-                    RunOp(ctx, stream, onP => BuildService.Handle(_ide, req, onP));
+                    RunOp(ctx, stream, onP => BuildService.Handle(_ide, req, onP), busyOp: "build");
                     return;
                 }
                 default:
@@ -210,7 +226,23 @@ public sealed class BridgeHttpServer
     /// terminal result/error frame), chosen by the Accept header. The op runs on the marshalled IDE thread; when
     /// streaming, its progress callback writes frames to the already-open response — and because the status is
     /// committed the moment we start streaming, a failure is a terminal `error` frame, not an HTTP error code.</summary>
-    private void RunOp<T>(HttpListenerContext ctx, bool stream, Func<Action<ProgressFrame>?, T> op) where T : class
+    private void RunOp<T>(HttpListenerContext ctx, bool stream, Func<Action<ProgressFrame>?, T> op, string? busyOp = null) where T : class
+    {
+        // A mutating op (init/fetch/push/build) marks the bridge busy in /health for its whole duration, so other
+        // frontends hold off on /refs while the project is being churned. Cleared in finally on every exit path.
+        // Publish the label BEFORE the Increment (a full barrier) so any probe that sees depth>0 also sees the label.
+        if (busyOp != null) { _activeOpLabel = busyOp; System.Threading.Interlocked.Increment(ref _activeOpDepth); }
+        try
+        {
+            RunOpInner(ctx, stream, op);
+        }
+        finally
+        {
+            if (busyOp != null && System.Threading.Interlocked.Decrement(ref _activeOpDepth) == 0) _activeOpLabel = null;
+        }
+    }
+
+    private void RunOpInner<T>(HttpListenerContext ctx, bool stream, Func<Action<ProgressFrame>?, T> op) where T : class
     {
         if (!stream)
         {

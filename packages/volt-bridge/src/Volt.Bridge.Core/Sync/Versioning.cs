@@ -11,7 +11,7 @@ namespace Volt.Bridge.Core.Sync;
 public static class Versioning
 {
     public static (string Version, WorkspaceItem Item) Materialize(
-        IIdeDriver ide, string name, string kind, ItemRef item, string folder)
+        IIdeDriver ide, string name, string kind, ItemRef item, string? folder)
     {
         var mat = Materializer.Materialize(ide, name, kind, item);
         return (Hasher.ComputeItemVersion(folder, mat.Text), mat);
@@ -25,7 +25,7 @@ public static class Versioning
     /// single unreadable item must never crash the whole batch — it is isolated with the <see cref="Unreadable"/>
     /// sentinel and still listed/deletable (its <see cref="ItemRef"/> comes from WalkItems, not the read). The
     /// raw <see cref="Materialize"/> stays no-catch for single-item paths where the failure must surface.</summary>
-    public static string SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string folder, out WorkspaceItem? mat)
+    public static string SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string? folder, out WorkspaceItem? mat)
     {
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug). The old bare catch hid a real materialize bug (FB-with-method /

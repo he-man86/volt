@@ -8,17 +8,55 @@
  * All test items are named `${PREFIX}_*` so cleanup is a single prefix-based atomic delete.
  */
 import { expect } from "bun:test"
+import { connect } from "node:net"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8555", 10)
 export const BASE = `http://127.0.0.1:${PORT}`
 export const PREFIX = "VltE2E"
 export const FOLDER = "POUs"
 
-// ── raw HTTP ──────────────────────────────────────────────────────────────────
+// The SAME behavioral suite runs over either transport: HTTP (the backup bridge, default) or the named pipe (the
+// volt-cli toolchain) when VOLT_PIPE names a pipe. A path like "/fetch" maps to the pipe op "fetch"; the routes
+// are identical because the pipe host reuses Core's services. HTTP-wire-only cases (openapi/swagger/404) skip
+// under pipe via `PIPE`.
+export const PIPE = process.env.VOLT_PIPE || ""
+
+/** One request per connection (mirrors the CLI's PipeClient): write `{op,body}\n`, drain frames, return the
+ *  terminal result (progress frames ignored; an error frame throws). */
+function pipeCall(op: string, body?: unknown): Promise<any> {
+	return new Promise((resolve, reject) => {
+		const sock = connect(`\\\\.\\pipe\\${PIPE}`)
+		let buf = ""
+		let result: unknown
+		sock.on("connect", () => sock.write(JSON.stringify({ op, body: body ?? undefined }) + "\n"))
+		sock.on("data", (d: Buffer) => {
+			buf += d.toString("utf8")
+			let nl: number
+			while ((nl = buf.indexOf("\n")) >= 0) {
+				const line = buf.slice(0, nl)
+				buf = buf.slice(nl + 1)
+				if (!line) continue
+				const frame = JSON.parse(line)
+				if ("result" in frame) result = frame.result
+				else if ("error" in frame) { reject(new Error(`${frame.error.code}: ${frame.error.message}`)); sock.destroy(); return }
+				// progress frames ignored
+			}
+		})
+		sock.on("end", () => resolve(result))
+		sock.on("error", reject)
+	})
+}
+
+/** A route path ("/fetch", "/refs?x") → the pipe op name ("fetch", "refs"). */
+function opOf(path: string): string { return path.replace(/^\//, "").split("?")[0] }
+
+// ── raw wire (HTTP or pipe) ────────────────────────────────────────────────────
 export async function get(path: string): Promise<any> {
+	if (PIPE) return pipeCall(opOf(path))
 	return (await fetch(`${BASE}${path}`)).json()
 }
 export async function post(path: string, body?: unknown): Promise<any> {
+	if (PIPE) return pipeCall(opOf(path), body)
 	const r = await fetch(`${BASE}${path}`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

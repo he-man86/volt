@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
 import { setBundledCli, setLspServer } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
-import { bindWorkspace } from "./panel.js"
+import { bindWorkspace, refreshVendorsLive } from "./panel.js"
 import { registerCommands } from "./commands.js"
 import type { Shell } from "./context.js"
 
@@ -35,7 +35,7 @@ if (process.argv.includes("--selftest")) {
 
 const { app, BrowserWindow, WebContentsView, ipcMain, shell: electronShell, dialog } = await import("electron")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, vendorsLive: { codesys: false, twincat: false } }
 
 function layoutView() {
   if (!shell.win || !shell.view) return
@@ -125,6 +125,10 @@ app.whenReady().then(async () => {
   configureTools()
   watchActiveProject() // bind to whatever project opencode's GUI is on
   void startWorkspace()
+
+  // Probe both vendor bridges so the Initialize buttons enable only for a live IDE (parity with VS Code).
+  void refreshVendorsLive(shell)
+  setInterval(() => void refreshVendorsLive(shell), 10_000)
 
   await launchAgent(shell.view)
 })

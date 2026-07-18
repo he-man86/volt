@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { probeHealth, readBridgePort, type HealthState } from "../bridge/health.js";
+import { probeHealth, readBridgePort, bridgeActiveOp, healthOf, type HealthState } from "../bridge/health.js";
 import type { PullOutcome, PushOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
@@ -133,9 +133,10 @@ export class VoltStatus {
 	}
 
 	private async probeHealth(): Promise<void> {
-		// Skip while a mutation holds the gate: a push/pull dirties the project itself, and we must not read
-		// that as an engineer edit (nor contend with the op). Reset the edge baseline so the FIRST post-mutation
-		// poll re-baselines to the new dirty state WITHOUT firing a spurious refresh (our own push isn't an edit).
+		// Skip while OUR OWN mutation holds the in-memory gate. This is the one thing the bridge's activeOp below
+		// can't cover: the gate is held until the whole action settles — PAST the bridge op — so it also absorbs the
+		// state-file write our own pull/push makes (saveIdeRefs), which activeOp has already cleared by then. Reset
+		// the edge baseline so the FIRST post-mutation poll re-baselines WITHOUT firing a spurious refresh.
 		if (isMutationInFlight(this.workspaceRoot)) {
 			this.seenHealth = false;
 			return;
@@ -144,12 +145,19 @@ export class VoltStatus {
 		if (port === undefined) return;
 		this.health = await probeHealth(port, 2000);
 
+		// A mutation is running on the SHARED bridge — ANOTHER frontend, or a terminal `volt init`, that the
+		// in-memory gate above (process-local) can't see. Treat it exactly like our own in-flight mutation: don't
+		// read its churn as an engineer edit and don't fire a /refs. Reset the baseline so the first idle poll
+		// re-baselines without a false edge; the state-file mtime poll delivers the single post-mutation reconcile.
+		if (bridgeActiveOp(this.health) !== undefined) {
+			this.seenHealth = false;
+			this.onDidChange.fire(); // keep the health indicator live
+			return;
+		}
+
 		// Detect an IDE-side edit from the cheap health payload: a projectDirty false→true edge, or a project
 		// switch. Either fires exactly one refresh (its own debounce collapses bursts). No /refs scan.
-		const h =
-			this.health.kind === "connected" || this.health.kind === "degraded" || this.health.kind === "disconnected"
-				? this.health.health
-				: undefined;
+		const h = healthOf(this.health);
 		const dirty = h?.projectDirty ?? false;
 		const name = h?.projectName ?? undefined;
 		const edge = isIdeChangeEdge({ seen: this.seenHealth, dirty: this.lastDirty, name: this.lastProjectName }, { dirty, name });

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- The TwinCAT entry point: a standalone net8 worker exe the connector spawns, which attaches to a running
+         XAE over COM and serves the REAL BeckhoffDriver over the NAMED PIPE. Pipe replacement for the backup's
+         Volt.Bridge.Beckhoff/Program.cs + BridgeHttpServer.RunStandalone. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Volt.Cli.Ide.Twincat</RootNamespace>
+    <AssemblyName>VoltBridgeTwincat</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Cli.Host\Volt.Cli.Host.csproj" />
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <!-- Reuse the REAL, shipping TwinCAT driver from the backup (read-only reference; not a fork). -->
+    <ProjectReference Include="..\..\..\volt-bridge\src\Volt.Bridge.Beckhoff\Volt.Bridge.Beckhoff.csproj" />
+  </ItemGroup>
+</Project>

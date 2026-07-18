@@ -47,6 +47,9 @@ export const HealthResponseSchema = z
 		version: z.string(),
 		projectName: z.string().nullish(),
 		projectDirty: z.boolean().optional(),
+		// The mutating op on the (single-threaded) IDE thread — "init"/"fetch"/"push"/"build" — or absent/null
+		// when idle. Frontends read this to hold off on /refs while the bridge is busy churning the project.
+		activeOp: z.string().nullish(),
 	})
 	.strict();
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;

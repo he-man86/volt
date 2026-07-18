@@ -57,4 +57,11 @@ public class HealthResponse
 
     [JsonPropertyName("projectDirty")]
     public bool? ProjectDirty { get; set; }
+
+    // The mutating op currently running on the (single-threaded) IDE thread — "init"/"fetch"/"push"/"build" —
+    // or null/absent when idle. The bridge is the ONE thing every frontend shares, so this is how a second
+    // frontend (or a terminal `volt init`) learns a mutation is in flight and stops issuing `/refs` into a busy
+    // bridge whose project is being churned. Additive + omitted-when-null: an older client just ignores it.
+    [JsonPropertyName("activeOp")]
+    public string? ActiveOp { get; set; }
 }

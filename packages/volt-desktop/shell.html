@@ -103,6 +103,7 @@
   .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 640; }
   .btn.primary:hover { background: var(--accent-hi); }
   .btn.primary .bolt { color: var(--on-accent); }
+  .btn:disabled { opacity: .38; pointer-events: none; } /* no live IDE for this vendor — visible but inert */
   .warn-box { display: flex; gap: 8px; margin: 8px 14px; padding: 9px 11px; border-radius: var(--r-md); font-size: 12px; line-height: 1.45;
     background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); color: var(--text); }
 </style>
@@ -141,7 +142,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [] }
+  let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [], vendorsLive: { codesys: false, twincat: false } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
   let activeTab = "sync" // which rail tab is lit + scrolled to while the panel is open
@@ -190,14 +191,21 @@
     const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
-    else if (!s.initialized)
+    else if (!s.initialized) {
+      // Enable each Initialize button only when that vendor's bridge is live with a project (parity with VS Code);
+      // when neither is, point the user at starting their IDE rather than offering dead buttons.
+      const cs = s.vendorsLive?.codesys, tc = s.vendorsLive?.twincat
+      const note = cs || tc
+        ? "Not a Volt workspace yet — bind this project to the live IDE:"
+        : "Not a Volt workspace yet. Open your project in CODESYS or TwinCAT, then initialize:"
       syncBody = busy
         ? busyNote
-        : `<div class="note">Not a Volt workspace yet — bind this project to the live IDE:</div>
+        : `<div class="note">${note}</div>
         <div class="init-row">
-          <button class="btn primary" onclick="doInit('codesys')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for CODESYS</button>
-          <button class="btn" onclick="doInit('twincat')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for TwinCAT</button>
+          <button class="btn primary" ${cs ? "" : "disabled"} onclick="doInit('codesys')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for CODESYS</button>
+          <button class="btn" ${tc ? "" : "disabled"} onclick="doInit('twincat')"><svg class="bolt"><use href="#bolt"/></svg>Initialize for TwinCAT</button>
         </div>`
+    }
     else if (s.paused) syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
     else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>`
     else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)

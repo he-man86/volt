@@ -17,7 +17,7 @@ public sealed partial class BeckhoffDriver
     // ── textual transport ──
     public string ReadDeclaration(ItemRef item) => _om.ReadDeclaration(item.Native);
     public string ReadImplementation(ItemRef item) => _om.ReadImplementation(item.Native);
-    public void WriteText(ItemRef item, string? declaration, string implementation) =>
+    public void WriteText(ItemRef item, string? declaration, string? implementation) =>
         _om.WriteText(item.Native, declaration, implementation);
 
     // ── PLCopen XML transport ──

@@ -154,7 +154,12 @@ public static class PushService
             }
             else                                      // DeleteItemOp
             {
-                if (clientVersion != null && currentVersion != clientVersion)
+                // Delete is idempotent: if the item is already gone (currentVersion == null) the goal state
+                // already holds, so it's a no-op success — never a conflict, whatever the ifVersion guard. This
+                // also covers the UNREADABLE-sentinel force-delete of an accepted-but-unenumerable item (absent
+                // from /refs → currentVersion null here, but Apply still finds and removes it via ide.Lookup).
+                // Only a version MISMATCH on a still-PRESENT item is a real conflict.
+                if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
                 else pending.Remove(bare);
             }

@@ -11,6 +11,7 @@ export interface BridgeHealth {
   ideVersion?: string | null
   projectName?: string | null
   projectDirty?: boolean
+  activeOp?: string | null
 }
 
 export type HealthState =
@@ -22,6 +23,21 @@ export type HealthState =
 
 export function isBridgeOnline(h: HealthState): boolean {
   return h.kind === "connected" || h.kind === "degraded"
+}
+
+/** The bridge's health payload, or undefined when the state carries none (unknown / unreachable). The one place
+ *  that unwraps the HealthState union, so callers read fields without repeating the kind check. */
+export function healthOf(h: HealthState): BridgeHealth | undefined {
+  return h.kind === "connected" || h.kind === "degraded" || h.kind === "disconnected" ? h.health : undefined
+}
+
+/** The mutating op the shared bridge is currently running (init/fetch/push/build), or undefined when idle.
+ *  While set, trackers must NOT issue `/refs` — the project is being churned and the single-threaded bridge is
+ *  busy, so a status poll would both misread the op's churn as an edit and contend with the running mutation.
+ *  This is the ONE signal every frontend shares (the bridge), so it coordinates across separate processes and a
+ *  terminal `volt init` where the in-process mutation gate cannot. */
+export function bridgeActiveOp(h: HealthState): string | undefined {
+  return healthOf(h)?.activeOp ?? undefined
 }
 
 export type Vendor = "codesys" | "twincat"

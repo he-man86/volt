@@ -12,17 +12,13 @@
  */
 import { classifyConversion, type ConversionKind } from "../src/types/compat.js"
 import type { Type } from "../src/types/type.js"
+import { get, post, PORT } from "./bridge.js"
 
 const TYPES = ["SINT", "USINT", "BYTE", "INT", "UINT", "WORD", "DINT", "UDINT", "DWORD", "LINT", "ULINT", "LWORD", "REAL", "LREAL"]
 const elem = (name: string): Type => ({ kind: "elementary", name }) as Type
 const predicted = (kind: ConversionKind): "none" | "warning" | "error" =>
   kind === "incompatible" ? "error" : kind === "narrow" || kind === "sign-change" ? "warning" : "none"
 
-const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
-const BASE = `http://127.0.0.1:${PORT}`
-const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
-const post = async (p: string, body: unknown): Promise<any> =>
-  (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json()
 const version = async (name: string): Promise<string | null> => (await get("/refs")).items[name] ?? null
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })

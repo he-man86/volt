@@ -11,8 +11,8 @@
 import { expect, it, beforeAll, afterAll, beforeEach, setDefaultTimeout } from "bun:test"
 import { readFileSync, writeFileSync } from "node:fs"
 import type { BridgeClient } from "../bridge/client.js"
-import { pull } from "../sync/pull.js"
-import { push } from "../sync/push.js"
+import { pull } from "../commands/pull.js"
+import { push } from "../commands/push.js"
 import { checkpoint as checkpointWs, commit as commitWs, freshWorkspace, ideSet, purge, suite, walk } from "./live-harness.js"
 
 const PREFIX = "Vlt" // covers this suite's VltRtGfx + VltGfxLd_* fixtures

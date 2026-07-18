@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- CLI-side domain: git plumbing, the volt/ide merge tree, changeset/status model, materialize, config,
+         files. net8 (never loaded in the IDE host). The C# port of packages/volt-git/src. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Volt.Cli.Sync</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <!-- Reuse Core's wire DTOs + kind data (one contract). -->
+    <ProjectReference Include="..\..\..\volt-bridge\src\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+  </ItemGroup>
+</Project>

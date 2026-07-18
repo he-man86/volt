@@ -48,13 +48,22 @@ public static class FetchService
 
         var sw = Stopwatch.StartNew();
 
+        // Verbose (init/harvest): precompile + extract the referenced-library signatures FIRST — before we walk the
+        // project items — for TWO reasons. (1) SAFETY: extraction runs a build, and the item handles WalkItems
+        // hands back are live IDE objects we dereference when materializing each item below; obtaining them AFTER
+        // the build guarantees a precompile can never stale a handle mid-materialize (which would silently drop an
+        // item's source to the Unreadable sentinel). (2) PROGRESS: knowing the signature count up front folds it
+        // into ONE total, so the signatures tick through the SAME bar as the items with no separate phase. Non-verbose
+        // fetch skips the build entirely. The stream's keepAlive heartbeat covers the (silent) precompile.
+        IReadOnlyList<LibSignature> libSigs =
+            request.Verbose ? ide.ExtractLibrarySignatures() : Array.Empty<LibSignature>();
         // Materialize the walk once so we know the total up front (for the progress fraction) and don't re-walk.
         var walked = ide.WalkItems();
-        var total = walked.Count;
+        var total = walked.Count + libSigs.Count;
         var done = 0;
         var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
         var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Warn)
-        onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total, Phase = "reading" });
+        onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total });
 
         foreach (var it in walked)
         {
@@ -121,23 +130,28 @@ public static class FetchService
         // signatures are appended: those are identified by folder + name (many libraries legitimately export an
         // element with the same short name), so name-collapsing them would silently drop distinct library files.
         changed = DedupeByFullName(changed);
+        // Project source items in this diff — captured BEFORE the library signatures are appended, so the two are
+        // never conflated: `changed` below would otherwise mix a handful of edited POUs with thousands of read-only
+        // library API files and read as nonsense ("880 items, 8104 changed").
+        var projectChanged = changed.Count;
 
         var libRenderNull = 0;
         var libUnmatched = 0;
         if (request.Verbose)
         {
             // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate
-            // — the AI gets the full public API of the used libraries). This is the slow second phase on a big
-            // project (precompile + render), so flag it as its own indeterminate phase.
-            onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = done, Total = total, Phase = "rendering libraries" });
-            (libRenderNull, libUnmatched) = AppendLibrarySignatures(ide, libByResolution, changed);
+            // — the AI gets the full public API of the used libraries). Render the pre-extracted signatures now,
+            // ticking the SAME progress bar (no separate phase); `done` == walked.Count here (the walk finished).
+            (libRenderNull, libUnmatched) = AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
         }
+        var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
         var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
 
         var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
-        VoltLog.Info($"fetch{(isInit ? " init" : "")}: {fullVersions.Count} items, {changed.Count} changed, {removed.Count} removed{drops} ({sw.ElapsedMilliseconds}ms)");
+        var libClause = librarySignatures > 0 ? $", {librarySignatures} library signatures" : "";
+        VoltLog.Info($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");
 
         return new FetchResponse
         {
@@ -155,18 +169,28 @@ public static class FetchService
     /// <c>&lt;lib folder&gt;/&lt;lib name&gt;</c>, name <c>&lt;Element&gt;&lt;ext&gt;</c>). No referenced-only gate:
     /// the full public API of every used library is materialized so the AI/LSP can resolve into any of it. The
     /// library is matched to its `.library` ref by RESOLUTION; an unmatched lib falls back to the shared Library
-    /// Manager folder. Extraction precompiles the libraries first (see <c>ExtractLibrarySignatures</c>). TwinCAT
-    /// returns none. The version is a content hash — read-only, never a push target.</summary>
+    /// Manager folder. Takes the signatures <c>Handle</c> already extracted up front (so their count folds into the
+    /// one progress total); renders them, ticking the shared bar. TwinCAT returns none. The version is a content
+    /// hash — read-only, never a push target.</summary>
     /// <summary>Returns (renderNull, unmatched): how many element signatures couldn't be rendered, and how many
     /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</summary>
-    private static (int RenderNull, int Unmatched) AppendLibrarySignatures(IIdeDriver ide, Dictionary<string, (string Folder, string Name)> libByResolution, List<FetchedItem> changed)
+    private static (int RenderNull, int Unmatched) AppendLibrarySignatures(
+        IReadOnlyList<LibSignature> sigs, Dictionary<string, (string Folder, string Name)> libByResolution,
+        List<FetchedItem> changed, Action<ProgressFrame>? onProgress, int startDone, int total)
     {
         // The Library Manager base folder (all refs share it) — home of the LOUD `(unresolved)` marker below.
         var libManBase = libByResolution.Values.Select(v => v.Folder).FirstOrDefault(f => f.Length > 0) ?? "";
         var renderNull = 0;
         var unmatched = 0;
-        foreach (var sig in ide.ExtractLibrarySignatures())
+        var i = 0;
+        foreach (var sig in sigs)
         {
+            // Tick the shared progress bar (throttled, ~every 25) as each signature renders — the same continuous
+            // fraction as the item walk, picking up where it left off (startDone == walked.Count).
+            i++;
+            if (onProgress != null && (i % 25 == 0 || i == sigs.Count))
+                onProgress(new ProgressFrame { Operation = "fetch", Done = startDone + i, Total = total });
+
             // Render-null: a sub-signature (method/property — covered by its parent FB) or an unknown POUType.
             if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Debug($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }
             string libFolder;

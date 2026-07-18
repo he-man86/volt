@@ -15,7 +15,7 @@ public interface ICodeStore
     /// declaration and none must be written — actions are the case: they are body-only (their "ACTION
     /// name" line is synthesized on read, never persisted). TwinCAT models this faithfully and rejects a
     /// declaration write on an action; CODESYS silently no-ops it. Passing null is correct on both.</summary>
-    void WriteText(ItemRef item, string? declaration, string implementation);
+    void WriteText(ItemRef item, string? declaration, string? implementation);
 
     // ── Transport 2: PLCopen XML (graphical FBD/LD/CFC/SFC) ──
     /// <summary>The item's graphical body language (<c>FBD</c>/<c>LD</c>/<c>CFC</c>/<c>SFC</c>), or

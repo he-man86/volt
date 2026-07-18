@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { init } from "../init.js";
+import { init } from "../commands/init.js";
 import { MockBridge } from "./mock-bridge.js";
 
 // Suspicion #4 from the PackML session: what a second `volt init` does to an already-bound repo. The

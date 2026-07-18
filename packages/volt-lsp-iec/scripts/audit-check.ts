@@ -10,19 +10,14 @@
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
+import { get, post, PORT } from "./bridge.js"
 
-const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
-const BASE = `http://127.0.0.1:${PORT}`
 const VENDOR: Vendor = PORT === "8555" ? "twincat" : "codesys"
 const source = process.argv[2]
 if (source === undefined) {
   console.error("usage: audit:check '<full POU source>'  (pushes it, builds, diffs LSP vs IDE)")
   process.exit(1)
 }
-
-const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
-const post = async (p: string, b: unknown): Promise<any> =>
-  (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) })).json()
 async function pushOps(ops: unknown[]): Promise<boolean> {
   const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })
   return !!r.accepted

@@ -354,7 +354,7 @@ components:
         operation: { type: string, enum: [refs, fetch, push, build] }
         done: { type: integer, description: units completed }
         total: { type: [integer, "null"], description: total units; null when indeterminate (build) }
-        phase: { type: [string, "null"], description: coarse phase label, e.g. reading / rendering libraries / building }
+        phase: { type: [string, "null"], description: "coarse phase label for indeterminate ops (push: applying, build: building); fetch/init report a single continuous done/total with no phase" }
     NdjsonStream:
       description: |
         A newline-delimited JSON stream returned when the client sends
@@ -433,6 +433,12 @@ components:
         projectDirty:
           type: boolean
           description: "True when the IDE has unsaved changes. Optional — absent when unknown."
+        activeOp:
+          type: string
+          nullable: true
+          description: >
+            The mutating op currently running on the single-threaded IDE thread — one of
+            "init"/"fetch"/"push"/"build" — or absent when idle. Frontends hold off on /refs while set.
 
     # ── Build ──────────────────────────────────────────────────────────
     BuildRequest:

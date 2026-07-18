@@ -63,7 +63,10 @@ namespace Volt.Bridge.Connector
                     DisplayName = "TwinCAT",
                     Port = 8555,
                     Archetype = Archetype.ExternalAttach,
-                    WorkerExe = Resolve("VOLT_TWINCAT_BRIDGE", "Volt.Bridge.Beckhoff.exe", "Volt.Bridge.Beckhoff"),
+                    // The pipe worker (Volt.Cli.Ide.Twincat → VoltBridgeTwincat.exe) serves the real BeckhoffDriver
+                    // over pipe `volt.bridge.beckhoff`. Dev build output lives under volt-cli, not volt-bridge.
+                    WorkerExe = Resolve("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe",
+                        Path.Combine("..", "volt-cli", "src", "Volt.Cli.Ide.Twincat")),
                 },
                 CodesysProvider(),
             };
@@ -133,8 +136,9 @@ namespace Volt.Bridge.Connector
                 var baseDir = AppContext.BaseDirectory;
                 foreach (var c in new[]
                 {
-                    Path.Combine(baseDir, "codesys-scriptcommands", "start_bridge.py"),
-                    Path.Combine(baseDir, "..", "..", "..", "..", "..", "codesys-scriptcommands", "start_bridge.py"),
+                    // Shipped beside the connector; dev falls back to volt-cli/scripts.
+                    Path.Combine(baseDir, "codesys-scriptcommands", "start_pipe.py"),
+                    Path.Combine(baseDir, "..", "..", "..", "..", "..", "..", "volt-cli", "scripts", "start_pipe.py"),
                 })
                 {
                     var full = Path.GetFullPath(c);

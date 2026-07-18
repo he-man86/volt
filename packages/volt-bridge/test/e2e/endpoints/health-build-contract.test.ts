@@ -1,6 +1,6 @@
 /** /health, /build, /openapi.yaml, /swagger, 404 — the contract endpoints. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, get, requireHealthy, BASE } from "../harness"
+import { bridge, get, requireHealthy, BASE, PIPE } from "../harness"
 
 describe(`endpoints / health+build+contract (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -30,7 +30,9 @@ describe(`endpoints / health+build+contract (${BASE})`, () => {
 		})
 	})
 
-	describe("contract", () => {
+	// The openapi/swagger/404 routes are HTTP-wire specifics; the pipe transport dispatches by op + error frame,
+	// so these have no pipe equivalent. Skip them when running over the pipe (the behavioral suites still run).
+	describe.skipIf(!!PIPE)("contract", () => {
 		it("/openapi.yaml lists every push-op + request schema", async () => {
 			const yaml = await bridge.openapi()
 			for (const s of ["PushOp", "SetItemOp", "DeleteItemOp", "FetchRequest", "BuildRequest"])

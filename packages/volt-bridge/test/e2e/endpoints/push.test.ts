@@ -41,6 +41,18 @@ describe(`endpoints / push (${BASE})`, () => {
 		expect(r.accepted).toBe(false)
 	})
 
+	it("accepts an idempotent delete of an item that's already gone (any ifVersion)", async () => {
+		// A delete whose target doesn't exist is a no-op success — the goal state (absent) already holds. This is
+		// also the UNREADABLE-sentinel cleanup path (purge an accepted-but-unenumerable item without a real
+		// version). Before the fix this was rejected "expected item to exist but it doesn't".
+		const gone = fid("p_gone")   // never created
+		const r = await bridge.push({
+			expectedProjectVersion: (await bridge.refs()).projectVersion,
+			ops: [{ op: "deleteItem", name: gone, ifVersion: "UNREADABLE000000" }],
+		})
+		expect(r.accepted).toBe(true)
+	})
+
 	it("applies create + update + delete atomically", async () => {
 		const add = id("p_add"), upd = id("p_upd"), del = id("p_del2")
 		const addKey = fid("p_add"), updKey = fid("p_upd"), delKey = fid("p_del2")

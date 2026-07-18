@@ -162,7 +162,7 @@ internal sealed class TcObjectModel
             }
         }
         catch { }
-        if (_plcNode == null && _plcProjectPath != null) _plcNode = LookupTreeItemDynamic(_plcProjectPath);
+        if (_plcNode == null && _plcProjectPath != null) _plcNode = LookupTreeItemDynamic(_plcProjectPath!);
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
 
@@ -261,7 +261,7 @@ internal sealed class TcObjectModel
         // TC does not accept "LD" directly — create as FBD; the ladder view is stored as
         // DefaultViewMode metadata in the NWL archive, which TcPouReader preserves on read-back.
         var lang = language is "LD" ? "FBD" : (language ?? "ST");
-        object vInfo = kindCode switch
+        object? vInfo = kindCode switch
         {
             ItemKind.PlcPouFunc => System.Type.Missing,
             ItemKind.PlcItf => null,

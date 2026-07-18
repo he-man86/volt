@@ -12,4 +12,7 @@ export interface Shell {
   status: VoltStatus | null
   boundRoot: string | undefined // the project currently bound (from opencode's active dir / VOLT_WORKSPACE)
   panelOpen: boolean
+  // Which vendor bridges are live with a project — gates the Initialize buttons (a vendor's button enables only
+  // when its IDE is actually connected), mirroring the VS Code welcome's codesysLive/twincatLive.
+  vendorsLive: { codesys: boolean; twincat: boolean }
 }

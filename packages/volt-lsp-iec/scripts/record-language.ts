@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { parseSource } from "../src/syntax/index.js"
+import { get, post } from "./bridge.js"
 
 // The bridge stores ONE item per top-level unit. A multi-unit fixture (e.g. a struct + an FB that uses it,
 // for unknown-member) must therefore be pushed as SEPARATE items — else the splitter mangles all but the
@@ -39,13 +40,7 @@ function splitItems(source: string): { wire: string; src: string }[] {
   }))
 }
 
-const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
 const WRITE = process.argv.includes("--write")
-const BASE = `http://127.0.0.1:${PORT}`
-
-const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
-const post = async (p: string, body: unknown): Promise<any> =>
-  (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json()
 
 // Vendor (→ recording file) is auto-detected from the bridge's reported platform; VOLT_VENDOR overrides.
 const health = await get("/health")

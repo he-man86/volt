@@ -11,7 +11,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { BridgeClient } from "../bridge/client.js"
 import { WIRE_VERSION } from "../bridge/types.js"
-import { init } from "../init.js"
+import { init } from "../commands/init.js"
 
 export const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 export const BASE = `http://127.0.0.1:${PORT}`

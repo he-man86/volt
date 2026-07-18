@@ -1,7 +1,7 @@
 using System;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Volt.Cli.Transport;
 
 namespace Volt.Bridge.Connector
 {
@@ -26,15 +26,14 @@ namespace Volt.Bridge.Connector
 
     public static class HealthProbe
     {
-        private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(2) };
-
         public static async Task<BridgeHealth> ProbeAsync(int port)
         {
             try
             {
-                var json = await Http.GetStringAsync($"http://127.0.0.1:{port}/health").ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
+                // Same /health shape as before, now over the named pipe. Connect is blocking, so off the UI thread;
+                // a short timeout maps "nothing listening" → Unreachable, exactly like the old HTTP failure path.
+                var root = await Task.Run(() =>
+                    new PipeClient(PipeNames.ForPort(port)).Call("health", connectTimeoutMs: 2000)).ConfigureAwait(false);
                 return new BridgeHealth
                 {
                     Status = root.TryGetProperty("status", out var s) ? s.GetString() switch

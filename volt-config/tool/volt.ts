@@ -27,7 +27,7 @@ type ToolContext = {
 
 const args = {
   command: z
-    .enum(["status", "build", "show", "log", "init", "pull", "push", "merge"])
+    .enum(["status", "build", "show", "init", "pull", "push", "merge"])
     .describe("Volt subcommand to run."),
   args: z.array(z.string()).optional().describe("Extra CLI flags/operands."),
   cwd: z.string().optional().describe("Workspace directory; defaults to the session directory."),
@@ -40,7 +40,6 @@ Verbs (pass via "command"):
 - status  incoming/outgoing between the IDE and your workspace. Read-only. Run first.
 - build   ask the IDE to build; returns diagnostics. Read-only.
 - show    display a file at a ref:  args ["<ref>", "<path>"]
-- log     IDE-sync history:         args ["--limit", "10"]
 - init    bind this workspace to the IDE project (one-time). Mutating.
 - pull    IDE -> workspace (git merge).  Mutating.
 - push    workspace -> IDE.  Mutating.

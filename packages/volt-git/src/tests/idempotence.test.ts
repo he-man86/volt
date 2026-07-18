@@ -13,9 +13,9 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { init } from "../init.js";
-import { push } from "../sync/push.js";
-import { status } from "../sync/status.js";
+import { init } from "../commands/init.js";
+import { push } from "../commands/push.js";
+import { status } from "../commands/status.js";
 import { MockBridge, type MockItem } from "./mock-bridge.js";
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
