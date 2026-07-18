@@ -4,13 +4,14 @@
  * installer just bundles one folder. The volt-desktop shell + the Inno Setup installer are built separately
  * (volt-scripts/build-installer.ts → installer/Volt.iss), which bundles this folder.
  *
- *   bun volt-scripts/build-payload.ts            # binaries + bridges
- *   bun volt-scripts/build-payload.ts --no-bridge  # binaries only (skip dotnet)
+ *   bun volt-scripts/build-payload.ts           # LSP + vsix + volt-config + the C# toolchain (needs dotnet)
+ *   bun volt-scripts/build-payload.ts --no-cli  # skip the C# toolchain (non-Windows / no .NET SDK) — LSP only
  *
  * Output:
- *   dist/volt/bin/volt[.exe]              the PLC CLI (`volt <verb>` syncs; the agent is stock opencode)
- *   dist/volt/bin/volt-lsp-iec[.exe]  the Structured Text LSP (no node needed)
- *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
+ *   dist/volt/bin/           volt[.exe] (the PLC CLI) + volt-lsp-iec[.exe] (the Structured Text LSP) + runtime
+ *   dist/volt/connector/     VoltConnector.exe + the pipe workers + the CODESYS in-proc DLL (needs dotnet)
+ *   dist/volt/volt-config/   the agent layer (LSP + volt tool + agent + theme) handed to opencode
+ *   dist/volt/docs/, volt-vscode.vsix
  */
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
@@ -20,7 +21,7 @@ const repo = resolve(import.meta.dirname, "..")
 const out = resolve(repo, "dist/volt")
 const bin = resolve(out, "bin")
 const ext = process.platform === "win32" ? ".exe" : ""
-const skipBridge = process.argv.includes("--no-bridge")
+const skipCli = process.argv.includes("--no-cli")
 
 function run(cmd: string, args: string[], cwd = repo): boolean {
   const r = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32" })
@@ -39,7 +40,7 @@ mkdirSync(bin, { recursive: true })
 
 // The `volt` PLC CLI is the .NET binary (packages/volt-cli), built by build-cli.ps1 below alongside the pipe
 // workers + connector — one dotnet toolchain, one transport (named pipes). build-cli.ps1 needs the .NET SDK +
-// Windows, so on a box without it (or with --no-bridge) there is no `volt` binary — the self-check below reflects
+// Windows, so on a box without it (or with --no-cli) there is no `volt` binary — the self-check below reflects
 // that.
 console.log("• volt-lsp-iec")
 compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
@@ -50,16 +51,6 @@ compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 // "Source corpus not found at B:\~BUN\docs\codesys-reference" and skips the ST language-reference skill.
 cpSync(resolve(repo, "packages/volt-lsp-iec/docs"), resolve(out, "docs"), { recursive: true })
 console.log("  ✓ docs corpus → dist/volt/docs")
-
-// The .vsix build + the volt-config tool bundle below use `bun build --target=node`, which resolves workspace
-// packages via the "default" export condition → dist/ (not the "bun" → src condition that --compile above uses).
-// So @volt/lsp-iec must have its dist built or those bundles can't resolve it. Build it here — this runs AFTER a
-// full `bun install`, so there's no prepare-during-install race (which is why the prepare scripts were removed).
-console.log("• build @volt/lsp-iec dist (for --target=node resolution)")
-if (!run("bun", ["run", "--filter=@volt/lsp-iec", "build"])) {
-  console.error("✗ failed to build @volt/lsp-iec dist")
-  process.exit(1)
-}
 
 // Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
 console.log("• volt-vscode extension (.vsix)")
@@ -103,11 +94,11 @@ if (!run("bun", ["build", "--target=node", "--outfile", resolve(cfgOut, "tool/vo
 rmSync(resolve(cfgOut, "tool/volt.ts"), { force: true })
 console.log("  ✓ volt-config → dist/volt/volt-config (volt tool bundled self-contained)")
 
-if (!skipBridge) {
+if (!skipCli) {
   console.log("• volt CLI + pipe workers + connector (C#)")
   // build-cli.ps1 runs the Volt.Cli tests, publishes volt.exe + the two pipe IDE hosts, and assembles the
   // connector bundle (VoltConnector.exe + workers) into packages/volt-cli/dist. Best-effort: a machine without
-  // the .NET SDK ships the LSP only (pass --no-bridge to silence). volt.exe lives in the connector-style Cli
+  // the .NET SDK ships the LSP only (pass --no-cli to silence). volt.exe lives in the connector-style Cli
   // bundle, so it's copied into bin/ here.
   const built =
     process.platform === "win32" &&
@@ -128,8 +119,8 @@ if (!skipBridge) {
 }
 
 // Self-check: the shipped binaries are the non-negotiable release artifacts. `volt` needs the .NET build (skipped
-// on non-Windows / --no-bridge); the LSP always ships.
-const required = skipBridge ? ["volt-lsp-iec"] : ["volt", "volt-lsp-iec"]
+// on non-Windows / --no-cli); the LSP always ships.
+const required = skipCli ? ["volt-lsp-iec"] : ["volt", "volt-lsp-iec"]
 for (const name of required) {
   if (!existsSync(resolve(bin, name + ext))) {
     console.error(`✗ missing expected artifact: ${name}${ext}`)
