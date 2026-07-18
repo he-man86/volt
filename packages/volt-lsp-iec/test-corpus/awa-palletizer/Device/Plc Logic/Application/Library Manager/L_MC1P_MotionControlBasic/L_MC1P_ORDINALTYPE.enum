@@ -1,0 +1,20 @@
+TYPE L_MC1P_ORDINALTYPE :
+(
+	OTNONE := 0,
+	OTBOOL := 1,
+	OTBYTE := 2,
+	OTSINT := 3,
+	OTUSINT := 4,
+	OTWORD := 5,
+	OTINT := 6,
+	OTUINT := 7,
+	OTDWORD := 8,
+	OTDINT := 9,
+	OTUDINT := 10,
+	OTLWORD := 11,
+	OTLINT := 12,
+	OTULINT := 13,
+	OTREAL := 14,
+	OTLREAL := 15
+);
+END_TYPE

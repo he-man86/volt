@@ -1,0 +1,8 @@
+// Extend a variable with limits with a boolean to indicate that manual control is possible.
+{attribute 'monitoring_display' := 'value'}
+TYPE PositionWithLimitsType
+EXTENDS RealWithLimitsType :
+STRUCT
+	{attribute 'symbol' := 'readwrite'}	manualActive	: BOOL;			// Position is active in HMI, connect hardware buttons to drive.
+END_STRUCT
+END_TYPE

@@ -1,0 +1,12 @@
+TYPE MagazineMotors_TurnAround_Data
+EXTENDS MagazineMotors_Data :
+STRUCT
+	getNewLabelsPos			: PositionWithLimitsType;	// Position where to take-out new label from the stockpile
+
+	rProfileAccDec			: REAL := 100;				// Acc and dec (%) at the start and end of the profile
+	rProfileAccDecReduced	: REAL := 100;				// Acc and dec (%) when changing speed through the midpoint
+	rProfileSpeed			: REAL := 100;				// Maximum speed (%) for the movement
+	rProfileSpeedReduced	: REAL := 18;				// Reduced speed (%) when moving through the midpoint
+	rProfileSlowDistance	: REAL := 18;				// Distance (in °) where to move with slow speed through the midpoint
+END_STRUCT
+END_TYPE

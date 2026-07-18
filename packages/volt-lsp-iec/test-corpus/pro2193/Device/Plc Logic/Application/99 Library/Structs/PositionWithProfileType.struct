@@ -1,0 +1,8 @@
+// Complete data to move a drive to a position with a profile
+TYPE PositionWithProfileType
+EXTENDS ProfileType :
+STRUCT
+	{attribute 'analysis' := '-27'}	// Variable 'Pos' has same name as enumeration constant
+	Pos	: PositionWithLimitsType;	// Position value in mm. entered by user
+END_STRUCT
+END_TYPE

@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	GC_TZITIMEZONECET : RTCLK.TIME_ZONE_INFO := STRUCT(iBias := 60, sPeriode := [STRUCT(sName := 'CET', tmDate := STRUCT(uiMonth := 10, eWeekday := RTCLK.WEEKDAY.SUNDAY, uiDay := 5, uiHour := 3, uiMinute := 0, uiSecond := 0), iBias := 0), STRUCT(sName := 'CEST', tmDate := STRUCT(uiMonth := 3, eWeekday := RTCLK.WEEKDAY.SUNDAY, uiDay := 5, uiHour := 2, uiMinute := 0, uiSecond := 0), iBias := 60)]);
+END_VAR

@@ -1,0 +1,9 @@
+TYPE MagazineMotors_Wrap_Data
+EXTENDS MagazineMotors_Data :
+STRUCT
+	getNewLabelsPos			: PositionWithLimitsType;	// Position where to take-out new label from the stockpile
+
+	GetNewLabelsProfile		: ProfileType;
+	TakeoverProfile			: ProfileType;
+END_STRUCT
+END_TYPE

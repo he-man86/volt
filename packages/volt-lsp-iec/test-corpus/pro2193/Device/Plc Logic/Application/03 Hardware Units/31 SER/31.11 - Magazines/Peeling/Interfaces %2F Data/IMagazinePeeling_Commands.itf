@@ -1,0 +1,17 @@
+// Commands specific for a Magazine Unit
+INTERFACE IMagazinePeeling_Commands
+EXTENDS IModuleBase, IModuleStartCommand
+
+METHOD ResetPeelingVacuums : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Labels are peeled
+{attribute 'monitoring':='call'}
+PROPERTY LabelsPeeled : BOOL
+GET
+END_GET
+END_PROPERTY
+
+END_INTERFACE

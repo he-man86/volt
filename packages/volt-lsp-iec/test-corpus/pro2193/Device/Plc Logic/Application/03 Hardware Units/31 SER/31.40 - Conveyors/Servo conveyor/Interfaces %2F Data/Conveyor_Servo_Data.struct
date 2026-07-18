@@ -1,0 +1,7 @@
+TYPE Conveyor_Servo_Data
+EXTENDS Conveyor_Shared_Data :
+STRUCT
+	Step						: PositionWithProfileType;
+
+END_STRUCT
+END_TYPE

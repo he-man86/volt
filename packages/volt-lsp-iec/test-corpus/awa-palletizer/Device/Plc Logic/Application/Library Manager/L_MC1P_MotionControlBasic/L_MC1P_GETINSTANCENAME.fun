@@ -1,0 +1,5 @@
+FUNCTION L_MC1P_GETINSTANCENAME : STRING(L_MC1P_Constants.gc_wInstanceNchar)
+VAR_INPUT
+	SSTR : STRING(L_MC1P_Constants.gc_wInstanceNchar);
+END_VAR
+END_FUNCTION

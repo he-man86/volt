@@ -1,0 +1,9 @@
+VAR_GLOBAL
+	G_XCHGCLASS : XChgClass;
+	G_FLATCLASS : FlatClass;
+	G_MSGCLASS : MsgClass;
+	G_REFCLASS : MsgClass;
+	G_POOLCLASS : PoolClass;
+	G_BLKCLASS : BlkClass;
+	G_RLSTCLASS : RLstClass;
+END_VAR

@@ -1,0 +1,47 @@
+FUNCTION_BLOCK ShiftStackStatusFB
+VAR_INPUT
+	xEnable				: BOOL;
+	rSetPosition		: REAL;		// Connect Drive.rSetposition here
+	rActPosition		: REAL;		// Connect Drive.rActposition here
+	rStepPos			: REAL;		// Connect Data.Step.rPos here
+END_VAR
+VAR_IN_OUT
+	Status				: ARRAY[*] OF ARRAY[1..4] OF StackStatusType;		// Connect Status here
+END_VAR
+VAR
+	rDiv				: REAL;
+	rStatusPosition		: REAL;
+	iNumberOfSteps		: INT;
+	di					: DINT;
+	Tr_ActPosChanged	: R_TRIG;
+END_VAR
+
+IF NOT xEnable THEN
+	RETURN;
+END_IF
+rDiv := DINT_TO_REAL(TRUNC(rActPosition *1000) MOD REAL_TO_DINT(rStepPos*1000))/1000;
+
+IF PositionReachedValue(rDiv, rStepPos / 2, (rStepPos / 2) - 1)
+AND (rActPosition > 1)
+AND (rActPosition < (Conveyors.Unit[1].MaxPositionsOnConveyor * rStepPos))
+THEN
+	Tr_ActPosChanged(CLK := rStepPos * TO_INT(rActPosition / rStepPos) <> rStatusPosition);
+END_IF
+
+IF Tr_ActPosChanged.Q THEN
+iNumberOfSteps		:= (REAL_TO_INT(((rStepPos * REAL_TO_INT(rActPosition / rStepPos)) - rStatusPosition) / rStepPos));
+// iNumberOfSteps is the number of steps between the last status position and the current position
+	IF iNumberOfSteps MOD(UPPER_BOUND(Status,1)) <> 0 THEN
+		WHILE iNumberOfSteps > 0  DO
+			FOR di := UPPER_BOUND(Status, 1) TO 2 BY -1 DO
+				Status[di] := Status[di-1];
+			END_FOR
+			ClearProducts.StackArray1D(Status[1]);
+			iNumberOfSteps		:= iNumberOfSteps - 1;
+		END_WHILE
+	END_IF
+	rStatusPosition	:= rStepPos * REAL_TO_INT(rActPosition / rStepPos);
+	Tr_ActPosChanged(CLK := FALSE);
+END_IF
+
+END_FUNCTION_BLOCK

@@ -1,5 +1,6 @@
 LIBRARY L_IMHP_ModuleHandler
 NAMESPACE L_IMHP
-RESOLUTION L_IMHP_ModuleHandler, * (Lenze)
+RESOLUTION L_IMHP_ModuleHandler, 3.34.0.11 (Lenze)
 PLACEHOLDER true
 SYSTEM false
+DEPENDENCIES Standard, L_SMHP_ModuleHandler, L_SEMP_ErrorManagement, CmpEventMgr, SysTime, Base Interfaces, * (System), IoDrvBase, CmpErrors2 Interfaces, * (System), IoStandard, SysMem, L_UBUP_BasicUtilities, System_VisuElemXYChart, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, system_visuinputs, L_IE1P_ApplicationErrorsTypes, IoDriver2 Interfaces, * (System), StringUtils, SysTypes2 Interfaces, * (System), CmpApp, IoDriver Parameter2 Interfaces, * (System), L_SI9P_IoDrvi900

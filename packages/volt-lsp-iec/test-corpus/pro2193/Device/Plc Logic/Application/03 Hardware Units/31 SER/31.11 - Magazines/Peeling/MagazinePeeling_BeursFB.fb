@@ -1,0 +1,329 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK MagazinePeeling_BeursFB
+EXTENDS ModuleBaseHardwareFB
+IMPLEMENTS IMagazinePeeling_Commands
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}
+	Vacuum						: ARRAY[1..MaxVacuums] OF VacuumWithPressureFB;
+	{attribute 'symbol' := 'readwrite'}
+	Hammer						: ARRAY[1..MaxHammers] OF HammerFB;
+	{attribute 'symbol' := 'readwrite'}
+	PeelCylinder				: Cylinder_52Valve_TimedFB;
+	{attribute 'symbol' := 'readwrite'}
+	Stopper						: Cylinder_52Valve_TimedFB;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: MagazinePeeling_Data;
+END_VAR
+VAR
+	{attribute 'hide'}
+	_labelsPeeled				: BOOL;
+END_VAR
+VAR CONSTANT
+	MaxVacuums					: USINT	:= 4;
+	MaxHammers					: USINT	:= MaxVacuums;
+	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum :=[Vacuum[1], Vacuum[2], Vacuum[3], Vacuum[4]];
+	itfHammers					: ARRAY[1..MaxHammers] OF IActuator := [Hammer[1], Hammer[2], Hammer[3], Hammer[4]];
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+CycleTime[1](in := FALSE,	timeElapsed => rTimeActive,		timeMeasurement => );
+CycleTime[2](in := FALSE,	timeElapsed => rTimeIdle,		timeMeasurement => );
+
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Vacuum_Errors,
+		errorId					:= TO_WORD(i),
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 3.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		refVacuumHighTime		:= Data.rVacuumHighTime,
+		refReleaseVacuumTime	:= ,
+		input1					:= );
+END_FOR
+
+
+FOR i := 1 TO MaxHammers DO
+	Hammer[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= MagazineBase_Errors,
+		errorId					:= TO_UINT(i) + 10,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 0.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		rTimeLow				:= Data.rHammerOffTime,
+		rTimeHigh				:= Data.rHammerOnTime,
+		usiLimitStop			:= ,
+		usiLimitAlarm			:= ,
+		uiCounter				=> );
+END_FOR
+
+PeelCylinder(
+	manualControlEnabled		:= SER.ManualControlEnabled AND Stopper.IsIn,
+	moduleHandler				:= ModuleHandler,
+	textRefId					:= ,
+	alarmEnable					:= ,
+	alarmDelay					:= ,
+	severity					:= ,
+	reaction					:= ,
+	errorId_SensorOut			:= ,
+	errorId_SensorIn			:= ,
+	rTimeToGoIn					:= Data.rStopperIN,
+	rTimeToGoOut				:= Data.rStopperOUT);
+
+Stopper(
+	manualControlEnabled		:= SER.ManualControlEnabled AND PeelCylinder.IsOut,
+	moduleHandler				:= ModuleHandler,
+	textRefId					:= ,
+	alarmEnable					:= ,
+	alarmDelay					:= ,
+	severity					:= ,
+	reaction					:= ,
+	errorId_SensorOut			:= ,
+	errorId_SensorIn			:= ,
+	rTimeToGoIn					:= Data.rRollIN,
+	rTimeToGoOut				:= Data.rRollOUT);
+
+// Reset Peeling ready property when Stopper moves up from the label
+IF NOT Stopper.IsOut THEN
+	LabelsPeeled := FALSE;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ActState := MagazinePeeling_State.None;
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+Arrays.Actuator_ResetAll(itfHammers);
+
+PeelCylinder.Reset();
+Stopper.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PUBLIC Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	ExchangeSets.Cover_Margarine, ExchangeSets.Tray_Margarine:
+		Execute_Sequence1();
+//	ExchangeSets.Product2, ExchangeSets.Product3:
+//		Execute_Sequence2();
+	ELSE
+		ShowNoProgramWarning();
+		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+CASE ActState OF
+	MagazinePeeling_State.None:
+		;
+
+	MagazinePeeling_State.Resetting_1:
+		Arrays.Vacuum_ReleaseAll(itfVacuums);
+		Arrays.Actuator_ResetAll(itfHammers);
+
+		LabelsPeeled := FALSE;
+
+		PeelCylinder.Reset();
+		Stopper.Reset();
+
+		xCommandDone := TRUE;
+		ActState := MagazinePeeling_State.None;
+
+
+	// Stopper goes up from the second label
+	MagazinePeeling_State.MoveStopperUp:
+		Arrays.Vacuum_ReleaseAll(itfVacuums);
+		IF Stopper.GoIn() THEN
+			ActState := MagazinePeeling_State.MoveRollIn;
+		END_IF
+
+	// Roll moves towards the label
+	MagazinePeeling_State.MoveRollIn:
+		IF PeelCylinder.GoIn() THEN
+			ActState := MagazinePeeling_State.PeelLabels;
+		END_IF
+
+	MagazinePeeling_State.PeelLabels:
+		IF GetAllLabels() THEN
+			ActState := MagazinePeeling_State.MoveRollOut;
+		END_IF
+
+	// Roll moves away from the label and takes the label with it
+	MagazinePeeling_State.MoveRollOut:
+		IF PeelCylinder.GoOut() THEN
+			ActState := MagazinePeeling_State.MoveStopperDown;
+		END_IF
+
+	// Stopper moves down to press the second label down
+	MagazinePeeling_State.MoveStopperDown:
+		IF Stopper.GoOut() THEN
+			LabelsPeeled := TRUE;	// Maybe set Peeling Ready property a couple of states sooner??
+		//	Arrays.Vacuum_ReleaseAll(itfVacuums);
+			xCommandDone := TRUE;
+			ActState := MagazinePeeling_State.None;
+		END_IF
+
+END_CASE
+END_METHOD
+
+METHOD PROTECTED GetAllLabels : BOOL
+VAR_INST
+	Timer	: BTON;
+END_VAR
+%FOLDER States
+IF xEntryActionActive THEN
+	Timer.Reset();
+END_IF
+
+Timer.Set(TRUE, 1.3);
+
+//FOR i := 1 TO MaxVacuums DO
+//	IF Vacuum[i].HasPressure THEN
+//		Vacuum[i].Set();
+//		Hammer[i].Reset();
+//	ELSIF Timer.Q AND NOT Vacuum[i].IsTurnedOn THEN
+//		Hammer[i].Set();
+//	END_IF
+//END_FOR
+
+// Alternative option to gain some speed:
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i].Set();
+	IF Vacuum[i].IsHigh THEN
+		Hammer[i].Reset();
+	ELSIF Timer.Q THEN
+		Hammer[i].Set();
+	END_IF
+END_FOR
+
+IF HasPayload = enumPayload._All THEN
+	GetAllLabels := TRUE;
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER Commands
+IF ActState = MagazinePeeling_State.None AND NOT xCommandDone THEN
+	ActState := MagazinePeeling_State.Resetting_1;		// Resetting		<-- Press F12 here
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+Reset := xCommandDone;
+END_METHOD
+
+METHOD ResetPeelingVacuums : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+END_METHOD
+
+METHOD PUBLIC SetDefaultData
+%FOLDER Commands
+Data.rStopperIN						:= 0.3;
+Data.rStopperOUT					:= 0.2;
+
+Data.rRollIN						:= 0.2;
+Data.rRollOUT						:= 0.2;
+
+Data.rVacuumHighTime				:= 0.2;
+
+Data.rHammerOnTime					:= 0.2;
+Data.rHammerOffTime					:= 0.5;
+END_METHOD
+
+// Start some action on the module
+METHOD StartCommand : BOOL
+VAR_INPUT
+	iParameter : INT := 0;
+END_VAR
+%FOLDER Commands
+IF ActState = MagazinePeeling_State.None AND NOT xCommandDone THEN
+	iCommandParameter := iParameter;	// Copy parameters
+
+	ActState := MagazinePeeling_State.MoveStopperUp;
+END_IF
+
+// Set command busy
+xCommandBusy := TRUE;
+
+// Return result when done
+StartCommand := xCommandDone;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ActState := MagazinePeeling_State.None;
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+Arrays.Actuator_ResetAll(itfHammers);
+
+// If labels are peeled and ready, keep them.
+IF NOT LabelsPeeled THEN
+	PeelCylinder.Reset();
+	Stopper.Reset();
+END_IF
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_All(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Input)
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Any(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY
+
+// Labels are peeled
+{attribute 'monitoring':='call'}
+PROPERTY LabelsPeeled : BOOL
+%FOLDER Properties
+GET
+LabelsPeeled := _labelsPeeled;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_labelsPeeled := LabelsPeeled;
+END_SET
+END_PROPERTY
