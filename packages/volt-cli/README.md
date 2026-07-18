@@ -1,43 +1,50 @@
-# volt-cli — the unified C# toolchain (in progress)
+# volt-cli — the Volt toolchain (one C# solution)
 
-The combined **bridge + CLI** in one language, per openspec `unify-bridge-cli-language`. Today `volt-bridge` (C#)
-and `volt-git` (TypeScript) are joined by an HTTP wire with a hand-duplicated contract; this package collapses
-them onto C# and replaces HTTP with a **Windows named pipe**.
+The whole PLC toolchain in one package, over Windows **named pipes**: the `volt` CLI (git-native sync), the
+two in-IDE bridges (CODESYS / TwinCAT), the tray connector, and the shared `Volt.Cli.Core`. There is no HTTP
+server and no separate client/server contract — the CLI, the bridges, and the connector all compile against one
+Core and speak one pipe wire.
 
-> **The old packages stay in parallel as the backup.** `packages/volt-bridge` and `packages/volt-git` are
-> **untouched** — the shipping toolchain — while this is built out. `volt-cli` only *references* the bridge's
-> `Volt.Bridge.Core` (read-only reuse, not a fork); when this replaces the toolchain, Core migrates in and the
-> backups are retired.
+## Why named pipes
 
-## Why named pipes instead of HTTP
-
-The CODESYS object model lives only inside CODESYS.exe (a net48 library loaded by the IDE's script host), so a
-process boundary between the CLI and the in-IDE agent is unavoidable — but it doesn't need to be HTTP. A local
-**named pipe** carries the same newline-delimited-JSON frames (`{"progress":…}*` then one `{"result":…}`/
-`{"error":…}`) with less machinery and no listening socket. The wire shape is otherwise identical, so clients and
-the streaming/`activeOp` semantics port over unchanged.
+The CODESYS object model lives only inside `CODESYS.exe` (a net48 library the IDE's script host loads), so a
+process boundary between the CLI and the in-IDE bridge is unavoidable — but it doesn't need to be a socket. A
+local **named pipe** carries newline-delimited JSON frames (`{"progress":…}*` then one `{"result":…}` /
+`{"error":…}`) with no listening port: one pipe per live bridge (`volt.bridge.codesys` / `volt.bridge.beckhoff`),
+the CLI and connector are clients.
 
 ## Layout
 
 ```
 src/
-  Volt.Cli.Transport/   netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames) — replaces HTTP
-  Volt.Cli.Host/        netstandard2.0  wires the pipe to the SAME Core services (refs/fetch/push/build + activeOp)
-  Volt.Cli/             net8 exe        the `volt` CLI — C# port of packages/volt-git (phase 2, module-by-module)
+  Volt.Cli.Transport/    netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames)
+  Volt.Cli.Host/         netstandard2.0  wires the pipe to Core's services (refs/fetch/push/build + activeOp)
+  Volt.Cli.Core/         netstandard2.0  the transport-agnostic bridge logic (ST/PLCopen/VG, push/fetch/build,
+                                         versioning, the Ide-driver contract) — see ARCHITECTURE.md
+  Volt.Cli.Sync/         net8            the git-native sync (the volt/ide merge tree, changeset/status model,
+                                         materialize) — the guts of the `volt` verbs
+  Volt.Cli/              net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge)
+  Volt.Cli.Ide.Codesys/  net48 lib       CodesysDriver + PipeHost — loaded in-proc by the CODESYS script host
+  Volt.Cli.Ide.Twincat/  net8 exe        BeckhoffDriver + the worker the connector spawns (attaches to XAE via COM)
+  Volt.Cli.Connector/    net8 winexe     the tray supervisor (spawns/monitors the workers; probes `health`)
 test/
-  Volt.Cli.Tests/       net8 xUnit      the bridge wire tests, reformatted onto the pipe (green — see below)
+  Volt.Cli.Tests/        net8 xUnit      pipe transport + ported sync + black-box CLI parity
+  Volt.Cli.Core.Tests/   net8 xUnit      the shared Core (parsing / PLCopen / VG round-trip / push+fetch)
+  e2e/                   bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
 
-`Volt.Cli.Transport` and `Volt.Cli.Host` target `netstandard2.0` so the SAME assemblies load in the CODESYS
-net48 in-proc host, the net8 TwinCAT host, and the net8 CLI/tests — exactly like `Volt.Bridge.Core`.
+`Transport` / `Host` / `Core` target `netstandard2.0` so the SAME assemblies load in the CODESYS net48 host, the
+net8 TwinCAT host, and the net8 CLI/tests.
 
-## Status
+## Build & test
 
-- **Done (phase 1):** the pipe transport (server + client), the host wiring to Core's services incl. the
-  `activeOp` busy signal, and the bridge wire tests reformatted onto the pipe — all building + passing.
-- **Next (phase 2):** port `volt-git/src` (git plumbing → `Process`; the volt/ide merge tree; changeset/status
-  model; materialize; kind registry reused from Core) module-by-module, verified by a **black-box parity suite**
-  proven green on the TS CLI first. Then the in-proc CODESYS/TwinCAT pipe hosts, and the distribution cutover
-  (share the connector's .NET runtime; drop Bun; installer + updater unchanged).
+```bash
+dotnet build Volt.Cli.sln -c Release                 # the whole toolchain (all TFMs)
+dotnet test test/Volt.Cli.Tests/                     # pipe transport + sync + black-box CLI
+dotnet test test/Volt.Cli.Core.Tests/                # shared Core
+bun test test/e2e                                    # TS e2e parity suite (set VOLT_PIPE, needs a live bridge)
+pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe workers + the connector bundle
+```
 
-Build/test: `dotnet build Volt.Cli.sln -c Release` · `dotnet test test/Volt.Cli.Tests`.
+Headless CODESYS dev loop: `pwsh scripts/codesys-pipe.ps1 up|down|logs` loads the in-proc pipe host into a
+headless CODESYS against a fixture project; then `VOLT_PIPE=volt.bridge.codesys bun test test/e2e`.

@@ -111,7 +111,7 @@ The whole wire is keyed by bare item name — `refs`, `fetch` `knownItems`, ever
 
 ### VG (graphical) language
 
-Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` / `item-kinds.json` define the vendor-neutral item-type table.
+Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Cli.Core/Workspace/ItemKind` is the source of truth).
 
 ## opencode integration — one env var, additive, safe
 
