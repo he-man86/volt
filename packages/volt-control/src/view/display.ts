@@ -3,9 +3,14 @@
  * user-facing text. Node-free by contract (`HealthState`/`StatusJson` are `import type`, erased at runtime)
  * so it stays renderer-safe. The per-workspace drift projection lives beside this in `./workspace.js`.
  */
-import type { HealthState } from "../bridge/health.js"
+import type { HealthState, Vendor } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { changeCount } from "./types.js"
+
+/** The user-facing IDE name for a bound vendor — what the UI shows instead of the internal pipe/port selector. */
+export function vendorLabel(vendor: Vendor): string {
+  return vendor === "twincat" ? "TwinCAT" : "CODESYS"
+}
 
 // ── per-workspace health → dot/label ─────────────────────────────────────────
 export interface HealthDisplay {
@@ -130,7 +135,7 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
     return {
       severity: "offline",
       label: "Volt: bridge offline",
-      tooltip: "No bridge on the configured port — start it from the Volt Connector (tray)",
+      tooltip: "No bridge for this workspace — start it from the Volt Connector (tray)",
       action: "status",
       incoming,
       outgoing,

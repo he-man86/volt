@@ -367,13 +367,13 @@
       },
       {
         "command": "volt.initTwincat",
-        "title": "Volt: Initialize for TwinCAT (port 8555)",
+        "title": "Volt: Initialize for TwinCAT",
         "category": "Volt",
         "enablement": "volt.twincatLive"
       },
       {
         "command": "volt.initCodesys",
-        "title": "Volt: Initialize for CODESYS (port 8556)",
+        "title": "Volt: Initialize for CODESYS",
         "category": "Volt",
         "enablement": "volt.codesysLive"
       },

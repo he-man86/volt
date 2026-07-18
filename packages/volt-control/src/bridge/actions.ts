@@ -59,7 +59,7 @@ function parseJson<T>(stdout: string): T | null {
 /** Probe the bridge, then `volt status --json`. UI-agnostic; never throws. */
 export async function fetchStatus(workspaceRoot: string, port?: number): Promise<StatusResult> {
   const p = port ?? readBridgePort(workspaceRoot)
-  if (p === undefined) return { health: { kind: "unknown" }, error: "no bridge port in config" }
+  if (p === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
   const health = await probeHealth(p, 2000)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
   // A mutation (init/pull/push/build) is running on the shared bridge — from THIS process, another frontend, or a

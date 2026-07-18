@@ -31,6 +31,7 @@ test("projectWorkspace: tags A/M/D, strips src/, and reports the port as initial
   const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, port: 8556 })
   expect(v.initialized).toBe(true)
   expect(v.port).toBe(8556)
+  expect(v.vendor).toBe("codesys") // 8556 → CODESYS; the UI shows this, not the port
   expect(v.paused).toBeNull()
   expect(v.incoming).toEqual([
     { name: "New.fb", sub: "A", relPath: "POUs/New.fb" },

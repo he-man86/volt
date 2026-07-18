@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgePort, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgePort, vendorLabel, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -221,7 +221,7 @@ function bridgeRoots(views: WorkspaceView[]): VoltNode[] {
 		const icon = hd.tone === "ok" ? "pass" : hd.tone === "error" ? "error" : "warning"
 		nodes.push({ key: `bridge:${v.workspaceRoot}`, label: hd.label, icon: new vscode.ThemeIcon(icon), tooltip: v.workspaceRoot })
 
-		if (v.port !== undefined) nodes.push({ key: `port:${v.workspaceRoot}`, label: `Port ${v.port}`, icon: new vscode.ThemeIcon("plug") })
+		if (v.vendor !== undefined) nodes.push({ key: `vendor:${v.workspaceRoot}`, label: vendorLabel(v.vendor), icon: new vscode.ThemeIcon("plug") })
 
 		// Bridge lifecycle is the connector's job (tray) — the view only reports; it never starts bridges.
 		if (!hd.online)

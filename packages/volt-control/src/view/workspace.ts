@@ -4,7 +4,7 @@
  * host / desktop main — both Node) supplies `port` (read via readBridgePort in their context); this stays
  * pure so it's unit-testable without a filesystem and both frontends render the same model.
  */
-import type { HealthState } from "../bridge/health.js"
+import { vendorForPort, type HealthState, type Vendor } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { healthDisplay, type HealthDisplay } from "./display.js"
 
@@ -29,6 +29,8 @@ export interface WorkspaceView {
   initialized: boolean
   workspaceRoot: string
   port?: number
+  /** The bound vendor (derived from `port`) — what the UI shows; the port is an internal pipe selector. */
+  vendor?: Vendor
   health: HealthDisplay
   /** Why the IDE axis is paused (distinct reasons drive distinct affordances), or null when live. */
   paused: "mismatch" | "merging" | null
@@ -55,6 +57,7 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
     initialized: input.port !== undefined,
     workspaceRoot: input.workspaceRoot,
     port: input.port,
+    vendor: input.port !== undefined ? vendorForPort(input.port) : undefined,
     health: healthDisplay(input.health),
     paused,
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],
