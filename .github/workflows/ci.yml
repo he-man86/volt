@@ -11,6 +11,10 @@
 # LOAD-BEARING: `dev` protection requires the contexts typecheck / test / lint / integration / openspec. Those are
 # the JOB IDs below. Rename one and every PR blocks forever on a check that never reports, until an admin updates
 # branch protection to match.
+#
+# `volt-cli` (the C# toolchain) is the one job on windows-latest — the net48/net8-windows IDE hosts + WinForms
+# connector don't build on Linux. It runs on every PR but is NOT yet a required context; add it to `dev` branch
+# protection to make it gate.
 name: ci
 
 on:
@@ -80,10 +84,29 @@ jobs:
       - name: Build binaries (feeds the wiring check)
         run: |
           bun run --cwd packages/volt-lsp-iec build   # lsp-iec first (dependency order)
-          bun run --cwd packages/volt-git build
+          bun run --cwd packages/volt-git build        # the HTTP backup CLI (demoted; guards the WIRE_VERSION gate)
           bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
       - name: Wiring check (config layer + bins + version parity)
         run: bun run volt-scripts/check-wiring.ts
+
+  # The unified C# toolchain (packages/volt-cli) + the Core it shares with the bridges. Windows-only: it builds the
+  # net48 in-proc CODESYS host + the net8-windows TwinCAT worker + the WinForms connector, none of which compile on
+  # Linux. Not yet a required context — see the header note.
+  volt-cli:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the CLI toolchain (all TFMs — incl. the Windows IDE hosts)
+        run: dotnet build packages/volt-cli/Volt.Cli.sln -c Release --nologo
+      - name: Build the connector (the HTTP→pipe migration)
+        run: dotnet build packages/volt-bridge/src/Volt.Bridge.Connector/Volt.Bridge.Connector.csproj -c Release --nologo
+      - name: Test — pipe transport + ported sync + black-box
+        run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo
+      - name: Test — shared Core (push/validate incl. delete-idempotency)
+        run: dotnet test packages/volt-bridge/test/Volt.Bridge.Tests/Volt.Bridge.Tests.csproj -c Release --nologo
 
   # Validate the proposals in openspec/changes. NOT path-filtered: it's a required check, and a path-filtered
   # required check blocks PRs that don't touch openspec/ (GitHub waits forever for a check that never reports).

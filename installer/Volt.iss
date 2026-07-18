@@ -4,7 +4,7 @@
 ; PrivilegesRequired=lowest. Auto-update is the connector's job (Updater.cs) — it downloads a newer Setup.exe and
 ; re-runs it /VERYSILENT, so Inno upgrades in place; CloseApplications lets that replace the running connector.
 ;
-; Defines are passed by volt-scripts/build-app.ts:
+; Defines are passed by volt-scripts/build-installer.ts:
 ;   AppVersion  the release version (X.Y.Z)   StageDir   the assembled payload (connector at root + bin/ etc.)
 ;   OutputDir   where Volt-win-Setup.exe lands  SetupIcon  the app .ico
 
