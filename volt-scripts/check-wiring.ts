@@ -118,9 +118,11 @@ check("volt-vscode extension entry compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))
 		|| "not built — run: bun run --cwd packages/volt-vscode build"
 );
-check("volt-vscode CLI integration compiled", () =>
-	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/cli.js"))
-		|| "cli.ts not built — run the extension's build"
+// The extension no longer bundles a CLI — the C# `volt` comes from the Volt install on PATH (a native per-platform
+// exe is too heavy for a Marketplace .vsix). It still bundles the LSP server, which runs via the editor's node.
+check("volt-vscode LSP server bundled", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/lsp-server.js"))
+		|| "not built — run: bun run --cwd packages/volt-vscode build"
 );
 
 console.log("\n" + "-".repeat(40));
@@ -133,14 +135,14 @@ if (failed > 0) {
 console.log("\nOne-time PATH setup (so bare `volt` works in shells / opencode bash / VS Code terminal):");
 if (process.platform === "win32") {
 	console.log("  PowerShell (this session only):");
-	console.log(`    $env:Path = "${join(REPO_ROOT, "packages/volt-git/scripts")};$env:Path"`);
+	console.log(`    $env:Path = "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};$env:Path"`);
 	console.log("  PowerShell (permanent, current user):");
-	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "packages/volt-git/scripts")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
+	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
 } else {
 	console.log("  Bash / zsh (this session only):");
-	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-git/scripts")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
 	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
-	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-git/scripts")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
 }
 
 console.log("\nVerify loading (automated): bun volt-scripts/verify-opencode.ts");
