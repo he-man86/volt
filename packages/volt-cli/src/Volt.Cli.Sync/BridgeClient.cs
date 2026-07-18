@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Volt.Bridge.Core.Wire;
+using Volt.Cli.Core.Wire;
 using Volt.Cli.Transport;
 
 namespace Volt.Cli.Sync;

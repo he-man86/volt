@@ -24,10 +24,9 @@
   },
   "workspaces": {
     "packages": [
-      "packages/volt-bridge",
+      "packages/volt-cli",
       "packages/volt-control",
       "packages/volt-desktop",
-      "packages/volt-git",
       "packages/volt-lsp-iec",
       "packages/volt-vscode",
       "packages/volt-www",

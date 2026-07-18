@@ -144,8 +144,8 @@
         "wrangler": "4.50.0",
       },
     },
-    "packages/volt-bridge": {
-      "name": "@volt/bridge",
+    "packages/volt-cli": {
+      "name": "@volt/cli",
       "version": "0.1.0",
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
@@ -171,7 +171,7 @@
     },
     "packages/volt-desktop": {
       "name": "@volt/desktop",
-      "version": "0.2.0",
+      "version": "0.2.4",
       "dependencies": {
         "@volt/control": "workspace:*",
       },
@@ -181,24 +181,6 @@
         "@typescript/native-preview": "catalog:",
         "electron": "42.3.3",
         "electron-builder": "^25.1.8",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/volt-git": {
-      "name": "@volt/git",
-      "version": "0.1.0",
-      "bin": {
-        "volt": "./dist/bin.js",
-      },
-      "dependencies": {
-        "@volt/lsp-iec": "workspace:*",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/bun": "catalog:",
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -222,7 +204,7 @@
     },
     "packages/volt-vscode": {
       "name": "volt-vscode",
-      "version": "0.2.0",
+      "version": "0.2.4",
       "dependencies": {
         "@volt/control": "workspace:*",
         "@volt/lsp-iec": "workspace:*",
@@ -1290,13 +1272,11 @@
 
     "@vitest/utils": ["@vitest/utils@4.1.10", "", { "dependencies": { "@vitest/pretty-format": "4.1.10", "convert-source-map": "^2.0.0", "tinyrainbow": "^3.1.0" } }, "sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA=="],
 
-    "@volt/bridge": ["@volt/bridge@workspace:packages/volt-bridge"],
+    "@volt/cli": ["@volt/cli@workspace:packages/volt-cli"],
 
     "@volt/control": ["@volt/control@workspace:packages/volt-control"],
 
     "@volt/desktop": ["@volt/desktop@workspace:packages/volt-desktop"],
-
-    "@volt/git": ["@volt/git@workspace:packages/volt-git"],
 
     "@volt/lsp-iec": ["@volt/lsp-iec@workspace:packages/volt-lsp-iec"],
 

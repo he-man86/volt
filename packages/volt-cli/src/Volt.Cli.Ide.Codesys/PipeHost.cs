@@ -1,6 +1,5 @@
 using System;
-using Volt.Bridge.Codesys;
-using Volt.Bridge.Core.Diagnostics;
+using Volt.Cli.Core.Diagnostics;
 using Volt.Cli.Host;
 using Volt.Cli.Transport;
 

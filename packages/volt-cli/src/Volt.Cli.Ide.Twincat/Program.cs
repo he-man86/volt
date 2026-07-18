@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
-using Volt.Bridge.Beckhoff;
-using Volt.Bridge.Core.Diagnostics;
+using Volt.Cli.Core.Diagnostics;
 using Volt.Cli.Host;
 using Volt.Cli.Ide.Twincat;
 using Volt.Cli.Transport;

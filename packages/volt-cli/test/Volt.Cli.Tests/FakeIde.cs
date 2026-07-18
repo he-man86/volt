@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Volt.Bridge.Core.Diagnostics;
-using Volt.Bridge.Core.Ide;
-using Volt.Bridge.Core.Library;
-using Volt.Bridge.Core.Wire;
-using Volt.Bridge.Core.Workspace;
+using Volt.Cli.Core.Diagnostics;
+using Volt.Cli.Core.Ide;
+using Volt.Cli.Core.Library;
+using Volt.Cli.Core.Wire;
+using Volt.Cli.Core.Workspace;
 
 namespace Volt.Cli.Tests;
 

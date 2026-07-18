@@ -1,9 +1,9 @@
 using System;
 using System.Text.Json;
 using System.Threading;
-using Volt.Bridge.Core.Ide;
-using Volt.Bridge.Core.Sync;
-using Volt.Bridge.Core.Wire;
+using Volt.Cli.Core.Ide;
+using Volt.Cli.Core.Sync;
+using Volt.Cli.Core.Wire;
 using Volt.Cli.Transport;
 
 namespace Volt.Cli.Host;
@@ -12,7 +12,7 @@ namespace Volt.Cli.Host;
 /// Hosts the Volt bridge protocol over a named pipe instead of HTTP — the SAME Core services (RefsService /
 /// FetchService / PushService / BuildService) and the SAME activeOp busy signal, reached by the CLI (and the
 /// connector) over a local pipe. This is the transport half of the volt-cli consolidation; the IDE-access half
-/// stays in Volt.Bridge.Core, and the op still runs on the driver's marshalled thread.
+/// stays in Volt.Cli.Core, and the op still runs on the driver's marshalled thread.
 /// </summary>
 public sealed class BridgePipeHost : IDisposable
 {

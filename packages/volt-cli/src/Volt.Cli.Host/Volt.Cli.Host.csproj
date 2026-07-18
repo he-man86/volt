@@ -9,8 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
-    <!-- REUSE the existing, tested bridge Core (backup package, unmodified). When volt-bridge is retired, Core
-         migrates into volt-cli; until then this is a read-only reference, not a fork. -->
-    <ProjectReference Include="..\..\..\volt-bridge\src\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+    <!-- Core holds the transport-agnostic bridge logic (ST/PLCopen/VG, push/fetch/build services). -->
+    <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
   </ItemGroup>
 </Project>

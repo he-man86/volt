@@ -11,6 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
     <!-- Reuse Core's wire DTOs + kind data (one contract). -->
-    <ProjectReference Include="..\..\..\volt-bridge\src\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+    <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
   </ItemGroup>
 </Project>

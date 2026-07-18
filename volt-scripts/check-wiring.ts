@@ -69,13 +69,11 @@ check("volt-lsp-iec skill installer built (dist/src/init.js)", () =>
 );
 
 console.log("\nBuilt binaries");
+// The `volt` PLC CLI is now the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
+// Windows (dotnet), not here. This key-free Linux check covers the LSP + the agent-config layer only.
 check("volt-lsp-iec dist/src/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/bin.js");
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-iec build";
-});
-check("volt CLI dist/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-git/dist/bin.js");
-	return existsSync(path) || "not built — run: bun run --cwd packages/volt-git build";
 });
 
 console.log("\nRuntime smoke test");
@@ -85,20 +83,6 @@ check("volt-lsp-iec --version exits 0", () => {
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
 });
-check("volt CLI wrapper runs (packages/volt-git/scripts/volt[.cmd])", () => {
-	const wrapper = process.platform === "win32"
-		? join(REPO_ROOT, "packages/volt-git/scripts/volt.cmd")
-		: join(REPO_ROOT, "packages/volt-git/scripts/volt");
-	if (!existsSync(wrapper)) return "wrapper missing";
-	const r = spawnSync(wrapper, ["help"], {
-		encoding: "utf-8",
-		timeout: 15_000,
-		shell: process.platform === "win32",
-	});
-	if (r.status !== 0) return `exit ${r.status}: ${(r.stderr || r.stdout).trim().slice(0, 200)}`;
-	if (!r.stdout.includes("volt <command>")) return "unexpected output (HELP signature missing)";
-	return true;
-});
 
 console.log("\nDocumentation corpus");
 check("CODESYS reference corpus index", () =>
@@ -106,20 +90,8 @@ check("CODESYS reference corpus index", () =>
 		|| "corpus missing in packages/volt-lsp-iec/docs/"
 );
 
-console.log("\nWire-protocol version parity");
-// The bridge (C#) and the client (TS) each carry a wire-version constant; they MUST be bumped together on an
-// incompatible wire change. If they drift, a client would refuse a freshly-built bridge (or vice versa).
-check("bridge WireProtocol.Version (C#) == client WIRE_VERSION (TS)", () => {
-	const csPath = join(REPO_ROOT, "packages/volt-bridge/src/Volt.Bridge.Core/Wire/HealthResponse.cs");
-	const tsPath = join(REPO_ROOT, "packages/volt-git/src/bridge/types.ts");
-	if (!existsSync(csPath)) return "HealthResponse.cs missing";
-	if (!existsSync(tsPath)) return "types.ts missing";
-	const cs = readFileSync(csPath, "utf-8").match(/public const int Version\s*=\s*(\d+)/);
-	const ts = readFileSync(tsPath, "utf-8").match(/WIRE_VERSION\s*=\s*(\d+)/);
-	if (!cs) return "C# WireProtocol.Version constant not found";
-	if (!ts) return "TS WIRE_VERSION constant not found";
-	return cs[1] === ts[1] || `mismatch: C#=${cs[1]} TS=${ts[1]} — bump BOTH together on an incompatible wire change`;
-});
+// Wire-protocol version parity is gone with the HTTP wire: the toolchain is one C# codebase over the named pipe,
+// so there is no separate client/server to keep in lockstep — the pipe host and client compile against one Core.
 
 console.log("\nProduct version parity");
 // Volt ships ONE version. volt-desktop is the source of truth (it names the release tag + version.txt, which the

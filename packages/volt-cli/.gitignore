@@ -10,3 +10,6 @@
 
 # Build bundles produced by build-cli.ps1
 dist/
+
+# TS deps for the e2e parity suite (test/e2e) — installed by the root bun workspace
+node_modules/

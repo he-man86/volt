@@ -4,10 +4,8 @@
 #   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.beckhoff`.
 #   - Volt.Cli.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys`.
 #   - Connector:           the one system-tray app that supervises every worker (probes `health` over the pipe).
-# Pipe twin of volt-bridge/scripts/build-bridges.ps1 (which stays as the HTTP backup builder).
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path $PSScriptRoot -Parent           # the volt-cli package dir
-$BRIDGE = Join-Path (Split-Path $ROOT -Parent) "volt-bridge"   # the connector still lives in volt-bridge
 $DIST = "$ROOT\dist"
 
 function Test-DotnetSdk($exe) {
@@ -47,10 +45,6 @@ Write-Output "  OK -> dist\Cli\volt.exe"
 Write-Output "`n[2/4] Volt.Cli.Ide.Twincat (VoltBridgeTwincat.exe)"
 & $DOTNET publish "$ROOT\src\Volt.Cli.Ide.Twincat\Volt.Cli.Ide.Twincat.csproj" -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
-# The BeckhoffDriver comes from the Volt.Bridge.Beckhoff project, which is itself an Exe (the HTTP backup bridge),
-# so publish drags in its apphost. We only need the DLL (the driver) — drop the stray exe so the shipped bundle
-# has ONE TwinCAT worker (the pipe one), not a dead HTTP twin.
-Remove-Item "$DIST\Twincat\Volt.Bridge.Beckhoff.exe" -ErrorAction SilentlyContinue
 Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
@@ -58,12 +52,12 @@ Write-Output "`n[3/4] Volt.Cli.Ide.Codesys (in-proc DLL)"
 & $DOTNET build "$ROOT\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj" -c Release -o "$DIST\Codesys" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$ROOT\scripts\start_pipe.py","$ROOT\scripts\run_pipe_headless.py" -Destination "$DIST\Codesys\" -Force
-if (Test-Path "$BRIDGE\codesys-scriptcommands\config.json") { Copy-Item "$BRIDGE\codesys-scriptcommands\config.json" "$DIST\Codesys\" -Force }
+if (Test-Path "$ROOT\scripts\config.json") { Copy-Item "$ROOT\scripts\config.json" "$DIST\Codesys\" -Force }
 Write-Output "  OK -> dist\Codesys\ (Volt.Cli.Ide.Codesys.dll + deps + pipe scripts)"
 
 # --- Connector (the one tray app) — bundle the workers next to it --
-Write-Output "`n[4/4] Volt.Bridge.Connector"
-& $DOTNET publish "$BRIDGE\src\Volt.Bridge.Connector\Volt.Bridge.Connector.csproj" -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
+Write-Output "`n[4/4] Volt.Cli.Connector"
+& $DOTNET publish "$ROOT\src\Volt.Cli.Connector\Volt.Cli.Connector.csproj" -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null

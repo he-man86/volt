@@ -14,7 +14,7 @@ param(
     [string]$Action = "up",
     [ValidateSet("18", "21")]
     [string]$Version = "21",
-    [string]$Project = "$PSScriptRoot\..\..\volt-bridge\test\CodesysTestProject.project"
+    [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project"
 )
 $ErrorActionPreference = "Stop"
 
