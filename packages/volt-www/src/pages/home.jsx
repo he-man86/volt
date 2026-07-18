@@ -24,7 +24,7 @@ renderPage(
         "The fastest way to put Volt on your PLC project",
       ]}
     >
-      <DesktopApp panel="sync" theme="light" explorer={false} />
+      <DesktopApp panel="sync" theme="light" explorer={false} autoplay />
     </FeatureShowcase>
 
     <FeatureShowcase
@@ -40,7 +40,7 @@ renderPage(
         "A few minutes of setup — bring your own editor",
       ]}
     >
-      <VSCode />
+      <VSCode autoplay />
     </FeatureShowcase>
 
     <FeatureShowcase
@@ -53,7 +53,7 @@ renderPage(
         "More IDEs in consideration — Siemens, Rockwell, and beyond",
       ]}
     >
-      <Bridge />
+      <Bridge autoplay />
     </FeatureShowcase>
 
     <Features />

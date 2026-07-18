@@ -1,7 +1,7 @@
 // Volt Bridge tray mockup — the always-on connector (VoltConnector.exe) that lives in the system tray, manages the
 // bridge, and lets you pick which live IDE it connects to. Interactive: select the IDE, toggle auto-update.
 import { useState } from "react"
-import { useInView } from "../../reveal.jsx"
+import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./bridge.css"
 
 const IDES = [
@@ -18,14 +18,18 @@ function Bolt({ cls }) {
   )
 }
 
-export function Bridge() {
+export function Bridge({ autoplay = false }) {
   const [ref, inView] = useInView()
   const [ide, setIde] = useState("codesys")
   const [auto, setAuto] = useState(true)
   const active = IDES.find((i) => i.id === ide)
+  const play = useAutoplay(
+    [() => setIde("twincat"), () => setAuto(false), () => setIde("codesys"), () => setAuto(true)],
+    autoplay && inView,
+  )
 
   return (
-    <div ref={ref} className={"tray" + (inView ? " is-live" : "")}>
+    <div ref={ref} {...play} className={"tray" + (inView ? " is-live" : "")}>
       <div className="tray-flyout" data-drag-handle>
         <div className="tray-head">
           <span className="tray-brand">
