@@ -54,7 +54,9 @@ function configureTools() {
     setBundledCli(join(bin, "volt.exe"))
     setLspServer(join(bin, "volt-lsp-iec.exe"))
   } else {
-    setBundledCli(join(__dirname, "..", "volt-git", "dist", "bin.js"))
+    // Dev: the C# volt.exe from build-cli.ps1 (setBundledCli no-ops if absent → cliScript falls back to `volt` on
+    // PATH); the LSP is still the bundled .js run via ELECTRON_RUN_AS_NODE.
+    setBundledCli(join(__dirname, "..", "volt-cli", "dist", "Cli", "volt.exe"))
     setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "bin.js"))
   }
 }

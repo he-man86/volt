@@ -37,10 +37,10 @@ function compile(entry: string, name: string): void {
 rmSync(out, { recursive: true, force: true })
 mkdirSync(bin, { recursive: true })
 
-// The `volt` PLC CLI is now the .NET binary (packages/volt-cli), built by build-cli.ps1 below alongside the pipe
-// workers + connector — one dotnet toolchain, one transport (named pipes). The Bun `volt` (packages/volt-git) stays
-// in the tree as the HTTP backup but is no longer shipped. build-cli.ps1 needs the .NET SDK + Windows, so on a box
-// without it (or with --no-bridge) there is no `volt` binary — the self-check below reflects that.
+// The `volt` PLC CLI is the .NET binary (packages/volt-cli), built by build-cli.ps1 below alongside the pipe
+// workers + connector — one dotnet toolchain, one transport (named pipes). build-cli.ps1 needs the .NET SDK +
+// Windows, so on a box without it (or with --no-bridge) there is no `volt` binary — the self-check below reflects
+// that.
 console.log("• volt-lsp-iec")
 compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 

@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
-import { join } from "node:path"
 
 /** The CLI bundled inside the extension (dist/cli.js). Set once at activation.
  *  Shipping the CLI with the extension makes it self-contained: a PLC workspace
@@ -11,19 +10,16 @@ export function setBundledCli(path: string): void {
 	if (existsSync(path)) bundledCli = path
 }
 
-/** Resolve the volt CLI entry script. Prefer the bundled copy; fall back to the
- *  workspace's installed package (dev/monorepo setups). Always a real .js file so
- *  it can be run as a Node script — never the platform shell shim. */
-export function cliScript(workspaceRoot: string): string {
-	if (bundledCli !== undefined) return bundledCli
-	const wsPkg = join(workspaceRoot, "node_modules", "@volt", "git", "dist", "bin.js")
-	if (existsSync(wsPkg)) return wsPkg
-	throw new Error("volt CLI not found (no bundled CLI, none installed in the workspace)")
+/** Resolve the volt CLI: prefer the bundled copy set at activation, else fall back to bare `volt` on PATH — the
+ *  installer adds the shipped `volt.exe` to PATH, so an installed machine always resolves it. Returns either a real
+ *  path (a bundled `.exe`/`.js`) or the bare command name for PATH resolution. */
+export function cliScript(_workspaceRoot: string): string {
+	return bundledCli ?? "volt"
 }
 
 /** Spawn the volt CLI. A `.js` entry runs via the editor's own runtime (ELECTRON_RUN_AS_NODE makes
- *  process.execPath behave as plain node — works in VS Code / Windsurf / Cursor, no external node). A compiled
- *  standalone (`.exe`, the desktop install) is spawned directly. */
+ *  process.execPath behave as plain node — works in VS Code / Windsurf / Cursor, no external node). The compiled
+ *  standalone (`volt.exe`, the shipped CLI) — or a bare `volt` on PATH — is spawned directly. */
 function spawnCli(workspaceRoot: string, args: string[], extraEnv?: Record<string, string>) {
 	const script = cliScript(workspaceRoot)
 	const asNode = script.toLowerCase().endsWith(".js")

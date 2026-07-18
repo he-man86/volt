@@ -1,8 +1,6 @@
 import * as vscode from "vscode"
-import { join } from "node:path"
 import { resolveOpencodeExe, hasOpencode } from "./agent.js"
 import { startLsp } from "./lsp.js"
-import { setBundledCli } from "@volt/control"
 import { registerCommands } from "./commands.js"
 import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
@@ -25,8 +23,9 @@ async function promptInstallOpencode(): Promise<void> {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
-	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
+	// The `volt` CLI is the shipped C# binary the Volt installer puts on PATH — a prerequisite the extension does
+	// not bundle (a per-platform native exe is too heavy for a Marketplace .vsix). volt-control's cliScript falls
+	// back to `volt` on PATH, so no setBundledCli here; the LSP + language features work standalone regardless.
 
 	// "Volt: Open Agent" — open, or focus an already-open, agent terminal running opencode (which Volt makes
 	// PLC-aware via OPENCODE_CONFIG_DIR). New Session always starts a fresh one. opencode is a PREREQUISITE the
