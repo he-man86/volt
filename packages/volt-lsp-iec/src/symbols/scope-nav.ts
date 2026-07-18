@@ -114,19 +114,29 @@ export function findScopeByName(project: Scope, name: string): Scope | undefined
  * back to a name walk for scopes built independently of the parsed unit (some tests).
  */
 export function scopeForUnit(project: Scope, unit: TopLevel): Scope | undefined {
-  const bySpan = matchSpan(project, unit.span)
+  const bySpan = spanIndex(project).get(unit.span)
   if (bySpan !== undefined) return bySpan
   const name = "name" in unit ? unit.name.text : undefined
   return name !== undefined ? findScopeByName(project, name) : undefined
 }
 
-function matchSpan(scope: Scope, span: Span): Scope | undefined {
-  for (const child of scope.children) {
-    if (child.span === span) return child
-    const inner = matchSpan(child, span)
-    if (inner !== undefined) return inner
+// Called by ~13 checks × every file: a per-call DFS over the project tree (thousands of scopes) made the
+// whole diagnostic pass O(files × project) — quadratic. Index span→scope ONCE per project (keyed on root
+// identity, like childScopesByName / the data-recursion graph) so `scopeForUnit` is O(1).
+const spanIndexCache = new WeakMap<Scope, Map<Span, Scope>>()
+function spanIndex(project: Scope): Map<Span, Scope> {
+  const cached = spanIndexCache.get(project)
+  if (cached !== undefined) return cached
+  const index = new Map<Span, Scope>()
+  const visit = (scope: Scope): void => {
+    for (const child of scope.children) {
+      if (child.span !== undefined) index.set(child.span, child)
+      visit(child)
+    }
   }
-  return undefined
+  visit(project)
+  spanIndexCache.set(project, index)
+  return index
 }
 
 /**
