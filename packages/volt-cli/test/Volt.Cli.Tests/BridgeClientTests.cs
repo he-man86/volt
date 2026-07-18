@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Cli.Core.Wire;
-using Volt.Cli.Core.Wire;
 using Volt.Cli.Sync;
 using Volt.Cli.Transport;
 using Xunit;
