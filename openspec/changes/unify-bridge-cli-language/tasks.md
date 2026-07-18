@@ -77,4 +77,11 @@ The "keep backups in parallel" plan was superseded: `volt-cli` is now the single
       `ci.yml` (windows `volt-cli` job builds the sln + Core.Tests), CLAUDE.md + all package docs.
 - Validated throughout: consolidated sln builds 0 errors; Core.Tests 268/0, Cli.Tests 25/0; `build-cli.ps1`
   publishes + bundles; shipped `volt.exe init` pulled 593 files from live headless CODESYS.
-- REMAINING (unchanged): full install-smoke gate + cold-start record + a live TwinCAT full pull.
+- [x] 6.6 Install-smoke gate GREEN: `build:installer` → `Volt-win-Setup.exe` (196 MB); `test:install` verified the
+      install (VoltConnector, `OPENCODE_CONFIG_DIR`, PATH, vsix, shortcut, login item, Add/Remove, tray) **and** a
+      clean uninstall. Inno `FileCopy`→`CopyFile` hint fixed.
+- [x] 6.7 Cold-start recorded: self-contained `volt.exe` no-op ~146 ms warm (118 min / 187 cold). Also cut the
+      no-bridge wait 5s → 2s (`volt status` with the IDE closed used to hang on the connect timeout).
+- [x] 6.8 Live TwinCAT full pull GREEN: worker attached to `TwinCAT Project13 / Untitled1` (`VOLT_TC_PROJECT`),
+      `volt init --port 8555` pulled 7 files, `status --json` "in sync", `pull` "already up to date". (An init in
+      the ~1s after the worker launches can race the XAE COM attach — retry once it's steady.)
