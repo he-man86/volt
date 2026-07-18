@@ -3,75 +3,108 @@
 <title>Volt</title>
 <style>
   /* Volt shell chrome. opencode fills the left; a thin icon rail sits on the right (always visible, like
-     opencode's own activity bar) and the IDE panel expands beside it when a rail icon is clicked. */
+     opencode's own activity bar) and the IDE panel expands beside it when a rail icon is clicked.
+     Tokens mirror volt-config/themes/volt.json (the opencode theme) so the chrome and the embedded agent read
+     as one product, and follow the OS light/dark preference the same way opencode does. Light = the branded
+     www.volt palette (warm off-white, #e0651f accent); dark = the warm-dark counterpart. */
   :root {
-    --bg: #16120e; --chrome: #241d16; --border: #342b20; --surface: #1c1610;
-    --text: #f3ead9; --muted: #9a8e7c; --accent: #f2843c; --red: #e8675c; --green: #74c07a; --amber: #f2b24c;
+    /* warm DARK (default) */
+    --bg: #16120e; --surface: #201a14; --chrome: #2a2219; --border: #342b20;
+    --text: #f3ead9; --muted: #9a8e7c; --accent: #f2843c; --accent-hi: #ff9a52; --on-accent: #16120e;
+    --red: #e8675c; --green: #74c07a; --amber: #f2b24c;
+    --hover: color-mix(in srgb, var(--text) 8%, transparent);
+    --hover-strong: color-mix(in srgb, var(--text) 13%, transparent);
+    --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
     --rail-w: 46px; --panel-w: 320px;
+    --r-sm: 5px; --r-md: 7px; --r-lg: 9px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      /* warm LIGHT — the branded website palette */
+      --bg: #fff9f1; --surface: #f4ede2; --chrome: #ebe2d4; --border: #e2d8c8;
+      --text: #1a1714; --muted: #6e665b; --accent: #e0651f; --accent-hi: #b8521a; --on-accent: #fff9f1;
+      --red: #cc4b37; --green: #3e9b52; --amber: #e08a2b;
+    }
   }
   * { box-sizing: border-box; margin: 0; }
-  html, body { height: 100%; font: 13px/1.35 system-ui, sans-serif; color: var(--text); background: var(--bg); user-select: none; overflow: hidden; }
-  .bolt { width: 16px; height: 16px; color: var(--accent); flex: none; }
-  .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  html, body { height: 100%; color: var(--text); background: var(--bg); user-select: none; overflow: hidden;
+    font: 13px/1.4 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  .bolt { width: 15px; height: 15px; color: var(--accent); flex: none; }
+  .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
   .titlebar { height: 40px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 6px 0 14px; background: var(--chrome); border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
-  .brand { display: flex; align-items: center; gap: 8px; font-weight: 660; letter-spacing: .2px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 640; letter-spacing: -0.01em; }
   .winctl { display: flex; gap: 2px; -webkit-app-region: no-drag; }
   .winctl button { width: 34px; height: 26px; border: 0; background: transparent; color: var(--muted);
-    border-radius: 6px; display: grid; place-items: center; cursor: default; font-size: 13px; }
-  .winctl button:hover { background: rgba(243,234,217,.08); }
+    border-radius: var(--r-sm); display: grid; place-items: center; cursor: default; font-size: 13px;
+    transition: background 140ms ease, color 140ms ease; }
+  .winctl button:hover { background: var(--hover); color: var(--text); }
   .winctl .close:hover { background: var(--red); color: #fff; }
 
   /* the always-visible icon rail */
   #rail { position: fixed; top: 40px; right: 0; bottom: 0; width: var(--rail-w); background: var(--chrome);
     border-left: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
   .rail-btn { position: relative; width: 38px; height: 38px; border: 0; background: transparent; color: var(--muted);
-    border-radius: 10px; display: grid; place-items: center; cursor: default; }
-  .rail-btn:hover { background: rgba(243,234,217,.08); color: var(--text); }
-  .rail-btn.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+    border-radius: var(--r-lg); display: grid; place-items: center; cursor: default;
+    transition: background 140ms ease, color 140ms ease; }
+  .rail-btn:hover { background: var(--hover); color: var(--text); }
+  .rail-btn.on { background: var(--accent-soft); color: var(--accent); }
   .rail-btn .bolt, .rail-btn .ico { width: 19px; height: 19px; }
-  .rail-badge { position: absolute; top: 1px; right: 1px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
-    background: var(--accent); color: #16120e; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; }
+  .rail-badge { position: absolute; top: 0; right: 0; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
+    background: var(--accent); color: var(--on-accent); font-size: 10px; font-weight: 700; line-height: 15px; text-align: center;
+    box-shadow: 0 0 0 2px var(--chrome); }
   .rail-badge.err { background: var(--red); color: #fff; }
+  .rail-badge.warn { background: var(--amber); color: var(--on-accent); }
   .rail-badge.hide { display: none; }
-  .rail-dot { margin-top: auto; width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
-  .rail-dot.ok { background: var(--green); } .rail-dot.warn { background: var(--amber); } .rail-dot.error { background: var(--red); }
+  /* Bridge tab: a corner status dot (health tone) instead of a count. */
+  .rail-status { position: absolute; bottom: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted); box-shadow: 0 0 0 2px var(--chrome); }
+  .rail-status.ok { background: var(--green); } .rail-status.warn { background: var(--amber); } .rail-status.error { background: var(--red); }
 
   /* the expandable panel */
   #panel { position: fixed; top: 40px; right: var(--rail-w); bottom: 0; width: var(--panel-w);
     background: var(--surface); border-left: 1px solid var(--border); display: none; overflow-y: auto; }
   #panel.open { display: block; }
+  #panel::-webkit-scrollbar { width: 9px; }
+  #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 
-  .sect { display: flex; align-items: center; gap: 7px; padding: 13px 8px 4px 14px; }
-  .sect .s-title { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
-  .sect + .sect { border-top: 1px solid var(--border); margin-top: 6px; }
-  .s-acts { margin-left: auto; display: flex; gap: 1px; }
-  .ico-btn { width: 25px; height: 22px; border: 0; background: transparent; color: var(--muted); border-radius: 5px;
-    display: grid; place-items: center; cursor: default; }
-  .ico-btn:hover:not(:disabled) { background: rgba(243,234,217,.09); color: var(--text); }
+  .sect { display: flex; align-items: center; gap: 7px; padding: 14px 10px 5px 14px; scroll-margin-top: 4px; }
+  .sect .s-title { font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
+  .sect + .sect { border-top: 1px solid var(--border); margin-top: 7px; }
+  .s-acts { margin-left: auto; display: flex; gap: 2px; }
+  .ico-btn { width: 26px; height: 24px; border: 0; background: transparent; color: var(--muted); border-radius: var(--r-sm);
+    display: grid; place-items: center; cursor: default; transition: background 140ms ease, color 140ms ease; }
+  .ico-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   .ico-btn:disabled { opacity: .3; }
 
-  .grp { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11.5px; padding: 7px 14px 2px; }
-  .grp .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .grp { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 600; padding: 8px 14px 3px; }
+  .grp .n { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 500; }
   .row { display: flex; align-items: center; gap: 8px; padding: 3px 14px; font-size: 12.5px; }
-  .row .stat { font-family: ui-monospace, monospace; font-weight: 700; width: 12px; text-align: center; flex: none; }
+  .row .stat { font-family: ui-monospace, "JetBrains Mono", monospace; font-weight: 700; width: 12px; text-align: center; flex: none; }
   .stat.A { color: var(--green); } .stat.M { color: var(--amber); } .stat.D { color: var(--red); }
   .row .path { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row .n { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; padding-left: 8px; }
-  .note { color: var(--muted); padding: 4px 14px 6px; font-size: 12.5px; display: flex; gap: 7px; align-items: flex-start; }
+  .row .n { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; padding-left: 8px; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); padding: 5px 14px 7px; font-size: 12.5px; line-height: 1.5; display: flex; gap: 7px; align-items: flex-start; }
   .note .bolt, .note .ico { margin-top: 1px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .dot.ok { background: var(--green); } .dot.warn { background: var(--amber); } .dot.error { background: var(--red); }
-  .init-row { display: flex; flex-direction: column; gap: 7px; padding: 8px 14px 10px; }
+  .init-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; }
+
+  /* Buttons — flat, confident, native (no web-CTA outline). Primary = accent fill; secondary = quiet tint. */
   .btn { -webkit-app-region: no-drag; display: flex; align-items: center; justify-content: center; gap: 7px;
-    background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 12px; font: inherit; cursor: default; }
-  .btn:hover { border-color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #16120e; border-color: var(--accent); font-weight: 640; }
-  .btn.primary:hover { filter: brightness(1.06); }
-  .warn-box { display: flex; gap: 8px; margin: 8px 14px; padding: 9px 10px; border-radius: 8px; font-size: 12px;
-    background: rgba(242,178,76,.1); border: 1px solid rgba(242,178,76,.35); color: var(--text); }
+    background: var(--hover); color: var(--text); border: 1px solid transparent; border-radius: var(--r-md);
+    padding: 9px 13px; font: inherit; font-size: 12.5px; font-weight: 550; cursor: default;
+    transition: background 140ms ease, transform 120ms ease; }
+  .btn:hover { background: var(--hover-strong); }
+  .btn:active { transform: translateY(0.5px); }
+  .btn .bolt { color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 640; }
+  .btn.primary:hover { background: var(--accent-hi); }
+  .btn.primary .bolt { color: var(--on-accent); }
+  .warn-box { display: flex; gap: 8px; margin: 8px 14px; padding: 9px 11px; border-radius: var(--r-md); font-size: 12px; line-height: 1.45;
+    background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); color: var(--text); }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -81,6 +114,7 @@
   <symbol id="i-build" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-bridge" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
 </svg>
 
 <div class="titlebar">
@@ -93,13 +127,15 @@
 </div>
 
 <nav id="rail">
-  <button class="rail-btn" id="railSync" title="IDE changes" onclick="toggle()">
+  <button class="rail-btn" id="railSync" title="IDE changes" onclick="tab('sync')">
     <svg class="bolt"><use href="#bolt"/></svg><span class="rail-badge hide" id="driftBadge">0</span>
   </button>
-  <button class="rail-btn" id="railDiag" title="Diagnostics" onclick="toggle()">
+  <button class="rail-btn" id="railDiag" title="Diagnostics" onclick="tab('diag')">
     <svg class="ico"><use href="#i-alert"/></svg><span class="rail-badge err hide" id="diagBadge">0</span>
   </button>
-  <span class="rail-dot" id="bridgeDot" title="Bridge"></span>
+  <button class="rail-btn" id="railBridge" title="Bridge" onclick="tab('bridge')">
+    <svg class="ico"><use href="#i-bridge"/></svg><span class="rail-status" id="bridgeStatus"></span>
+  </button>
 </nav>
 
 <aside id="panel"></aside>
@@ -108,6 +144,7 @@
   let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [] }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
+  let activeTab = "sync" // which rail tab is lit + scrolled to while the panel is open
   let busy = null // live progress text for the in-flight action (pull/push/build/init), else null
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
@@ -115,23 +152,25 @@
   const rows = (items) => items.map((f) => `<div class="row"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
   const grp = (label, items) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${rows(items)}` : ""
   const icoBtn = (icon, title, onclick, off) => `<button class="ico-btn" title="${title}" ${off ? "disabled" : ""} onclick="${onclick}"><svg class="ico"><use href="#${icon}"/></svg></button>`
-  const section = (title, acts, body) => `<div class="sect"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
-
-  function setBadge(id, count, on) {
-    const el = document.getElementById(id)
-    el.textContent = count
-    el.classList.toggle("hide", !on)
-  }
+  const section = (key, title, acts, body) => `<div class="sect" id="sect-${key}"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
 
   function renderRail() {
+    // Sync tab — count of pending changes (incoming + outgoing).
     const n = snap.incoming.length + snap.outgoing.length
-    setBadge("driftBadge", n, n > 0)
-    const errs = diag && !diag.loading && !diag.error ? diag.errors : 0
-    setBadge("diagBadge", errs, errs > 0)
-    document.getElementById("railSync").classList.toggle("on", open)
-    document.getElementById("railDiag").classList.toggle("on", open)
-    const dot = document.getElementById("bridgeDot")
-    dot.className = "rail-dot" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
+    const drift = document.getElementById("driftBadge")
+    drift.textContent = n
+    drift.classList.toggle("hide", n === 0)
+    // Diagnostics tab — red count of errors, else amber count of warnings, else nothing.
+    const d = diag && !diag.loading && !diag.error ? diag : null
+    const db = document.getElementById("diagBadge")
+    if (d && d.errors > 0) db.className = "rail-badge err", (db.textContent = d.errors)
+    else if (d && d.warnings > 0) db.className = "rail-badge warn", (db.textContent = d.warnings)
+    else db.className = "rail-badge err hide"
+    // Bridge tab — a corner status dot in the health tone (ok / warn / error).
+    document.getElementById("bridgeStatus").className = "rail-status" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
+    // Active-tab highlight (VS Code activity-bar style): the rail stays, the open tab is lit.
+    for (const [t, id] of [["sync", "railSync"], ["diag", "railDiag"], ["bridge", "railBridge"]])
+      document.getElementById(id).classList.toggle("on", open && activeTab === t)
   }
 
   function render() {
@@ -191,13 +230,21 @@
     const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
 
     document.getElementById("panel").innerHTML =
-      section("IDE Sync", syncActs, syncBody + warn) +
-      section("Diagnostics", diagActs, diagBody) +
-      section("Bridge", bridgeActs, bridgeBody)
+      section("sync", "IDE Sync", syncActs, syncBody + warn) +
+      section("diag", "Diagnostics", diagActs, diagBody) +
+      section("bridge", "Bridge", bridgeActs, bridgeBody)
   }
 
-  function toggle() {
-    open = !open
+  // A rail tab: open the panel and jump to its section; clicking the already-open tab collapses (VS Code style).
+  function tab(name) {
+    if (open && activeTab === name) return setOpen(false)
+    activeTab = name
+    setOpen(true)
+    document.getElementById("sect-" + name)?.scrollIntoView({ block: "start", behavior: "smooth" })
+  }
+
+  function setOpen(v) {
+    open = v
     document.getElementById("panel").classList.toggle("open", open)
     volt.togglePanel(open)
     render()
