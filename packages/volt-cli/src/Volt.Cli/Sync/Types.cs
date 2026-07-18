@@ -45,7 +45,7 @@ public sealed class StatusData
     public string? Recommend { get; set; }
 }
 
-/// <summary>The pull outcome (mirrors volt-git's PullResult / @volt/control's PullOutcome). Nullable fields +
+/// <summary>The pull outcome (mirrors the TS client's PullResult / @volt/control's PullOutcome). Nullable fields +
 /// omit-when-null serialize each kind's exact shape: ok{synced,status}, refused{reason}, conflict{paths,status}.</summary>
 public sealed class PullResult
 {

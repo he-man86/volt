@@ -4,7 +4,7 @@ public sealed record SrcFile(string Path, string Content);
 
 /// <summary>Workspace file IO — reads/writes the <c>src/</c> tree (the PLC text) and the root
 /// <c>.gitignore</c>/<c>.gitattributes</c>. All paths are src-relative; on disk they live at
-/// <c>&lt;root&gt;/src/&lt;path&gt;</c>. C# port of packages/volt-git/src/files.ts.</summary>
+/// <c>&lt;root&gt;/src/&lt;path&gt;</c>. C# port of the original TypeScript implementation</summary>
 public static class Files
 {
     public const string SrcDir = "src";

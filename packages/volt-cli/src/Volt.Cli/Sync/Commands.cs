@@ -4,7 +4,7 @@ using Volt.Cli.Core.Wire;
 namespace Volt.Cli.Sync;
 
 /// <summary>The `volt` verbs — orchestration over BridgeClient + git + the sync model. C# port of
-/// packages/volt-git/src/commands/*. (status + pull here; push/build/log/show/merge/diff/init follow.)</summary>
+/// the original TypeScript implementation (status + pull here; push/build/log/show/merge/diff/init follow.)</summary>
 public static class Commands
 {
     /// <summary>volt init — bind to the bridge, git-init the project, scaffold the Rust project, do the first

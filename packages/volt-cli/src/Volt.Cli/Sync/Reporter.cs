@@ -6,7 +6,7 @@ namespace Volt.Cli.Sync;
 
 /// <summary>CLI progress reporter — streamed ProgressFrames → stderr (stdout stays clean for --json). A GUI host
 /// sets VOLT_PROGRESS_JSON=1 to get structured frames it parses; humans/AI get throttled text. C# port of
-/// packages/volt-git/src/reporter.ts.</summary>
+/// the original TypeScript implementation</summary>
 public static class Reporter
 {
     private const string ProgressJsonPrefix = "VOLT_PROGRESS ";

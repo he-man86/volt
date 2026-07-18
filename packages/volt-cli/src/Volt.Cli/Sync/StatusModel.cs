@@ -13,7 +13,7 @@ public sealed class BridgeSnapshot
 }
 
 /// <summary>The drift/status model — compute the incoming changeset and the full StatusData from a bridge
-/// snapshot + local git state, with NO bridge calls. C# port of packages/volt-git/src/domain/status-model.ts.</summary>
+/// snapshot + local git state, with NO bridge calls. C# port of the original TypeScript implementation</summary>
 public static class StatusModel
 {
     /// <summary>The IDE-side changeset: the bridge's item→version map diffed against the baseline.</summary>

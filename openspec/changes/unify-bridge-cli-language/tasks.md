@@ -50,12 +50,31 @@
       decoupling). New live-IDE `start_pipe.py` + headless `run_pipe_headless.py`/`codesys-pipe.ps1`. Stray HTTP
       apphost pruned from the bundle. ponytail: each exe is self-contained (runtime duplicated) — dedupe into a
       shared runtime dir only if installer size measurably matters.
-- [x] 5.2 (partial) `volt-config/tool` drops `log`; the tool calls bare `volt` on PATH, so it targets the new exe
-      with NO change (the bare-name design pays off). DEFERRED (gated on production validation — backups stay):
-      retiring `packages/volt-git`, dropping the `WIRE_VERSION` symmetry check (still guards the backup pair),
-      `Updater.cs`/installer confirmation.
+- [x] 5.2 `volt-config/tool` drops `log`; the tool calls bare `volt` on PATH, so it targets the new exe with NO
+      change (the bare-name design pays off).
 - [x] 5.3 (live half) Shipped `dist/Cli/volt.exe` green against real headless CODESYS over the pipe: `init` (593
       items, git seeded), `status --json` "in sync" (`merging:null` present), incremental `pull` "already up to
       date". `build-cli.ps1` passes 25 Volt.Cli tests before publishing. REMAINING: full install-smoke gate
       (`build:installer` + `test:install`) + cold-start record + TwinCAT full pull (needs an XAE with a selected
       project).
+
+## 6. Consolidation — one package, backups deleted (DONE)
+
+The "keep backups in parallel" plan was superseded: `volt-cli` is now the single self-contained package.
+
+- [x] 6.1 Moved `Volt.Bridge.Core` + both drivers + the connector + the C# tests into `volt-cli`, renamed
+      `Volt.Bridge.*` → `Volt.Cli.*`. **Deleted `packages/volt-bridge` and `packages/volt-git`.**
+- [x] 6.2 Stripped the HTTP layer entirely: `BridgeHttpServer`, the HTTP entry points, the `WireProtocol.Version`
+      handshake, openapi/swagger, and the HTTP-only tests. Dropped the `WIRE_VERSION` symmetry check + the volt-git
+      binary checks from `check-wiring`.
+- [x] 6.3 One project per IDE (driver folded into its pipe host), then collapsed 8 → 6 projects: `Sync` → the
+      `volt.exe` CLI, `Host` (`BridgePipeHost`) → `Core/Wire`. Kept Transport (the Connector's wire-only decoupling),
+      Core (netstandard2.0 multi-TFM), the CLI, the two IDE hosts, the Connector.
+- [x] 6.4 Frontends moved off the deleted HTTP wire: `volt-control` `probeHealth` → the `health` op over the pipe;
+      `cli.ts` → the shipped `volt.exe` / `volt` on PATH; desktop dev path; vscode drops the bundled TS `cli.js`
+      (the CLI comes from the Volt install on PATH). Progress-frame contract verified live (`VOLT_PROGRESS` frames).
+- [x] 6.5 Rewired build/CI/scripts/docs: root workspaces, `@volt/cli`, `build-cli.ps1`, `codesys-pipe.ps1`,
+      `ci.yml` (windows `volt-cli` job builds the sln + Core.Tests), CLAUDE.md + all package docs.
+- Validated throughout: consolidated sln builds 0 errors; Core.Tests 268/0, Cli.Tests 25/0; `build-cli.ps1`
+  publishes + bundles; shipped `volt.exe init` pulled 593 files from live headless CODESYS.
+- REMAINING (unchanged): full install-smoke gate + cold-start record + a live TwinCAT full pull.

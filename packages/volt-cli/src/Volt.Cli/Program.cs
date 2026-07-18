@@ -7,7 +7,7 @@ using Volt.Cli.Transport;
 namespace Volt.Cli;
 
 /// <summary>
-/// The `volt` CLI entry — C# port of packages/volt-git/src/bin.ts. Resolves the bridge from the workspace
+/// The `volt` CLI entry — C# port of the original TypeScript implementation Resolves the bridge from the workspace
 /// binding, dispatches the verb, renders (pretty or --json), sets the exit code. Talks to the bridge over the
 /// NAMED PIPE (Volt.Cli.Transport), reusing Volt.Cli.Core's DTOs — one wire contract.
 /// </summary>

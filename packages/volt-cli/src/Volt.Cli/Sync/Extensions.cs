@@ -7,7 +7,7 @@ public sealed record ExtensionDef(string Ext, Access DefaultAccess);
 /// <summary>
 /// Extension registry — the single source of truth for every workspace file extension Volt tracks. The bridge
 /// sends full filenames (name.ext); the CLI looks up the extension here to determine access (rw for source items,
-/// r for references). C# port of packages/volt-git/src/domain/extensions.ts.
+/// r for references). C# port of the original TypeScript implementation
 /// </summary>
 public static class Extensions
 {

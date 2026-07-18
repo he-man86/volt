@@ -28,7 +28,7 @@ public class FetchRequest
     [JsonPropertyName("onlyItems")]
     public List<string>? OnlyItems { get; set; }
 
-    /// <summary>Bootstrap mode: return every item regardless of knownItems. Used by <c>volt-git init</c> to
+    /// <summary>Bootstrap mode: return every item regardless of knownItems. Used by <c>volt init</c> to
     /// seed the first workspace. A normal /fetch without knownItems AND without init=true is an error.</summary>
     [JsonPropertyName("init")]
     public bool Init { get; set; }

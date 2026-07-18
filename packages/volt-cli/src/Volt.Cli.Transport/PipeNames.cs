@@ -10,6 +10,6 @@ public static class PipeNames
     public static string ForVendor(string vendor) => "volt.bridge." + vendor.ToLowerInvariant();
 
     /// <summary>Transition mapping from the legacy fixed ports the workspace binding still stores (8555 = TwinCAT,
-    /// else CODESYS) to the pipe name — mirrors volt-git's vendorForPort until bindings carry the vendor directly.</summary>
+    /// else CODESYS) to the pipe name — mirrors the TS client's vendorForPort until bindings carry the vendor directly.</summary>
     public static string ForPort(int port) => port == 8555 ? Beckhoff : Codesys;
 }

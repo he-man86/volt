@@ -22,7 +22,7 @@ namespace Volt.Cli.Core.Workspace;
 /// spaces) stays literal so paths remain readable ("Interfaces / Data" → "Interfaces %2F Data").
 /// <see cref="Decode"/> restores the exact original name for pushing back to the IDE. Applied per segment at
 /// the bridge boundary only (walk emits, ResolveFolder consumes), so the wire folder is a plain safe string
-/// everywhere downstream — volt-git treats it opaquely.
+/// everywhere downstream — the CLI treats it opaquely.
 /// </summary>
 public static class FolderPath
 {

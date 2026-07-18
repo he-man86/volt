@@ -6,7 +6,7 @@ namespace Volt.Cli.Sync;
 public sealed record MaterializedFile(string Path, string Content);
 
 /// <summary>Item ⇄ file translation. One IDE item = one workspace file. The bridge already materialized graphical
-/// bodies as VG, so this is pure path/content mapping. C# port of packages/volt-git/src/domain/materialize.ts.</summary>
+/// bodies as VG, so this is pure path/content mapping. C# port of the original TypeScript implementation</summary>
 public static class Materialize
 {
     private static string JoinPath(params string[] parts) => string.Join("/", parts.Where(p => p.Length > 0));

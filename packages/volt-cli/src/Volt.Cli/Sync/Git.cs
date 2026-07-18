@@ -30,7 +30,7 @@ public sealed record MergeOutcome(string Kind, IReadOnlyList<string> Paths);
 /// git plumbing — the only place we shell out to <c>git</c>. Two families: object-store ops take the absolute
 /// git dir (build the refs/remotes/volt/ide tree in the object DB); worktree ops take the project root
 /// (status/merge/diff need the working tree). IDE commits use a FIXED author/committer + epoch so the same IDE
-/// state yields the same SHA. C# port of packages/volt-git/src/git.ts.
+/// state yields the same SHA. C# port of the original TypeScript implementation
 /// </summary>
 public static class Git
 {

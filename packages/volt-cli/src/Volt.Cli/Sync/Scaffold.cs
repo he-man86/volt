@@ -7,7 +7,7 @@ public sealed record ScaffoldReport(List<string> Created, List<string> Skipped);
 
 /// <summary>Workspace scaffold — turns a Volt-bound directory into a standard Cargo (Rust) project under `rust/`
 /// plus a README and VS Code settings. Idempotent: existing files are kept unless force. C# port of
-/// packages/volt-git/src/scaffold.ts.</summary>
+/// the original TypeScript implementation</summary>
 public static class Scaffold
 {
     private const string Fallback = "plc_workspace";
