@@ -1,8 +1,7 @@
 /**
- * Shared bridge client for the LSP dev/recording scripts — speaks the Volt named-pipe wire (the HTTP endpoints are
- * gone with the volt-cli cutover). `get`/`post` keep the old path-based call sites working by mapping a route
- * ("/refs", "/build") to the pipe op ("refs", "build"); the pipe host serves byte-identical Core responses, so a
- * re-record over the pipe reproduces the same ground truth the HTTP recorder did.
+ * Shared bridge client for the LSP dev/recording scripts — speaks the Volt named-pipe wire directly. `call(op,
+ * body)` writes one `{op,body}` frame and resolves the terminal result; the pipe host serves byte-identical Core
+ * responses, so a re-record over the pipe reproduces the same ground truth the old HTTP recorder did.
  *
  * VOLT_VENDOR picks the vendor (`codesys` default / `twincat` → pipe `volt.bridge.twincat`); VOLT_PIPE overrides
  * the pipe name outright.
@@ -44,7 +43,3 @@ export function call(op: string, body?: unknown, pipe: string = pipeName()): Pro
   })
 }
 
-const opOf = (path: string): string => path.replace(/^\//, "").split("?")[0]
-
-export const get = (path: string): Promise<any> => call(opOf(path))
-export const post = (path: string, body?: unknown): Promise<any> => call(opOf(path), body)

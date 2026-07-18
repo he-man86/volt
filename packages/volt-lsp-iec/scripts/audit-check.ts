@@ -10,7 +10,7 @@
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
-import { get, post, VENDOR as V } from "./bridge.js"
+import { call, VENDOR as V } from "./bridge.js"
 
 const VENDOR: Vendor = V
 const source = process.argv[2]
@@ -19,10 +19,10 @@ if (source === undefined) {
   process.exit(1)
 }
 async function pushOps(ops: unknown[]): Promise<boolean> {
-  const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })
+  const r = await call("push", { expectedProjectVersion: (await call("refs")).projectVersion, ops })
   return !!r.accepted
 }
-const ver = async (n: string): Promise<string | null> => (await get("/refs")).items[n] ?? null
+const ver = async (n: string): Promise<string | null> => (await call("refs")).items[n] ?? null
 const key = (d: any): string => `[${d.severity}] ${d.message}`
 
 // LSP side (offline).
@@ -36,15 +36,15 @@ const lsp = computeSemanticDiagnostics({ parseResult: pr, source, project, confi
 // IDE side (live) — push a scratch POU named from the source's first unit, build, diff, delete.
 const unitName = /(?:FUNCTION_BLOCK|PROGRAM|FUNCTION)\s+(\w+)/.exec(source)?.[1] ?? "Scratch_audit"
 const wire = `${unitName}.fb`
-const refs0 = await get("/refs")
+const refs0 = await call("refs")
 const plcName = ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n])!
-const plcOrig = (await post("/fetch", { knownItems: {}, onlyItems: [plcName] })).changed.find((i: any) => i.name === plcName).sourceText
-const base = new Set(((await post("/build", { buildType: "incremental" })).diagnostics ?? []).map(key))
+const plcOrig = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed.find((i: any) => i.name === plcName).sourceText
+const base = new Set(((await call("build", { buildType: "incremental" })).diagnostics ?? []).map(key))
 
 if (!(await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: source, ifVersion: null }, { op: "set", name: plcName, toFolder: "", sourceText: `PROGRAM PLC_PRG\nVAR\n\tinst_audit : ${unitName};\nEND_VAR\nEND_PROGRAM\n`, ifVersion: await ver(plcName) }]))) {
   console.error("push rejected"); process.exit(1)
 }
-const r = await post("/build", { buildType: "incremental" })
+const r = await call("build", { buildType: "incremental" })
 const ide = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map(key).filter((m: string) => !base.has(m)).sort()
 await pushOps([{ op: "deleteItem", name: wire, ifVersion: await ver(wire) }, { op: "set", name: plcName, toFolder: "", sourceText: plcOrig, ifVersion: await ver(plcName) }])
 
