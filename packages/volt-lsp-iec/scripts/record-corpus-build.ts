@@ -14,18 +14,18 @@
  */
 import { writeFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { get, post, TARGET } from "./bridge.js"
+import { call, TARGET } from "./bridge.js"
 
 const PROJECT = process.env.PROJECT
 if (PROJECT === undefined) throw new Error("set PROJECT=<corpus folder name> (e.g. lenze-mid)")
 const dir = join(import.meta.dir, "..", "test-corpus", PROJECT)
 if (!existsSync(dir)) throw new Error(`no corpus project at ${dir}`)
 
-const health = await get("/health")
+const health = await call("health")
 const vendor = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" : "codesys")
 
 console.log(`Building ${PROJECT} on ${TARGET} (${vendor}) …`)
-const r = await post("/build", { buildType: "full" })
+const r = await call("build", { buildType: "full" })
 const diagnostics = (r.diagnostics ?? [])
   .filter((d: any) => d.severity === "error" || d.severity === "warning")
   .map((d: any) => ({ severity: d.severity, message: String(d.message), line: d.line ?? 0 }))
