@@ -16,7 +16,7 @@ namespace Volt.Cli.Core.Sync;
 /// push. Re-materializing every item from the SAME walk <c>/refs</c> uses makes that drift impossible.
 ///
 /// The gates match <c>/refs</c> exactly: unmapped kinds, container-managers, and excluded-from-build items are
-/// skipped. <c>/fetch</c> keeps its own walk (it layers changed-body + onlyItems + verbose-library logic on
+/// skipped. <c>/fetch</c> keeps its own walk (it layers changed-body + onlyItems + library-signature logic on
 /// top) but is documented to produce the same version map for the same gates.
 /// </summary>
 public sealed class ProjectSnapshot

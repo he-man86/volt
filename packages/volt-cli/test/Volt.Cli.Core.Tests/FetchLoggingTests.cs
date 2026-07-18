@@ -37,7 +37,7 @@ public class FetchLoggingTests
             FakeIde.Item.Library("CAA Types", "LIBRARY CAA Types\nNAMESPACE CAA\nRESOLUTION caatypes\n", "Library Manager"))
         { LibSignatures = new[] { orphan } };
 
-        var log = ToLog(ide, new FetchRequest { Verbose = true, KnownItems = new() });
+        var log = ToLog(ide, new FetchRequest { KnownItems = new() });
 
         Assert.Contains("SOMEFB", log);
         Assert.Contains("matched no .library ref", log);            // the motivating "my library type is missing" signal

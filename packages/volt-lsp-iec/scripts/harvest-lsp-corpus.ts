@@ -1,5 +1,5 @@
 /**
- * Harvest a COMPLETE LSP corpus from a live bridge — a plain verbose `/fetch`, written out verbatim.
+ * Harvest a COMPLETE LSP corpus from a live bridge — a plain `fetch`, written out verbatim.
  * NO filtering, NO materialization: every item the bridge returns (KIND source + referenced-library
  * signatures + `.library`/`.device`/… reference files) is written to `<outDir>/<folder>/<name>` exactly
  * as the bridge encoded it. For refreshing `packages/volt-lsp-iec/test-corpus/<name>`.
@@ -16,9 +16,9 @@ if (!outDir) {
 	process.exit(1)
 }
 
-// `verbose` = full library-element signatures. Dead (uncalled) code rides through as ordinary source now —
+// Every fetch returns the full library-element signatures. Dead (uncalled) code rides through as ordinary source now —
 // the LSP suppresses its diagnostics structurally, so the corpus stays clean-compiling without a bridge flag.
-const { changed } = (await call("fetch", { knownItems: {}, verbose: true }, pipeName(vendor))) as {
+const { changed } = (await call("fetch", { knownItems: {} }, pipeName(vendor))) as {
 	changed: { name: string; folder?: string; sourceText: string }[]
 }
 

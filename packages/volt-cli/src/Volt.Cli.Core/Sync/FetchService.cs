@@ -42,21 +42,20 @@ public static class FetchService
         var folders = new Dictionary<string, string>();
         var changed = new List<FetchedItem>();
 
-        // For the verbose fold: normalized library RESOLUTION → the .library ref's (folder, bare name), captured
-        // from the ref items in THIS walk, so each element signature is foldered right beside its own .library file.
+        // Normalized library RESOLUTION → the .library ref's (folder, bare name), captured from the ref items in
+        // THIS walk, so each element signature is foldered right beside its own .library file.
         var libByResolution = new Dictionary<string, (string Folder, string Name)>(System.StringComparer.OrdinalIgnoreCase);
 
         var sw = Stopwatch.StartNew();
 
-        // Verbose (init/harvest): precompile + extract the referenced-library signatures FIRST — before we walk the
-        // project items — for TWO reasons. (1) SAFETY: extraction runs a build, and the item handles WalkItems
-        // hands back are live IDE objects we dereference when materializing each item below; obtaining them AFTER
-        // the build guarantees a precompile can never stale a handle mid-materialize (which would silently drop an
-        // item's source to the Unreadable sentinel). (2) PROGRESS: knowing the signature count up front folds it
-        // into ONE total, so the signatures tick through the SAME bar as the items with no separate phase. Non-verbose
-        // fetch skips the build entirely. The stream's keepAlive heartbeat covers the (silent) precompile.
-        IReadOnlyList<LibSignature> libSigs =
-            request.Verbose ? ide.ExtractLibrarySignatures() : Array.Empty<LibSignature>();
+        // Precompile + extract the referenced-library signatures FIRST — before we walk the project items — for TWO
+        // reasons. (1) SAFETY: extraction runs a build, and the item handles WalkItems hands back are live IDE objects
+        // we dereference when materializing each item below; obtaining them AFTER the build guarantees a precompile
+        // can never stale a handle mid-materialize (which would silently drop an item's source to the Unreadable
+        // sentinel). (2) PROGRESS: knowing the signature count up front folds it into ONE total, so the signatures
+        // tick through the SAME bar as the items with no separate phase. The stream's keepAlive heartbeat covers the
+        // (silent) precompile. EVERY fetch gathers the full library API — the workspace is always complete.
+        IReadOnlyList<LibSignature> libSigs = ide.ExtractLibrarySignatures();
         // Materialize the walk once so we know the total up front (for the progress fraction) and don't re-walk.
         var walked = ide.WalkItems();
         var total = walked.Count + libSigs.Count;
@@ -97,16 +96,13 @@ public static class FetchService
             fullVersions[fullName] = version;
             folders[fullName] = it.Folder ?? "";
 
-            if (request.Verbose)
+            if (kind == "library")
             {
-                if (kind == "library")
-                {
-                    // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
-                    // RESOLUTION → (folder, name) so the verbose fold places each library's signatures under
-                    // `<folder>/<name>/`, beside its `.library` file.
-                    var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
-                    if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
-                }
+                // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
+                // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
+                // its `.library` file.
+                var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
+                if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
             }
 
             if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version) continue;
@@ -135,15 +131,10 @@ public static class FetchService
         // library API files and read as nonsense ("880 items, 8104 changed").
         var projectChanged = changed.Count;
 
-        var libRenderNull = 0;
-        var libUnmatched = 0;
-        if (request.Verbose)
-        {
-            // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate
-            // — the AI gets the full public API of the used libraries). Render the pre-extracted signatures now,
-            // ticking the SAME progress bar (no separate phase); `done` == walked.Count here (the walk finished).
-            (libRenderNull, libUnmatched) = AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
-        }
+        // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
+        // the AI gets the full public API of the used libraries). Render the pre-extracted signatures now, ticking
+        // the SAME progress bar (no separate phase); `done` == walked.Count here (the walk finished).
+        var (libRenderNull, libUnmatched) = AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
         var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();

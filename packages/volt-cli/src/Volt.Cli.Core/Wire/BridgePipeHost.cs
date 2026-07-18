@@ -51,7 +51,7 @@ public sealed class BridgePipeHost : IDisposable
             case "fetch":
                 return Busy("fetch", () => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
             case "init":
-                return Busy("init", () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true, Verbose = true }, f => onProgress(f)));
+                return Busy("init", () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
             case "push":
                 return Busy("push", () => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
             case "build":
