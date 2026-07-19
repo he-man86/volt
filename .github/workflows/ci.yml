@@ -102,8 +102,8 @@ jobs:
         run: dotnet build packages/volt-cli/Volt.Cli.sln -c Release --nologo
       - name: Test — pipe transport + ported sync + black-box
         run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo
-      - name: Test — shared Core (parsing/PLCopen/VG + push/validate incl. delete-idempotency)
-        run: dotnet test packages/volt-cli/test/Volt.Cli.Core.Tests/Volt.Cli.Core.Tests.csproj -c Release --nologo
+      - name: Test — shared engine (parsing/PLCopen/VG + push/validate incl. delete-idempotency)
+        run: dotnet test packages/volt-cli/test/Volt.Engine.Tests/Volt.Engine.Tests.csproj -c Release --nologo
 
   # Validate the proposals in openspec/changes. NOT path-filtered: it's a required check, and a path-filtered
   # required check blocks PRs that don't touch openspec/ (GitHub waits forever for a check that never reports).

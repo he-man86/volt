@@ -1,6 +1,6 @@
-using Volt.Cli.Core.Graphical;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Graphical;
+using Volt.Engine.Ide;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys;
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Volt.Cli.Transport;
 
@@ -9,7 +9,7 @@ namespace Volt.Cli;
 /// <summary>
 /// The `volt` CLI entry — C# port of the original TypeScript implementation Resolves the bridge from the workspace
 /// binding, dispatches the verb, renders (pretty or --json), sets the exit code. Talks to the bridge over the
-/// NAMED PIPE (Volt.Cli.Transport), reusing Volt.Cli.Core's DTOs — one wire contract.
+/// NAMED PIPE (Volt.Cli.Transport), reusing Volt.Engine's DTOs — one wire contract.
 /// </summary>
 internal static class Program
 {

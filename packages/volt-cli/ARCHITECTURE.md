@@ -10,7 +10,7 @@ wire, not the driver.
 ```
 src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) — decouples the tray from
                                           the engine + vendor code
-src/Volt.Cli.Core        netstandard2.0   shared engine (no vendor refs) + Wire/BridgePipeHost (serves it)
+src/Volt.Engine        netstandard2.0   shared engine (no vendor refs) + Wire/BridgePipeHost (serves it)
 src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge — driver + PipeHost, loaded IN-PROCESS by the IDE
 src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM
 src/Volt.Cli.Connector.Core  net8 library     the connector's UI-free connection model (DetectedProject /
@@ -49,7 +49,7 @@ volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
 Ops: `health`, `refs`, `fetch`, `push`, `build`, `init`, plus `debug`. Each connection carries one request and
 its streamed frames. There is **no** events/SSE and no wait-change — change-detection is client-polled.
 
-## Core — the shared engine (`src/Volt.Cli.Core`)
+## Core — the shared engine (`src/Volt.Engine`)
 
 A strict layer stack; each layer depends only on the ones above it. Read top-down: contract first, leaves last.
 
@@ -142,7 +142,7 @@ vendor (`codesys`/`twincat`), which names the pipe; `VOLT_PIPE` overrides it dir
 ## Build, run, test
 
 See `README.md` for commands. In short: `dotnet build Volt.Cli.sln`; the C# unit tests
-(`test/Volt.Cli.Core.Tests/`) run offline against a fake IDE, and the TS e2e tests (`test/e2e/`) drive a live
+(`test/Volt.Engine.Tests/`) run offline against a fake IDE, and the TS e2e tests (`test/e2e/`) drive a live
 bridge over the pipe; the headless CODESYS dev loop is `scripts/codesys-pipe.ps1` (the TwinCAT worker is spawned
 by the connector).
 

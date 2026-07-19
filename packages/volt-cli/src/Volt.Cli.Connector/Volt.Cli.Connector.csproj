@@ -11,7 +11,7 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>VoltConnector</AssemblyName>
-    <!-- Deliberately NO reference to any vendor bridge or Volt.Cli.Core: the connector only speaks the WIRE
+    <!-- Deliberately NO reference to any vendor bridge or Volt.Engine: the connector only speaks the WIRE
          (the `health` op over the named pipe) to its workers, so it survives however different the vendor internals
          get (TwinCAT COM vs Siemens Openness vs Allen-Bradley LDSDK). Volt.Cli.Transport is the pipe wire only —
          no vendor code — so referencing it keeps that decoupling. -->

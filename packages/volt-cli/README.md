@@ -1,7 +1,7 @@
 # volt-cli — the Volt toolchain (one C# solution)
 
 The whole PLC toolchain in one package, over Windows **named pipes**: the `volt` CLI (git-native sync), the
-two in-IDE bridges (CODESYS / TwinCAT), the tray connector, and the shared `Volt.Cli.Core`. There is no HTTP
+two in-IDE bridges (CODESYS / TwinCAT), the tray connector, and the shared `Volt.Engine`. There is no HTTP
 server and no separate client/server contract — the CLI, the bridges, and the connector all compile against one
 Core and speak one pipe wire.
 
@@ -19,7 +19,7 @@ the CLI and connector are clients.
 src/
   Volt.Cli.Transport/    netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames + names). The
                                          Connector references THIS ALONE, so it stays decoupled from the engine.
-  Volt.Cli.Core/         netstandard2.0  the bridge engine (ST/PLCopen/VG, push/fetch/build services, versioning,
+  Volt.Engine/         netstandard2.0  the bridge engine (ST/PLCopen/VG, push/fetch/build services, versioning,
                                          the Ide-driver contract) + Wire/BridgePipeHost (serves it over the pipe)
   Volt.Cli/              net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge) + Sync/ (the
                                          git-native client: volt/ide merge tree, changeset/status, materialize)
@@ -29,7 +29,7 @@ src/
 test/
   shared/FakeIde.cs      the ONE in-memory IDE double, linked into both C# test projects
   Volt.Cli.Tests/        net8 xUnit      the CLI layer — commands/ (every verb × situation), wire/ (pipe + client), plumbing/ (git/tree/status)
-  Volt.Cli.Core.Tests/   net8 xUnit      the shared Core — sync/ (push/fetch/refs services) + the parsing / PLCopen / VG round-trip suites
+  Volt.Engine.Tests/   net8 xUnit      the shared engine — sync/ (push/fetch/refs services) + the parsing / PLCopen / VG round-trip suites
   e2e/                   bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
 
@@ -43,7 +43,7 @@ TwinCAT host, and the net8 CLI/tests.
 ```bash
 dotnet build Volt.Cli.sln -c Release                 # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                     # pipe transport + sync + black-box CLI
-dotnet test test/Volt.Cli.Core.Tests/                # shared Core
+dotnet test test/Volt.Engine.Tests/                # shared engine
 bun test test/e2e                                    # TS e2e parity suite (set VOLT_PIPE, needs a live bridge)
 pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe workers + the connector bundle
 ```

@@ -1,5 +1,5 @@
 using System.IO;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Xunit;
 

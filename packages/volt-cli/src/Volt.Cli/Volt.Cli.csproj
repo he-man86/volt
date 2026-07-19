@@ -14,6 +14,6 @@
   <ItemGroup>
     <!-- Sync/ (the git-native client logic) lives in this project; the pipe client + Core's wire DTOs are its deps. -->
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
-    <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
+    <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
   </ItemGroup>
 </Project>

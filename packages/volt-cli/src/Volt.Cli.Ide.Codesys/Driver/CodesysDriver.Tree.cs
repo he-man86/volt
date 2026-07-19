@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Ide;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys;
 

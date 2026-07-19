@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -253,7 +253,7 @@ namespace Volt.Cli.Ide.Codesys
 
             // Deterministic manifest — the fetch body AND the version-hash input. Built by the SHARED Core
             // formatter so CODESYS and TwinCAT emit the same canonical shape.
-            var manifest = Volt.Cli.Core.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps);
+            var manifest = Volt.Engine.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps);
             return new LibRefNode(name, manifest);
         }
 
@@ -561,7 +561,7 @@ namespace Volt.Cli.Ide.Codesys
         /// <c>SystemInstances.LanguageModelMgr.AllPrecompiledSignatures</c> — the same DLL the IDE's Library Manager
         /// renders from, and the same reflection the rest of the bridge uses. Vendor libraries only; system libraries
         /// are dropped by the caller. Filters compiler-mangled entries (<c>__</c>-prefixed) and non-library objects.</summary>
-        public List<Volt.Cli.Core.Library.LibSignature> ExtractLibrarySignatures()
+        public List<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
         {
             // Ensure the libraries are PRECOMPILED: a freshly-opened project has an EMPTY precompiled set until a
             // build runs, so AllPrecompiledSignatures returns nearly nothing (verified: 2 sigs before a build, 5220
@@ -580,21 +580,21 @@ namespace Volt.Cli.Ide.Codesys
             if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs)
                 throw new InvalidOperationException("CODESYS: AllPrecompiledSignatures returned nothing");
 
-            List<Volt.Cli.Core.Library.LibVar> Vars(object? sig, string prop)
+            List<Volt.Engine.Library.LibVar> Vars(object? sig, string prop)
             {
-                var outv = new List<Volt.Cli.Core.Library.LibVar>();
+                var outv = new List<Volt.Engine.Library.LibVar>();
                 if (GetMember(sig, prop) is not IEnumerable coll) return outv;
                 foreach (var v in coll)
                 {
                     if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
                     var init = GetMember(v, "Initial")?.ToString();
-                    outv.Add(new Volt.Cli.Core.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL",
+                    outv.Add(new Volt.Engine.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL",
                         string.IsNullOrEmpty(init) ? null : init));
                 }
                 return outv;
             }
 
-            var result = new List<Volt.Cli.Core.Library.LibSignature>();
+            var result = new List<Volt.Engine.Library.LibSignature>();
             foreach (var s in sigs)
             {
                 if (GetMember(s, "IsLibraryObject") as bool? != true) continue;
@@ -608,7 +608,7 @@ namespace Volt.Cli.Ide.Codesys
                 string? aliasBase = null;
                 if (flags.Contains("Alias") && GetMember(s, "AllVariables") is IEnumerable av)
                     foreach (var v in av) { aliasBase = GetMember(v, "Type")?.ToString(); break; }
-                result.Add(new Volt.Cli.Core.Library.LibSignature(
+                result.Add(new Volt.Engine.Library.LibSignature(
                     name, libPath, GetMember(s, "POUType")?.ToString() ?? "",
                     Vars(s, "Inputs"), Vars(s, "Outputs"), Vars(s, "InOuts"), Vars(s, "AllVariables"),
                     baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags));
@@ -812,7 +812,7 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>Build PLCopen XML for an interface from COM data. CODESYS <c>export_xml</c> rejects
         /// <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c> — so the XML document the
-        /// <see cref="Volt.Cli.Core.Graphical.PlcOpenPouParser"/> expects is constructed here from the
+        /// <see cref="Volt.Engine.Graphical.PlcOpenPouParser"/> expects is constructed here from the
         /// declaration and child elements read through the object model.</summary>
         public string ExportInterfaceXml(object node)
         {

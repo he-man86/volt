@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;

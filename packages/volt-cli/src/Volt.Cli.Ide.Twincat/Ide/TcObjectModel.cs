@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Volt.Cli.Core.Diagnostics;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Wire;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Diagnostics;
+using Volt.Engine.Ide;
+using Volt.Engine.Wire;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Twincat;
 

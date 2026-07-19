@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Ide;
+using Volt.Engine.Wire;
 
 namespace Volt.Cli.Ide.Codesys;
 
@@ -91,7 +91,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override bool Build() =>
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
-    public override IReadOnlyList<Volt.Cli.Core.Library.LibSignature> ExtractLibrarySignatures() =>
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
     public override IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
