@@ -47,19 +47,19 @@ Name: "cursor";   Description: "Install the Volt extension into Cursor";   Group
 [InstallDelete]
 ; [Files] only ADDS/overwrites — it never removes what an older version left, so stale files survive upgrades
 ; forever. This retires the pre-0.2.0 leak: those payloads carried a package.json, and opencode INSTALLS a config
-; dir's declared deps at runtime — creating volt-config\node_modules and needing a registry on machines that may
+; dir's declared deps at runtime — creating opencode-config\node_modules and needing a registry on machines that may
 ; have none. Keep in sync with CFG_NEVER_SHIP in volt-scripts/build-payload.ts: same list, two enforcement points
 ; (never ship it / delete what older versions shipped).
 ;
 ; NAMED ENTRIES, not the whole dir: InstallDelete runs BEFORE [Files], and Inno does NOT roll back deletions when
-; an install aborts (a locked file, a cancel). Wiping {app}\volt-config would leave an aborted upgrade with the
+; an install aborts (a locked file, a cancel). Wiping {app}\opencode-config would leave an aborted upgrade with the
 ; dir GONE and OPENCODE_CONFIG_DIR still pointing at it — opencode silently degrades to vanilla, no error. These
 ; five are junk in every version, so deleting them is safe even if the install then fails.
-Type: files; Name: "{app}\volt-config\package.json"
-Type: files; Name: "{app}\volt-config\package-lock.json"
-Type: files; Name: "{app}\volt-config\bun.lock"
-Type: files; Name: "{app}\volt-config\.gitignore"
-Type: filesandordirs; Name: "{app}\volt-config\node_modules"
+Type: files; Name: "{app}\opencode-config\package.json"
+Type: files; Name: "{app}\opencode-config\package-lock.json"
+Type: files; Name: "{app}\opencode-config\bun.lock"
+Type: files; Name: "{app}\opencode-config\.gitignore"
+Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -75,9 +75,9 @@ Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vsc
 Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Tasks: cursor;   Check: NotSilent; StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
 [UninstallDelete]
-; Anything created inside volt-config AFTER install is untracked by Inno, so it would survive uninstall and keep
+; Anything created inside opencode-config AFTER install is untracked by Inno, so it would survive uninstall and keep
 ; {app} alive — a dirty uninstall. test:install can't catch it (it never runs opencode, so nothing is created).
-Type: filesandordirs; Name: "{app}\volt-config"
+Type: filesandordirs; Name: "{app}\opencode-config"
 
 [UninstallRun]
 ; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.

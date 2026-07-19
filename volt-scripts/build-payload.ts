@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Volt release builder — compiles every shippable binary + the volt-config layer into dist/volt/ so the
+ * Volt release builder — compiles every shippable binary + the opencode-config layer into dist/volt/ so the
  * installer just bundles one folder. The volt-desktop shell + the Inno Setup installer are built separately
  * (volt-scripts/build-installer.ts → installer/Volt.iss), which bundles this folder.
  *
- *   bun volt-scripts/build-payload.ts           # LSP + vsix + volt-config + the C# toolchain (needs dotnet)
+ *   bun volt-scripts/build-payload.ts           # LSP + vsix + opencode-config + the C# toolchain (needs dotnet)
  *   bun volt-scripts/build-payload.ts --no-cli  # skip the C# toolchain (non-Windows / no .NET SDK) — LSP only
  *
  * Output:
  *   dist/volt/bin/           volt[.exe] (the PLC CLI) + volt-lsp-iec[.exe] (the Structured Text LSP) + runtime
  *   dist/volt/connector/     VoltConnector.exe + the pipe workers + the CODESYS in-proc DLL (needs dotnet)
- *   dist/volt/volt-config/   the agent layer (LSP + volt tool + agent + theme) handed to opencode
+ *   dist/volt/opencode-config/   the agent layer (LSP + volt tool + agent + theme) handed to opencode
  *   dist/volt/docs/, volt-vscode.vsix
  */
 import { spawnSync } from "node:child_process"
@@ -73,11 +73,11 @@ if (run("bun", ["run", "package"], vsixDir)) {
 // Volt config dir — the whole agent-facing layer (LSP, `volt` tool, agent, theme, permissions) shipped ONCE
 // and handed to opencode via OPENCODE_CONFIG_DIR (set on the desktop sidecar + the CLI launcher). Static —
 // the LSP/tool resolve off PATH (bare names), so nothing machine-specific is baked.
-console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
-const cfgSrc = resolve(repo, "volt-config")
-const cfgOut = resolve(out, "volt-config")
+console.log("• opencode-config (agent toolchain via OPENCODE_CONFIG_DIR)")
+const cfgSrc = resolve(repo, "opencode-config")
+const cfgOut = resolve(out, "opencode-config")
 // Ship ONLY what opencode loads. A package.json must NEVER reach the shipped dir: opencode installs a config
-// dir's declared dependencies at runtime, which needs a package manager + registry — the exact thing volt-config
+// dir's declared dependencies at runtime, which needs a package manager + registry — the exact thing opencode-config
 // exists to avoid (air-gapped PLC machines). These files are all gitignored leftovers from the retired
 // `volt init` npm-install era, so CI never sees them and a dev box would otherwise ship a DIFFERENT payload than
 // CI. Filtering here — not just deleting them once — is what makes the release reproducible from any machine.
@@ -88,11 +88,11 @@ cpSync(cfgSrc, cfgOut, { recursive: true, filter: (src) => !CFG_NEVER_SHIP.has(b
 // { description, args, execute } shape directly. zod resolves from the root node_modules. The shipped dir then
 // needs NO node_modules: opencode scans {tool,tools}/*.{js,ts} and loads the bundle directly.
 if (!run("bun", ["build", "--target=node", "--outfile", resolve(cfgOut, "tool/volt.js"), resolve(cfgSrc, "tool/volt.ts")])) {
-  console.error("✗ failed to bundle the volt tool into volt-config")
+  console.error("✗ failed to bundle the volt tool into opencode-config")
   process.exit(1)
 }
 rmSync(resolve(cfgOut, "tool/volt.ts"), { force: true })
-console.log("  ✓ volt-config → dist/volt/volt-config (volt tool bundled self-contained)")
+console.log("  ✓ opencode-config → dist/volt/opencode-config (volt tool bundled self-contained)")
 
 if (!skipCli) {
   console.log("• volt CLI + pipe workers + connector (C#)")

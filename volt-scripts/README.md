@@ -21,7 +21,7 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 ## Build → release, end to end
 
 ```
-build-payload.ts        →  dist/volt/     binaries + docs + .vsix + volt-config + connector
+build-payload.ts        →  dist/volt/     binaries + docs + .vsix + opencode-config + connector
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
@@ -57,7 +57,7 @@ It's a plain `&&` chain in `package.json`, not a script: "run these, stop at the
 `&&` is. Each step is runnable alone when one fails, and `verify-opencode` runs both of its checks even if the
 first fails — a broken LSP shouldn't hide the tool's result.
 
-> **Known gap:** the verifiers point `OPENCODE_CONFIG_DIR` at the **source** `volt-config/`, not the built copy in
+> **Known gap:** the verifiers point `OPENCODE_CONFIG_DIR` at the **source** `opencode-config/`, not the built copy in
 > `dist/volt/`. The shipped dir differs (the `volt` tool is bundled to `.js` and the `.ts` dropped), so a bundling
 > regression in `build-payload.ts` wouldn't be caught here.
 

@@ -9,7 +9,7 @@
  *   bun volt-scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
  * Pipeline: build-payload.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
- * assemble the payload (connector at root; bin/ volt-config/ docs/ desktop/ + version.txt + .vsix as siblings)
+ * assemble the payload (connector at root; bin/ opencode-config/ docs/ desktop/ + version.txt + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
@@ -80,7 +80,7 @@ const iscc = [
 
 // 1. The Volt payload (CLI + LSP + connector + config + docs).
 if (!skipDist) run("bun", ["volt-scripts/build-payload.ts"])
-for (const dir of ["bin", "connector", "volt-config", "docs"]) {
+for (const dir of ["bin", "connector", "opencode-config", "docs"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
     process.exit(1)
@@ -132,13 +132,13 @@ if (!existsSync(voltExe)) {
   process.exit(1)
 }
 
-// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ volt-config/ docs/ desktop/ as siblings.
+// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ opencode-config/ docs/ desktop/ as siblings.
 console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
 cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
-cpSync(resolve(payload, "volt-config"), resolve(stage, "volt-config"), { recursive: true })
+cpSync(resolve(payload, "opencode-config"), resolve(stage, "opencode-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
 // The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the per-editor

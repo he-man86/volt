@@ -6,8 +6,8 @@
  *   bun volt-scripts/check-wiring.ts
  *
  * Verifies:
- *   - Config layer (volt-config/opencode.json) exists, parses, and registers the LSP (bare-name)
- *   - Agent persona (volt-config/agent/volt.md) + volt custom tool (volt-config/tool/volt.ts) present
+ *   - Config layer (opencode-config/opencode.json) exists, parses, and registers the LSP (bare-name)
+ *   - Agent persona (opencode-config/agent/volt.md) + volt custom tool (opencode-config/tool/volt.ts) present
  *   - LSP + CLI binaries are built (dist/ output present)
  *   - volt-lsp-iec binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
@@ -43,22 +43,22 @@ function check(name: string, fn: () => boolean | string): void {
 console.log("Volt opencode-integration check");
 console.log("=".repeat(40));
 
-// Volt is opencode-independent: the whole agent-facing layer ships as ONE dir (volt-config/), handed to the
-// user's installed opencode via OPENCODE_CONFIG_DIR. There is no per-repo .opencode/ anymore — volt-config IS
-// the config (dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`).
-console.log("\nAgent config layer (volt-config/ → OPENCODE_CONFIG_DIR)");
-check("volt-config/opencode.json exists + registers volt-lsp-iec (bare-name)", () => {
-	const cfg = join(REPO_ROOT, "volt-config/opencode.json");
+// Volt is opencode-independent: the whole agent-facing layer ships as ONE dir (opencode-config/), handed to the
+// user's installed opencode via OPENCODE_CONFIG_DIR. There is no per-repo .opencode/ anymore — opencode-config IS
+// the config (dev runs `OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode`).
+console.log("\nAgent config layer (opencode-config/ → OPENCODE_CONFIG_DIR)");
+check("opencode-config/opencode.json exists + registers volt-lsp-iec (bare-name)", () => {
+	const cfg = join(REPO_ROOT, "opencode-config/opencode.json");
 	if (!existsSync(cfg)) return "missing — Volt's LSP + permission config lives here";
 	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-iec"];
 	if (!lsp) return "no lsp.volt-lsp-iec entry";
 	return lsp.command?.[0] === "volt-lsp-iec" || "LSP command is not the bare name (must resolve off PATH)";
 });
-check("volt-config/agent/volt.md exists (agent persona)", () =>
-	existsSync(join(REPO_ROOT, "volt-config/agent/volt.md")) || "agent persona missing"
+check("opencode-config/agent/volt.md exists (agent persona)", () =>
+	existsSync(join(REPO_ROOT, "opencode-config/agent/volt.md")) || "agent persona missing"
 );
-check("volt-config/tool/volt.ts exists (volt CLI custom tool)", () =>
-	existsSync(join(REPO_ROOT, "volt-config/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
+check("opencode-config/tool/volt.ts exists (volt CLI custom tool)", () =>
+	existsSync(join(REPO_ROOT, "opencode-config/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
 );
 // The st-reference skill is GENERATED into a consumer project by `volt init`
 // (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
@@ -147,7 +147,7 @@ if (process.platform === "win32") {
 
 console.log("\nVerify loading (automated): bun volt-scripts/verify-opencode.ts");
 console.log("\nManual verification — opencode (this repo):");
-console.log("  1. From repo root: bun dev   # OPENCODE_CONFIG_DIR=$PWD/volt-config opencode (Volt-aware)");
+console.log("  1. From repo root: bun dev   # OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode (Volt-aware)");
 console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-iec' diagnostics.");
 console.log("     ('volt-lsp-iec' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");

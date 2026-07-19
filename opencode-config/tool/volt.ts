@@ -13,7 +13,7 @@ import { promisify } from "node:util"
 const run = promisify(execFile)
 const MUTATING = new Set(["init", "pull", "push", "merge"])
 
-// The subset of opencode's ToolContext this tool uses — typed locally so volt-config needs no opencode package.
+// The subset of opencode's ToolContext this tool uses — typed locally so opencode-config needs no opencode package.
 type ToolContext = {
   directory: string
   abort: AbortSignal
