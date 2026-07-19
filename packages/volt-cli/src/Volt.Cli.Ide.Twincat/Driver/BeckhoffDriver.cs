@@ -130,6 +130,23 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         return false;
     }
 
+    // ── project discovery + selection (the connector's instances / select) ──
+    // Runs on the STA thread (BridgePipeHost marshals it) — RotInstances binds foreign, apartment-bound DTEs.
+    public override InstancesResult EnumerateInstances()
+    {
+        var list = new List<IdeInstance>();
+        foreach (var inst in RotInstances.Enumerate())
+            list.Add(new IdeInstance(inst.InstanceId, inst.IdeName, inst.IdeVersion,
+                inst.Projects.ConvertAll(p => new IdeProject(p.Project, false, p.PlcProjects))));
+        return new InstancesResult(list);
+    }
+
+    public override void SelectProject(SelectRequest sel)
+    {
+        _om.SelectProject(sel.InstanceId, sel.Project, sel.PlcProject);   // re-resolve on the live DTE, no respawn
+        if (_om.IsConnected) ClearDegraded();
+    }
+
     // ── build ───────────────────────────────────────────────────────
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();

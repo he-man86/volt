@@ -45,6 +45,30 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
 
     public override T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 
+    // ── project discovery + selection (the connector's instances / select) ──
+    /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single instance/project
+    /// (CODESYS has no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's
+    /// multi-instance ROT enumeration — the connector shows both in the same unified list.</summary>
+    public override InstancesResult EnumerateInstances()
+    {
+        var name = _om.ProjectName;
+        if (string.IsNullOrEmpty(name)) return new InstancesResult(new List<IdeInstance>());
+        var proj = new IdeProject(name!, _om.ProjectDirty, new List<string>());
+        return new InstancesResult(new List<IdeInstance>
+        {
+            new IdeInstance("codesys", "CODESYS", IdeVersion, new List<IdeProject> { proj }),
+        });
+    }
+
+    /// <summary>The in-proc host can only serve the primary project of the CODESYS it was loaded into (it can't
+    /// switch to another process's project), so `select` confirms/refreshes that binding rather than switching —
+    /// and the connector only ever offers this one CODESYS project. Selecting anything else is a no-op refresh.</summary>
+    public override void SelectProject(SelectRequest sel)
+    {
+        lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; _hasProject = _om.HasPrimaryProject; }
+        if (_hasProject && IsDegraded) ClearDegraded();
+    }
+
     // In-process: no transport that can die mid-call, so never auto-degrade.
     public override bool ShouldMarkDegraded(Exception ex) => false;
 

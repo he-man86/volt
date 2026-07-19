@@ -210,6 +210,13 @@ public sealed class FakeIde : IIdeDriver
     };
     public bool ShouldMarkDegraded(Exception ex) => false;
     public T RunOnStaThread<T>(Func<T> fn) => fn();
+
+    // ── instances / select knobs (the connector's discovery + selection ops) ──
+    public InstancesResult Instances { get; set; } = new(new List<IdeInstance>());
+    public SelectRequest? Selected { get; private set; }
+    public InstancesResult EnumerateInstances() => Instances;
+    public void SelectProject(SelectRequest sel) => Selected = sel;
+
     public void FlushPendingWrites() { }
 
     // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
