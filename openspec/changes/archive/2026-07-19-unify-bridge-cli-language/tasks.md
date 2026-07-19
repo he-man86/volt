@@ -27,6 +27,8 @@
 - [x] 3.2 Black-box parity net: spawns the real `volt` binary (via `VOLT_PIPE`) against a pipe host, drives
       pull + status, asserts `--json` shape (incl. `merging: null` present-not-omitted) + git state.
 - [ ] 3.3 NativeAOT/ReadyToRun `volt status` cold-start vs the Bun binary — recorded.
+      _Closed at archive (2026-07-19) as OBSOLETE: the Bun binary was removed when the toolchain unified to C#,
+      so there is no baseline left to benchmark against._
 
 ## 4. Real-IDE entry-point hosts (COMPILE ✓; live smoke pending)
 
