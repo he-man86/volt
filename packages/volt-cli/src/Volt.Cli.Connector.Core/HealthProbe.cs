@@ -22,6 +22,9 @@ namespace Volt.Cli.Connector
         public BridgeStatus Status { get; init; }
         public string? ProjectName { get; init; }
         public bool ProjectDirty { get; init; }
+        /// <summary>The mutating op in flight on the bridge ("pull"/"push"/"build"), or null when idle — surfaced
+        /// so the UI can reflect "a sync is running" without probing the bridge itself.</summary>
+        public string? ActiveOp { get; init; }
     }
 
     public static class HealthProbe
@@ -55,6 +58,7 @@ namespace Volt.Cli.Connector
             } : BridgeStatus.Unknown,
             ProjectName = TryString(root, "projectName"),
             ProjectDirty = root.TryGetProperty("projectDirty", out var d) && d.GetBoolean(),
+            ActiveOp = TryString(root, "activeOp"),
         };
 
         private static string? TryString(JsonElement el, string name) =>

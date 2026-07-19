@@ -366,16 +366,10 @@
         "icon": "$(add)"
       },
       {
-        "command": "volt.initTwincat",
-        "title": "Volt: Initialize for TwinCAT",
+        "command": "volt.init",
+        "title": "Volt: Initialize workspace from a project",
         "category": "Volt",
-        "enablement": "volt.twincatLive"
-      },
-      {
-        "command": "volt.initCodesys",
-        "title": "Volt: Initialize for CODESYS",
-        "category": "Volt",
-        "enablement": "volt.codesysLive"
+        "enablement": "volt.hasProjects"
       },
       {
         "command": "volt.acceptProjectRename",
@@ -596,18 +590,13 @@
     "viewsWelcome": [
       {
         "view": "volt.views.sync",
-        "contents": "$(check) TwinCAT IDE connected.\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
-        "when": "!volt.workspaceInitialized && volt.twincatLive"
+        "contents": "$(check) PLC project detected.\n[$(plug) Initialize workspace…](command:volt.init)\n\nPick a project to bind this folder to — the platform (CODESYS / TwinCAT) is detected for you.",
+        "when": "!volt.workspaceInitialized && volt.hasProjects"
       },
       {
         "view": "volt.views.sync",
-        "contents": "$(check) CODESYS IDE connected.\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)",
-        "when": "!volt.workspaceInitialized && volt.codesysLive"
-      },
-      {
-        "view": "volt.views.sync",
-        "contents": "$(plug) No PLC IDE detected yet.\nOpen a project in CODESYS or TwinCAT and start its bridge, then initialize this folder.\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)\n\n$(info) The bridge ships with the Volt app. Don't have it?\n[$(cloud-download) Download Volt](https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe)",
-        "when": "!volt.workspaceInitialized && !volt.twincatLive && !volt.codesysLive"
+        "contents": "$(plug) No PLC project detected yet.\nOpen a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it appears here to initialize from.\n[$(plug) Initialize workspace…](command:volt.init)\n\n$(info) The bridge ships with the Volt app. Don't have it?\n[$(cloud-download) Download Volt](https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe)",
+        "when": "!volt.workspaceInitialized && !volt.hasProjects"
       }
     ]
   },

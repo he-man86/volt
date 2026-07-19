@@ -10,10 +10,15 @@ namespace Volt.Cli.Connector
     /// <summary>One project the connector detected, flattened for the control plane / any first-party client.</summary>
     public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected);
 
-    /// <summary>The orchestration-level snapshot the control plane serves: the aggregate state + the ONE unified
-    /// list of detected projects across every vendor (each tagged with its vendor). NOT the per-vendor /health
-    /// detail — a client gets that from the bridge's own pipe.</summary>
-    public sealed record ConnectorView(string Status, IReadOnlyList<ProjectView> Projects);
+    /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
+    /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word;
+    /// <c>ActiveOp</c> is a mutating op in flight ("pull"/"push"/"build") or null.</summary>
+    public sealed record BridgeStatusView(string Vendor, string DisplayName, string Status, string? ProjectName, bool Dirty, string? ActiveOp);
+
+    /// <summary>The control plane's single status snapshot — everything the UI needs in one shape: the aggregate
+    /// state, per-vendor bridge health (use case A: the bound workspace's live status), and the ONE unified list
+    /// of detected projects across every vendor (use case B: the init/connect surface).</summary>
+    public sealed record ConnectorView(string Status, IReadOnlyList<BridgeStatusView> Bridges, IReadOnlyList<ProjectView> Projects);
 
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension (and the desktop app) can

@@ -9,7 +9,8 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { probeHealth, isBridgeOnline, bridgeActiveOp, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
+import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
+import { boundStatus, connectProject, type DetectedProject } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
@@ -62,11 +63,11 @@ function parseJson<T>(stdout: string): T | null {
   }
 }
 
-/** Probe the bridge, then `volt status --json`. UI-agnostic; never throws. */
-export async function fetchStatus(workspaceRoot: string, vendor?: Vendor): Promise<StatusResult> {
-  const v = vendor ?? readBridgeVendor(workspaceRoot)
-  if (v === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
-  const health = await probeHealth(v, 2000)
+/** Connection status (from the connector) + `volt status --json` drift (from the CLI). UI-agnostic; never throws.
+ *  The split: connection status is the connector's domain; git drift needs the local repo, so it stays the CLI's. */
+export async function fetchStatus(workspaceRoot: string): Promise<StatusResult> {
+  if (readBridgeVendor(workspaceRoot) === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
+  const health = await boundStatus(workspaceRoot)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
   // A mutation (init/pull/push/build) is running on the shared bridge — from THIS process, another frontend, or a
   // terminal CLI. `volt status` would issue an expensive /refs into a single-threaded bridge that's mid-churn, so
@@ -159,5 +160,17 @@ export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: bool
       opts.onProgress,
     ),
   )
+}
+
+/** Project-centric init: the user picked a DETECTED PROJECT (not a vendor). Bind the bridge to it (best-effort —
+ *  init proceeds even if the connector `/connect` is unavailable), then `volt init` with the vendor DERIVED from
+ *  that project. The one init entry point the shells call — no vendor is ever passed by the UI. */
+export async function initFromProject(
+  project: DetectedProject,
+  targetRoot: string,
+  opts: { force?: boolean } & ProgressOpt = {},
+): Promise<CliResult> {
+  await connectProject(project.id)
+  return init(targetRoot, project.vendor, opts)
 }
 

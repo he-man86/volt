@@ -2,10 +2,10 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, init as voltInit, readBridgeVendor,
+	pull, push, build, init as voltInit, initFromProject, detectedProjects, readBridgeVendor,
 	mergeContinue, mergeAbort, mergeResolve,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
-	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor,
+	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -184,21 +184,12 @@ async function initTarget(): Promise<string | undefined> {
 	return pick?.uri.fsPath
 }
 
-async function doInit(
-	ensureWorkspace: (folder: string) => void,
-	workspaceRoot: string,
-	vendor: Vendor,
-	force: boolean,
-): Promise<void> {
-	const r = await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
-		(progress) => voltInit(workspaceRoot, vendor, { force, onProgress: progressBridge(progress) }),
-	)
+function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: string, r: { code: number; stderr: string }): void {
 	if (r.code !== 0) {
 		// init needs a reachable bridge with a project loaded. Bridge lifecycle is the connector's job (tray),
 		// not the editor's — so we report and point there rather than starting bridges from here.
 		vscode.window.showErrorMessage(
-			`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then click Initialize again.`,
+			`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`,
 		)
 		return
 	}
@@ -207,6 +198,35 @@ async function doInit(
 	// decorations come alive without a reload. ensureWorkspace refreshes the tracker itself (mirrors the
 	// desktop's single-refresh bind), so no extra refresh here.
 	ensureWorkspace(workspaceRoot)
+}
+
+/** Init from a DETECTED PROJECT the user picked — the vendor is derived from it, never chosen. */
+async function doInitFromProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
+	const r = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
+		(progress) => initFromProject(project, workspaceRoot, { onProgress: progressBridge(progress) }),
+	)
+	finishInit(ensureWorkspace, workspaceRoot, r)
+}
+
+/** Re-init the BOUND workspace with its existing vendor (accept-project-rename / force) — not the picker path. */
+async function doReinit(ensureWorkspace: (folder: string) => void, workspaceRoot: string, vendor: Vendor): Promise<void> {
+	const r = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
+		(progress) => voltInit(workspaceRoot, vendor, { force: true, onProgress: progressBridge(progress) }),
+	)
+	finishInit(ensureWorkspace, workspaceRoot, r)
+}
+
+/** Pick a detected project from the connector's list (no picker when exactly one). */
+async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
+	if (projects.length === 1) return projects[0]
+	const items = projects.map((p) => ({
+		label: `${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${p.displayName}${p.dirty ? " *" : ""}`,
+		project: p,
+	}))
+	const pick = await vscode.window.showQuickPick(items, { placeHolder: "Pick the PLC project to initialize this workspace from" })
+	return pick?.project
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {
@@ -226,9 +246,18 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 	const reg = vscode.commands.registerCommand
 
 	return [
-		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, "twincat", false) }),
-		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(ensureWorkspace, w, "codesys", false) }),
-		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(ensureWorkspace, w, readBridgeVendor(w) ?? "twincat", true) }),
+		reg("volt.init", async () => {
+			const w = await initTarget()
+			if (!w) return
+			const projects = await detectedProjects()
+			if (projects.length === 0) {
+				vscode.window.showErrorMessage("No PLC project detected. Open a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray), then try again.")
+				return
+			}
+			const project = await pickProject(projects)
+			if (project) await doInitFromProject(ensureWorkspace, w, project)
+		}),
+		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doReinit(ensureWorkspace, w, readBridgeVendor(w) ?? "twincat") }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),
