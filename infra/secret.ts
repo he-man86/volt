@@ -12,4 +12,6 @@ export const SECRET = {
   SupportApiKey: new sst.Secret("SUPPORT_API_KEY"),
   UpstashRedisRestUrl: new sst.Secret("UpstashRedisRestUrl"),
   UpstashRedisRestToken: new sst.Secret("UpstashRedisRestToken"),
+  // Shared by the console app + the support portal (both read Resource.ZEN_LIMITS via console-core).
+  ZenLimits: new sst.Secret("ZEN_LIMITS"),
 }
