@@ -24,10 +24,10 @@ declaration on both read and create). No backward compat (no users yet).
       bridge in headless CODESYS 3.5.21 (`codesys-pipe.ps1 up` + `VOLT_PIPE=volt.bridge.codesys bun test test/e2e`
       → **69 pass / 0 fail**), incl. the full create→fetch→edit→rename→move→delete lifecycle for struct/enum/
       union/alias `.dut`. Confirms `create_dut` (Structure skeleton) + declaration write re-derives the subtype.
-- [ ] Live TwinCAT: same round-trip (native 623 create + declaration) for parity — **live run pending** (the
-      dev pipe worker's project-binding needs the exact `VOLT_TC_PROJECT` name; unrelated to this change). Low
-      risk: the create path is shared Core (unit-covered for both vendors), and TC natively models every DUT as
-      623, so it derives the subtype from the declaration the same way CODESYS (the harder case) just did.
+- [x] **Live TwinCAT — VERIFIED (2026-07-19):** full DUT lifecycle (struct/enum/union/alias `.dut`) green
+      against a freshly-built worker connected to a live TwinCAT 15.0 project via the Connector
+      (`VOLT_PIPE=volt.bridge.twincat bun test test/e2e/lifecycle test/e2e/kinds` → **13 pass / 0 fail**).
+      Confirms TC's native 623 create + declaration re-derives the subtype for every DUT variant, matching CODESYS.
 
 ## CLI-side consumers
 - [x] `Scaffold.cs`: `.vscode/settings.json` associations + README table use `.dut`.
