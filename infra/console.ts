@@ -163,7 +163,7 @@ const zenLitePrice = new stripe.Price("ZenLitePrice", {
   },
   unitAmount: 2400, // €24/month
 })
-const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
+export const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
   properties: {
     product: zenLiteProduct.id,
     price: zenLitePrice.id,
@@ -190,7 +190,7 @@ const zenBlackPriceProps = {
 const zenBlackPrice200 = new stripe.Price("ZenBlackPrice", { ...zenBlackPriceProps, unitAmount: 20000 })
 const zenBlackPrice100 = new stripe.Price("ZenBlack100Price", { ...zenBlackPriceProps, unitAmount: 10000 })
 const zenBlackPrice20 = new stripe.Price("ZenBlack20Price", { ...zenBlackPriceProps, unitAmount: 2000 })
-const ZEN_BLACK_PRICE = new sst.Linkable("ZEN_BLACK_PRICE", {
+export const ZEN_BLACK_PRICE = new sst.Linkable("ZEN_BLACK_PRICE", {
   properties: {
     product: zenBlackProduct.id,
     plan200: zenBlackPrice200.id,
