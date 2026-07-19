@@ -1,81 +1,88 @@
 # Volt Connector
 
-The **single user-facing Volt app**: a Windows system-tray supervisor that owns every
-vendor bridge. One install, one tray icon, one settings surface — and behind it,
-however many bridges you need, each running isolated.
+The **single user-facing Volt app**: a Windows system-tray supervisor + a small branded window, over one
+connection model. One install, one tray icon, one surface — and behind it, however many vendor bridges you
+need, each reached over its own named pipe.
 
 ```
-┌─ Volt Connector ── the ONE tray app (icon · menu · toasts) ──────────────┐
-│   spawns + supervises ↓        ↓                ↓                         │
-│   [twincat worker]    [siemens worker]   [allen-bradley worker]  (headless)│
-│   launches + monitors ↓                                                   │
-│   CODESYS (in-proc bridge, loaded via --runscript)                        │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─ Volt Connector ── tray icon · Volt window · toasts · control plane (:8550) ─┐
+│                                                                              │
+│   ConnectionManager  ── one vendor-neutral model ──                          │
+│     merged project list · selection · aggregate status                       │
+│        ▲                         ▲                                            │
+│        │ IProjectSource          │ IProjectSource   (same instances/select/  │
+│        │                         │                   health wire — no vendor  │
+│   [TwinCAT pipe]            [CODESYS pipe]            branch above it)         │
+│   volt.bridge.twincat      volt.bridge.codesys                                │
+│        ▲                         ▲                                            │
+│   spawns + supervises       user activates in-proc                           │
+│   [VoltBridgeTwincat.exe]   (Tools → Scripting → start_pipe.py)               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Two activation archetypes (the only structural axis)
+## The connection model
+
+Everything the surface shows is a **`DetectedProject`** — display name, vendor, dirty, and an opaque attach
+reference. A **`ConnectionManager`** owns the merged list across every **`IProjectSource`**, the current
+selection, the bind dispatch, and the aggregate status. The tray, the window, and the control plane are all
+thin views over it, and **none of them branch on vendor** — the vendor is a field (for the platform badge +
+routing), never a UI lane. The whole model lives in the UI-free `Volt.Cli.Connector.Core` assembly (unit-tested
+without WinForms).
+
+Because both bridges expose the **same `instances` / `select` / `health` wire ops**, there is exactly one source
+implementation — `PipeProjectSource` — parameterized only by pipe + vendor. All the per-vendor attach mechanism
+stays behind the wire.
+
+## Two activation archetypes (the load-bearing asymmetry — kept behind the wire)
 
 | archetype | how the bridge attaches | vendors | the connector's job |
 |---|---|---|---|
-| **ExternalAttach** | a headless worker process attaches to the running IDE via its external API | TwinCAT (COM/DTE), Siemens (Openness), Allen-Bradley (LDSDK) | spawn + supervise the worker |
-| **InIdeLoad** | a DLL must load *inside* the IDE (no external API) | CODESYS | launch the IDE with the in-proc loader, monitor the port |
+| **ExternalAttach** | a headless worker process attaches to the running IDE via its external API | TwinCAT (COM/DTE) | spawn + supervise the worker |
+| **InIdeLoad** | a DLL must load *inside* the IDE (no external API) | CODESYS | **guide** the user to activate it — never launch |
 
-The connector only ever speaks the **HTTP wire** (`/health`) to its workers — never
-their internal SDK/adapter shape. That's why the tray app stays identical no matter
-how different the vendors get, and why adding a vendor is just a new `VendorProvider`
-descriptor + a worker binary.
+The **data wire is a named pipe** per vendor (`volt.bridge.twincat` / `volt.bridge.codesys`) — the `health`,
+`instances`, `select`, and sync ops all flow over it. There are no HTTP data ports. The only HTTP is the
+localhost **control plane on `:8550`** (orchestration only: `/status`, `/connect`, `/workers/{id}/restart`).
 
 ## What it does
 
-- **Tray icon** colour = aggregate bridge state: green (something connected) · amber
-  (a live channel degraded) · orange (up, waiting for a project) · grey (nothing
-  running / vendor not in use). A vendor with no IDE running is **neutral grey, never a
-  fault colour** — that's why there's no per-vendor "enable" toggle: an unused vendor
-  simply doesn't alarm. Read from the same `/health` the CLI and VS Code extension consume.
-- **Context menu**: per-vendor status + actions — for TwinCAT, **"Connect to" picks the
-  instance/project** (Restart/Stop the worker); for CODESYS, "Open CODESYS (Volt)"
-  launches it with `--runscript` so its in-proc bridge auto-loads. **Show logs**,
-  **Collect diagnostics**, Exit.
-- **Project selection is explicit (TwinCAT).** The worker never auto-attaches to an
-  arbitrary open project — with nothing selected it stays unattached and reports
-  "no project loaded" (orange). The user picks from "Connect to". For tests/dev a target
-  can be forced non-interactively via `VOLT_TC_INSTANCE`/`VOLT_TC_PROJECT`/`VOLT_TC_PLC`
-  env or the control-plane `POST /bridges/{id}/select`.
-- **Balloon toasts** on state changes ("TwinCAT bridge not running", "… connected").
-- **Supervises**: spawns workers on start, respawns on crash, kills its own child tree
-  on exit (never a broad process-name kill — that could take down a live IDE).
+- **The Volt window** (double-click the tray icon, or "Open Volt"): the primary surface — one unified list of
+  detected projects, each with its platform badge and a Connect/Connected pill, plus the guided CODESYS
+  activation affordance. Volt-branded (`VoltTheme`, the same tokens as the console + site).
+- **Tray icon** colour = aggregate connection state: green (connected) · amber (degraded) · orange (up, waiting
+  for a project) · grey (nothing running). A vendor with no IDE running never paints a fault colour.
+- **Tray menu**: quick actions — "Connect to" (the same unified list), "Activate in CODESYS…", Show logs,
+  Collect diagnostics, Exit.
+- **CODESYS activation is guided, never driven.** The connector does not launch any IDE. "Activate in CODESYS…"
+  copies the `start_pipe.py` path to the clipboard and shows the steps (Tools → Scripting → Execute Script
+  File); once the user runs it, the in-proc host serves the pipe and the project appears in the list.
+- **Project selection is a wire op.** Picking a project sends `select` to its bridge (TwinCAT re-resolves on the
+  live DTE; CODESYS confirms its primary) — no worker respawn, no target env. On connect, the notification
+  **names the platform** ("Connected to MyMachine (CODESYS)").
+- **Supervises**: spawns the ExternalAttach workers on start, respawns on crash, kills its own child tree on
+  exit (never a broad process-name kill — that could take down a live IDE).
 - **Single-instance** (a named mutex) so two connectors don't fight over the bridges.
 
-## Config (env overrides for now; a JSON next to the exe later)
+## Config (env overrides)
 
 | var | purpose |
 |---|---|
-| `VOLT_TWINCAT_BRIDGE` | path to `BeckhoffBridge.exe` (else: next to the connector, then the dev build output) |
-| `VOLT_CODESYS_EXE` | path to `CODESYS.exe` |
-| `VOLT_CODESYS_SCRIPT` | path to `start_bridge.py` passed to `--runscript` |
+| `VOLT_TWINCAT_BRIDGE` | path to `VoltBridgeTwincat.exe` (else: next to the connector, then the dev build output) |
+| `VOLT_CODESYS_SCRIPT` | path to `start_pipe.py` (the CODESYS activation script the "Activate" action points at) |
 
-Ports: TwinCAT `8555`, CODESYS `8556` (Siemens `8557`, Allen-Bradley `8558` reserved).
+Data wire: named pipes — `volt.bridge.twincat`, `volt.bridge.codesys`. Control plane: HTTP `127.0.0.1:8550`.
 
 ## Diagnostics & logs
 
 Every Volt component writes to ONE durable store — **`%LOCALAPPDATA%\Volt\logs`** — in daily per-source files
-(`connector-<date>.log`, `twincat-<date>.log`, `codesys-<date>.log`, …), pruned after 14 days. Lines are
-`[timestamp][source][level] message`. The bridges log via Core's zero-dependency `VoltLog`; the connector via its
-own tiny `Log` (same location + format — it stays Core-free by design). This is a deliberate ~50-line file logger,
-not a logging framework: our need is "append a line to a rotating file", and a framework would only add
-dependencies and risk assembly conflicts inside the in-proc CODESYS (net48) host.
+(`connector-<date>.log`, `twincat-<date>.log`, `codesys-<date>.log`, …). Lines are `[timestamp][source][level]
+message`. The bridges log via Core's zero-dependency `VoltLog`; the connector via its own tiny `Log` (same
+location + format). A deliberate ~50-line file logger, not a framework.
 
-- **Show logs** — a live, filterable window (by source + level, searchable) over that store, with a Collect button.
-- **Collect diagnostics** — zips the whole log store plus a snapshot (each bridge's `/health`, which carries its
-  wire + app version, the OS/runtime, and the connector version) to `volt-diagnostics-<stamp>.zip` on the Desktop.
-
-### Runbook — debugging a customer bridge session
-
-1. Ask the customer for **one file**: tray → **Collect diagnostics** → the `volt-diagnostics-*.zip` on their Desktop.
-2. Open `snapshot.txt` first: it shows each bridge's `/health` — `connected`/`degraded`/`degradedReason`, the
-   attached project, and the **`wireVersion`** (a mismatch vs. the shipped client is the "stale bridge" class).
-3. Read `logs/<source>-<date>.log`: `degraded:` lines carry the reason (e.g. "no project selected"), `error` lines
-   carry stack traces from the HTTP boundary. The in-proc CODESYS bridge now logs here too (previously lost).
+- **Show logs** — a live, filterable window over that store.
+- **Collect diagnostics** (`Diagnostics.Collect`) — zips the whole log store plus a snapshot (the
+  `ConnectorView`: aggregate status + the detected-project list, plus OS/runtime/connector version) to
+  `volt-diagnostics-<stamp>.zip` on the Desktop. The one file to ask a customer for.
 
 ## Dev
 
@@ -84,13 +91,6 @@ dotnet build src/Volt.Cli.Connector -c Release
 ./src/Volt.Cli.Connector/bin/Release/net8.0-windows/VoltConnector.exe
 ```
 
-The shipped bundle (`build-bridges.ps1`) places `VoltConnector.exe`, the worker
-binaries, and `codesys-scriptcommands/` together so path resolution is zero-config.
-
-## Status / build order
-
-- [x] Connector shell + supervisor + tray UI + TwinCAT worker (this).
-- [ ] CODESYS provider: verify the `--runscript` interactive launch; "open with Volt".
-- [ ] Provider abstraction hardening + a small control-plane API (`:8550`) for the
-      extension / opencode app to query and manage bridges.
-- [ ] Siemens / Allen-Bradley workers (new adapters as providers).
+`build-cli.ps1` places `VoltConnector.exe`, the worker binaries, and `codesys-scriptcommands/` together so path
+resolution is zero-config. The UI-free model + its tests live in `Volt.Cli.Connector.Core` /
+`test/Volt.Cli.Connector.Tests`.

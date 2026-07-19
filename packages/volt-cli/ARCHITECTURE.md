@@ -8,12 +8,15 @@ wire, not the driver.
 ## The projects (bridge side)
 
 ```
-src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) — the Connector references THIS
-                                          ALONE, so the tray stays decoupled from the engine + vendor code
+src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) — decouples the tray from
+                                          the engine + vendor code
 src/Volt.Cli.Core        netstandard2.0   shared engine (no vendor refs) + Wire/BridgePipeHost (serves it)
 src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge — driver + PipeHost, loaded IN-PROCESS by the IDE
 src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM
-src/Volt.Cli.Connector   net8 exe         tray supervisor — spawns/watches the bridges (not a bridge itself)
+src/Volt.Cli.Connector.Core  net8 library     the connector's UI-free connection model (DetectedProject /
+                                          IProjectSource / ConnectionManager + the pipe-backed source) — unit-tested
+src/Volt.Cli.Connector   net8 exe         tray supervisor + Volt-branded window over the model. Spawns the
+                                          ExternalAttach workers; CODESYS is user-activated in-proc (never launched)
 ```
 
 (The `volt` CLI — `src/Volt.Cli`, the pipe *client* — is documented in `README.md`.)
