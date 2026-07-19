@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, probeVendors, isBridgeOnline, type VoltSeverity } from "@volt/control"
+import { VoltStatus, aggregate, detectedProjects, type VoltSeverity } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -66,15 +66,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
 	statusBar.command = "volt.status"
 
-	// Probe both bridge ports (parallel) so the IDE Sync view welcome's init buttons enable only for a
-	// vendor whose IDE is actually connected — `volt.twincatLive` / `volt.codesysLive` drive their
-	// command `enablement` (visible-but-disabled until the bridge is up). Skipped once a folder is bound.
+	// Ask the connector (the one aggregator) whether any PLC project is detected across all IDEs — `volt.hasProjects`
+	// drives the IDE Sync view welcome (pick a project to initialize) + the init command's enablement. No vendor
+	// buttons: the user picks a project, vendor is derived. Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
-		const live = unbound ? await probeVendors() : []
-		const isLive = (v: "twincat" | "codesys"): boolean => live.some((p) => p.vendor === v && isBridgeOnline(p.state))
-		void vscode.commands.executeCommand("setContext", "volt.twincatLive", isLive("twincat"))
-		void vscode.commands.executeCommand("setContext", "volt.codesysLive", isLive("codesys"))
+		const projects = unbound ? await detectedProjects() : []
+		void vscode.commands.executeCommand("setContext", "volt.hasProjects", projects.length > 0)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
 

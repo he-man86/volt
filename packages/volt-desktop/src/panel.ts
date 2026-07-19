@@ -5,30 +5,30 @@ import {
   VoltStatus,
   projectWorkspace,
   readBridgeVendor,
-  probeVendors,
-  isBridgeOnline,
+  detectedProjects,
   collectDiagnostics,
   type DriftItem,
   type WorkspaceView,
+  type DetectedProject,
 } from "@volt/control"
 import type { Shell } from "./context.js"
 
-// The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and `vendorsLive`. The bound
-// case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to update here;
-// the unbound case only carries the empty arrays renderRail reads unconditionally. (`paused` is a reason treated
-// truthily.) `vendorsLive` rides on both so the Initialize buttons gate the same way regardless of bound state.
-type Snap = { vendorsLive: { codesys: boolean; twincat: boolean } } & (
+// The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and the detected `projects`.
+// The bound case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to
+// update here; the unbound case only carries the empty arrays renderRail reads unconditionally. `projects` rides
+// on both so the init surface (pick a project) renders the same regardless of bound state.
+type Snap = { projects: DetectedProject[] } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
 
 function snapshot(shell: Shell): Snap {
-  const vendorsLive = shell.vendorsLive
+  const projects = shell.projects
   const vs = shell.status
-  if (!vs) return { bound: false, incoming: [], outgoing: [], vendorsLive }
+  if (!vs) return { bound: false, incoming: [], outgoing: [], projects }
   return {
     bound: true,
-    vendorsLive,
+    projects,
     ...projectWorkspace({
       workspaceRoot: vs.workspaceRoot,
       status: vs.cached,
@@ -43,18 +43,15 @@ export function pushStatus(shell: Shell): void {
   shell.win?.webContents.send("volt:status", snapshot(shell))
 }
 
-/** Probe both vendor bridge ports so the renderer enables each Initialize button only when that vendor's IDE is
- *  actually live with a project — mirrors the VS Code welcome's codesysLive/twincatLive gating. Pushes to the
- *  renderer only when the live set changes, so the 10s poll is otherwise silent. */
-export async function refreshVendorsLive(shell: Shell): Promise<void> {
-  // The Initialize buttons only show while no Volt workspace is bound (an initialized one shows the sync actions
-  // instead), so once bound there's nothing to gate — skip the probe entirely, like VS Code probing only unbound.
+/** Refresh the detected-project list from the connector — the init surface. Pushes to the renderer only when the
+ *  list changes, so the 10s poll is otherwise silent. Skipped once a Volt workspace is bound (the sync actions
+ *  show instead of the init picker). */
+export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   if (shell.status && readBridgeVendor(shell.status.workspaceRoot) !== undefined) return
-  const probes = await probeVendors()
-  const live = (v: "twincat" | "codesys"): boolean => probes.some((p) => p.vendor === v && isBridgeOnline(p.state))
-  const next = { codesys: live("codesys"), twincat: live("twincat") }
-  if (next.codesys === shell.vendorsLive.codesys && next.twincat === shell.vendorsLive.twincat) return
-  shell.vendorsLive = next
+  const next = await detectedProjects()
+  const key = (ps: DetectedProject[]): string => ps.map((p) => p.id).sort().join("|")
+  if (key(next) === key(shell.projects)) return
+  shell.projects = next
   pushStatus(shell)
 }
 

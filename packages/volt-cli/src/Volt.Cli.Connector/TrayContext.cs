@@ -87,8 +87,14 @@ namespace Volt.Cli.Connector
         }
 
         // ── snapshot for the control plane ─────────────────────────────────
+        // One shape covering both status use cases: per-vendor bridge health (A) + the unified project list (B).
         private ConnectorView Snapshot() => new(
             _conn.Aggregate().ToString(),
+            _conn.Sources.Select(s =>
+            {
+                var h = _conn.HealthOf(s.Vendor);
+                return new BridgeStatusView(s.Vendor, s.DisplayName, h.Status.ToString(), h.ProjectName, h.ProjectDirty, h.ActiveOp);
+            }).ToList(),
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
                 Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id)).ToList());

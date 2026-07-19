@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { probeHealth, readBridgeVendor, bridgeActiveOp, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
+import { readBridgeVendor, bridgeActiveOp, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
+import { boundStatus } from "../bridge/connector.js";
 import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
@@ -69,9 +70,9 @@ export class VoltStatus {
 	async start(): Promise<void> {
 		this.bridgeVendor = readBridgeVendor(this.workspaceRoot);
 		// One /health poll drives health AND IDE-change detection (no separate /refs poll, no slow heartbeat).
-		this.heartbeat = setInterval(() => this.probeHealth(), HEALTH_MS);
+		this.heartbeat = setInterval(() => this.pollConnection(), HEALTH_MS);
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
-		this.probeHealth();
+		this.pollConnection();
 		await this.refresh();
 	}
 
@@ -112,7 +113,7 @@ export class VoltStatus {
 
 			// UI-agnostic probe + `volt status --json` live in volt-control. On any error keep the last good
 			// `cached` (just surface the error); only a successful fetch replaces it.
-			const res = await fetchStatus(this.workspaceRoot, this.bridgeVendor);
+			const res = await fetchStatus(this.workspaceRoot);
 			this.health = res.health;
 			if (res.status !== undefined) {
 				this.cached = res.status;
@@ -132,7 +133,7 @@ export class VoltStatus {
 		}
 	}
 
-	private async probeHealth(): Promise<void> {
+	private async pollConnection(): Promise<void> {
 		// Skip while OUR OWN mutation holds the in-memory gate. This is the one thing the bridge's activeOp below
 		// can't cover: the gate is held until the whole action settles — PAST the bridge op — so it also absorbs the
 		// state-file write our own pull/push makes (saveIdeRefs), which activeOp has already cleared by then. Reset
@@ -141,9 +142,8 @@ export class VoltStatus {
 			this.seenHealth = false;
 			return;
 		}
-		const vendor = this.bridgeVendor;
-		if (vendor === undefined) return;
-		this.health = await probeHealth(vendor, 2000);
+		if (this.bridgeVendor === undefined) return;
+		this.health = await boundStatus(this.workspaceRoot);
 
 		// A mutation is running on the SHARED bridge — ANOTHER frontend, or a terminal `volt init`, that the
 		// in-memory gate above (process-local) can't see. Treat it exactly like our own in-flight mutation: don't

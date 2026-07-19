@@ -7,7 +7,7 @@ import {
   pull,
   push,
   build,
-  init,
+  initFromProject,
   mergeContinue,
   mergeAbort,
   describePull,
@@ -141,12 +141,15 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
   ipcMain.on("volt:refreshDiagnostics", () => void runDiagnostics(shell))
-  ipcMain.handle("volt:init", (_e, vendor: "codesys" | "twincat") =>
+  ipcMain.handle("volt:init", (_e, projectId: string) =>
     runGuarded(async () => {
-      // Init the project opencode is on — no folder picker (like the extension initing its open workspace).
+      // Init the project opencode is on — no folder picker (like the extension initing its open workspace). The
+      // user picked a DETECTED PROJECT (not a vendor); resolve it and derive the vendor from it.
       const root = shell.boundRoot
       if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
-      const out = await init(root, vendor, { onProgress: report })
+      const project = shell.projects.find((p) => p.id === projectId)
+      if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
+      const out = await initFromProject(project, root, { onProgress: report })
       clearProgress()
       if (out.code === 0) await bindWorkspace(shell, root)
       else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)

@@ -1,5 +1,5 @@
 import type { BrowserWindow, WebContentsView } from "electron"
-import type { VoltStatus } from "@volt/control"
+import type { VoltStatus, DetectedProject } from "@volt/control"
 
 /**
  * The desktop shell's mutable state, shared by `main` (window + lifecycle), `panel` (the status feed the
@@ -12,7 +12,7 @@ export interface Shell {
   status: VoltStatus | null
   boundRoot: string | undefined // the project currently bound (from opencode's active dir / VOLT_WORKSPACE)
   panelOpen: boolean
-  // Which vendor bridges are live with a project — gates the Initialize buttons (a vendor's button enables only
-  // when its IDE is actually connected), mirroring the VS Code welcome's codesysLive/twincatLive.
-  vendorsLive: { codesys: boolean; twincat: boolean }
+  // The detected projects across all IDEs (from the connector) — the init surface. The user picks one; there is
+  // no vendor button. Vendor rides along on each project as a badge.
+  projects: DetectedProject[]
 }

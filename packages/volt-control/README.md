@@ -28,7 +28,7 @@ Mutating actions (`pull`/`push`/`init`) take a per-workspace mutation gate (`gat
 
 **CLI spawning (`cli.ts`)** — `setBundledCli` pins the CLI shipped inside the host (so a PLC workspace needs no Node toolchain or `node_modules/.bin/volt`); `cliScript` falls back to the workspace's installed `volt-git`. One `runVolt` runs it as a Node script via the editor's own runtime (`process.execPath` + `ELECTRON_RUN_AS_NODE=1`), so it works under VS Code, Cursor, Windsurf, or Electron with no external node — `onProgress` opts into streamed progress frames, `binary` returns raw stdout bytes (the `volt show` blob).
 
-**Health & workspace (`health.ts`, `workspace.ts`, `display.ts`)** — `probeHealth` GETs `/health` on `127.0.0.1:<port>` and maps it to a `HealthState` (connected / degraded / disconnected / unreachable); `probeVendors` checks both bridge ports; `readBridgePort` / `readExtensionAccess` read `.git/volt/config.json`. The `healthLabel` one-line renderer lives in `display.ts` (the display model). `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime (`.git/volt/ide-refs.json`) for last-sync time.
+**Connection status (`connector.ts`, `health.ts`, `display.ts`)** — the connector is the ONE aggregator of live IDE status, so `connector.ts` reads `GET http://127.0.0.1:8550/status` (`ConnectorView`): `detectedProjects()` is the unified init/connect surface, `boundStatus(root)` is the bound workspace's live status (mapped to a `HealthState`: connected / degraded / disconnected / unreachable), `connectProject(id)` binds a project. `health.ts` holds the `HealthState`/`BridgeHealth` types + `readBridgeVendor` (the bound vendor from `.git/volt/config.json`) — the UI no longer probes the bridge pipes itself. The split: **connection status ← the connector; git-native commands (incl. `volt status` drift) ← the `volt` CLI.** The `healthLabel` one-line renderer lives in `display.ts`. `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime.
 
 ## Commands
 
@@ -55,7 +55,8 @@ bun test         # bun test runner (gate + workspace-detection tests)
 | `ipc.ts` | `registerVoltIpcHandlers` — wires the actions over Electron IPC; `IpcMainLike` |
 | `channels.ts` | `VOLT_CHANNELS` — Node-free channel-name source of truth (the `/channels` subpath) |
 | `cli.ts` | Bundled-CLI resolution + one `runVolt` child-process spawn (text or binary stdout, optional streamed progress) |
-| `health.ts` | Bridge `/health` probe, `HealthState`, `probeVendors`, port/extension-access config reads |
+| `connector.ts` | The connector `:8550` client — `connectorStatus`/`detectedProjects`/`boundStatus`/`connectProject` (the UI's single source of connection status) |
+| `health.ts` | `HealthState`/`BridgeHealth` types + `readBridgeVendor` (bound-vendor read) |
 | `workspace.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
 | `gate.ts` | Per-workspace mutation gate (`withGate`, `isMutationInFlight`) |
 | `types.ts` | `StatusJson`, `ChangeSet`, `ProjectMismatch`, `changeCount` |

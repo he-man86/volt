@@ -14,6 +14,6 @@ contextBridge.exposeInMainWorld("volt", {
   refresh: () => ipcRenderer.send("volt:refresh"),
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),
-  initWorkspace: (vendor) => ipcRenderer.invoke("volt:init", vendor),
+  initWorkspace: (projectId) => ipcRenderer.invoke("volt:init", projectId),
   onProgress: (cb) => ipcRenderer.on("volt:progress", (_e, p) => cb(p)),
 })
