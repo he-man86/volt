@@ -22,7 +22,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
 
   // Conditional-compile balance — track the open {IF} stack in source order. An {END_IF}/{ELSE}/{ELSIF}
   // with no open {IF} is an orphan; any {IF} still open at the end is unterminated (both compiler errors,
-  // wording confirmed against live :8556/:8555).
+  // wording confirmed against live).
   const ifStack: { span: DiagnosticItem["span"] }[] = []
   for (const p of pragmas) {
     const dir = p.directive.toLowerCase()

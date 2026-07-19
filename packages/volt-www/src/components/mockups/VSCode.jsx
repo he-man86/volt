@@ -100,7 +100,7 @@ const VOLT_SECTIONS = [
       { badge: "✓", cls: "ok", label: "No errors" },
     ],
   },
-  { id: "bridge", title: "Bridge", rows: [{ badge: "●", cls: "ok", label: "CODESYS · online · :8556" }] },
+  { id: "bridge", title: "Bridge", rows: [{ badge: "●", cls: "ok", label: "CODESYS · online" }] },
 ]
 
 const runCmd = (raw) => {

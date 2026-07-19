@@ -761,7 +761,7 @@ The set of offline semantic diagnostics the LSP emits SHALL be driven by, and tr
 
 ### Requirement: Catalog-mirrored messages are conformance-verified against both IDEs
 
-For any diagnostic the LSP shares with the compilers, the message text SHALL be verified byte-identical against how the live IDE actually builds — captured from the CODESYS (`:8556`) and TwinCAT (`:8555`) `/build` output, which emits each diagnostic as `Cnnnn: <message>`. Wording that has not yet been recorded against a live build SHALL be marked `PROVISIONAL` in the catalog and in the message builder. Per-vendor wording differences SHALL be represented as data in the vendor-keyed message builders, not as unverified guesses; where a vendor does not emit a given diagnostic, that SHALL be recorded rather than assumed.
+For any diagnostic the LSP shares with the compilers, the message text SHALL be verified byte-identical against how the live IDE actually builds — captured from the CODESYS and TwinCAT `/build` output, which emits each diagnostic as `Cnnnn: <message>`. Wording that has not yet been recorded against a live build SHALL be marked `PROVISIONAL` in the catalog and in the message builder. Per-vendor wording differences SHALL be represented as data in the vendor-keyed message builders, not as unverified guesses; where a vendor does not emit a given diagnostic, that SHALL be recorded rather than assumed.
 
 #### Scenario: A recorded message is locked byte-for-byte
 

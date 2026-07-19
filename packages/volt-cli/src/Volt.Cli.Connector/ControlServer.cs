@@ -18,9 +18,9 @@ namespace Volt.Cli.Connector
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension
     /// (and the opencode app) can see every bridge's state and act on it — restart a
-    /// worker, launch an IDE — without the user touching the tray. The data plane stays
-    /// the per-vendor bridge ports (855x, where PLC code flows); this is purely
-    /// orchestration. Localhost only.
+    /// worker, launch an IDE — without the user touching the tray. The data plane is the
+    /// per-vendor named pipe (`volt.bridge.codesys` / `volt.bridge.twincat`, where PLC code
+    /// flows); this control API is purely orchestration. Localhost only.
     ///
     ///   GET  /status                       → { bridges: BridgeView[] }
     ///   POST /bridges/{id}/restart         → respawn the worker

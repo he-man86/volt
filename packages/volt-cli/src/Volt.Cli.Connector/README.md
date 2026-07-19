@@ -50,11 +50,11 @@ descriptor + a worker binary.
 
 | var | purpose |
 |---|---|
-| `VOLT_TWINCAT_BRIDGE` | path to `BeckhoffBridge.exe` (else: next to the connector, then the dev build output) |
+| `VOLT_TWINCAT_BRIDGE` | path to `VoltBridgeTwincat.exe` (else: next to the connector, then the dev build output) |
 | `VOLT_CODESYS_EXE` | path to `CODESYS.exe` |
-| `VOLT_CODESYS_SCRIPT` | path to `start_bridge.py` passed to `--runscript` |
+| `VOLT_CODESYS_SCRIPT` | path to `start_pipe.py` passed to `--runscript` |
 
-Ports: TwinCAT `8555`, CODESYS `8556` (Siemens `8557`, Allen-Bradley `8558` reserved).
+Data wire: named pipes — TwinCAT `volt.bridge.twincat`, CODESYS `volt.bridge.codesys` (no HTTP data ports; the old 855x ports are gone). The connector's control plane is HTTP on `127.0.0.1:8550` (status/restart/launch/select only).
 
 ## Diagnostics & logs
 

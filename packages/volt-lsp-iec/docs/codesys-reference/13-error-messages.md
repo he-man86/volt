@@ -50,7 +50,7 @@ notice. Concretely:
    `src/reference/error-codes.ts` wraps it. A `checkable` code with no check yet is a *visible, tracked* gap
    (TRIAGE.md), not a silent absence.
 2. **Conformance-verified wording.** Any message we share with the compilers is verified byte-identical against how
-   the live IDE actually builds (CODESYS `:8556` / TwinCAT `:8555` `/build`, which emits `Cnnnn: <message>`).
+   the live IDE actually builds (CODESYS / TwinCAT `/build`, which emits `Cnnnn: <message>`).
    Unverified wording is marked `PROVISIONAL`; per-vendor differences live as data in the vendor-keyed message
    builders, not as guesses.
 3. **`Cnnnn` stays metadata, not our code.** The IDE remains authoritative — it emits the *real* code on build;

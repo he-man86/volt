@@ -124,7 +124,8 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>Launch CODESYS so the in-proc bridge auto-loads: run the start script
-        /// at startup; Host.Start returns, leaving the IDE interactive on :8556.</summary>
+        /// at startup; Host.Start returns, leaving the IDE interactive while the in-proc
+        /// bridge serves pipe `volt.bridge.codesys`.</summary>
         private static string BuildCodesysLaunchArgs()
         {
             var script = Environment.GetEnvironmentVariable("VOLT_CODESYS_SCRIPT");

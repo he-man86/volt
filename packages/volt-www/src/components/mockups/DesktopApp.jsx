@@ -314,7 +314,6 @@ export function DesktopApp({ panel = "sync", theme = "light", explorer = true, a
                 <div className="vda-row">
                   <span className="vda-dot-sm ok" />
                   <span className="vda-rowpath">CODESYS · online</span>
-                  <span className="vda-n">:8556</span>
                 </div>
               </>
             ) : (
