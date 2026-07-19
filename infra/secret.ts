@@ -14,7 +14,7 @@ export const SECRET = {
   UpstashRedisRestToken: new sst.Secret("UpstashRedisRestToken"),
   // Shared by the console app + the support portal (both read Resource.ZEN_LIMITS via console-core).
   ZenLimits: new sst.Secret("ZEN_LIMITS"),
-  // Soft-launch gate: comma-separated wrk_ ids allowed to start a subscription in production. Unset =
-  // subscriptions closed on prod (mirrors opencode's prod-only `isBeta` workspace check).
-  SubscribeAllowedWorkspaces: new sst.Secret("SUBSCRIBE_ALLOWED_WORKSPACES"),
+  // Operator allow-list (comma-separated emails). Already the dev-login gate (auth worker env var); linked
+  // to the console app too so the subscribe soft-launch gate can reuse the SAME list. Unset = subs closed on prod.
+  ConsoleDevEmails: new sst.Secret("CONSOLE_DEV_EMAILS"),
 }

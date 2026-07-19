@@ -284,7 +284,7 @@ export const web = new sst.cloudflare.x.SolidStart("Console", {
     ZEN_BLACK_PRICE,
     ZEN_LITE_PRICE,
     SECRET.ZenLimits,
-    SECRET.SubscribeAllowedWorkspaces,
+    SECRET.ConsoleDevEmails, // reused by the subscribe soft-launch gate (lite-section.tsx)
     new sst.Secret("ZEN_SESSION_SECRET"),
     ...ZEN_MODELS,
     ...($dev

@@ -136,7 +136,7 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
-    "SUBSCRIBE_ALLOWED_WORKSPACES": {
+    "CONSOLE_DEV_EMAILS": {
       "type": "sst.sst.Secret"
       "value": string
     }
