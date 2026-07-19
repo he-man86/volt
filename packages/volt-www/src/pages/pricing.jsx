@@ -1,7 +1,7 @@
 import { renderPage } from "../shell.jsx"
 import { PRICING } from "../content.js"
 import { PageHeader, Button, ctaHref } from "../components/ui.jsx"
-import { FinalCTA } from "../components/SocialProof.jsx"
+import { FinalCTA } from "../components/FinalCTA.jsx"
 import { Reveal } from "../reveal.jsx"
 
 function Plan({ p, i }) {
