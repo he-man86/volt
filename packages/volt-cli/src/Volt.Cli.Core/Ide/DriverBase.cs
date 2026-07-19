@@ -47,6 +47,8 @@ public abstract class DriverBase : IIdeSession
     public abstract HealthResponse BuildHealthResponse();
     public abstract bool ShouldMarkDegraded(Exception ex);
     public abstract T RunOnStaThread<T>(Func<T> fn);
+    public abstract InstancesResult EnumerateInstances();
+    public abstract void SelectProject(SelectRequest sel);
     public abstract void FlushPendingWrites();
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();

@@ -92,6 +92,26 @@ internal sealed class TcObjectModel
         FindPlcProject(string.IsNullOrEmpty(targetPlc) ? null : targetPlc);
     }
 
+    /// <summary>Bind a SPECIFIC instance/project/PLC project — the connector's `select`. Re-binds the DTE if a
+    /// different running instance is named, then re-resolves the chosen project on that live DTE (no worker
+    /// respawn, no IDE restart). Throws <see cref="NoProjectSelectedException"/> if no DTE / project is open.</summary>
+    public void SelectProject(string? instance, string? project, string? plcProject)
+    {
+        if (!string.IsNullOrEmpty(instance))
+        {
+            var dte = RotInstances.Bind(instance!);
+            if (dte != null) { _dte = dte; _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null; }
+        }
+        if (_dte == null)
+        {
+            var first = RotInstances.First();
+            if (first != null) _dte = first.Value.Dte;
+        }
+        if (_dte == null) throw new NoProjectSelectedException();
+        FindTwinCatProject(string.IsNullOrEmpty(project) ? null : project);
+        FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
+    }
+
     private void FindTwinCatProject(string? wantProject)
     {
         dynamic solution = _dte!.Solution;

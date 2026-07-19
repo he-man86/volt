@@ -46,6 +46,12 @@ public sealed class BridgePipeHost : IDisposable
                 h.ActiveOp = Volatile.Read(ref _activeOpDepth) > 0 ? _activeOpLabel ?? "busy" : null;
                 return h;
             }
+            case "instances":
+                // Read-only project discovery for the connector's selector — same STA marshalling as refs.
+                return _ide.RunOnStaThread(() => (object)_ide.EnumerateInstances());
+            case "select":
+                // Bind the chosen project (retarget/rebind); a state change, so mark the bridge busy for it.
+                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); return (object)new { ok = true }; });
             case "refs":
                 return _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
             case "fetch":

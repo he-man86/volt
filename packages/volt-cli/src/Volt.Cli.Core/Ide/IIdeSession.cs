@@ -30,6 +30,17 @@ public interface IIdeSession
     /// <summary>Run a unit of IDE work on the vendor's required (STA / primary) thread.</summary>
     T RunOnStaThread<T>(Func<T> fn);
 
+    // ── project discovery + selection (the connector's `instances` / `select` ops) ──
+    /// <summary>Every IDE instance the bridge can currently see + the projects each has open — what the
+    /// connector shows in its one unified project selector. TwinCAT enumerates running XAE instances over
+    /// COM/ROT; CODESYS reports its in-proc primary project. Empty when nothing is reachable.</summary>
+    InstancesResult EnumerateInstances();
+
+    /// <summary>Bind the given instance/project/sub-project so this bridge serves it — the connector's `select`.
+    /// TwinCAT re-resolves the chosen project on the live DTE (no worker respawn); CODESYS confirms/rebinds its
+    /// active project. Throws if the requested project isn't currently open.</summary>
+    void SelectProject(SelectRequest sel);
+
     // ── build ──
     /// <summary>Commit any buffered edits to the IDE's own store (TwinCAT SaveAll; CODESYS no-op,
     /// writes commit immediately). Called before reading versions and after applying a push.</summary>

@@ -19,11 +19,17 @@ change to the refs/fetch/push data path.
       vendors over the same `instances`/`select`/`health` ops — all asymmetry stays behind the wire. Maps the
       instance→project(→sub-project) tree to flat `DetectedProject`s (TC PLC sub-projects each become an entry;
       CODESYS project is one). Tested against the wire contract with a fake wire (5 tests).
-- [ ] Bridge side — add `instances` + `select` ops to the pipe router (`BridgePipeHost`) + the `IIdeDriver`
-      contract; one wire shape for all vendors.
-- [ ] TwinCAT worker: implement it over the existing COM/ROT + `FindTwinCatProject`/`FindPlcProject` paths
-      (`select` = `ReattachProject` on the live DTE, no worker respawn).
-- [ ] CODESYS in-proc host: implement it over `ScriptProjects`; `select` rebinds the host's active project.
+- [x] Bridge side — `instances` + `select` ops added to `BridgePipeHost` + the `IIdeSession` contract (abstract
+      in `DriverBase`); one vendor-neutral wire shape in Core (`IdeInstance`/`IdeProject`/`InstancesResult`/
+      `SelectRequest`). `FakeIde` implements them (scriptable). Contract test proves the bridge shape ↔ the
+      connector parser agree.
+- [x] TwinCAT worker: `EnumerateInstances` maps the existing `RotInstances.Enumerate()` (all running XAE
+      instances + PLC sub-projects); `SelectProject` → new `TcObjectModel.SelectProject` re-resolves the chosen
+      instance/project on the live DTE (re-binds the DTE only if a different instance is named — no worker respawn).
+      ⚠ needs live-TwinCAT verification (COM re-resolve path).
+- [x] CODESYS in-proc host: `EnumerateInstances` reports the primary project (one instance/project, no subs);
+      `select` confirms/refreshes that binding — the host can only serve the CODESYS it was loaded into.
+      ⚠ needs live-CODESYS verification.
 
 ## 3. Unified selector + notifications
 - [ ] The connector merges all sources into ONE list of `DetectedProject`; the user picks one (no vendor choice).
@@ -56,6 +62,8 @@ change to the refs/fetch/push data path.
 ## 7. Tests
 - [x] Unit: `ConnectionManager` merges sources, dispatches bind to the right vendor, tracks aggregate status,
       drops a vanished selection, survives an unreachable source (9 tests, `Volt.Cli.Connector.Tests`).
-- [ ] Unit: the `instances` op + bind for both vendors (fake IDE / pipe transport).
+- [x] Unit: the `instances`/`select` wire contract — bridge `InstancesResult` serializes into the connector's
+      `DetectedProject`s (TwinCAT multi-PLC + CODESYS single), and the connector's select payload reads back as a
+      `SelectRequest` (3 contract tests). Core services + `FakeIde` build green with the new ops.
 - [ ] Live parity: TwinCAT + CODESYS both reach "connected to <project>" via one selector, no launch step; the
       copied CODESYS activation command loads the host (extends the `codesys-pipe` smoke).
