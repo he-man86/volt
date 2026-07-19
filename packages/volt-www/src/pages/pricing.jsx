@@ -19,7 +19,26 @@ function Plan({ p, i }) {
         }}
       >
         <div>
-          <div className="h3">{p.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <div className="h3">{p.name}</div>
+            {p.comingSoon && (
+              <span
+                style={{
+                  fontSize: "var(--text-small-size)",
+                  fontWeight: 600,
+                  lineHeight: 1,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  border: "1px solid var(--color-accent)",
+                  color: "var(--color-accent)",
+                  letterSpacing: "0.02em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Coming soon
+              </span>
+            )}
+          </div>
           <div className="muted" style={{ fontSize: "var(--text-small-size)" }}>
             {p.note}
           </div>
@@ -36,9 +55,27 @@ function Plan({ p, i }) {
             </li>
           ))}
         </ul>
-        <Button kind={p.kind} variant={p.featured ? "primary" : "secondary"} href={p.kind === "contact" ? ctaHref("contact") : undefined}>
-          {p.cta}
-        </Button>
+        {p.comingSoon ? (
+          <div
+            aria-disabled="true"
+            style={{
+              textAlign: "center",
+              padding: "var(--space-2) var(--space-3)",
+              border: "1px dashed var(--color-accent)",
+              borderRadius: "var(--radius, 10px)",
+              color: "var(--color-accent)",
+              fontWeight: 600,
+              fontSize: "var(--text-small-size)",
+              opacity: 0.8,
+            }}
+          >
+            {p.cta}
+          </div>
+        ) : (
+          <Button kind={p.kind} variant={p.featured ? "primary" : "secondary"} href={p.kind === "contact" ? ctaHref("contact") : undefined}>
+            {p.cta}
+          </Button>
+        )}
       </div>
     </Reveal>
   )

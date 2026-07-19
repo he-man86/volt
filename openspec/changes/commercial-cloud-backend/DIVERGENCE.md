@@ -163,6 +163,14 @@ actually sees, found via a full audit of the active workspace surface:
 - **Edited** `support/src/routes/index.tsx` (in `ALLOW`) — a 2-line **additive**, `VOLT:`-marked change: import
   and render `<Overview />` above opencode's unchanged lookup form. No opencode logic touched.
 
+**Subscribe soft-launch gate (Volt, 2026-07-19):**
+- **Edited** `app/src/routes/workspace/[id]/go/lite-section.tsx` (in `ALLOW`) — the `createLiteCheckoutUrl`
+  server action now refuses to start a subscription in **production** unless the acting workspace is in
+  `SUBSCRIBE_ALLOWED_WORKSPACES` (a new `SECRET`). Unset list = subscriptions fully closed on prod. Mirrors
+  opencode's own prod-only `isBeta` workspace check (`workspace/common.tsx:69`); non-prod stages stay open for
+  testing. Marked `VOLT:`, additive (a guard before the existing checkout call). Paired marketing change:
+  `volt-www` pricing shows a "Coming soon" badge with the CTA disabled.
+
 **Use-case edits (minimal, marked, both non-load-bearing):**
 - `function/src/auth.ts` — (a) replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a configurable
   `CONSOLE_DEV_EMAILS` allowlist (**dev-only**; `stage !== "production"`, so production runs opencode's original);

@@ -7,6 +7,7 @@ import { Database, eq, and, isNull } from "@opencode-ai/console-core/drizzle/ind
 import { BillingTable, LiteTable } from "@opencode-ai/console-core/schema/billing.sql.js"
 import { WorkspaceTable } from "@opencode-ai/console-core/schema/workspace.sql.js"
 import { Actor } from "@opencode-ai/console-core/actor.js"
+import { Resource } from "@opencode-ai/console-resource" // VOLT: soft-launch subscribe gate
 import { Workspace } from "@opencode-ai/console-core/workspace.js"
 import { Subscription } from "@opencode-ai/console-core/subscription.js"
 import { LiteData } from "@opencode-ai/console-core/lite.js"
@@ -84,6 +85,16 @@ const createLiteCheckoutUrl = action(
     "use server"
     return json(
       await withActor(async () => {
+        // VOLT: soft-launch gate — in production, only allow-listed workspaces may start a subscription.
+        // Mirrors opencode's prod-only `isBeta` workspace check; an unset list = subscriptions fully closed
+        // on prod (safe default while we onboard gradually). Non-prod stages are always open (for testing).
+        const allowed = String(Resource.SUBSCRIBE_ALLOWED_WORKSPACES.value ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+        if (Resource.App.stage === "production" && !allowed.includes(Actor.workspace())) {
+          throw new Error("Volt subscriptions aren't open to everyone yet — we're onboarding gradually. Contact us for early access.")
+        }
         const data = await Billing.generateLiteCheckoutUrl({ successUrl, cancelUrl, method })
         await createReferralFromCookie()
         return { error: undefined, data }

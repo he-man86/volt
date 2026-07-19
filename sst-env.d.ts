@@ -136,6 +136,10 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "SUBSCRIBE_ALLOWED_WORKSPACES": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "Stat": import("@cloudflare/workers-types").Service
     "Teams": {
       "type": "sst.cloudflare.SolidStart"

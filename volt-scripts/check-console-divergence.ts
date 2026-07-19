@@ -81,6 +81,7 @@ const ALLOW = new Set([
   "support/src/lib/overview.ts", // Volt-added: fleet SUM/COUNT roll-up over PlanetScale (opencode has no such view — it uses the Athena lake/stats app)
   "support/src/component/overview.tsx", // Volt-added: renders the fleet overview
   "support/src/routes/index.tsx", // Volt: 2-line additive — render <Overview /> above opencode's lookup form
+  "app/src/routes/workspace/[id]/go/lite-section.tsx", // Volt: soft-launch gate — the subscribe action refuses non-allow-listed workspaces in production (SUBSCRIBE_ALLOWED_WORKSPACES)
 ])
 
 // Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —
