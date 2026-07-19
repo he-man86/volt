@@ -405,6 +405,30 @@
         "category": "Volt"
       },
       {
+        "command": "volt.finishMerge",
+        "title": "Volt: Finish Merge (resolve conflicts → sync baseline)",
+        "category": "Volt",
+        "icon": "$(check)"
+      },
+      {
+        "command": "volt.abortMerge",
+        "title": "Volt: Abort Merge",
+        "category": "Volt",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "volt.takeIdeVersion",
+        "title": "Take the IDE's Version",
+        "category": "Volt",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "volt.takeMyVersion",
+        "title": "Take My Version",
+        "category": "Volt",
+        "icon": "$(account)"
+      },
+      {
         "command": "volt.status",
         "title": "Volt: Status",
         "category": "Volt",
@@ -474,6 +498,36 @@
         {
           "command": "volt.acceptProjectRename",
           "when": "false"
+        },
+        {
+          "command": "volt.takeIdeVersion",
+          "when": "false"
+        },
+        {
+          "command": "volt.takeMyVersion",
+          "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "volt.takeIdeVersion",
+          "when": "view == volt.views.sync && viewItem == volt:conflict",
+          "group": "inline@1"
+        },
+        {
+          "command": "volt.takeMyVersion",
+          "when": "view == volt.views.sync && viewItem == volt:conflict",
+          "group": "inline@2"
+        },
+        {
+          "command": "volt.finishMerge",
+          "when": "view == volt.views.sync && viewItem == volt:merge",
+          "group": "inline@1"
+        },
+        {
+          "command": "volt.abortMerge",
+          "when": "view == volt.views.sync && viewItem == volt:merge",
+          "group": "inline@2"
         }
       ],
       "view/title": [

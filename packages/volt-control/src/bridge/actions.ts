@@ -22,8 +22,14 @@ export type PullOutcome =
   | { kind: "error"; message: string }
 
 export type PushOutcome =
-  | { kind: "ok"; items: string[]; status?: StatusJson }
+  | { kind: "ok"; items: string[]; status?: StatusJson; message?: string }
   | { kind: "rejected"; reason: string }
+  | { kind: "error"; message: string }
+
+// `volt merge` has no --json (it's exit-code + a line); map the codes: 0 = done, 2 = markers still present.
+export type MergeOutcome =
+  | { kind: "done"; message: string }
+  | { kind: "unresolved"; message: string }
   | { kind: "error"; message: string }
 
 export interface StatusResult {
@@ -108,6 +114,39 @@ export function push(workspaceRoot: string, opts: { force?: boolean } & Progress
 /** `volt build`. Returns the raw CLI result (the caller renders stdout/stderr). */
 export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<CliResult> {
   return runCli(workspaceRoot, ["build", "--workspace", workspaceRoot], opts.onProgress)
+}
+
+/** `volt merge --continue` — finish a resolved conflict AND advance the IDE baseline (no "pull again"). Exit 2
+ *  means conflict markers still remain in some file(s). */
+export function mergeContinue(workspaceRoot: string): Promise<MergeOutcome> {
+  return withGate(workspaceRoot, async () => {
+    const r = await runCli(workspaceRoot, ["merge", "--continue", "--workspace", workspaceRoot])
+    if (r.code === 0) return { kind: "done", message: firstLine(r.stdout) ?? "merge completed" }
+    if (r.code === 2) return { kind: "unresolved", message: firstLine(r.stderr) ?? "conflict markers remain" }
+    return { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
+  })
+}
+
+/** `volt merge --abort` — discard the in-progress merge, restore the pre-pull workspace. */
+export function mergeAbort(workspaceRoot: string): Promise<MergeOutcome> {
+  return withGate(workspaceRoot, async () => {
+    const r = await runCli(workspaceRoot, ["merge", "--abort", "--workspace", workspaceRoot])
+    return r.code === 0
+      ? { kind: "done", message: firstLine(r.stdout) ?? "merge aborted" }
+      : { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
+  })
+}
+
+/** `volt merge --resolve <path> --use-ours|--use-theirs` — take one whole side of a single conflicted file
+ *  ("mine" = ours = your workspace, "ide" = theirs = the IDE). Stages it; finish with {@link mergeContinue}. */
+export function mergeResolve(workspaceRoot: string, path: string, side: "mine" | "ide"): Promise<MergeOutcome> {
+  return withGate(workspaceRoot, async () => {
+    const flag = side === "mine" ? "--use-ours" : "--use-theirs"
+    const r = await runCli(workspaceRoot, ["merge", "--resolve", path, flag, "--workspace", workspaceRoot])
+    return r.code === 0
+      ? { kind: "done", message: firstLine(r.stdout) ?? `resolved ${path}` }
+      : { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
+  })
 }
 
 /** `volt init --vendor <codesys|twincat> [--force]`. Takes the mutation gate; streams progress when `onProgress`

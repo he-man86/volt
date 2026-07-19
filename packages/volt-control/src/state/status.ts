@@ -10,7 +10,7 @@ import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
 import { probeHealth, readBridgeVendor, bridgeActiveOp, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
-import type { PullOutcome, PushOutcome } from "../bridge/actions.js";
+import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
 
@@ -24,10 +24,10 @@ const MTIME_MS = 3_000;
  *  everything needed to build the merging status); only re-fetch when no status came back (state uncertain,
  *  e.g. a push rejected before the receipt, or an error). The ONE settle rule — both shells call it, so they
  *  can't diverge. */
-export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutcome): Promise<void> {
+export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutcome | MergeOutcome): Promise<void> {
 	const status = "status" in out ? out.status : undefined;
 	if (status) st.adopt(status);
-	else if (out.kind !== "ok") await st.refresh(true);
+	else if (out.kind !== "ok") await st.refresh(true); // merge outcomes carry no status → always re-fetch
 }
 
 /** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a project

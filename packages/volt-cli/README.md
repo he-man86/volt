@@ -27,10 +27,13 @@ src/
   Volt.Cli.Ide.Twincat/  net8 exe        BeckhoffDriver + the worker the connector spawns (attaches to XAE via COM)
   Volt.Cli.Connector/    net8 winexe     the tray supervisor (spawns/monitors the workers; probes `health`)
 test/
-  Volt.Cli.Tests/        net8 xUnit      pipe transport + the client sync + black-box CLI parity
-  Volt.Cli.Core.Tests/   net8 xUnit      the shared Core (parsing / PLCopen / VG round-trip / push+fetch)
+  shared/FakeIde.cs      the ONE in-memory IDE double, linked into both C# test projects
+  Volt.Cli.Tests/        net8 xUnit      the CLI layer — commands/ (every verb × situation), wire/ (pipe + client), plumbing/ (git/tree/status)
+  Volt.Cli.Core.Tests/   net8 xUnit      the shared Core — sync/ (push/fetch/refs services) + the parsing / PLCopen / VG round-trip suites
   e2e/                   bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
+
+Both layers cover the same situation matrix from their own angle: the transport layer (`Core.Tests/sync/` + `wire/`) proves each conflict/receipt MECHANISM; the CLI layer (`Tests/commands/`) proves the Kind + user-facing message each one produces.
 
 `Transport` and `Core` target `netstandard2.0` so the SAME assemblies load in the CODESYS net48 host, the net8
 TwinCAT host, and the net8 CLI/tests.

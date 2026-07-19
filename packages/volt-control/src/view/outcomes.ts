@@ -4,13 +4,14 @@
  * Node-free (types only) so it ports to either shell. The shell keeps the raw outcome in scope and, given the
  * chosen action tag, dispatches the matching handler — so the descriptor carries decisions, not UI or payloads.
  */
-import type { PullOutcome, PushOutcome } from "../bridge/actions.js"
+import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js"
+import { changeCount, type StatusJson } from "./types.js"
 
 export type OutcomeTone = "info" | "warn" | "error"
 
 /** A follow-up the shell may offer. `destructive` ⇒ `presentOutcome` confirms (modal) before running it, using
  *  `confirmMessage` — so the "cannot be undone" copy lives here, once, not re-written per shell. */
-export type OutcomeActionTag = "open-conflicts" | "force-pull" | "pull-first" | "force-push"
+export type OutcomeActionTag = "open-conflicts" | "force-pull" | "pull-first" | "force-push" | "finish-merge" | "abort-merge"
 export interface OutcomeAction {
   tag: OutcomeActionTag
   label: string
@@ -40,6 +41,15 @@ export const FORCE_PUSH: OutcomeAction = {
   destructive: true,
   confirmMessage: "Force push overwrites the IDE with your workspace, ignoring changes the engineer made since your last pull. This cannot be undone.",
 }
+/** Finish the in-progress merge (`volt merge --continue`): stages resolutions, commits, and advances the IDE
+ *  baseline — so status/push are correct immediately, no follow-up pull. */
+export const FINISH_MERGE: OutcomeAction = { tag: "finish-merge", label: "Finish Merge" }
+export const ABORT_MERGE: OutcomeAction = {
+  tag: "abort-merge",
+  label: "Abort Merge",
+  destructive: true,
+  confirmMessage: "Abort discards this merge and restores your workspace to before the pull. Your in-merge edits are lost. This cannot be undone.",
+}
 
 export function describePull(outcome: PullOutcome): OutcomeView {
   switch (outcome.kind) {
@@ -52,16 +62,41 @@ export function describePull(outcome: PullOutcome): OutcomeView {
     case "conflict":
       return {
         tone: "warn",
-        message: `Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve them with your editor's merge tools, commit, then Pull again to finish.`,
-        actions: [OPEN_CONFLICTS],
+        message: `Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve each file (edit, or take a whole side), then Finish Merge.`,
+        actions: [OPEN_CONFLICTS, FINISH_MERGE, ABORT_MERGE],
       }
   }
 }
 
-export function describePush(outcome: PushOutcome): OutcomeView {
+/** The `volt merge --continue|--abort` result toast. `unresolved` means markers still remain — keep resolving. */
+export function describeMerge(outcome: MergeOutcome): OutcomeView {
   switch (outcome.kind) {
-    case "ok":
-      return { tone: "info", message: `Pushed ${outcome.items.length} item(s) to the IDE.`, actions: [] }
+    case "done":
+      return { tone: "info", message: outcome.message, actions: [] }
+    case "unresolved":
+      return { tone: "warn", message: outcome.message, actions: [OPEN_CONFLICTS, FINISH_MERGE, ABORT_MERGE] }
+    case "error":
+      return { tone: "error", message: `volt merge failed: ${outcome.message}`, actions: [] }
+  }
+}
+
+/** `status` is the tracker's current drift — used ONLY to explain an empty push: "nothing to push" is
+ *  misleading when the reason is that the IDE is ahead (the no-op push never contacts the bridge, so the CLI
+ *  can't know). Given the drift, we say "pull first" with the button instead of a bare "Pushed 0 item(s)". */
+export function describePush(outcome: PushOutcome, status?: StatusJson): OutcomeView {
+  switch (outcome.kind) {
+    case "ok": {
+      if (outcome.items.length > 0)
+        return { tone: "info", message: `Pushed ${outcome.items.length} item(s) to the IDE.`, actions: [] }
+      const incoming = status ? changeCount(status.incoming) : 0
+      if (incoming > 0)
+        return {
+          tone: "warn",
+          message: `Nothing to push — the IDE has ${incoming} change(s) you haven't pulled yet. Pull first.`,
+          actions: [PULL_FIRST],
+        }
+      return { tone: "info", message: outcome.message ?? "Nothing to push — the IDE already matches your workspace.", actions: [] }
+    }
     case "error":
       return { tone: "error", message: `volt push failed: ${outcome.message}`, actions: [] }
     case "rejected":

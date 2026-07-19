@@ -18,4 +18,8 @@
          the black-box test spawns. Top-level Program is internal, so no entry-point clash. -->
     <ProjectReference Include="..\..\src\Volt.Cli\Volt.Cli.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
+    <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+  </ItemGroup>
 </Project>

@@ -74,8 +74,6 @@ public class GitTests
 
             Assert.Contains(Git.DiffWorktree(root, "refs/remotes/volt/ide", "src"),
                 r => r.Kind == "add" && r.Path == "src/FB_Motor.fb");
-            Assert.Contains(Git.OutgoingDiffs(root, "refs/remotes/volt/ide", "src"),
-                d => d.File == "src/FB_Motor.fb" && d.Status == "added" && d.Additions >= 1);
         }
         finally { ForceDelete(root); }
     }

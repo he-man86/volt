@@ -79,7 +79,7 @@ public static class StatusModel
             : null;
 
         string? recommend = null;
-        if (merging is not null) recommend = "resolve the conflict, then `git merge --continue`";
+        if (merging is not null) recommend = "resolve the conflict, then `volt merge --continue`";
         else if (snap.Online && incoming.Count > 0) recommend = "volt pull";
         else if (outgoing.Count > 0) recommend = "volt push";
 

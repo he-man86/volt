@@ -39,7 +39,6 @@ internal static class Program
                 "build" => CmdBuild(root, bridge, a),
                 "show" => CmdShow(root, bridge, a),
                 "merge" => CmdMerge(root, a),
-                "diff" => CmdDiff(root, a),
                 "help" or "--help" => Emit(Usage, 0),
                 _ => Emit(Usage, a.Verb is null ? 0 : 1),
             };
@@ -79,7 +78,7 @@ internal static class Program
         if (r.Kind == "refused") { Console.Error.WriteLine(r.Reason); return 1; }
         if (r.Kind == "conflict")
         {
-            Console.WriteLine($"CONFLICT in {r.Paths!.Count} file(s) — resolve the markers, then `git merge --continue` (or `git merge --abort`):");
+            Console.WriteLine($"CONFLICT in {r.Paths!.Count} file(s) — resolve the markers, then `volt merge --continue` (or `volt merge --abort`):");
             foreach (var p in r.Paths!) Console.WriteLine($"  ! {p}");
             return 2;
         }
@@ -154,20 +153,6 @@ internal static class Program
         return code;
     }
 
-    private static int CmdDiff(string root, Args a)
-    {
-        var (ok, diffs, error) = Commands.Diff(root);
-        if (!ok)
-        {
-            if (a.Has("--json")) { Console.Out.Write("[]\n"); return 0; } // unbound → no outgoing diff
-            Console.Error.WriteLine(error);
-            return 1;
-        }
-        if (a.Has("--json")) { EmitJson(diffs); return 0; }
-        foreach (var d in diffs) Console.WriteLine($"{char.ToUpperInvariant(d.Status[0])}  {d.File}  +{d.Additions} -{d.Deletions}");
-        return 0;
-    }
-
     // ── arg parsing (port of bin.ts parseArgs) ──────────────────────────────────
 
     private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--limit", "--resolve", "--timeout", "--force-with-lease" };
@@ -228,7 +213,6 @@ internal static class Program
         "  build    build via the IDE; returns diagnostics           [--full] [--json]\n" +
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
-        "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
-        "  diff     outgoing per-file diffs                          [--json]\n\n" +
+        "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n\n" +
         "  flags: --workspace <dir>  --vendor <codesys|twincat>";
 }

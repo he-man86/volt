@@ -254,4 +254,67 @@ public class PushServiceTests
         var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.fb", IfVersion = null, SourceText = twoDistinct });
         Assert.True(resp.Accepted);
     }
+
+    // ── conflict REASON strings: the wire text a client turns into its message (pinned once, here) ──
+
+    [Fact]
+    public void Stale_ifVersion_conflict_carries_the_item_changed_reason()
+    {
+        var ide = OneProgram();
+        var (_, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = "stale", SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 5;" });
+        Assert.False(resp.Accepted);
+        Assert.Contains(resp.Conflicts!, c => c.Name == "PLC_PRG.prg" && c.Reason == "item changed since you fetched its version");
+        Assert.Empty(ide.Recorded);
+    }
+
+    [Fact]
+    public void Wrong_expected_project_version_carries_the_project_conflict_reason()
+    {
+        var ide = OneProgram();
+        var (v, _) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" });
+        Assert.False(resp.Accepted);
+        Assert.Contains(resp.Conflicts!, c => c.Name == "<project>" && c.Reason == "expected project version does not match current project version");
+    }
+
+    // ── multi-op batch atomicity at the service layer (was only proven in the e2e wire suite) ──
+
+    [Fact]
+    public void A_multi_op_batch_applies_create_update_and_delete_atomically()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR", "n := 1;"),
+            FakeIde.Item.TextualPou("FB_Old", "FUNCTION_BLOCK FB_Old\nVAR\nEND_VAR", "", "POUs"));
+        var refs = RefsService.Handle(ide);
+        // Derive the update's SourceText from a real fetch so it round-trips in the canonical POU form.
+        var prgSrc = FetchService.Handle(ide, new FetchRequest { KnownItems = new() })
+            .Changed.First(c => c.Name == "PLC_PRG.prg").SourceText.Replace("n := 1;", "n := 2;");
+
+        var resp = Push(ide, refs.ProjectVersion!,
+            new SetItemOp { Name = "ST_New.struct", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
+            new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = prgSrc },
+            new DeleteItemOp { Name = "FB_Old.fb", IfVersion = refs.Items["FB_Old.fb"] });
+
+        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("write:PLC_PRG"));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("delete:FB_Old"));
+    }
+
+    [Fact]
+    public void A_conflict_anywhere_in_a_batch_rejects_the_whole_batch()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("B", "PROGRAM B\nVAR\nEND_VAR", "y := 1;"));
+        var refs = RefsService.Handle(ide);
+        var resp = Push(ide, refs.ProjectVersion!,
+            new SetItemOp { Name = "A.prg", IfVersion = refs.Items["A.prg"], SourceText = "PROGRAM A\nVAR\nEND_VAR\nx := 2;" }, // valid
+            new SetItemOp { Name = "B.prg", IfVersion = "stale", SourceText = "PROGRAM B\nVAR\nEND_VAR\ny := 2;" });          // conflicts
+
+        Assert.False(resp.Accepted);
+        Assert.Contains(resp.Conflicts!, c => c.Name == "B.prg");
+        Assert.Empty(ide.Recorded); // the valid op A was NOT applied — atomic rollback
+    }
 }

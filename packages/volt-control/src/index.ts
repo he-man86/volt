@@ -10,7 +10,7 @@
 export * from "./bridge/cli.js" // setBundledCli, cliScript, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
 export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, readBridgeVendor, probeHealth, probeVendors, VENDORS, Vendor
-export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, firstLine + PullOutcome/PushOutcome
+export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
 
 // state/ — the reactive per-workspace tracker
 export * from "./state/status.js" // VoltStatus, isIdeChangeEdge
@@ -21,7 +21,7 @@ export * from "./state/files.js" // isPouFile, readStateMtime
 export * from "./view/types.js" // StatusJson, ChangeSet, ProjectMismatch, changeCount
 export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState
 export * from "./view/workspace.js" // projectWorkspace, WorkspaceView, WorkspaceInput, DriftItem
-export * from "./view/outcomes.js" // describePull, describePush, presentOutcome, OutcomePresenter, OutcomeView, OutcomeAction, OutcomeActionTag
+export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 
 // headless LSP-diagnostics collector (desktop's Diagnostics section)

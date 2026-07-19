@@ -3,8 +3,9 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, init as voltInit, readBridgeVendor,
-	describePull, describePush, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
-	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type Vendor,
+	mergeContinue, mergeAbort, mergeResolve,
+	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
+	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -35,9 +36,14 @@ function pickStatus(statuses: Map<string, VoltStatus>): VoltStatus | undefined {
 }
 
 // The adopt-on-ok / refresh-on-fail rule lives once in @volt/control (settleOutcome); resolve the tracker here.
-async function settleFor(statuses: Map<string, VoltStatus>, workspaceRoot: string, outcome: PullOutcome | PushOutcome): Promise<void> {
+async function settleFor(statuses: Map<string, VoltStatus>, workspaceRoot: string, outcome: PullOutcome | PushOutcome | MergeOutcome): Promise<void> {
 	const s = statuses.get(workspaceRoot)
 	if (s !== undefined) await settleOutcome(s, outcome)
+}
+
+/** Conflicted files the tracker currently knows about (for the merge toast's "Open Conflicts"). */
+function conflictPaths(statuses: Map<string, VoltStatus>, workspaceRoot: string): string[] {
+	return statuses.get(workspaceRoot)?.cached?.merging?.conflicts.map((c) => c.path) ?? []
 }
 
 /** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root).
@@ -96,7 +102,45 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	await presentOutcome(describePull(outcome), vscodePresenter, async (tag) => {
 		if (tag === "open-conflicts" && outcome.kind === "conflict") await openConflicts(workspaceRoot, outcome.paths)
 		else if (tag === "force-pull") await doPull(statuses, workspaceRoot, true)
+		else if (tag === "finish-merge") await doFinishMerge(statuses, workspaceRoot)
+		else if (tag === "abort-merge") await doAbortMerge(statuses, workspaceRoot)
 	})
+}
+
+// ── merge finalization (git-native resolution; `volt merge` advances the IDE baseline) ──────────────
+async function doFinishMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
+	const outcome = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt merge --continue" },
+		() => mergeContinue(workspaceRoot),
+	)
+	await settleFor(statuses, workspaceRoot, outcome)
+	if (outcome.kind === "error") logln(`merge --continue: ${outcome.message}`)
+	await presentOutcome(describeMerge(outcome), vscodePresenter, async (tag) => {
+		if (tag === "open-conflicts") await openConflicts(workspaceRoot, conflictPaths(statuses, workspaceRoot))
+		else if (tag === "finish-merge") await doFinishMerge(statuses, workspaceRoot)
+		else if (tag === "abort-merge") await doAbortMerge(statuses, workspaceRoot)
+	})
+}
+
+async function doAbortMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
+	const outcome = await mergeAbort(workspaceRoot)
+	await settleFor(statuses, workspaceRoot, outcome)
+	if (outcome.kind === "error") logln(`merge --abort: ${outcome.message}`)
+	await presentOutcome(describeMerge(outcome), vscodePresenter, async () => {})
+}
+
+/** Take one whole side of a single conflicted file, then leave the rest to the user + Finish Merge. */
+async function doTakeSide(statuses: Map<string, VoltStatus>, node: { merge?: { workspaceRoot: string; relPath: string } } | undefined, side: "mine" | "ide"): Promise<void> {
+	const m = node?.merge
+	if (m === undefined) return
+	const outcome = await mergeResolve(m.workspaceRoot, m.relPath, side)
+	await settleFor(statuses, m.workspaceRoot, outcome)
+	if (outcome.kind === "error") {
+		logln(`merge --resolve ${m.relPath}: ${outcome.message}`)
+		void vscode.window.showErrorMessage(`Resolve failed: ${outcome.message}`)
+	} else {
+		void vscode.window.showInformationMessage(`${m.relPath}: took ${side === "ide" ? "the IDE's" : "your"} version. Finish Merge when every file is resolved.`)
+	}
 }
 
 async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
@@ -109,7 +153,7 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`push: ${outcome.message}`)
-	await presentOutcome(describePush(outcome), vscodePresenter, async (tag) => {
+	await presentOutcome(describePush(outcome, statuses.get(workspaceRoot)?.cached), vscodePresenter, async (tag) => {
 		if (tag === "pull-first") await doPull(statuses, workspaceRoot, false)
 		else if (tag === "force-push") await doPush(statuses, workspaceRoot, true)
 	})
@@ -190,6 +234,11 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),
 		reg("volt.forcePull", async () => { const w = ws(); if (w && (await vscodePresenter.confirm(FORCE_PULL))) await doPull(statuses, w, true) }),
 		reg("volt.forcePush", async () => { const w = ws(); if (w && (await vscodePresenter.confirm(FORCE_PUSH))) await doPush(statuses, w, true) }),
+
+		reg("volt.finishMerge", async () => { const w = ws(); if (w) await doFinishMerge(statuses, w) }),
+		reg("volt.abortMerge", async () => { const w = ws(); if (w) await doAbortMerge(statuses, w) }),
+		reg("volt.takeIdeVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "ide")),
+		reg("volt.takeMyVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "mine")),
 
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		reg("volt.status", async () => {
