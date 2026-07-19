@@ -2,6 +2,14 @@
 // (see [data-reveal] in styles.css). prefers-reduced-motion is handled in CSS, so nothing to branch on here.
 import { useEffect, useRef, useState } from "react"
 
+// Is the element in the viewport right now? Content already on-screen at mount is revealed synchronously rather
+// than waiting on the observer — an IntersectionObserver only computes while the tab is rendered, so above-the-fold
+// content on short pages (pricing, contact, feature intros) could otherwise sit at opacity 0 until the first scroll.
+const inViewportNow = (el) => {
+  const r = el.getBoundingClientRect()
+  return r.top < window.innerHeight && r.bottom > 0
+}
+
 // Returns [ref, inView] — true once the element scrolls into view (one-shot). Drives mockup animations.
 export function useInView(options) {
   const ref = useRef(null)
@@ -23,6 +31,10 @@ export function useInView(options) {
       { threshold: 0.3, ...options },
     )
     io.observe(el)
+    if (inViewportNow(el)) {
+      setInView(true)
+      io.disconnect()
+    }
     return () => io.disconnect()
   }, [])
   return [ref, inView]
@@ -64,6 +76,12 @@ export function Reveal({ as: Tag = "div", delayIndex = 0, style, children, ...re
       { threshold: 0.12, rootMargin: "0px 0px -10% 0px" },
     )
     io.observe(el)
+    // In the first viewport at mount? Reveal on the next frame so the CSS fade still plays — don't leave
+    // above-the-fold content invisible waiting on an observer callback that only arrives once the tab renders.
+    if (inViewportNow(el)) {
+      requestAnimationFrame(() => el.classList.add("is-revealed"))
+      io.disconnect()
+    }
     return () => io.disconnect()
   }, [])
   return (
