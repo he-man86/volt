@@ -16,6 +16,10 @@ const host = `support.${domain}`
 export const support = new sst.cloudflare.x.SolidStart("Support", {
   domain: host,
   path: "packages/console/support",
+  // The vendored support package.json has no "build" script (opencode never deploys it), so the SolidStart
+  // component's default `bun run build` errors. Supply it here — the same `vite build` the console app's build
+  // script runs — instead of editing the vendored package. (opencode does the same for Teams/Stats via buildCommand.)
+  buildCommand: "bunx vite build",
   link: [database],
 })
 
