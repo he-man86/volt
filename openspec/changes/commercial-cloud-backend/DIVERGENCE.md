@@ -155,6 +155,14 @@ actually sees, found via a full audit of the active workspace surface:
 - **Not changed:** `volt-config/opencode.json` `baseURL` stays `https://volt-ai.dev/v1` (production) — the correct
   shipped end-state; the agent gateway goes live when the production stage deploys (not a code fix).
 
+**Support portal — fleet overview (Volt-added, 2026-07-19):**
+- **Added** `support/src/lib/overview.ts` + `support/src/component/overview.tsx` (in `ALLOW`) — a lightweight
+  all-workspaces roll-up (stat tiles + a per-workspace table linking into the existing per-account lookup),
+  computed with plain `SUM/COUNT` over the PlanetScale OLTP DB. opencode has **no** such view in `console/support`;
+  it routes fleet analytics to the Athena **lake** (`packages/stats`), which Volt dropped. Cheap at Volt's scale.
+- **Edited** `support/src/routes/index.tsx` (in `ALLOW`) — a 2-line **additive**, `VOLT:`-marked change: import
+  and render `<Overview />` above opencode's unchanged lookup form. No opencode logic touched.
+
 **Use-case edits (minimal, marked, both non-load-bearing):**
 - `function/src/auth.ts` — (a) replaced opencode's hardcoded `@anoma.ly` non-prod login gate with a configurable
   `CONSOLE_DEV_EMAILS` allowlist (**dev-only**; `stage !== "production"`, so production runs opencode's original);
