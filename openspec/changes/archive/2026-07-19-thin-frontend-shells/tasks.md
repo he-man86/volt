@@ -43,6 +43,10 @@
 - [ ] 6.4 Manual (CODESYS + TwinCAT): init a large project from each shell → live progress toast; idle → bridge log shows no recurring `refs:` scans; IDE edit → drift view updates once. **Smoke-test TwinCAT XAE flips `projectDirty` on an edit** (CODESYS known-good; TC unverified).
 - [ ] 6.5 Manual: confirm the desktop conflict/refuse/reject paths now surface a dialog (net-new UX, was `catch {}`).
 
+_Closed at archive (2026-07-19): 6.3–6.5 are deferred manual/CI verification, not missing implementation — the
+shell refactor itself landed (6.1/6.2 green). 6.3 runs as part of the normal `compat` gate on the Windows/CI box;
+6.4/6.5 fold into release smoke-testing. Tracked there, not here._
+
 ## 7. Quality overhaul (multi-agent review follow-up — all logic in control, shells are UI)
 
 - [x] 7.1 Critical data-integrity fixes (root-cause, not guards): pull no longer strands un-pushed edits (`buildVoltIdeTree` overlays fetched items onto the parent `volt/ide` tree); pull/push can't wipe `src/` on an empty+disconnected bridge (shared `guardEmptyItems` over `/refs`+`/fetch`+`/init`; `verifyBinding` requires `health.connected`); status/push/build don't crash on empty `src/`; build verifies the binding; the push receipt matches `/refs` by construction (shared `ProjectSnapshot.Walk`). 52 volt-git + 275 C# tests green.
