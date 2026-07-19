@@ -1,0 +1,32 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Volt.Cli.Connector
+{
+    /// <summary>
+    /// A vendor's adapter into the connection model: enumerate the projects it can connect to, bind one, and
+    /// report health. This is the ONLY place a vendor's attach mechanism lives — TwinCAT enumerates/binds over
+    /// COM/ROT (via its worker), CODESYS over the in-proc <c>ScriptProjects</c> — and it is the boundary the
+    /// load-bearing ExternalAttach/InIdeLoad asymmetry is kept behind. Everything above it (the
+    /// <see cref="ConnectionManager"/>, the tray, the window, the control plane) is vendor-neutral.
+    /// </summary>
+    public interface IProjectSource
+    {
+        /// <summary>Vendor id: "codesys" | "twincat" — matches <see cref="DetectedProject.Vendor"/> + the pipe name.</summary>
+        string Vendor { get; }
+
+        /// <summary>Human platform name for the prefix/logo ("CODESYS" | "TwinCAT").</summary>
+        string DisplayName { get; }
+
+        /// <summary>The projects this source can currently connect to — empty if its bridge isn't reachable or
+        /// nothing is open. Never throws for "not reachable"; that is an empty list.</summary>
+        Task<IReadOnlyList<DetectedProject>> EnumerateAsync();
+
+        /// <summary>Bind the given project so its bridge serves it (retarget the worker / rebind the in-proc host).
+        /// The project's <see cref="DetectedProject.Attach"/> is this source's own payload.</summary>
+        Task BindAsync(DetectedProject project);
+
+        /// <summary>Current health of this source's bridge (used for the aggregate tray colour + status text).</summary>
+        Task<BridgeHealth> ProbeAsync();
+    }
+}
