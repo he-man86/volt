@@ -61,12 +61,13 @@ change to the refs/fetch/push data path.
 - [x] Consistent status vocabulary in `VoltTheme.StatusWord` (Connected · Degraded · Waiting for a project · No
       bridge running · Idle). ⚠ needs a visual smoke-test on a live desktop.
 
-## 6. Cleanup
-- [ ] Fix the stale "HTTP wire" language in `Connector/README.md` (data + health wire is named pipes; only `:8550`
-      control plane is HTTP). Rewrite the README to the new model.
-- [ ] Implement **Collect diagnostics** (the README advertises it): bundle logs + `health` + versions to a zip.
-- [ ] Resolve the "config JSON next to the exe later" TODO — a minimal config or drop the note.
-- [ ] Update `ARCHITECTURE.md` for the CODESYS activation model + the `DetectedProject`/`ConnectionManager` design.
+## 6. Cleanup — DONE
+- [x] Rewrote `Connector/README.md` to the new model: named-pipe data wire (only `:8550` is HTTP control plane),
+      the `ConnectionManager`/`DetectedProject` design, guided CODESYS activation (no launch), correct config vars
+      (`VoltBridgeTwincat.exe` / `start_pipe.py`).
+- [x] Implemented **Collect diagnostics** (`Diagnostics.Collect` — logs + snapshot → Desktop zip).
+- [x] Resolved the "config JSON later" TODO — dropped (env overrides suffice; no demand).
+- [x] Updated `ARCHITECTURE.md` — added `Volt.Cli.Connector.Core` + the no-launch note.
 
 ## 7. Tests
 - [x] Unit: `ConnectionManager` merges sources, dispatches bind to the right vendor, tracks aggregate status,
@@ -74,5 +75,6 @@ change to the refs/fetch/push data path.
 - [x] Unit: the `instances`/`select` wire contract — bridge `InstancesResult` serializes into the connector's
       `DetectedProject`s (TwinCAT multi-PLC + CODESYS single), and the connector's select payload reads back as a
       `SelectRequest` (3 contract tests). Core services + `FakeIde` build green with the new ops.
-- [ ] Live parity: TwinCAT + CODESYS both reach "connected to <project>" via one selector, no launch step; the
-      copied CODESYS activation command loads the host (extends the `codesys-pipe` smoke).
+- [ ] **Live verification (needs real IDEs — the last gate):** (a) TwinCAT + CODESYS both reach "connected to
+      <project>" via the one selector, no launch step; (b) the copied CODESYS activation command loads the host;
+      (c) the TC `SelectProject` live re-resolve; (d) a visual smoke-test of `ConnectorWindow` on a desktop.
