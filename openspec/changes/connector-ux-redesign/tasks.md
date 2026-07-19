@@ -3,14 +3,16 @@ prototype context menu. The core abstraction is "a detected project you can conn
 detail. Keep the ExternalAttach / InIdeLoad attach mechanisms distinct; unify the model + UX above them. No
 change to the refs/fetch/push data path.
 
-## 1. Domain model (the foundation — build this first)
-- [ ] `DetectedProject` — vendor-neutral: display name, vendor, dirty flag, and the opaque attach reference the
-      bind needs. This is the ONLY project shape the UI knows.
-- [ ] `IProjectSource` per vendor — a uniform "enumerate detectable projects" contract. Implementations: TwinCAT
-      (COM/ROT via the worker's `instances` op), CODESYS (in-proc `ScriptProjects` via its `instances` op).
-- [ ] `ConnectionManager` — owns the merged project list (across sources), the current selection, the bind
-      dispatch (route to the right vendor mechanism), and the aggregate status. The tray, the window, and the
-      control plane are ALL thin views over this — no vendor branching in any of them.
+## 1. Domain model (the foundation — build this first) — DONE
+- [x] `DetectedProject` (+ `ProjectRef`) — vendor-neutral: display name, vendor, dirty flag, and the opaque attach
+      reference the bind needs. The ONLY project shape the UI knows. → `Volt.Cli.Connector.Core/DetectedProject.cs`
+- [x] `IProjectSource` per vendor — a uniform enumerate/bind/probe contract; the boundary the ExternalAttach/
+      InIdeLoad asymmetry lives behind. → `IProjectSource.cs` (impls come in §2).
+- [x] `ConnectionManager` — owns the merged project list, per-vendor selection + health, the bind dispatch (routes
+      by `DetectedProject.Vendor`), the aggregate status, and `Changed`/`Connected` events. The tray, window, and
+      control plane are thin views over it — no vendor branching. → `ConnectionManager.cs`
+- [x] Split the UI-free model into its own testable assembly `Volt.Cli.Connector.Core` (net8.0, no WinForms);
+      moved `HealthProbe`/`BridgeHealth`/`BridgeStatus` there; the WinForms shell references it (same namespace).
 
 ## 2. Wire op (shared Core, per-vendor impl)
 - [ ] Add a symmetric `instances` enumeration op to the pipe contract (one shape for all vendors).
@@ -46,7 +48,8 @@ change to the refs/fetch/push data path.
 - [ ] Update `ARCHITECTURE.md` for the CODESYS activation model + the `DetectedProject`/`ConnectionManager` design.
 
 ## 7. Tests
-- [ ] Unit: `ConnectionManager` merges sources, dispatches bind to the right vendor, tracks status (fake sources).
+- [x] Unit: `ConnectionManager` merges sources, dispatches bind to the right vendor, tracks aggregate status,
+      drops a vanished selection, survives an unreachable source (9 tests, `Volt.Cli.Connector.Tests`).
 - [ ] Unit: the `instances` op + bind for both vendors (fake IDE / pipe transport).
 - [ ] Live parity: TwinCAT + CODESYS both reach "connected to <project>" via one selector, no launch step; the
       copied CODESYS activation command loads the host (extends the `codesys-pipe` smoke).
