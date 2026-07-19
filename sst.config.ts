@@ -33,6 +33,9 @@ export default $config({
     // www.ts: Volt's public marketing site (packages/volt-www) at `www.${domain}`. The console keeps the apex, so
     // there's no domain migration — a fresh StaticSite on a new hostname.
     await import("./infra/www.js")
+    // support.ts: the vendored per-customer support-lookup portal at `support.${domain}`, gated by Cloudflare
+    // Access. Deployed as-is (no edit to the opencode package); see infra/support.ts for the Access prereqs.
+    await import("./infra/support.js")
     // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. Gated on the key so it can't break a
     // pre-Honeycomb deploy. Telemetry SEND (log-processor → Honeycomb) activates via the HONEYCOMB_API_KEY secret.
     if (process.env.HONEYCOMB_API_KEY) await import("./infra/monitoring.js")
