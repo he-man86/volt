@@ -51,12 +51,15 @@ change to the refs/fetch/push data path.
       surfaced inside the empty "Connect to" list.
 - [x] Implemented **Collect diagnostics** (`Diagnostics.Collect` — zips logs + a snapshot to the Desktop).
 
-## 5. Volt-branded window (designed, MVVM over ConnectionManager)
-- [ ] A proper window carrying Volt identity — bolt + wordmark + the volt-www palette/fonts/pill buttons (port the
-      console-rebrand tokens; see `style/volt-theme.css`). Centerpiece: the unified selector + connection status.
-- [ ] The tray context menu shrinks to a minimal launcher (Open Volt · Show logs · Collect diagnostics · Exit);
-      the tray icon (aggregate color) + toasts remain, driven by the `ConnectionManager` status.
-- [ ] Consistent status vocabulary (Waiting for a project · Connected to X · Degraded · Activate to see CODESYS).
+## 5. Volt-branded window (designed, view over ConnectionManager) — DONE
+- [x] `ConnectorWindow` — a Volt-identity `Form`: the bolt + "Volt Connector" wordmark, `VoltTheme` (the volt-www
+      "Cursor look" tokens — warm off-white surfaces, ink text, orange accent, dark pill CTA), rounded project
+      cards with a platform badge + a Connect/Connected pill. Re-renders on `ConnectionManager.Changed`.
+- [x] It's the primary surface — the tray icon double-click + a bold "Open Volt" open it; the context menu keeps
+      quick actions (Connect to · Activate · Logs · Diagnostics · Exit) as a shortcut. Tray icon + toasts driven
+      by the model.
+- [x] Consistent status vocabulary in `VoltTheme.StatusWord` (Connected · Degraded · Waiting for a project · No
+      bridge running · Idle). ⚠ needs a visual smoke-test on a live desktop.
 
 ## 6. Cleanup
 - [ ] Fix the stale "HTTP wire" language in `Connector/README.md` (data + health wire is named pipes; only `:8550`
