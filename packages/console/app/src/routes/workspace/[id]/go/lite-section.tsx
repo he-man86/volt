@@ -12,6 +12,7 @@ import { Workspace } from "@opencode-ai/console-core/workspace.js"
 import { Subscription } from "@opencode-ai/console-core/subscription.js"
 import { LiteData } from "@opencode-ai/console-core/lite.js"
 import { withActor } from "~/context/auth.withActor"
+import { getActor } from "~/context/auth" // VOLT: resolve the login email for the subscribe gate
 import { queryBillingInfo } from "../../common"
 import styles from "./lite-section.module.css"
 import { useI18n } from "~/context/i18n"
@@ -85,15 +86,19 @@ const createLiteCheckoutUrl = action(
     "use server"
     return json(
       await withActor(async () => {
-        // VOLT: soft-launch gate — in production, only allow-listed workspaces may start a subscription.
-        // Mirrors opencode's prod-only `isBeta` workspace check; an unset list = subscriptions fully closed
-        // on prod (safe default while we onboard gradually). Non-prod stages are always open (for testing).
-        const allowed = String(Resource.SUBSCRIBE_ALLOWED_WORKSPACES.value ?? "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-        if (Resource.App.stage === "production" && !allowed.includes(Actor.workspace())) {
-          throw new Error("Volt subscriptions aren't open to everyone yet — we're onboarding gradually. Contact us for early access.")
+        // VOLT: soft-launch gate — in production, only allow-listed emails may start a subscription. Reuses
+        // CONSOLE_DEV_EMAILS (the same operator allow-list as the dev-login gate). Unset/empty = subscriptions
+        // fully closed on prod (safe default while we onboard gradually). Non-prod stages stay open for testing.
+        if (Resource.App.stage === "production") {
+          const allowed = String(Resource.CONSOLE_DEV_EMAILS.value ?? "")
+            .split(",")
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean)
+          const actor = await getActor() // the account actor carries the login email
+          const email = actor.type === "account" ? actor.properties.email.toLowerCase() : undefined
+          if (!email || !allowed.includes(email)) {
+            throw new Error("Volt subscriptions aren't open to everyone yet — we're onboarding gradually. Contact us for early access.")
+          }
         }
         const data = await Billing.generateLiteCheckoutUrl({ successUrl, cancelUrl, method })
         await createReferralFromCookie()

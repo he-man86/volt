@@ -99,6 +99,10 @@ jobs:
           UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
           UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
           ZEN_LIMITS: ${{ secrets.ZEN_LIMITS }}
+          # Operator allow-list — the dev-login gate AND (reused) the prod subscribe soft-launch gate. Loaded
+          # as an SST secret so the console app worker can read it; also passed to the deploy step for the auth
+          # worker's env var. Unset ⇒ subscriptions closed on prod.
+          CONSOLE_DEV_EMAILS: ${{ secrets.CONSOLE_DEV_EMAILS }}
           # Monitoring (Honeycomb → console /honeycomb/webhook → Discord). Stored as SST secrets here (inert until
           # the deploy step below actually activates monitoring — production-only). Set in the production env.
           HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
