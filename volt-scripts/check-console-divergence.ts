@@ -78,6 +78,9 @@ const ALLOW = new Set([
   "core/src/aws.ts", // email sender: "OpenCode Zen <contact@anoma.ly>" → "Volt <noreply@volt-ai.dev>"
   "core/src/user.ts", // invite email subject + assetsUrl rebranded to Volt / volt-ai.dev
   "mail/emails/templates/InviteEmail.tsx", // invite email body: opencode.ai URLs + "OpenCode" copy → Volt
+  "support/src/lib/overview.ts", // Volt-added: fleet SUM/COUNT roll-up over PlanetScale (opencode has no such view — it uses the Athena lake/stats app)
+  "support/src/component/overview.tsx", // Volt-added: renders the fleet overview
+  "support/src/routes/index.tsx", // Volt: 2-line additive — render <Overview /> above opencode's lookup form
 ])
 
 // Opencode's active PROXY/REDIRECT routes — the ones that SERVE or REDIRECT to opencode's own infra/community —
