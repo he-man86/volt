@@ -10,7 +10,7 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Volt.Cli.Core\Volt.Cli.Core.csproj" />
+    <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
   </ItemGroup>
 </Project>

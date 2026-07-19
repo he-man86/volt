@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys
 {

@@ -99,7 +99,7 @@ detail — which is exactly the UX above, expressed in the architecture rather t
   (drop CODESYS launch fields), `ControlServer` (drop `/launch`, keep `/select`, surface `instances`),
   `HealthProbe`/`Instances` (enumeration), a new Volt-branded window, README. **Deletes** `CodesysDiscovery`
   (most of it) + the launch path — a net LOC reduction alongside the new window.
-- **`packages/volt-cli/src/Volt.Cli.Core`** — a new `instances`/`projects` enumeration wire op in the shared
+- **`packages/volt-cli/src/Volt.Engine`** — a new `instances`/`projects` enumeration wire op in the shared
   contract; the CODESYS in-proc host and the TwinCAT worker each implement it (parity at the wire, per vendor).
 - **No change to the sync data path** (refs/fetch/push) — this is connection UX + the enumeration op only.
 

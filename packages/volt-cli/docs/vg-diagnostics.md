@@ -5,7 +5,7 @@ PLCopen node graph. A wire used once is **inlined** into its consumer's expressi
 2+ consumers) keeps a name. The bridge **owns the format** (the LSP owns code correctness): a push whose VG isn't
 valid/canonical is refused *before* it reaches the IDE, with a structured diagnostic. These rules are **general** —
 they depend only on the VG text, never on the PLC code semantics — so they're computed next to the parser
-(`Volt.Cli.Core/Graphical/Vg/VgParser.cs`) with no IDE state.
+(`Volt.Engine/Graphical/Vg/VgParser.cs`) with no IDE state.
 
 ## The readable form (what the parser accepts)
 

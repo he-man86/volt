@@ -14,7 +14,7 @@ Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-sour
 
 Bun workspaces (no Turbo — task-running is bun-native `--filter`). All product code is in `packages/volt-*`:
 
-- **`volt-cli`** (`@volt/cli`) — the single C# toolchain: the **`volt` CLI** (git-native PLC sync — `init/pull/push/status/build/show/merge`) **and** the in-IDE bridges (CODESYS / TwinCAT) **and** the tray connector, all over Windows **named pipes**. Shared `Volt.Cli.Core`. (This absorbed the former `volt-bridge` + `volt-git`; the HTTP wire is gone.)
+- **`volt-cli`** (`@volt/cli`) — the single C# toolchain: the **`volt` CLI** (git-native PLC sync — `init/pull/push/status/build/show/merge`) **and** the in-IDE bridges (CODESYS / TwinCAT) **and** the tray connector, all over Windows **named pipes**. Shared `Volt.Engine`. (This absorbed the former `volt-bridge` + `volt-git`; the HTTP wire is gone.)
 - **`volt-lsp-iec`** (`@volt/lsp-iec`) — TypeScript-native LSP for Structured Text.
 - **`volt-control`** (`@volt/control`) — UI-agnostic core (status/pull/push/health/diagnostics) that powers both frontends.
 - **`volt-desktop`** (`@volt/desktop`) — Electron shell: spawns the installed `opencode serve`, loads its GUI in a `WebContentsView`, adds Volt chrome + the IDE panel over `volt-control`.
@@ -79,7 +79,7 @@ with `dotnet`; the TS e2e parity suite runs with `bun`:
 # from packages/volt-cli
 dotnet build Volt.Cli.sln -c Release                       # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                           # pipe transport + ported sync + black-box CLI
-dotnet test test/Volt.Cli.Core.Tests/                      # shared Core (parsing/PLCopen/VG + push/fetch)
+dotnet test test/Volt.Engine.Tests/                      # shared engine (parsing/PLCopen/VG + push/fetch)
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```
@@ -99,7 +99,7 @@ live PLC IDE  ──named pipe──  volt-cli (C#)  ──>  git repo of text f
 ```
 
 - **`packages/volt-cli`** (`@volt/cli`) — the whole toolchain in one C# solution over Windows **named pipes** (no HTTP):
-  - **the bridges** — one live IDE exposed over the pipe. **`Volt.Cli.Core` holds everything shareable; only irreducible vendor glue lives in an IDE host (`Volt.Cli.Ide.Codesys` / `Volt.Cli.Ide.Twincat`, each = driver + pipe host).** The parity boundary is the pipe wire (not the driver), so both vendors serve byte-identical responses for the same project. See `packages/volt-cli/ARCHITECTURE.md` — read it before touching bridge code; it documents the Core layer stack (`Ide` contract → `Wire` → `Sync` → `Workspace`/`Graphical`) and the **load-bearing CODESYS↔Beckhoff asymmetries that must not be "unified"**.
+  - **the bridges** — one live IDE exposed over the pipe. **`Volt.Engine` holds everything shareable; only irreducible vendor glue lives in an IDE host (`Volt.Cli.Ide.Codesys` / `Volt.Cli.Ide.Twincat`, each = driver + pipe host).** The parity boundary is the pipe wire (not the driver), so both vendors serve byte-identical responses for the same project. See `packages/volt-cli/ARCHITECTURE.md` — read it before touching bridge code; it documents the Core layer stack (`Ide` contract → `Wire` → `Sync` → `Workspace`/`Graphical`) and the **load-bearing CODESYS↔Beckhoff asymmetries that must not be "unified"**.
   - **the `volt` CLI** — `init`, `pull`, `push`, `status`, `build`, `show`, `merge`. **Git-native, single-repo:** `init` makes the project root a git repo; the live IDE is modeled as a git **remote-tracking branch** (`refs/remotes/volt/ide`, shown in the graph as `volt/ide` — the IDE *is* a remote you fetch+merge on pull / push to on push), so `pull`/`push` reconcile through native `git merge` — no custom 3-way merge engine and no separate `.volt/` snapshot. Talks to the pipe host (one declarative `set`/`delete` push wire); the workspace binding stores the **vendor** (`codesys`/`twincat`), which names the pipe (`volt.bridge.codesys` / `volt.bridge.twincat`). `volt init --vendor <codesys|twincat>` binds; `VOLT_PIPE` names the pipe directly (dev/tests).
   - **the connector** — the tray supervisor that spawns the TwinCAT worker + launches CODESYS's in-proc host, and probes `health` over the pipe.
 - **`packages/volt-lsp-iec`** (`@volt/lsp-iec`) — TypeScript-native LSP for Structured Text (nav, diagnostics, completion, hover, signature help, semantic tokens), driven by an embedded CODESYS language reference. Editable FBD/LD bodies are materialized as a textual **VG** form the LSP analyzes as its own first-class sublanguage (CFC/SFC are read-only) — see the VG language note below. Type-checking/codegen stay the IDE's job.
@@ -111,7 +111,7 @@ The whole wire is keyed by bare item name — `refs`, `fetch` `knownItems`, ever
 
 ### VG (graphical) language
 
-Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Cli.Core/Workspace/ItemKind` is the source of truth).
+Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Engine/Workspace/ItemKind` is the source of truth).
 
 ## opencode integration — one env var, additive, safe
 

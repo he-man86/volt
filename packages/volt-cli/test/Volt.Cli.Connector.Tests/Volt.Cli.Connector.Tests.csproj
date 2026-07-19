@@ -14,6 +14,6 @@
     <ProjectReference Include="..\..\src\Volt.Cli.Connector.Core\Volt.Cli.Connector.Core.csproj" />
     <!-- Also the bridge Core, ONLY so a contract test can prove the bridge's `instances` shape and the
          connector's parser agree (the production connector deliberately does NOT reference Core). -->
-    <ProjectReference Include="..\..\src\Volt.Cli.Core\Volt.Cli.Core.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Engine\Volt.Engine.csproj" />
   </ItemGroup>
 </Project>

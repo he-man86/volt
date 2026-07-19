@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Ide;
+using Volt.Engine.Wire;
 
 namespace Volt.Cli.Ide.Twincat;
 
@@ -152,8 +152,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override bool Build() => _om.Build();
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
     // TwinCAT has no resolved-library-signature surface yet — return none (parity boundary is the wire).
-    public override IReadOnlyList<Volt.Cli.Core.Library.LibSignature> ExtractLibrarySignatures() =>
-        new List<Volt.Cli.Core.Library.LibSignature>();
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+        new List<Volt.Engine.Library.LibSignature>();
     // DEBUG (read-only): the PLCopen export (ExportPouXml — our normal code-XML transport) of a named item,
     // to inspect e.g. whether an interface property's Get/Set accessors survive the export.
     public override string DebugItemXml(string name) =>

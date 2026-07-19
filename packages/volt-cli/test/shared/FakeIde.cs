@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Volt.Cli.Core.Diagnostics;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Library;
-using Volt.Cli.Core.Wire;
-using Volt.Cli.Core.Workspace;
+using Volt.Engine.Diagnostics;
+using Volt.Engine.Ide;
+using Volt.Engine.Library;
+using Volt.Engine.Wire;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Tests;
 
 /// <summary>
 /// The single in-memory <see cref="IIdeDriver"/> test double for the whole toolchain — the service tests
-/// (RefsService / FetchService / PushService, in Volt.Cli.Core.Tests), the pipe host + command tests (in
+/// (RefsService / FetchService / PushService, in Volt.Engine.Tests), the pipe host + command tests (in
 /// Volt.Cli.Tests), and the black-box CLI all drive this one fake. It is compiled into each test assembly via a
 /// linked <c>&lt;Compile&gt;</c> to <c>test/shared/FakeIde.cs</c>, so there is exactly one definition to keep true.
 ///

@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Volt.Cli.Core.Library;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Library;
+using Volt.Engine.Wire;
 using Volt.Cli.Transport;
 using Xunit;
 

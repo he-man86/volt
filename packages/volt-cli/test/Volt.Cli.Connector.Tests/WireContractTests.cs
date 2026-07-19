@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Volt.Cli.Connector;
-using Volt.Cli.Core.Wire;
+using Volt.Engine.Wire;
 using Xunit;
 
 namespace Volt.Cli.Connector.Tests;

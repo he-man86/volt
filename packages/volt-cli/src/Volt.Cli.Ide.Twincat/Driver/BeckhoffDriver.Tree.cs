@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Volt.Cli.Core.Diagnostics;
-using Volt.Cli.Core.Ide;
-using Volt.Cli.Core.Workspace;
-using Volt.Cli.Core.Workspace.SourceText;
+using Volt.Engine.Diagnostics;
+using Volt.Engine.Ide;
+using Volt.Engine.Workspace;
+using Volt.Engine.Workspace.SourceText;
 
 namespace Volt.Cli.Ide.Twincat;
 
@@ -125,7 +125,7 @@ public sealed partial class BeckhoffDriver
     // Enumerating an interface property's accessor COM children can hard-crash TwinCAT — read presence from the
     // enclosing interface's PLCopen export instead, which lists <GetAccessor>/<SetAccessor> under the property.
     public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property) =>
-        Volt.Cli.Core.Graphical.PlcOpenDocument.InterfacePropertyAccessors(
+        Volt.Engine.Graphical.PlcOpenDocument.InterfacePropertyAccessors(
             _om.ExportPouXml(_om.Parent(property.Native)), _om.GetName(property.Native));
 
     // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.PlcDutAlias) — the struct/enum/union/alias
