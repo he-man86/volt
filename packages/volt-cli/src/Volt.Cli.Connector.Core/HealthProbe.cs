@@ -34,24 +34,28 @@ namespace Volt.Cli.Connector
                 // timeout maps "nothing listening" → Unreachable.
                 var root = await Task.Run(() =>
                     new PipeClient(PipeNames.ForVendor(vendor)).Call("health", connectTimeoutMs: 2000)).ConfigureAwait(false);
-                return new BridgeHealth
-                {
-                    Status = root.TryGetProperty("status", out var s) ? s.GetString() switch
-                    {
-                        "healthy" => BridgeStatus.Connected,
-                        "degraded" => BridgeStatus.Degraded,
-                        "unavailable" => BridgeStatus.Unavailable,
-                        _ => BridgeStatus.Unknown,
-                    } : BridgeStatus.Unknown,
-                    ProjectName = TryString(root, "projectName"),
-                    ProjectDirty = root.TryGetProperty("projectDirty", out var d) && d.GetBoolean(),
-                };
+                return FromWire(root);
             }
             catch
             {
                 return new BridgeHealth { Status = BridgeStatus.Unreachable };
             }
         }
+
+        /// <summary>Map a `health` wire response to <see cref="BridgeHealth"/>. Shared by the tray probe and the
+        /// pipe-backed project source so the status vocabulary is defined once.</summary>
+        public static BridgeHealth FromWire(JsonElement root) => new BridgeHealth
+        {
+            Status = root.TryGetProperty("status", out var s) ? s.GetString() switch
+            {
+                "healthy" => BridgeStatus.Connected,
+                "degraded" => BridgeStatus.Degraded,
+                "unavailable" => BridgeStatus.Unavailable,
+                _ => BridgeStatus.Unknown,
+            } : BridgeStatus.Unknown,
+            ProjectName = TryString(root, "projectName"),
+            ProjectDirty = root.TryGetProperty("projectDirty", out var d) && d.GetBoolean(),
+        };
 
         private static string? TryString(JsonElement el, string name) =>
             el.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;

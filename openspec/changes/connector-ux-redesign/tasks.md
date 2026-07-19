@@ -15,9 +15,15 @@ change to the refs/fetch/push data path.
       moved `HealthProbe`/`BridgeHealth`/`BridgeStatus` there; the WinForms shell references it (same namespace).
 
 ## 2. Wire op (shared Core, per-vendor impl)
-- [ ] Add a symmetric `instances` enumeration op to the pipe contract (one shape for all vendors).
-- [ ] TwinCAT worker: implement it over the existing COM/ROT + `FindTwinCatProject`/`FindPlcProject` paths.
-- [ ] CODESYS in-proc host: implement it over `ScriptProjects`; the bind (select) rebinds the host's active project.
+- [x] Connector-side client: `IBridgeWire` (+ `PipeBridgeWire`) and ONE `PipeProjectSource` that serves BOTH
+      vendors over the same `instances`/`select`/`health` ops — all asymmetry stays behind the wire. Maps the
+      instance→project(→sub-project) tree to flat `DetectedProject`s (TC PLC sub-projects each become an entry;
+      CODESYS project is one). Tested against the wire contract with a fake wire (5 tests).
+- [ ] Bridge side — add `instances` + `select` ops to the pipe router (`BridgePipeHost`) + the `IIdeDriver`
+      contract; one wire shape for all vendors.
+- [ ] TwinCAT worker: implement it over the existing COM/ROT + `FindTwinCatProject`/`FindPlcProject` paths
+      (`select` = `ReattachProject` on the live DTE, no worker respawn).
+- [ ] CODESYS in-proc host: implement it over `ScriptProjects`; `select` rebinds the host's active project.
 
 ## 3. Unified selector + notifications
 - [ ] The connector merges all sources into ONE list of `DetectedProject`; the user picks one (no vendor choice).
