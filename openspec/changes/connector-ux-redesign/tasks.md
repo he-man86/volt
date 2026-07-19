@@ -1,48 +1,52 @@
-Redesign the Connector: stop launching CODESYS (guided user-activation instead), finish project
-selection for both vendors, and give it a Volt-branded enterprise surface. Keep the ExternalAttach /
-InIdeLoad archetypes distinct — unify the UX, not the mechanism. No change to the refs/fetch/push data path.
+Rebuild the Connector's connection model and surface from the ground up — no incremental patches on the
+prototype context menu. The core abstraction is "a detected project you can connect to," with vendor as a
+detail. Keep the ExternalAttach / InIdeLoad attach mechanisms distinct; unify the model + UX above them. No
+change to the refs/fetch/push data path.
 
-## 1. CODESYS — remove the launch, add guided activation
-- [ ] Delete the launch path: `TrayContext.PopulateInstalls`/`LaunchInstall`/`AddInstall`, `VendorProvider`
-      `IdeExe`/`IdeLaunchArgs`/`Installs`/`CanLaunchIde` (CODESYS side), `ConnectorConfig.BuildCodesysLaunchArgs`.
-- [ ] Delete `/launch` from `ControlServer` (+ the `launch` callback wiring in `TrayContext`).
-- [ ] Remove most of `CodesysDiscovery` (install glob/registry/manual) — keep only what's needed to point at the
-      shipped `start_pipe.py` for the activation command; delete the rest.
-- [ ] Add an **"Activate in CODESYS"** affordance: step-by-step text (open CODESYS → Tools → Scripting → run the
-      script) + a **"Copy activation command"** action that copies the exact one-liner / `start_pipe.py` path.
+## 1. Domain model (the foundation — build this first)
+- [ ] `DetectedProject` — vendor-neutral: display name, vendor, dirty flag, and the opaque attach reference the
+      bind needs. This is the ONLY project shape the UI knows.
+- [ ] `IProjectSource` per vendor — a uniform "enumerate detectable projects" contract. Implementations: TwinCAT
+      (COM/ROT via the worker's `instances` op), CODESYS (in-proc `ScriptProjects` via its `instances` op).
+- [ ] `ConnectionManager` — owns the merged project list (across sources), the current selection, the bind
+      dispatch (route to the right vendor mechanism), and the aggregate status. The tray, the window, and the
+      control plane are ALL thin views over this — no vendor branching in any of them.
 
-## 2. Project enumeration + selection (both vendors)
-- [ ] Shared Core: add an `instances` (open projects) enumeration wire op returning the `TcInstanceDto`/
-      `TcProjectDto` shape for both vendors.
-- [ ] TwinCAT worker: implement `instances` — list running instances + their PLC projects (reuse the existing
-      COM/ROT + `FindTwinCatProject`/`FindPlcProject` paths).
-- [ ] CODESYS in-proc host: implement `instances` — enumerate open `ScriptProjects`; `/select` (equivalent)
-      rebinds the host's active project.
-- [ ] Connector: fill `BridgeView.Instances` from the enumeration (drop the hardcoded `null`); build a real
-      **project picker** in the surface for both vendors; selection routes through `/select`.
-- [ ] Verify the "no project selected → pick → connected" flow works identically for TwinCAT and CODESYS.
+## 2. Wire op (shared Core, per-vendor impl)
+- [ ] Add a symmetric `instances` enumeration op to the pipe contract (one shape for all vendors).
+- [ ] TwinCAT worker: implement it over the existing COM/ROT + `FindTwinCatProject`/`FindPlcProject` paths.
+- [ ] CODESYS in-proc host: implement it over `ScriptProjects`; the bind (select) rebinds the host's active project.
 
-## 3. Volt-branded enterprise surface
-- [ ] New status **window** carrying Volt identity — bolt + wordmark, the volt-www palette + fonts + pill buttons
-      (port the same tokens the console rebrand used; see `style/volt-theme.css`).
-- [ ] One **card per vendor**: status pill, connected/selected project dropdown, and the single primary action
-      for the current state (CODESYS: Activate → Select project → Connected; TwinCAT: Open IDE → Select project →
-      Connected).
-- [ ] Keep the tray icon (aggregate color) + toasts; shrink the context menu to Open Volt · Show logs · Collect
-      diagnostics · Exit.
-- [ ] Consistent status vocabulary across vendors (Activate needed · Waiting for project · Connected to X ·
-      Degraded).
+## 3. Unified selector + notifications
+- [ ] The connector merges all sources into ONE list of `DetectedProject`; the user picks one (no vendor choice).
+- [ ] Each entry shows its platform via a prefix or vendor logo; selection routes through `ConnectionManager` to
+      the correct bridge bind.
+- [ ] On connect, emit a notification that NAMES the platform (toast + tray tooltip): "Connected to <project> (<vendor>)".
+- [ ] `BridgeView`/control-plane snapshot carries the merged `DetectedProject` list (drop the hardcoded `null`).
 
-## 4. Cleanup
-- [ ] Fix the stale "HTTP wire" language in `Connector/README.md` (data + health wire is named pipes; only the
-      `:8550` control plane is HTTP).
-- [ ] Implement **"Collect diagnostics"** (bundle logs + `health` + versions to a zip for support) — the README
-      already advertises it.
-- [ ] Resolve the "config JSON next to the exe later" TODO — a minimal config file or drop the note.
-- [ ] Update `Connector/README.md` + `ARCHITECTURE.md` to the new CODESYS activation model + the branded surface.
+## 4. Remove the launch model (delete, don't wrap)
+- [ ] Delete the CODESYS launch path outright: `PopulateInstalls`/`LaunchInstall`/`AddInstall`, `VendorProvider`
+      `IdeExe`/`IdeLaunchArgs`/`Installs`/`CanLaunchIde`, `ConnectorConfig.BuildCodesysLaunchArgs`, `/launch` +
+      its callback, and the launch-oriented parts of `CodesysDiscovery`.
+- [ ] Add guided activation as a first-class, low-key affordance (not a vendor lane): the steps + a **Copy
+      activation command** action, shown when a CODESYS project isn't yet detectable (host not loaded).
 
-## 5. Tests
-- [ ] Unit: `instances` enumeration + `/select` retarget for both vendors (against the fake IDE / pipe transport).
-- [ ] The activation command the connector copies actually loads the host in a live/headless CODESYS (extends the
-      `codesys-pipe` smoke).
-- [ ] Live parity: TwinCAT + CODESYS both reach "connected to <project>" via detect → pick, no launch step.
+## 5. Volt-branded window (designed, MVVM over ConnectionManager)
+- [ ] A proper window carrying Volt identity — bolt + wordmark + the volt-www palette/fonts/pill buttons (port the
+      console-rebrand tokens; see `style/volt-theme.css`). Centerpiece: the unified selector + connection status.
+- [ ] The tray context menu shrinks to a minimal launcher (Open Volt · Show logs · Collect diagnostics · Exit);
+      the tray icon (aggregate color) + toasts remain, driven by the `ConnectionManager` status.
+- [ ] Consistent status vocabulary (Waiting for a project · Connected to X · Degraded · Activate to see CODESYS).
+
+## 6. Cleanup
+- [ ] Fix the stale "HTTP wire" language in `Connector/README.md` (data + health wire is named pipes; only `:8550`
+      control plane is HTTP). Rewrite the README to the new model.
+- [ ] Implement **Collect diagnostics** (the README advertises it): bundle logs + `health` + versions to a zip.
+- [ ] Resolve the "config JSON next to the exe later" TODO — a minimal config or drop the note.
+- [ ] Update `ARCHITECTURE.md` for the CODESYS activation model + the `DetectedProject`/`ConnectionManager` design.
+
+## 7. Tests
+- [ ] Unit: `ConnectionManager` merges sources, dispatches bind to the right vendor, tracks status (fake sources).
+- [ ] Unit: the `instances` op + bind for both vendors (fake IDE / pipe transport).
+- [ ] Live parity: TwinCAT + CODESYS both reach "connected to <project>" via one selector, no launch step; the
+      copied CODESYS activation command loads the host (extends the `codesys-pipe` smoke).
