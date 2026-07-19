@@ -115,9 +115,10 @@ export const PRICING = [
     period: "/ month",
     note: "Hosted AI, no key required",
     features: ["Everything in Free", "Hosted models — nothing to configure", "Priority language-server updates", "Email support"],
-    cta: "Get started",
+    cta: "Coming soon",
     kind: "auth",
     featured: true,
+    comingSoon: true, // soft-launch: hosted AI is onboarding gradually — show a badge, no live checkout yet
   },
 ]
 
