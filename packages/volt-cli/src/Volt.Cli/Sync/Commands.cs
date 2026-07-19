@@ -89,7 +89,7 @@ public static class Commands
         Files.EnsureGitignore(root);
 
         if (Git.IsMerging(root))
-            return PullResult.Refused("a merge is already in progress — finish it with `git merge --continue` or `git merge --abort` first");
+            return PullResult.Refused("a merge is already in progress — finish it with `volt merge --continue` or `volt merge --abort` first");
 
         var cfg = Config.LoadConfig(root);
         var health = bridge.GetHealth();
@@ -133,9 +133,15 @@ public static class Commands
 
         var outcome = Git.GitMerge(root, IdeTree.Range, $"volt: merge IDE @ {fetched.ProjectVersion}");
         if (outcome.Kind == "conflict")
+        {
+            // Stash the IDE refs this pull WOULD have adopted, beside the in-progress merge, so `volt merge
+            // --continue` can advance the baseline once conflicts are resolved — no "pull again" tax.
+            Sidecar.SavePendingIdeRefs(root, newSidecar);
             return PullResult.Conflict(outcome.Paths.Select(Files.StripSrcPrefix).ToList(), PostStatus());
+        }
 
         Sidecar.SaveIdeRefs(root, newSidecar);
+        Sidecar.ClearPendingIdeRefs(root); // a clean pull leaves no merge — drop any stash from a past conflict
         return PullResult.Ok(synced, PostStatus());
     }
 
@@ -318,7 +324,13 @@ public static class Commands
     /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve. C# port of commands/merge.ts.</summary>
     public static (int Code, string Message) Merge(string root, bool cont = false, bool abort = false, string? resolve = null, bool useOurs = false, bool useTheirs = false)
     {
-        if (abort) { Git.MergeAbort(root); return (0, "merge aborted — workspace restored"); }
+        if (abort)
+        {
+            if (!Git.IsMerging(root)) { Sidecar.ClearPendingIdeRefs(root); return (0, "no merge in progress"); }
+            Git.MergeAbort(root);
+            Sidecar.ClearPendingIdeRefs(root); // discard the stashed baseline — we're back to the pre-pull state
+            return (0, "merge aborted — workspace restored");
+        }
         if (resolve is not null)
         {
             var side = useTheirs ? "theirs" : "ours";
@@ -327,20 +339,34 @@ public static class Commands
         }
         if (cont)
         {
-            var unresolved = Git.UnmergedPaths(root);
+            if (!Git.IsMerging(root)) return (1, "no merge in progress — nothing to continue");
+            // Refuse if anything is genuinely unresolved BEFORE auto-staging (staging would silently resolve it):
+            //  - a file still holding conflict markers (a both-modified conflict not finished editing), OR
+            //  - a STRUCTURAL conflict (modify/delete, add/add, …) which carries NO markers and must be resolved
+            //    explicitly via `volt merge --resolve` — auto-staging it would silently drop one side.
+            var unresolved = Git.ConflictMarkerFiles(root).Concat(Git.StructuralConflictFiles(root))
+                .Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal).ToList();
             if (unresolved.Count > 0)
-                return (2, $"still {unresolved.Count} unresolved file(s) — resolve the markers (or `volt merge --resolve <path> --use-ours|--use-theirs`) first");
+                return (2, $"still {unresolved.Count} file(s) unresolved — resolve them (or `volt merge --resolve <path> --use-ours|--use-theirs`) first:\n" + string.Join("\n", unresolved.Select(p => "  " + p)));
+
+            // Is the in-progress merge the one volt pull started? (Captured before the commit clears MERGE_HEAD.)
+            // Only THEN may we adopt the stashed baseline — never a stale stash from an unrelated manual merge.
+            var isVoltMerge = Git.MergeHead(root) is { } mh && mh == IdeTree.VoltIdeHead(Git.ResolveGitDir(root));
+
+            // Auto-stage src (mirrors pull/push auto-commit) so an editor-resolved tree finalises without `git add`.
+            Git.StageSrc(root);
             Git.MergeContinue(root);
+
+            // The one thing git can't do: advance Volt's IDE baseline to the state this merge resolved against.
+            if (isVoltMerge && Sidecar.LoadPendingIdeRefs(root) is { } pending)
+            {
+                Sidecar.SaveIdeRefs(root, pending);
+                Sidecar.ClearPendingIdeRefs(root);
+                return (0, "merge completed — IDE baseline synced");
+            }
             return (0, "merge completed");
         }
         return (1, "merge: pass --continue, --abort, or --resolve <path> [--use-ours|--use-theirs]");
-    }
-
-    /// <summary>volt diff — outgoing per-file unified diffs (worktree vs volt/ide). C# port of commands/diff.ts.</summary>
-    public static (bool Ok, List<FileDiff> Diffs, string? Error) Diff(string root)
-    {
-        try { return (true, Git.OutgoingDiffs(root, IdeTree.Range, "src"), null); }
-        catch (Exception ex) { return (false, new List<FileDiff>(), ex.Message); }
     }
 
     private static BridgeSnapshot BuildSnap(bool online, string detail, ProjectMismatch? mismatch, RefsResponse refs) => new()

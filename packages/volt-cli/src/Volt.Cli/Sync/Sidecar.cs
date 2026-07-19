@@ -38,4 +38,31 @@ public static class Sidecar
         Directory.CreateDirectory(paths.StateDir);
         File.WriteAllText(paths.IdeRefsPath, JsonSerializer.Serialize(refs, Json) + "\n");
     }
+
+    // ── pending baseline: the IDE refs a CONFLICTED pull would have adopted, stashed beside MERGE_HEAD so
+    //    `volt merge --continue` can advance the live baseline once the git merge is resolved (no "pull again"). ──
+    private static string PendingPath(string root) => System.IO.Path.Combine(Config.Paths(root).StateDir, "pending-ide-refs.json");
+
+    public static void SavePendingIdeRefs(string root, IdeRefs refs)
+    {
+        var dir = Config.Paths(root).StateDir;
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(PendingPath(root), JsonSerializer.Serialize(refs, Json) + "\n");
+    }
+
+    public static IdeRefs? LoadPendingIdeRefs(string root)
+    {
+        var p = PendingPath(root);
+        if (!File.Exists(p)) return null;
+        var raw = JsonSerializer.Deserialize<IdeRefs>(File.ReadAllText(p), Json);
+        // A corrupt/partial stash is treated as "no stash" — never promoted into the real sidecar (which would
+        // then fail LoadIdeRefs's guard). Re-running `volt pull` rebuilds a good baseline.
+        return raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null ? null : raw;
+    }
+
+    public static void ClearPendingIdeRefs(string root)
+    {
+        var p = PendingPath(root);
+        if (File.Exists(p)) File.Delete(p);
+    }
 }

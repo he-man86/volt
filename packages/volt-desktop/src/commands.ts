@@ -8,8 +8,11 @@ import {
   push,
   build,
   init,
+  mergeContinue,
+  mergeAbort,
   describePull,
   describePush,
+  describeMerge,
   presentOutcome,
   settleOutcome,
   formatProgress,
@@ -21,9 +24,9 @@ import {
 import type { Shell } from "./context.js"
 import { bindWorkspace, runDiagnostics } from "./panel.js"
 
-// The desktop has no merge editor, so it can't act on `open-conflicts`; presentOutcome filters to this
-// capability set (a conflict's message is self-explanatory). Force / pull-first it can do.
-const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push"])
+// The desktop has no merge EDITOR (so no per-file `open-conflicts` / take-a-side — that's vscode's job), but
+// finishing/aborting a merge needs no editor, so those are actionable here. presentOutcome filters to this set.
+const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push", "finish-merge", "abort-merge"])
 
 export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell): void {
   // One progress channel for EVERY action (formatProgress is shared with vscode); null clears it.
@@ -80,7 +83,34 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await pull(st.workspaceRoot, { force, onProgress: report })
     clearProgress()
     await settleOutcome(st, out)
-    await presentOutcome(describePull(out), presenter, (tag) => (tag === "force-pull" ? runPull(true) : Promise.resolve()), DESKTOP_CAPS)
+    await presentOutcome(
+      describePull(out),
+      presenter,
+      (tag) =>
+        tag === "force-pull" ? runPull(true) : tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve(),
+      DESKTOP_CAPS,
+    )
+  }
+  async function runFinishMerge(): Promise<void> {
+    const st = shell.status
+    if (!st) return
+    const out = await mergeContinue(st.workspaceRoot)
+    clearProgress()
+    await settleOutcome(st, out)
+    await presentOutcome(
+      describeMerge(out),
+      presenter,
+      (tag) => (tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve()),
+      DESKTOP_CAPS,
+    )
+  }
+  async function runAbortMerge(): Promise<void> {
+    const st = shell.status
+    if (!st) return
+    const out = await mergeAbort(st.workspaceRoot)
+    clearProgress()
+    await settleOutcome(st, out)
+    await presentOutcome(describeMerge(out), presenter, () => Promise.resolve(), DESKTOP_CAPS)
   }
   async function runPush(force = false): Promise<void> {
     const st = shell.status
@@ -89,7 +119,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     clearProgress()
     await settleOutcome(st, out)
     await presentOutcome(
-      describePush(out),
+      describePush(out, st.cached),
       presenter,
       (tag) => (tag === "pull-first" ? runPull(false) : tag === "force-push" ? runPush(true) : Promise.resolve()),
       DESKTOP_CAPS,

@@ -2,18 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Volt.Cli.Core.Diagnostics;
 using Volt.Cli.Core.Ide;
+using Volt.Cli.Core.Library;
 using Volt.Cli.Core.Wire;
 using Volt.Cli.Core.Workspace;
 
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// A reusable in-memory <see cref="IIdeDriver"/> for the sync services (RefsService / FetchService / PushService)
-/// — no live bridge. Items are configured up front; <see cref="ItemRef.Native"/> is the item's bare name. Most of
-/// the surface is no-op/throw; only the project-tree walk + the read transports the services actually exercise are
-/// real. A "malformed" graphical item models the failure that once orphaned <c>/refs</c>: BodyLanguage says LD but
-/// the PLCopen export has no FBD/LD body, so <c>GraphicalCode.Read</c> throws when it's materialized.
+/// The single in-memory <see cref="IIdeDriver"/> test double for the whole toolchain — the service tests
+/// (RefsService / FetchService / PushService, in Volt.Cli.Core.Tests), the pipe host + command tests (in
+/// Volt.Cli.Tests), and the black-box CLI all drive this one fake. It is compiled into each test assembly via a
+/// linked <c>&lt;Compile&gt;</c> to <c>test/shared/FakeIde.cs</c>, so there is exactly one definition to keep true.
+///
+/// Items are configured up front; <see cref="ItemRef.Native"/> is the item's bare name. Most of the surface is
+/// no-op/throw; only the project-tree walk + the read transports the services actually exercise are real. Writes
+/// are RECORDED, not applied — apply-dispatch tests assert on <see cref="Recorded"/>. To model an engineer editing
+/// the IDE out from under the workspace (the push-conflict scenario), use <see cref="MutateImplementation"/> /
+/// <see cref="AddItem"/> / <see cref="RemoveItem"/>, which change the walked state so the recomputed versions
+/// (and thus the projectVersion lease) diverge from the workspace's baseline.
 /// </summary>
 public sealed class FakeIde : IIdeDriver
 {
@@ -49,6 +57,29 @@ public sealed class FakeIde : IIdeDriver
     /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
     public List<string> Recorded { get; } = new();
 
+    // ── test hooks: mutate the IDE OUT FROM UNDER a seeded workspace ─────────────────────────────────
+    // These change the walked state (not Recorded) so a subsequent /refs or push-lease check sees a different
+    // projectVersion — the "the IDE changed since your last sync" divergence the workspace never applied.
+
+    /// <summary>Replace an item's implementation in place — models an engineer editing its body in the IDE.</summary>
+    public void MutateImplementation(string name, string implementation)
+    {
+        var idx = _items.FindIndex(i => i.Name == name);
+        if (idx < 0) throw new InvalidOperationException($"no item named '{name}' to mutate");
+        _items[idx] = _items[idx] with { Implementation = implementation };
+    }
+
+    /// <summary>Add a brand-new item — models the engineer creating an object in the IDE.</summary>
+    public void AddItem(Item item) => _items.Add(item);
+
+    /// <summary>Remove an item — models the engineer deleting an object in the IDE.</summary>
+    public void RemoveItem(string name) => _items.RemoveAll(i => i.Name == name);
+
+    // ── health knob (drives BuildHealthResponse for binding/pull tests) ──
+    public bool HealthConnected { get; init; }
+    public string HealthPlatform { get; init; } = "";
+    public string? HealthProjectName { get; init; }
+
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
         _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.IsTopLevel, i.Folder)).ToList();
@@ -66,9 +97,9 @@ public sealed class FakeIde : IIdeDriver
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
     public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property)
     {
-        var kids = FindOrNull(property)?.Children ?? System.Array.Empty<string>();
-        return (kids.Any(k => k.Equals("Get", System.StringComparison.OrdinalIgnoreCase)),
-                kids.Any(k => k.Equals("Set", System.StringComparison.OrdinalIgnoreCase)));
+        var kids = FindOrNull(property)?.Children ?? Array.Empty<string>();
+        return (kids.Any(k => k.Equals("Get", StringComparison.OrdinalIgnoreCase)),
+                kids.Any(k => k.Equals("Set", StringComparison.OrdinalIgnoreCase)));
     }
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }
@@ -170,28 +201,38 @@ public sealed class FakeIde : IIdeDriver
     public void MarkDegraded(string reason) { }
     public void ClearDegraded() { }
     public void TriggerAsyncProbe() { }
-    public HealthResponse BuildHealthResponse() => new HealthResponse();
+    public HealthResponse BuildHealthResponse() => new HealthResponse
+    {
+        Connected = HealthConnected,
+        Platform = HealthPlatform,
+        ProjectName = HealthProjectName,
+        Status = HealthConnected ? "healthy" : "unavailable",
+    };
     public bool ShouldMarkDegraded(Exception ex) => false;
     public T RunOnStaThread<T>(Func<T> fn) => fn();
     public void FlushPendingWrites() { }
-    public bool Build() => true;
-    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => new List<BridgeDiagnostic>();
+
+    // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
+    public bool BuildSucceeds { get; init; } = true;
+    public IReadOnlyList<BridgeDiagnostic> BuildDiagnostics { get; init; } = new List<BridgeDiagnostic>();
+    public bool Build() => BuildSucceeds;
+    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => BuildDiagnostics;
+
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning
     /// library's folder(s). Set per-test; empty by default.</summary>
-    public IReadOnlyList<Volt.Cli.Core.Library.LibSignature> LibSignatures { get; init; } =
-        new List<Volt.Cli.Core.Library.LibSignature>();
+    public IReadOnlyList<LibSignature> LibSignatures { get; init; } = new List<LibSignature>();
     // Optional test hooks to hold a mutation IN FLIGHT: extraction signals it has been entered, then blocks until
     // released — lets a test observe /health while the op runs (extraction is the FIRST thing a verbose /init does).
     public ManualResetEventSlim? ExtractEntered { get; init; }
     public ManualResetEventSlim? ExtractBlock { get; init; }
-    public IReadOnlyList<Volt.Cli.Core.Library.LibSignature> ExtractLibrarySignatures()
+    public IReadOnlyList<LibSignature> ExtractLibrarySignatures()
     {
         ExtractEntered?.Set();
         ExtractBlock?.Wait();
         return LibSignatures;
     }
     public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
-        System.Array.Empty<IReadOnlyDictionary<string, string>>();
+        Array.Empty<IReadOnlyDictionary<string, string>>();
     public string DebugItemXml(string name) => "";
     public string DebugReflect(string target) => "";
 }

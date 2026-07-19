@@ -7,7 +7,8 @@ margin via 2× markup, top-up for overage; Black dropped). Auto-deploys on merge
 (1) **Stripe go-live** (test→live keys) to take real money; (2) **production stage** (live secrets — env shell + apex domain now DONE);
 (3) ~~Discord webhook~~ **DONE** (server + webhook + prod secret + tested; needs Workers Paid + prod deploy to fire);
 (4) **email/SES** for invites (not login);
-(5) **Stage 5 rebrand** — DONE, delivered as the `console-volt-frontend` change. Everything below is marked to reality.
+(5) **Stage 5 rebrand** — DONE, delivered as the `console-volt-frontend` change;
+(6) **operator tooling** (Stage 6) — deploy the already-vendored support-lookup portal (gated) + an aggregate usage rollup; **needed to run the business** (support customers + oversee usage). Everything below is marked to reality.
 
 ## Stage 0 — accounts & providers — NEARLY DONE (blocked only on DNS propagation)
 - [x] **Infra rewired for Volt**: `sst.config.ts` name→`volt`, AWS profiles→`volt-*`, dropped `honeycomb` provider
@@ -211,12 +212,12 @@ Three layers; #1 is the core "success rate" ask.
    and `BillingTable` (`monthly_usage`/`rolling_usage`), and `console/app`'s `workspace/[id]/billing/*` sections
    **display each subscriber their usage + limit** out of the box. That data path is in `console-core`, intact —
    dropping the lake did not remove it.
-   - Only the **operator/aggregate rollup** (all users: total tokens, model mix, top consumers, success rate) is a
-     choice. Out-of-the-box options, cheapest first: **SQL on the PlanetScale DB you already run** (`UsageTable`
-     has it — a small admin view; MVP winner) · **Honeycomb** (the `inference.event` stream = live usage stats) ·
-     **Tinybird** (managed dashboards, feed from `log-processor`). **Do NOT re-add** opencode's `infra/lake.ts`
-     (AWS S3-Tables+Glue+Athena+Firehose) or `packages/stats` (2nd SolidStart app needing the removed `ui`) —
-     a real project, not a flip-on package.
+   - The **operator/aggregate rollup** (all users: total tokens, model mix, top consumers, success rate) is now
+     **tracked as Stage 6b (decided — we need it)**, no longer "a choice". Out-of-the-box options, cheapest first:
+     **SQL on the PlanetScale DB you already run** (`UsageTable` has it — a small admin view; MVP winner) ·
+     **Honeycomb** (the `inference.event` stream = live usage stats) · **Tinybird** (managed dashboards, feed from
+     `log-processor`). **Do NOT re-add** opencode's `infra/lake.ts` (AWS S3-Tables+Glue+Athena+Firehose) or
+     `packages/stats` (2nd SolidStart app needing the removed `ui`) — a real project, not a flip-on package.
 3. **Infra health — Cloudflare-native** — Workers logpush + Workers Analytics for worker/DB uptime + exception
    logs (free). Covers app-level errors alongside Honeycomb.
 
@@ -241,6 +242,36 @@ error tracker only if grouped stack traces / release health become worth the bui
       opencode's `enterprise` package (session-sharing app; opencode has no real SSO/SCIM code — see proposal).
 - Open, tracked in `console-volt-frontend`/`DIVERGENCE.md`: the console mixes currencies (EUR subscription, USD
       usage/credits) — a pricing decision, not a string bug.
+
+## Stage 6 — operator tooling — TODO (needed to run the business: support customers + oversee usage)
+**Frontend standard:** both surfaces follow **opencode's own frontend** per the vendored-console rule — deploy their
+app as-is, customize only via **beside-file / i18n overlay / `volt-theme.css`**, never a bespoke redesign or an edit
+to vendored source (enforced by `check-console-divergence.ts`).
+
+### 6a — Support-lookup portal — deploy the already-vendored app
+`packages/console/support` (vendored verbatim, flagged "Usefulness TBD" in proposal) is the **per-customer** lookup:
+Auth · Workspaces, then per-workspace Users · Billing · GO · Payments · 28-Day Usage · Disabled Models (fields in
+`support/src/lib/lookup.ts`, rendered by `support/src/component/result.tsx`). Accepts `email` / `wrk_` / `key_` /
+`sk-`. It works and reads the prod DB via `Resource.Database` — but is **never deployed** and has **no auth**.
+- [ ] `infra/support.ts` — `sst.cloudflare.x.SolidStart` for `packages/console/support` at `support.${domain}`,
+      imported from `sst.config.ts` `run()` (mirror `console.ts`); link `Resource.Database` (+ `SupportApiKey` if used).
+- [ ] **Gate it** — the app ships with no login (`support/src/app.tsx`). Front with **Cloudflare Access** (or reuse
+      the `CONSOLE_DEV_EMAILS` allowlist pattern). MUST NOT expose an unauthenticated customer-data lookup publicly.
+- [ ] Deploy from **CI/WSL** — same Unix constraint as `console/app` (SolidStart `vite build` mangles Windows paths).
+- [ ] Verify `support.dev.volt-ai.dev` resolves + a lookup returns for a known account; keep the opencode UI as-is
+      (light Volt skin via `volt-theme.css` only if wanted).
+- [ ] production: gate + prod secrets set before it serves live customer data.
+
+### 6b — Operator usage rollup — the aggregate "how many users / activity" view
+Decided (was Stage 4c#2 "a choice"): **we need it.** MVP = **SQL over the PlanetScale DB**, NOT opencode's
+lake/stats.
+- [ ] Generalize the existing CLI aggregate `core/script/black-stats.ts` (cross-workspace spend/tokens → CSV) to the
+      metrics we run on: total users/workspaces, active (7/28d), signup→subscribe→active funnel, model mix, total
+      tokens/cost/margin, top consumers — all from `UsageTable` / `BillingTable` / `WorkspaceTable`.
+- [ ] Surface, cheapest first: a `core/script/*` report (like `black-stats`) **or** a gated **Volt beside-file route**
+      following opencode's console patterns/theme (per the vendored-console rule — no source edits). Do NOT re-add
+      `infra/lake.ts` / `packages/stats`.
+- [ ] (Later, if needed) live dashboard via Honeycomb `inference.event` or a Tinybird/ClickHouse sink — post-launch.
 
 ## Reference: external providers the backend relies on
 **Required:** Cloudflare (host/R2/KV/Workers), PlanetScale (DB), Stripe (billing), Anthropic + DeepSeek (LLM

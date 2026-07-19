@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { projectWorkspace } from "./workspace.js"
-import { describePull, describePush } from "./outcomes.js"
+import { describePull, describePush, describeMerge } from "./outcomes.js"
 import type { StatusJson } from "./types.js"
 import type { HealthState } from "../bridge/health.js"
 
@@ -64,12 +64,22 @@ test("projectWorkspace: a project mismatch alone reports the mismatch reason", (
 })
 
 // ── outcome descriptors ──────────────────────────────────────────────────────
-test("describePull: conflict offers Open Conflicts; refused offers Force Pull", () => {
-  expect(describePull({ kind: "conflict", paths: ["A.fb", "B.fb"] }).actions.map((a) => a.tag)).toEqual(["open-conflicts"])
+test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refused offers Force Pull", () => {
+  const conflict = describePull({ kind: "conflict", paths: ["A.fb", "B.fb"] })
+  expect(conflict.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
+  expect(conflict.actions.find((a) => a.tag === "abort-merge")?.destructive).toBe(true) // Abort confirms first
   const refused = describePull({ kind: "refused", reason: "dirty tree" })
   expect(refused.tone).toBe("warn")
   expect(refused.actions.map((a) => a.tag)).toEqual(["force-pull"])
   expect(describePull({ kind: "ok", synced: ["A.fb"] }).actions).toEqual([])
+})
+
+test("describeMerge: done is a clean toast; unresolved keeps the finish/abort affordances", () => {
+  expect(describeMerge({ kind: "done", message: "merge completed — IDE baseline synced" }).actions).toEqual([])
+  const unresolved = describeMerge({ kind: "unresolved", message: "2 file(s) with conflict markers" })
+  expect(unresolved.tone).toBe("warn")
+  expect(unresolved.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
+  expect(describeMerge({ kind: "error", message: "boom" }).tone).toBe("error")
 })
 
 test("describePush: rejected offers Pull First then Force Push (force is destructive)", () => {
@@ -77,4 +87,21 @@ test("describePush: rejected offers Pull First then Force Push (force is destruc
   expect(v.actions.map((a) => a.tag)).toEqual(["pull-first", "force-push"])
   expect(v.actions.find((a) => a.tag === "force-push")?.destructive).toBe(true)
   expect(describePush({ kind: "error", message: "boom" }).tone).toBe("error")
+})
+
+test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else in-sync", () => {
+  const idea = (added: string[]): StatusJson => ({
+    initialized: true, merging: null, incoming: { added, removed: [], modified: [] },
+    outgoing: { added: [], removed: [], modified: [] }, pathByName: {}, projectMismatch: null, summary: "",
+  })
+  // Zero items + the IDE has changes → warn with a Pull First button, not a bare "0".
+  const ahead = describePush({ kind: "ok", items: [] }, idea(["A.fb", "B.fb"]))
+  expect(ahead.tone).toBe("warn")
+  expect(ahead.message).toContain("2 change(s)")
+  expect(ahead.actions.map((a) => a.tag)).toEqual(["pull-first"])
+  // Zero items + truly in sync → the CLI's message, no action.
+  const sync = describePush({ kind: "ok", items: [], message: "nothing to push — the IDE already matches your workspace" }, idea([]))
+  expect(sync.tone).toBe("info")
+  expect(sync.actions).toEqual([])
+  expect(sync.message).toContain("already matches")
 })

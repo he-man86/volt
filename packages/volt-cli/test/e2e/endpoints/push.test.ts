@@ -16,7 +16,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: FOLDER, sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === wire)).toBe(true)
+		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "item changed since you fetched its version")).toBe(true)
 	})
 
 	it("rejects a create (ifVersion=null) when the item already exists", async () => {
@@ -25,12 +25,13 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: FOLDER, sourceText: fb(name), ifVersion: null }] })
 		expect(r.accepted).toBe(false)
+		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "expected to create new item but it already exists")).toBe(true)
 	})
 
 	it("rejects the batch on a wrong expectedProjectVersion (<project> conflict)", async () => {
 		const r = await bridge.push({ expectedProjectVersion: "deadbeef", ops: [] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === "<project>")).toBe(true)
+		expect(r.conflicts.some((c: any) => c.name === "<project>" && c.reason === "expected project version does not match current project version")).toBe(true)
 	})
 
 	it("rejects a delete with a wrong ifVersion", async () => {
@@ -39,6 +40,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: wire, ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
+		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "item changed since you fetched its version")).toBe(true)
 	})
 
 	it("accepts an idempotent delete of an item that's already gone (any ifVersion)", async () => {

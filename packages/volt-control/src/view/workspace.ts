@@ -16,6 +16,13 @@ export interface DriftItem {
   relPath: string
 }
 
+/** One conflicted file in an in-progress merge. `relPath` is tree-relative — exactly what
+ *  `volt merge --resolve <relPath> --use-ours|--use-theirs` takes for per-file take-a-side resolution. */
+export interface ConflictItem {
+  name: string
+  relPath: string
+}
+
 export interface WorkspaceInput {
   workspaceRoot: string
   status?: StatusJson
@@ -35,6 +42,8 @@ export interface WorkspaceView {
   paused: "mismatch" | "merging" | null
   incoming: DriftItem[]
   outgoing: DriftItem[]
+  /** Conflicted files while `paused === "merging"` (empty otherwise) — drives per-file take-a-side rows. */
+  conflicts: ConflictItem[]
   error?: string
 }
 
@@ -60,6 +69,10 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
     paused,
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],
     outgoing: st !== undefined && paused === null ? driftItems(st, "outgoing") : [],
+    conflicts:
+      paused === "merging" && st?.merging != null
+        ? st.merging.conflicts.map((c) => ({ name: c.path.split("/").pop() ?? c.path, relPath: c.path }))
+        : [],
     error: input.statusError,
   }
 }

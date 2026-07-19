@@ -22,7 +22,6 @@ public sealed record IndexEntry(string Mode, string Sha, string Path);
 /// are set; otherwise <c>Path</c> is set.</summary>
 public sealed record DiffRow(string Kind, string Path = "", string OldPath = "", string NewPath = "", bool Identical = false);
 
-public sealed record FileDiff(string File, string Patch, int Additions, int Deletions, string Status);
 
 public sealed record MergeOutcome(string Kind, IReadOnlyList<string> Paths);
 
@@ -191,6 +190,57 @@ public static class Git
         Run(new[] { "-C", root, "diff", "--name-only", "--diff-filter=U" }).StdOut
             .Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
 
+    /// <summary>Stage all of src/ (mirrors <see cref="AutoCommitSrc"/>'s staging) so an editor-resolved merge
+    /// finalises without a manual <c>git add</c>.</summary>
+    public static void StageSrc(string root) => Run(new[] { "-C", root, "add", "-A", "--", "src" });
+
+    /// <summary>src/ files that still hold git conflict markers — the REAL "unresolved" gate for merge
+    /// finalisation. Staging clears git's unmerged status, so a marker scan (not <see cref="UnmergedPaths"/>) is
+    /// what stops a half-resolved file from being committed with its <c>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</c> markers.</summary>
+    public static List<string> ConflictMarkerFiles(string root)
+    {
+        var srcDir = System.IO.Path.Combine(root, "src");
+        var hits = new List<string>();
+        if (!Directory.Exists(srcDir)) return hits;
+        foreach (var f in Directory.EnumerateFiles(srcDir, "*", SearchOption.AllDirectories))
+        {
+            try
+            {
+                foreach (var line in File.ReadLines(f))
+                    if (line.StartsWith("<<<<<<< ", StringComparison.Ordinal) || line.StartsWith(">>>>>>> ", StringComparison.Ordinal))
+                    { hits.Add(System.IO.Path.GetRelativePath(root, f).Replace('\\', '/')); break; }
+            }
+            catch { /* unreadable/binary — not a text conflict */ }
+        }
+        return hits;
+    }
+
+    // Unmerged states that carry NO conflict markers (modify/delete, delete/delete, add/modify) — a marker scan
+    // can't see them, so they MUST be resolved explicitly (volt merge --resolve) rather than auto-staged, or
+    // `git add -A` would silently pick a side. UU/AA (both-modified/both-added) DO get markers, so they're handled
+    // by ConflictMarkerFiles instead and are intentionally excluded here.
+    private static readonly HashSet<string> StructuralConflictCodes = new(StringComparer.Ordinal) { "DD", "AU", "UD", "UA", "DU" };
+
+    /// <summary>src/ paths in a structural (marker-less) conflict — must be resolved explicitly before continue.</summary>
+    public static List<string> StructuralConflictFiles(string root)
+    {
+        var hits = new List<string>();
+        foreach (var rec in Run(new[] { "-C", root, "status", "--porcelain", "-z", "--", "src" }).StdOut.Split('\0'))
+        {
+            if (rec.Length < 4) continue;
+            if (StructuralConflictCodes.Contains(rec.Substring(0, 2))) hits.Add(rec.Substring(3));
+        }
+        return hits;
+    }
+
+    /// <summary>The MERGE_HEAD commit of an in-progress merge, or null when none — lets a finaliser confirm the
+    /// merge under way is the one `volt pull` started (MERGE_HEAD == volt/ide) before adopting its stashed baseline.</summary>
+    public static string? MergeHead(string root)
+    {
+        var r = Run(new[] { "-C", root, "rev-parse", "--verify", "-q", "MERGE_HEAD" }, allowFail: true);
+        return r.Code == 0 && r.StdOut.Trim().Length > 0 ? r.StdOut.Trim() : null;
+    }
+
     private static List<DiffRow> ParseDiffRows(string outp)
     {
         var rows = new List<DiffRow>();
@@ -225,41 +275,6 @@ public static class Git
             Run(new[] { "-C", root, "read-tree", @ref }, env: env);
             Run(new[] { "-C", root, "add", "-A", "--", pathspec }, env: env);
             return ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--cached", "--name-status", @ref, "--", pathspec }, env: env).StdOut);
-        }
-        finally { Directory.Delete(idxDir, true); }
-    }
-
-    /// <summary>Per-file unified diffs of the WORKING TREE (incl. untracked) vs a committed ref — outgoing changes.</summary>
-    public static List<FileDiff> OutgoingDiffs(string root, string @ref, string pathspec)
-    {
-        var idxDir = Directory.CreateTempSubdirectory("voltg-diff-").FullName;
-        try
-        {
-            var env = new Dictionary<string, string> { ["GIT_INDEX_FILE"] = Path.Combine(idxDir, "index") };
-            Directory.CreateDirectory(Path.Combine(root, pathspec));
-            Run(new[] { "-C", root, "read-tree", @ref }, env: env);
-            Run(new[] { "-C", root, "add", "-A", "--", pathspec }, env: env);
-
-            var rows = ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--cached", "--name-status", @ref, "--", pathspec }, env: env).StdOut);
-
-            var counts = new Dictionary<string, (int add, int del)>();
-            foreach (var line in Run(new[] { "-C", root, "diff", "-M", "--cached", "--numstat", @ref, "--", pathspec }, env: env).StdOut.Split('\n'))
-            {
-                var p = line.Split('\t');
-                if (p.Length < 3) continue;
-                counts[p[2]] = (p[0] == "-" ? 0 : int.Parse(p[0]), p[1] == "-" ? 0 : int.Parse(p[1]));
-            }
-
-            var diffs = new List<FileDiff>();
-            foreach (var row in rows)
-            {
-                var file = row.Kind == "rename" ? row.NewPath : row.Path;
-                var status = row.Kind == "add" ? "added" : row.Kind == "delete" ? "deleted" : "modified";
-                var patch = Run(new[] { "-C", root, "diff", "-M", "--cached", @ref, "--", file }, env: env).StdOut;
-                var (add, del) = counts.TryGetValue(file, out var c) ? c : (0, 0);
-                diffs.Add(new FileDiff(file, patch, add, del, status));
-            }
-            return diffs;
         }
         finally { Directory.Delete(idxDir, true); }
     }

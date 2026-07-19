@@ -525,10 +525,10 @@ END_NETWORK
 
 | File | Role |
 |---|---|
-| `src/Volt.Bridge.Core/Graphical/Vg/VgParser.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
-| `src/Volt.Bridge.Core/Graphical/Vg/VgWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
-| `src/Volt.Bridge.Core/Graphical/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
-| `src/Volt.Bridge.Core/Graphical/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
-| `src/Volt.Bridge.Core/Graphical/GraphicalCode.cs` | `Validate` — the well-formedness gate (§9) |
+| `src/Volt.Cli.Core/Graphical/Vg/VgParser.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
+| `src/Volt.Cli.Core/Graphical/Vg/VgWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
+| `src/Volt.Cli.Core/Graphical/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
+| `src/Volt.Cli.Core/Graphical/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
+| `src/Volt.Cli.Core/Graphical/GraphicalCode.cs` | `Validate` — the well-formedness gate (§9) |
 | `docs/vg-diagnostics.md` | the bridge-side quick-reference (a subset of §9–§10) |
-| `test/Volt.Bridge.Tests/Vg*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |
+| `test/Volt.Cli.Core.Tests/Vg*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |

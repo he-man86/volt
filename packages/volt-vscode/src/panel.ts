@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DriftItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -28,6 +28,8 @@ interface VoltNode {
 	resourceUri?: vscode.Uri
 	collapsed?: vscode.TreeItemCollapsibleState
 	children?: VoltNode[]
+	/** Carried on a `volt:conflict` row so the take-a-side commands know which file, in which workspace, to resolve. */
+	merge?: { workspaceRoot: string; relPath: string }
 }
 
 class TreeProvider implements vscode.TreeDataProvider<VoltNode> {
@@ -116,22 +118,57 @@ function syncRoots(views: WorkspaceView[]): VoltNode[] {
 
 	const incoming: VoltNode[] = []
 	const outgoing: VoltNode[] = []
-	let paused = false
+	const merges: VoltNode[] = []
+	let mismatchPaused = false
 	for (const v of views) {
-		// While merging or on a project mismatch the IDE axis is paused — the bridge view explains why.
-		if (v.paused !== null) { paused = true; continue }
+		// A merge is actionable IN the tree (resolve each file, then Finish); a project mismatch is not.
+		if (v.paused === "merging") { merges.push(mergeNode(v.workspaceRoot, v.conflicts)); continue }
+		if (v.paused === "mismatch") { mismatchPaused = true; continue }
 		incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
 		outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
 	}
-	if (incoming.length === 0 && outgoing.length === 0) {
-		return paused
-			? [{ key: "sync:paused", label: "IDE sync paused — resolve in the Bridge view", icon: new vscode.ThemeIcon("warning") }]
-			: [{ key: "sync:insync", label: "In sync with the IDE", icon: new vscode.ThemeIcon("check") }]
+	// Merge subtree(s) render ALONGSIDE other workspaces' drift — a merge in one folder must not hide another's.
+	const roots: VoltNode[] = [...merges]
+	if (incoming.length > 0 || outgoing.length > 0) {
+		roots.push(group("incoming", "Incoming (IDE → pull)", incoming), group("outgoing", "Outgoing (push → IDE)", outgoing))
+	} else if (merges.length === 0) {
+		roots.push(
+			mismatchPaused
+				? { key: "sync:paused", label: "IDE sync paused — resolve in the Bridge view", icon: new vscode.ThemeIcon("warning") }
+				: { key: "sync:insync", label: "In sync with the IDE", icon: new vscode.ThemeIcon("check") },
+		)
 	}
-	return [
-		group("incoming", "Incoming (IDE → pull)", incoming),
-		group("outgoing", "Outgoing (push → IDE)", outgoing),
-	]
+	return roots
+}
+
+// A merge-in-progress subtree: one row per conflicted file (click to open; take-a-side from the context menu),
+// under a header whose inline buttons are Finish/Abort (contributed for `viewItem == volt:merge`).
+function mergeNode(workspaceRoot: string, conflicts: ConflictItem[]): VoltNode {
+	return {
+		key: `merge:${workspaceRoot}`,
+		label: `Merge in progress — ${conflicts.length} conflict(s)`,
+		description: "resolve each, then Finish Merge",
+		icon: new vscode.ThemeIcon("git-merge"),
+		contextValue: "volt:merge",
+		collapsed: vscode.TreeItemCollapsibleState.Expanded,
+		children: conflicts.map((c) => conflictNode(workspaceRoot, c)),
+	}
+}
+
+function conflictNode(workspaceRoot: string, c: ConflictItem): VoltNode {
+	const onDisk = vscode.Uri.file(join(workspaceRoot, "src", c.relPath))
+	const folder = c.relPath.includes("/") ? c.relPath.slice(0, c.relPath.lastIndexOf("/")) : undefined
+	return {
+		key: `conflict:${workspaceRoot}:${c.relPath}`,
+		label: c.name,
+		description: folder,
+		tooltip: `merge conflict: ${c.relPath} — open to resolve, or take a whole side (IDE / mine) from the context menu`,
+		resourceUri: onDisk,
+		contextValue: "volt:conflict",
+		icon: new vscode.ThemeIcon("warning"),
+		merge: { workspaceRoot, relPath: c.relPath },
+		command: { command: "vscode.open", title: "Open", arguments: [onDisk] },
+	}
 }
 
 function group(dir: string, label: string, children: VoltNode[]): VoltNode {
