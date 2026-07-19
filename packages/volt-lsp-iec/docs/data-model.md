@@ -376,7 +376,7 @@ type VgOperatorClass = "logic" | "arithmetic" | "comparison"
 ```ts
 interface LanguageTest {
   name: string; pouName: string
-  kind: "function_block" | "function" | "program" | "gvl" | "structure" | "interface"
+  kind: "function_block" | "function" | "program" | "gvl" | "dut" | "interface"
   feature: string; source: string; fromDoc: string; expectTcAccepts: boolean
   plcPrgVar?: string; plcPrgBody?: string
   recordIsolated?: boolean; recorderSkip?: boolean; note?: string

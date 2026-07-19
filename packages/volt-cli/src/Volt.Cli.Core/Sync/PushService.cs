@@ -523,11 +523,12 @@ public static class PushService
         if (!isInterface) ide.WriteText(accessor, decl, impl);
     }
 
+    // Maps a top-level wire kind to its IDE create code. A DUT is one kind `dut` → one code (PlcDut); the IDE
+    // derives struct/enum/union/alias from the written declaration, so Volt never picks a subkind.
     private static int PouKindToCode(string kind) => kind switch
     {
         "program" => ItemKind.PlcPouProg, "function" => ItemKind.PlcPouFunc, "function_block" => ItemKind.PlcPouFb,
-        "enumeration" => ItemKind.PlcDutEnum, "structure" => ItemKind.PlcDutStruct, "gvl" => ItemKind.PlcGvl,
-        "interface" => ItemKind.PlcItf, "union" => ItemKind.PlcDutUnion, "alias" => ItemKind.PlcDutAlias,
+        "dut" => ItemKind.PlcDut, "gvl" => ItemKind.PlcGvl, "interface" => ItemKind.PlcItf,
         // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
         _ => throw new BridgeException(400, "BAD_REQUEST", $"unknown top-level kind '{kind}'"),
     };

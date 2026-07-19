@@ -1,31 +1,24 @@
 namespace Volt.Cli.Sync;
 
+using Volt.Cli.Core.Workspace;
+
 public enum Access { R, Rw }
 
 public sealed record ExtensionDef(string Ext, Access DefaultAccess);
 
 /// <summary>
-/// Extension registry — the single source of truth for every workspace file extension Volt tracks. The bridge
-/// sends full filenames (name.ext); the CLI looks up the extension here to determine access (rw for source items,
-/// r for references). C# port of the original TypeScript implementation
+/// CLI-side extension registry: maps a workspace filename to its access (rw for source items, r for
+/// references). The extension list + access is NOT re-declared here — it is DERIVED from
+/// <see cref="ItemKind.FileExtensions"/> (the one canonical table), so a new kind is added in exactly one
+/// place. A graphical CFC/SFC body is the same rw .fb/.prg/.fun (a push over it is refused by the bridge on
+/// live IDE state, not pre-filtered here).
 /// </summary>
 public static class Extensions
 {
     public const string FolderMarker = ".gitkeep";
 
-    // Writable source is named by KIND; only reference KINDS are read-only by extension. A graphical CFC/SFC body
-    // is the same .fb/.prg/.fun (rw here; a push over it is refused by the bridge on live IDE state, not pre-filtered).
     private static readonly ExtensionDef[] All =
-    {
-        new("fb", Access.Rw), new("prg", Access.Rw), new("fun", Access.Rw), new("itf", Access.Rw),
-        new("struct", Access.Rw), new("union", Access.Rw), new("enum", Access.Rw), new("alias", Access.Rw),
-        new("gvl", Access.Rw),
-        new("library", Access.R), new("device", Access.R), new("projectinfo", Access.R), new("trace", Access.R),
-        new("recipe", Access.R), new("symbols", Access.R), new("task", Access.R), new("image_pool", Access.R),
-        new("parameter_list", Access.R), new("text_list", Access.R), new("recipe_manager", Access.R),
-        new("visualization_manager", Access.R), new("visualization", Access.R), new("library_manager", Access.R),
-        new("class_diagram", Access.R), new("external_types", Access.R), new("tmc", Access.R),
-    };
+        ItemKind.FileExtensions.Select(x => new ExtensionDef(x.Ext, x.IsSource ? Access.Rw : Access.R)).ToArray();
 
     private static readonly Dictionary<string, ExtensionDef> ByExt =
         All.ToDictionary(d => "." + d.Ext, StringComparer.OrdinalIgnoreCase);

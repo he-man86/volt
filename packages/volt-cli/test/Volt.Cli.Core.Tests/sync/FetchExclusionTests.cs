@@ -55,7 +55,7 @@ public class FetchExclusionTests
 
         var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        var handles = resp.Changed.Where(c => c.Name == "HANDLE.alias").Select(c => c.Folder).ToList();
+        var handles = resp.Changed.Where(c => c.Name == "HANDLE.dut").Select(c => c.Folder).ToList();
         Assert.Equal(new[] { "Library Manager/CAA Types" }, handles); // once, beside its stub
     }
 

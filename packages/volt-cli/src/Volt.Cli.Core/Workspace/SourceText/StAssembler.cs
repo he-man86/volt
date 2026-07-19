@@ -8,7 +8,7 @@ namespace Volt.Cli.Core.Workspace.SourceText;
 
 /// <summary>
 /// Render a fetched item back to its assembled Structured Text source (POU/GVL/DUT/interface, each
-/// named by its kind — .fb/.prg/.fun/.itf/.struct/…) — the inverse of <see cref="StSplitter"/>.
+/// named by its kind — .fb/.prg/.fun/.itf/.dut/.gvl) — the inverse of <see cref="StSplitter"/>.
 ///
 /// Used by FetchHandler to ship `sourceText` on the wire so the agent
 /// can drop the file directly into the workspace without any
@@ -44,7 +44,7 @@ public static class StAssembler
 		var childrenRaw = result.TryGetValue("children", out var c) ? c : null;
 
 		// Simple single-block kinds: just hand back the declaration as-is.
-		if (kind is "gvl" or "structure" or "enumeration" or "union" or "alias")
+		if (kind is "gvl" or "dut")
 			return declaration.TrimEnd() + "\n";
 
 		// Composite POUs.

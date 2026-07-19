@@ -25,6 +25,7 @@ import {
   type Vendor,
 } from "../../src/analysis/index.js"
 import { loadTaskRoots, loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 /** The LSP error messages the build did NOT emit — the false positives. Message-set ⊆, like replay.test.ts. */
 export function buildFalsePositives(lspErrorMessages: readonly string[], buildMessages: Iterable<string>): string[] {
@@ -42,7 +43,6 @@ test("buildFalsePositives: an LSP error absent from the build is a false positiv
 
 // ── per-project gate: activates the moment a recording is captured, skips until then ────────────────────
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
-const ST_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 const VENDOR: Vendor = "codesys"
 
 interface BuildRecording {
@@ -55,7 +55,7 @@ function walk(dir: string): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (ST_EXTS.has(extname(p).toLowerCase())) out.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
   }
   return out
 }

@@ -3,7 +3,7 @@
   "lsp": {
     "volt-lsp-iec": {
       "command": ["volt-lsp-iec", "--stdio"],
-      "extensions": [".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]
+      "extensions": [".fb", ".prg", ".fun", ".itf", ".dut", ".gvl"]
     }
   },
   "provider": {

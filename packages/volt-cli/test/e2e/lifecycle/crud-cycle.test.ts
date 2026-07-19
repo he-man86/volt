@@ -14,10 +14,9 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDe
 import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, plcFolder, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
-// Each writable source kind is named by its KIND: function_block→fb, program→prg, gvl→gvl, DUTs→struct/…
+// Each writable source kind is named by its KIND: function_block→fb, program→prg, gvl→gvl, every DUT→dut.
 const EXT_BY_KIND: Record<string, string> = {
-	function_block: "fb", program: "prg", gvl: "gvl",
-	structure: "struct", enumeration: "enum", union: "union", alias: "alias",
+	function_block: "fb", program: "prg", gvl: "gvl", dut: "dut",
 }
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {

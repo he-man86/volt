@@ -173,24 +173,29 @@ public class PushServiceTests
     public void Create_struct_from_valid_content_lands_as_a_dut()
     {
         // The exact thing the PackML session wanted: a struct pushed as canonical ST. The bridge reads the
-        // kind from the CONTENT (TYPE…STRUCT…END_TYPE ⇒ structure), independent of any file extension.
+        // kind from the CONTENT (TYPE…END_TYPE ⇒ dut), independent of any file extension.
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var src = "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("create:ST_Foo", ide.Recorded);
     }
 
-    [Fact]
-    public void Create_enum_from_valid_content_lands_as_a_dut()
+    [Theory]
+    [InlineData("ST_Foo", "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n")]
+    [InlineData("E_Mode", "{attribute 'qualified_only'}\nTYPE E_Mode :\n(\n\tIDLE := 0,\n\tRUN := 1\n) USINT;\nEND_TYPE\n")]
+    [InlineData("U_Val", "TYPE U_Val :\nUNION\n\ti : INT;\n\tr : REAL;\nEND_UNION\nEND_TYPE\n")]
+    [InlineData("Handle", "TYPE Handle : __XWORD;\nEND_TYPE\n")]
+    public void Every_dut_variant_creates_with_the_single_dut_code(string name, string src)
     {
+        // The cleanest-impl invariant: a DUT is one wire kind → one create code (PlcDut). Volt never picks a
+        // struct/enum/union/alias subkind — the IDE derives it from the written declaration.
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var src = "{attribute 'qualified_only'}\nTYPE E_Mode :\n(\n\tIDLE := 0,\n\tRUN := 1\n) USINT;\nEND_TYPE\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "E_Mode.enum", IfVersion = null, SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = $"{name}.dut", IfVersion = null, SourceText = src });
         Assert.True(resp.Accepted);
-        Assert.Contains("create:E_Mode", ide.Recorded);
+        Assert.Equal(ItemKind.PlcDut, ide.CreatedKinds[name]);
     }
 
     [Fact]
@@ -198,7 +203,7 @@ public class PushServiceTests
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = "   " });
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = "   " });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);   // rejected up front — nothing created/written
     }
@@ -208,7 +213,7 @@ public class PushServiceTests
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = null });
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = null });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("needs sourceText"));
         Assert.Empty(ide.Recorded);
@@ -221,7 +226,7 @@ public class PushServiceTests
         // never a half-created item. ParseCodeHeader throws INVALID_CODE_HEADER before any IDE mutation.
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.struct", IfVersion = null, SourceText = "this is not structured text at all" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.dut", IfVersion = null, SourceText = "this is not structured text at all" });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);
     }
@@ -292,7 +297,7 @@ public class PushServiceTests
             .Changed.First(c => c.Name == "PLC_PRG.prg").SourceText.Replace("n := 1;", "n := 2;");
 
         var resp = Push(ide, refs.ProjectVersion!,
-            new SetItemOp { Name = "ST_New.struct", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
+            new SetItemOp { Name = "ST_New.dut", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
             new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = prgSrc },
             new DeleteItemOp { Name = "FB_Old.fb", IfVersion = refs.Items["FB_Old.fb"] });
 

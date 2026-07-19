@@ -23,8 +23,8 @@ public sealed record LibSignature(
     string? ReturnType,
     // For a DUT ALIAS (CODESYS `Flags == "Alias"`, e.g. `TYPE HANDLE : __XWORD`): the base type text. The
     // alias is modeled as a single unnamed variable whose Type is the base, so it can't ride in Members
-    // (name-filtered). Non-null ⇒ render `TYPE name : AliasBase; END_TYPE` (.alias), not a struct.
+    // (name-filtered). Non-null ⇒ render `TYPE name : AliasBase; END_TYPE` (an alias body), not a struct body.
     string? AliasBase = null,
-    // The CODESYS DUT sub-kind flag ("Alias" / "Union" / "None"/…), so a union renders as `.union`, not a
-    // struct. Empty for non-DUT signatures.
+    // The CODESYS DUT sub-kind flag ("Alias" / "Union" / "None"/…) — it picks the rendered BODY form (a union
+    // gets UNION/END_UNION), not the extension (every DUT is `.dut`). Empty for non-DUT signatures.
     string Flags = "");

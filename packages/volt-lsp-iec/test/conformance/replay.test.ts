@@ -96,7 +96,7 @@ function extFor(kind: string): string {
     function: "fun",
     program: "prg",
     gvl: "gvl",
-    structure: "struct",
+    dut: "dut",
     interface: "itf",
   }
   return map[kind] ?? "fb"

@@ -172,7 +172,7 @@ public static class Commands
         if (foreign.Count > 0)
             return PushResult.Rejected(
                 "unrecognized file extension — these can't sync to the IDE and were NOT pushed. Rename each to its " +
-                "Volt kind extension (struct→.struct, enum→.enum, union→.union, alias→.alias; POUs .fb/.prg/.fun/.itf; " +
+                "Volt kind extension (DUTs — struct/enum/union/alias — are all .dut; POUs .fb/.prg/.fun/.itf; " +
                 "global var list .gvl):\n" + string.Join("\n", foreign.Select(p => "  " + p)));
 
         Git.AutoCommitSrc(root);

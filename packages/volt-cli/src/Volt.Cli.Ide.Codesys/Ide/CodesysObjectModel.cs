@@ -750,13 +750,11 @@ namespace Volt.Cli.Ide.Codesys
                 case ItemKind.PlcPouFunc: return CreateNamed(c, "create_pou",
                     ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType));
                 case ItemKind.PlcPouFb: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
-                case ItemKind.PlcDutEnum: return Create(c, "create_dut", name, EnumValue("DutType", "Enumeration"));
-                case ItemKind.PlcDutStruct: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
-                case ItemKind.PlcDutUnion: return Create(c, "create_dut", name, EnumValue("DutType", "Union"));
-                // An alias REQUIRES a non-null baseType at create; same story — WriteSourceText overwrites
-                // it with the real base type from the declaration. Seed "INT", bound by name.
-                case ItemKind.PlcDutAlias: return CreateNamed(c, "create_dut",
-                    ("name", name), ("type", EnumValue("DutType", "Alias")), ("baseType", SeedType));
+                // A DUT is one kind: create a neutral Structure skeleton, then WriteSourceText writes the real
+                // TYPE…END_TYPE declaration and CODESYS re-derives the actual subtype (struct/enum/union/alias)
+                // from it — the same "seed then overwrite" pattern as a function's return_type. No subkind is
+                // chosen by Volt.
+                case ItemKind.PlcDut: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
                 case ItemKind.PlcGvl: return Create(c, "create_gvl", name);
                 case ItemKind.PlcItf: return Create(c, "create_interface", name);
                 // Inline POU children (method/action/property) live on a DIFFERENT

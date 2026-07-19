@@ -64,7 +64,7 @@ public static class StSplitter
 		string? DataType = null);
 
 	public record StSplitResult(
-		string PouKind,              // function_block / program / function / interface / gvl / structure / enumeration / union / alias
+		string PouKind,              // function_block / program / function / interface / gvl / dut
 		string? PouName,             // null for GVL
 		string PouDeclaration,
 		string PouImplementation,
@@ -87,8 +87,8 @@ public static class StSplitter
 		var kind = header.Type;
 
 		// 2. Branch on kind: composite POUs have children, simple
-		// ones (gvl / DUT subtypes) are single text blobs.
-		if (kind is "gvl" or "structure" or "enumeration" or "union" or "alias")
+		// ones (gvl / dut) are single text blobs.
+		if (kind is "gvl" or "dut")
 		{
 			return new StSplitResult(kind, header.Name, sourceText.TrimEnd(), "", new List<StChild>());
 		}

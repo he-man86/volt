@@ -129,14 +129,14 @@ rather than failing wholesale.
 
 ### Requirement: The workspace is cross-indexed
 
-The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.struct`, `.enum`, `.union`, `.alias`, `.gvl`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
+The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.dut`, `.gvl`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
 
 #### Scenario: A type in an unopened file resolves
 - **WHEN** a file references a DUT declared in another, unopened file
 - **THEN** go-to-definition and type resolution succeed
 
 #### Scenario: Cross-file resolution works with only the referencing file open
-- **WHEN** the client has opened only `PLC_PRG.prg`, which references `E_Mode` declared in an unopened sibling `E_Mode.enum`
+- **WHEN** the client has opened only `PLC_PRG.prg`, which references `E_Mode` declared in an unopened sibling `E_Mode.dut`
 - **THEN** `E_Mode` resolves and no `Identifier 'E_Mode' not defined` diagnostic is produced
 
 #### Scenario: An open buffer overrides the on-disk version
@@ -148,7 +148,7 @@ The server SHALL cross-index the whole workspace so that types declared in unope
 The server SHALL declare and handle `workspace/didChangeWatchedFiles` for kind-named source files and for the reference files it crawls (`.library`, `.device`, `.task`). On a create, change, or delete of a watched file, the server SHALL re-index so that subsequent queries reflect the new on-disk state without requiring the affected file to be opened, and SHALL invalidate any cached project scope. The reference-name crawl (library namespaces, device instance names, task program roots) SHALL be re-runnable on these events, not performed only at `initialize`.
 
 #### Scenario: A newly added source file becomes resolvable without opening it
-- **WHEN** a new `.struct` file is added on disk (e.g. by `volt pull`) and a watched-files change event is delivered
+- **WHEN** a new `.dut` file is added on disk (e.g. by `volt pull`) and a watched-files change event is delivered
 - **THEN** references to the new type resolve without the file being opened in the editor
 
 #### Scenario: A deleted source file stops resolving
@@ -356,7 +356,7 @@ models; graphical bodies are simply not analyzed and are edited in the IDE.
 
 The LSP SHALL resolve referenced-library symbols using the materialized artifacts, with NO dedicated
 ambient-scope machinery: (a) library element signature files use the ordinary kind extensions
-(`.fb`/`.fun`/`.struct`/`.enum`/`.gvl`/`.itf`/…), so the existing source scan ingests them into the project
+(`.fb`/`.fun`/`.dut`/`.gvl`/`.itf`/…), so the existing source scan ingests them into the project
 symbol table — a bare or member reference to a library element resolves like any project symbol; (b) each
 `.library` stub's `NAMESPACE` line registers that library's namespace, so a qualified-reference ROOT
 (`PACK_ML.State`, `MEM.LowWord`) is not flagged unresolved. Namespaces are keyed independently of project
@@ -575,8 +575,9 @@ which yields no analysis). There is no `READONLY <LANG>` control marker.
 ### Requirement: Writable source items are named by kind
 
 Every writable source item SHALL materialize with an extension that names its KIND:
-`function_block → .fb`, `program → .prg`, `function → .fun`, `interface → .itf`, `structure → .struct`,
-`enumeration → .enum`, `union → .union`, `alias → .alias`, `gvl → .gvl`. A POU SHALL be named by its
+`function_block → .fb`, `program → .prg`, `function → .fun`, `interface → .itf`, `gvl → .gvl`, and every
+DUT (structure, enumeration, union, alias) → a single `.dut` (the struct/enum/union/alias distinction
+lives in the declaration body, mirroring the IDEs' one-DUT-object model). A POU SHALL be named by its
 kind regardless of body language — an editable graphical (FBD/LD) body and a read-only graphical
 (CFC/SFC) body of a function block are both `<name>.fb` — so the extension always reveals what the
 item is. The bridge SHALL choose the extension from the item's kind (`ItemKind.ExtFor`); kind SHALL
@@ -588,7 +589,7 @@ NOT be carried on the wire (it is recovered from content on push).
 
 #### Scenario: DUTs, interfaces, and GVLs use their kind extension
 - **WHEN** the IDE contains an enumeration, structure, union, alias, interface, or GVL
-- **THEN** each materializes as `.enum`/`.struct`/`.union`/`.alias`/`.itf`/`.gvl` respectively
+- **THEN** every DUT (enumeration/structure/union/alias) materializes as `.dut`, and interface/GVL as `.itf`/`.gvl`
 
 ### Requirement: Read-only graphical POUs are marked in content, not by extension
 
@@ -618,8 +619,8 @@ declaration header for textual kinds; the NETWORK-token VG body for editable gra
 from the extension. The kind-based naming SHALL NOT lose kind or access information.
 
 #### Scenario: Kind is recovered from content on push
-- **WHEN** an agent edits and pushes a `.fb`/`.prg`/`.fun`/`.struct`/`.itf`/`.gvl` file
-- **THEN** the bridge reconstructs the correct kind from the content and applies the push
+- **WHEN** an agent edits and pushes a `.fb`/`.prg`/`.fun`/`.dut`/`.itf`/`.gvl` file
+- **THEN** the bridge reconstructs the correct kind from the content and applies the push (a `.dut` is one kind `dut`; the IDE derives struct/enum/union/alias from the declaration)
 
 #### Scenario: A read-only POU is not pushed
 - **WHEN** a `.fb` file whose body is a `(* @volt-graphical: … *)` marker (a CFC/SFC body) is edited and a push is attempted
@@ -630,14 +631,14 @@ from the extension. The kind-based naming SHALL NOT lose kind or access informat
 Referenced-library public signatures SHALL materialize INTO the mirrored CODESYS tree — each element under
 its owning library's folder in the Library Manager (`…/Library Manager/<LibraryName>/<Element>.<kind>`),
 co-located with that library's `.library` stub — NOT into a separate `libs/` tree. Files SHALL use the same
-kind-based extensions as project source (`.fb`/`.prg`/`.fun`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`/`.itf`)
+kind-based extensions as project source (`.fb`/`.prg`/`.fun`/`.dut`/`.gvl`/`.itf`)
 and contain declarations/signatures only (no implementation bodies). They SHALL be **read-only**: never a
 push target, never reconciled to the IDE. They are committed and change only when a referenced library is
 added, removed, or version-bumped.
 
 #### Scenario: A library element is a kind-named signature file in its library's folder
 - **WHEN** the `L_MC4P` library exposes a struct `AxesGroup`
-- **THEN** it materializes at `…/Library Manager/L_MC4P_MotionControlCam/AxesGroup.struct` (beside `L_MC4P_MotionControlCam.library`), containing only its declaration, and is not editable or pushable
+- **THEN** it materializes at `…/Library Manager/L_MC4P_MotionControlCam/AxesGroup.dut` (beside `L_MC4P_MotionControlCam.library`), containing only its declaration, and is not editable or pushable
 
 #### Scenario: Library signatures are never pushed
 - **WHEN** a push is computed

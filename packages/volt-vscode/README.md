@@ -2,7 +2,7 @@
 
 > The VS Code / Windsurf extension for PLC code — Structured Text **and the VG graphical language** intelligence, plus one-click sync with your live PLC IDE.
 
-Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into ordinary, editable files in your editor. You get Structured Text (IEC 61131-3) syntax highlighting and full language intelligence — hover, go-to-definition, completion, diagnostics — over the kind-named PLC source files (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`), and a dedicated **Volt** activity-bar view that shows how your workspace and the IDE have diverged and lets you pull, push, and merge between them.
+Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into ordinary, editable files in your editor. You get Structured Text (IEC 61131-3) syntax highlighting and full language intelligence — hover, go-to-definition, completion, diagnostics — over the kind-named PLC source files (`.fb`/`.prg`/`.fun`/`.itf`/`.dut`/`.gvl`), and a dedicated **Volt** activity-bar view that shows how your workspace and the IDE have diverged and lets you pull, push, and merge between them.
 
 ## Role in Volt
 
@@ -19,7 +19,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 ## How it works
 
-**Activation.** The extension activates on `onStartupFinished`, on opening the Structured Text language (every writable source item — POU/DUT/GVL/interface, textual or editable graphical — is one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`); read-only `.cfc`/`.sfc` and reference manifests keep their own extensions), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the IDE Sync view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the view toolbar.
+**Activation.** The extension activates on `onStartupFinished`, on opening the Structured Text language (every writable source item — POU/DUT/GVL/interface, textual or editable graphical — is one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.dut`/`.gvl`, every DUT one `.dut`); read-only `.cfc`/`.sfc` and reference manifests keep their own extensions), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the IDE Sync view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the view toolbar.
 
 **Status tracking** (`state/status.ts`). Each workspace gets a `VoltStatus` that probes bridge health every 30s, polls the Volt state mtime every 3s, refreshes on save of tracked POU files, and runs `volt status --json` (via `fetchStatus` in `@volt/control`) to populate the cached `StatusJson`. On error it keeps the last good status and just surfaces the message.
 
