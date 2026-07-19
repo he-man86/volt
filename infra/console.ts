@@ -283,7 +283,7 @@ export const web = new sst.cloudflare.x.SolidStart("Console", {
     SALESFORCE_INSTANCE_URL,
     ZEN_BLACK_PRICE,
     ZEN_LITE_PRICE,
-    new sst.Secret("ZEN_LIMITS"),
+    SECRET.ZenLimits,
     new sst.Secret("ZEN_SESSION_SECRET"),
     ...ZEN_MODELS,
     ...($dev

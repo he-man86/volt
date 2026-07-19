@@ -1,5 +1,6 @@
 import { domain } from "./stage"
 import { database, ZEN_LITE_PRICE, ZEN_BLACK_PRICE } from "./console"
+import { SECRET } from "./secret"
 
 // VOLT: deploy opencode's vendored support-lookup portal (packages/console/support) UNCHANGED at
 // support.${domain}. It's a per-customer lookup (auth / workspaces / billing / usage) that reads the prod
@@ -24,7 +25,7 @@ export const support = new sst.cloudflare.x.SolidStart("Support", {
   // linkables. console-core/lite.ts reads Resource.ZEN_LITE_PRICE at MODULE LOAD, so without it the worker
   // throws at boot → 500 on every route. black.ts / subscription.ts read ZEN_BLACK_PRICE / ZEN_LIMITS when a
   // lookup renders. Link all so the app boots and lookups resolve.
-  link: [database, ZEN_LITE_PRICE, ZEN_BLACK_PRICE, new sst.Secret("ZEN_LIMITS")],
+  link: [database, ZEN_LITE_PRICE, ZEN_BLACK_PRICE, SECRET.ZenLimits],
 })
 
 // Gate: Cloudflare Access (Zero Trust) in front of the hostname — email SSO, zero app code, vendored app
