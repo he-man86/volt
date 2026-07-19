@@ -19,7 +19,7 @@
  * models.json shape (see packages/console/core/src/model.ts for the authoritative Zod schema):
  *   {
  *     "providers":  { <id>: { api, apiKey, format } },   // api ends in /v1; apiKey string or {name:key} pool
- *     "zenModels":  { <id>: { name, cost, providers } },  // <id> must match volt-config provider.volt models
+ *     "zenModels":  { <id>: { name, cost, providers } },  // <id> must match opencode-config provider.volt models
  *     "liteModels": { ... }                               // cheaper tier; {} if unused
  *   }
  *   cost.{input,output} are DOLLARS PER TOKEN = price_per_million / 1_000_000

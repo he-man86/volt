@@ -11,10 +11,10 @@ app, an `UninstallDelete` entry.
 
 | Location | What | Written by | Removed on uninstall? |
 |---|---|---|---|
-| `%LOCALAPPDATA%\Programs\Volt\` | the whole install: connector at root, `bin\` (CLI+LSP), `volt-config\`, `desktop\`, `docs\`, `volt-vscode.vsix`, `version.txt` | Inno (`DefaultDirName`) | **yes** — Inno owns it |
+| `%LOCALAPPDATA%\Programs\Volt\` | the whole install: connector at root, `bin\` (CLI+LSP), `opencode-config\`, `desktop\`, `docs\`, `volt-vscode.vsix`, `version.txt` | Inno (`DefaultDirName`) | **yes** — Inno owns it |
 | `%LOCALAPPDATA%\Volt\logs\` | `connector-*.log`, `<vendor>-*.log`, `install-*.log` — the shared log store the tray's Log window reads | connector (`Log.cs`), bridges (Core's `VoltLog`), Setup (`DeinitializeSetup`) | **no** — deliberate, see below |
 | `%APPDATA%\Microsoft\...\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → the desktop GUI | connector (`VoltEnv.CreateGuiShortcut`) | yes (`VoltEnv.Uninstall`) |
-| `HKCU\Environment` → `OPENCODE_CONFIG_DIR`, `Path` | points opencode at `volt-config\`; puts `bin\` on PATH | connector (`VoltEnv.Install`) | yes (`VoltEnv.Uninstall`) |
+| `HKCU\Environment` → `OPENCODE_CONFIG_DIR`, `Path` | points opencode at `opencode-config\`; puts `bin\` on PATH | connector (`VoltEnv.Install`) | yes (`VoltEnv.Uninstall`) |
 | `HKCU\...\CurrentVersion\Run` → `VoltConnector` | login item so the tray survives reboot | connector (`LoginItem.cs`) | yes (`VoltEnv.Uninstall`) |
 | `HKCU\...\Uninstall\{AppId}_is1` | Add/Remove Programs entry | Inno | yes |
 | `%APPDATA%\Volt\` | Electron `userData` (caches, blob storage) | Electron, from `productName` in `volt-desktop/package.json` | no |
@@ -43,20 +43,20 @@ from `app.getName()`, which reads `productName` before `name`; without it the na
 writes to a literal `%APPDATA%\@volt` folder. It is **not** a duplicate of the `productName` in
 `electron-builder.yml` (which only brands the packaged `.exe`).
 
-**`volt-config` must never ship a `package.json`.** opencode installs a config dir's declared dependencies at
-runtime, so a stray `package.json` makes it create `volt-config\node_modules` on first run and reach for a registry
+**`opencode-config` must never ship a `package.json`.** opencode installs a config dir's declared dependencies at
+runtime, so a stray `package.json` makes it create `opencode-config\node_modules` on first run and reach for a registry
 — on machines that may not have one. `build-payload.ts` refuses to copy config `package.json`/`node_modules`
-(`CFG_NEVER_SHIP`), and `[InstallDelete]` wipes `{app}\volt-config` on every install so the dir is always exactly
+(`CFG_NEVER_SHIP`), and `[InstallDelete]` wipes `{app}\opencode-config` on every install so the dir is always exactly
 what shipped.
 
 ## Upgrades delete nothing by default
 
 Inno's `[Files]` only adds and overwrites. Anything an older version dropped survives every upgrade unless an
-`[InstallDelete]` line names it. `{app}\volt-config` is wiped on each install for exactly this reason — it's
+`[InstallDelete]` line names it. `{app}\opencode-config` is wiped on each install for exactly this reason — it's
 installer-owned, so "whatever shipped" is the only correct content.
 
 Symmetrically, anything created *inside* `{app}` after install is untracked by Inno and would survive uninstall,
-keeping `{app}` alive and making the uninstall dirty. `[UninstallDelete]` covers `{app}\volt-config` for that.
+keeping `{app}` alive and making the uninstall dirty. `[UninstallDelete]` covers `{app}\opencode-config` for that.
 `test:install` cannot catch this class: it never runs opencode, so nothing is ever created post-install.
 
 ## Install diagnostics

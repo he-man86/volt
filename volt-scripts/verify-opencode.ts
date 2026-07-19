@@ -61,7 +61,7 @@ function verifyLsp(): boolean {
   const projDir = mkdtempSync(join(tmpdir(), "volt-verify-proj-"))
   try {
     // Absolute node LSP command so it resolves with cwd = the (external) project dir — mirrors how the shipped
-    // volt-config supplies the LSP via OPENCODE_CONFIG_DIR, using the freshly-built bin.
+    // opencode-config supplies the LSP via OPENCODE_CONFIG_DIR, using the freshly-built bin.
     writeFileSync(
       join(cfgDir, "opencode.json"),
       JSON.stringify({ lsp: { "volt-lsp-iec": { command: ["node", lspBin, "--stdio"], extensions: [".fb"] } } }),
@@ -86,14 +86,14 @@ function verifyLsp(): boolean {
 }
 
 // ── 2. the `volt` tool loads ──────────────────────────────────────────────────
-// opencode scans `{tool,tools}/*.{js,ts}` across its config dirs; Volt supplies volt-config/tool/volt.ts via
+// opencode scans `{tool,tools}/*.{js,ts}` across its config dirs; Volt supplies opencode-config/tool/volt.ts via
 // OPENCODE_CONFIG_DIR. `debug agent <name>` prints the resolved config including a `tools` map of id -> enabled.
 // OPENCODE_CONFIG_DIR is *additive* (opencode still merges the user's global config + data-dir auth), so the
 // default model still resolves.
 function verifyTool(): boolean {
-  const cfgDir = resolve(repoRoot, "volt-config")
+  const cfgDir = resolve(repoRoot, "opencode-config")
   if (!existsSync(resolve(cfgDir, "tool/volt.ts")))
-    return report("tool", false, "", `volt-config/tool/volt.ts missing under ${cfgDir}`, "")
+    return report("tool", false, "", `opencode-config/tool/volt.ts missing under ${cfgDir}`, "")
 
   // Parse stdout ONLY — stderr is diagnostics, and concatenating it would break the parse on any warning.
   const { stdout, stderr } = opencode(["debug", "agent", "volt"], cfgDir, repoRoot)
@@ -113,7 +113,7 @@ function verifyTool(): boolean {
     "tool",
     tools?.volt === true,
     "the 'volt' tool loads + is enabled (tools.volt = true)",
-    `'volt' tool not loaded/enabled (tools.volt = ${tools?.volt}) — does volt-config/tool/volt.ts export the tool shape?`,
+    `'volt' tool not loaded/enabled (tools.volt = ${tools?.volt}) — does opencode-config/tool/volt.ts export the tool shape?`,
     "",
   )
 }

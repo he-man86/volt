@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Volt** — a toolchain for managing IEC 61131-3 PLC projects (CODESYS and TwinCAT/Beckhoff) as version-controllable text. The repo is a standalone Bun monorepo of `volt-*` packages.
 
-Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-source AI coding agent) is a **runtime dependency** — a user-provided install — not a fork. Volt makes the user's opencode PLC-aware by handing it one config dir via the `OPENCODE_CONFIG_DIR` env var (LSP + `volt` tool + agent + theme + permissions). We depend on opencode **one way**: the installed **binary** at runtime (it loads `volt-config` and runs the `volt` tool + plugins). No `@opencode-ai/plugin` npm dependency — its `tool()` helper is just `(x) => x` + zod, so the tool exports the plain shape directly and the plugins use minimal local types. Nothing of opencode's source lives here.
+Volt is **opencode-independent**: [opencode](https://opencode.ai) (the open-source AI coding agent) is a **runtime dependency** — a user-provided install — not a fork. Volt makes the user's opencode PLC-aware by handing it one config dir via the `OPENCODE_CONFIG_DIR` env var (LSP + `volt` tool + agent + theme + permissions). We depend on opencode **one way**: the installed **binary** at runtime (it loads `opencode-config` and runs the `volt` tool + plugins). No `@opencode-ai/plugin` npm dependency — its `tool()` helper is just `(x) => x` + zod, so the tool exports the plain shape directly and the plugins use minimal local types. Nothing of opencode's source lives here.
 
 > History: this repo began as a fork of opencode's monorepo. The `extract-clean-repo` / `minimize-opencode-fork` changes (see `openspec/`) removed all opencode source and re-rooted it as the standalone Volt repo. If you find a stray reference to `packages/opencode`, `packages/app`, `check-divergence`, or "the fork" — it's stale; fix it.
 
@@ -29,7 +29,7 @@ The commercial side is **two packages, and they are not `volt-*`**:
 >
 > Two traps that cost real money to learn: **"unlinked" is not "unexposed"** — SolidStart serves every file under `routes/**` by URL, so dormancy must be *proven*, not assumed (`/go` was the referral landing page, `/download` proxied opencode's binaries, `bench/submission.ts` was an unauthenticated public write). And **the console does not build on Windows** (a `vite:define` path bug), so `console-build` on Linux CI is the only place a console change is compiled before it reaches `dev` — typecheck will not catch a deleted component that a compiled-but-unlinked page still imports. The two sites share **no components** (React vs SolidJS); only the design tokens port, via `style/volt-theme.css`.
 
-**`volt-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. It's dependency-free — the tool bundles only `zod`; nothing here needs `@opencode-ai/plugin`, so the shipped dir loads with no npm/registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/volt-config opencode`.
+**`opencode-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. It's dependency-free — the tool bundles only `zod`; nothing here needs `@opencode-ai/plugin`, so the shipped dir loads with no npm/registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode`.
 
 Each `volt-*` package has its own `README.md` — read it before deep work there.
 
@@ -41,7 +41,7 @@ Standard workflows are root `bun run` scripts — prefer these over invoking `vo
 
 ```bash
 bun install                 # install workspace deps
-bun run dev                 # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/volt-config opencode)
+bun run dev                 # the Volt-aware agent (OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode)
 bun run build               # build the TS packages (bun --filter; the C# bridge builds in `dist`)
 bun run build:installer     # the product → dist/release/Volt-win-Setup.exe (payload + electron + Inno)
 bun run test:install        # install → verify → uninstall → verify-clean smoke gate (Windows)
@@ -56,7 +56,7 @@ maps every script**; keep it accurate. `compat`'s sub-steps are runnable alone w
 `build-payload.ts` (the `dist/volt/` payload); that stage has no `bun run` on purpose — it's a step, not a
 destination.
 
-The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`volt-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
+The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`opencode-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
 
 Per-package work for the TS packages (run from the package dir, e.g. `packages/volt-lsp-iec`):
 
@@ -115,7 +115,7 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 
 ## opencode integration — one env var, additive, safe
 
-- The **installer** sets two persistent user env vars: `OPENCODE_CONFIG_DIR` = the shipped `volt-config`, and `PATH += <bin>` (so the config's bare-name `volt-lsp-iec` / `volt` commands resolve). This is the single mechanism — nothing per-spawn.
+- The **installer** sets two persistent user env vars: `OPENCODE_CONFIG_DIR` = the shipped `opencode-config`, and `PATH += <bin>` (so the config's bare-name `volt-lsp-iec` / `volt` commands resolve). This is the single mechanism — nothing per-spawn.
 - **Additive & safe:** opencode always merges the user's own global config, and `OPENCODE_CONFIG_DIR` is just an *extra* merged directory. Auth lives in opencode's data dir (untouched). So the user's settings + provider keys are preserved; Volt's config merges on top. Uninstall removes the env vars → opencode reverts to vanilla.
 - **opencode is a prerequisite** — Volt never bundles, updates, or uninstalls it. The CLI works without it (the agent lights up if/when opencode is present). There is exactly ONE place Volt will install it: an **opt-in wizard task in the installer** (`winget install --id SST.opencode`, `installer/Volt.iss`) — user-checked, the official package, triggered via the OS package manager. Everywhere else (the desktop's agent view, the VS Code extension's agent prompt) merely **reports that opencode is missing and links to opencode.ai/download** — they never install. Don't re-add an in-app installer: it's a second install path to maintain for a prerequisite Volt doesn't own.
 
@@ -123,7 +123,7 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 
 - **Git (trunk-based, mirrors opencode):** `dev` is the protected trunk and the only long-lived branch. Every change lands via a **short-lived feature branch → PR into `dev`**; direct pushes and force-pushes to `dev` are rejected, and CI must be green to merge. Delete the branch after merge; cut releases by tagging `dev` with the **bare** version `X.Y.Z` (matching `packages/volt-desktop/package.json`; no `v` prefix — the connector's auto-updater compares the tag to the installed version), which triggers `release.yml` to build + publish the single Inno Setup installer. **Volt ships ONE version:** `packages/volt-desktop/package.json` is the source of truth, and `packages/volt-vscode/package.json` must carry the same number (the installer sideloads that `.vsix`; the extension also self-publishes to the Marketplace, which is why they're separate files). Bump both together — `bun run release` and `release.yml` both refuse a mismatch. The other `volt-*` packages are private and unpublished, so their `version` is inert; **`packages/console/*` is deliberately NOT Volt's version** — it's the vendored opencode version (bump it only when tracking a new opencode). CI is **`ci.yml` = the PR gate**: one job per concern (`typecheck` / `lint` / `test` / `integration` / `openspec`) — exactly the checks `dev` branch protection requires, and nothing else. A check run is named after the **job**, not the workflow, so N jobs report N checks; these were five near-identical workflows until that was measured. Only the **path-filtered** ones stay separate (`console-build`, `console-symmetry`, `deploy` — a job can't override `on: paths`), plus tag-triggered `release`. **The job IDs in `ci.yml` are the required contexts** — renaming one silently blocks every PR on a check that never reports, until branch protection is updated. Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful scopes: `bridge`, `cli`, `lsp`.
 - **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. Bridge build/dev-loop scripts live in `packages/volt-cli/scripts/*.ps1`; repo-wide tooling (compat gate, dist, installer helpers) in `volt-scripts/`.
-- **`.volt/`** is a CLI-managed PLC workspace binding (`.git/volt`); **`volt-config/`** is the agent-config layer handed to opencode. Don't confuse them.
+- **`.volt/`** is a CLI-managed PLC workspace binding (`.git/volt`); **`opencode-config/`** is the agent-config layer handed to opencode. Don't confuse them.
 - **Source of truth for invariants is the code + each package's `README.md`/`ARCHITECTURE.md`** (e.g. `volt-cli/ARCHITECTURE.md`, `volt-lsp-iec/docs/`), not a parallel spec tree. **OpenSpec is `openspec/changes/` only** — in-flight proposals + the decision log (`openspec list`); the archived `specs/` capability tree was removed (it drifted) and its load-bearing invariants folded into the package docs.
 
 ## Tracking opencode (the compat gate)

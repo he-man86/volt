@@ -14,12 +14,12 @@ namespace Volt.Cli.Connector
     /// </summary>
     internal static class VoltEnv
     {
-        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and volt-config\
+        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and opencode-config\
         // (the agent layer) as sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe
         // so it survives wherever the user installed us.
         private static string ConnectorDir => AppContext.BaseDirectory;
         private static string BinDir => Path.GetFullPath(Path.Combine(ConnectorDir, "bin"));
-        private static string ConfigDir => Path.GetFullPath(Path.Combine(ConnectorDir, "volt-config"));
+        private static string ConfigDir => Path.GetFullPath(Path.Combine(ConnectorDir, "opencode-config"));
         private static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
         private static string GuiShortcut =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Volt.lnk");
