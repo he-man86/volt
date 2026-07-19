@@ -27,6 +27,7 @@ namespace Volt.Cli.Connector
         private ToolStripMenuItem _headerItem = null!;
         private ToolStripMenuItem _connectItem = null!;
         private ToolStripMenuItem _updateItem = null!;
+        private ConnectorWindow? _window;
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
@@ -44,6 +45,7 @@ namespace Volt.Cli.Connector
                 Icon = StatusIcons.For(BridgeStatus.Unknown),
                 ContextMenuStrip = BuildMenu(),
             };
+            _icon.DoubleClick += (_, _) => OpenWindow();   // the branded window is the primary surface
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
             _control = new ControlServer(Snapshot, ConnectById, RestartWorker);
@@ -124,6 +126,10 @@ namespace Volt.Cli.Connector
             menu.Items.Add(_headerItem);
             menu.Items.Add(new ToolStripSeparator());
 
+            var open = new ToolStripMenuItem("Open Volt", null, (_, _) => OpenWindow());
+            open.Font = new Font(open.Font, FontStyle.Bold);
+            menu.Items.Add(open);
+
             _connectItem = new ToolStripMenuItem("Connect to");
             _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
             menu.Items.Add(_connectItem);
@@ -177,6 +183,16 @@ namespace Volt.Cli.Connector
             MessageBox.Show(CodesysActivation.Steps(), "Activate Volt in CODESYS", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
+        private void OpenWindow()
+        {
+            if (_window == null || _window.IsDisposed)
+                _window = new ConnectorWindow(_conn, ShowCodesysActivation, ShowLogs, CollectDiagnostics);
+            _window.Show();
+            _window.WindowState = FormWindowState.Normal;
+            _window.BringToFront();
+            _window.Activate();
+        }
+
         // ── logs / diagnostics ──────────────────────────────────────────────
         private LogWindow? _logWindow;
 
@@ -218,6 +234,7 @@ namespace Volt.Cli.Connector
         {
             _timer.Stop();
             _control.Dispose();
+            _window?.Dispose();
             _logWindow?.Dispose();
             _icon.Visible = false;
             _supervisor.Dispose();
