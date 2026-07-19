@@ -9,160 +9,128 @@ using System.Windows.Forms;
 namespace Volt.Cli.Connector
 {
     /// <summary>
-    /// The one tray app. Owns a single NotifyIcon whose colour reflects the aggregate
-    /// bridge state, a context menu with per-vendor status + actions, and balloon
-    /// toasts on state changes. All vendor differences live in the (headless) workers;
-    /// this surface is identical no matter how many vendors are plugged in.
+    /// The one tray app, rebuilt over the <see cref="ConnectionManager"/>. A single NotifyIcon whose colour is
+    /// the aggregate connection state, and a context menu that is a thin view over the model: ONE unified
+    /// "Connect to" list of every detected project across all vendors (each tagged with its platform), a guided
+    /// CODESYS activation affordance, and logs/diagnostics/exit. No per-vendor lanes, no IDE launch — the
+    /// vendor difference lives entirely behind the wire.
     /// </summary>
     public sealed class TrayContext : ApplicationContext
     {
         private readonly NotifyIcon _icon;
         private readonly System.Windows.Forms.Timer _timer;
         private readonly BridgeSupervisor _supervisor = new();
-        private readonly List<VendorProvider> _providers;
-        private readonly Dictionary<string, BridgeHealth> _health = new();
-        private readonly Dictionary<string, ToolStripMenuItem> _vendorItems = new();
+        private readonly IReadOnlyList<WorkerSpec> _workers = ConnectorSetup.Workers();
+        private readonly ConnectionManager _conn = new(ConnectorSetup.Sources());
         private readonly ControlServer _control;
-        private volatile BridgeView[] _snapshot = Array.Empty<BridgeView>();
-        private ToolStripMenuItem _headerItem = null!; // shows the installed version; refreshed each tick
-        private ToolStripMenuItem _updateItem = null!; // hidden until the updater has a version downloaded
-        private string? _updateShown; // the pending version we've already toasted, so we toast it once
+
+        private ToolStripMenuItem _headerItem = null!;
+        private ToolStripMenuItem _connectItem = null!;
+        private ToolStripMenuItem _updateItem = null!;
+        private string? _updateShown;
+        private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
         public TrayContext()
         {
-            _providers = ConnectorConfig.DefaultProviders();
-            foreach (var p in _providers) _health[p.Id] = new BridgeHealth { Status = BridgeStatus.Unknown };
+            _conn.Connected += OnConnected;
+
+            // Spawn the ExternalAttach workers (TwinCAT). CODESYS is user-activated in-proc — never launched.
+            foreach (var w in _workers) _supervisor.EnsureWorker(w);
 
             _icon = new NotifyIcon
             {
                 Visible = true,
-                Text = "Volt Bridge Connector",
+                Text = "Volt Connector",
                 Icon = StatusIcons.For(BridgeStatus.Unknown),
                 ContextMenuStrip = BuildMenu(),
             };
 
-            // Start the external-attach workers up front.
-            foreach (var p in _providers) _supervisor.EnsureWorker(p);
-
-            // Control plane (:8550) — the extension / opencode app see + manage bridges.
-            _control = new ControlServer(
-                () => _snapshot,
-                id => { var p = Find(id); if (p != null && p.Archetype == Archetype.ExternalAttach) { _supervisor.StopWorker(id); _supervisor.EnsureWorker(p); } },
-                (id, installId) =>
-                {
-                    var p = Find(id); if (p == null) return false;
-                    if (installId != null)
-                    {
-                        var inst = p.Installs.FirstOrDefault(x => x.Id == installId);
-                        if (inst != null) return _supervisor.LaunchIde(inst.ExePath, p.IdeLaunchArgs);
-                    }
-                    return _supervisor.LaunchIde(p);
-                },
-                (id, target) =>
-                {
-                    var p = Find(id); if (p == null || p.Archetype != Archetype.ExternalAttach) return;
-                    p.Target = target; _supervisor.StopWorker(id); _supervisor.EnsureWorker(p);
-                });
+            // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
+            _control = new ControlServer(Snapshot, ConnectById, RestartWorker);
             _control.Start();
-            Log.Info($"connector started; providers: {string.Join(", ", _providers.Select(p => p.Id))}");
+            Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
             _timer = new System.Windows.Forms.Timer { Interval = 4000 };
             _timer.Tick += async (_, _) => await TickAsync();
             _timer.Start();
-            _ = TickAsync(); // first probe immediately
+            _ = TickAsync();
         }
 
+        // ── tick: refresh the model, then repaint the views ────────────────
         private async Task TickAsync()
         {
-            foreach (var p in _providers)
-            {
-                if (p.Archetype == Archetype.ExternalAttach) _supervisor.EnsureWorker(p); // respawn if it died
+            foreach (var w in _workers) _supervisor.EnsureWorker(w); // respawn a crashed worker
+            await _conn.RefreshAsync();
 
-                var prev = _health[p.Id];
-                var now = await HealthProbe.ProbeAsync(p.Id);
-                _health[p.Id] = now;
-                if (now.Status != prev.Status) OnStatusChanged(p, prev, now);
-            }
-            UpdateIcon();
-            RefreshMenuLabels();
+            var agg = _conn.Aggregate();
+            _icon.Icon = StatusIcons.For(agg);
+            _icon.Text = Truncate("Volt Connector — " + StatusText(), 63);
+            if (agg != _prevAggregate) { OnAggregateChanged(_prevAggregate, agg); _prevAggregate = agg; }
+
+            _headerItem.Text = $"Volt Connector  ·  {Updater.CurrentVersion}";
+            RebuildConnectMenu();
             ShowUpdateIfReady();
-
-            // Publish the immutable snapshot the control plane serves on :8550.
-            _snapshot = _providers.Select(p => new BridgeView(
-                p.Id, p.DisplayName, p.Archetype.ToString(),
-                HealthProbe.Describe(_health[p.Id]),
-                p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id),
-                p.Installs.Count > 0 ? p.Installs : null,
-                null,
-                p.Target)).ToArray();
         }
 
-        private VendorProvider? Find(string id) => _providers.FirstOrDefault(p => p.Id == id);
-
-        private void OnStatusChanged(VendorProvider p, BridgeHealth prev, BridgeHealth now)
+        private string StatusText()
         {
-            // Toast only meaningful transitions: a vendor going down, or coming back.
-            if (now.Status == BridgeStatus.Connected && prev.Status != BridgeStatus.Connected)
-                _icon.ShowBalloonTip(4000, "Volt", $"{p.DisplayName} bridge connected.", ToolTipIcon.Info);
-            else if (now.Status is BridgeStatus.Unreachable or BridgeStatus.Unavailable && prev.Status == BridgeStatus.Connected)
-                _icon.ShowBalloonTip(6000, "Volt", $"{p.DisplayName} bridge {HealthProbe.Describe(now)}.", ToolTipIcon.Warning);
+            var connected = _conn.Sources
+                .Select(s => _conn.SelectedOf(s.Vendor))
+                .Where(p => p != null)
+                .Select(p => p!.DisplayName)
+                .ToList();
+            if (connected.Count > 0) return "connected: " + string.Join(", ", connected);
+            var n = _conn.Projects.Count;
+            return n > 0 ? $"{n} project(s) detected — pick one" : "no project detected";
         }
 
-        // ── icon ──────────────────────────────────────────────────────────
-        private void UpdateIcon()
+        // ── snapshot for the control plane ─────────────────────────────────
+        private ConnectorView Snapshot() => new(
+            _conn.Aggregate().ToString(),
+            _conn.Projects.Select(p => new ProjectView(
+                p.Id, p.DisplayName, p.Vendor, p.Dirty,
+                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id)).ToList());
+
+        private bool ConnectById(string projectId)
         {
-            _icon.Icon = StatusIcons.For(Aggregate());
-            _icon.Text = "Volt Bridge Connector — " + string.Join(", ",
-                _providers.Select(p => $"{p.DisplayName}: {HealthProbe.Describe(_health[p.Id])}"));
-            if (_icon.Text.Length > 63) _icon.Text = _icon.Text.Substring(0, 60) + "…"; // NotifyIcon.Text limit
+            var p = _conn.Projects.FirstOrDefault(x => x.Id == projectId);
+            if (p == null) return false;
+            _ = _conn.ConnectAsync(p);
+            return true;
         }
 
-        /// <summary>The one colour the tray shows: the most *informative alive* state, and never an alarmist
-        /// red just because a vendor isn't in use. Connected (something works) wins; then a genuinely degraded
-        /// live channel; then "up, waiting for a project". "Nothing running / not launched" (Unreachable /
-        /// Unknown) is NOT a fault — it folds to neutral grey. This is what the old per-vendor Enable toggle was
-        /// really for; deriving it from state removes the toggle.</summary>
-        private BridgeStatus Aggregate()
+        private void RestartWorker(string id)
         {
-            var statuses = _providers.Select(p => _health[p.Id].Status).ToList();
-            if (statuses.Contains(BridgeStatus.Connected)) return BridgeStatus.Connected;   // green
-            if (statuses.Contains(BridgeStatus.Degraded)) return BridgeStatus.Degraded;     // amber
-            if (statuses.Contains(BridgeStatus.Unavailable)) return BridgeStatus.Unavailable; // orange: waiting for a project
-            return BridgeStatus.Unknown;                                                    // grey: nothing running / n/a
+            var w = _workers.FirstOrDefault(x => x.Id == id);
+            if (w != null) { _supervisor.StopWorker(id); _supervisor.EnsureWorker(w); }
         }
 
-        // ── menu ──────────────────────────────────────────────────────────
+        // ── notifications ──────────────────────────────────────────────────
+        // A connect names the PLATFORM, so the toast/tooltip say what it attached to, not just the project name.
+        private void OnConnected(DetectedProject p) =>
+            _icon.ShowBalloonTip(4000, "Volt", $"Connected to {p.DisplayName} ({_conn.DisplayNameOf(p.Vendor)}).", ToolTipIcon.Info);
+
+        private void OnAggregateChanged(BridgeStatus prev, BridgeStatus now)
+        {
+            if (prev == BridgeStatus.Connected && now is BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown)
+                _icon.ShowBalloonTip(5000, "Volt", "A bridge disconnected.", ToolTipIcon.Warning);
+        }
+
+        // ── menu ────────────────────────────────────────────────────────────
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            // Header carries the installed version. RefreshMenuLabels re-sets its text each tick, so it self-
-            // corrects even if Updater.CurrentVersion wasn't ready when the menu was first built.
-            _headerItem = new ToolStripMenuItem($"Volt Bridge Connector  ·  {Updater.CurrentVersion}") { Enabled = false };
+            _headerItem = new ToolStripMenuItem($"Volt Connector  ·  {Updater.CurrentVersion}") { Enabled = false };
             menu.Items.Add(_headerItem);
             menu.Items.Add(new ToolStripSeparator());
 
-            foreach (var p in _providers)
-            {
-                var item = new ToolStripMenuItem(p.DisplayName);
-                if (p.Archetype == Archetype.ExternalAttach)
-                {
-                    item.DropDownOpening += (_, _) => PopulateInstances(p, item);
-                    item.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
-                }
-                else // InIdeLoad — discovered installs, repopulated on open
-                {
-                    item.DropDownOpening += (_, _) => PopulateInstalls(p, item);
-                    item.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
-                }
+            _connectItem = new ToolStripMenuItem("Connect to");
+            _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
+            menu.Items.Add(_connectItem);
 
-                _vendorItems[p.Id] = item;
-                menu.Items.Add(item);
-            }
-
+            menu.Items.Add(new ToolStripMenuItem("Activate in CODESYS…", null, (_, _) => ShowCodesysActivation()));
             menu.Items.Add(new ToolStripSeparator());
-            // Appears (with the version) once the updater has detected a newer release; the user picks the moment.
-            // On click we disable + relabel it — the download (100MB+) then runs, so there's visible feedback that
-            // something's happening rather than a menu that looks frozen for the minute it takes.
+
             _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) =>
             {
                 _updateItem.Enabled = false;
@@ -171,69 +139,45 @@ namespace Volt.Cli.Connector
             }) { Visible = false };
             menu.Items.Add(_updateItem);
             menu.Items.Add("Show logs", null, (_, _) => ShowLogs());
+            menu.Items.Add("Collect diagnostics", null, (_, _) => CollectDiagnostics());
             menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
             return menu;
         }
 
-        // ── CODESYS install picker (versions + forks, re-discovered each open) ──
-        private void PopulateInstalls(VendorProvider p, ToolStripMenuItem open)
+        /// <summary>Repopulate the ONE unified "Connect to" list — every detected project across all vendors,
+        /// each with its platform prefix, the connected one checked. No per-vendor lanes.</summary>
+        private void RebuildConnectMenu()
         {
-            open.DropDownItems.Clear();
-            if (p.Installs.Count == 0)
-                open.DropDownItems.Add(new ToolStripMenuItem("No CODESYS install detected") { Enabled = false });
-            foreach (var inst in p.Installs)
+            _connectItem.DropDownItems.Clear();
+            if (_conn.Projects.Count == 0)
             {
-                var label = inst.Variant is "CODESYS" or "Manual" ? inst.DisplayName : $"{inst.DisplayName}  [{inst.Variant}]";
-                open.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => LaunchInstall(p, inst)));
+                _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
+                _connectItem.DropDownItems.Add(new ToolStripSeparator());
+                _connectItem.DropDownItems.Add(new ToolStripMenuItem("Don't see CODESYS? Activate in CODESYS…", null, (_, _) => ShowCodesysActivation()));
+                return;
             }
-            open.DropDownItems.Add(new ToolStripSeparator());
-            open.DropDownItems.Add(new ToolStripMenuItem("Add install…", null, (_, _) => AddInstall(p)));
-        }
-
-        /// <summary>Manual backup: browse to a CODESYS-family launcher and remember it. Covers
-        /// any version/fork/path that auto-detection (glob + registry) didn't surface.</summary>
-        private void AddInstall(VendorProvider p)
-        {
-            using var dlg = new OpenFileDialog
+            foreach (var p in _conn.Projects.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
             {
-                Title = "Select the CODESYS-family launcher (e.g. CODESYS.exe)",
-                Filter = "Executable (*.exe)|*.exe",
-                CheckFileExists = true,
-            };
-            if (dlg.ShowDialog() != DialogResult.OK) return;
-            CodesysDiscovery.AddManualInstall(dlg.FileName, null);
-            p.Installs = CodesysDiscovery.Discover();
-            if (string.IsNullOrEmpty(p.IdeExe) && p.Installs.Count > 0) p.IdeExe = p.Installs[0].ExePath;
+                var connected = _conn.SelectedOf(p.Vendor)?.Id == p.Id;
+                var label = $"{_conn.DisplayNameOf(p.Vendor)} · {p.DisplayName}{(p.Dirty ? " *" : "")}";
+                var captured = p;
+                _connectItem.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => ConnectTo(captured)) { Checked = connected });
+            }
         }
 
-        private void LaunchInstall(VendorProvider p, IdeInstall inst)
+        private async void ConnectTo(DetectedProject p)
         {
-            if (!_supervisor.LaunchIde(inst.ExePath, p.IdeLaunchArgs))
-                _icon.ShowBalloonTip(6000, "Volt", $"Couldn't launch {inst.DisplayName}.", ToolTipIcon.Warning);
+            try { await _conn.ConnectAsync(p); }
+            catch (Exception ex) { _icon.ShowBalloonTip(5000, "Volt", $"Couldn't connect to {p.DisplayName}: {ex.Message}", ToolTipIcon.Warning); }
         }
 
-        // ── TwinCAT instance/project picker ──
-        private void PopulateInstances(VendorProvider p, ToolStripMenuItem connect)
+        private void ShowCodesysActivation()
         {
-            connect.DropDownItems.Clear();
-            if (p.Target != null)
-                connect.DropDownItems.Add(new ToolStripMenuItem($"{p.Target.Project}{(p.Target.PlcProject != null ? " / " + p.Target.PlcProject : "")}") { Checked = true });
-            else
-                connect.DropDownItems.Add(new ToolStripMenuItem("(no project selected)") { Enabled = false });
+            try { Clipboard.SetText(CodesysActivation.ClipboardText()); } catch { /* clipboard busy — the dialog still shows the path */ }
+            MessageBox.Show(CodesysActivation.Steps(), "Activate Volt in CODESYS", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private void SelectTarget(VendorProvider p, TcTarget? target)
-        {
-            p.Target = target;
-            _supervisor.StopWorker(p.Id);
-            _supervisor.EnsureWorker(p);
-            _icon.ShowBalloonTip(3000, "Volt", target == null
-                ? $"{p.DisplayName}: no project selected — pick one from the tray"
-                : $"{p.DisplayName}: attaching to {target.Project}{(target.PlcProject != null ? " / " + target.PlcProject : "")}…",
-                ToolTipIcon.Info);
-        }
-
-        // ── logs ──
+        // ── logs / diagnostics ──────────────────────────────────────────────
         private LogWindow? _logWindow;
 
         private void ShowLogs()
@@ -245,38 +189,30 @@ namespace Volt.Cli.Connector
             _logWindow.Activate();
         }
 
-        // Normally runs on the UI thread (the WinForms timer tick). The one exception is the first, ctor-fired
-        // TickAsync (no sync context yet) — but PendingVersion is null that early (nothing detected), so it
-        // returns before touching the tray. The updater exposes PendingVersion once it sees a newer release;
-        // here we surface it — a one-time toast + the menu action (which downloads on click).
+        private void CollectDiagnostics()
+        {
+            try
+            {
+                var zip = Diagnostics.Collect(_supervisor.LogDir, Snapshot(), Updater.CurrentVersion);
+                _icon.ShowBalloonTip(5000, "Volt", $"Diagnostics saved to {zip}", ToolTipIcon.Info);
+            }
+            catch (Exception ex) { _icon.ShowBalloonTip(5000, "Volt", $"Collect diagnostics failed: {ex.Message}", ToolTipIcon.Warning); }
+        }
+
         private void ShowUpdateIfReady()
         {
             var pending = Updater.PendingVersion;
             if (pending == null) return;
-            // Reconcile the item every tick (4s): "Downloading…" while applying, else the enabled action — so a
-            // failed download (which clears the guard) re-enables retry rather than sticking on "Downloading…".
             _updateItem.Visible = true;
             _updateItem.Enabled = !Updater.IsApplying;
             _updateItem.Text = Updater.IsApplying ? "Downloading update…" : $"Restart to update to {pending}";
-            if (pending == _updateShown) return; // toast once per version
+            if (pending == _updateShown) return;
             _updateShown = pending;
-            // The tray action downloads the new version and restarts Volt onto it. If you don't, we'll remind you
-            // again — the connector is a separate always-on process, so closing/reopening the Volt window won't.
             _icon.ShowBalloonTip(8000, "Volt update available",
-                $"Volt {pending} is available. Pick “Restart to update to {pending}” from the tray — Volt downloads "
-                    + "it and restarts onto the new version.",
-                ToolTipIcon.Info);
+                $"Volt {pending} is available. Pick “Restart to update to {pending}” from the tray.", ToolTipIcon.Info);
         }
 
-        private void RefreshMenuLabels()
-        {
-            _headerItem.Text = $"Volt Bridge Connector  ·  {Updater.CurrentVersion}"; // self-corrects if set late
-            foreach (var p in _providers)
-            {
-                if (!_vendorItems.TryGetValue(p.Id, out var item)) continue;
-                item.Text = $"{p.DisplayName} — {HealthProbe.Describe(_health[p.Id])}";
-            }
-        }
+        private static string Truncate(string s, int max) => s.Length <= max ? s : s.Substring(0, max - 1) + "…";
 
         protected override void ExitThreadCore()
         {
@@ -290,8 +226,8 @@ namespace Volt.Cli.Connector
         }
     }
 
-    /// <summary>Generates the Volt-bolt tray icon once per status (kept for the app lifetime). The mark is
-    /// the Volt lightning bolt (same shape as the app logo), tinted by aggregate bridge state.</summary>
+    /// <summary>Generates the Volt-bolt tray icon once per status (kept for the app lifetime), tinted by
+    /// aggregate connection state.</summary>
     internal static class StatusIcons
     {
         private static readonly Dictionary<BridgeStatus, Icon> Cache = new();
@@ -313,7 +249,7 @@ namespace Volt.Cli.Connector
                 BridgeStatus.Unreachable => Color.Firebrick,
                 _ => Color.Gray,
             };
-            const int size = 32; // crisp; the tray scales it down to 16
+            const int size = 32;
             using var bmp = new Bitmap(size, size);
             using (var g = Graphics.FromImage(bmp))
             {

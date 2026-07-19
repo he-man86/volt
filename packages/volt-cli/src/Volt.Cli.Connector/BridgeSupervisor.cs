@@ -6,12 +6,11 @@ using System.IO;
 namespace Volt.Cli.Connector
 {
     /// <summary>
-    /// Owns the lifecycle of the headless bridge WORKER processes (the external-attach
-    /// vendors). Spawns, supervises (respawns on crash), and tears them down. In-IDE
-    /// vendors (CODESYS) aren't hosted here — only launched via <see cref="LaunchIde"/>.
-    ///
-    /// Only ever kills its OWN spawned PIDs (entire child tree) — never a broad
-    /// process-name kill, which could take down a live IDE.
+    /// Owns the lifecycle of the headless bridge WORKER processes (the ExternalAttach vendors: TwinCAT, later
+    /// Siemens/Allen-Bradley). Spawns, supervises (respawns on crash), and tears them down. It does NOT launch or
+    /// open any IDE — CODESYS loads in-proc via user activation, and project selection is a wire op, not a
+    /// respawn-with-env. Only ever kills its OWN spawned PIDs (entire child tree) — never a broad process-name
+    /// kill, which could take down a live IDE.
     /// </summary>
     public sealed class BridgeSupervisor : IDisposable
     {
@@ -22,52 +21,45 @@ namespace Volt.Cli.Connector
         /// so one folder holds everything the log window + collect-diagnostics read.</summary>
         public string LogDir => Log.Dir;
 
-        /// <summary>Ensure the vendor's worker is running (spawn if absent or crashed).
-        /// No-op for in-IDE vendors or when the worker binary can't be found.</summary>
-        public void EnsureWorker(VendorProvider p)
+        /// <summary>Ensure the worker is running (spawn if absent or crashed). No-op when the binary can't be
+        /// found. The worker starts unattached and soft-attaches to the running IDE; the user picks the project
+        /// via the `select` wire op (no target env, no respawn).</summary>
+        public void EnsureWorker(WorkerSpec w)
         {
-            if (p.Archetype != Archetype.ExternalAttach) return;
-            if (string.IsNullOrEmpty(p.WorkerExe) || !File.Exists(p.WorkerExe)) return;
+            if (string.IsNullOrEmpty(w.Exe) || !File.Exists(w.Exe)) return;
 
             lock (_gate)
             {
-                if (_workers.TryGetValue(p.Id, out var existing))
+                if (_workers.TryGetValue(w.Id, out var existing))
                 {
                     if (!existing.HasExited) return;
-                    Log.Warn($"worker {p.Id} crashed (exit {existing.ExitCode}) — restarting");
+                    Log.Warn($"worker {w.Id} crashed (exit {existing.ExitCode}) — restarting");
                     existing.Dispose();
-                    _workers.Remove(p.Id);
+                    _workers.Remove(w.Id);
                 }
 
                 var psi = new ProcessStartInfo
                 {
-                    FileName = p.WorkerExe,
-                    Arguments = p.WorkerArgs,
+                    FileName = w.Exe,
+                    Arguments = w.Args,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                 };
-                // The worker reads its attach target from the environment at startup.
-                if (p.Target != null)
-                {
-                    if (!string.IsNullOrEmpty(p.Target.Instance)) psi.EnvironmentVariables["VOLT_TC_INSTANCE"] = p.Target.Instance;
-                    if (!string.IsNullOrEmpty(p.Target.Project)) psi.EnvironmentVariables["VOLT_TC_PROJECT"] = p.Target.Project;
-                    if (!string.IsNullOrEmpty(p.Target.PlcProject)) psi.EnvironmentVariables["VOLT_TC_PLC"] = p.Target.PlcProject;
-                }
                 Process? proc;
                 try { proc = Process.Start(psi); }
-                catch (Exception ex) { Log.Error($"spawn {p.Id} failed: {ex.Message}"); return; }
+                catch (Exception ex) { Log.Error($"spawn {w.Id} failed: {ex.Message}"); return; }
                 if (proc == null) return;
 
                 // Capture the worker's stdout/stderr into the shared store, tagged with its source (belt-and-
                 // suspenders: the worker self-logs via VoltLog too, but this catches anything it prints directly).
-                proc.OutputDataReceived += (_, e) => Log.Raw(p.Id, e.Data);
-                proc.ErrorDataReceived += (_, e) => Log.Raw(p.Id, e.Data);
+                proc.OutputDataReceived += (_, e) => Log.Raw(w.Id, e.Data);
+                proc.ErrorDataReceived += (_, e) => Log.Raw(w.Id, e.Data);
                 proc.BeginOutputReadLine();
                 proc.BeginErrorReadLine();
-                _workers[p.Id] = proc;
-                Log.Info($"started {Path.GetFileName(p.WorkerExe)} for {p.Id} (pid {proc.Id})");
+                _workers[w.Id] = proc;
+                Log.Info($"started {Path.GetFileName(w.Exe)} for {w.Id} (pid {proc.Id})");
             }
         }
 
@@ -88,29 +80,6 @@ namespace Volt.Cli.Connector
                     Log.Info($"stopped worker {id}");
                 }
             }
-        }
-
-        /// <summary>Launch the vendor's default IDE (with the in-proc loader arg so the
-        /// bridge auto-loads). Returns false if the IDE exe is unknown.</summary>
-        public bool LaunchIde(VendorProvider p) => p.CanLaunchIde && LaunchIde(p.IdeExe!, p.IdeLaunchArgs);
-
-        /// <summary>Launch a specific install (any discovered CODESYS version/fork) with
-        /// the loader args. Returns false if the exe is missing or launch fails.</summary>
-        public bool LaunchIde(string exePath, string args)
-        {
-            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath)) return false;
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = exePath,
-                    Arguments = args,
-                    UseShellExecute = true,
-                });
-                Log.Info($"launched IDE {Path.GetFileName(exePath)}");
-                return true;
-            }
-            catch (Exception ex) { Log.Error($"launch IDE {Path.GetFileName(exePath)} failed: {ex.Message}"); return false; }
         }
 
         public void Dispose()
