@@ -163,6 +163,9 @@ const zenLitePrice = new stripe.Price("ZenLitePrice", {
   },
   unitAmount: 2400, // €24/month
 })
+// Shared so other apps (e.g. the support portal) can link the SAME secret — creating a second
+// `new sst.Secret("ZEN_LIMITS")` elsewhere collides ("Component name ZEN_LIMITS is not unique").
+export const ZEN_LIMITS = new sst.Secret("ZEN_LIMITS")
 export const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
   properties: {
     product: zenLiteProduct.id,
@@ -283,7 +286,7 @@ export const web = new sst.cloudflare.x.SolidStart("Console", {
     SALESFORCE_INSTANCE_URL,
     ZEN_BLACK_PRICE,
     ZEN_LITE_PRICE,
-    new sst.Secret("ZEN_LIMITS"),
+    ZEN_LIMITS,
     new sst.Secret("ZEN_SESSION_SECRET"),
     ...ZEN_MODELS,
     ...($dev
