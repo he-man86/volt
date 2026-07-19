@@ -31,19 +31,25 @@ change to the refs/fetch/push data path.
       `select` confirms/refreshes that binding — the host can only serve the CODESYS it was loaded into.
       ⚠ needs live-CODESYS verification.
 
-## 3. Unified selector + notifications
-- [ ] The connector merges all sources into ONE list of `DetectedProject`; the user picks one (no vendor choice).
-- [ ] Each entry shows its platform via a prefix or vendor logo; selection routes through `ConnectionManager` to
-      the correct bridge bind.
-- [ ] On connect, emit a notification that NAMES the platform (toast + tray tooltip): "Connected to <project> (<vendor>)".
-- [ ] `BridgeView`/control-plane snapshot carries the merged `DetectedProject` list (drop the hardcoded `null`).
+## 3. Unified selector + notifications — DONE
+- [x] `TrayContext` rewired over `ConnectionManager`: the "Connect to" menu is ONE list of `DetectedProject`
+      across all vendors; the user picks one (no vendor choice) → `ConnectionManager.ConnectAsync` routes by vendor.
+- [x] Each entry shows its platform prefix (`TwinCAT · <project>` / `CODESYS · <project>`, dirty `*`), connected
+      one checked.
+- [x] Connect notification NAMES the platform ("Connected to <project> (<vendor>)"); tray tooltip summarizes
+      connected/detected. Aggregate-down toast on disconnect.
+- [x] Control plane reshaped to `ConnectorView` (aggregate status + the one merged project list); `/connect
+      {projectId}` binds via the model. No more hardcoded `null` instances.
 
-## 4. Remove the launch model (delete, don't wrap)
-- [ ] Delete the CODESYS launch path outright: `PopulateInstalls`/`LaunchInstall`/`AddInstall`, `VendorProvider`
-      `IdeExe`/`IdeLaunchArgs`/`Installs`/`CanLaunchIde`, `ConnectorConfig.BuildCodesysLaunchArgs`, `/launch` +
-      its callback, and the launch-oriented parts of `CodesysDiscovery`.
-- [ ] Add guided activation as a first-class, low-key affordance (not a vendor lane): the steps + a **Copy
-      activation command** action, shown when a CODESYS project isn't yet detectable (host not loaded).
+## 4. Remove the launch model (delete, don't wrap) — DONE
+- [x] Deleted outright: `VendorProvider`, `CodesysDiscovery` (+ `IdeInstall`), the old `Instances`
+      (`TcInstanceDto`/`TcTarget`), the install picker, `/launch`, and the whole IDE-launch path in
+      `BridgeSupervisor`. Replaced by `ConnectorSetup` (sources + worker specs) + a slimmer supervisor (spawn
+      workers only, no launch, no target env — select is a wire op).
+- [x] Guided activation as a low-key affordance: `CodesysActivation` (steps + the `start_pipe.py` path) + a
+      "Activate in CODESYS…" menu item that copies the script path to the clipboard and shows the steps; also
+      surfaced inside the empty "Connect to" list.
+- [x] Implemented **Collect diagnostics** (`Diagnostics.Collect` — zips logs + a snapshot to the Desktop).
 
 ## 5. Volt-branded window (designed, MVVM over ConnectionManager)
 - [ ] A proper window carrying Volt identity — bolt + wordmark + the volt-www palette/fonts/pill buttons (port the
