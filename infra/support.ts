@@ -1,5 +1,5 @@
 import { domain } from "./stage"
-import { database } from "./console"
+import { database, ZEN_LITE_PRICE, ZEN_BLACK_PRICE } from "./console"
 
 // VOLT: deploy opencode's vendored support-lookup portal (packages/console/support) UNCHANGED at
 // support.${domain}. It's a per-customer lookup (auth / workspaces / billing / usage) that reads the prod
@@ -20,7 +20,11 @@ export const support = new sst.cloudflare.x.SolidStart("Support", {
   // component's default `bun run build` errors. Supply it here — the same `vite build` the console app's build
   // script runs — instead of editing the vendored package. (opencode does the same for Teams/Stats via buildCommand.)
   buildCommand: "bunx vite build",
-  link: [database],
+  // Resources the vendored lookup pulls in via console-core: Database (queries) + the Zen price/limit
+  // linkables. console-core/lite.ts reads Resource.ZEN_LITE_PRICE at MODULE LOAD, so without it the worker
+  // throws at boot → 500 on every route. black.ts / subscription.ts read ZEN_BLACK_PRICE / ZEN_LIMITS when a
+  // lookup renders. Link all so the app boots and lookups resolve.
+  link: [database, ZEN_LITE_PRICE, ZEN_BLACK_PRICE, new sst.Secret("ZEN_LIMITS")],
 })
 
 // Gate: Cloudflare Access (Zero Trust) in front of the hostname — email SSO, zero app code, vendored app
