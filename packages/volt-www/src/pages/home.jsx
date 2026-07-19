@@ -6,7 +6,7 @@ import { FeatureShowcase } from "../components/FeatureShowcase.jsx"
 import { DesktopApp } from "../components/mockups/DesktopApp.jsx"
 import { VSCode } from "../components/mockups/VSCode.jsx"
 import { Bridge } from "../components/mockups/Bridge.jsx"
-import { SocialProof, FinalCTA } from "../components/SocialProof.jsx"
+import { FinalCTA } from "../components/FinalCTA.jsx"
 
 renderPage(
   <>
@@ -57,7 +57,6 @@ renderPage(
     </FeatureShowcase>
 
     <Features />
-    <SocialProof />
     <FinalCTA />
   </>,
 )

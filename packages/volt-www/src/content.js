@@ -6,21 +6,6 @@ export const BRAND = {
   sub: "Everything you expect from a modern AI code editor — plus deep understanding of PLC projects, Structured Text, and the engineering workflow. Built for CODESYS and TwinCAT.",
 }
 
-// Nav: Product jumps to the on-page features; Resources is a dropdown of support pages. A `href` (no `items`)
-// renders as a plain link. (Per-feature detail pages aren't shipped yet, so Product isn't a submenu.)
-export const NAV = [
-  { label: "Product", href: "/#features" },
-  { label: "Pricing", href: "/pricing.html" },
-  {
-    label: "Resources",
-    items: [
-      { label: "Changelog", href: "/changelog.html" },
-      { label: "FAQ", href: "/faq.html" },
-      { label: "Contact", href: "/contact.html" },
-    ],
-  },
-]
-
 // Home feature grid + the per-feature detail pages share this list (slug === feature-<slug>.html).
 export const FEATURES = [
   {
@@ -91,14 +76,29 @@ export const FEATURES = [
   },
 ]
 
+// Nav: Product is a dropdown of the per-feature detail pages (plus a jump to the on-page overview); Resources
+// groups the support pages. An entry with `href` (no `items`) renders as a plain link; `items` renders a dropdown.
+export const NAV = [
+  {
+    label: "Product",
+    items: [
+      { label: "All features", href: "/#features" },
+      ...FEATURES.map((f) => ({ label: f.title, href: `/feature-${f.slug}.html` })),
+    ],
+  },
+  { label: "Pricing", href: "/pricing.html" },
+  {
+    label: "Resources",
+    items: [
+      { label: "Changelog", href: "/changelog.html" },
+      { label: "FAQ", href: "/faq.html" },
+      { label: "Contact", href: "/contact.html" },
+    ],
+  },
+]
+
 // Supported PLC platforms — shown as a muted logo band below the hero (wordmarks, not vendor logos).
 export const PLATFORMS = ["Beckhoff", "CODESYS", "Schneider", "WAGO", "Lenze", "Keba", "Festo"]
-
-export const TESTIMONIALS = [
-  { quote: "Finally, version control for PLC code that actually reads like code review.", name: "Automation Lead", org: "Systems Integrator" },
-  { quote: "The agent understands our Structured Text better than any generic tool we've tried.", name: "Controls Engineer", org: "OEM Machine Builder" },
-  { quote: "Pulling a live TwinCAT project into git and merging a branch just… worked.", name: "Software Architect", org: "Industrial Automation" },
-]
 
 export const PRICING = [
   {
