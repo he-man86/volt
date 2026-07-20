@@ -32,14 +32,13 @@ UninstallDisplayIcon={app}\desktop\Volt.exe
 ; Always log. Without this a failed install (e.g. exit 5 = Setup couldn't close a running Volt process) leaves
 ; NOTHING to diagnose — just an exit code. DeinitializeSetup mirrors the log into Volt's shared log store below.
 SetupLogging=yes
-; Close a running connector/GUI so an in-place update can replace their files (Restart Manager). FORCE, not just
-; yes: the connector's TwinCAT worker is a headless process (no window, still attached to the TC IDE over COM), so
-; RM's graceful close can't shut it down and a plain "yes" aborts the install (exit 5). "force" terminates what
-; won't close on its own — safe here: the workers are stateless + respawnable, and the auto-update path already
-; stops them cleanly before launching us, so force only bites the manual reinstall-while-running case.
-CloseApplications=force
-; The connector respawns its own workers on launch; don't let RM restart the processes it terminated.
-RestartApplications=no
+; In-place updates do NOT use Restart Manager. RM can't reliably free the files of a running Volt install: the
+; connector is a self-contained .NET app ({app}\clrjit.dll stays loaded while it runs) and the TwinCAT worker is a
+; headless process — RM's graceful close can't touch either (a plain "yes" then aborts, exit 5), and its async
+; force-close races the file copy, so an update intermittently fails with a sharing violation on clrjit.dll. Instead
+; we stop our own processes deterministically in PrepareToInstall (below) before the copy — race-free, and identical
+; on every machine. (AppMutex would only re-introduce the problem: it blocks BEFORE PrepareToInstall runs.)
+CloseApplications=no
 
 [Tasks]
 Name: "opencode"; Description: "Install the opencode CLI — the AI agent (via winget)"; GroupDescription: "Optional components:"
@@ -115,6 +114,21 @@ function NotSilent(): Boolean;
 begin
   // On the connector's /VERYSILENT self-update we only refresh the app — don't re-run winget/code.
   Result := not WizardSilent();
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var ResultCode: Integer;
+begin
+  Result := ''; // never block the install on this — a leftover lock is the failure we're preventing, not causing
+  // THE in-place-update fix (see CloseApplications=no above): deterministically stop every running Volt process so
+  // its files unlock before the copy. Runs on the "Preparing to Install" step, right before [Files] — no RM, no race.
+  //   - /T on the connector also reaps its child bridge workers.
+  //   - NOT codesys.exe: the CODESYS bridge runs IN-PROC inside the user's IDE — killing it would close their IDE.
+  //   - Volt.exe (Electron desktop + the CLI) without /T, so we don't tree-kill the opencode child (a different image).
+  Exec(ExpandConstant('{cmd}'),
+    '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe >nul 2>&1',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(700); // let the OS release the file handles before [Files] runs
 end;
 
 procedure DeinitializeSetup();
