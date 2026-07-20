@@ -27,6 +27,7 @@ namespace Volt.Cli.Connector
         private ToolStripMenuItem _headerItem = null!;
         private ToolStripMenuItem _connectItem = null!;
         private ToolStripMenuItem _updateItem = null!;
+        private ToolStripSeparator _updateSeparator = null!;
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
@@ -45,6 +46,8 @@ namespace Volt.Cli.Connector
                 ContextMenuStrip = BuildMenu(),
             };
             _icon.DoubleClick += (_, _) => _icon.ContextMenuStrip?.Show(Cursor.Position);
+            // Clicking the "update available" toast starts the update directly — no hunting for the tray menu.
+            _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
             _control = new ControlServer(Snapshot, ConnectById, () => _conn.Disconnect(), RestartWorker);
@@ -64,11 +67,16 @@ namespace Volt.Cli.Connector
             await _conn.RefreshAsync();
 
             var agg = _conn.Aggregate();
+            var pending = Updater.PendingVersion;
             _icon.Icon = StatusIcons.For(agg);
-            _icon.Text = Truncate("Volt Connector — " + StatusText(), 63);
+            // Tooltip surfaces the update too, so it's discoverable on hover even after the toast fades.
+            var tip = "Volt Connector — " + StatusText() + (pending != null ? "  ·  update available" : "");
+            _icon.Text = Truncate(tip, 63);
             if (agg != _prevAggregate) { OnAggregateChanged(_prevAggregate, agg); _prevAggregate = agg; }
 
-            _headerItem.Text = $"Volt Connector  ·  {Updater.CurrentVersion}";
+            _headerItem.Text = pending != null
+                ? $"Volt Connector  ·  {Updater.CurrentVersion} → {pending}"
+                : $"Volt Connector  ·  {Updater.CurrentVersion}";
             RebuildConnectMenu();
             ShowUpdateIfReady();
         }
@@ -131,29 +139,37 @@ namespace Volt.Cli.Connector
             menu.Items.Add(_headerItem);
             menu.Items.Add(new ToolStripSeparator());
 
-            _connectItem = new ToolStripMenuItem("Connect to") { Image = Glyph("") }; // Link
+            // Update lives at the TOP (right under the header) so it's the first thing seen, accent-tinted + bold to
+            // stand out. Hidden with its own separator until a newer release is available.
+            _updateItem = new ToolStripMenuItem("Restart to update", Glyph(0xE777, VoltAccent), (_, _) => ApplyUpdate()) // UpdateRestore
+            {
+                Visible = false,
+                ForeColor = VoltAccent,
+                Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold),
+            };
+            _updateSeparator = new ToolStripSeparator { Visible = false };
+            menu.Items.Add(_updateItem);
+            menu.Items.Add(_updateSeparator);
+
+            _connectItem = new ToolStripMenuItem("Connect to") { Image = Glyph(0xE71B) }; // Link
             _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
             menu.Items.Add(_connectItem);
             menu.Items.Add(new ToolStripSeparator());
 
-            _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) =>
-            {
-                _updateItem.Enabled = false;
-                _updateItem.Text = "Downloading update…";
-                Updater.RestartToApply();
-            }) { Visible = false, Image = Glyph("") }; // UpdateRestore
-            menu.Items.Add(_updateItem);
-            menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(""), (_, _) => ShowLogs())); // Page
+            menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(0xE7C3), (_, _) => ShowLogs())); // Page
 
             // ── Help ──
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(new ToolStripMenuItem("Activate in CODESYS…", Glyph("", VoltAccent), (_, _) => ShowCodesysActivation())); // Help
-            menu.Items.Add(new ToolStripMenuItem("Exit", Glyph(""), (_, _) => ExitThreadCore())); // ChromeClose
+            menu.Items.Add(new ToolStripMenuItem("Activate in CODESYS…", Glyph(0xE897, VoltAccent), (_, _) => ShowCodesysActivation())); // Help
+            menu.Items.Add(new ToolStripMenuItem("Exit", Glyph(0xE8BB), (_, _) => ExitThreadCore())); // ChromeClose
             return menu;
         }
 
         // Volt's accent (blue), used to tint the help glyph so it reads as a help affordance.
         private static readonly Color VoltAccent = Color.FromArgb(0x2F, 0x7C, 0xF6);
+
+        /// <summary>Menu icon by Segoe MDL2 codepoint (e.g. 0xE777) — avoids embedding raw glyph chars in source.</summary>
+        private static Image Glyph(int codepoint, Color? color = null) => Glyph(char.ConvertFromUtf32(codepoint), color);
 
         /// <summary>A 16×16 monochrome menu icon from the built-in Segoe MDL2 Assets glyph font (ships on
         /// Win10/11) — a themed icon with no image assets to bundle. Colour defaults to the menu text colour.</summary>
@@ -195,7 +211,7 @@ namespace Volt.Cli.Connector
             }
             // Disconnect = clear the active connection (every host stays live). Enabled only when one is connected.
             _connectItem.DropDownItems.Add(new ToolStripSeparator());
-            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(""), (_, _) => _conn.Disconnect()) // PowerButton
+            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), (_, _) => _conn.Disconnect()) // PowerButton
             {
                 Enabled = _conn.ActiveConnection != null,
             });
@@ -228,14 +244,56 @@ namespace Volt.Cli.Connector
         private void ShowUpdateIfReady()
         {
             var pending = Updater.PendingVersion;
-            if (pending == null) return;
-            _updateItem.Visible = true;
-            _updateItem.Enabled = !Updater.IsApplying;
-            _updateItem.Text = Updater.IsApplying ? "Downloading update…" : $"Restart to update to {pending}";
+            var show = pending != null;
+            _updateItem.Visible = show;
+            _updateSeparator.Visible = show;
+            if (!show) return;
+            // While a download/apply is in flight, ApplyUpdate owns the item's text/enabled state — don't fight it.
+            if (!Updater.IsApplying)
+            {
+                _updateItem.Enabled = true;
+                _updateItem.Text = $"Restart to update to {pending}";
+            }
             if (pending == _updateShown) return;
             _updateShown = pending;
             _icon.ShowBalloonTip(8000, "Volt update available",
-                $"Volt {pending} is available. Pick “Restart to update to {pending}” from the tray.", ToolTipIcon.Info);
+                $"Volt {pending} is available — click here to update, or pick “Restart to update” from the tray.", ToolTipIcon.Info);
+        }
+
+        // The one-click update: download the installer, THEN orderly-stop everything holding {app} files so Inno's
+        // silent upgrade never fails on a lock the Restart Manager can't clear (a tray/Electron window), then launch
+        // it and exit. async void is correct here — it's a UI-thread action and the awaits resume on the UI thread.
+        private async void ApplyUpdate()
+        {
+            if (Updater.IsApplying) return;
+            _updateItem.Enabled = false;
+            _updateItem.Text = "Downloading update…";
+            var installer = await Updater.DownloadPendingAsync();
+            if (installer == null) // download failed / already in flight — restore the action (the tick refreshes it)
+            {
+                _updateItem.Enabled = true;
+                _updateItem.Text = $"Restart to update to {Updater.PendingVersion}";
+                return;
+            }
+            _updateItem.Text = "Installing update…";
+            // Stop the timer FIRST so it can't respawn a worker we're about to kill, then drop everything under {app}:
+            // the bridge-worker child tree (supervisor) and the Electron GUI. Now the installer replaces free files.
+            _timer.Stop();
+            _supervisor.Dispose();
+            CloseDesktopGui();
+            Updater.LaunchInstallerAndExit(installer); // Process.Start(Setup) + Environment.Exit(0)
+        }
+
+        /// <summary>Close the desktop GUI (the Electron shell, <c>Volt.exe</c>) if it's running, so the in-place
+        /// upgrade can replace it — graceful close first, force-kill if it won't go. NOT the connector itself
+        /// (VoltConnector) or the workers; the installer relaunches the connector when done.</summary>
+        private static void CloseDesktopGui()
+        {
+            foreach (var p in System.Diagnostics.Process.GetProcessesByName("Volt"))
+            {
+                try { if (!p.CloseMainWindow() || !p.WaitForExit(3000)) p.Kill(); }
+                catch { /* already gone / access denied — best effort */ }
+            }
         }
 
         private static string Truncate(string s, int max) => s.Length <= max ? s : s.Substring(0, max - 1) + "…";
