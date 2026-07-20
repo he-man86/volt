@@ -17,9 +17,19 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
-// The release version = volt-desktop's package version, UNLESS VOLT_VERSION overrides it (dev/nightly builds pass a
-// 4-part X.Y.Z.<run> so the connector's updater orders them; System.Version compares all four parts).
-const version = process.env.VOLT_VERSION || (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
+// The release version. CI passes it in VOLT_VERSION (computed once by version.ts). For a LOCAL build we compute the
+// SAME way — run version.ts and take its `version=` line — so a local install is the git-derived 4-part
+// <base>.<count> (e.g. 0.0.1.15722), NOT a bare base 0.0.1. That matters: the connector's updater compares with
+// System.Version, and a bare 0.0.1 reads as OLDER than the dev channel's 0.0.1.<count>, so a fresh local install
+// would falsely show "update available" on the dev channel. Never recompute here — version.ts is the one source.
+const version =
+  process.env.VOLT_VERSION ||
+  (spawnSync("bun", [resolve(repo, "volt-scripts/version.ts")], { cwd: repo, encoding: "utf8" }).stdout ?? "")
+    .split("\n")
+    .find((l) => l.startsWith("version="))
+    ?.slice("version=".length)
+    .trim() ||
+  (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
 const payload = resolve(repo, "dist/volt")
 const stage = resolve(repo, "dist/stage")
 const release = resolve(repo, "dist/release")

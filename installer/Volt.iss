@@ -32,8 +32,14 @@ UninstallDisplayIcon={app}\desktop\Volt.exe
 ; Always log. Without this a failed install (e.g. exit 5 = Setup couldn't close a running Volt process) leaves
 ; NOTHING to diagnose — just an exit code. DeinitializeSetup mirrors the log into Volt's shared log store below.
 SetupLogging=yes
-; Close a running connector/GUI so an in-place update can replace their files (Restart Manager).
-CloseApplications=yes
+; Close a running connector/GUI so an in-place update can replace their files (Restart Manager). FORCE, not just
+; yes: the connector's TwinCAT worker is a headless process (no window, still attached to the TC IDE over COM), so
+; RM's graceful close can't shut it down and a plain "yes" aborts the install (exit 5). "force" terminates what
+; won't close on its own — safe here: the workers are stateless + respawnable, and the auto-update path already
+; stops them cleanly before launching us, so force only bites the manual reinstall-while-running case.
+CloseApplications=force
+; The connector respawns its own workers on launch; don't let RM restart the processes it terminated.
+RestartApplications=no
 
 [Tasks]
 Name: "opencode"; Description: "Install the opencode CLI — the AI agent (via winget)"; GroupDescription: "Optional components:"
