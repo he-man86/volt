@@ -113,14 +113,24 @@ namespace Volt.Cli.Connector
             Controls.Add(root);
 
             _poll.Tick += (_, _) => RefreshUpdateStatus();
-            _poll.Start();
         }
 
-        protected override void OnShown(EventArgs e)
+        // Refresh on every show — the window is hidden (not disposed) on close, so OnShown fires only the FIRST
+        // time; re-read on each open so a version change since last time (e.g. opencode just installed) shows up.
+        // Also gate the poll on visibility so it isn't ticking while hidden.
+        protected override void OnVisibleChanged(EventArgs e)
         {
-            base.OnShown(e);
-            RefreshUpdateStatus();
-            _ = LoadComponentsAsync();
+            base.OnVisibleChanged(e);
+            if (Visible)
+            {
+                _poll.Start();
+                RefreshUpdateStatus();
+                _ = LoadComponentsAsync();
+            }
+            else
+            {
+                _poll.Stop();
+            }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
