@@ -27,9 +27,45 @@ namespace Volt.Cli.Connector
         private const string LatestApi = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases/latest";
         private const string ReleasesApi = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases?per_page=30";
 
-        // Update channel: "stable" (default) tracks the latest final release; "dev" tracks the newest PRERELEASE
-        // (the X.Y.Z.<count> builds published on every dev push). Set VOLT_UPDATE_CHANNEL=dev to test dev builds.
-        private static readonly string Channel = (Environment.GetEnvironmentVariable("VOLT_UPDATE_CHANNEL") ?? "stable").Trim().ToLowerInvariant();
+        // Update channel: "stable" (default, latest final release) or "dev" (newest PRERELEASE — the X.Y.Z.<count>
+        // builds). Source of truth is the persisted choice, togglable from the Status window; VOLT_UPDATE_CHANNEL
+        // overrides it (power-user / CI). Read on each check so a toggle takes effect live, no restart.
+        private static string ChannelFile =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Volt", "update-channel.txt");
+        private static string Norm(string s) => s.Trim().ToLowerInvariant() == "dev" ? "dev" : "stable";
+
+        public static string Channel
+        {
+            get
+            {
+                var env = Environment.GetEnvironmentVariable("VOLT_UPDATE_CHANNEL");
+                if (!string.IsNullOrWhiteSpace(env)) return Norm(env);
+                try { if (File.Exists(ChannelFile)) return Norm(File.ReadAllText(ChannelFile)); } catch { }
+                return "stable";
+            }
+        }
+
+        /// <summary>The channel is pinned by VOLT_UPDATE_CHANNEL (the UI toggle can't override it).</summary>
+        public static bool ChannelPinnedByEnv => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VOLT_UPDATE_CHANNEL"));
+
+        /// <summary>Persist the channel choice + re-check immediately (the Status window's toggle).</summary>
+        public static void SetChannel(string channel)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ChannelFile)!);
+                File.WriteAllText(ChannelFile, Norm(channel));
+            }
+            catch (Exception e) { Log.Warn($"updater: channel write failed: {e.Message}"); }
+            _pending = null; _setupUrl = null; // a channel switch re-evaluates from scratch
+            CheckNow();
+        }
+
+        /// <summary>Fire an off-cycle update check (after a channel toggle or a manual "Check now").</summary>
+        public static void CheckNow() => _ = Task.Run(async () =>
+        {
+            try { await CheckOnce(); } catch (Exception e) { Log.Warn($"updater: check failed: {e.Message}"); }
+        });
         private static readonly TimeSpan Every = TimeSpan.FromHours(6);
         private static readonly HttpClient Api = CreateClient(TimeSpan.FromSeconds(30));
         // The installer is 100MB+; a short timeout aborts the download mid-stream, so this client has none.

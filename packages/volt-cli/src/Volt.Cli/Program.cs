@@ -19,8 +19,30 @@ internal static class Program
 
     private static void EmitJson(object x) => Console.Out.Write(JsonSerializer.Serialize(x, Json) + "\n");
 
+    /// <summary>The shipped Volt version from version.txt (the installer writes it at the install root; volt.exe
+    /// runs from &lt;root&gt;\bin). "(dev)" when run from the build tree with no version.txt.</summary>
+    private static string ShippedVersion()
+    {
+        try
+        {
+            var dir = System.AppContext.BaseDirectory;
+            foreach (var c in new[] { System.IO.Path.Combine(dir, "version.txt"), System.IO.Path.Combine(dir, "..", "version.txt") })
+                if (System.IO.File.Exists(c)) return System.IO.File.ReadAllText(c).Trim();
+        }
+        catch { }
+        return "(dev)";
+    }
+
     private static int Main(string[] args)
     {
+        // `volt --version` — the one shipped version (version.txt, placed at the install root by the installer), so
+        // every Volt binary reports the SAME version and the connector's Status window can verify they're in sync.
+        if (args.Length > 0 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version"))
+        {
+            Console.WriteLine(ShippedVersion());
+            return 0;
+        }
+
         var a = ParseArgs(args);
         var root = Path.GetFullPath(a.Workspace);
         // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests). Otherwise TwinCAT is the one worker

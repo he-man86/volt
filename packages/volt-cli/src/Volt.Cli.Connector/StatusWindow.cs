@@ -1,0 +1,245 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Volt.Cli.Connector
+{
+    /// <summary>
+    /// The "Volt — Status" window: the installed version + update channel/action, and a live view of EVERY installed
+    /// part's version so you can confirm they're all in sync (a ✓/⚠ per Volt component vs the expected version — a
+    /// drifted LSP or a stale sideloaded extension lights up). Opened from the tray. Replaces the old
+    /// collect-diagnostics zip with a live view; closing hides it (reopening is instant).
+    /// </summary>
+    internal sealed class StatusWindow : Form
+    {
+        private readonly Action _applyUpdate;
+        private readonly Action _showLogs;
+
+        private readonly Label _statusLabel = new();
+        private readonly Button _updateBtn = new() { Text = "Restart to update", AutoSize = true, Visible = false };
+        private readonly Button _checkBtn = new() { Text = "Check now", AutoSize = true };
+        private readonly RadioButton _stable = new() { Text = "Stable — released builds", AutoSize = true };
+        private readonly RadioButton _dev = new() { Text = "Dev — latest fixes, pre-release (may be rough)", AutoSize = true };
+        private readonly Label _channelHint = new() { AutoSize = true, ForeColor = SystemColors.GrayText, Font = new Font(FontFamily.GenericSansSerif, 8f) };
+        private readonly ListView _components = new() { View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill, HeaderStyle = ColumnHeaderStyle.Nonclickable };
+        private readonly System.Windows.Forms.Timer _poll = new() { Interval = 2000 };
+
+        private static string InstallDir => AppContext.BaseDirectory; // the connector sits at the install root
+        private static string Expected => Base(Updater.CurrentVersion); // the version everything should match
+
+        public StatusWindow(Action applyUpdate, Action showLogs)
+        {
+            _applyUpdate = applyUpdate;
+            _showLogs = showLogs;
+
+            Text = "Volt — Status";
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            ClientSize = new Size(500, 470);
+            Font = new Font(FontFamily.GenericSansSerif, 9f);
+            try { Icon = StatusIcons.For(BridgeStatus.Connected); } catch { /* icon is cosmetic */ }
+
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16), RowCount = 6 };
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // header
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // update row
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // channel
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // components label
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // components list
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // footer
+
+            var header = new Label
+            {
+                Text = $"Volt Connector    v{Updater.CurrentVersion}",
+                AutoSize = true, Font = new Font(FontFamily.GenericSansSerif, 12f, FontStyle.Bold), Margin = new Padding(0, 0, 0, 10),
+            };
+            root.Controls.Add(header, 0, 0);
+
+            // ── update row ──
+            var updateRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 8) };
+            _statusLabel.AutoSize = true;
+            _statusLabel.Margin = new Padding(0, 6, 14, 0);
+            _checkBtn.Click += (_, _) => { Updater.CheckNow(); _checkBtn.Text = "Checking…"; _checkBtn.Enabled = false; };
+            _updateBtn.Click += (_, _) => _applyUpdate();
+            _updateBtn.ForeColor = Color.FromArgb(0x2F, 0x7C, 0xF6);
+            updateRow.Controls.Add(_statusLabel);
+            updateRow.Controls.Add(_updateBtn);
+            updateRow.Controls.Add(_checkBtn);
+            root.Controls.Add(updateRow, 0, 1);
+
+            // ── channel ──
+            var channelBox = new GroupBox { Text = "Update channel", AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(8) };
+            var channelFlow = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Dock = DockStyle.Top };
+            _stable.Checked = Updater.Channel != "dev";
+            _dev.Checked = Updater.Channel == "dev";
+            _stable.CheckedChanged += (_, _) => { if (_stable.Checked) OnChannel("stable"); };
+            _dev.CheckedChanged += (_, _) => { if (_dev.Checked) OnChannel("dev"); };
+            if (Updater.ChannelPinnedByEnv)
+            {
+                _stable.Enabled = _dev.Enabled = false;
+                _channelHint.Text = "Pinned by the VOLT_UPDATE_CHANNEL environment variable.";
+            }
+            channelFlow.Controls.Add(_stable);
+            channelFlow.Controls.Add(_dev);
+            channelFlow.Controls.Add(_channelHint);
+            channelBox.Controls.Add(channelFlow);
+            root.Controls.Add(channelBox, 0, 2);
+
+            var compLabel = new Label { Text = "Installed components", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 10, 0, 4) };
+            root.Controls.Add(compLabel, 0, 3);
+
+            _components.Columns.Add("Component", 210);
+            _components.Columns.Add("Version", 190);
+            _components.Columns.Add("", 60);
+            root.Controls.Add(_components, 0, 4);
+
+            var footer = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0) };
+            var logsBtn = new Button { Text = "Open logs", AutoSize = true };
+            logsBtn.Click += (_, _) => _showLogs();
+            footer.Controls.Add(logsBtn);
+            root.Controls.Add(footer, 0, 5);
+
+            Controls.Add(root);
+
+            _poll.Tick += (_, _) => RefreshUpdateStatus();
+            _poll.Start();
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            RefreshUpdateStatus();
+            _ = LoadComponentsAsync();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; Hide(); return; }
+            base.OnFormClosing(e);
+        }
+
+        private void OnChannel(string channel)
+        {
+            if (Updater.ChannelPinnedByEnv) return;
+            Updater.SetChannel(channel);
+            _checkBtn.Text = "Checking…"; _checkBtn.Enabled = false;
+        }
+
+        private void RefreshUpdateStatus()
+        {
+            var pending = Updater.PendingVersion;
+            _updateBtn.Visible = pending != null;
+            _updateBtn.Text = Updater.IsApplying ? "Downloading…" : $"Restart to update to {pending}";
+            _updateBtn.Enabled = !Updater.IsApplying;
+            _statusLabel.Text = pending != null ? "● Update available:" : "● Up to date";
+            _statusLabel.ForeColor = pending != null ? Color.FromArgb(0x2F, 0x7C, 0xF6) : Color.FromArgb(0x2E, 0x7D, 0x32);
+            if (_checkBtn.Text == "Checking…" && _checkBtn.Enabled == false)
+            {
+                // Re-enable a couple ticks after a check was fired.
+                _checkBtn.Text = "Check now"; _checkBtn.Enabled = true;
+            }
+        }
+
+        // ── component versions (shelled out; a Volt part is ✓ when its X.Y.Z matches the connector's) ──
+        private async Task LoadComponentsAsync()
+        {
+            _components.Items.Clear();
+            _components.Items.Add(new ListViewItem(new[] { "loading…", "", "" }));
+
+            var rows = await Task.Run(() =>
+            {
+                var list = new List<(string name, string version, bool? inSync)>();
+
+                var cli = Exe(Path.Combine(InstallDir, "bin", "volt.exe"), "--version");
+                list.Add(("volt (CLI)", cli, Sync(cli)));
+
+                var lspRaw = Exe(Path.Combine(InstallDir, "bin", "volt-lsp-iec.exe"), "--version");
+                var lsp = lspRaw.StartsWith("volt-lsp-iec ") ? lspRaw.Substring("volt-lsp-iec ".Length).Trim() : lspRaw;
+                list.Add(("volt-lsp-iec (LSP)", lsp, Sync(lsp)));
+
+                foreach (var (editor, label) in new[] { ("code", "VS Code"), ("windsurf", "Windsurf"), ("cursor", "Cursor") })
+                {
+                    var v = ExtensionVersion(editor);
+                    if (v.Length > 0) list.Add(($"VS Code ext ({label})", v, Sync(v)));
+                }
+
+                var oc = Shim("opencode --version");
+                list.Add(("opencode", oc.Length > 0 ? oc : "not found", null)); // external — not sync-checked
+
+                return list;
+            });
+
+            if (IsDisposed) return;
+            _components.BeginUpdate();
+            _components.Items.Clear();
+            foreach (var (name, version, inSync) in rows)
+            {
+                var mark = inSync switch { true => "✓ in sync", false => "⚠ drift", _ => "" };
+                var item = new ListViewItem(new[] { name, version.Length > 0 ? version : "—", mark })
+                {
+                    ForeColor = inSync == false ? Color.Firebrick : SystemColors.WindowText,
+                };
+                _components.Items.Add(item);
+            }
+            _components.EndUpdate();
+        }
+
+        /// <summary>A Volt component is in sync when its X.Y.Z base matches the connector's installed base.</summary>
+        private static bool? Sync(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version) || Expected == "(dev)") return null;
+            return Base(version) == Expected;
+        }
+
+        private static string Base(string v)
+        {
+            var parts = (v ?? "").Trim().Split('.');
+            return parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : (v ?? "").Trim();
+        }
+
+        // Run a known .exe directly (volt/lsp — real paths, no shell needed).
+        private static string Exe(string path, string args)
+        {
+            if (!File.Exists(path)) return "";
+            return Capture(new ProcessStartInfo(path, args));
+        }
+
+        // Run a PATH command / shim (editors, opencode are .cmd on PATH) via cmd.exe.
+        private static string Shim(string commandline) =>
+            Capture(new ProcessStartInfo("cmd.exe", "/c " + commandline));
+
+        private static string ExtensionVersion(string editor)
+        {
+            var outp = Shim($"{editor} --list-extensions --show-versions");
+            foreach (var line in outp.Split('\n'))
+                if (line.Contains("volt-vscode", StringComparison.OrdinalIgnoreCase))
+                {
+                    var at = line.LastIndexOf('@');
+                    return at >= 0 ? line.Substring(at + 1).Trim() : line.Trim();
+                }
+            return "";
+        }
+
+        private static string Capture(ProcessStartInfo psi)
+        {
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+            try
+            {
+                using var p = Process.Start(psi);
+                if (p == null) return "";
+                var outp = p.StandardOutput.ReadToEnd();
+                if (!p.WaitForExit(4000)) { try { p.Kill(); } catch { } return ""; }
+                return outp.Trim();
+            }
+            catch { return ""; }
+        }
+    }
+}

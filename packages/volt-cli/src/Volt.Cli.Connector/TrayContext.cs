@@ -156,6 +156,7 @@ namespace Volt.Cli.Connector
             menu.Items.Add(_connectItem);
             menu.Items.Add(new ToolStripSeparator());
 
+            menu.Items.Add(new ToolStripMenuItem("Volt Status…", Glyph(0xE946), (_, _) => ShowStatus())); // Info
             menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(0xE7C3), (_, _) => ShowLogs())); // Page
 
             // ── Help ──
@@ -241,6 +242,18 @@ namespace Volt.Cli.Connector
             _logWindow.Activate();
         }
 
+        // ── status ────────────────────────────────────────────
+        private StatusWindow? _statusWindow;
+
+        private void ShowStatus()
+        {
+            if (_statusWindow == null || _statusWindow.IsDisposed) _statusWindow = new StatusWindow(ApplyUpdate, ShowLogs);
+            _statusWindow.Show();
+            _statusWindow.WindowState = FormWindowState.Normal;
+            _statusWindow.BringToFront();
+            _statusWindow.Activate();
+        }
+
         private void ShowUpdateIfReady()
         {
             var pending = Updater.PendingVersion;
@@ -303,6 +316,7 @@ namespace Volt.Cli.Connector
             _timer.Stop();
             _control.Dispose();
             _logWindow?.Dispose();
+            _statusWindow?.Dispose();
             _icon.Visible = false;
             _supervisor.Dispose();
             _icon.Dispose();
