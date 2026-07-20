@@ -165,7 +165,12 @@ namespace Volt.Cli.Connector
             try
             {
                 if (!Directory.Exists(Log.Dir)) return rows;
-                var files = Directory.GetFiles(Log.Dir, "*.log");
+                // The connector writes structured "{source}-{date}.log" files; the installer deliberately
+                // mirrors Setup's own (free-form, 400KB+) log into this same folder as install-*.log so the
+                // support bundle has it. It doesn't parse into rows and would crowd out the real logs — skip it.
+                var files = Directory.GetFiles(Log.Dir, "*.log")
+                    .Where(f => !Path.GetFileName(f).StartsWith("install-", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
                 // Give each log file a fair share of the total budget so a chatty source
                 // (e.g. TwinCAT with thousands of lines) doesn't crowd out quieter ones
                 // (e.g. CODESYS) when the combined list is truncated after sorting.
