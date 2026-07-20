@@ -38,14 +38,15 @@ namespace Volt.Cli.Connector
             _showLogs = showLogs;
 
             Text = "Volt — Status";
-            FormBorderStyle = FormBorderStyle.FixedSingle;
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(500, 470);
-            Font = new Font(FontFamily.GenericSansSerif, 9f);
+            Font = new Font("Segoe UI", 9.75f);
+            ClientSize = new Size(560, 520);
+            MinimumSize = new Size(500, 460);
             try { Icon = StatusIcons.For(BridgeStatus.Connected); } catch { /* icon is cosmetic */ }
 
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16), RowCount = 6 };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(20), RowCount = 6 };
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // header
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // update row
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // channel
@@ -56,24 +57,27 @@ namespace Volt.Cli.Connector
             var header = new Label
             {
                 Text = $"Volt Connector    v{Updater.CurrentVersion}",
-                AutoSize = true, Font = new Font(FontFamily.GenericSansSerif, 12f, FontStyle.Bold), Margin = new Padding(0, 0, 0, 10),
+                AutoSize = true, Font = new Font("Segoe UI Semibold", 13.5f), Margin = new Padding(0, 0, 0, 14),
             };
             root.Controls.Add(header, 0, 0);
 
             // ── update row ──
-            var updateRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 8) };
+            var updateRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 12) };
             _statusLabel.AutoSize = true;
-            _statusLabel.Margin = new Padding(0, 6, 14, 0);
+            _statusLabel.Anchor = AnchorStyles.Left;
+            _statusLabel.Margin = new Padding(0, 7, 16, 0);
             _checkBtn.Click += (_, _) => { Updater.CheckNow(); _checkBtn.Text = "Checking…"; _checkBtn.Enabled = false; };
             _updateBtn.Click += (_, _) => _applyUpdate();
             _updateBtn.ForeColor = Color.FromArgb(0x2F, 0x7C, 0xF6);
+            _checkBtn.AutoSize = true; _checkBtn.Padding = new Padding(8, 3, 8, 3); _checkBtn.Margin = new Padding(0, 3, 6, 0);
+            _updateBtn.Padding = new Padding(8, 3, 8, 3); _updateBtn.Margin = new Padding(0, 3, 6, 0);
             updateRow.Controls.Add(_statusLabel);
             updateRow.Controls.Add(_updateBtn);
             updateRow.Controls.Add(_checkBtn);
             root.Controls.Add(updateRow, 0, 1);
 
             // ── channel ──
-            var channelBox = new GroupBox { Text = "Update channel", AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(8) };
+            var channelBox = new GroupBox { Text = "Update channel", AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(10, 6, 10, 10), Margin = new Padding(0, 0, 0, 6) };
             var channelFlow = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Dock = DockStyle.Top };
             _stable.Checked = Updater.Channel != "dev";
             _dev.Checked = Updater.Channel == "dev";
@@ -95,7 +99,9 @@ namespace Volt.Cli.Connector
 
             _components.Columns.Add("Component", 210);
             _components.Columns.Add("Version", 190);
-            _components.Columns.Add("", 60);
+            _components.Columns.Add("In sync", 110);
+            _components.BorderStyle = BorderStyle.FixedSingle;
+            _components.SizeChanged += (_, _) => FitColumns();
             root.Controls.Add(_components, 0, 4);
 
             var footer = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0) };
@@ -187,6 +193,15 @@ namespace Volt.Cli.Connector
                 _components.Items.Add(item);
             }
             _components.EndUpdate();
+            FitColumns();
+        }
+
+        // Stretch the Version column to fill the width the fixed columns leave (minus the scrollbar).
+        private void FitColumns()
+        {
+            if (_components.Columns.Count < 3) return;
+            var rest = _components.ClientSize.Width - _components.Columns[0].Width - _components.Columns[2].Width - 4;
+            if (rest > 120) _components.Columns[1].Width = rest;
         }
 
         /// <summary>A Volt component is in sync when its X.Y.Z base matches the connector's installed base.</summary>
