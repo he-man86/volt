@@ -1,0 +1,59 @@
+# The vendored-console PR gate: BUILD it (Linux-only) + prove it hasn't DRIFTED from pinned opencode.
+#
+# WHY ONE FILE: these were two workflows (console-build + console-symmetry) with the SAME path filter — the exact
+# near-identical duplication ci.yml's header warns against. A check run is named after the JOB, not the workflow,
+# so `build` and `symmetry` still report as two checks (branch protection unaffected). NOT folded into deploy:
+# these are PRE-MERGE gates (pull_request), deploy runs POST-merge on push — folding would only catch a break/drift
+# after it's already on dev, the exact failure console-build exists to prevent. Also NOT ci: ci can't path-filter a
+# single job, so the console would build on every unrelated PR.
+#
+#   build    — console/app does NOT build on Windows (a vite:define path bug), and the primary dev box is Windows,
+#              so Linux CI is the ONLY place a console change is compiled before it reaches dev's deploy.
+#   symmetry — packages/console/* must stay opencode-verbatim except the DIVERGENCE.md allowlist, so we keep
+#              pulling opencode's bugfixes; this fails if any opencode SOURCE file drifts outside that allowlist.
+#              (Volt-specific: opencode is the original, so it has no verbatim-check. Only earns its keep while you
+#              still bump the pinned opencode — drop this job + check-console-divergence.ts if you fork for good.)
+name: console
+
+on:
+  workflow_dispatch: {} # on-demand — prove either gate without a console change
+  push:
+    branches: [dev]
+    paths:
+      - "packages/console/**"
+      - "volt-scripts/check-console-divergence.ts"
+  pull_request:
+    branches: [dev]
+    paths:
+      - "packages/console/**"
+      - "volt-scripts/check-console-divergence.ts"
+
+# Cancel a superseded run when a newer commit lands on the same ref (opencode convention).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Build console/app (SolidStart → nitro/cloudflare)
+        run: cd packages/console/app && bun run build
+
+  symmetry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Console divergence gate (vs pinned opencode)
+        run: bun volt-scripts/check-console-divergence.ts
