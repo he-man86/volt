@@ -40,7 +40,7 @@ export function completionAtScope(scope: Scope, project: Scope, source: string, 
     const members = memberCompletions(base, scope, project)
     if (members.length > 0) return members
   }
-  return scopeCompletions(scope, project)
+  return scopeCompletions(scope)
 }
 
 /** The single-identifier base of a `base.<partial>` at the cursor, or undefined. */
@@ -88,7 +88,7 @@ function scopeOfType(t: Type): Scope | undefined {
   return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 
-function scopeCompletions(scope: Scope, project: Scope): CompletionItem[] {
+function scopeCompletions(scope: Scope): CompletionItem[] {
   const items: CompletionItem[] = []
   const seen = new Set<string>()
   for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) {

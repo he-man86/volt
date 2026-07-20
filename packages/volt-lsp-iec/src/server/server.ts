@@ -81,7 +81,6 @@ import {
   codeLenses,
   completion,
   definition,
-  documentHighlights,
   foldingRanges,
   formatDocument,
   formatRange,

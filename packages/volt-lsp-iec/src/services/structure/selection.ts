@@ -10,15 +10,12 @@ import {
   stmtChildLists,
   stmtExprs,
   walkStatements,
-  type BodySpan,
   type Expr,
   type Span,
   type Statement,
-  type TopLevel,
   unitBodies,
   isGraphicalBody,
 } from "../../syntax/index.js"
-import { isTrivia } from "../../syntax/index.js"
 import { rangeFromSpan, tokenAtOffset, type Document } from "../shared/index.js"
 
 export function selectionRange(doc: Document, offset: number): SelectionRange | undefined {
