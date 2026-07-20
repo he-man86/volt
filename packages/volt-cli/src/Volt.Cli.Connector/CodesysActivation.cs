@@ -11,15 +11,15 @@ namespace Volt.Cli.Connector
     /// </summary>
     public static class CodesysActivation
     {
-        /// <summary>The install-dir (hidden, AppData) copy of <c>start_pipe.py</c> — the backup, shipped beside the
+        /// <summary>The install-dir (hidden, AppData) copy of <c>start_volt_codesys.py</c> — the backup, shipped beside the
         /// connector; also covers the dev tree.</summary>
         private static string? BackupScriptPath()
         {
             var baseDir = AppContext.BaseDirectory;
             foreach (var c in new[]
             {
-                Path.Combine(baseDir, "codesys-scriptcommands", "start_pipe.py"),
-                Path.Combine(baseDir, "..", "..", "..", "..", "..", "..", "volt-cli", "scripts", "start_pipe.py"),
+                Path.Combine(baseDir, "codesys-scriptcommands", "start_volt_codesys.py"),
+                Path.Combine(baseDir, "..", "..", "..", "..", "..", "..", "volt-cli", "scripts", "start_volt_codesys.py"),
             })
             {
                 var full = Path.GetFullPath(c);
@@ -28,7 +28,7 @@ namespace Volt.Cli.Connector
             return null;
         }
 
-        /// <summary>The <c>start_pipe.py</c> the user executes inside CODESYS: the VISIBLE Documents\Volt copy
+        /// <summary>The <c>start_volt_codesys.py</c> the user executes inside CODESYS: the VISIBLE Documents\Volt copy
         /// first (published on connector startup), then the install-dir backup / dev tree. Null if none exist.</summary>
         public static string? ScriptPath()
         {
@@ -39,7 +39,7 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>What to copy to the clipboard: the primary script path (for CODESYS's Execute-Script-File dialog).</summary>
-        public static string ClipboardText() => ScriptPath() ?? "start_pipe.py";
+        public static string ClipboardText() => ScriptPath() ?? "start_volt_codesys.py";
 
         /// <summary>Human steps shown in the activation dialog / hint. Shows BOTH the visible Documents copy (the
         /// one to run) and the install-dir backup, so the user can find it either way.</summary>
@@ -54,9 +54,10 @@ namespace Volt.Cli.Connector
                 "Activate Volt inside your open CODESYS — Volt never launches CODESYS:\n\n" +
                 "  1.  Open your project in CODESYS.\n" +
                 "  2.  Tools → Scripting → Execute Script File…\n" +
-                $"  3.  Choose:  {primary ?? "start_pipe.py  (shipped beside the connector)"}\n" +
+                $"  3.  Choose:  {primary ?? "start_volt_codesys.py  (shipped beside the connector)"}\n" +
                 backupLine +
                 "\nVolt then detects the project here — pick it from “Connect to”.\n" +
+                "To disconnect later: run stop_volt_codesys.py the same way, or “Disconnect” in the tray.\n" +
                 "(“Copy script path” puts the primary path on your clipboard for the file dialog.)";
         }
     }

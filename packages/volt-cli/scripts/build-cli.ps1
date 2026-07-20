@@ -51,8 +51,8 @@ Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
 Write-Output "`n[3/4] Volt.Cli.Ide.Codesys (in-proc DLL)"
 & $DOTNET build "$ROOT\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj" -c Release -o "$DIST\Codesys" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
-Copy-Item "$ROOT\scripts\start_pipe.py","$ROOT\scripts\run_pipe_headless.py" -Destination "$DIST\Codesys\" -Force
-if (Test-Path "$ROOT\scripts\config.json") { Copy-Item "$ROOT\scripts\config.json" "$DIST\Codesys\" -Force }
+# Ship only the user-facing activation scripts; run_pipe_headless.py is a dev/test launcher, not for the installer.
+Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
 Write-Output "  OK -> dist\Codesys\ (Volt.Cli.Ide.Codesys.dll + deps + pipe scripts)"
 
 # --- Connector (the one tray app) — bundle the workers next to it --
@@ -61,7 +61,7 @@ Write-Output "`n[4/4] Volt.Cli.Connector"
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
-# start_pipe.py loads "<this folder>/Volt.Cli.Ide.Codesys.dll"; dist\Codesys already holds the DLL + deps + scripts.
+# start_volt_codesys.py loads "<this folder>/Volt.Cli.Ide.Codesys.dll"; dist\Codesys already holds DLL + deps + scripts.
 Copy-Item "$DIST\Codesys\*" -Destination "$DIST\Connector\codesys-scriptcommands\" -Recurse -Force
 Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ pipe workers + CODESYS DLL)"
 

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Start Volt CLI pipe host  (CODESYS Script Command / Execute Script File)
+Start Volt (CODESYS Script Command / Execute Script File)
 
-Pipe twin of volt-bridge/codesys-scriptcommands/start_bridge.py. Runs inside the
-LIVE CODESYS IDE: loads Volt.Cli.Ide.Codesys and hands PipeHost the live scripting
-objects, so the Volt toolchain talks to THIS IDE session over the named pipe
-`volt.bridge.codesys`. PipeHost.Start returns immediately; the IDE's own message
-loop keeps the pipe served (no pump needed here — unlike run_pipe_headless.py).
+Runs inside the LIVE CODESYS IDE: loads Volt.Cli.Ide.Codesys and hands PipeHost
+the live scripting objects, so the Volt toolchain talks to THIS IDE session over
+the named pipe `volt.bridge.codesys.<pid>` (per-instance, so several CODESYS can
+run at once). PipeHost.Start returns immediately; the IDE's own message loop keeps
+the pipe served (no pump needed here — unlike run_pipe_headless.py).
+
+Stop it again with stop_volt_codesys.py.
 
 DLL resolution (first that exists wins):
   1. $VOLT_BRIDGE_DLL                              explicit override
@@ -46,7 +48,8 @@ def _candidates():
     # The install dir (the DLLs stay here even when this script was published to a visible Documents\Volt folder).
     local = os.environ.get("LOCALAPPDATA")
     if local:
-        out.append(os.path.join(local, *_INSTALL_SUBDIR, _DLL_NAME))
+        # IronPython 2.7 (CODESYS scripting) rejects f(a, *b, c) at PARSE time — keep the *-unpack trailing.
+        out.append(os.path.join(local, *(_INSTALL_SUBDIR + (_DLL_NAME,))))
     out.append(os.path.join(_REPO_BIN, "Release", "net48", _DLL_NAME))
     out.append(os.path.join(_REPO_BIN, "Debug", "net48", _DLL_NAME))
     return out
@@ -63,15 +66,15 @@ try:
     import clr
     dll = _find_dll()
     if not dll:
-        print("Volt pipe host: DLL not found. Looked in:")
+        print("Volt: DLL not found. Looked in:")
         for c in _candidates():
             print("   %s  (exists=%s)" % (c, os.path.exists(c) if c else False))
     else:
-        print("Volt pipe host: loading %s" % dll)
+        print("Volt: loading %s" % dll)
         clr.AddReferenceToFileAndPath(dll)
         from Volt.Cli.Ide.Codesys import PipeHost
         # projects / system / online are injected into every script's globals.
         # NOTE: CODESYS file-locks the DLL once loaded; to rebuild, close the IDE.
         print(PipeHost.Start(projects, system, online))
 except Exception as e:
-    print("Volt pipe host: start failed: %s" % str(e))
+    print("Volt: start failed: %s" % str(e))
