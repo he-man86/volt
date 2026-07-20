@@ -16,6 +16,15 @@ public class PushRequest
     /// <see cref="ExpectedProjectVersion"/> gate still runs when set (that IS the --force-with-lease check).</summary>
     [JsonPropertyName("force")]
     public bool Force { get; set; }
+
+    /// <summary>The project this workspace is bound to. The op refuses (WRONG_PROJECT) unless the live bridge is
+    /// serving it — checked BEFORE the apply and regardless of <see cref="Force"/>, so `push --force` (which nulls
+    /// the version gate) still can't clobber the wrong IDE. Null = no identity check (older client).</summary>
+    [JsonPropertyName("expectedPlatform")]
+    public string? ExpectedPlatform { get; set; }
+
+    [JsonPropertyName("expectedProjectName")]
+    public string? ExpectedProjectName { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]

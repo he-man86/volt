@@ -19,7 +19,9 @@ public static class PushService
 {
     public static PushResponse Handle(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
+        // the version gate) still can't clobber the wrong IDE.
+        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
         ide.FlushPendingWrites();

@@ -75,8 +75,9 @@ public sealed class FakeIde : IIdeDriver
     /// <summary>Remove an item — models the engineer deleting an object in the IDE.</summary>
     public void RemoveItem(string name) => _items.RemoveAll(i => i.Name == name);
 
-    // ── health knob (drives BuildHealthResponse for binding/pull tests) ──
-    public bool HealthConnected { get; init; }
+    // ── health knob (drives IsConnected + BuildHealthResponse, as on a real driver) ──
+    // Default connected: the common test bridge is up. Binding/disconnect tests flip these knobs.
+    public bool HealthConnected { get; init; } = true;
     public string HealthPlatform { get; init; } = "";
     public string? HealthProjectName { get; init; }
 
@@ -190,7 +191,8 @@ public sealed class FakeIde : IIdeDriver
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
-    public bool IsConnected => true;
+    // Mirror a real driver: IsConnected and BuildHealthResponse().Connected are the SAME signal.
+    public bool IsConnected => HealthConnected;
     public string? IdeName => "Fake";
     public string? IdeVersion => "0";
     public string Version => "test";

@@ -24,7 +24,8 @@ public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Connected + right-project guard (replaces the client's old pre-op health check) — atomic with the walk.
+        var health = OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
@@ -152,6 +153,9 @@ public static class FetchService
             Removed = removed,
             Items = fullVersions,
             Folders = folders,
+            // Echo the project we actually walked, so the client can confirm it before merging.
+            Platform = health.Platform,
+            ProjectName = health.ProjectName,
         };
     }
 

@@ -83,6 +83,15 @@ public static class Config
         return null;
     }
 
+    /// <summary>Null when the identity a fetch echoed matches the binding; else a refuse string. A current bridge
+    /// also enforces this server-side (WRONG_PROJECT before it returns), so this is a cheap pre-merge confirmation.</summary>
+    public static string? VerifyFetchedIdentity(WorkspaceConfig cfg, string? platform, string? projectName)
+    {
+        if (cfg.Project.Platform == platform && cfg.Project.ProjectName == projectName) return null;
+        return $"bridge is on {platform}/{projectName}, but this workspace is bound to " +
+               $"{cfg.Project.Platform}/{cfg.Project.ProjectName} — open the bound project in the IDE";
+    }
+
     public static string? ConfiguredVendor(string root)
     {
         try { return LoadConfig(root).Bridge.Vendor; }
