@@ -5,7 +5,7 @@
 # isn't: a check run is named after the JOB, not the workflow — console-build.yml is named "console-build" but
 # its job is `build`, and GitHub reports the check as "build". Same five checks, one set of triggers.
 #
-# The path-filtered workflows (console, deploy) stay separate because they need their own `on:` paths — that's the
+# The path-filtered deploy workflow stays separate because it needs its own `on:` paths — that's the
 # one thing a job can't override. release.yml is push-to-dev (prerelease) + tag-triggered (stable).
 #
 # LOAD-BEARING: `dev` protection requires the contexts typecheck / test / lint / integration / openspec. Those are
