@@ -1,40 +1,41 @@
-# Cut a Volt desktop release: build the single Inno Setup installer (Volt-win-Setup.exe) and publish it to GitHub
-# Releases on he-man86/volt (this repo). The always-running C# connector polls the releases API and self-updates
-# by re-running a newer Setup.exe (Updater.cs), so the GitHub release IS the update feed.
+# Volt's ONE publish pipeline (opencode-style: one parameterized workflow, not a stable/dev copy-paste).
 #
-# WHY THIS EXISTS: releases used to be built + uploaded by hand (`bun volt-scripts/build-installer.ts --upload` on a dev
-# box). That is how v0.2.1 shipped without the installer asset — a manual run dropped it. This automates the whole
-# cut so every release is consistent and complete, and verifies the installer landed.
+#   push to dev  → a PRERELEASE, versioned X.Y.Z.<commit-count> (the DEV channel). Every dev push ships a testable
+#                  installer. The connector's stable updater ignores prereleases; only VOLT_UPDATE_CHANNEL=dev picks
+#                  them up — so dev builds never reach stable users.
+#   push a tag   → a STABLE release, versioned as the tag X.Y.Z (the latest release the stable updater tracks).
 #
-#   - One installer (Inno Setup) + connector-driven auto-update — so a single windows-latest job, not a per-OS
-#     matrix. Volt's PLC tooling (bridges, CODESYS) is Windows-native anyway.
-#   - Triggered by a bare-version tag (X.Y.Z — the connector's updater compares it to the installed version; a
-#     `v` prefix would break that compare). Cut by tagging dev.
+# The ONE version is computed from git (volt-scripts/version.ts) and INJECTED — stamped into every package.json +
+# passed as VOLT_VERSION — so no version is hand-maintained across files (sst/opencode#36232 is the bug that
+# happens when an artifact reads its own stored version instead of the injected one).
 #
-# TO CUT A RELEASE: bump packages/volt-desktop/package.json, commit to dev, then tag `X.Y.Z` (bare, matching that
-# version) and push the tag. This workflow builds version X.Y.Z and publishes the GitHub release at tag `X.Y.Z`.
-#
-# Signing: intentionally PARKED — the installer ships unsigned (Windows SmartScreen warns on first run). opencode
-# signs via Azure Trusted Signing (see their publish.yml); add an equivalent step here if/when signing is revisited.
+# Cut a stable release: `bun run release` (tags the current volt-desktop version on dev + pushes the tag).
+# Signing: intentionally PARKED — the installer ships unsigned (opencode signs via Azure Trusted Signing).
 name: release
 
 on:
   push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+" # bare semver — the connector's updater compares it to the installed version; e.g. 0.2.2
-  workflow_dispatch: {} # manual re-run — uses the current packages/volt-desktop/package.json version
+    branches: [dev]
+    tags: ["[0-9]+.[0-9]+.[0-9]+"] # bare semver X.Y.Z — a 4-part dev tag never matches, so it can't re-trigger
+  workflow_dispatch: {} # manual stable re-run of the current volt-desktop version
 
-concurrency: release-${{ github.ref }}
+# Supersede an in-flight DEV build when a newer commit lands (ref = refs/heads/dev). A stable build's ref is the
+# unique tag, so its group is unique and it is never cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: write # `gh release create` (build-installer.ts --upload-only) creates/updates the GitHub Release on this repo
+  contents: write # gh release create/edit/upload on this repo
 
 jobs:
   release:
-    if: github.repository == 'he-man86/volt' # never run from a fork (opencode's publish.yml does the same)
-    runs-on: windows-latest # Inno Setup (ISCC), electron-builder, and the C# connector are all Windows-native
+    if: github.repository == 'he-man86/volt' # never from a fork
+    runs-on: windows-latest # Inno Setup (ISCC), electron-builder, the C# connector — all Windows-native
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history — the build number is the commit count (version.ts)
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -50,59 +51,48 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # On a tag push, the tag MUST match the desktop package version — build-installer.ts names the GitHub release
-      # from the package version, so a mismatch would publish under a different tag than the one that triggered this.
-      - name: Guard — tag matches desktop version
-        if: github.ref_type == 'tag'
+      - name: Compute the one version (git-derived)
+        id: v
         shell: bash
-        run: |
-          version=$(node -p "require('./packages/volt-desktop/package.json').version")
-          if [ "${GITHUB_REF_NAME}" != "${version}" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} != ${version} (packages/volt-desktop/package.json). Bump the package version to match the tag."
-            exit 1
-          fi
-          echo "releasing ${version}"
+        run: bun volt-scripts/version.ts | tee -a "$GITHUB_OUTPUT"
 
-      # Volt ships ONE version: volt-desktop is the source of truth, and the .vsix the installer sideloads must
-      # carry the same number. They're separate package.json files (the extension also publishes to the
-      # Marketplace on its own), so nothing but this keeps them from drifting apart again. Runs on
-      # workflow_dispatch too — there's no tag to compare there, but the two packages must still agree.
-      - name: Guard — extension version matches the release
+      # Inject the base X.Y.Z into every package.json so the vsix + electron app carry the one version (vsce rejects
+      # a 4-part version, so packages get `base`; the installer + connector get the full `version` via VOLT_VERSION).
+      - name: Stamp the version into every package.json
         shell: bash
         run: |
-          version=$(node -p "require('./packages/volt-desktop/package.json').version")
-          ext=$(node -p "require('./packages/volt-vscode/package.json').version")
-          if [ "${ext}" != "${version}" ]; then
-            echo "::error::volt-vscode ${ext} != volt-desktop ${version}. Volt ships one version — bump both."
-            exit 1
-          fi
-          echo "extension ${ext} matches"
+          base='${{ steps.v.outputs.base }}'
+          for f in packages/volt-desktop/package.json packages/volt-vscode/package.json; do
+            node -e "const fs=require('fs'),p='$f',j=JSON.parse(fs.readFileSync(p));j.version='$base';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          done
+          echo "stamped base $base into every package.json"
 
       - name: Build the Volt installer
+        env:
+          VOLT_VERSION: ${{ steps.v.outputs.version }}
         run: bun volt-scripts/build-installer.ts
 
-      # Gate: install the freshly-built installer, verify it configured everything, uninstall it, verify a clean
-      # revert. A dirty uninstall (leftover env / registry / files / process) fails here and blocks the publish.
+      # Install → verify → uninstall → verify-clean. Stable only (it really installs on the runner) — dev builds
+      # skip it to stay fast, since every dev push runs this workflow.
       - name: Smoke-test install / uninstall
+        if: steps.v.outputs.prerelease == 'false'
         run: bun run test:install
 
-      - name: Publish the Volt installer
-        run: bun volt-scripts/build-installer.ts --upload-only
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          VOLT_VERSION: ${{ steps.v.outputs.version }}
+        run: bun volt-scripts/build-installer.ts --upload-only ${{ steps.v.outputs.prerelease == 'true' && '--prerelease' || '' }}
 
-      # Guard against the exact v0.2.1 failure: a publish that omits the installer. Fail loudly if Setup.exe (the
-      # thing new users download) isn't on the release.
       - name: Verify the installer was published
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('./packages/volt-desktop/package.json').version")
-          assets=$(gh release view "${version}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
-          echo "published assets:"; echo "$assets"
+          version='${{ steps.v.outputs.version }}'
+          assets=$(gh release view "$version" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           echo "$assets" | grep -qx "Volt-win-Setup.exe" || {
-            echo "::error::release ${version} is missing Volt-win-Setup.exe — the installer did not publish"
+            echo "::error::release $version is missing Volt-win-Setup.exe — the installer did not publish"
             exit 1
           }
-          echo "✓ Volt-win-Setup.exe published on ${version}"
+          echo "✓ Volt-win-Setup.exe published on $version"

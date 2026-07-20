@@ -2,7 +2,7 @@
   "name": "@volt/desktop",
   "productName": "Volt",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.0.1",
   "type": "module",
   "description": "Volt desktop shell — wraps the installed opencode's served GUI + the IDE panel (desktop sibling of volt-vscode).",
   "main": "main.mjs",

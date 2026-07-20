@@ -1,23 +1,23 @@
 #!/usr/bin/env bun
 /**
- * Cut a Volt release with one command: tag the current packages/volt-desktop/package.json version and push the
- * tag, which triggers release.yml to build (dotnet + Inno on windows-latest) and publish Volt-win-Setup.exe to
- * GitHub Releases. No local .NET SDK / Inno Setup needed — CI does the build.
+ * Cut a STABLE release with one command: tag the current packages/volt-desktop/package.json version and push the
+ * tag, which triggers release.yml to build (dotnet + Inno on windows-latest) and publish Volt-win-Setup.exe as the
+ * latest GitHub Release. No local .NET SDK / Inno Setup needed — CI does the build.
  *
- *   bun run release        # tag <version> on dev + push → CI builds + publishes
+ *   bun run release        # tag <version> on dev + push → CI builds + publishes the STABLE release
  *
- * Steady-state flow: bump packages/volt-desktop/package.json in your feature PR, merge to dev, then `bun run
- * release`. (dev is protected, so the version bump rides a PR; the tag itself bypasses branch protection.)
+ * DEV builds need no command: every push to dev auto-publishes a X.Y.Z.<commit-count> PRERELEASE (the dev channel).
+ * Only cut a stable when you want the next real release: bump packages/volt-desktop/package.json in your feature PR
+ * (the X.Y.Z base — the one number a human sets), merge to dev, then `bun run release`.
  */
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
+// volt-desktop's version is the X.Y.Z BASE the tag is named from. It's the one number a human sets (git can't infer
+// a patch-vs-feature bump); the build number is git-derived and every package.json is stamped from this base in CI
+// (release.yml), so nothing else is hand-maintained — this script just tags the base on dev.
 const version: string = (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
-// Volt ships ONE version. volt-desktop is the source of truth (it names the tag + the release); the .vsix the
-// installer sideloads must carry the same number. release.yml guards this too — a tag can be pushed by hand,
-// bypassing this script — but failing here is cheaper than failing after the tag is already on the remote.
-const extVersion: string = (await import(resolve(repo, "packages/volt-vscode/package.json"))).default.version
 
 function git(args: string[], capture = false): string {
   const r = spawnSync("git", args, { cwd: repo, encoding: "utf8", stdio: capture ? "pipe" : "inherit" })
@@ -30,10 +30,6 @@ function git(args: string[], capture = false): string {
 }
 
 // Guard rails — a release must be a clean, on-dev, not-already-tagged state, else the published version is wrong.
-if (extVersion !== version) {
-  console.error(`✗ volt-vscode ${extVersion} != volt-desktop ${version}. Volt ships one version — bump both.`)
-  process.exit(1)
-}
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], true)
 if (branch !== "dev") {
   console.error(`✗ on '${branch}', not 'dev'. Releases cut from dev — merge the version bump first, then re-run.`)
