@@ -11,13 +11,17 @@ public static class Files
 
     public static string StripSrcPrefix(string p) => p.StartsWith(SrcDir + "/", StringComparison.Ordinal) ? p.Substring(SrcDir.Length + 1) : p;
 
-    public static void WriteSrcFiles(string root, IReadOnlyList<SrcFile> files)
+    // onProgress (done, total) lets a large init report disk-write progress — kept as a plain callback so Files
+    // stays decoupled from the wire's ProgressFrame; the caller maps it.
+    public static void WriteSrcFiles(string root, IReadOnlyList<SrcFile> files, Action<int, int>? onProgress = null)
     {
-        foreach (var f in files)
+        for (var i = 0; i < files.Count; i++)
         {
+            var f = files[i];
             var abs = System.IO.Path.Combine(root, SrcDir, f.Path);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(abs)!);
             File.WriteAllText(abs, f.Content);
+            if (onProgress != null && ((i + 1) % 25 == 0 || i + 1 == files.Count)) onProgress(i + 1, files.Count);
         }
     }
 
