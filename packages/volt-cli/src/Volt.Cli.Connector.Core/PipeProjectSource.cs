@@ -66,8 +66,14 @@ namespace Volt.Cli.Connector
             foreach (var proj in inst.Projects ?? Enumerable.Empty<WireProject>())
             {
                 if (proj.Project is null) continue;
-                if (proj.SubProjects is { Count: > 0 } subs)
-                    foreach (var sub in subs) list.Add(Make(vendor, pipe, inst, proj.Project, sub, proj.Dirty, sub));
+                var subs = proj.SubProjects;
+                if (subs is { Count: > 1 })
+                    // Multiple PLC projects under one IDE project — qualify each by its sub-project name to tell them apart.
+                    foreach (var sub in subs) list.Add(Make(vendor, pipe, inst, proj.Project, sub, proj.Dirty, $"{proj.Project} / {sub}"));
+                else if (subs is { Count: 1 })
+                    // The common case: one PLC project. Show the IDE PROJECT name (meaningful — "TwinCAT Project13"),
+                    // not the PLC child's often-default name ("Untitled1"); still attach the sub so select targets it.
+                    list.Add(Make(vendor, pipe, inst, proj.Project, subs[0], proj.Dirty, proj.Project));
                 else
                     list.Add(Make(vendor, pipe, inst, proj.Project, null, proj.Dirty, proj.Project));
             }

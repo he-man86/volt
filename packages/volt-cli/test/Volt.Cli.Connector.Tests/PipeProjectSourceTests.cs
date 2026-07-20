@@ -57,10 +57,29 @@ public class PipeProjectSourceTests
 
         var projects = await src.EnumerateAsync();
 
-        Assert.Equal(new[] { "PLC_A", "PLC_B" }, projects.Select(p => p.DisplayName));
+        // Multiple PLC projects → qualify each by its sub-project so they're distinguishable.
+        Assert.Equal(new[] { "TwinCAT Project1 / PLC_A", "TwinCAT Project1 / PLC_B" }, projects.Select(p => p.DisplayName));
         // Each carries the full attach coordinates (instance + TwinCAT project + PLC sub-project).
         Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_A"), projects[0].Attach);
         Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_B"), projects[1].Attach);
+    }
+
+    [Fact]
+    public async Task Enumerate_shows_the_ide_project_name_for_a_single_plc_subproject()
+    {
+        // The reported case: one PLC project left at TwinCAT's default name. The entry should read as the IDE
+        // project ("TwinCAT Project13"), NOT the default child ("Untitled1") — while still attaching the sub.
+        var wire = new FakeBridgeWire().On("instances",
+            """
+            { "instances": [ { "instanceId": "vs-1", "projects": [
+                { "project": "TwinCAT Project13", "subProjects": [ "Untitled1" ] } ] } ] }
+            """);
+        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
+
+        var p = Assert.Single(await src.EnumerateAsync());
+
+        Assert.Equal("TwinCAT Project13", p.DisplayName);
+        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project13", "Untitled1"), p.Attach);
     }
 
     [Fact]
