@@ -10,7 +10,7 @@ namespace Volt.Cli.Transport;
 
 /// <summary>Client for <see cref="PipeServer"/>: connect, send one request, forward progress frames to a callback,
 /// return the terminal result (or throw <see cref="PipeCallException"/> on an error frame). Mirrors the old
-/// NDJSON-over-HTTP client — the CLI and the connector both drive it.</summary>
+/// NDJSON-over-pipe client — the CLI and the connector both drive it.</summary>
 public sealed class PipeClient
 {
     private static readonly JsonSerializerOptions Json = new()

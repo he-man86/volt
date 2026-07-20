@@ -32,11 +32,11 @@ public static class FetchService
         var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
             ? new HashSet<string>(request.OnlyItems) : null;
 
-        // Normal /fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
-        // did it forget to supply a sidecar? The /init endpoint should be used for the first pull instead.
+        // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
+        // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.
         // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
         if (!isInit && request.KnownItems == null && request.OnlyItems == null)
-            throw new BridgeException(BridgeErrorCodes.NoSidecar, "supply knownItems to diff against, or use POST /init for the first pull");
+            throw new BridgeException(BridgeErrorCodes.NoSidecar, "supply knownItems to diff against, or run `volt init` for the first pull");
 
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();

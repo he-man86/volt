@@ -13,8 +13,8 @@ public sealed class PipeRequest
 }
 
 /// <summary>One response frame: exactly one of <c>progress</c> (zero or more), then a terminal <c>result</c> or
-/// <c>error</c>. Omit-when-null means each serialized frame carries a single key — same shape the HTTP NDJSON
-/// stream used, so clients port over unchanged.</summary>
+/// <c>error</c>. Omit-when-null means each serialized frame carries a single key — a newline-delimited JSON stream
+/// over the pipe.</summary>
 internal sealed class PipeFrame
 {
     [JsonPropertyName("progress")] public object? Progress { get; set; }
