@@ -79,6 +79,35 @@ public static class Git
     public static string WriteBlob(string gitDir, string content) =>
         Run(new[] { "--git-dir", gitDir, "hash-object", "-w", "--stdin" }, Encoding.UTF8.GetBytes(content)).StdOut.Trim();
 
+    /// <summary>Hash+write many blobs in ONE `git hash-object` process instead of one per file. The per-file spawn
+    /// is the dominant cost of a large `init` (8k items ⇒ 8k git processes ≈ minutes); batching cuts it to one.
+    /// Each content is written to a temp file, all paths fed via `--stdin-paths`, SHAs returned in input order.
+    /// `--no-filters` + raw UTF-8 bytes keep the object byte-identical to the single-blob `--stdin` path (no
+    /// path-based CRLF/clean filters). <paramref name="onProgress"/> ticks the temp-write loop.</summary>
+    public static List<string> WriteBlobs(string gitDir, IReadOnlyList<string> contents, Action<int, int>? onProgress = null)
+    {
+        if (contents.Count == 0) return new List<string>();
+        var dir = Directory.CreateTempSubdirectory("voltg-blobs-").FullName;
+        try
+        {
+            var paths = new List<string>(contents.Count);
+            for (var i = 0; i < contents.Count; i++)
+            {
+                var p = Path.Combine(dir, i.ToString());
+                File.WriteAllBytes(p, Encoding.UTF8.GetBytes(contents[i]));
+                paths.Add(p);
+                if (onProgress != null && ((i + 1) % 25 == 0 || i + 1 == contents.Count)) onProgress(i + 1, contents.Count);
+            }
+            var stdin = string.Join("\n", paths) + "\n";
+            var shas = Run(new[] { "--git-dir", gitDir, "hash-object", "-w", "--no-filters", "--stdin-paths" },
+                Encoding.UTF8.GetBytes(stdin)).StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (shas.Length != contents.Count)
+                throw new GitError("hash-object --stdin-paths", -1, $"expected {contents.Count} SHAs, got {shas.Length}");
+            return shas.Select(s => s.Trim()).ToList();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch { /* temp cleanup best-effort */ } }
+    }
+
     /// <summary>Recursive blob listing of a tree/commit (no subtree rows).</summary>
     public static List<TreeEntry> ListTree(string gitDir, string treeish)
     {
