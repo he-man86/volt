@@ -8,6 +8,8 @@ import {
   push,
   build,
   initFromProject,
+  reconnectBound,
+  disconnect,
   mergeContinue,
   mergeAbort,
   describePull,
@@ -137,6 +139,24 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       await st.refresh(true)
       void runDiagnostics(shell) // a build can change diagnostics
       if (r.code !== 0) notify("error", `Build failed: ${firstLine(r.stderr) || `exit ${r.code}`}`)
+    }),
+  )
+  ipcMain.handle("volt:connect", () =>
+    runGuarded(async () => {
+      const st = shell.status
+      if (!st) return
+      const r = await reconnectBound(st.workspaceRoot)
+      clearProgress()
+      await st.refresh(true) // reflect the new bridge selection in status
+      if (r.ok) notify("info", "Reconnected to the IDE.")
+      else notify("error", r.message ?? "Reconnect failed.")
+    }),
+  )
+  ipcMain.handle("volt:disconnect", () =>
+    runGuarded(async () => {
+      await disconnect() // clear the active connection; every host stays live
+      clearProgress()
+      await shell.status?.refresh(true)
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))

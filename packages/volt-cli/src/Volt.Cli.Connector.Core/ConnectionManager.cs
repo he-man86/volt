@@ -31,9 +31,6 @@ namespace Volt.Cli.Connector
             }
         }
 
-        /// <summary>Anything changed (projects / health / selection) — re-render the views.</summary>
-        public event Action? Changed;
-
         /// <summary>A connect succeeded — carry the project so the UI can toast "Connected to X (vendor)".</summary>
         public event Action<DetectedProject>? Connected;
 
@@ -59,31 +56,44 @@ namespace Volt.Cli.Connector
             var merged = new List<DetectedProject>();
             foreach (var s in _sources)
             {
-                try { _health[s.Vendor] = await s.ProbeAsync(); }
+                // Health of the connected instance's bridge (CODESYS probes the selected pipe; TwinCAT ignores it).
+                try { _health[s.Vendor] = await s.ProbeAsync(SelectedOf(s.Vendor)); }
                 catch { _health[s.Vendor] = new BridgeHealth { Status = BridgeStatus.Unreachable }; }
 
                 try { merged.AddRange(await s.EnumerateAsync()); }
                 catch { /* unreachable / mid-load → contributes no projects this tick */ }
             }
             _projects = merged;
-            // Drop a stale selection whose project is no longer detected (the IDE closed it).
+            // Drop a stale selection whose project is no longer detected (its IDE/host closed).
             foreach (var vendor in _selected.Keys.ToList())
                 if (_selected[vendor] is { } sel && merged.All(p => p.Id != sel.Id))
                     _selected[vendor] = null;
-            Changed?.Invoke();
         }
 
-        /// <summary>Connect a detected project via its own vendor's source, then remember it as that vendor's
-        /// selection. Routing is by <see cref="DetectedProject.Vendor"/> — the caller never chose a vendor.</summary>
+        /// <summary>Connect a detected project via its own vendor's source, then remember it as THE one active
+        /// connection — connecting anything clears every other selection (one connected at a time, vendor-neutral;
+        /// every host stays live, so switching is just another connect). Routing is by
+        /// <see cref="DetectedProject.Vendor"/> — the caller never chose a vendor.</summary>
         public async Task ConnectAsync(DetectedProject project)
         {
             if (!_byVendor.TryGetValue(project.Vendor, out var source))
                 throw new InvalidOperationException($"no source for vendor '{project.Vendor}'");
             await source.BindAsync(project);
+            foreach (var v in _selected.Keys.ToList()) _selected[v] = null; // one active connection
             _selected[project.Vendor] = project;
             Connected?.Invoke(project);
-            Changed?.Invoke();
         }
+
+        /// <summary>Clear the active connection (deselect). Nothing is torn down — every activated CODESYS host and
+        /// running TwinCAT project stays live and re-connectable; this only forgets which one is "connected".</summary>
+        public void Disconnect()
+        {
+            foreach (var v in _selected.Keys.ToList()) _selected[v] = null;
+        }
+
+        /// <summary>The one active connection across all vendors (or null). Vendor-neutral — the single-connection
+        /// abstraction the UI + control plane sit on.</summary>
+        public DetectedProject? ActiveConnection => _selected.Values.FirstOrDefault(p => p != null);
 
         /// <summary>The single status the tray icon reflects: the most informative ALIVE state, never an alarmist
         /// colour just because a vendor isn't in use. Connected wins, then a degraded live channel, then "up,

@@ -7,8 +7,12 @@ using System.Text.Json;
 
 namespace Volt.Cli.Connector
 {
-    /// <summary>One project the connector detected, flattened for the control plane / any first-party client.</summary>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected);
+    /// <summary>One project the connector detected, flattened for the control plane / any first-party client.
+    /// <c>Pipe</c> is the bridge pipe serving it (per-pid for CODESYS) — the shells set it as <c>VOLT_PIPE</c> for
+    /// <c>volt init</c>; <c>IdeVersion</c> disambiguates same-named projects across IDE versions. <c>ProjectName</c>
+    /// is the name the workspace BINDING matches on (the vendor's <c>health.ProjectName</c> = the TwinCAT project /
+    /// the CODESYS project) — NOT <c>DisplayName</c>, which for TwinCAT is the PLC sub-project.</summary>
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
 
     /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
     /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word;
@@ -27,7 +31,8 @@ namespace Volt.Cli.Connector
     /// code flows); this control API is purely orchestration. Localhost only.
     ///
     ///   GET  /status                 → ConnectorView (aggregate status + the unified project list)
-    ///   POST /connect                → body { projectId } — connect to a detected project
+    ///   POST /connect                → body { projectId } — make a detected project the active connection
+    ///   POST /disconnect             → clear the active connection (hosts stay live)
     ///   POST /workers/{id}/restart   → respawn a worker
     /// </summary>
     public sealed class ControlServer : IDisposable
@@ -37,15 +42,17 @@ namespace Volt.Cli.Connector
         private readonly HttpListener _listener = new();
         private readonly Func<ConnectorView> _snapshot;
         private readonly Func<string, bool> _connect;   // projectId → connected?
+        private readonly Action _disconnect;            // clear the active connection
         private readonly Action<string> _restart;       // worker id
         private volatile bool _running;
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-        public ControlServer(Func<ConnectorView> snapshot, Func<string, bool> connect, Action<string> restart)
+        public ControlServer(Func<ConnectorView> snapshot, Func<string, bool> connect, Action disconnect, Action<string> restart)
         {
             _snapshot = snapshot;
             _connect = connect;
+            _disconnect = disconnect;
             _restart = restart;
         }
 
@@ -93,6 +100,13 @@ namespace Volt.Cli.Connector
                 var id = ReadBody<ConnectBody>(ctx)?.ProjectId;
                 var ok = !string.IsNullOrEmpty(id) && _connect(id!);
                 WriteJson(ctx, ok ? 200 : 400, new { ok });
+                return;
+            }
+
+            if (method == "POST" && path == "disconnect")
+            {
+                _disconnect();   // clear the active connection; every host stays live
+                WriteJson(ctx, 200, new { ok = true });
                 return;
             }
 

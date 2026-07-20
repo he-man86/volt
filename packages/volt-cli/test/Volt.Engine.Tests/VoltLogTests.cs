@@ -7,7 +7,7 @@ using Xunit;
 namespace Volt.Cli.Tests;
 
 /// <summary>The durable logger writes timestamped, source-tagged, leveled lines to a daily per-source file in
-/// the shared store — the thing a field issue is diagnosed from (and what the collect-diagnostics zip bundles).</summary>
+/// the shared store — the thing a field issue is diagnosed from.</summary>
 public class VoltLogTests
 {
     [Fact]

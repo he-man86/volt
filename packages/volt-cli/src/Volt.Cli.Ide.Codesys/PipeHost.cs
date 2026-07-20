@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Volt.Engine.Diagnostics;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
@@ -16,6 +17,7 @@ public static class PipeHost
 {
     private static BridgePipeHost? _host;
     private static CodesysDriver? _driver;
+    private static string _pipeName = PipeNames.Codesys;
     private static readonly object _gate = new();
 
     public static bool IsRunning => _host is not null;
@@ -24,15 +26,22 @@ public static class PipeHost
     {
         lock (_gate)
         {
-            if (IsRunning) return $"Volt bridge already running on pipe {PipeNames.Codesys}";
+            if (IsRunning) return $"Volt bridge already running on pipe {_pipeName}";
+
+            // Each CODESYS process serves its OWN pipe so multiple instances coexist without colliding. VOLT_PIPE
+            // overrides (the headless dev loop + e2e pin a fixed name); otherwise it's volt.bridge.codesys.<pid>.
+            var overridePipe = Environment.GetEnvironmentVariable("VOLT_PIPE");
+            _pipeName = string.IsNullOrEmpty(overridePipe)
+                ? PipeNames.CodesysInstance(Process.GetCurrentProcess().Id)
+                : overridePipe!;
 
             VoltLog.Init("codesys");
-            VoltLog.Info($"in-proc bridge starting on pipe {PipeNames.Codesys}");
+            VoltLog.Info($"in-proc bridge starting on pipe {_pipeName}");
 
             _driver = new CodesysDriver(projects);
             _driver.Connect(); // snapshot on the primary thread (we are on it now)
 
-            _host = new BridgePipeHost(_driver, PipeNames.Codesys);
+            _host = new BridgePipeHost(_driver, _pipeName);
             try { _host.Start(); }
             catch (Exception ex)
             {
@@ -43,7 +52,7 @@ public static class PipeHost
             }
 
             var where = _driver.IsConnected ? "connected to IDE" : "no IDE engine";
-            return $"Volt bridge started on pipe {PipeNames.Codesys} ({where})";
+            return $"Volt bridge started on pipe {_pipeName} ({where})";
         }
     }
 

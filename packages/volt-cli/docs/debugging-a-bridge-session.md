@@ -21,7 +21,7 @@ Per-source, daily-rotated files, pruned after 14 days:
 Each line: `[timestamp][source][level] message`. Default level is **Info**; per-item drop detail is **Debug**
 (see "Turning on Debug" below).
 
-To collect a session, zip that folder (the connector's collect-diagnostics bundle does this for you).
+To collect a session, zip that folder.
 
 ## What the sync lines mean
 

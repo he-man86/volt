@@ -48,15 +48,17 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // ── project discovery + selection (the connector's instances / select) ──
     /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single instance/project
     /// (CODESYS has no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's
-    /// multi-instance ROT enumeration — the connector shows both in the same unified list.</summary>
+    /// multi-instance ROT enumeration — the connector shows both in the same unified list. The instance id is this
+    /// process's pid, so two running CODESYS (even with the same project name) stay distinguishable end-to-end.</summary>
     public override InstancesResult EnumerateInstances()
     {
         var name = _om.ProjectName;
         if (string.IsNullOrEmpty(name)) return new InstancesResult(new List<IdeInstance>());
         var proj = new IdeProject(name!, _om.ProjectDirty, new List<string>());
+        var instanceId = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
         return new InstancesResult(new List<IdeInstance>
         {
-            new IdeInstance("codesys", "CODESYS", IdeVersion, new List<IdeProject> { proj }),
+            new IdeInstance(instanceId, "CODESYS", IdeVersion, new List<IdeProject> { proj }),
         });
     }
 

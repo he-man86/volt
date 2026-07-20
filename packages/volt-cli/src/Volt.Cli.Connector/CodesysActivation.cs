@@ -11,39 +11,53 @@ namespace Volt.Cli.Connector
     /// </summary>
     public static class CodesysActivation
     {
-        /// <summary>The shipped <c>start_pipe.py</c> the user executes inside CODESYS, or null if it can't be
-        /// located beside the connector / dev tree.</summary>
-        public static string? ScriptPath()
+        /// <summary>The install-dir (hidden, AppData) copy of <c>start_pipe.py</c> — the backup, shipped beside the
+        /// connector; also covers the dev tree.</summary>
+        private static string? BackupScriptPath()
         {
             var baseDir = AppContext.BaseDirectory;
             foreach (var c in new[]
             {
-                Environment.GetEnvironmentVariable("VOLT_CODESYS_SCRIPT"),
                 Path.Combine(baseDir, "codesys-scriptcommands", "start_pipe.py"),
                 Path.Combine(baseDir, "..", "..", "..", "..", "..", "..", "volt-cli", "scripts", "start_pipe.py"),
             })
             {
-                if (string.IsNullOrEmpty(c)) continue;
                 var full = Path.GetFullPath(c);
                 if (File.Exists(full)) return full;
             }
             return null;
         }
 
-        /// <summary>What to copy to the clipboard: the script path (for CODESYS's Execute-Script-File dialog).</summary>
+        /// <summary>The <c>start_pipe.py</c> the user executes inside CODESYS: the VISIBLE Documents\Volt copy
+        /// first (published on connector startup), then the install-dir backup / dev tree. Null if none exist.</summary>
+        public static string? ScriptPath()
+        {
+            var env = Environment.GetEnvironmentVariable("VOLT_CODESYS_SCRIPT");
+            if (!string.IsNullOrEmpty(env) && File.Exists(Path.GetFullPath(env))) return Path.GetFullPath(env);
+            if (File.Exists(VoltEnv.VisibleScript)) return VoltEnv.VisibleScript;
+            return BackupScriptPath();
+        }
+
+        /// <summary>What to copy to the clipboard: the primary script path (for CODESYS's Execute-Script-File dialog).</summary>
         public static string ClipboardText() => ScriptPath() ?? "start_pipe.py";
 
-        /// <summary>Human steps shown in the activation dialog / hint.</summary>
+        /// <summary>Human steps shown in the activation dialog / hint. Shows BOTH the visible Documents copy (the
+        /// one to run) and the install-dir backup, so the user can find it either way.</summary>
         public static string Steps()
         {
-            var script = ScriptPath();
+            var primary = ScriptPath();
+            var backup = BackupScriptPath();
+            var backupLine = backup != null && !string.Equals(backup, primary, StringComparison.OrdinalIgnoreCase)
+                ? $"\nBackup copy (if you can’t find the above):\n  {backup}\n"
+                : "";
             return
                 "Activate Volt inside your open CODESYS — Volt never launches CODESYS:\n\n" +
                 "  1.  Open your project in CODESYS.\n" +
                 "  2.  Tools → Scripting → Execute Script File…\n" +
-                $"  3.  Choose:  {script ?? "start_pipe.py  (shipped beside the connector)"}\n\n" +
-                "Volt then detects the project here — pick it from “Connect to”.\n" +
-                "(“Copy script path” puts the path above on your clipboard for the file dialog.)";
+                $"  3.  Choose:  {primary ?? "start_pipe.py  (shipped beside the connector)"}\n" +
+                backupLine +
+                "\nVolt then detects the project here — pick it from “Connect to”.\n" +
+                "(“Copy script path” puts the primary path on your clipboard for the file dialog.)";
         }
     }
 }

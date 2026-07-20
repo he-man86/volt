@@ -44,3 +44,6 @@ tsconfig.tsbuildinfo
 .opencode/tool/volt.ts
 .turbo
 .oc-console-check
+
+# CODESYS per-user session files, generated when a test .project is opened (headless multi-instance smoke)
+packages/volt-cli/test/*.opt

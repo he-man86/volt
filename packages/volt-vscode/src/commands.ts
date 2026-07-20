@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, init as voltInit, initFromProject, detectedProjects, readBridgeVendor,
+	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, detectedProjects, readBridgeVendor,
 	mergeContinue, mergeAbort, mergeResolve,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
@@ -229,6 +229,18 @@ async function pickProject(projects: DetectedProject[]): Promise<DetectedProject
 	return pick?.project
 }
 
+/** Re-point the bridge at the bound project (the "Reconnect" action) — reopening a bound workspace doesn't
+ *  re-fire the connect, so this is how the user recovers when the bridge drifts to another/no project. */
+async function doReconnect(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
+	const r = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "Reconnecting to the IDE…" },
+		() => reconnectBound(workspaceRoot),
+	)
+	await statuses.get(workspaceRoot)?.refresh(true) // reflect the new bridge selection
+	if (r.ok) vscode.window.showInformationMessage("Reconnected to the IDE.")
+	else vscode.window.showErrorMessage(r.message ?? "Reconnect failed.")
+}
+
 async function doBuild(workspaceRoot: string): Promise<void> {
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "volt build" },
@@ -269,6 +281,12 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.takeIdeVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "ide")),
 		reg("volt.takeMyVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "mine")),
 
+		reg("volt.connect", async () => { const w = ws(); if (w) await doReconnect(statuses, w) }),
+		reg("volt.disconnect", async () => {
+			await disconnect() // clear the active connection; every host stays live
+			for (const s of statuses.values()) await s.refresh(true)
+			vscode.window.showInformationMessage("Disconnected. Every IDE stays live — connect again to switch.")
+		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		reg("volt.status", async () => {
 			const s = pickStatus(statuses)

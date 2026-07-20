@@ -435,6 +435,18 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "volt.connect",
+        "title": "Volt: Reconnect (re-point the bridge at the bound project)",
+        "category": "Volt",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "volt.disconnect",
+        "title": "Volt: Disconnect (clear the active connection; IDEs stay live)",
+        "category": "Volt",
+        "icon": "$(debug-disconnect)"
+      },
+      {
         "command": "volt.build",
         "title": "Volt: Build (writes diagnostics to Problems panel)",
         "category": "Volt",
@@ -541,9 +553,19 @@
           "group": "navigation@3"
         },
         {
-          "command": "volt.refresh",
+          "command": "volt.connect",
           "when": "view == volt.views.sync && volt.workspaceInitialized",
           "group": "navigation@4"
+        },
+        {
+          "command": "volt.disconnect",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
+          "group": "navigation@5"
+        },
+        {
+          "command": "volt.refresh",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
+          "group": "navigation@6"
         },
         {
           "submenu": "volt.more",

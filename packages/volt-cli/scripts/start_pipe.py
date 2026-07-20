@@ -10,13 +10,19 @@ loop keeps the pipe served (no pump needed here — unlike run_pipe_headless.py)
 
 DLL resolution (first that exists wins):
   1. $VOLT_BRIDGE_DLL                              explicit override
-  2. <this folder>/Volt.Cli.Ide.Codesys.dll       production (shipped beside this script)
-  3. repo build output (absolute)                  dev, this machine
+  2. <this folder>/Volt.Cli.Ide.Codesys.dll       shipped beside this script (backup copy in the install dir)
+  3. %LOCALAPPDATA%\Programs\Volt\...              the install dir — where the DLLs live when this script was
+                                                   published to a visible folder (Documents\Volt) that has no DLL
+  4. repo build output (absolute)                  dev, this machine
 """
 from __future__ import print_function
 import os
 
 _DLL_NAME = "Volt.Cli.Ide.Codesys.dll"
+
+# The default per-user install dir subfolder that holds the bridge DLLs (installer/Volt.iss lays it here). Lets
+# the visible Documents\Volt copy of this script find the DLLs that stay in the (hidden) install dir.
+_INSTALL_SUBDIR = ("Programs", "Volt", "codesys-scriptcommands")
 
 # Dev build output on this machine (CODESYS "Execute Script File" does not set __file__).
 _REPO_BIN = r"C:\Users\marce\Github\volt\packages\volt-cli\src\Volt.Cli.Ide.Codesys\bin"
@@ -37,6 +43,10 @@ def _candidates():
     here = _script_dir()
     if here:
         out.append(os.path.join(here, _DLL_NAME))
+    # The install dir (the DLLs stay here even when this script was published to a visible Documents\Volt folder).
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        out.append(os.path.join(local, *_INSTALL_SUBDIR, _DLL_NAME))
     out.append(os.path.join(_REPO_BIN, "Release", "net48", _DLL_NAME))
     out.append(os.path.join(_REPO_BIN, "Debug", "net48", _DLL_NAME))
     return out

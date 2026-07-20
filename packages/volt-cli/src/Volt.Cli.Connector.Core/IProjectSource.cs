@@ -26,7 +26,9 @@ namespace Volt.Cli.Connector
         /// The project's <see cref="DetectedProject.Attach"/> is this source's own payload.</summary>
         Task BindAsync(DetectedProject project);
 
-        /// <summary>Current health of this source's bridge (used for the aggregate tray colour + status text).</summary>
-        Task<BridgeHealth> ProbeAsync();
+        /// <summary>Health of the given project's bridge (the tray colour + status text). <paramref name="selected"/>
+        /// is the currently-connected project of this vendor (or null) — a vendor with per-instance bridges
+        /// (CODESYS) probes that instance's pipe; a single-bridge vendor (TwinCAT) ignores it.</summary>
+        Task<BridgeHealth> ProbeAsync(DetectedProject? selected);
     }
 }

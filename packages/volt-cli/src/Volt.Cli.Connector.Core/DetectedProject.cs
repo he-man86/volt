@@ -18,10 +18,14 @@ namespace Volt.Cli.Connector
         string DisplayName,  // what the user sees — the project name ("MyMachine")
         string Vendor,       // "codesys" | "twincat" — drives the prefix/logo + connect routing
         bool Dirty,          // unsaved-changes indicator (shown as a dot/asterisk)
-        ProjectRef Attach)   // the owning source's bind payload (opaque to the UI)
+        ProjectRef Attach,   // the owning source's bind payload (opaque to the UI)
+        string? Pipe = null, // the bridge pipe that serves this project (per-pid for CODESYS, the worker pipe for
+                             // TwinCAT) — the source targets it, and the CLI/shells read it (VOLT_PIPE for init)
+        string? IdeVersion = null) // for the label when a vendor has >1 live instance
     {
         /// <summary>Build the stable id from the vendor + attach coordinates, so the same open project keeps the
-        /// same id across refreshes (selection survives re-enumeration).</summary>
+        /// same id across refreshes (selection survives re-enumeration). CODESYS's instance is its pid, so two
+        /// same-named projects in two processes get distinct ids.</summary>
         public static string MakeId(string vendor, ProjectRef a) =>
             string.Join(":", vendor, a.Instance ?? "", a.Project, a.SubProject ?? "");
     }

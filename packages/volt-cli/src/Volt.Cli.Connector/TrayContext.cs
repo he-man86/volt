@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -27,7 +27,6 @@ namespace Volt.Cli.Connector
         private ToolStripMenuItem _headerItem = null!;
         private ToolStripMenuItem _connectItem = null!;
         private ToolStripMenuItem _updateItem = null!;
-        private ConnectorWindow? _window;
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
@@ -45,10 +44,10 @@ namespace Volt.Cli.Connector
                 Icon = StatusIcons.For(BridgeStatus.Unknown),
                 ContextMenuStrip = BuildMenu(),
             };
-            _icon.DoubleClick += (_, _) => OpenWindow();   // the branded window is the primary surface
+            _icon.DoubleClick += (_, _) => _icon.ContextMenuStrip?.Show(Cursor.Position);
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
-            _control = new ControlServer(Snapshot, ConnectById, RestartWorker);
+            _control = new ControlServer(Snapshot, ConnectById, () => _conn.Disconnect(), RestartWorker);
             _control.Start();
             Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
@@ -97,7 +96,7 @@ namespace Volt.Cli.Connector
             }).ToList(),
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
-                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id)).ToList());
+                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id, p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
 
         private bool ConnectById(string projectId)
         {
@@ -132,15 +131,9 @@ namespace Volt.Cli.Connector
             menu.Items.Add(_headerItem);
             menu.Items.Add(new ToolStripSeparator());
 
-            var open = new ToolStripMenuItem("Open Volt", null, (_, _) => OpenWindow());
-            open.Font = new Font(open.Font, FontStyle.Bold);
-            menu.Items.Add(open);
-
-            _connectItem = new ToolStripMenuItem("Connect to");
+            _connectItem = new ToolStripMenuItem("Connect to") { Image = Glyph("") }; // Link
             _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
             menu.Items.Add(_connectItem);
-
-            menu.Items.Add(new ToolStripMenuItem("Activate in CODESYS…", null, (_, _) => ShowCodesysActivation()));
             menu.Items.Add(new ToolStripSeparator());
 
             _updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) =>
@@ -148,12 +141,33 @@ namespace Volt.Cli.Connector
                 _updateItem.Enabled = false;
                 _updateItem.Text = "Downloading update…";
                 Updater.RestartToApply();
-            }) { Visible = false };
+            }) { Visible = false, Image = Glyph("") }; // UpdateRestore
             menu.Items.Add(_updateItem);
-            menu.Items.Add("Show logs", null, (_, _) => ShowLogs());
-            menu.Items.Add("Collect diagnostics", null, (_, _) => CollectDiagnostics());
-            menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
+            menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(""), (_, _) => ShowLogs())); // Page
+
+            // ── Help ──
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(new ToolStripMenuItem("Activate in CODESYS…", Glyph("", VoltAccent), (_, _) => ShowCodesysActivation())); // Help
+            menu.Items.Add(new ToolStripMenuItem("Exit", Glyph(""), (_, _) => ExitThreadCore())); // ChromeClose
             return menu;
+        }
+
+        // Volt's accent (blue), used to tint the help glyph so it reads as a help affordance.
+        private static readonly Color VoltAccent = Color.FromArgb(0x2F, 0x7C, 0xF6);
+
+        /// <summary>A 16×16 monochrome menu icon from the built-in Segoe MDL2 Assets glyph font (ships on
+        /// Win10/11) — a themed icon with no image assets to bundle. Colour defaults to the menu text colour.</summary>
+        private static Image Glyph(string ch, Color? color = null)
+        {
+            var bmp = new Bitmap(16, 16);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.Transparent);
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            using var f = new Font("Segoe MDL2 Assets", 7.5f);
+            using var b = new SolidBrush(color ?? SystemColors.MenuText);
+            using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString(ch, f, b, new RectangleF(0, 0, 16, 16), fmt);
+            return bmp;
         }
 
         /// <summary>Repopulate the ONE unified "Connect to" list — every detected project across all vendors,
@@ -168,13 +182,23 @@ namespace Volt.Cli.Connector
                 _connectItem.DropDownItems.Add(new ToolStripMenuItem("Don't see CODESYS? Activate in CODESYS…", null, (_, _) => ShowCodesysActivation()));
                 return;
             }
-            foreach (var p in _conn.Projects.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+            // When a vendor has more than one live instance, show the IDE version so same-named projects (e.g. the
+            // same project open in two CODESYS versions) are distinguishable.
+            var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+            foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
             {
                 var connected = _conn.SelectedOf(p.Vendor)?.Id == p.Id;
-                var label = $"{_conn.DisplayNameOf(p.Vendor)} · {p.DisplayName}{(p.Dirty ? " *" : "")}";
+                var ver = multi.Contains(p.Vendor) && !string.IsNullOrEmpty(p.IdeVersion) ? $" ({p.IdeVersion})" : "";
+                var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.DisplayName}{(p.Dirty ? " *" : "")}";
                 var captured = p;
                 _connectItem.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => ConnectTo(captured)) { Checked = connected });
             }
+            // Disconnect = clear the active connection (every host stays live). Enabled only when one is connected.
+            _connectItem.DropDownItems.Add(new ToolStripSeparator());
+            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(""), (_, _) => _conn.Disconnect()) // PowerButton
+            {
+                Enabled = _conn.ActiveConnection != null,
+            });
         }
 
         private async void ConnectTo(DetectedProject p)
@@ -189,17 +213,7 @@ namespace Volt.Cli.Connector
             MessageBox.Show(CodesysActivation.Steps(), "Activate Volt in CODESYS", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private void OpenWindow()
-        {
-            if (_window == null || _window.IsDisposed)
-                _window = new ConnectorWindow(_conn, ShowCodesysActivation, ShowLogs, CollectDiagnostics);
-            _window.Show();
-            _window.WindowState = FormWindowState.Normal;
-            _window.BringToFront();
-            _window.Activate();
-        }
-
-        // ── logs / diagnostics ──────────────────────────────────────────────
+        // ── logs ──────────────────────────────────────────────
         private LogWindow? _logWindow;
 
         private void ShowLogs()
@@ -209,16 +223,6 @@ namespace Volt.Cli.Connector
             _logWindow.WindowState = FormWindowState.Normal;
             _logWindow.BringToFront();
             _logWindow.Activate();
-        }
-
-        private void CollectDiagnostics()
-        {
-            try
-            {
-                var zip = Diagnostics.Collect(_supervisor.LogDir, Snapshot(), Updater.CurrentVersion);
-                _icon.ShowBalloonTip(5000, "Volt", $"Diagnostics saved to {zip}", ToolTipIcon.Info);
-            }
-            catch (Exception ex) { _icon.ShowBalloonTip(5000, "Volt", $"Collect diagnostics failed: {ex.Message}", ToolTipIcon.Warning); }
         }
 
         private void ShowUpdateIfReady()
@@ -240,7 +244,6 @@ namespace Volt.Cli.Connector
         {
             _timer.Stop();
             _control.Dispose();
-            _window?.Dispose();
             _logWindow?.Dispose();
             _icon.Visible = false;
             _supervisor.Dispose();

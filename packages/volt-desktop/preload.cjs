@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("volt", {
   pull: () => ipcRenderer.invoke("volt:pull"),
   push: () => ipcRenderer.invoke("volt:push"),
   build: () => ipcRenderer.invoke("volt:build"),
+  connect: () => ipcRenderer.invoke("volt:connect"),
+  disconnect: () => ipcRenderer.invoke("volt:disconnect"),
   refresh: () => ipcRenderer.send("volt:refresh"),
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),
