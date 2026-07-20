@@ -67,7 +67,7 @@ first fails — a broken LSP shouldn't hide the tool's result.
 |---|---|
 | `deploy-secrets.ts` | `bun run secrets:dev` — push SST secrets for a stage |
 | `set-models.ts` | maintain the console's model catalog |
-| `check-console-divergence.ts` | path-filtered CI (`console-symmetry`) — the vendored console vs upstream opencode |
+| `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
 
 ## Where the package-specific scripts went
 
