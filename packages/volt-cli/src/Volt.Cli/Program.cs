@@ -23,21 +23,22 @@ internal static class Program
     {
         var a = ParseArgs(args);
         var root = Path.GetFullPath(a.Workspace);
-        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests); otherwise the vendor (from --vendor,
-        // else the workspace binding, else CODESYS) names the pipe directly.
+        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests). Otherwise TwinCAT is the one worker
+        // pipe and CODESYS is discovered per-instance + matched to the bound project (BridgeResolver). Resolved
+        // LAZILY so bridge-free verbs (merge/help) never probe — and so a resolution refusal surfaces in the catch.
         var pipeOverride = a.Value("--pipe") ?? Environment.GetEnvironmentVariable("VOLT_PIPE");
         var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? "codesys";
-        var bridge = string.IsNullOrEmpty(pipeOverride) ? BridgeClient.ForVendor(vendor) : new BridgeClient(pipeOverride);
+        BridgeClient Bridge() => BridgeResolver.Resolve(root, vendor, pipeOverride, isInit: a.Verb == "init");
         try
         {
             return a.Verb switch
             {
-                "init" => CmdInit(bridge, a),
-                "pull" => CmdPull(root, bridge, a),
-                "push" => CmdPush(root, bridge, a),
-                "status" => CmdStatus(root, bridge, a),
-                "build" => CmdBuild(root, bridge, a),
-                "show" => CmdShow(root, bridge, a),
+                "init" => CmdInit(Bridge(), a),
+                "pull" => CmdPull(root, Bridge(), a),
+                "push" => CmdPush(root, Bridge(), a),
+                "status" => CmdStatus(root, Bridge(), a),
+                "build" => CmdBuild(root, Bridge(), a),
+                "show" => CmdShow(root, Bridge(), a),
                 "merge" => CmdMerge(root, a),
                 "help" or "--help" => Emit(Usage, 0),
                 _ => Emit(Usage, a.Verb is null ? 0 : 1),

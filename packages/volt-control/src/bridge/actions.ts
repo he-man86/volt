@@ -9,8 +9,8 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
-import { boundStatus, connectProject, type DetectedProject } from "./connector.js"
+import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, readBoundProject, type HealthState, type Vendor } from "./health.js"
+import { boundStatus, connectProject, detectedProjects, type DetectedProject } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
@@ -85,8 +85,8 @@ export async function fetchStatus(workspaceRoot: string): Promise<StatusResult> 
 /** onProgress opts into streamed progress from the CLI (drives a real progress bar in the GUI). */
 type ProgressOpt = { onProgress?: (p: ProgressUpdate) => void }
 
-const runCli = (workspaceRoot: string, args: string[], onProgress?: (p: ProgressUpdate) => void) =>
-  runVolt(workspaceRoot, args, { onProgress })
+const runCli = (workspaceRoot: string, args: string[], onProgress?: (p: ProgressUpdate) => void, env?: Record<string, string>) =>
+  runVolt(workspaceRoot, args, { onProgress, env })
 
 /** `volt pull [--force]`. Takes the mutation gate; returns the parsed outcome. */
 export function pull(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PullOutcome> {
@@ -152,12 +152,16 @@ export function mergeResolve(workspaceRoot: string, path: string, side: "mine" |
 
 /** `volt init --vendor <codesys|twincat> [--force]`. Takes the mutation gate; streams progress when `onProgress`
  *  is set (parity with pull/push/build — the first pull inside init is the slow part on a large project). */
-export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: boolean } & ProgressOpt = {}): Promise<CliResult> {
+export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: boolean; pipe?: string | null } & ProgressOpt = {}): Promise<CliResult> {
+  // init has no binding yet, so with several CODESYS live the CLI can't resolve by project name — name the picked
+  // instance's pipe via VOLT_PIPE (the connector gave us the project's pipe).
+  const env = opts.pipe ? { VOLT_PIPE: opts.pipe } : undefined
   return withGate(workspaceRoot, () =>
     runCli(
       workspaceRoot,
       ["init", "--vendor", vendor, ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot],
       opts.onProgress,
+      env,
     ),
   )
 }
@@ -171,6 +175,27 @@ export async function initFromProject(
   opts: { force?: boolean } & ProgressOpt = {},
 ): Promise<CliResult> {
   await connectProject(project.id)
-  return init(targetRoot, project.vendor, opts)
+  return init(targetRoot, project.vendor, { ...opts, pipe: project.pipe })
+}
+
+/** Re-point the bridge at this workspace's ALREADY-bound project (the "Reconnect" action). Reopening a bound
+ *  workspace doesn't re-fire `select`, so after a connector restart / IDE re-open / project switch the bridge can
+ *  be serving the wrong project; this fires the same connect the desktop/VS Code do at init time, but resolved
+ *  from the binding instead of a picked project. Returns a message on failure for the caller to surface. */
+export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boolean; message?: string }> {
+  const bound = readBoundProject(workspaceRoot)
+  if (bound === undefined) return { ok: false, message: "This folder isn't a Volt workspace — initialize it first." }
+  const ideName = bound.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+  const ofVendor = (await detectedProjects()).filter((p) => p.vendor === bound.vendor)
+  // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
+  // the PLC sub-project. Fall back to displayName (older connector / CODESYS) then to the sole project of the vendor.
+  const match =
+    ofVendor.find((p) => (p.projectName ?? p.displayName) === bound.projectName) ??
+    (ofVendor.length === 1 ? ofVendor[0] : undefined)
+  if (match === undefined)
+    return { ok: false, message: `“${bound.projectName}” isn't detected — open it in ${ideName} and start its bridge, then Reconnect.` }
+  return (await connectProject(match.id))
+    ? { ok: true }
+    : { ok: false, message: "The Volt Connector refused the connection — is it running?" }
 }
 

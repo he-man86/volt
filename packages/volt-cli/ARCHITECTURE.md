@@ -136,8 +136,19 @@ These are irreducible differences between how the two IDEs are reached, **not** 
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
 
-Pipes: CODESYS **`volt.bridge.codesys`**, TwinCAT **`volt.bridge.twincat`** — the workspace binding stores the
-vendor (`codesys`/`twincat`), which names the pipe; `VOLT_PIPE` overrides it directly.
+Pipes — a load-bearing asymmetry that mirrors InIdeLoad vs ExternalAttach, **do not unify**:
+- **TwinCAT = one worker, one pipe `volt.bridge.twincat`.** The supervised worker enumerates every running project
+  via the COM ROT and `select`s one — multiple TwinCAT projects, one pipe, multiplexed.
+- **CODESYS = one in-proc host per running IDE, one pipe EACH: `volt.bridge.codesys.<pid>`.** There is no single
+  CODESYS bridge — every activated IDE serves its own pipe so multiple coexist without colliding. Clients find them
+  all by enumerating the pipe namespace (`PipeDiscovery` → `Volt.Cli.Transport`). The connector fans out over the
+  discovered pipes (`CodesysProjectSource`); the CLI resolves the one serving the **bound project** by name
+  (`BridgeResolver`) and REFUSES on 0/ambiguous rather than target the wrong IDE.
+
+Above the connector everything is vendor-neutral: ONE active connection, a flat project list, click to switch. The
+per-instance-pipe machinery lives entirely below `IProjectSource`. `VOLT_PIPE` overrides the pipe directly (dev,
+tests, and `volt init` — which has no binding yet — via the shell). The workspace binding stores the vendor +
+project name; `pull`/`push` resolve the live pipe at op-time.
 
 ## Build, run, test
 

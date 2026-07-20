@@ -29,8 +29,9 @@ namespace Volt.Cli.Connector
         public LogWindow()
         {
             Text = "Volt — Logs";
-            Width = 1100;
-            Height = 620;
+            Width = 1280;
+            Height = 780;
+            MinimumSize = new Size(760, 420);
             StartPosition = FormStartPosition.CenterScreen;
             try { Icon = StatusIcons.For(BridgeStatus.Connected); } catch { /* icon is cosmetic */ }
 
@@ -45,11 +46,13 @@ namespace Volt.Cli.Connector
             var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(6, 8, 6, 8) };
             top.Controls.AddRange(new Control[] { _source, _level, _search, openFolder });
 
-            _list.Columns.Add("Time", 155);
-            _list.Columns.Add("Source", 130);
-            _list.Columns.Add("Level", 80);
-            _list.Columns.Add("Message", 690);
-            _list.Font = new Font(FontFamily.GenericMonospace, 9f);
+            _list.Columns.Add("Time", 165);
+            _list.Columns.Add("Source", 150);
+            _list.Columns.Add("Level", 90);
+            _list.Columns.Add("Message", 400); // stretched to fill by FitMessageColumn on resize
+            _list.Font = new Font(FontFamily.GenericMonospace, 9.75f);
+            // Message is the last column and holds the interesting text — grow it to eat all remaining width.
+            _list.Resize += (_, _) => FitMessageColumn();
 
             _source.SelectedIndexChanged += (_, _) => { _lastRepaintHash = ""; Repaint(); };
             _level.SelectedIndexChanged += (_, _) => { _lastRepaintHash = ""; Repaint(); };
@@ -76,6 +79,14 @@ namespace Volt.Cli.Connector
             _timer.Tick += (_, _) => Repaint();
             _timer.Start();
             Repaint();
+        }
+
+        // Stretch the Message column to fill the width left over by the fixed columns (minus the scrollbar).
+        private void FitMessageColumn()
+        {
+            var used = _list.Columns[0].Width + _list.Columns[1].Width + _list.Columns[2].Width;
+            var rest = _list.ClientSize.Width - used - 4;
+            if (rest > 200) _list.Columns[3].Width = rest;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

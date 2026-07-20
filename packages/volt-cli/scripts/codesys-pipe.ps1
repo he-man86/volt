@@ -5,16 +5,20 @@
   the C# toolchain. Pipe twin of volt-bridge/scripts/codesys-bridge.ps1 — loads
   Volt.Cli.Ide.Codesys.dll and serves the pipe `volt.bridge.codesys`.
 
-.PARAMETER Action  up (launch, default) | down (stop + kill CODESYS) | logs
-.PARAMETER Version 18 or 21 (default 21)
-.PARAMETER Project fixture .project to open headless
+.PARAMETER Action   up (launch, default) | down (stop + kill CODESYS) | logs
+.PARAMETER Version  18 or 21 (default 21)
+.PARAMETER Project  fixture .project to open headless
+.PARAMETER Instance name suffix so MULTIPLE headless CODESYS can run at once (per-instance stop-flag/pid/logs). Each
+                    process serves its own volt.bridge.codesys.<pid> pipe (no VOLT_PIPE set), so two instances never
+                    collide — this is how the multi-instance path is smoke-tested end to end.
 #>
 param(
     [ValidateSet("up", "down", "logs")]
     [string]$Action = "up",
     [ValidateSet("18", "21")]
     [string]$Version = "21",
-    [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project"
+    [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project",
+    [string]$Instance = ""
 )
 $ErrorActionPreference = "Stop"
 
@@ -24,10 +28,12 @@ $install  = if ($Version -eq "21") { "C:\Program Files\CODESYS 3.5.21.40" } else
 $exe      = Join-Path $install "CODESYS\Common\CODESYS.exe"
 
 $work     = Join-Path $env:LOCALAPPDATA "volt-bridge"
-$logOut   = Join-Path $work "codesys-pipe-out.log"
-$logErr   = Join-Path $work "codesys-pipe-err.log"
-$stopFlag = Join-Path $work "stop.flag"
-$pidFile  = Join-Path $work "codesys-pipe.pid"
+if (-not (Test-Path $work)) { New-Item -ItemType Directory -Force $work | Out-Null }
+$sfx      = if ($Instance) { "-$Instance" } else { "" }   # per-instance file suffix so two can run concurrently
+$logOut   = Join-Path $work "codesys-pipe$sfx-out.log"
+$logErr   = Join-Path $work "codesys-pipe$sfx-err.log"
+$stopFlag = Join-Path $work "stop$sfx.flag"
+$pidFile  = Join-Path $work "codesys-pipe$sfx.pid"
 if (-not (Test-Path $work)) { New-Item -ItemType Directory -Force $work | Out-Null }
 
 function Get-Profile {

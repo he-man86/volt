@@ -87,7 +87,7 @@ public class PipeProjectSourceTests
             """{ "status": "healthy", "projectName": "MyMachine", "projectDirty": true }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
-        var h = await src.ProbeAsync();
+        var h = await src.ProbeAsync(null);
 
         Assert.Equal(BridgeStatus.Connected, h.Status);
         Assert.Equal("MyMachine", h.ProjectName);
@@ -103,6 +103,60 @@ public class PipeProjectSourceTests
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
         Assert.Empty(await src.EnumerateAsync());
-        Assert.Equal(BridgeStatus.Unreachable, (await src.ProbeAsync()).Status);
+        Assert.Equal(BridgeStatus.Unreachable, (await src.ProbeAsync(null)).Status);
+    }
+}
+
+/// <summary>The CODESYS source discovers a pipe per running IDE and fans out — one wire per live pipe — so the
+/// unified list shows every running CODESYS, each project carrying its serving pipe.</summary>
+public class CodesysProjectSourceTests
+{
+    private static FakeBridgeWire OneProject(string instanceId, string name) => new FakeBridgeWire().On("instances",
+        $$"""{ "instances": [ { "instanceId": "{{instanceId}}", "projects": [ { "project": "{{name}}", "dirty": false } ] } ] }""");
+
+    [Fact]
+    public async Task Fans_out_over_every_discovered_pipe_stamping_each_projects_pipe()
+    {
+        var wires = new Dictionary<string, IBridgeWire>
+        {
+            ["volt.bridge.codesys.111"] = OneProject("111", "MachineA"),
+            ["volt.bridge.codesys.222"] = OneProject("222", "MachineB"),
+        };
+        var src = new CodesysProjectSource(
+            () => wires.Keys.ToList(),
+            pipe => wires[pipe]);
+
+        var projects = (await src.EnumerateAsync()).OrderBy(p => p.DisplayName).ToList();
+
+        Assert.Equal(new[] { "MachineA", "MachineB" }, projects.Select(p => p.DisplayName));
+        Assert.Equal("volt.bridge.codesys.111", projects[0].Pipe);
+        Assert.Equal("volt.bridge.codesys.222", projects[1].Pipe);
+        // Distinct ids even if the two projects were same-named (instance = pid differs).
+        Assert.NotEqual(projects[0].Id, projects[1].Id);
+    }
+
+    [Fact]
+    public async Task Probe_targets_the_selected_projects_pipe()
+    {
+        var healthy = new FakeBridgeWire().On("health", """{ "status": "healthy", "projectName": "MachineB" }""");
+        var wires = new Dictionary<string, IBridgeWire> { ["volt.bridge.codesys.222"] = healthy };
+        var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
+        var attach = new ProjectRef("222", "MachineB", null);
+        var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MachineB", "codesys", false, attach, "volt.bridge.codesys.222");
+
+        var h = await src.ProbeAsync(selected);
+
+        Assert.Equal(BridgeStatus.Connected, h.Status);
+        Assert.Equal("MachineB", h.ProjectName);
+    }
+
+    [Fact]
+    public async Task No_pipes_probes_Unreachable_some_pipes_but_none_selected_is_Unavailable()
+    {
+        var none = new CodesysProjectSource(() => new List<string>(), _ => throw new InvalidOperationException());
+        Assert.Equal(BridgeStatus.Unreachable, (await none.ProbeAsync(null)).Status);
+
+        var some = new CodesysProjectSource(() => new List<string> { "volt.bridge.codesys.9" }, _ => new FakeBridgeWire());
+        Assert.Equal(BridgeStatus.Unavailable, (await some.ProbeAsync(null)).Status);
     }
 }

@@ -33,7 +33,7 @@ internal sealed class FakeProjectSource : IProjectSource
                          : Task.FromResult<IReadOnlyList<DetectedProject>>(Projects.ToList());
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
-    public Task<BridgeHealth> ProbeAsync() => Task.FromResult(Health);
+    public Task<BridgeHealth> ProbeAsync(DetectedProject? selected) => Task.FromResult(Health);
 }
 
 public class ConnectionManagerTests
@@ -131,5 +131,43 @@ public class ConnectionManagerTests
         await mgr.RefreshAsync();
 
         Assert.Null(mgr.SelectedOf("codesys"));
+    }
+
+    [Fact]
+    public async Task Connecting_one_project_clears_any_other_active_connection()
+    {
+        // One active connection across all vendors: connecting a TwinCAT project deselects a connected CODESYS one.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var pA = cds.Add("MachineA");
+        var pB = tc.Add("MachineB");
+        var mgr = Mgr(cds, tc);
+        await mgr.RefreshAsync();
+
+        await mgr.ConnectAsync(pA);
+        Assert.Equal(pA, mgr.ActiveConnection);
+
+        await mgr.ConnectAsync(pB);                 // switch platforms
+        Assert.Equal(pB, mgr.ActiveConnection);
+        Assert.Null(mgr.SelectedOf("codesys"));     // the CODESYS one was cleared
+        Assert.Equal(pB, mgr.SelectedOf("twincat"));
+    }
+
+    [Fact]
+    public async Task Disconnect_clears_the_active_connection_but_leaves_projects_listed()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var pA = cds.Add("MachineA");
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(pA);
+        Assert.Equal(pA, mgr.ActiveConnection);
+
+        mgr.Disconnect();
+
+        Assert.Null(mgr.ActiveConnection);
+        Assert.Null(mgr.SelectedOf("codesys"));
+        await mgr.RefreshAsync();
+        Assert.Equal(new[] { "MachineA" }, mgr.Projects.Select(p => p.DisplayName)); // host stays live/listed
     }
 }

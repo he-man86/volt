@@ -11,7 +11,7 @@
  * (`volt status` git drift included — it needs the local repo the connector knows nothing about). Never throws:
  * the connector being down resolves to an empty/unreachable state the UI renders as "start Volt".
  */
-import { readBridgeVendor, type BridgeHealth, type HealthState, type Vendor } from "./health.js"
+import { readBridgeVendor, readBoundProject, type BridgeHealth, type HealthState, type Vendor } from "./health.js"
 
 const CONTROL_BASE = "http://127.0.0.1:8550"
 
@@ -22,6 +22,14 @@ export interface DetectedProject {
   vendor: Vendor
   dirty: boolean
   connected: boolean
+  /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
+  pipe?: string | null
+  /** IDE version, shown in the label when a vendor has more than one live instance. */
+  ideVersion?: string | null
+  /** The name the workspace BINDING matches on (the vendor's health.ProjectName). Equals `displayName` for
+   *  CODESYS, but for TwinCAT it's the TwinCAT project while `displayName` is the PLC sub-project — so binding
+   *  lookups must use this, not `displayName`. */
+  projectName?: string | null
 }
 
 /** Per-vendor live bridge health from the connector (use case A) — the connector's `BridgeStatus` word. */
@@ -75,15 +83,60 @@ export async function connectProject(projectId: string, timeoutMs = 4_000): Prom
   }
 }
 
-/** The bound workspace's live connection status (use case A), reconstructed from the connector's per-vendor
- *  health — the replacement for the UI's direct pipe probe. `unknown` when unbound, `unreachable` when the
- *  connector is down. */
+/** Clear the active connection (POST /disconnect). Every activated host stays live — this only deselects, so the
+ *  user can switch by connecting another. Never throws (connector down → false). */
+export async function disconnect(timeoutMs = 4_000): Promise<boolean> {
+  try {
+    const res = await fetch(`${CONTROL_BASE}/disconnect`, { method: "POST", signal: AbortSignal.timeout(timeoutMs) })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** The bound workspace's live connection status (use case A). PER-WORKSPACE: it reflects whether THIS workspace's
+ *  bound project is live (its host is serving), NOT the connector's single global "active connection" — so two
+ *  frontends bound to two projects each show their own status correctly (with per-pid pipes both hosts are live,
+ *  there's no stealing). `unknown` when unbound, `unreachable` when the connector is down. */
 export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
-  const vendor = readBridgeVendor(workspaceRoot)
-  if (vendor === undefined) return { kind: "unknown" }
+  const bound = readBoundProject(workspaceRoot)
+  if (bound === undefined) {
+    // An old/malformed binding without a project name → fall back to the vendor bridge view (backward compat).
+    const vendor = readBridgeVendor(workspaceRoot)
+    if (vendor === undefined) return { kind: "unknown" }
+    const v = await connectorStatus()
+    if (v === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
+    return toHealthState(v.bridges.find((b) => b.vendor === vendor))
+  }
   const view = await connectorStatus()
   if (view === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
-  return toHealthState(view.bridges.find((b) => b.vendor === vendor))
+
+  // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
+  // the PLC sub-project, so displayName would never equal the bound TwinCAT-project name. Fall back to displayName
+  // for an older connector that doesn't send projectName (and CODESYS, where they're equal).
+  const matches = (p: DetectedProject) => (p.projectName ?? p.displayName) === bound.projectName
+  const proj = view.projects.find((p) => p.vendor === bound.vendor && matches(p))
+  const bridge = view.bridges.find((b) => b.vendor === bound.vendor)
+  if (proj === undefined) {
+    // The bound project's IDE isn't serving it (not open, or its bridge is down) — not the active one either way.
+    return {
+      kind: "disconnected",
+      health: { status: "unavailable", connected: false, ideName: bridge?.displayName ?? bound.vendor, projectName: bound.projectName },
+    }
+  }
+  // Detected → its host is live, so THIS workspace is connected. When it's also the global active connection the
+  // vendor bridge view carries full fidelity (activeOp etc.); otherwise report a plain live-and-connected state.
+  if (proj.connected && bridge !== undefined) return toHealthState(bridge)
+  return {
+    kind: "connected",
+    health: {
+      status: "healthy",
+      connected: true,
+      ideName: bridge?.displayName ?? bound.vendor,
+      projectName: bound.projectName,
+      projectDirty: proj.dirty,
+    },
+  }
 }
 
 /** Map the connector's per-vendor `BridgeStatusView` to the UI's `HealthState` (so consumers keep their type). */

@@ -17,10 +17,6 @@ namespace Volt.Cli.Connector
         private readonly Dictionary<string, Process> _workers = new();
         private readonly object _gate = new();
 
-        /// <summary>The shared durable log store (<c>%LOCALAPPDATA%\Volt\logs</c>) — same place the bridges log,
-        /// so one folder holds everything the log window + collect-diagnostics read.</summary>
-        public string LogDir => Log.Dir;
-
         /// <summary>Ensure the worker is running (spawn if absent or crashed). No-op when the binary can't be
         /// found. The worker starts unattached and soft-attaches to the running IDE; the user picks the project
         /// via the `select` wire op (no target env, no respawn).</summary>

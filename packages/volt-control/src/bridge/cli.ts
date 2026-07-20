@@ -44,6 +44,9 @@ const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with volt-git's reporter (P
 export interface RunOpts {
 	onProgress?: (p: ProgressUpdate) => void
 	binary?: boolean
+	/** Extra env for the CLI process — e.g. VOLT_PIPE to target a specific bridge instance (init has no binding
+	 *  yet, so the shell names the picked CODESYS instance's pipe). */
+	env?: Record<string, string>
 }
 
 /** Run the volt CLI — the ONE spawn path. stderr is buffered (minus progress frames, which stream to
@@ -53,9 +56,9 @@ export interface RunOpts {
 export function runVolt(workspaceRoot: string, args: string[], opts?: RunOpts & { binary?: false }): Promise<{ stdout: string; stderr: string; code: number }>
 export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts & { binary: true }): Promise<{ stdout: Buffer; stderr: string; code: number }>
 export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts = {}): Promise<{ stdout: string | Buffer; stderr: string; code: number }> {
-	const { onProgress, binary } = opts
+	const { onProgress, binary, env } = opts
 	return new Promise((resolve) => {
-		const child = spawnCli(workspaceRoot, args, onProgress ? { VOLT_PROGRESS_JSON: "1" } : undefined)
+		const child = spawnCli(workspaceRoot, args, { ...(onProgress ? { VOLT_PROGRESS_JSON: "1" } : {}), ...env })
 		const chunks: Buffer[] = []
 		let stderr = ""
 		let pending = "" // stderr carry across chunk boundaries, only when parsing progress lines

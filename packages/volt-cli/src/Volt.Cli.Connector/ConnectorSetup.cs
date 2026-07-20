@@ -19,8 +19,10 @@ namespace Volt.Cli.Connector
         /// wire, so the connector never branches on vendor — the vendor difference is entirely behind the pipe.</summary>
         public static IReadOnlyList<IProjectSource> Sources() => new IProjectSource[]
         {
-            new PipeProjectSource("twincat", "TwinCAT", new PipeBridgeWire(PipeNames.Twincat)),
-            new PipeProjectSource("codesys", "CODESYS", new PipeBridgeWire(PipeNames.Codesys)),
+            // TwinCAT: one supervised worker on one pipe, ROT-multiplexed. CODESYS: one in-proc host per running
+            // IDE, each on its own volt.bridge.codesys.<pid> pipe — discovered + fanned out (multiple live at once).
+            new PipeProjectSource("twincat", "TwinCAT", new PipeBridgeWire(PipeNames.Twincat), PipeNames.Twincat),
+            new CodesysProjectSource(),
         };
 
         /// <summary>The workers to spawn + supervise (ExternalAttach only). CODESYS is absent by design.</summary>

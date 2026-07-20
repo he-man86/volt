@@ -36,6 +36,16 @@ function tempWorkspace(vendor?: string): string {
   return dir
 }
 
+/** A workspace with a FULL binding (vendor + project name) — what per-workspace boundStatus resolves against. */
+function boundWorkspace(vendor: string, projectName: string): string {
+  const dir = join(tmpdir(), `volt-conn-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  mkdirSync(join(dir, ".git", "volt"), { recursive: true })
+  writeFileSync(join(dir, ".git", "volt", "config.json"), JSON.stringify({ bridge: { vendor }, project: { platform: vendor, projectName } }))
+  return dir
+}
+const proj = (vendor: string, name: string, connected: boolean, projectName?: string) => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, projectName: projectName ?? name })
+const projView = (projects: unknown[]): ConnectorView => ({ status: "Connected", bridges: [], projects: projects as ConnectorView["projects"] })
+
 describe("connector client (the UI's single source of connection status)", () => {
   test("connectorStatus parses the aggregated view", async () => {
     mockFetch(() => ({ ok: true, json: VIEW }))
@@ -95,6 +105,44 @@ describe("connector client (the UI's single source of connection status)", () =>
     try {
       mockFetch(() => new Error("down"))
       expect((await boundStatus(dir)).kind).toBe("unreachable")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("boundStatus is PER-WORKSPACE: a live bound project shows connected even when another is the active one", async () => {
+    const dir = boundWorkspace("codesys", "MachineB")
+    try {
+      // MachineA is the global active connection; MachineB is also live (its own pipe) but not highlighted.
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA", true), proj("codesys", "MachineB", false)]) }))
+      const h = await boundStatus(dir)
+      expect(h.kind).toBe("connected")
+      if (h.kind === "connected") expect(h.health.projectName).toBe("MachineB")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("boundStatus is disconnected when the bound project's IDE isn't serving it", async () => {
+    const dir = boundWorkspace("codesys", "Ghost")
+    try {
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA", true)]) }))
+      const h = await boundStatus(dir)
+      expect(h.kind).toBe("disconnected")
+      if (h.kind === "disconnected") expect(h.health.projectName).toBe("Ghost")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("boundStatus matches TwinCAT on the binding name (health projectName), NOT the PLC sub-project displayName", async () => {
+    // The binding stores the TwinCAT project name; the detected project's displayName is the PLC sub-project.
+    const dir = boundWorkspace("twincat", "project13")
+    try {
+      mockFetch(() => ({ ok: true, json: projView([proj("twincat", "Untitled1", false, "project13")]) }))
+      const h = await boundStatus(dir)
+      expect(h.kind).toBe("connected") // would be "disconnected" if we matched displayName === projectName
+      if (h.kind === "connected") expect(h.health.projectName).toBe("project13")
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

@@ -60,3 +60,16 @@ export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {
   } catch {}
   return undefined
 }
+
+/** The project a workspace is bound to (`.git/volt/config.json`: vendor + projectName), for re-pointing the
+ *  bridge at it. undefined ⇒ unbound / malformed. */
+export function readBoundProject(workspaceRoot: string): { vendor: Vendor; projectName: string } | undefined {
+  const vendor = readBridgeVendor(workspaceRoot)
+  if (vendor === undefined) return undefined
+  try {
+    const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
+    const projectName = (JSON.parse(raw) as { project?: { projectName?: unknown } }).project?.projectName
+    if (typeof projectName === "string" && projectName.length > 0) return { vendor, projectName }
+  } catch {}
+  return undefined
+}
