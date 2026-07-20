@@ -93,6 +93,19 @@ public class PipeTransportTests
         Assert.Null(op); // cleared once the op completes
     }
 
+    [Fact]
+    public void A_coded_bridge_error_reaches_the_client_as_its_real_code_not_INTERNAL_ERROR()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        // /fetch with no knownItems and not init → the service throws BridgeException(NO_SIDECAR). The wire must
+        // carry that code through to PipeCallException.Code (it used to flatten every error to INTERNAL_ERROR).
+        var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("fetch", new { }));
+        Assert.Equal("NO_SIDECAR", ex.Code);
+    }
+
     private static string? ActiveOp(string pipe)
     {
         var h = new PipeClient(pipe).Call("health");

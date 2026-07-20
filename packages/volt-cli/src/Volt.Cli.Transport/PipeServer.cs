@@ -94,7 +94,10 @@ public sealed class PipeServer : IDisposable
             }
             catch (Exception ex)
             {
-                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = "INTERNAL_ERROR", Message = ex.Message } }); }
+                // Carry a real code when the op threw one (Engine's BridgeException implements ICodedError);
+                // anything else is a genuine INTERNAL_ERROR.
+                var code = ex is ICodedError coded ? coded.ErrorCode : "INTERNAL_ERROR";
+                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = ex.Message } }); }
                 catch { /* client gone — best effort */ }
             }
             try { server.WaitForPipeDrain(); } catch { }

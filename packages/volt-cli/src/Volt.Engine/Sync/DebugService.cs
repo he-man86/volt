@@ -39,7 +39,7 @@ public static class DebugService
         }
         ItemRef? found = string.IsNullOrEmpty(name) ? ide.GetPlcProjectRoot() : ide.Lookup(name!);
         if (found is not { } node)
-            throw new BridgeException(404, "NOT_FOUND", $"no item named '{name}'");
+            throw new BridgeException(BridgeErrorCodes.NotFound, $"no item named '{name}'");
         var result = new Dictionary<string, object?> { ["tree"] = Dump(ide, node) };
         if (includeBodies)
         {

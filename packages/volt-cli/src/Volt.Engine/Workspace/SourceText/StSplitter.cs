@@ -76,7 +76,7 @@ public static class StSplitter
 	public static StSplitResult SplitSt(string sourceText)
 	{
 		if (string.IsNullOrWhiteSpace(sourceText))
-			throw new BridgeException(400, "INVALID_ST", "Empty ST source");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, "Empty ST source");
 
 		var lines = NormalizeLines(sourceText);
 
@@ -169,7 +169,7 @@ public static class StSplitter
 		"program"        => "END_PROGRAM",
 		"function"       => "END_FUNCTION",
 		"interface"      => "END_INTERFACE",
-		_ => throw new BridgeException(400, "INVALID_ST", $"Unexpected composite POU kind: {kind}"),
+		_ => throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Unexpected composite POU kind: {kind}"),
 	};
 
 	/// <summary>
@@ -195,7 +195,7 @@ public static class StSplitter
 			}
 		}
 		if (endIdx is null)
-			throw new BridgeException(400, "INVALID_ST", $"Missing {outerEnd}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing {outerEnd}");
 
 		// Skip blank lines between END_X and first child block.
 		int childrenStart = endIdx.Value + 1;
@@ -331,7 +331,7 @@ public static class StSplitter
 					if (LineStartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "method", "END_METHOD")); break; }
 					if (LineStartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "action", "END_ACTION")); break; }
 					if (LineStartsWithKeyword(after[i], "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
-					throw new BridgeException(400, "INVALID_ST",
+					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"Expected METHOD/ACTION/PROPERTY at line {i + 1}, got: {Truncate(after[i], 80)}");
 				}
 				i++;
@@ -357,7 +357,7 @@ public static class StSplitter
 			if (LineStartsWithKeyword(lines[j], endKw)) { endLine = j; break; }
 		}
 		if (endLine is null)
-			throw new BridgeException(400, "INVALID_ST", $"Missing {endKw} for {kind} starting at line {sigLine + 1}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing {endKw} for {kind} starting at line {sigLine + 1}");
 
 		// Block runs blockStart..endLine inclusive (covers pragmas above).
 		var block = SliceLines(lines, blockStart, endLine.Value);
@@ -416,7 +416,7 @@ public static class StSplitter
 			}
 		}
 		if (endLine is null)
-			throw new BridgeException(400, "INVALID_ST", $"Missing END_PROPERTY for property starting at line {sigLine + 1}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing END_PROPERTY for property starting at line {sigLine + 1}");
 
 		i = endLine.Value + 1;
 
@@ -542,7 +542,7 @@ public static class StSplitter
 				@"^METHOD\s+((?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*)(\w+)(?:\s*:\s*(.+?))?\s*;?\s*$",
 				RegexOptions.IgnoreCase);
 			if (!m.Success)
-				throw new BridgeException(400, "INVALID_ST", $"Cannot parse METHOD signature: {Truncate(sig, 80)}");
+				throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse METHOD signature: {Truncate(sig, 80)}");
 			var name = m.Groups[2].Value;
 			var acl = CodeHelper.ExtractAcl(m.Groups[1].Value);
 			var rt  = m.Groups[3].Success ? m.Groups[3].Value.Trim() : null;
@@ -551,7 +551,7 @@ public static class StSplitter
 		// action
 		var ma = Regex.Match(clean, @"^ACTION\s+(\w+)\s*$", RegexOptions.IgnoreCase);
 		if (!ma.Success)
-			throw new BridgeException(400, "INVALID_ST", $"Cannot parse ACTION signature: {Truncate(sig, 80)}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse ACTION signature: {Truncate(sig, 80)}");
 		return (ma.Groups[1].Value, null, null);
 	}
 
@@ -561,7 +561,7 @@ public static class StSplitter
 			@"^PROPERTY\s+(?:(PUBLIC|PRIVATE|PROTECTED|INTERNAL)\s+)?(\w+)\s*:\s*(.+?)\s*;?\s*$",
 			RegexOptions.IgnoreCase);
 		if (!m.Success)
-			throw new BridgeException(400, "INVALID_ST", $"Cannot parse PROPERTY signature: {Truncate(sig, 80)}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse PROPERTY signature: {Truncate(sig, 80)}");
 		var name = m.Groups[2].Value;
 		var acl  = m.Groups[1].Success ? m.Groups[1].Value.ToUpperInvariant() : null;
 		var dt   = m.Groups[3].Value.Trim();

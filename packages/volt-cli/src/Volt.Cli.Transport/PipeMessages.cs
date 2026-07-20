@@ -34,3 +34,11 @@ public sealed class PipeCallException : System.Exception
     public string Code { get; }
     public PipeCallException(string code, string message) : base(message) => Code = code;
 }
+
+/// <summary>An exception that carries a machine-readable code onto the wire. Transport is the lower layer (it
+/// can't see the Engine's <c>BridgeException</c>), so <see cref="PipeServer"/> reads the code through this seam —
+/// the Engine's exception implements it. Anything else stays a generic <c>INTERNAL_ERROR</c>.</summary>
+public interface ICodedError
+{
+    string ErrorCode { get; }
+}

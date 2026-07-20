@@ -35,7 +35,7 @@ public static class FetchService
         // did it forget to supply a sidecar? The /init endpoint should be used for the first pull instead.
         // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
         if (!isInit && request.KnownItems == null && request.OnlyItems == null)
-            throw new BridgeException(400, "NO_SIDECAR", "supply knownItems to diff against, or use POST /init for the first pull");
+            throw new BridgeException(BridgeErrorCodes.NoSidecar, "supply knownItems to diff against, or use POST /init for the first pull");
 
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
