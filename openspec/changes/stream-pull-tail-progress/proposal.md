@@ -35,21 +35,30 @@ counter is honest *during* the fetch — the signatures are not the cause of the
 because on a small project the untracked tail was seconds, not minutes. Library signatures made the *fetch*
 heavier and the file count made the *tail* enormous; both were always unreported, it just never mattered before.
 
+### And the tail wasn't just unreported — it was slow for a bad reason
+
+Profiling it (not assuming) showed the tail is **not** materialize or the disk writes — it's
+`IdeTree.BuildVoltIdeTree` calling `Git.WriteBlob` (`git hash-object -w --stdin`) **once per file**: 8104 items ⇒
+**8104 git subprocess spawns** ≈ the entire 227 s. So the fix is two things — report the phases *and* stop spawning
+a git process per blob.
+
 ## What Changes
 
-**1. Report the local tail.** Emit `ProgressFrame`s from `Commands.Init` / `Commands.Pull` for the materialize +
-write phase — the work is fully countable (the changed-item list is in hand). Use the existing `ProgressFrame.Phase`
-field so the stream carries distinct phases: `fetch` → `writing` (done/total over the file list) → `finalizing`
-(git commit/index, indeterminate).
+**1. A general multi-phase progress model in the CLI.** The CLI owns the phase sequence (the bridge only knows its
+own fetch), so composition lives there, not as magic in the frontend: a small reusable `PhaseProgress` stamps each
+frame with a phase label + `PhaseIndex`/`PhaseCount`. `init`/`pull` report three streamed phases (Fetching →
+Hashing objects → Writing/Merging). Any future multi-phase command reuses it.
 
-**2. Label the post-op status refresh.** The shell's follow-up `volt status`/`refs` after init/pull should surface
-as a labeled phase ("Refreshing status…") or an indeterminate spinner, not a dead toast at 100 %.
+**2. Batch the blob hashing.** `Git.WriteBlobs` hashes all N blobs in ONE `git hash-object --stdin-paths` process
+instead of one per file — byte-identical objects (regression-tested), init measured **237 s → 81 s**.
 
-**3. Render phases in the frontends.** `formatProgress` (volt-control) and `progressBridge` (VS Code) currently
-assume one monotonic 0→100 %. Make them phase-aware: reset the running % on a phase change and show the phase
-label as the message, or map phases into bands (e.g. fetch 0–50 %, writing 50–95 %, finalizing 95–100 %).
+**3. One monotonic bar in the frontends.** `formatProgress` folds `(phaseIndex + done/total) / phaseCount` into a
+single 0–100 that never resets (VS Code's `withProgress` can only add increments); the phase is the label.
+`progressBridge` needs no change. Single-phase frames (push/build) keep the raw 0–100.
 
 ## Non-goals
 
-- Speeding up materialize/write/git itself — that's separate perf work; this change is only about *visibility*.
-- Any change to the pipe wire or the `refs`/`fetch` data contract.
+- The remaining ~55 s `git hash-object` hold (it still opens 8104 files) — the `fast-import` follow-up in
+  `tasks.md §5`, deliberately its own change (it rewrites the correctness-critical merge baseline).
+- Labeling the post-op `volt status`/`refs` refresh — deferred; the refresh isn't inside the progress notification.
+- Any change to the pipe wire's `refs`/`fetch` data contract (only additive `phaseIndex`/`phaseCount` on frames).
