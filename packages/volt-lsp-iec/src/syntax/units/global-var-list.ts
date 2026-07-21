@@ -7,7 +7,7 @@
  * variants through this same parser. The captured VarSection
  * preserves its sectionKind so downstream consumers can distinguish.
  */
-import type { GlobalVarList, VarSection } from "../ast.js"
+import type { GlobalVarList } from "../ast.js"
 import type { Cursor } from "../cursor.js"
 import { collectVarSections, joinSpans } from "../util.js"
 

@@ -13,7 +13,7 @@ import {
   walkAllExprs,
   type Method,
 } from "../../syntax/index.js"
-import { scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
+import { scopeForUnit, type Scope } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
 import type { Document } from "../shared/index.js"
 

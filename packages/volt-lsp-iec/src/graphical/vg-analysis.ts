@@ -209,14 +209,6 @@ function isPinSection(section: string | undefined): boolean {
   return section === "VAR_INPUT" || section === "VAR_OUTPUT" || section === "VAR_IN_OUT"
 }
 
-/** Source-like text of a box callee, for the diagnostic. */
-function renderCallee(e: Expr): string {
-  if (e.kind === "ident_expr") return e.name
-  if (e.kind === "member") return `${renderCallee(e.base)}.${e.member.name}`
-  if (e.kind === "paren") return renderCallee(e.inner)
-  return "instance"
-}
-
 /** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
 function operandExprs(statements: readonly VgStatement[]): Expr[] {
   const out: Expr[] = []

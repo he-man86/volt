@@ -28,11 +28,12 @@ namespace Volt.Cli.Connector
         // Documents\Volt folder so the user can reach it in CODESYS's "Execute Script File" dialog without
         // un-hiding AppData. The install-dir copy stays as a backup; both find the DLLs via %LOCALAPPDATA%.
         private static string CodesysDir => Path.GetFullPath(Path.Combine(ConnectorDir, "codesys-scriptcommands"));
-        private static string ShippedScript => Path.Combine(CodesysDir, "start_pipe.py");
+        private static readonly string[] ScriptNames = { "start_volt_codesys.py", "stop_volt_codesys.py" };
+        private static string ShippedScript => Path.Combine(CodesysDir, "start_volt_codesys.py");
         private static string CodesysDll => Path.Combine(CodesysDir, "Volt.Cli.Ide.Codesys.dll");
         internal static string VisibleScriptDir =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Volt");
-        internal static string VisibleScript => Path.Combine(VisibleScriptDir, "start_pipe.py");
+        internal static string VisibleScript => Path.Combine(VisibleScriptDir, "start_volt_codesys.py");
 
         /// <summary>Install/update hook: set OPENCODE_CONFIG_DIR + add bin to PATH + register start-at-login +
         /// a Start Menu "Volt" shortcut to the desktop GUI (the connector itself auto-starts via the login item,
@@ -47,24 +48,28 @@ namespace Volt.Cli.Connector
                 LoginItem.EnsureRegistered();
                 CreateGuiShortcut();
                 PublishCodesysScript();
-                // Point start_pipe.py at the ACTUAL install-dir DLL, so the visible Documents\Volt copy resolves it
+                // Point start_volt_codesys.py at the ACTUAL install-dir DLL, so the visible Documents\Volt copy resolves it
                 // regardless of the install location (the %LOCALAPPDATA% fallback only covers the default dir).
                 if (File.Exists(CodesysDll)) SetUserVar("VOLT_BRIDGE_DLL", CodesysDll, expand: false);
             }
             catch { /* hooks are best-effort — never block install */ }
         }
 
-        // Copy the shipped start_pipe.py into the visible Documents\Volt folder (idempotent — overwrite so a
-        // version bump refreshes it). Best-effort: the install-dir copy still works if this fails.
+        // Copy the shipped start/stop scripts into the visible Documents\Volt folder (idempotent — overwrite so a
+        // version bump refreshes them). Best-effort: the install-dir copies still work if this fails.
         private static void PublishCodesysScript()
         {
             try
             {
-                if (!File.Exists(ShippedScript)) return;
+                if (!Directory.Exists(CodesysDir)) return;
                 Directory.CreateDirectory(VisibleScriptDir);
-                File.Copy(ShippedScript, VisibleScript, overwrite: true);
+                foreach (var name in ScriptNames)
+                {
+                    var src = Path.Combine(CodesysDir, name);
+                    if (File.Exists(src)) File.Copy(src, Path.Combine(VisibleScriptDir, name), overwrite: true);
+                }
             }
-            catch { /* best-effort — CODESYS activation falls back to the install-dir script */ }
+            catch { /* best-effort — CODESYS activation falls back to the install-dir scripts */ }
         }
 
         private static void CreateGuiShortcut()
@@ -106,8 +111,9 @@ namespace Volt.Cli.Connector
                 Broadcast();
                 LoginItem.Unregister();
                 try { File.Delete(GuiShortcut); } catch { }
-                // Remove the published script + its folder (only if we left it empty).
-                try { File.Delete(VisibleScript); } catch { }
+                // Remove the published scripts + their folder (only if we left it empty).
+                foreach (var name in ScriptNames)
+                    try { File.Delete(Path.Combine(VisibleScriptDir, name)); } catch { }
                 try { if (Directory.Exists(VisibleScriptDir) && Directory.GetFileSystemEntries(VisibleScriptDir).Length == 0) Directory.Delete(VisibleScriptDir); } catch { }
             }
             catch { /* best-effort */ }

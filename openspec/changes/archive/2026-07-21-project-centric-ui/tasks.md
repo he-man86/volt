@@ -43,5 +43,5 @@ connector), vendor derived from the pick. Depends on `connector-ux-redesign` (th
       poll to `pollConnection`. Fixed the stale volt-control README (`connector.ts` = the status source).
 - [x] `volt.iec.vendor` (LSP dialect) stays orthogonal; on init MAY be set from the picked project's vendor.
 - [x] `bun run typecheck` + `bun run lint`; `bun test` in volt-control.
-- [ ] Live: with TwinCAT + CODESYS projects open/activated, both shells list them and init from a pick — no vendor
+- [x] Live: with TwinCAT + CODESYS projects open/activated, both shells list them and init from a pick — no vendor
       button anywhere; the connector `:8550` is the one status source (needs live IDEs + the connector).

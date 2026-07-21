@@ -81,7 +81,6 @@ import {
   codeLenses,
   completion,
   definition,
-  documentHighlights,
   foldingRanges,
   formatDocument,
   formatRange,
@@ -201,9 +200,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     } catch {
       return reindex() // client couldn't create the token — index without progress
     }
-    conn.sendProgress(WorkDoneProgress.type, token, { kind: "begin", title: "Indexing workspace" })
+    void conn.sendProgress(WorkDoneProgress.type, token, { kind: "begin", title: "Indexing workspace" })
     reindex()
-    conn.sendProgress(WorkDoneProgress.type, token, { kind: "end" })
+    void conn.sendProgress(WorkDoneProgress.type, token, { kind: "end" })
   }
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
