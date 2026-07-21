@@ -2,7 +2,7 @@
  * CODESYS error-catalog conformance fixtures — one per implemented/in-progress `Cnnnn` code.
  *
  * These plug the error-code catalog (`docs/codesys-reference/error-catalog.json`, `src/reference/error-codes.ts`)
- * into the LIVE-IDE conformance gate: the recorder pushes each to CODESYS (`:8556`) + TwinCAT (`:8555`) and
+ * into the LIVE-IDE conformance gate: the recorder pushes each to CODESYS + TwinCAT and
  * `replay.test.ts` requires the LSP's message set to equal the recorded compiler set, byte-for-byte, per vendor.
  * That is how each `Cnnnn` wording is locked (and any docs-vs-live drift settled).
  *

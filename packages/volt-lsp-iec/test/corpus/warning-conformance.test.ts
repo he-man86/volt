@@ -29,17 +29,17 @@ import {
   type Vendor,
 } from "../../src/analysis/index.js"
 import { loadTaskRoots, loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const VENDOR: Vendor = "codesys"
-const ST_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 
 const walk = (dir: string): string[] => {
   const out: string[] = []
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (ST_EXTS.has(extname(p).toLowerCase())) out.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
   }
   return out
 }

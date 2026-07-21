@@ -68,8 +68,7 @@ public static class Scaffold
         var associations = new Dictionary<string, string>
         {
             ["*.fb"] = "structured-text", ["*.prg"] = "structured-text", ["*.fun"] = "structured-text",
-            ["*.itf"] = "structured-text", ["*.struct"] = "structured-text", ["*.enum"] = "structured-text",
-            ["*.union"] = "structured-text", ["*.alias"] = "structured-text", ["*.gvl"] = "structured-text",
+            ["*.itf"] = "structured-text", ["*.dut"] = "structured-text", ["*.gvl"] = "structured-text",
         };
         var settings = new Dictionary<string, object>
         {
@@ -92,15 +91,14 @@ public static class Scaffold
         "FBD/LD graphical bodies ride in those files too, editable as VG text. `.cfc`/`.sfc` are read-only",
         "views of graphical bodies (don't hand-edit).", "",
         "## File extensions — name every item by its KIND", "",
-        "An item's extension IS its kind. A DUT is **not** one `.dut` file — it's split by kind. There is no",
-        "`.dut` extension in Volt; using one means the item never syncs to the IDE.", "",
+        "An item's extension IS its kind. Every DUT (struct, enum, union, alias) is a single `.dut` file —",
+        "the same as CODESYS and TwinCAT, which model a DUT as one object type; the struct/enum/union/alias",
+        "distinction lives in the declaration body.", "",
         "| Kind | Extension | | Kind | Extension |",
         "|---|---|---|---|---|",
-        "| Program | `.prg` | | Struct | `.struct` |",
-        "| Function | `.fun` | | Enum | `.enum` |",
-        "| Function block | `.fb` | | Union | `.union` |",
-        "| Interface | `.itf` | | Alias | `.alias` |",
-        "| Global var list | `.gvl` | | | |", "",
+        "| Program | `.prg` | | Interface | `.itf` |",
+        "| Function | `.fun` | | DUT (struct/enum/union/alias) | `.dut` |",
+        "| Function block | `.fb` | | Global var list | `.gvl` |", "",
         "## Rust",
         "The Volt language server transpiles your Structured Text into Rust under **`rust/`** — a normal Cargo",
         "project. Install [rustup](https://rustup.rs) once, then from the `rust/` folder:", "",

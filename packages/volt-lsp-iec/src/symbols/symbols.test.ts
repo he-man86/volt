@@ -63,11 +63,11 @@ test("linkExtends: inherited members resolve through the base chain", () => {
 })
 
 test("enum members: bare-accessible unless qualified_only", () => {
-  const open = build({ uri: "Color.enum", src: `TYPE Color : (Red, Green, Blue); END_TYPE` })
+  const open = build({ uri: "Color.dut", src: `TYPE Color : (Red, Green, Blue); END_TYPE` })
   expect(resolveBareEnumMember(open, "Green")?.kind).toBe("enum_value")
 
   const qualified = build({
-    uri: "Mode.enum",
+    uri: "Mode.dut",
     src: `{attribute 'qualified_only'}\nTYPE Mode : (Auto, Manual); END_TYPE`,
   })
   expect(findChildScope(qualified, "Mode")?.qualifiedOnly).toBe(true)

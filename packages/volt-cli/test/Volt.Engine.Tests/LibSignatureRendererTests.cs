@@ -43,13 +43,13 @@ public class LibSignatureRendererTests
     // A DUT ALIAS (CODESYS `Flags == "Alias"`, e.g. `TYPE HANDLE : __XWORD`) must render as an alias, NOT an
     // empty struct. The base can be a `__`-prefixed system type — emitted verbatim (the LSP resolves it).
     [Fact]
-    public void Dut_alias_renders_as_an_alias_not_an_empty_struct()
+    public void Dut_alias_renders_as_an_alias_not_an_empty_struct()   // one `.dut`, alias body form
     {
         var s = new LibSignature("HANDLE", "CAA Types", "Type",
             new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null, "__XWORD");
         var r = LibSignatureRenderer.Render(s);
         Assert.NotNull(r);
-        Assert.Equal(".alias", r!.Value.Ext);
+        Assert.Equal(".dut", r!.Value.Ext);
         Assert.Equal("TYPE HANDLE : __XWORD;\nEND_TYPE", r.Value.Text);
     }
 
@@ -59,7 +59,7 @@ public class LibSignatureRendererTests
         var s = new LibSignature("PT", "lib", "Type",
             new LibVar[0], new LibVar[0], new LibVar[0], new[] { new LibVar("Lo", "INT"), new LibVar("Hi", "INT") }, null, null);
         var r = LibSignatureRenderer.Render(s);
-        Assert.Equal(".struct", r!.Value.Ext);
+        Assert.Equal(".dut", r!.Value.Ext);
         Assert.Equal("TYPE PT :\nSTRUCT\n\tLo : INT;\n\tHi : INT;\nEND_STRUCT\nEND_TYPE", r.Value.Text);
     }
 
@@ -85,7 +85,7 @@ public class LibSignatureRendererTests
         var s = new LibSignature("PERIODE", "lib", "VarGlobal",
             new LibVar[0], new LibVar[0], new LibVar[0], members, null, null);
         var r = LibSignatureRenderer.Render(s);
-        Assert.Equal(".enum", r!.Value.Ext);
+        Assert.Equal(".dut", r!.Value.Ext);
         Assert.Equal("TYPE PERIODE :\n(\n\tUNKNOWN := 0,\n\tSTANDARD := 1,\n\tDAYLIGHT := 2\n);\nEND_TYPE", r.Value.Text);
     }
 
@@ -97,7 +97,7 @@ public class LibSignatureRendererTests
             new LibVar[0], new LibVar[0], new LibVar[0], new[] { new LibVar("asWord", "WORD"), new LibVar("asBytes", "ARRAY[0..1] OF BYTE") },
             null, null, null, "Union");
         var r = LibSignatureRenderer.Render(s);
-        Assert.Equal(".union", r!.Value.Ext);
+        Assert.Equal(".dut", r!.Value.Ext);
         Assert.Equal("TYPE U :\nUNION\n\tasWord : WORD;\n\tasBytes : ARRAY[0..1] OF BYTE;\nEND_UNION\nEND_TYPE", r.Value.Text);
     }
 }

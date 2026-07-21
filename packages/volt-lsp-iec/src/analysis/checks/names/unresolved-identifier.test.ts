@@ -170,7 +170,7 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
   const libPr = parseSource(libSrc)
   const usePr = parseSource(useSrc)
   const project = buildSymbolTable([
-    { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.struct", parseResult: libPr, source: libSrc },
+    { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.dut", parseResult: libPr, source: libSrc },
     { uri: "F.fb", parseResult: usePr, source: useSrc },
   ])
   const diags = computeSemanticDiagnostics({ parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })

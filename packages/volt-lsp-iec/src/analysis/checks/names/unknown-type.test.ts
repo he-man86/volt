@@ -93,7 +93,7 @@ test("a referenced-library type is not flagged when its signature is loaded", ()
   const libSrc = "TYPE ST_LibThing : STRUCT x : INT; END_STRUCT END_TYPE"
   const project = buildSymbolTable([
     { uri: "F.fb", parseResult: parseSource(useSrc), source: useSrc },
-    { uri: "Device/Application/Library Manager/MyLib/ST_LibThing.struct", parseResult: parseSource(libSrc), source: libSrc },
+    { uri: "Device/Application/Library Manager/MyLib/ST_LibThing.dut", parseResult: parseSource(libSrc), source: libSrc },
   ])
   const diags = computeSemanticDiagnostics({
     parseResult: parseSource(useSrc),

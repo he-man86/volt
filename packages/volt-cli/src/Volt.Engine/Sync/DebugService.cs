@@ -11,8 +11,8 @@ namespace Volt.Engine.Sync;
 ///   • <c>tree</c>: the raw IDE tree under <c>name</c> (whole PLC-project root if omitted) — each node's
 ///     name, kind code + kind string, type tags, and declaration/implementation text, recursively.
 ///   • <c>count</c> + <c>bodies</c> (only with <c>xml=1</c>): every POU's raw PLCopen XML as a flat
-///     <c>folder/name.ext → xml</c> map — the exact bytes the IDE emits, for corpus capture
-///     (packages/volt-bridge/scripts/harvest-corpus.ts). This folds in what used to be a separate <c>/raw</c> endpoint.
+///     <c>folder/name.ext → xml</c> map — the exact bytes the IDE emits, for corpus capture. This IS the
+///     capture path (it folded in what used to be a separate <c>/raw</c> HTTP endpoint + harvest script).
 ///
 /// Why a read-only dump: writing a bad COM op (e.g. an unsupported interface-accessor text write) can
 /// HARD-CRASH TwinCAT, so "probe the create path by writing" is a destructive debug loop. Reading never

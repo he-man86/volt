@@ -46,7 +46,7 @@ public class FetchRequest
 public class FetchedItem
 {
     /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb",
-    /// "MyDut.struct") — see <see cref="Volt.Engine.Workspace.ItemKind.ExtFor"/>. A graphical FBD/LD
+    /// "MyDut.dut") — see <see cref="Volt.Engine.Workspace.ItemKind.ExtFor"/>. A graphical FBD/LD
     /// body keeps its kind extension (language rides in the content), not a distinct one.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";

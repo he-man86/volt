@@ -19,9 +19,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 602 | `PLCPOUPROG` | `PlcPouProg` | `program` | both | ✅ | ✅ | ✅ | |
 | 603 | `PLCPOUFUNC` | `PlcPouFunc` | `function` | both | ✅ | ✅ | ✅ | create needs `Type.Missing` vInfo (no body lang) |
 | 604 | `PLCPOUFB` | `PlcPouFb` | `function_block` | both | ✅ | ✅ | ✅ | |
-| 605 | `PLCDUTENUM` | `PlcDutEnum` | `enumeration` | both | ✅ | ✅ | ✅ | |
-| 606 | `PLCDUTSTRUCT` | `PlcDutStruct` | `structure` | both | ✅ | ✅ | ✅ | |
-| 607 | `PLCDUTUNION` | `PlcDutUnion` | `union` | both | ✅ | ✅ | ✅ | |
+| 605–607 | `PLCDUTENUM/STRUCT/UNION` | — (unused) | — | — | — | — | — | the old per-subkind DUT codes; **not used by Volt** — every DUT is code 623 (`PlcDut`), and struct/enum/union/alias lives only in the declaration text |
 | 608 | `PLCACTION` | `PlcAction` | `action` | both | ✅ | ✅ | ✅ | body-only (no declaration) |
 | 609 | `PLCMETHOD` | `PlcMethod` | `method` | both | ✅ | ✅ | ✅ | |
 | 610 | `PLCITFMETH` | `PlcItfMeth` | `method` | both | ✅ | ✅ | ✅ | decl-only; vInfo = return type |
@@ -36,7 +34,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 619 | `PLCVISOBJ` | `PlcVisObj` | `visualization` | both | ✅ | opaque | ✅ | |
 | 620 | `PLCVISMAN` | `PlcVisMan` | `visualization_manager` | both | ✅ | opaque | ✅ | |
 | 621 | `PLCTASK` | `PlcTask` | `task` | both | ✅ | read-only descriptor | ✅ | CODESYS `.task` body = scheduling descriptor (Type/Interval/Priority/Watchdog/called-POUs) via `ScriptTaskObject`; TC still emits `Name=/linked-task=` (parity gap) |
-| 623 | `PLCDUTALIAS` | `PlcDutAlias` | `alias` | both | ✅ | ✅ | ✅ | |
+| 623 | `PLCDUTALIAS` | `PlcDut` | `dut` | both | ✅ | ✅ | ✅ | the ONE DUT code. TwinCAT reports EVERY DUT (struct/enum/union/alias) as 623 and creates every DUT with it; CODESYS classifies every `IDUTObject` here and creates with one `create_dut` call. One wire kind `dut`; struct/enum/union/alias lives only in the declaration text — the IDE derives the subtype from it on both read and create. Volt never picks a subkind. |
 | 625 | *(unconfirmed)* | `PlcTextList` | `text_list` | both | ✅ | opaque | ✅ | confirmed `text_list` on this build (was `PLCTMCDESCRIPTION` in the old enum; tmc → 653) |
 | 628 | *(unconfirmed)* | `PlcImagePool` | `image_pool` | both | ✅ | opaque | ✅ | RE'd number |
 | 629 | *(unconfirmed)* | `PlcParamList` | `parameter_list` | TC | ✅ | opaque | ✅ | was unmapped (→ null), now fixed. TC-only: CODESYS has no parameter-list object type (confirmed via docs + Hauzer) |
@@ -68,11 +66,11 @@ Numbers are the LIVE build's values; the published-enum name is shown where it d
 | Code | Published name | wire kind | St. | Note |
 |---|---|---|:--:|---|
 | 600 | `PLCAPP` | — | ✅ | PLC project root (recurse) |
-| 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/enumeration/structure/union/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
+| 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/dut(605-607 create-only)/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
 | 616 | `PLCTRANS` | transition | ✅ | live-confirmed (transition under POU_1) |
 | 617–621 | `PLCLIBMAN`…`PLCTASK` | library_manager/interface/visualization/visualization_manager/task | ✅ | |
 | 622 | `PLCPROGREF` | — | ❌ | published code; **live build uses 650** instead |
-| 623 | `PLCDUTALIAS` | alias | ✅ | |
+| 623 | `PLCDUTALIAS` | dut | ✅ | every DUT (struct/enum/union/alias) reports as 623 → one wire kind `dut` |
 | 624 | `PLCEXTDATATYPECONT` | — | ❌ | published; **live uses 652** |
 | 625 | *(pub. `PLCTMCDESCRIPTION`)* | text_list | ✅ | live build repurposed 625 for text_list |
 | **626** | — | — | ❌ | not in published enum, never seen live — **unknown** |
@@ -100,7 +98,7 @@ persistent GVLs, a parameter manager, CNC/NC, image/cam objects, etc. (a `/debug
 
 CODESYS has no numbers; it classifies by interface. `→` = recognized; the rest fall through to `Unknown`.
 
-- **Recognized → emitted:** IPOUObject(→fb/func/prog), IDUTObject(→struct/union/enum/alias), IGVLObject/INVLObject→gvl,
+- **Recognized → emitted:** IPOUObject(→fb/func/prog), IDUTObject(→`dut`, one kind — subkind derived on create), IGVLObject/INVLObject→gvl,
   IInterfaceObject→interface, IInterfaceMethodObject→method, IPOUMethodObject→method, IPropertyObject/IInterfacePropertyObject→property,
   IPropertyAccessorObject/IInterfacePropertyAccessorObject→property_get/set, IActionObject→action, ITransitionObject→transition,
   ILibManObject→library_manager (+ synthetic library refs), IVisualManagerObject→visualization_manager, IVisualObject→visualization,

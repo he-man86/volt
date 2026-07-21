@@ -13,12 +13,9 @@
  */
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { SOURCE_EXTENSIONS } from "./source-extensions.js";
 
 export type DetectedVendor = "codesys" | "twincat";
-
-/** Kind-named writable-source extensions Volt materializes on disk — the files worth content-scanning for
- *  vendor signals (a pulled workspace is named by kind, never a single legacy extension). */
-const KIND_EXTENSIONS = [".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"];
 
 export interface DetectVendorOptions {
 	/** Maximum directory depth to scan. Default 3 — enough for typical project layouts. */
@@ -140,7 +137,7 @@ async function walk(
 			score.codesys += 2;
 		} else if (lower.endsWith(".device")) {
 			devicePaths.push(full);
-		} else if (KIND_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+		} else if (SOURCE_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
 			sourceFiles.push(full);
 		}
 	}

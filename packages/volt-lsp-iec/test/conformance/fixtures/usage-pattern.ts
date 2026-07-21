@@ -179,7 +179,7 @@ END_FUNCTION_BLOCK
   {
     name: "use_struct_member_access",
     pouName: "DUT_LANG_use_struct_member",
-    kind: "structure",
+    kind: "dut",
     feature: "STRUCT field accessed via dot-notation in PLC_PRG",
     fromDoc: "usage-pattern",
     plcPrgVar: "dut_usm : DUT_LANG_use_struct_member;",
@@ -197,7 +197,7 @@ END_TYPE
   {
     name: "use_struct_inner",
     pouName: "DUT_LANG_use_struct_inner",
-    kind: "structure",
+    kind: "dut",
     feature: "STRUCT inner record — nested inside use_struct_nested_member",
     fromDoc: "usage-pattern",
     source: `TYPE DUT_LANG_use_struct_inner :
@@ -212,7 +212,7 @@ END_TYPE
   {
     name: "use_struct_nested_member",
     pouName: "DUT_LANG_use_struct_outer",
-    kind: "structure",
+    kind: "dut",
     feature: "Nested STRUCT field access (outer.inner.field), separate inner DUT item",
     fromDoc: "usage-pattern",
     plcPrgVar: "dut_uso : DUT_LANG_use_struct_outer;",

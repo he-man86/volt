@@ -125,6 +125,69 @@ check("volt-vscode LSP server bundled", () =>
 		|| "not built — run: bun run --cwd packages/volt-vscode build"
 );
 
+// ── Source-extension parity (one list, many runtimes) ──────────────────────────────────────────────
+// The writable-source extension set is, by necessity, declared in several runtimes that cannot share a
+// module: C# (the bridge/CLI source of truth), TypeScript (LSP + control), and static JSON manifests read
+// by external tools (opencode, VS Code). This guard reads every copy and asserts they agree, so a new
+// source kind can never be added to one place and silently missed in another. The C# canonical table
+// (ItemKind.SourceKindExtensions) is the reference; every other copy must match it (the workspaceContains
+// glob is a superset — it also lists read-only kinds — so it is checked for containment, not equality).
+console.log("\nSource-extension parity (one list, many runtimes)");
+
+const bare = (e: string): string => e.replace(/^\./, "").toLowerCase();
+const normExts = (exts: Iterable<string>): string[] => [...new Set([...exts].map(bare))].sort();
+const readRepo = (rel: string): string => readFileSync(join(REPO_ROOT, rel), "utf-8");
+const quotedStrings = (s: string): string[] => [...s.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+
+/** Extract a `[ "…", … ]` / `new Set([ "…" ])` string-array literal assigned to `name`. */
+function literalArray(src: string, name: string): string[] {
+	const m = new RegExp(`${name}[^=]*=\\s*(?:new Set\\()?\\[([^\\]]*)\\]`).exec(src);
+	if (!m) throw new Error(`could not find the ${name} literal`);
+	return quotedStrings(m[1]);
+}
+
+// Canonical: the C# ItemKind.SourceKindExtensions table — ("kind", "ext") pairs; take each ext (2nd string).
+const itemKindSrc = readRepo("packages/volt-cli/src/Volt.Engine/Workspace/ItemKind.cs");
+const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
+if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
+const CANON = normExts([...canonBlock[1].matchAll(/\(\s*"[^"]+"\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
+
+const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {
+	const v = pick(JSON.parse(readRepo(rel)));
+	if (!Array.isArray(v)) throw new Error(`${rel}: expected an array of extensions`);
+	return normExts(v as string[]);
+};
+
+// The `{a,b,c}` extension alternation inside the VS Code workspaceContains activation glob.
+function workspaceContainsExts(pkg: any): string[] {
+	const wc = (pkg.activationEvents as string[]).find((e) => e.startsWith("workspaceContains:"));
+	const m = wc && /\{([^}]*)\}/.exec(wc);
+	if (!m) throw new Error("no workspaceContains {…} glob in volt-vscode activationEvents");
+	return normExts(m[1].split(","));
+}
+
+const copies: Array<{ name: string; get: () => string[]; superset?: boolean }> = [
+	{ name: "lsp-iec src/source-extensions.ts", get: () => normExts(literalArray(readRepo("packages/volt-lsp-iec/src/source-extensions.ts"), "SOURCE_EXTENSIONS")) },
+	{ name: "volt-control src/state/files.ts", get: () => normExts(literalArray(readRepo("packages/volt-control/src/state/files.ts"), "SOURCE_EXTENSIONS")) },
+	{ name: "opencode-config/opencode.json", get: () => jsonAt("opencode-config/opencode.json", (o) => o.lsp?.["volt-lsp-iec"]?.extensions) },
+	{ name: "volt-vscode language extensions", get: () => jsonAt("packages/volt-vscode/package.json", (o) => o.contributes?.languages?.find((l: any) => l.id === "structured-text")?.extensions) },
+	{ name: "volt-vscode tmLanguage fileTypes", get: () => jsonAt("packages/volt-vscode/languages/structured-text/syntax.tmLanguage.json", (o) => o.fileTypes) },
+	{ name: "volt-vscode icon fileExtensions", get: () => normExts(Object.keys(JSON.parse(readRepo("packages/volt-vscode/icons/volt-icons.json")).fileExtensions ?? {})) },
+	{ name: "volt-vscode workspaceContains glob", get: () => workspaceContainsExts(JSON.parse(readRepo("packages/volt-vscode/package.json"))), superset: true },
+];
+
+for (const { name, get, superset } of copies) {
+	check(`${name} matches canonical [${CANON.join(", ")}]`, () => {
+		const got = get();
+		if (superset) {
+			const missing = CANON.filter((e) => !got.includes(e));
+			return missing.length === 0 || `glob is missing source ext(s): ${missing.join(", ")}`;
+		}
+		const same = got.length === CANON.length && got.every((e, i) => e === CANON[i]);
+		return same || `has [${got.join(", ")}]`;
+	});
+}
+
 console.log("\n" + "-".repeat(40));
 console.log(`${passed} passed, ${failed} failed.`);
 

@@ -25,9 +25,9 @@ import {
 import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
+import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
-const ST_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 
 // Per-test budget for the full-corpus passes (O(files × checks)). Kept at 120s: this budget was adequate
 // until `checkDataRecursion` regressed to rebuilding the whole-project composition graph per file (O(files ×
@@ -42,7 +42,7 @@ function walk(dir: string): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (ST_EXTS.has(extname(p).toLowerCase())) out.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
   }
   return out
 }

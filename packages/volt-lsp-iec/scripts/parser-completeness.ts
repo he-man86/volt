@@ -15,15 +15,15 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseSource, parseStatements, unitBodies, isGraphicalBody } from "../src/syntax/index.js"
+import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
-const EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 const walk = (d: string): string[] => {
   const o: string[] = []
   for (const n of readdirSync(d)) {
     const p = join(d, n)
     if (statSync(p).isDirectory()) o.push(...walk(p))
-    else if (EXTS.has(extname(p).toLowerCase())) o.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) o.push(p)
   }
   return o
 }

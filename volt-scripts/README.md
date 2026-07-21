@@ -47,7 +47,7 @@ current opencode still load Volt's config?", which only changes when *opencode* 
 
 | Step | Script | Answers | Needs |
 |---|---|---|---|
-| 1. integration | `check-wiring.ts` | config layer, built binaries, wire-version + product-version parity | nothing — **CI runs this on every push/PR** |
+| 1. integration | `check-wiring.ts` | config layer, built binaries, wire-version + product-version parity, source-extension parity across all runtimes | nothing — **CI runs this on every push/PR** |
 | 2. opencode | `verify-opencode.ts` | does the **installed** opencode load the volt LSP **and** the `volt` tool via `OPENCODE_CONFIG_DIR`? | opencode + a configured provider |
 
 Step 2 is the reason the gate exists — it drives the real binary, and nothing else catches opencode changing its
