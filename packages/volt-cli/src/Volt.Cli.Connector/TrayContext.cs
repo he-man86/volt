@@ -50,7 +50,7 @@ namespace Volt.Cli.Connector
             _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
-            _control = new ControlServer(Snapshot, ConnectById, () => _conn.Disconnect(), RestartWorker);
+            _control = new ControlServer(Snapshot, ConnectById, TrayDisconnect, RestartWorker);
             _control.Start();
             Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
@@ -122,13 +122,28 @@ namespace Volt.Cli.Connector
 
         // ── notifications ──────────────────────────────────────────────────
         // A connect names the PLATFORM, so the toast/tooltip say what it attached to, not just the project name.
-        private void OnConnected(DetectedProject p) =>
+        private void OnConnected(DetectedProject p)
+        {
+            Log.Info($"connected to {p.DisplayName} ({_conn.DisplayNameOf(p.Vendor)})");
             _icon.ShowBalloonTip(4000, "Volt", $"Connected to {p.DisplayName} ({_conn.DisplayNameOf(p.Vendor)}).", ToolTipIcon.Info);
+        }
 
         private void OnAggregateChanged(BridgeStatus prev, BridgeStatus now)
         {
             if (prev == BridgeStatus.Connected && now is BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown)
+            {
+                Log.Warn("a bridge disconnected");
                 _icon.ShowBalloonTip(5000, "Volt", "A bridge disconnected.", ToolTipIcon.Warning);
+            }
+        }
+
+        // Clear the active connection (every host stays live) and record it. One place for both the tray menu and
+        // the control-plane disconnect, so the "disconnected from X" line is logged wherever it's triggered.
+        private void TrayDisconnect()
+        {
+            var active = _conn.ActiveConnection;
+            _conn.Disconnect();
+            if (active != null) Log.Info($"disconnected from {active.DisplayName} ({_conn.DisplayNameOf(active.Vendor)})");
         }
 
         // ── menu ────────────────────────────────────────────────────────────
@@ -212,7 +227,7 @@ namespace Volt.Cli.Connector
             }
             // Disconnect = clear the active connection (every host stays live). Enabled only when one is connected.
             _connectItem.DropDownItems.Add(new ToolStripSeparator());
-            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), (_, _) => _conn.Disconnect()) // PowerButton
+            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), (_, _) => TrayDisconnect()) // PowerButton
             {
                 Enabled = _conn.ActiveConnection != null,
             });
