@@ -41,15 +41,23 @@ export function forEachExpr(
 }
 
 /**
- * True when a symbol comes from a referenced-library SIGNATURE (a `Library Manager` folder), not project
- * source. The bridge materializes a library's declaration but not everything a project POU carries — notably
- * PROPERTIES are absent from the precompiled language model — so member/section checks skip library types to
- * stay zero-FP. (Methods ARE now materialized, so those resolve; the skip remains for the property residual.)
+ * True when a URI points into a referenced-library SIGNATURE (a `Library Manager` folder) — READ-ONLY content
+ * the bridge materialized, not the user's editable project source (visualizations, library FBs/types, etc.).
  *
- * Normalize the space first: the live server keys symbols by `file://` URI (`Library%20Manager`), the corpus
- * and unit tests by raw OS path (`Library Manager`). Matching only the raw form left the guard silently OFF
- * under the real LSP — library property access then false-positived. Single source of truth for all callers.
+ * Normalize the space first: the live server keys documents/symbols by `file://` URI (`Library%20Manager`),
+ * the corpus and unit tests by raw OS path (`Library Manager`). Matching only the raw form left the guard
+ * silently OFF under the real LSP. Single source of truth for every caller.
+ */
+export function isLibraryUri(uri: string): boolean {
+  return uri.replace(/%20/g, " ").includes("Library Manager")
+}
+
+/**
+ * True when a symbol comes from a referenced-library signature (see {@link isLibraryUri}). The bridge
+ * materializes a library's declaration but not everything a project POU carries — notably PROPERTIES are absent
+ * from the precompiled language model — so member/section checks skip library types to stay zero-FP. (Methods
+ * ARE now materialized, so those resolve; the skip remains for the property residual.)
  */
 export function isLibrarySymbol(sym: { uri: string }): boolean {
-  return sym.uri.replace(/%20/g, " ").includes("Library Manager")
+  return isLibraryUri(sym.uri)
 }

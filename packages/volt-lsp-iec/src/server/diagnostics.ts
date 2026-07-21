@@ -11,6 +11,7 @@ import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-proto
 import {
   computeSemanticDiagnostics,
   inDeadMember,
+  isLibraryUri,
   ownerPou,
   type DiagnosticItem,
   type Messages,
@@ -38,6 +39,11 @@ function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
 
 /** The full LSP diagnostic set for one document — semantic + VG + parse errors, with dead-code suppression. */
 export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d: Document): Diagnostic[] {
+  // Read-only library content (materialized library signatures under `Library Manager/`, incl. visualization
+  // elements) is not the user's editable source — they can't create or fix it — so it gets NO diagnostics. Its
+  // errors are un-actionable noise (and often offline false-positives: library array bounds/constants the LSP
+  // can't const-evaluate). Scoping diagnostics to editable code, not a suppression of the user's own bugs.
+  if (isLibraryUri(d.uri)) return []
   const owner = ownerPou(d.parseResult)
   const dead = owner !== undefined && store.deadSet().has(owner)
   // Excluded/uncalled methods inside this (live) file — keyed by the resolved doc URI (matches the store map).
