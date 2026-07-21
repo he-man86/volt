@@ -23,12 +23,17 @@ export type DiagnosticState = "off" | "warning" | "error"
 export interface WorkspaceRefs {
   libraryNamespaces: ReadonlySet<string>
   deviceInstances: ReadonlySet<string>
+  /** POUs marked `{attribute 'obsolete' := 'msg'}`, keyed by lowercased name → its declared name + message.
+   *  Feeds the C0357 obsolete-usage check (the attribute is parser trivia, so it's collected from raw file text
+   *  in the workspace scan — not on the AST). Empty when unknown ⇒ nothing flagged. */
+  obsoletePous: ReadonlyMap<string, { name: string; message: string }>
 }
 
 /** No workspace reference files known — the safe default (nothing skipped on this account). */
 export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
   libraryNamespaces: new Set(),
   deviceInstances: new Set(),
+  obsoletePous: new Map(),
 }
 
 /**
@@ -39,7 +44,7 @@ export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
  * own severity no longer matters for a configurable code.) Codes NOT here are non-configurable — errors always
  * error, exactly as CODESYS gives them no dialog control.
  *
- * This is 20 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
+ * This is 21 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
  * are still gaps, and why the un-closeable ones can't be — is `docs/codesys-reference/compiler-warnings-coverage.md`.
  */
 export const CONFIGURABLE_CHECKS = [
@@ -58,6 +63,7 @@ export const CONFIGURABLE_CHECKS = [
   { code: "message-pragma-warning", c: "C0373", label: "User-defined warning ({warning} pragma)" },
   { code: "interface-implements", c: "C0421", label: "Use keyword EXTENDS for inheritance of interfaces" },
   { code: "inout-in-initializer", c: "C0441", label: "Access to an uninitialized VAR_IN_OUT variable" },
+  { code: "obsolete-usage", c: "C0357", label: "Use of a POU marked {attribute 'obsolete'}" },
   { code: "input-default-composite", c: "C0525", label: "The input is only optional when called as a function" },
   { code: "default-not-constant", c: "C0526", label: "Default value is not constant" },
   { code: "abstract-output-default", c: "C0533", label: "The default value for a VAR_OUTPUT is not used" },

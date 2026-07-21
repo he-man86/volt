@@ -19,7 +19,8 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../src/analysis/index.js"
+import { obsoletePousInText } from "../src/workspace-refs.js"
 import { call, TARGET } from "./bridge.js"
 
 /** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
@@ -38,7 +39,14 @@ function lspMessagesForCode(
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
   ]
   const project = buildSymbolTable(files)
-  return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor }) })
+  const obsoletePous = new Map(files.flatMap((f) => obsoletePousInText(f.source)))
+  return computeSemanticDiagnostics({
+    parseResult: pr,
+    source: repro,
+    project,
+    config: resolveConfig({ vendor }),
+    references: { ...EMPTY_WORKSPACE_REFS, obsoletePous },
+  })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)
 }

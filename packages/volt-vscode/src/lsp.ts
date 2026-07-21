@@ -31,6 +31,7 @@ const CONFIGURABLE_CODES = [
 	"adr-on-bit",
 	"inout-own-access",
 	"message-pragma-warning",
+	"obsolete-usage",
 	"interface-implements",
 	"inout-in-initializer",
 	"input-default-composite",

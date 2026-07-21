@@ -183,6 +183,8 @@ export interface Messages {
   outputCantBeReference(): string
   /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). verified both vendors. */
   notInstantiable(typeName: string): string
+  /** Use of a POU marked `{attribute 'obsolete' := 'msg'}` (C0357). verified live CODESYS; TC pending. */
+  pouObsolete(name: string, message: string): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -435,6 +437,7 @@ export function messagesFor(vendor: Vendor): Messages {
     superNotAllowed: () => (tc ? `Expression 'SUPER' is not allowed in this context` : `Expression SUPER is not allowed in this context`),
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
+    pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,

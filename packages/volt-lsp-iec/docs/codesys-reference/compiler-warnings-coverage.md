@@ -40,7 +40,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet.
 | C0351 | ✅ **3-state setting** | `unknown-attribute` | unknown attribute pragma |
 | C0354 | ✅ **3-state setting** | `enum-comparison` | enum comparison |
 | C0355 | ✅ **3-state setting** | `adr-on-bit` | bit addressing |
-| C0357 | ⬜ needs-live-verify | — | obsolete POU usage |
+| C0357 | ✅ **3-state setting** | `obsolete-usage` | obsolete POU usage |
 | C0370 | ⬜ absent | — | — |
 | C0371 | ✅ **3-state setting** | `inout-own-access` | VAR_IN_OUT scoping |
 | C0373 | ✅ **3-state setting** | `message-pragma-warning` | user-defined pragma warning |
@@ -73,15 +73,17 @@ documented here as gaps, each with the concrete reason it isn't a setting yet.
 | C0561 | ⬜ needs-live-verify | — | recursive call warning |
 | C0564 | ⬜ needs-live-verify | — | initialization order |
 
-**20 of 66** dialog codes have a control. The other **46** are gaps — grouped by why below.
+**21 of 66** dialog codes have a control. The other **45** are gaps — grouped by why below.
 
 ## Closing the gaps
 
-None of the open dialog codes can be shipped as a clean offline check today: each is blocked on IDE build data,
-a proven false-positive surface, an architectural limit, or unverified triggers. The corpus (real IDE-clean
-projects) is the arbiter — a check that fires on it is a false positive, not a finding.
+A headless-CODESYS verification pass (`scripts/record-gaps.ts`, CODESYS 3.5.21) probed the offline-feasible
+codes: **C0357 is now implemented** (verified wording); **C0540** was verified live (wording captured) but its
+implementation is deferred. The rest below are blocked on IDE build data, a proven false-positive surface, an
+architectural limit, or a trigger the live probe could not reproduce. The corpus (real IDE-clean projects) is the
+arbiter — a check that fires on it is a false positive, not a finding.
 
-### Needs live-CODESYS verification before it can ship (6)
+### Needs live-CODESYS verification before it can ship (5)
 
 Offline-feasible in principle, but the exact trigger/wording is unverified (`verified:false`) and/or needs
 infrastructure the pipeline lacks. Writing them blind would ship unverified wording or false positives. Path to
@@ -89,12 +91,11 @@ close: record each against the headless CODESYS bridge (`scripts/verify-catalog.
 
 | CODESYS | what it flags | blocker |
 |---|---|---|
-| C0187 | external reference on program | Needs live-CODESYS verification of the exact trigger (external attribute on a PROGRAM) and wording; attributes are parser trivia, so token-level correlation is required. Near-zero real surface. |
-| C0357 | obsolete POU usage | Offline-feasible but needs {attribute 'obsolete'} + project-wide reference resolution + attribute plumbing the pipeline lacks; obsolete markers live in library metadata and the corpus has zero surface. Verify triggers against live CODESYS first. |
-| C0540 | missing no_assign attribute propagation | Resolution-dependent (no_assign attribute propagation across the type graph); needs live-CODESYS verification and has real FP surface. |
-| C0543 | reserved keyword used as identifier | Needs CODESYS's exact soft-reserved-keyword list (unpublished); guessing it would false-positive on valid identifiers. The parser already recovers on hard keywords. |
-| C0561 | recursive call warning | The hard function self-recursion error (C0224) already ships; C0561 is the configurable-warning variant whose trigger boundary vs C0224 (indirect cycles / method / FB recursion) is unverified. Needs a project-wide call graph + live-CODESYS verification. Zero corpus surface. |
-| C0564 | initialization order | Intra-declaration init-order dataflow; low real-world surface. Revisit with the overload work. |
+| C0187 | external reference on program | Probed live (CODESYS 3.5.21, scripts/record-gaps): {external}, {attribute 'external'}, and VAR_EXTERNAL on a PROGRAM all built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger. |
+| C0540 | missing no_assign attribute propagation | Verified live (CODESYS 3.5.21): "Attribute 'no_assign' missing for POU '<POU>'? The type of the variable '<var>' is attributed with 'no_assign'." (note CODESYS's literal '?'). Implementation deferred: needs no_assign-typed-var detection across the type graph + attribute plumbing; zero corpus surface. |
+| C0543 | reserved keyword used as identifier | Probed live (CODESYS 3.5.21): STEP/TIMER as identifiers are accepted silently, EXIT is a hard parse error — the soft-reserved C0543 warning was not reproduced. Needs CODESYS's exact soft-reserved list. |
+| C0561 | recursive call warning | The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; live recursion repros (method self-call, {attribute 'recursive'}) triggered compiler parse-corruption, not a clean C0561 warning. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface. |
+| C0564 | initialization order | Probed live (CODESYS 3.5.21): a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred. |
 
 ### Needs IDE build/runtime data — cannot be done offline (11)
 

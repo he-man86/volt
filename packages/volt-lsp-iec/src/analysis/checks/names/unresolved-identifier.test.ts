@@ -114,7 +114,7 @@ test("typed-base enum (`) USINT;`) still resolves its qualified members", () => 
 
 // Gap: a referenced-library namespace resolves outside the symbol table → skip when known.
 test("a referenced-library namespace is not flagged when supplied", () => {
-  const refs: WorkspaceRefs = { libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }
+  const refs: WorkspaceRefs = { libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set(), obsoletePous: new Map() }
   const src = fb(`VAR a : INT; END_VAR\na := PACK_ML.gConstant;`)
   expect(unresolved(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
   expect(unresolved(src, refs)).toEqual([]) // known library namespace → skipped
@@ -122,7 +122,7 @@ test("a referenced-library namespace is not flagged when supplied", () => {
 
 // Gap: a device-tree instance is an implicit global mirrored as a `.device` file → skip when known.
 test("a device-tree instance is not flagged when supplied", () => {
-  const refs: WorkspaceRefs = { libraryNamespaces: new Set(), deviceInstances: new Set(["ethercat_master"]) }
+  const refs: WorkspaceRefs = { libraryNamespaces: new Set(), deviceInstances: new Set(["ethercat_master"]), obsoletePous: new Map() }
   const src = fb(`VAR a : INT; END_VAR\na := EtherCAT_Master.wState;`)
   expect(unresolved(src, refs)).toEqual([])
 })

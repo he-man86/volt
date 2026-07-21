@@ -434,6 +434,16 @@
           "default": "warning",
           "description": "C0441 — Access to an uninitialized VAR_IN_OUT variable. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         },
+        "volt.iec.diagnostics.obsolete-usage": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0357 — Use of a POU marked {attribute 'obsolete'}. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
         "volt.iec.diagnostics.input-default-composite": {
           "type": "string",
           "enum": [

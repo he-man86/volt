@@ -2649,7 +2649,7 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Needs live-CODESYS verification of the exact trigger (external attribute on a PROGRAM) and wording; attributes are parser trivia, so token-level correlation is required. Near-zero real surface.",
+    "note": "Probed live (CODESYS 3.5.21, scripts/record-gaps): {external}, {attribute 'external'}, and VAR_EXTERNAL on a PROGRAM all built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger.",
     "gap": "needs-live-verify"
   },
   {
@@ -3845,22 +3845,21 @@
     "category": "obsolete POU usage",
     "cause": "A POU decorated with the 'obsolete' attribute is still instantiated/used elsewhere in the program.",
     "message": "POU '<POU name>' has been marked as obsolete: <message text>",
-    "repro": "{attribute 'obsolete':= 'datatype fb not valid!'}\nFUNCTION_BLOCK FB_Test\n\nPROGRAM PLC_PRG\nVAR\n      inst : FB_Test;\nEND_VAR",
+    "repro": "{attribute 'obsolete' := 'use NewFB instead'}\nFUNCTION_BLOCK OldFB\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
+      "POU 'OldFB' has been marked as obsolete: use NewFB instead"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkObsoleteUsage",
+    "ourCode": "obsolete-usage",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "Offline-feasible but needs {attribute 'obsolete'} + project-wide reference resolution + attribute plumbing the pipeline lacks; obsolete markers live in library metadata and the corpus has zero surface. Verify triggers against live CODESYS first.",
-    "gap": "needs-live-verify"
+    "note": "Verified live against CODESYS 3.5.21 (scripts/record-gaps). Workspace-scan-based: the {attribute 'obsolete'} is parser trivia, collected from raw file text into WorkspaceRefs.obsoletePous. TwinCAT verification pending."
   },
   {
     "code": "C0371",
@@ -4397,8 +4396,11 @@
     },
     "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable",
     "triage": "resolution",
-    "note": "Resolution-dependent (no_assign attribute propagation across the type graph); needs live-CODESYS verification and has real FP surface.",
-    "gap": "needs-live-verify"
+    "note": "Verified live (CODESYS 3.5.21): \"Attribute 'no_assign' missing for POU '<POU>'? The type of the variable '<var>' is attributed with 'no_assign'.\" (note CODESYS's literal '?'). Implementation deferred: needs no_assign-typed-var detection across the type graph + attribute plumbing; zero corpus surface.",
+    "gap": "needs-live-verify",
+    "codesysActual": [
+      "Attribute 'no_assign' missing for POU 'UsesIt'? The type of the variable 'v' is attributed with 'no_assign'."
+    ]
   },
   {
     "code": "C0541",
@@ -4466,7 +4468,7 @@
     },
     "fix": null,
     "triage": "parser",
-    "note": "Needs CODESYS's exact soft-reserved-keyword list (unpublished); guessing it would false-positive on valid identifiers. The parser already recovers on hard keywords.",
+    "note": "Probed live (CODESYS 3.5.21): STEP/TIMER as identifiers are accepted silently, EXIT is a hard parse error — the soft-reserved C0543 warning was not reproduced. Needs CODESYS's exact soft-reserved list.",
     "gap": "needs-live-verify"
   },
   {
@@ -4584,7 +4586,7 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "The hard function self-recursion error (C0224) already ships; C0561 is the configurable-warning variant whose trigger boundary vs C0224 (indirect cycles / method / FB recursion) is unverified. Needs a project-wide call graph + live-CODESYS verification. Zero corpus surface.",
+    "note": "The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; live recursion repros (method self-call, {attribute 'recursive'}) triggered compiler parse-corruption, not a clean C0561 warning. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface.",
     "gap": "needs-live-verify"
   },
   {
@@ -4608,7 +4610,7 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
     "triage": "resolution",
-    "note": "Intra-declaration init-order dataflow; low real-world surface. Revisit with the overload work.",
+    "note": "Probed live (CODESYS 3.5.21): a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred.",
     "gap": "needs-live-verify"
   },
   {

@@ -55,6 +55,7 @@ import { checkDeprecatedKeyword } from "./checks/declarations/deprecated-keyword
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
 import { checkOutputRules } from "./checks/declarations/output-rules.js"
 import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
+import { checkObsoleteUsage } from "./checks/declarations/obsolete-usage.js"
 import { checkInheritance } from "./checks/oop/inheritance.js"
 import { checkPropertyAccess } from "./checks/oop/property-access.js"
 import { checkMethodReference } from "./checks/oop/method-reference.js"
@@ -140,6 +141,7 @@ const CHECKS: readonly Check[] = [
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,
+  checkObsoleteUsage,
   checkHeaderRules,
   checkAttributePlacement,
   // oop/
