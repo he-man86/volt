@@ -147,7 +147,7 @@ function literalArray(src: string, name: string): string[] {
 }
 
 // Canonical: the C# ItemKind.SourceKindExtensions table — ("kind", "ext") pairs; take each ext (2nd string).
-const itemKindSrc = readRepo("packages/volt-cli/src/Volt.Cli.Core/Workspace/ItemKind.cs");
+const itemKindSrc = readRepo("packages/volt-cli/src/Volt.Engine/Workspace/ItemKind.cs");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
 const CANON = normExts([...canonBlock[1].matchAll(/\(\s*"[^"]+"\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
