@@ -56,16 +56,18 @@ jobs:
         shell: bash
         run: bun volt-scripts/version.ts | tee -a "$GITHUB_OUTPUT"
 
-      # Inject the base X.Y.Z into every package.json so the vsix + electron app carry the one version (vsce rejects
-      # a 4-part version, so packages get `base`; the installer + connector get the full `version` via VOLT_VERSION).
+      # Inject the version into each package.json (vsce rejects a 4-part version, so both get a 3-part one; the
+      # installer + connector get the full `version` via VOLT_VERSION). The electron app gets `base`; the EXTENSION
+      # gets `vsix` (<maj>.<min>.<count>) so it moves every build — a constant `base` would leave a newer sideloaded
+      # build failing to out-version the installed one, so silent-update refreshes and the drift check both no-op.
       - name: Stamp the version into every package.json
         shell: bash
         run: |
           base='${{ steps.v.outputs.base }}'
-          for f in packages/volt-desktop/package.json packages/volt-vscode/package.json; do
-            node -e "const fs=require('fs'),p='$f',j=JSON.parse(fs.readFileSync(p));j.version='$base';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
-          done
-          echo "stamped base $base into every package.json"
+          vsix='${{ steps.v.outputs.vsix }}'
+          node -e "const fs=require('fs'),p='packages/volt-desktop/package.json',j=JSON.parse(fs.readFileSync(p));j.version='$base';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          node -e "const fs=require('fs'),p='packages/volt-vscode/package.json',j=JSON.parse(fs.readFileSync(p));j.version='$vsix';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          echo "stamped base $base (desktop) + vsix $vsix (extension)"
 
       - name: Build the Volt installer
         env:

@@ -30,7 +30,7 @@ namespace Volt.Cli.Connector
         private readonly System.Windows.Forms.Timer _poll = new() { Interval = 2000 };
 
         private static string InstallDir => AppContext.BaseDirectory; // the connector sits at the install root
-        private static string Expected => Base(Updater.CurrentVersion); // the version everything should match
+        private static string Expected => BuildId(Updater.CurrentVersion); // the build every component should match
 
         public StatusWindow(Action applyUpdate, Action showLogs)
         {
@@ -214,11 +214,26 @@ namespace Volt.Cli.Connector
             if (rest > 120) _components.Columns[1].Width = rest;
         }
 
-        /// <summary>A Volt component is in sync when its X.Y.Z base matches the connector's installed base.</summary>
+        /// <summary>A Volt component is in sync when its build matches the connector's. See <see cref="BuildId"/>.</summary>
         private static bool? Sync(string version)
         {
             if (string.IsNullOrWhiteSpace(version) || Expected == "(dev)") return null;
-            return Base(version) == Expected;
+            return BuildId(version) == Expected;
+        }
+
+        /// <summary>
+        /// The drift discriminator. On dev/prerelease builds it's the git build number (the large monotonic commit
+        /// count) — the connector/CLI/LSP carry it as the 4th segment (<c>0.0.1.842</c>), the extension as its patch
+        /// (<c>0.0.842</c>, since a vsix can't be 4-part). On tagged stable builds there is no build segment, so we
+        /// fall back to the X.Y.Z base. Comparing THIS, not the base, is what lets a stale sideloaded extension light
+        /// up: every component shares base 0.0.1, so only the build number actually differs when one drifts.
+        /// (Heuristic ceiling: a trailing segment ≥ 1000 is treated as a build count, never a human patch number.)
+        /// </summary>
+        private static string BuildId(string v)
+        {
+            var parts = (v ?? "").Trim().Split('.');
+            if (parts.Length >= 3 && int.TryParse(parts[^1], out var last) && last >= 1000) return last.ToString();
+            return Base(v);
         }
 
         private static string Base(string v)

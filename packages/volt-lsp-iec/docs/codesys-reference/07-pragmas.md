@@ -657,19 +657,25 @@ Use `*` as a placeholder for "all unspecified names". Without `*`, unspecified p
 
 ### `strict`
 
-**Purpose.** Apply strict type-checking to a single POU. Implicit conversions that the compiler would normally warn about become hard errors.
+**Purpose.** Apply strict type-checking. Two distinct uses depending on where it sits:
+- **On a POU** — implicit conversions that the compiler would normally warn about become hard errors.
+- **On an ENUM** — makes it a *strongly-typed* (strict) enumeration: the enum no longer implicitly converts to/from its base integer type.
 
 **Syntax.** `{attribute 'strict'}`
 
-**Insert location.** Line above a POU declaration (`FUNCTION_BLOCK`, `FUNCTION`, or `PROGRAM`).
+**Insert location.** Line above a POU declaration (`FUNCTION_BLOCK`, `FUNCTION`, `PROGRAM`) **or** above an `ENUM` `TYPE` declaration. Frequently paired with `qualified_only` on an enum (e.g. `eExceptionCodes`).
 
-**Effect.** Inside a strict POU the compiler refuses:
+**Effect (POU).** Inside a strict POU the compiler refuses:
 - Implicit BOOL ↔ BYTE conversions
 - Implicit signed ↔ unsigned conversions
 - Implicit narrowing assignments (e.g. `INT` into `SINT` without explicit cast)
 - Implicit STRING ↔ pointer conversions
 
-**Use case.** Opt one new POU into strict checking even when the project's compiler settings are permissive — gradual migration path for legacy code that can't switch project-wide.
+**Effect (ENUM).** A strict enum variable accepts only enum constants of its own type; assigning a raw integer or mixing it with `INT` in arithmetic/comparison requires an explicit conversion. Orthogonal to `qualified_only` (which governs *access form*, not type-safety).
+
+**Use case.** Opt one new POU into strict checking even when the project's compiler settings are permissive — gradual migration path for legacy code that can't switch project-wide. On enums, catch accidental integer/enum mixups at compile time.
+
+> **LSP note.** Volt's LSP recognizes `strict` (so it is never flagged as an unknown attribute) but does **not** enforce strict conversion/enum type-checking — that would need assignment-level type inference and risks false positives against the zero-FP corpus policy. `qualified_only`, by contrast, *is* enforced.
 
 ---
 
