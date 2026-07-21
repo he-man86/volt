@@ -100,4 +100,59 @@ public class LibSignatureRendererTests
         Assert.Equal(".dut", r!.Value.Ext);
         Assert.Equal("TYPE U :\nUNION\n\tasWord : WORD;\n\tasBytes : ARRAY[0..1] OF BYTE;\nEND_UNION\nEND_TYPE", r.Value.Text);
     }
+
+    // Methods fold into the parent as METHOD blocks after END_FUNCTION_BLOCK — the form the LSP binds as members
+    // (without this a library FB's method call reads as unknown-member; the whole reason methods are extracted).
+    [Fact]
+    public void FunctionBlock_renders_its_methods_after_the_body()
+    {
+        var m = new LibMethod("SwitchUnitMode",
+            new[] { new LibVar("NewMode", "STRING") }, new LibVar[0], new LibVar[0], "BOOL");
+        var s = new LibSignature("UnitModeManager", "lib", "FunctionBlock",
+            new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null, null, "", new[] { m });
+        var r = LibSignatureRenderer.Render(s);
+        Assert.Equal(".fb", r!.Value.Ext);
+        Assert.Equal(
+            "FUNCTION_BLOCK UnitModeManager\nEND_FUNCTION_BLOCK\n\n" +
+            "METHOD SwitchUnitMode : BOOL\nVAR_INPUT\n\tNewMode : STRING;\nEND_VAR\nEND_METHOD",
+            r.Value.Text);
+    }
+
+    [Fact]
+    public void Interface_renders_its_methods()
+    {
+        var m = new LibMethod("Execute", new LibVar[0], new LibVar[0], new LibVar[0], null); // no return type
+        var s = new LibSignature("ICommand", "lib", "Interface",
+            new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null, null, "", new[] { m });
+        var r = LibSignatureRenderer.Render(s);
+        Assert.Equal(".itf", r!.Value.Ext);
+        Assert.Equal("INTERFACE ICommand\nEND_INTERFACE\n\nMETHOD Execute\nEND_METHOD", r.Value.Text);
+    }
+
+    // The live shape (verified against CODESYS): a method's return is an output pin named after the method with
+    // ReturnType empty — e.g. ABORTMODEL → Outputs=[ABORTMODEL:ERROR]. The renderer must lift it into the return
+    // type and drop it from VAR_OUTPUT, identically to functions (the shared LiftReturn path).
+    [Fact]
+    public void Method_return_pin_named_after_the_method_becomes_the_return_type()
+    {
+        var m = new LibMethod("ABORTMODEL",
+            new[] { new LibVar("XCOMMIT", "BOOL") },
+            new[] { new LibVar("ABORTMODEL", "ERROR"), new LibVar("XDONE", "BOOL") }, // self-named pin + a real output
+            new LibVar[0], null); // ReturnType empty — the pin carries it
+        var s = new LibSignature("F", "lib", "FunctionBlock",
+            new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null, null, "", new[] { m });
+        var r = LibSignatureRenderer.Render(s);
+        Assert.Equal(
+            "FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK\n\n" +
+            "METHOD ABORTMODEL : ERROR\nVAR_INPUT\n\tXCOMMIT : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tXDONE : BOOL;\nEND_VAR\nEND_METHOD",
+            r!.Value.Text);
+    }
+
+    [Fact]
+    public void FunctionBlock_without_methods_is_unchanged()
+    {
+        var s = new LibSignature("F", "lib", "FunctionBlock",
+            new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null);
+        Assert.Equal("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK", LibSignatureRenderer.Render(s)!.Value.Text);
+    }
 }

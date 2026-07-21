@@ -22,8 +22,40 @@ public static class LibSignatureRenderer
     // `Name : Type` plus a `:= Initial` default when the model carries one.
     private static string VarDecl(LibVar v) => $"{v.Name} : {v.Type}" + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}");
 
-    /// <summary>The (extension, text) for this signature, or null for a kind we don't materialize (method,
-    /// property, and other sub-signatures resolved via their parent).</summary>
+    /// <summary>The CODESYS convention for a function OR method return value: it is exposed as an output pin named
+    /// after the routine (with <c>ReturnType</c> left empty — verified live). Lift it into the declared return type
+    /// and strip it from VAR_OUTPUT so no bogus self-named output is emitted. Owned here so functions and methods
+    /// stay identical. Returns (return type or null when there is none, the remaining outputs).</summary>
+    private static (string? Ret, List<LibVar> Outputs) LiftReturn(string name, IReadOnlyList<LibVar> outputs, string? explicitReturn)
+    {
+        if (!string.IsNullOrEmpty(explicitReturn)) return (explicitReturn, outputs.ToList());
+        var self = outputs.FirstOrDefault(v => string.Equals(v.Name, name, System.StringComparison.OrdinalIgnoreCase));
+        var rest = outputs.Where(v => !string.Equals(v.Name, name, System.StringComparison.OrdinalIgnoreCase)).ToList();
+        return (self?.Type, rest);
+    }
+
+    // Each library method → a `METHOD name : ret … END_METHOD` block, declaration only. Emitted AFTER the parent's
+    // END_FUNCTION_BLOCK / END_INTERFACE (a blank line between), matching how project FBs materialize their method
+    // children — so the LSP parses and binds them as members. A method with no return omits the `: ret` (void).
+    private static IEnumerable<string> MethodBlocks(IReadOnlyList<LibMethod>? methods)
+    {
+        if (methods == null) yield break;
+        foreach (var m in methods)
+        {
+            if (!OkName(m.Name)) continue;
+            var (ret, outs) = LiftReturn(m.Name, m.Outputs, m.ReturnType);
+            yield return ""; // blank-line separator from the preceding block
+            yield return $"METHOD {m.Name}" + (string.IsNullOrEmpty(ret) ? "" : $" : {ret}");
+            foreach (var l in Block("VAR_INPUT", m.Inputs)) yield return l;
+            foreach (var l in Block("VAR_OUTPUT", outs)) yield return l;
+            foreach (var l in Block("VAR_IN_OUT", m.InOuts)) yield return l;
+            yield return "END_METHOD";
+        }
+    }
+
+    /// <summary>The (extension, text) for this signature, or null for a kind we don't materialize as its own file.
+    /// Methods are folded into their parent FB/interface (see <see cref="MethodBlocks"/>); properties are not in
+    /// the precompiled language model at all, so a library FB's property access stays library-skipped in the LSP.</summary>
     public static (string Ext, string Text)? Render(LibSignature s)
     {
         var name = s.Name;
@@ -51,24 +83,24 @@ public static class LibSignatureRenderer
                 var lines = new[] { $"FUNCTION_BLOCK {name}{ext}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", s.Outputs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(Block("VAR", internals))
-                    .Concat(new[] { "END_FUNCTION_BLOCK" });
+                    .Concat(new[] { "END_FUNCTION_BLOCK" })
+                    .Concat(MethodBlocks(s.Methods));
                 return (".fb", string.Join("\n", lines));
             }
             case "Function":
             {
-                // CODESYS exposes a function's return value as an output pin named after the function, with
-                // ReturnType left empty (verified live). Lift it into the declared return type and drop it
-                // from VAR_OUTPUT so we don't emit a bogus self-named output.
-                var ret = s.Outputs.FirstOrDefault(v => string.Equals(v.Name, name, System.StringComparison.OrdinalIgnoreCase));
-                var rt = !string.IsNullOrEmpty(s.ReturnType) ? s.ReturnType : ret?.Type ?? "BOOL";
-                var outs = s.Outputs.Where(v => !string.Equals(v.Name, name, System.StringComparison.OrdinalIgnoreCase)).ToList();
+                var (ret, outs) = LiftReturn(name, s.Outputs, s.ReturnType);
+                var rt = ret ?? "BOOL"; // a FUNCTION must declare a return; default only if the model gives neither
                 var lines = new[] { $"FUNCTION {name} : {rt}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });
                 return (".fun", string.Join("\n", lines));
             }
             case "Interface":
-                return (".itf", $"INTERFACE {name}\nEND_INTERFACE");
+            {
+                var lines = new[] { $"INTERFACE {name}", "END_INTERFACE" }.Concat(MethodBlocks(s.Methods));
+                return (".itf", string.Join("\n", lines));
+            }
             case "VarGlobal":
             {
                 var mem = s.Members.Where(v => OkName(v.Name)).ToList();
