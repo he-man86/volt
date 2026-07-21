@@ -185,21 +185,21 @@
     "category": "stray block-closing keyword",
     "cause": "A block-closing keyword like END_FOR appears with no matching opening block.",
     "message": "Unexpected token '<token>' found",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nEND_FOR;\nEND_PROGRAM\n",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nEND_FOR;",
     "expect": [
       "Unexpected token 'END_FOR' found"
     ],
-    "status": "implemented",
-    "ourCheck": "parseStatement (stray block-closer)",
+    "status": "checkable",
+    "ourCheck": null,
     "ourCode": null,
     "lint": null,
     "verified": {
-      "codesys": true,
+      "codesys": false,
       "twincat": false
     },
     "fix": null,
     "triage": "parser",
-    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). Parse-level: a stray block closer (END_FOR/END_IF/ELSE/...) at statement position was mis-recovered as an identifier; now emits the IDE wording. Surfaced via checkParseErrors (no semantic ourCode). TC pending."
+    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0010",
