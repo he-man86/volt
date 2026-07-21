@@ -74,10 +74,14 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdir
 ; startup, then runs the tray. --silent = launched by us, not a double-click.
 Filename: "{app}\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
 ; Optional components — only on an interactive install (skip on the connector's silent in-place update).
+; winget stays interactive-only (heavy + needs network) — skip it on the connector's silent auto-update.
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Tasks: vscode;   Check: NotSilent; StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Tasks: windsurf; Check: NotSilent; StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Tasks: cursor;   Check: NotSilent; StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
+; The extension refresh, however, MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
+; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
+; encodes both cases: interactive → honor the checkbox; silent → refresh only editors that ALREADY have it.
+Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Check: WantExt('code','vscode');       StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
 [UninstallDelete]
 ; Anything created inside opencode-config AFTER install is untracked by Inno, so it would survive uninstall and keep
@@ -99,15 +103,39 @@ begin
   // VS Code forks and take the same `--install-extension <vsix> --force`, so PATH presence is the whole check.
   //
   // Memoized: Inno re-evaluates a [Tasks] Check every time it rebuilds the task list, and each miss costs a
-  // hidden cmd.exe. Three launchers × every evaluation adds up — including on the connector's /VERYSILENT
-  // auto-update, where the tasks can't run at all (Check: NotSilent gates their [Run] lines). PATH won't change
-  // mid-install, so one probe per launcher is enough.
+  // hidden cmd.exe. Three launchers × every evaluation adds up. PATH won't change mid-install, so one probe per
+  // launcher is enough. (Reused by WantExt below, which runs on the silent auto-update too.)
   if LauncherCache = nil then LauncherCache := TStringList.Create;
   if LauncherCache.IndexOf(Launcher + '=1') >= 0 then begin Result := True; exit; end;
   if LauncherCache.IndexOf(Launcher + '=0') >= 0 then begin Result := False; exit; end;
 
   Result := Exec(ExpandConstant('{cmd}'), '/c where ' + Launcher, '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
   if Result then LauncherCache.Add(Launcher + '=1') else LauncherCache.Add(Launcher + '=0');
+end;
+
+function ExtInstalled(Launcher: String): Boolean;
+var Code, I: Integer; Tmp: String; Lines: TArrayOfString;
+begin
+  // True when this editor already has the Volt extension. Capture `<launcher> --list-extensions` via a temp file
+  // (Inno can't read a child's stdout directly) and look for our id. Used only on the silent auto-update, so we
+  // refresh editors the user already opted into WITHOUT silently adding it to an editor they never chose.
+  Result := False;
+  Tmp := ExpandConstant('{tmp}\volt-ext-' + Launcher + '.txt');
+  if not Exec(ExpandConstant('{cmd}'), '/c ' + Launcher + ' --list-extensions > "' + Tmp + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, Code) then exit;
+  if not LoadStringsFromFile(Tmp, Lines) then exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do
+    if Pos('volt-ai.volt-vscode', Lowercase(Lines[I])) > 0 then begin Result := True; exit; end;
+end;
+
+function WantExt(Launcher, TaskName: String): Boolean;
+begin
+  // Whether to (re)install the extension into this editor. Interactive: honor the wizard checkbox. Silent (the
+  // connector's /VERYSILENT self-update): refresh only editors that ALREADY have it — keeping the vsix in lockstep
+  // with the auto-updated LSP instead of letting it freeze at the last interactive install.
+  Result := False;
+  if not EditorOnPath(Launcher) then exit;
+  if WizardSilent() then Result := ExtInstalled(Launcher)
+  else Result := WizardIsTaskSelected(TaskName);
 end;
 
 function NotSilent(): Boolean;
