@@ -10,7 +10,9 @@ import type { Scope } from "../../symbols/index.js"
 import { exprText, inferExprType } from "../../types/index.js"
 import { offsetFromPosition, rangeFromSpan, stBodies, type Document } from "../shared/index.js"
 
-const FIXABLE = new Set(["assignment-type-mismatch", "narrowing-conversion"])
+// Matches the diagnostic `code` as the client sends it back — the CODESYS Cnnnn the server surfaces (C0032
+// assignment-type-mismatch, C0197 narrowing-conversion), not our internal slug.
+const FIXABLE = new Set(["C0032", "C0197"])
 
 export function codeActions(doc: Document, project: Scope, diagnostics: readonly Diagnostic[]): CodeAction[] {
   const out: CodeAction[] = []

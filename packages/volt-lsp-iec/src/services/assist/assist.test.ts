@@ -156,7 +156,7 @@ test("code-actions: 'wrap in TO_<type>' quick fix for an assignment type mismatc
   expect(mismatch).toBeDefined()
   const lspDiag = {
     range: rangeFromSpan(mismatch!.span),
-    code: mismatch!.code,
+    code: "C0032", // the server surfaces the CODESYS Cnnnn; the client sends it back here
     message: mismatch!.message,
     severity: DiagnosticSeverity.Error,
   }

@@ -55,3 +55,17 @@ export function errorCatalog(): ErrorCode[] {
 export function lookupErrorCode(code: string): ErrorCode | undefined {
   return errorCatalog().find((e) => e.code === code)
 }
+
+let ourCodeMap: Map<string, { code: string; url: string }> | undefined
+/** Reverse map: our diagnostic slug (`inout-own-access`) → the CODESYS `Cnnnn` it mirrors + its docs URL, so a
+ *  diagnostic can surface the compiler code the user recognizes. First-wins when a slug covers several codes
+ *  (e.g. `sign-change-conversion` → C0195/C0196). Undefined for a slug with no catalog mapping (VG/internal). */
+export function codesysCodeFor(ourCode: string): { code: string; url: string } | undefined {
+  ourCodeMap ??= new Map(
+    errorCatalog()
+      .filter((e) => e.ourCode)
+      .reverse() // reverse so the FIRST catalog entry wins after the Map dedupes on last-set
+      .map((e) => [e.ourCode!, { code: e.code, url: e.url }]),
+  )
+  return ourCodeMap.get(ourCode)
+}
