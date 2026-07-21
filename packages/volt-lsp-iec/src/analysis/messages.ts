@@ -296,9 +296,9 @@ export function messagesFor(vendor: Vendor): Messages {
     // 'VAR_IN_OUT', CS does not — a genuine per-vendor divergence like the double-space in unknownAttribute.
     inoutNoExternalAccess: (param, fb) =>
       tc ? `No external access to 'VAR_IN_OUT' parameter '${param}' of '${fb}'."` : `No external access to VAR_IN_OUT parameter '${param}' of '${fb}'."`,
-    // Live-verify pending (bridge up) — from the lenze-mid build the exact form is this. WARNING severity.
+    // C0371 WARNING. Verified live: CODESYS omits the trailing period, TwinCAT adds one.
     inoutOwnAccess: (param, fb, context) =>
-      `Access to VAR_IN_OUT '${param}' declared in '${fb}' from external context '${context}'`,
+      `Access to VAR_IN_OUT '${param}' declared in '${fb}' from external context '${context}'${tc ? "." : ""}`,
     // CODESYS-verified (2026-07-11 live): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
@@ -448,7 +448,8 @@ export function messagesFor(vendor: Vendor): Messages {
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
-    directAddressExpectedAt: (found) => `Direct address expected after AT instead of ${found}`,
+    directAddressExpectedAt: (found) =>
+      tc ? `Direct Address expected after "AT" instead of ${found}` : `Direct address expected after AT instead of ${found}`,
     emptyStatementBlock: () => `At least one statement is expected`,
     reservedKeyword: (name) =>
       `The name '${name.toUpperCase()}' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.`,
