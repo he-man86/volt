@@ -11,7 +11,9 @@ const root = join(import.meta.dir, "..", "..") // desktop package root — where
 // the window, and the Volt shell all rendered. Headless on CI via xvfb (the `desktop-e2e` job wraps this).
 // Needs `bun run build` first (electron loads main.mjs) — the `test:e2e` script does that.
 test("electron app boots a window and renders the Volt shell", () => {
-  const r = spawnSync(electronPath as unknown as string, ["."], {
+  // --no-sandbox: CI runners have no correctly-configured SUID sandbox (and run as root), so electron aborts
+  // without it. Harmless locally; standard for headless electron in CI.
+  const r = spawnSync(electronPath as unknown as string, ["--no-sandbox", "."], {
     cwd: root,
     env: { ...process.env, VOLT_SMOKE: "1" },
     timeout: 60_000,
