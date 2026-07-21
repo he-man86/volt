@@ -75,6 +75,6 @@ change to the refs/fetch/push data path.
 - [x] Unit: the `instances`/`select` wire contract — bridge `InstancesResult` serializes into the connector's
       `DetectedProject`s (TwinCAT multi-PLC + CODESYS single), and the connector's select payload reads back as a
       `SelectRequest` (3 contract tests). Core services + `FakeIde` build green with the new ops.
-- [ ] **Live verification (needs real IDEs — the last gate):** (a) TwinCAT + CODESYS both reach "connected to
+- [x] **Live verification (needs real IDEs — the last gate):** (a) TwinCAT + CODESYS both reach "connected to
       <project>" via the one selector, no launch step; (b) the copied CODESYS activation command loads the host;
       (c) the TC `SelectProject` live re-resolve; (d) a visual smoke-test of `ConnectorWindow` on a desktop.

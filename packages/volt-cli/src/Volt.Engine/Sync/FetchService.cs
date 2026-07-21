@@ -143,7 +143,7 @@ public static class FetchService
         var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         var libClause = librarySignatures > 0 ? $", {librarySignatures} library signatures" : "";
-        VoltLog.Info($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");
+        VoltLog.Debug($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");
 
         return new FetchResponse
         {

@@ -38,7 +38,6 @@ test("hover shows the declaration line + kind", () => {
 })
 
 test("completion: member access offers the base type's members", () => {
-  const { doc, project } = setup(SRC)
   // cursor right after `inst.` — synthesize by inserting a dot position
   const withDot = SRC.replace("count := 0;", "inst.;\ncount := 0;")
   const { doc: d2, project: p2 } = setup(withDot)
@@ -65,7 +64,7 @@ test("hover↔completion parity: the kind label is identical (E.1)", () => {
 })
 
 test("document symbols: file outline with members nested", () => {
-  const { doc, project } = setup(SRC)
+  const { doc } = setup(SRC)
   const syms = documentSymbols(doc)
   expect(syms.map((s) => s.name)).toEqual(["FB_A", "F"])
   expect(syms[1]?.children?.map((c) => c.name)).toEqual(["inst", "count"])

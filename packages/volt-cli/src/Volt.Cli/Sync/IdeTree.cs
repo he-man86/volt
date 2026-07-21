@@ -24,7 +24,8 @@ public static class IdeTree
         string? headCommit,
         string? parentIde,
         IReadOnlyList<MaterializedFile> ideFiles,
-        IReadOnlyList<string> removedNames)
+        IReadOnlyList<string> removedNames,
+        Action<int, int>? onBlobs = null)
     {
         var entries = new List<IndexEntry>();
         var seen = new HashSet<string>();
@@ -34,9 +35,11 @@ public static class IdeTree
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
         var removed = new HashSet<string>(removedNames);
 
-        // Changed IDE items — fresh content from the fetch.
-        foreach (var f in ideFiles)
-            Add(new IndexEntry("100644", Git.WriteBlob(gitDir, f.Content), $"{Files.SrcDir}/{f.Path}"));
+        // Changed IDE items — fresh content from the fetch. Batch-hash in one git process (a large init is 8k+
+        // items; one `git hash-object` per file was the dominant cost).
+        var shas = Git.WriteBlobs(gitDir, ideFiles.Select(f => f.Content).ToList(), onBlobs);
+        for (var i = 0; i < ideFiles.Count; i++)
+            Add(new IndexEntry("100644", shas[i], $"{Files.SrcDir}/{ideFiles[i].Path}"));
 
         // Unchanged IDE items — from the previous volt/ide tree (the IDE's last-known content, NOT the user's HEAD).
         if (parentIde is not null)

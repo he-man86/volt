@@ -9,7 +9,7 @@
  * uncertain skips → zero FP.
  */
 import { walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
+import { bodies } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"

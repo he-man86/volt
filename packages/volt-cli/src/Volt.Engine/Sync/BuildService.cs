@@ -29,7 +29,7 @@ public static class BuildService
             var diagnostics = ide.GetBuildDiagnostics().ToList();
             var errors = diagnostics.Count(d => d.Severity == "error");
             var warnings = diagnostics.Count(d => d.Severity == "warning");
-            VoltLog.Info($"build {request.BuildType} {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
+            VoltLog.Debug($"build {request.BuildType} {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
             return new BuildResponse
             {
                 Success = success,

@@ -48,7 +48,6 @@ const DOCS_DIR = existsSync(join(PKG_DIR, "docs"))
 	? join(PKG_DIR, "docs")
 	: resolve(dirname(process.execPath), "..", "docs");
 const SOURCE_CODESYS_DOCS_DIR = join(DOCS_DIR, "codesys-reference");
-const SOURCE_TC_DOCS_DIR = join(DOCS_DIR, "twincat-reference");
 
 const SKILL_DIR_REL = ".claude/skills/st-reference";
 const SKILL_REL_PATH = `${SKILL_DIR_REL}/SKILL.md`;

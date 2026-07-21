@@ -33,7 +33,8 @@ public class WireContractTests
 
         var projects = await src.EnumerateAsync();
 
-        Assert.Equal(new[] { "PLC_A", "PLC_B" }, projects.Select(p => p.DisplayName));
+        // Two PLC projects under one IDE project → each is qualified by its sub-project name to disambiguate.
+        Assert.Equal(new[] { "TwinCAT Project1 / PLC_A", "TwinCAT Project1 / PLC_B" }, projects.Select(p => p.DisplayName));
         Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_A"), projects[0].Attach);
         Assert.All(projects, p => Assert.Equal("twincat", p.Vendor));
     }

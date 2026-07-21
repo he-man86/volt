@@ -47,16 +47,22 @@ public static class Commands
 
         if (gitCreated) Git.CommitAll(root, $"volt init: {health.ProjectName}");
 
-        // Seed the workspace with the IDE's files — init seeds the whole IDE (no prior volt/ide tree).
-        var fetched = bridge.Init(onProgress);
+        // Seed the workspace with the IDE's files — init seeds the whole IDE (no prior volt/ide tree). On a large
+        // project the bridge fetch is only the first of three streamed phases: hashing the blobs and writing the
+        // files each dominate too, so report through all three (PhaseProgress) or the bar freezes for minutes.
+        // (Materialize is negligible — a fast in-memory transform — so it gets no phase of its own.)
+        var progress = new PhaseProgress(onProgress, "init", 3);
+        var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var gitDir = Git.ResolveGitDir(root);
         var head = Git.HeadCommit(root);
 
-        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>());
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>(),
+            (done, total) => progress.Report(1, "Hashing objects", done, total));
         var commit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {fetched.ProjectVersion}");
         Git.UpdateRef(gitDir, IdeTree.Range, commit);
-        Files.WriteSrcFiles(root, ideFiles.Select(f => new SrcFile(f.Path, f.Content)).ToList());
+        Files.WriteSrcFiles(root, ideFiles.Select(f => new SrcFile(f.Path, f.Content)).ToList(),
+            (done, total) => progress.Report(2, "Writing files", done, total));
         Git.ReadTreeToIndex(root, commit);
         Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
 
@@ -103,7 +109,9 @@ public static class Commands
 
         // ONE path for dry-run and real pull. Always /fetch (incremental), compute incoming, then the up-to-date
         // short-circuit; dry-run returns the preview, the real pull falls through to the merge. The fetch carries
-        // the bound project so the bridge guards it in-op (no pre-op health round-trip).
+        // the bound project so the bridge guards it in-op (no pre-op health round-trip), and runs as the first of
+        // three streamed phases (fetch → hash blobs → merge; materialize is folded, the merge is indeterminate).
+        var progress = new PhaseProgress(onProgress, "pull", 3);
         FetchResponse fetched;
         try
         {
@@ -112,7 +120,7 @@ public static class Commands
                 KnownItems = sidecar?.Items ?? new Dictionary<string, string>(),
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
-            }, onProgress);
+            }, progress.Wrap(0, "Fetching from IDE"));
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PullResult.Refused(e.Message); }
 
@@ -148,7 +156,9 @@ public static class Commands
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
-        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed);
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed,
+            (done, total) => progress.Report(1, "Hashing objects", done, total));
+        progress.Enter(2, "Merging");
         var parent = parentIde ?? head;
         var commit = IdeTree.CommitVoltIde(gitDir, tree, parent, $"volt: IDE @ {fetched.ProjectVersion}");
         Git.UpdateRef(gitDir, IdeTree.Range, commit);
