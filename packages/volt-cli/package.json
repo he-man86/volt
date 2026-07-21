@@ -13,7 +13,7 @@
   "scripts": {
     "build": "dotnet build Volt.Cli.sln -c Release --nologo",
     "build:package": "powershell -File scripts/build-cli.ps1",
-    "test": "bun test",
+    "test:e2e": "bun test",
     "typecheck": "tsgo --noEmit"
   },
   "devDependencies": {
