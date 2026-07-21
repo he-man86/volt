@@ -185,6 +185,8 @@ export interface Messages {
   notInstantiable(typeName: string): string
   /** Use of a POU marked `{attribute 'obsolete' := 'msg'}` (C0357). verified live CODESYS; TC pending. */
   pouObsolete(name: string, message: string): string
+  /** An `AT` clause whose operand is not a direct address (`i AT ABC`) — C0030. verified live CODESYS; TC pending. */
+  directAddressExpectedAt(found: string): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -438,6 +440,7 @@ export function messagesFor(vendor: Vendor): Messages {
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
+    directAddressExpectedAt: (found) => `Direct address expected after AT instead of ${found}`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,

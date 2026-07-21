@@ -441,21 +441,21 @@
     "category": "invalid AT address",
     "cause": "An 'AT' variable location declaration is followed by a plain identifier instead of a valid direct address (e.g. %IW0).",
     "message": "Direct Address expected after 'AT' instead of '<identifier>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i AT ABC : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i AT ABC : INT;\nEND_VAR\nEND_PROGRAM\n",
     "expect": [
-      "Direct Address expected after 'AT' instead of 'ABC'"
+      "Direct address expected after AT instead of ABC"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkAtAddress",
+    "ourCode": "at-address",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "i AT %IW0 : INT;",
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; doc wording had drifted — current message drops the quotes). TC pending."
   },
   {
     "code": "C0031",
