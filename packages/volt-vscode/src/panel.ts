@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -71,6 +71,10 @@ export class VoltViews implements vscode.Disposable {
 	private readonly bridge = new TreeProvider()
 	private readonly reference = new TreeProvider()
 	private readonly disposables: vscode.Disposable[] = []
+	// Kept so the Bridge view can re-render when EITHER the bound statuses OR the connector's detected-project
+	// list changes (they arrive on separate events — status refresh vs the 10s bridge poll).
+	private lastViews: WorkspaceView[] = []
+	private detected: DetectedProject[] = []
 
 	constructor() {
 		this.disposables.push(
@@ -98,8 +102,16 @@ export class VoltViews implements vscode.Disposable {
 	update(statuses: ReadonlyMap<string, VoltStatus>): void {
 		// Project each workspace ONCE (viewOf reads .git/volt/config.json); the sync + bridge views share it.
 		const views = [...statuses.values()].map(viewOf)
+		this.lastViews = views
 		this.sync.setRoots(syncRoots(views))
-		this.bridge.setRoots(bridgeRoots(views))
+		this.bridge.setRoots(bridgeRoots(views, this.detected))
+	}
+
+	/** The connector's detected-project list (unbound onboarding). Names them in the Bridge view so the user sees
+	 *  WHICH project "Initialize workspace…" will bind — the welcome button is static markdown and can't. */
+	setDetected(projects: DetectedProject[]): void {
+		this.detected = projects
+		this.bridge.setRoots(bridgeRoots(this.lastViews, this.detected))
 	}
 
 	refreshDiagnostics(): void {
@@ -251,7 +263,8 @@ function diagnosticRoots(): VoltNode[] {
 }
 
 // ── Bridge status ─────────────────────────────────────────────────────────────
-function bridgeRoots(views: WorkspaceView[]): VoltNode[] {
+// Exported for the panel smoke test (the view-model builder is pure; only the widget layer needs the host).
+export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[]): VoltNode[] {
 	const nodes: VoltNode[] = []
 	for (const v of views) {
 		const hd = v.health
@@ -266,7 +279,24 @@ function bridgeRoots(views: WorkspaceView[]): VoltNode[] {
 		if (v.paused === "mismatch")
 			nodes.push({ key: `rename:${v.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
 	}
-	return nodes.length > 0 ? nodes : [{ key: "bridge:none", label: "No workspace bound", icon: new vscode.ThemeIcon("circle-slash") }]
+	if (nodes.length > 0) return nodes
+
+	// Unbound: name the connector's detected projects so the user sees WHICH one "Initialize workspace…" binds
+	// (the static welcome button can't show this). Each row initializes; the picker auto-selects when there's one.
+	if (detected.length > 0) return detected.map(detectedNode)
+	return [{ key: "bridge:none", label: "No workspace bound", icon: new vscode.ThemeIcon("circle-slash") }]
+}
+
+function detectedNode(p: DetectedProject): VoltNode {
+	const platform = p.ideVersion != null && p.ideVersion !== "" ? `${vendorLabel(p.vendor)} · ${p.ideVersion}` : vendorLabel(p.vendor)
+	return {
+		key: `detected:${p.id}`,
+		label: p.displayName,
+		description: platform,
+		tooltip: `Detected PLC project "${p.displayName}" (${platform}) — click to initialize this folder as a Volt workspace bound to it`,
+		icon: new vscode.ThemeIcon("plug"),
+		command: { command: "volt.init", title: "Initialize workspace" },
+	}
 }
 
 // ── Reference & Agent (static launchers) ─────────────────────────────────────

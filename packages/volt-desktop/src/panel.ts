@@ -22,7 +22,8 @@ type Snap = { projects: DetectedProject[] } & (
   | ({ bound: true } & WorkspaceView)
 )
 
-function snapshot(shell: Shell): Snap {
+// Exported for the panel smoke test — the shell → shared view-model projection is pure (no electron).
+export function snapshot(shell: Shell): Snap {
   const projects = shell.projects
   const vs = shell.status
   if (!vs) return { bound: false, incoming: [], outgoing: [], projects }
