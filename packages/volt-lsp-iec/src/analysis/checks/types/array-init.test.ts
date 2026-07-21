@@ -1,6 +1,6 @@
 /**
  * array-initializer checks: C0074 unexpected-array-init (array literal on a non-array type) and C0075
- * array-init-count (too many values for a single-dim array). Docs wording; provisional until recording.
+ * array-init-count (too many values for a single-dim array).
  * The declared type is resolved, so array aliases stay quiet.
  */
 import { test, expect } from "bun:test"

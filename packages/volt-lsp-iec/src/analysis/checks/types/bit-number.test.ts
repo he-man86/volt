@@ -1,6 +1,6 @@
 /**
  * invalid-bit-number (C0003). A dot-bit-access index past the accessed integer/bit-string variable's width.
- * Docs wording (#C0003); provisional until a live recording locks it.
+ * Docs wording (#C0003).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

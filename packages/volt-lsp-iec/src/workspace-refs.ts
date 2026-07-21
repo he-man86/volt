@@ -46,6 +46,19 @@ function walkFiles(root: string): string[] {
 const libraryNamespaceOf = (file: string): string | undefined =>
   readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
 const deviceInstanceOf = (file: string): string => basename(file, extname(file))
+/** POUs marked `{attribute 'obsolete' := 'msg'}` in a source file → [lowerName, {name, message}]. The attribute
+ *  is parser trivia, so it's read from raw text: the pragma, then any further leading attributes, then the POU
+ *  header. One entry per matched POU (the one-item-per-file layout means usually one). */
+const OBSOLETE_RE =
+  /\{attribute\s+'obsolete'\s*:=\s*'([^']*)'\}\s*(?:\{[^}]*\}\s*)*(?:FUNCTION_BLOCK|FUNCTION|PROGRAM|INTERFACE)\s+([A-Za-z_]\w*)/gi
+/** Obsolete POUs in one source text → [lowerName, {declaredName, message}]. Pure (no I/O), so the diagnostic
+ *  harnesses can reproduce the workspace scan from an in-memory repro. */
+export function obsoletePousInText(text: string): [string, { name: string; message: string }][] {
+  const out: [string, { name: string; message: string }][] = []
+  for (const m of text.matchAll(OBSOLETE_RE)) out.push([m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! }])
+  return out
+}
+const obsoletePousOf = (file: string): [string, { name: string; message: string }][] => obsoletePousInText(readFileSync(file, "utf8"))
 /** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
  *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
 const taskRootsOf = (file: string): string[] =>
@@ -100,10 +113,28 @@ export function loadTaskRoots(root: string): Set<string> {
   return out
 }
 
+/** Obsolete-POU catalog for a workspace root — scans every source file's text for `{attribute 'obsolete'}`. */
+export function loadObsoletePous(root: string): Map<string, { name: string; message: string }> {
+  const out = new Map<string, { name: string; message: string }>()
+  for (const file of walkFiles(root)) {
+    if (!SOURCE_EXTENSION_SET.has(extname(file).toLowerCase())) continue
+    try {
+      for (const [k, v] of obsoletePousOf(file)) out.set(k, v)
+    } catch {
+      continue // unreadable source — skip
+    }
+  }
+  return out
+}
+
 /** Both reference-file catalogs for a workspace root — the input the unresolved-identifier check skips. */
 export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   if (root.length === 0) return EMPTY_WORKSPACE_REFS
-  return { libraryNamespaces: loadLibraryNamespaces(root), deviceInstances: loadDeviceInstances(root) }
+  return {
+    libraryNamespaces: loadLibraryNamespaces(root),
+    deviceInstances: loadDeviceInstances(root),
+    obsoletePous: loadObsoletePous(root),
+  }
 }
 
 export interface WorkspaceScan {
@@ -123,6 +154,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
   const libraryNamespaces = new Set<string>()
   const deviceInstances = new Set<string>()
   const taskRoots = new Set<string>()
+  const obsoletePous = new Map<string, { name: string; message: string }>()
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
     const ext = extname(file).toLowerCase()
@@ -135,11 +167,13 @@ export function scanWorkspace(root: string): WorkspaceScan {
       } else if (ext === ".task") {
         for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
       } else if (SOURCE_EXTENSION_SET.has(ext)) {
-        sources.push({ path: file, source: readFileSync(file, "utf8") })
+        const source = readFileSync(file, "utf8")
+        sources.push({ path: file, source })
+        for (const m of source.matchAll(OBSOLETE_RE)) obsoletePous.set(m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! })
       }
     } catch {
       continue // unreadable file — skip
     }
   }
-  return { refs: { libraryNamespaces, deviceInstances }, taskRoots, sources }
+  return { refs: { libraryNamespaces, deviceInstances, obsoletePous }, taskRoots, sources }
 }

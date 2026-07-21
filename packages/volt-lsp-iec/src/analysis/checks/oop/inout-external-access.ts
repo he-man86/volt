@@ -2,12 +2,10 @@
  * inout-external-access (D.2 · oop/) — C0178. An FB's VAR_IN_OUT parameter is a call-bound reference with no
  * storage on the instance, so `inst.in_out` from OUTSIDE the FB (read or write) is meaningless — CODESYS
  * rejects it. This owns the whole VAR_IN_OUT-member case; `external-write` cedes it (its generic "is no input"
- * is for VAR/VAR_STAT/… members). Wording PROVISIONAL until a live recording.
+ * is for VAR/VAR_STAT/… members).
  *
- * NOT here: C0371 (a method accessing its OWN FB's VAR_IN_OUT). That is OPTION-GATED — old CODESYS kept
- * VAR_IN_OUT stack-only (method access errored), modern CODESYS stores the reference so methods access it
- * freely (idiomatic; the corpus does it 1300+ times). Always-on ⇒ mass FP, so it's deferred until a live
- * recording confirms the active behavior. See catalog C0371 (optionGated).
+ * NOT here: C0371 (a method accessing its OWN FB's VAR_IN_OUT) — that is `inout-own-access`, a toggleable
+ * warning (default on), which owns the own-member-scope case. The two never overlap.
  *
  * Conservative (zero-FP): fires only when the base infers to a project-local FB (library sections flatten →
  * unreliable) and the member resolves to a VAR_IN_OUT; a THIS/SUPER base (the FB's own params) is legal.

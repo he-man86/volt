@@ -1,7 +1,7 @@
 /**
  * non-callable-call — C0036. Calling a non-callable (a scalar var, or a GVL block) is flagged; a real FB
  * instance / function / method call is silent, and — the load-bearing case — a var typed as a LIBRARY FB
- * (which infers to `unknown` offline) is NOT flagged. Wording provisional.
+ * (which infers to `unknown` offline) is NOT flagged.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

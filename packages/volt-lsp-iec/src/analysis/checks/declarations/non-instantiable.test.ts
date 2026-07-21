@@ -1,5 +1,5 @@
 /**
- * non-instantiable (C0177) — a variable declared with the type of a FUNCTION POU. Provisional.
+ * non-instantiable (C0177) — a variable declared with the type of a FUNCTION POU.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

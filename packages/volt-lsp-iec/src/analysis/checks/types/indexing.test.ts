@@ -1,6 +1,5 @@
 /**
- * indexing-non-array (C0047). `[]` applied to a value whose type is not indexable. Docs wording (#C0047);
- * provisional until a live recording locks it.
+ * indexing-non-array (C0047). `[]` applied to a value whose type is not indexable. Docs wording (#C0047).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

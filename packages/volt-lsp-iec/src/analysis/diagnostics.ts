@@ -11,7 +11,9 @@ import type { Scope } from "../symbols/index.js"
 import {
   EMPTY_WORKSPACE_REFS,
   resolveConfig,
+  CONFIGURABLE_CODES,
   type AnalysisInitOptions,
+  type ConfigurableCode,
   type ResolvedConfig,
   type Vendor,
   type WorkspaceRefs,
@@ -41,6 +43,7 @@ import { checkStatementRules } from "./checks/flow/statement-rules.js"
 import { checkNewInExpression } from "./checks/flow/new-in-expression.js"
 import { checkJumpLabels } from "./checks/flow/jump-labels.js"
 import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
+import { checkEmptyBlock } from "./checks/flow/empty-block.js"
 import { checkLoopExit } from "./checks/flow/loop-exit.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
@@ -53,6 +56,8 @@ import { checkDeprecatedKeyword } from "./checks/declarations/deprecated-keyword
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
 import { checkOutputRules } from "./checks/declarations/output-rules.js"
 import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
+import { checkObsoleteUsage } from "./checks/declarations/obsolete-usage.js"
+import { checkAtAddress } from "./checks/declarations/at-address.js"
 import { checkInheritance } from "./checks/oop/inheritance.js"
 import { checkPropertyAccess } from "./checks/oop/property-access.js"
 import { checkMethodReference } from "./checks/oop/method-reference.js"
@@ -75,8 +80,8 @@ import { checkAbstractOutputDefault } from "./checks/oop/abstract-output-default
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
-import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
+import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
@@ -127,6 +132,7 @@ const CHECKS: readonly Check[] = [
   checkNewInExpression,
   checkJumpLabels,
   checkNoOpStatement,
+  checkEmptyBlock,
   checkLoopExit,
   checkThisSuperContext,
   // declarations/
@@ -139,6 +145,8 @@ const CHECKS: readonly Check[] = [
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,
+  checkObsoleteUsage,
+  checkAtAddress,
   checkHeaderRules,
   checkAttributePlacement,
   // oop/
@@ -157,8 +165,8 @@ const CHECKS: readonly Check[] = [
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
   checkAmbiguousGlobal,
-  checkUnknownTypes,
   checkTypeAsValue,
+  checkReservedKeyword,
   // declarations/
   checkVarSectionPlacement,
   checkInoutInitializer,
@@ -212,12 +220,25 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
   } else {
     for (const check of CHECKS) check(ctx, out)
   }
-  return out
+  // CODESYS "Compiler warnings" dialog: each configurable code is off / warning / error. Drop it when off,
+  // else FORCE the configured severity (so a code the check emits as error but CODESYS defaults to warning is
+  // corrected). Non-configurable codes pass through untouched — errors always error, like CODESYS.
+  const result: DiagnosticItem[] = []
+  for (const it of out) {
+    if (!CONFIGURABLE_CODES.has(it.code)) {
+      result.push(it)
+      continue
+    }
+    const state = config.diagnostics[it.code as ConfigurableCode]
+    if (state === "off") continue
+    result.push(it.severity === state ? it : { ...it, severity: state })
+  }
+  return result
 }
 
 /** Per-check wall-time accumulator (ms), for the offline profiler only. Enable by assigning `{}`. */
 export let CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
 
 function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
-  return c !== undefined && "lints" in c && typeof (c as ResolvedConfig).vendor === "string"
+  return c !== undefined && "warnings" in c && typeof (c as ResolvedConfig).vendor === "string"
 }

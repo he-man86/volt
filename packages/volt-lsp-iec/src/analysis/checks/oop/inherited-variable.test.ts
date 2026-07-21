@@ -1,6 +1,6 @@
 /**
  * inherited-variable (C0097): a derived FB redeclaring a base variable is flagged; a fresh name is not,
- * and a method/property overriding a base name is not a "variable" duplicate. Provisional.
+ * and a method/property overriding a base name is not a "variable" duplicate.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

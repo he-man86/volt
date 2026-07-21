@@ -13,17 +13,39 @@ const LANGUAGE_IDS = ["structured-text"]
 // lints. Vendor is NOT here — the server takes it only from its launch CLI flag (a vendor change needs a
 // restart), so sending it would be dead wiring. Compiler-parity checks always run; nothing here maps to the
 // 80 diagnostic codes.
-function analysisOptions(): { diagnoseDeadCode: boolean; lints: Record<string, boolean> } {
+// The codes in CODESYS's "Compiler warnings" dialog that Volt implements (matches CONFIGURABLE_CHECKS in
+// volt-lsp-iec/src/analysis/config.ts). Each is a `volt.iec.diagnostics.<code>` 3-state control (off/warning/
+// error), default "warning" — CODESYS's default. Non-configurable errors are never here. Kept in sync by hand:
+// adding a configurable check adds a row here + a `volt.iec.diagnostics.<code>` setting in package.json.
+const CONFIGURABLE_CODES = [
+	"pointer-not-convertible",
+	"jump-label-unreferenced",
+	"no-op-statement",
+	"sign-change-conversion",
+	"narrowing-conversion",
+	"string-constant-too-long",
+	"constant-no-initial-value",
+	"loop-exit-constant",
+	"unknown-attribute",
+	"enum-comparison",
+	"adr-on-bit",
+	"inout-own-access",
+	"message-pragma-warning",
+	"obsolete-usage",
+	"interface-implements",
+	"inout-in-initializer",
+	"input-default-composite",
+	"default-not-constant",
+	"abstract-output-default",
+	"union-inheritance",
+	"reserved-keyword",
+] as const
+
+function analysisOptions(): { diagnoseDeadCode: boolean; diagnostics: Record<string, string> } {
 	const c = vscode.workspace.getConfiguration("volt.iec")
-	return {
-		diagnoseDeadCode: c.get<boolean>("diagnostics.deadCode", false),
-		lints: {
-			shadowing: c.get<boolean>("lints.shadowing", false),
-			unknownAttribute: c.get<boolean>("lints.unknownAttribute", false),
-			unknownType: c.get<boolean>("lints.unknownType", false),
-			inoutOwnAccess: c.get<boolean>("lints.inoutOwnAccess", true),
-		},
-	}
+	const diagnostics: Record<string, string> = {}
+	for (const code of CONFIGURABLE_CODES) diagnostics[code] = c.get<string>(`diagnostics.${code}`, "warning")
+	return { diagnoseDeadCode: c.get<boolean>("diagnostics.deadCode", false), diagnostics }
 }
 
 export async function startLsp(context: vscode.ExtensionContext): Promise<vscode.Disposable[]> {

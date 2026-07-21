@@ -1,6 +1,6 @@
 /**
  * constant-initializer (C0228): a CONSTANT variable without an initializer is flagged; an initialized
- * constant and a non-constant var are not. Provisional.
+ * constant and a non-constant var are not.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

@@ -1,6 +1,6 @@
 /**
  * pointer-conversion (C0033) — a WARNING when a pointer is implicitly assigned to a non-pointer type. Docs
- * wording; provisional until recording.
+ * wording.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

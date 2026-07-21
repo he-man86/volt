@@ -28,7 +28,7 @@ export interface ErrorCode {
   status: ErrorStatus
   ourCheck: string | null // our check module, when covered
   ourCode: string | null // our diagnostic `code`, when covered
-  lint: string | null // opt-in LintConfig flag to enable when running `repro`
+  lint: string | null // legacy: the opt-in flag a repro once needed; unused now that every check runs by default
   verified: { codesys: boolean; twincat: boolean } // message recorded from a live /build
   note?: string // why an open code is deferred, or an implementation caveat — one line
   /** For an open code: the honest reason it is not implemented — "what's open and why" (see TRIAGE.md). */

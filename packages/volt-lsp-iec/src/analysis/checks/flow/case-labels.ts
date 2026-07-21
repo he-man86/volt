@@ -9,7 +9,8 @@
  * neither false-positives (this is what an earlier `constEval`-only attempt got wrong — 207 corpus FPs on
  * enum-driven CASEs).
  *
- * NOT here (won't-fix): C0426 empty arm — CODESYS accepts consecutive labels with empty bodies (fall-through).
+ * NOT here: C0426 empty arm lives in the `empty-block` check. An empty arm (`1:\n2:`) IS an error (live-verified
+ * 2026-07-21) — the legal fall-through is a comma list `1, 2:`, not separate empty labels.
  */
 import { walkStatements, type CaseStatement, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"

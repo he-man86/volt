@@ -1,5 +1,5 @@
 /**
- * output-rules (C0222) — a VAR_OUTPUT declared as REFERENCE TO. Provisional.
+ * output-rules (C0222) — a VAR_OUTPUT declared as REFERENCE TO.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

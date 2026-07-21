@@ -255,21 +255,21 @@
     "category": "empty statement block",
     "cause": "A control-structure clause (such as an IF...THEN body) contains no statements at all, not even a semicolon.",
     "message": "At least one statement is expected.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    bTest: BOOL;\nEND_VAR\n\nIF bTest THEN\nEND_IF",
+    "repro": "PROGRAM PLC_PRG\nVAR b : BOOL; END_VAR\nIF b THEN\nEND_IF\nEND_PROGRAM\n",
     "expect": [
-      "At least one statement is expected."
+      "At least one statement is expected"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkEmptyBlock",
+    "ourCode": "empty-block",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). Comment-only/lone-; bodies are legal and not flagged. TC pending."
   },
   {
     "code": "C0015",
@@ -441,21 +441,21 @@
     "category": "invalid AT address",
     "cause": "An 'AT' variable location declaration is followed by a plain identifier instead of a valid direct address (e.g. %IW0).",
     "message": "Direct Address expected after 'AT' instead of '<identifier>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i AT ABC : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i AT ABC : INT;\nEND_VAR\nEND_PROGRAM\n",
     "expect": [
-      "Direct Address expected after 'AT' instead of 'ABC'"
+      "Direct address expected after AT instead of ABC"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkAtAddress",
+    "ourCode": "at-address",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "i AT %IW0 : INT;",
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; doc wording had drifted — current message drops the quotes). TC pending."
   },
   {
     "code": "C0031",
@@ -891,21 +891,21 @@
     "category": "unquoted attribute value",
     "cause": "A pragma function argument (e.g. hasattribute) is given a bare identifier where a quoted single-byte string literal is required.",
     "message": "Single byte string expected for an attribute value instead of '<value>'.",
-    "repro": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}",
+    "repro": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}\nEND_PROGRAM\n",
     "expect": [
-      "Single byte string expected for an attribute value instead of MyAttribute."
+      "Single byte string expected for an attribute value instead of 'MyAttribute'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkPragmas",
+    "ourCode": "attribute-value-string",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}",
     "triage": "pragma",
-    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording now quotes the attribute). hasattribute() attribute operand must be a single-byte string literal. TC pending."
   },
   {
     "code": "C0053",
@@ -926,7 +926,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0061",
@@ -1196,15 +1197,12 @@
     "expect": [
       "Unknown type: 'USNT'"
     ],
-    "status": "implemented",
-    "ourCheck": "unknown-type",
-    "ourCode": "unknown-type",
-    "lint": "unknownType",
-    "verified": {
-      "codesys": true,
-      "twincat": true
-    },
-    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
+    "status": "ide-only",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0078",
@@ -1227,7 +1225,8 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR",
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0080",
@@ -1600,7 +1599,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0103",
@@ -1621,7 +1621,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0104",
@@ -1642,7 +1643,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0106",
@@ -1663,7 +1665,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0114",
@@ -1878,7 +1881,7 @@
     "expect": [
       "The constant 0 is assigned to more than one enumeration."
     ],
-    "note": "NOT an error by default: CODESYS accepts duplicate enum values (a common sentinel-alias pattern, e.g. FIRST_ENTRY:=0 / LAST_ENTRY:=n â€” 35 corpus FPs across library enums). C0125 appears to be gated on a strict-enums option we can't see offline. Deferred.",
+    "note": "CODESYS accepts duplicate enum values by default — proven 5+ corpus FPs (TYPECLASS/BUS_TYPE/DEVICE_TYPE sentinel aliases). Only fires under an unseen strict-enums option.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1888,7 +1891,8 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "optionGated"
+    "triage": "optionGated",
+    "gap": "wont-fix"
   },
   {
     "code": "C0126",
@@ -2096,17 +2100,17 @@
     "category": "REF= to non-writable target",
     "cause": "The REF= operator's right-hand side is a literal constant rather than a writable variable, so no valid reference can be taken.",
     "message": "Reference assign needs variable with write access",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : REFERENCE TO INT;\nEND_VAR\n\nI_r REF= 314;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : REFERENCE TO INT;\nEND_VAR\nI_r REF= 314;\nEND_PROGRAM\n",
     "expect": [
       "Reference assign needs variable with write access"
     ],
-    "note": "NOT cleanly offline-checkable: a literal RHS is NOT always an error â€” `r REF= 0` is the valid way to null a reference (7 corpus FPs). The real C0141 trigger is narrower than 'RHS is a literal'. Deferred.",
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). Rule: REF= RHS must be a writable variable; non-zero literal / constant errors, but REF= 0 (null idiom) and REF= writable-var are valid. TC pending.",
+    "status": "implemented",
+    "ourCheck": "checkReferenceAssign",
+    "ourCode": "reference-assign-write",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "I_r REF= i;",
@@ -2200,14 +2204,10 @@
     "ourCode": "function-implements",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "codesysActual": [
-      "Identifier 'POU' not defined",
-      "Program name, function or function block instance expected instead of 'POU'"
-    ],
     "twincatActual": [
       "Identifier 'POU' not defined",
       "Program name, function or function block instance expected instead of 'POU'"
@@ -2305,7 +2305,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the task-to-I/O mapping (which task writes which physical %Q address) — a project+device build concern."
   },
   {
     "code": "C0165",
@@ -2328,7 +2329,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the task-to-I/O mapping (which task writes which physical %Q address) — a project+device build concern."
   },
   {
     "code": "C0168",
@@ -2533,7 +2535,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0182",
@@ -2642,7 +2645,8 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Probed live (CODESYS 3.5.21, scripts/record-gaps) with the external PROGRAM CALLED from PLC_PRG and a positive control proving compilation: it built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0188",
@@ -2663,7 +2667,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0189",
@@ -2724,7 +2729,7 @@
     "message": "The operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.",
     "repro": null,
     "expect": null,
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3014,7 +3019,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0211",
@@ -3295,7 +3301,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs graphical (FBD/LD) FB-instance typing resolved against the library — beyond the textual VG surface."
   },
   {
     "code": "C0227",
@@ -3664,7 +3671,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Virtual-dispatch FB reinitialization is a codegen/memory-layout concern — not decidable from offline source."
   },
   {
     "code": "C0298",
@@ -3687,7 +3695,8 @@
     },
     "fix": "{attribute 'estimated-stack-usage' := '99'}",
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Stack-usage calculation is a build-time computation over the full resolved call tree."
   },
   {
     "code": "C0316",
@@ -3710,7 +3719,8 @@
     },
     "fix": null,
     "triage": "skip",
-    "note": "Live IDE (2026-07-11) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
+    "note": "Base-chaining SUPER^.FB_Init(...) builds clean in the live IDE (2026-07-11); an offline 'already called implicitly' check false-positives on legitimate overrides.",
+    "gap": "wont-fix"
   },
   {
     "code": "C0319",
@@ -3731,7 +3741,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0344",
@@ -3754,7 +3765,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Whether a property supports a monitoring-attribute value is a build/runtime fact, not present in source."
   },
   {
     "code": "C0351",
@@ -3829,21 +3841,21 @@
     "category": "obsolete POU usage",
     "cause": "A POU decorated with the 'obsolete' attribute is still instantiated/used elsewhere in the program.",
     "message": "POU '<POU name>' has been marked as obsolete: <message text>",
-    "repro": "{attribute 'obsolete':= 'datatype fb not valid!'}\nFUNCTION_BLOCK FB_Test\n\nPROGRAM PLC_PRG\nVAR\n      inst : FB_Test;\nEND_VAR",
+    "repro": "{attribute 'obsolete' := 'use NewFB instead'}\nFUNCTION_BLOCK OldFB\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
+      "POU 'OldFB' has been marked as obsolete: use NewFB instead"
     ],
-    "status": "ide-only",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkObsoleteUsage",
+    "ourCode": "obsolete-usage",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "Verified live against CODESYS 3.5.21 (scripts/record-gaps). Workspace-scan-based: the {attribute 'obsolete'} is parser trivia, collected from raw file text into WorkspaceRefs.obsoletePous. TwinCAT verification pending."
   },
   {
     "code": "C0371",
@@ -3866,8 +3878,7 @@
     },
     "fix": null,
     "triage": "optionGated",
-    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified.",
-    "codesysActual": "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
+    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified."
   },
   {
     "code": "C0373",
@@ -3933,7 +3944,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0406",
@@ -3956,7 +3968,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0415",
@@ -3977,7 +3990,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0421",
@@ -4007,17 +4021,17 @@
     "category": "empty CASE label",
     "cause": "A CASE statement has a label with no statements between it and the next label.",
     "message": "At least one statement is expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      nVar:INT;\nEND_VAR\n\nCASE nVar OF\n      1:\n      2:\n         nVar := nVar + 1;\nEND_CASE",
+    "repro": "PROGRAM PLC_PRG\nVAR i : INT; END_VAR\nCASE i OF\n1:\n2: i := 1;\nEND_CASE\nEND_PROGRAM\n",
     "expect": [
       "At least one statement is expected"
     ],
-    "note": "NOT reliably an error offline: CODESYS accepts consecutive CASE labels with empty bodies (fall-through to the next non-empty label), so 'empty arm = error' false-positives on real code (corpus FP). The harvested repro may reflect a stricter/different scenario. Deferred.",
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). CORRECTS a stale won't-fix: an empty CASE arm (1:\n2:) IS an error; the legal fall-through is a comma list 1,2:. Comment-only/lone-; bodies are legal and not flagged. TC pending.",
+    "status": "implemented",
+    "ourCheck": "checkEmptyBlock",
+    "ourCode": "empty-block",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -4092,7 +4106,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0508",
@@ -4115,7 +4130,8 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Local var name == a same-POU action name. BLOCKED offline: in the one-item-per-file workspace layout a standalone action binds at PROJECT scope (its member-host is only set within the same file), so it never co-locates with the FB's vars — detecting the collision needs action→FB name association the binder doesn't do. Zero corpus surface (0 collisions)."
+    "note": "The one-item-per-file binder can't associate a standalone action with its host FB, so the local-var/action name collision is invisible offline. Zero corpus surface.",
+    "gap": "blocked"
   },
   {
     "code": "C0509",
@@ -4186,7 +4202,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0514",
@@ -4209,7 +4226,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0515",
@@ -4232,7 +4250,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0516",
@@ -4255,7 +4274,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0517",
@@ -4278,7 +4298,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0525",
@@ -4370,7 +4391,11 @@
     },
     "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Verified live (CODESYS 3.5.21): \"Attribute 'no_assign' missing for POU '<POU>'? The type of the variable '<var>' is attributed with 'no_assign'.\" (note CODESYS's literal '?'). Implementation deferred: needs no_assign-typed-var detection across the type graph + attribute plumbing; zero corpus surface.",
+    "gap": "needs-live-verify",
+    "codesysActual": [
+      "Attribute 'no_assign' missing for POU 'UsesIt'? The type of the variable 'v' is attributed with 'no_assign'."
+    ]
   },
   {
     "code": "C0541",
@@ -4391,7 +4416,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0542",
@@ -4423,21 +4449,21 @@
     "category": "reserved keyword used as identifier",
     "cause": "A variable or identifier is named using a word reserved by the IEC 61131-3 standard (e.g. CHAR), which still compiles today but will become a hard error in a future CODESYS version.",
     "message": "The name <keyword> is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    char : BYTE;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM\n",
     "expect": [
-      "The name 'char' is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions."
+      "The name 'CHAR' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkReservedKeyword",
+    "ourCode": "reserved-keyword",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording drifted to 'IEC61131-3' + 'reported'; trigger is CHAR/WCHAR/USING not STEP/TIMER). Configurable warning. USING out of scope (our parser hard-keywords it). TC pending."
   },
   {
     "code": "C0549",
@@ -4506,7 +4532,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0555",
@@ -4529,7 +4556,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Gated on the project option 'UTF-8 encoding for STRING' (not in source) and advisory; not decidable offline."
   },
   {
     "code": "C0561",
@@ -4542,7 +4570,7 @@
     "expect": [
       "Call recursion: RECURSIVE -> RECURSIVE"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4552,7 +4580,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; the mutual-recursion repro could NOT be built on the bridge (the positive control never appeared — pushing two mutually-recursive FUNCTIONs corrupts PLC_PRG parsing), so it is un-verifiable in the current harness. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0564",
@@ -4575,7 +4604,8 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
     "triage": "resolution",
-    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
+    "note": "Probed live (CODESYS 3.5.21) in a tasked PLC_PRG with a positive control proving compilation: a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0565",
@@ -4685,7 +4715,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0571",
@@ -4708,7 +4739,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0572",
@@ -4796,7 +4828,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0581",
@@ -4840,7 +4873,10 @@
     },
     "fix": null,
     "triage": null,
-    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented."
+    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented.",
+    "codesysActual": [
+      "Unknown type: 'FB_Math'"
+    ]
   },
   {
     "code": "C0583",
@@ -4874,7 +4910,7 @@
     "expect": [
       "Maximum nesting depth exceeded"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,

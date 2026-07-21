@@ -1,5 +1,5 @@
 /**
- * inheritance — C0091 (self-cycle), C0090 (unknown base class), C0086 (unknown interface). Provisional.
+ * inheritance — C0091 (self-cycle), C0090 (unknown base class), C0086 (unknown interface).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

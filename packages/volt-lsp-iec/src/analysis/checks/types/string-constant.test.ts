@@ -1,5 +1,5 @@
 /**
- * string-constant-too-long (C0198). A string literal longer than its declared STRING(n). Docs wording; provisional.
+ * string-constant-too-long (C0198). A string literal longer than its declared STRING(n).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

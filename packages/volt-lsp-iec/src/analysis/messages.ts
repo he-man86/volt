@@ -34,8 +34,6 @@ export interface Messages {
   undefinedIdentifier(name: string): string
   /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). verified both vendors. */
   ambiguousGlobalName(name: string): string
-  /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
-  unknownType(name: string): string
   /** A type name used where a value is expected — `value := MyEnum` (C0230). verified both vendors. */
   typeNameNotExpected(name: string): string
   /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
@@ -185,6 +183,18 @@ export interface Messages {
   outputCantBeReference(): string
   /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). verified both vendors. */
   notInstantiable(typeName: string): string
+  /** Use of a POU marked `{attribute 'obsolete' := 'msg'}` (C0357). verified live CODESYS; TC pending. */
+  pouObsolete(name: string, message: string): string
+  /** An `AT` clause whose operand is not a direct address (`i AT ABC`) — C0030. verified live CODESYS; TC pending. */
+  directAddressExpectedAt(found: string): string
+  /** An empty control-flow block or CASE arm (C0013/C0426) — a body with no statements. verified live CODESYS; TC pending. */
+  emptyStatementBlock(): string
+  /** An identifier named after an IEC-reserved keyword CODESYS soft-allows (CHAR/WCHAR/USING) — C0543. verified live CODESYS; TC pending. */
+  reservedKeyword(name: string): string
+  /** A `REF=` whose RHS is not a writable variable (a non-zero literal / constant) — C0141. verified live CODESYS; TC pending. */
+  referenceAssignWriteAccess(): string
+  /** A `hasattribute(...)` conditional-pragma whose attribute operand is unquoted — C0051. verified live CODESYS; TC pending. */
+  attributeValueString(found: string): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -322,8 +332,6 @@ export function messagesFor(vendor: Vendor): Messages {
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
     ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
-    // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
-    unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     // Confirmed via live /build: both say "is no component of"; TwinCAT uppercases the type name.
@@ -439,6 +447,13 @@ export function messagesFor(vendor: Vendor): Messages {
     superNotAllowed: () => (tc ? `Expression 'SUPER' is not allowed in this context` : `Expression SUPER is not allowed in this context`),
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
+    pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
+    directAddressExpectedAt: (found) => `Direct address expected after AT instead of ${found}`,
+    emptyStatementBlock: () => `At least one statement is expected`,
+    reservedKeyword: (name) =>
+      `The name '${name.toUpperCase()}' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.`,
+    referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
+    attributeValueString: (found) => `Single byte string expected for an attribute value instead of '${found}'`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,

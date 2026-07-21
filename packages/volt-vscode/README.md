@@ -59,6 +59,12 @@ windsurf --install-extension volt-vscode-<version>.vsix --force
 cursor   --install-extension volt-vscode-<version>.vsix --force
 ```
 
+## Compiler-warning settings
+
+Volt mirrors CODESYS's project **Compiler warnings** dialog: each implemented code is a `volt.iec.diagnostics.<code>` 3-state setting (`off` / `warning` / `error`, default `warning`), so you can reproduce a project's exact configuration. Set them in Settings under **Volt › Iec › Diagnostics** (each setting names its `Cnnnn`), plus `volt.iec.diagnostics.deadCode` (a Volt-only switch, off by default).
+
+Volt implements **21 of the ~66** dialog codes. The remaining 45 have no setting yet — Volt emits no diagnostic to configure. The full dialog list, what's implemented, and why the un-closeable gaps can't be, is [`../volt-lsp-iec/docs/codesys-reference/compiler-warnings-coverage.md`](../volt-lsp-iec/docs/codesys-reference/compiler-warnings-coverage.md).
+
 ## Layout
 
 | Path | Role |

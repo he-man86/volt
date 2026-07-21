@@ -184,8 +184,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   function applyConfig(settings: unknown): boolean {
     if (settings === null || typeof settings !== "object") return false
     const s = settings as AnalysisInitOptions
-    if (s.diagnoseDeadCode === undefined && s.lints === undefined) return false
-    store.config = resolveConfig({ vendor, diagnoseDeadCode: s.diagnoseDeadCode === true, lints: s.lints })
+    if (s.diagnoseDeadCode === undefined && s.diagnostics === undefined) return false
+    store.config = resolveConfig({ vendor, diagnoseDeadCode: s.diagnoseDeadCode === true, diagnostics: s.diagnostics })
     store.invalidate()
     for (const uri of store.openUris()) pushDiagnostics(uri)
     return true
@@ -209,8 +209,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // ─── lifecycle ───────────────────────────────────────────────────────────
   conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
     const opts = params.initializationOptions as AnalysisInitOptions | undefined
-    if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.lints !== undefined))
-      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode, lints: opts.lints })
+    if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.diagnostics !== undefined))
+      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode, diagnostics: opts.diagnostics })
     root = workspaceRoot(params.rootUri, params.rootPath)
     const ws = params.capabilities.workspace
     clientWatchDynReg = ws?.didChangeWatchedFiles?.dynamicRegistration === true

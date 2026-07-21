@@ -2,7 +2,7 @@
  * fb-init-inout (D.2 · oop/) — C0179. An inline FB-instance initializer (`fb : MyFB := (inOut := x)`) may only
  * assign the FB's INPUTS. A VAR_IN_OUT is a call-bound reference with no instance storage, so binding it at
  * declaration is meaningless — CODESYS rejects the field. Sibling of C0178 (inout-external-access); this owns the
- * VAR_IN_OUT-in-initializer case. Wording PROVISIONAL until a live recording.
+ * VAR_IN_OUT-in-initializer case.
  *
  * Conservative (zero-FP): fires only when the declared type resolves to a PROJECT function block (library FB
  * scopes are absent → skipped) and an initializer field resolves to one of its VAR_IN_OUT members. Fields

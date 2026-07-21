@@ -1,6 +1,6 @@
 /**
  * bit-usage: C0203/C0204 (BIT in a wrong container/block) + C0205 (POINTER TO BIT) + C0206 (ARRAY OF BIT).
- * Docs wording; provisional until recording.
+ *
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

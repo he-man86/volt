@@ -1,6 +1,6 @@
 /**
  * inout-external-access — C0178. External access to an FB's VAR_IN_OUT member (read or write) is rejected;
- * the FB's own THIS/SUPER access and every other member kind stay silent (zero-FP). Wording provisional.
+ * the FB's own THIS/SUPER access and every other member kind stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
@@ -39,6 +39,6 @@ test("a method accessing its OWN FB's VAR_IN_OUT is the C0371 warning, NOT the C
   const def = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(def.map((d) => ({ code: d.code, sev: d.severity }))).toEqual([{ code: "inout-own-access", sev: "warning" }])
   // A project that disabled the warning: no diagnostic at all (still never the C0178 error).
-  const off = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: false } }) })
+  const off = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
   expect(off).toEqual([])
 })
