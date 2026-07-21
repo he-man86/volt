@@ -1885,7 +1885,7 @@
     "expect": [
       "The constant 0 is assigned to more than one enumeration."
     ],
-    "note": "NOT an error by default: CODESYS accepts duplicate enum values (a common sentinel-alias pattern, e.g. FIRST_ENTRY:=0 / LAST_ENTRY:=n â€” 35 corpus FPs across library enums). C0125 appears to be gated on a strict-enums option we can't see offline. Deferred.",
+    "note": "CODESYS accepts duplicate enum values by default — proven 5+ corpus FPs (TYPECLASS/BUS_TYPE/DEVICE_TYPE sentinel aliases). Only fires under an unseen strict-enums option.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1895,7 +1895,8 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "optionGated"
+    "triage": "optionGated",
+    "gap": "wont-fix"
   },
   {
     "code": "C0126",
@@ -2648,7 +2649,8 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Needs live-CODESYS verification of the exact trigger (external attribute on a PROGRAM) and wording; attributes are parser trivia, so token-level correlation is required. Near-zero real surface.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0188",
@@ -3663,7 +3665,7 @@
     "expect": [
       "The instance pinst^ points to will be reinitialized for virtual function calls. Make sure pinst^ doesn't point to a type derived from FBBase."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3673,7 +3675,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Virtual-dispatch FB reinitialization is a codegen/memory-layout concern — not decidable from offline source."
   },
   {
     "code": "C0298",
@@ -3686,7 +3689,7 @@
     "expect": [
       "Calculation of stack usage incomplete because of recursive calls, starting at 'm_Recursive'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3696,7 +3699,8 @@
     },
     "fix": "{attribute 'estimated-stack-usage' := '99'}",
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Stack-usage calculation is a build-time computation over the full resolved call tree."
   },
   {
     "code": "C0316",
@@ -3719,7 +3723,8 @@
     },
     "fix": null,
     "triage": "skip",
-    "note": "Live IDE (2026-07-11) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
+    "note": "Base-chaining SUPER^.FB_Init(...) builds clean in the live IDE (2026-07-11); an offline 'already called implicitly' check false-positives on legitimate overrides.",
+    "gap": "wont-fix"
   },
   {
     "code": "C0319",
@@ -3754,7 +3759,7 @@
     "expect": [
       "The monitoring attribute is not supported for property 'TestProp' and will be ignored."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3764,7 +3769,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Whether a property supports a monitoring-attribute value is a build/runtime fact, not present in source."
   },
   {
     "code": "C0351",
@@ -3853,7 +3859,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "Offline-feasible but needs {attribute 'obsolete'} + project-wide reference resolution + attribute plumbing the pipeline lacks; obsolete markers live in library metadata and the corpus has zero surface. Verify triggers against live CODESYS first.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0371",
@@ -4023,7 +4030,7 @@
     "expect": [
       "At least one statement is expected"
     ],
-    "note": "NOT reliably an error offline: CODESYS accepts consecutive CASE labels with empty bodies (fall-through to the next non-empty label), so 'empty arm = error' false-positives on real code (corpus FP). The harvested repro may reflect a stricter/different scenario. Deferred.",
+    "note": "Locked won't-fix with a test in case-labels: consecutive empty CASE labels are legal fall-through; flagging an empty arm false-positives on real code.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -4033,7 +4040,8 @@
       "twincat": false
     },
     "fix": null,
-    "triage": "skip"
+    "triage": "skip",
+    "gap": "wont-fix"
   },
   {
     "code": "C0441",
@@ -4128,7 +4136,8 @@
     },
     "fix": null,
     "triage": "resolution",
-    "note": "Local var name == a same-POU action name. BLOCKED offline: in the one-item-per-file workspace layout a standalone action binds at PROJECT scope (its member-host is only set within the same file), so it never co-locates with the FB's vars — detecting the collision needs action→FB name association the binder doesn't do. Zero corpus surface (0 collisions)."
+    "note": "The one-item-per-file binder can't associate a standalone action with its host FB, so the local-var/action name collision is invisible offline. Zero corpus surface.",
+    "gap": "blocked"
   },
   {
     "code": "C0509",
@@ -4388,7 +4397,8 @@
     },
     "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable",
     "triage": "resolution",
-    "note": "Resolution-dependent â€” needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "note": "Resolution-dependent (no_assign attribute propagation across the type graph); needs live-CODESYS verification and has real FP surface.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0541",
@@ -4456,7 +4466,8 @@
     },
     "fix": null,
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Needs CODESYS's exact soft-reserved-keyword list (unpublished); guessing it would false-positive on valid identifiers. The parser already recovers on hard keywords.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0549",
@@ -4539,7 +4550,7 @@
     "expect": [
       "The string literal 'ä½ å¥½,ä¸–ç•Œ' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4549,7 +4560,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Gated on the project option 'UTF-8 encoding for STRING' (not in source) and advisory; not decidable offline."
   },
   {
     "code": "C0561",
@@ -4572,7 +4584,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "The hard function self-recursion error (C0224) already ships; C0561 is the configurable-warning variant whose trigger boundary vs C0224 (indirect cycles / method / FB recursion) is unverified. Needs a project-wide call graph + live-CODESYS verification. Zero corpus surface.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0564",
@@ -4595,7 +4608,8 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
     "triage": "resolution",
-    "note": "VAR init-order (a var used to initialize another before it is itself initialized). DEFERRED: needs intra-declaration dataflow/ordering structure; low real-world surface. Revisit with the overload work if init-order bugs surface."
+    "note": "Intra-declaration init-order dataflow; low real-world surface. Revisit with the overload work.",
+    "gap": "needs-live-verify"
   },
   {
     "code": "C0565",
