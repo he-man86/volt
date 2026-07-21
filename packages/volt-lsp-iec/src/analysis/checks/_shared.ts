@@ -41,9 +41,15 @@ export function forEachExpr(
 }
 
 /**
- * True when a symbol comes from a referenced-library SIGNATURE (a `Library Manager` folder), not
- * project source. Library signatures flatten member sections, so section-keyed checks must skip them.
+ * True when a symbol comes from a referenced-library SIGNATURE (a `Library Manager` folder), not project
+ * source. The bridge materializes a library's declaration but not everything a project POU carries — notably
+ * PROPERTIES are absent from the precompiled language model — so member/section checks skip library types to
+ * stay zero-FP. (Methods ARE now materialized, so those resolve; the skip remains for the property residual.)
+ *
+ * Normalize the space first: the live server keys symbols by `file://` URI (`Library%20Manager`), the corpus
+ * and unit tests by raw OS path (`Library Manager`). Matching only the raw form left the guard silently OFF
+ * under the real LSP — library property access then false-positived. Single source of truth for all callers.
  */
 export function isLibrarySymbol(sym: { uri: string }): boolean {
-  return sym.uri.includes("Library Manager")
+  return sym.uri.replace(/%20/g, " ").includes("Library Manager")
 }

@@ -594,6 +594,26 @@ namespace Volt.Cli.Ide.Codesys
                 return outv;
             }
 
+            // An FB/interface's OWN methods, via `LanguageModelMgr.GetAllMethods(sign)` (the precompiled signatures
+            // themselves carry no methods — SubSignatures is always empty). Skip inherited methods (ParentObjectGuid
+            // ≠ this signature's) — the base FB renders its own, and the LSP resolves them through EXTENDS. The raw
+            // pins pass through as-is; the renderer owns the return-pin convention (LibSignatureRenderer.LiftReturn).
+            List<Volt.Engine.Library.LibMethod>? Methods(object sig)
+            {
+                if (InvokeMethod(lmm, "GetAllMethods", sig) is not object[] ms || ms.Length == 0) return null;
+                var ownGuid = GetMember(sig, "ObjectGuid")?.ToString();
+                var methods = new List<Volt.Engine.Library.LibMethod>();
+                foreach (var m in ms)
+                {
+                    var parent = GetMember(m, "ParentObjectGuid")?.ToString();
+                    if (!string.IsNullOrEmpty(ownGuid) && !string.IsNullOrEmpty(parent) && parent != ownGuid) continue; // inherited
+                    if (GetMember(m, "Name") is not string mn || mn.Length == 0 || mn.Contains("__")) continue;
+                    methods.Add(new Volt.Engine.Library.LibMethod(mn, Vars(m, "Inputs"), Vars(m, "Outputs"), Vars(m, "InOuts"),
+                        GetMember(m, "ReturnType")?.ToString()));
+                }
+                return methods.Count > 0 ? methods : null;
+            }
+
             var result = new List<Volt.Engine.Library.LibSignature>();
             foreach (var s in sigs)
             {
@@ -608,10 +628,12 @@ namespace Volt.Cli.Ide.Codesys
                 string? aliasBase = null;
                 if (flags.Contains("Alias") && GetMember(s, "AllVariables") is IEnumerable av)
                     foreach (var v in av) { aliasBase = GetMember(v, "Type")?.ToString(); break; }
+                var pou = GetMember(s, "POUType")?.ToString() ?? "";
+                var methods = pou.Contains("FunctionBlock") || pou.Contains("Interface") ? Methods(s) : null;
                 result.Add(new Volt.Engine.Library.LibSignature(
-                    name, libPath, GetMember(s, "POUType")?.ToString() ?? "",
+                    name, libPath, pou,
                     Vars(s, "Inputs"), Vars(s, "Outputs"), Vars(s, "InOuts"), Vars(s, "AllVariables"),
-                    baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags));
+                    baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags, methods));
             }
             return result;
         }
