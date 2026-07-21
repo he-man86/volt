@@ -61,6 +61,57 @@ test("a bare-accessible enum member (non-qualified_only) is not flagged", () => 
   expect(unresolved(src)).toEqual([])
 })
 
+// ─── enum type-attribute semantics ({attribute 'qualified_only'} / {attribute 'strict'}) ───
+// Faithful to real projects: the enum is its OWN `.dut` (a file-level pragma), consumed from another file.
+// Pins how each attribute changes member resolution — the difference WITH vs WITHOUT it.
+
+/** unresolved-identifier messages in `consumer`, with `enumDut` supplied as a second workspace file. */
+const enumUse = (enumDut: string, consumer: string): string[] => {
+  const files = [
+    { uri: "E.dut", parseResult: parseSource(enumDut), source: enumDut },
+    { uri: "F.fb", parseResult: parseSource(consumer), source: consumer },
+  ]
+  const project = buildSymbolTable(files)
+  return computeSemanticDiagnostics({ parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "unresolved-identifier")
+    .map((d) => d.message)
+}
+const bare = fb(`VAR s : E; END_VAR\ns := Running;`)
+const qual = fb(`VAR s : E; END_VAR\ns := E.Running;`)
+
+test("qualified_only enum: BARE member access is flagged, but QUALIFIED resolves", () => {
+  const dut = `{attribute 'qualified_only'}\nTYPE E : (Idle, Running); END_TYPE`
+  expect(enumUse(dut, bare)).toEqual(["Identifier 'Running' not defined"]) // bare is an error under qualified_only
+  expect(enumUse(dut, qual)).toEqual([]) // E.Running is the only legal form
+})
+
+test("WITHOUT qualified_only: both bare and qualified member access resolve", () => {
+  const dut = `TYPE E : (Idle, Running); END_TYPE`
+  expect(enumUse(dut, bare)).toEqual([])
+  expect(enumUse(dut, qual)).toEqual([])
+})
+
+// `strict` is orthogonal to `qualified_only`: it tightens int↔enum type-safety, NOT access form. So it must
+// NOT block bare access, and (zero-FP policy) we don't enforce strict type-checking — both forms resolve clean.
+test("strict enum (no qualified_only): both bare and qualified member access resolve", () => {
+  const dut = `{attribute 'strict'}\nTYPE E : (Idle, Running); END_TYPE`
+  expect(enumUse(dut, bare)).toEqual([])
+  expect(enumUse(dut, qual)).toEqual([])
+})
+
+test("strict + qualified_only together: strict is inert for access; qualified_only still governs it", () => {
+  const dut = `{attribute 'strict'}\n{attribute 'qualified_only'}\nTYPE E : (Idle, Running); END_TYPE`
+  expect(enumUse(dut, bare)).toEqual(["Identifier 'Running' not defined"])
+  expect(enumUse(dut, qual)).toEqual([])
+})
+
+// Real-project shape (enumErrorSeverity/enumErrorReaction): explicit base type `) USINT;` + members
+// initialized via conversion calls, under strict+qualified_only. The typed base must not break member binding.
+test("typed-base enum (`) USINT;`) still resolves its qualified members", () => {
+  const dut = `{attribute 'qualified_only'}\n{attribute 'strict'}\nTYPE E : (Idle := TO_USINT(1), Running := TO_USINT(2)) USINT; END_TYPE`
+  expect(enumUse(dut, qual)).toEqual([])
+})
+
 // Gap: a referenced-library namespace resolves outside the symbol table → skip when known.
 test("a referenced-library namespace is not flagged when supplied", () => {
   const refs: WorkspaceRefs = { libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }

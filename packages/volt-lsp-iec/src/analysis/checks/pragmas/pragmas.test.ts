@@ -28,6 +28,7 @@ test("a typo'd attribute is flagged (byte-identical to CODESYS) when the lint is
 
 test("a known attribute is not flagged", () => {
   expect(attrs(withAttr("qualified_only"), true)).toEqual([])
+  expect(attrs(withAttr("strict"), true)).toEqual([]) // enum type-safety attr — recognized, so not flagged
   expect(attrs(withAttr("no_explicit_call"), true)).toEqual([]) // corpus-found catalog gap, now covered
   expect(attrs(withAttr("TcRetain"), true)).toEqual([]) // TwinCAT family, case-insensitive
 })
