@@ -10,6 +10,16 @@ export function Draggable({ children, className, style }) {
   const [dragging, setDragging] = useState(false)
   const start = useRef(null)
 
+  // Touch devices: drag hijacks vertical scrolling (touch-action:none on the handle), so render a plain window.
+  const draggable = typeof window === "undefined" || !window.matchMedia("(pointer: coarse)").matches
+  if (!draggable) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    )
+  }
+
   const onDown = (e) => {
     setZ(++zTop) // any click on the window brings it to front
     // Only start a drag from a titlebar (marked data-drag-handle) so body controls stay clickable.
