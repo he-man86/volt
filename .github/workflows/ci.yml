@@ -8,13 +8,12 @@
 # The path-filtered deploy workflow stays separate because it needs its own `on:` paths — that's the
 # one thing a job can't override. release.yml is push-to-dev (prerelease) + tag-triggered (stable).
 #
-# LOAD-BEARING: `dev` protection requires the contexts typecheck / test / lint / integration / openspec. Those are
-# the JOB IDs below. Rename one and every PR blocks forever on a check that never reports, until an admin updates
-# branch protection to match.
+# LOAD-BEARING: `dev` protection requires the contexts typecheck / test / lint / integration / volt-cli / openspec.
+# Those are the JOB IDs below. Rename one and every PR blocks forever on a check that never reports, until an admin
+# updates branch protection to match.
 #
 # `volt-cli` (the C# toolchain) is the one job on windows-latest — the net48/net8-windows IDE hosts + WinForms
-# connector don't build on Linux. It runs on every PR but is NOT yet a required context; add it to `dev` branch
-# protection to make it gate.
+# connector don't build on Linux. It is a required context, so the C# suite gates every PR alongside the rest.
 name: ci
 
 on:
@@ -53,10 +52,17 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: bunx oxlint packages/volt-cli packages/volt-lsp-iec packages/volt-vscode volt-scripts
+      - run: bunx oxlint packages/volt-cli packages/volt-control packages/volt-desktop packages/volt-lsp-iec packages/volt-vscode volt-scripts
 
-  # The console gateway + billing unit tests (offline). Run from each package dir — a repo-root `bun test` is
-  # guarded off on purpose.
+  # Every Volt package's own unit suite, each run in its package dir (`--filter` sets the cwd, so the repo-root
+  # `bun test` guard is never hit). `--filter='*' test` covers volt-lsp-iec + volt-control automatically — add a
+  # `test` script to any Volt package and it gates here with zero CI edit. Two deliberate exceptions:
+  #   • volt-cli — its bun suite is the live-bridge e2e (`test:e2e`, needs a running IDE), so it has no plain
+  #     `test` script; its offline C# tests are the `volt-cli` job below.
+  #   • lsp-iec's `test` is the OFFLINE suite (src + conformance); the heavy real-project corpus is `test:corpus`,
+  #     a local ratchet (known-incomplete precision work — it DISCOVERS FPs, it doesn't gate).
+  # The vendored console packages carry no `test` script (never edit vendored opencode source — the vendored-console
+  # rule), so they're invoked directly, as before.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -65,7 +71,9 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - name: Console tests (gateway + billing logic)
+      - name: Volt package suites (lsp-iec offline + control)
+        run: bun run --filter='*' test
+      - name: Console suites (gateway + billing — vendored, no test script)
         run: |
           (cd packages/console/core && bun test)
           (cd packages/console/app && bun test)

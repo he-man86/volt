@@ -32,7 +32,8 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsgo --noEmit",
     "lint": "bun run scripts/check-layering.ts",
-    "test": "bun test",
+    "test": "bun test src test/conformance",
+    "test:corpus": "bun test test/corpus",
     "record:language": "bun run scripts/record-language.ts",
     "refresh:corpus": "bun run scripts/refresh-corpus.ts",
     "audit:check": "bun run scripts/audit-check.ts"
