@@ -81,6 +81,7 @@ import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
+import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
@@ -165,6 +166,7 @@ const CHECKS: readonly Check[] = [
   checkUnresolvedIdentifiers,
   checkAmbiguousGlobal,
   checkTypeAsValue,
+  checkReservedKeyword,
   // declarations/
   checkVarSectionPlacement,
   checkInoutInitializer,

@@ -38,6 +38,7 @@ const CONFIGURABLE_CODES = [
 	"default-not-constant",
 	"abstract-output-default",
 	"union-inheritance",
+	"reserved-keyword",
 ] as const
 
 function analysisOptions(): { diagnoseDeadCode: boolean; diagnostics: Record<string, string> } {

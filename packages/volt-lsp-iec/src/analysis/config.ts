@@ -44,7 +44,7 @@ export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
  * own severity no longer matters for a configurable code.) Codes NOT here are non-configurable — errors always
  * error, exactly as CODESYS gives them no dialog control.
  *
- * This is 21 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
+ * This is 22 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
  * are still gaps, and why the un-closeable ones can't be — is `docs/codesys-reference/compiler-warnings-coverage.md`.
  */
 export const CONFIGURABLE_CHECKS = [
@@ -68,6 +68,7 @@ export const CONFIGURABLE_CHECKS = [
   { code: "default-not-constant", c: "C0526", label: "Default value is not constant" },
   { code: "abstract-output-default", c: "C0533", label: "The default value for a VAR_OUTPUT is not used" },
   { code: "union-inheritance", c: "C0542", label: "Inheritance is not intended for a UNION" },
+  { code: "reserved-keyword", c: "C0543", label: "The name is a reserved keyword in the IEC 61131-3 standard" },
 ] as const
 
 export type ConfigurableCode = (typeof CONFIGURABLE_CHECKS)[number]["code"]

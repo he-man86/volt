@@ -4453,22 +4453,21 @@
     "category": "reserved keyword used as identifier",
     "cause": "A variable or identifier is named using a word reserved by the IEC 61131-3 standard (e.g. CHAR), which still compiles today but will become a hard error in a future CODESYS version.",
     "message": "The name <keyword> is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    char : BYTE;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM\n",
     "expect": [
-      "The name 'char' is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions."
+      "The name 'CHAR' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkReservedKeyword",
+    "ourCode": "reserved-keyword",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "parser",
-    "note": "Probed live (CODESYS 3.5.21) with the POU reachable + a positive control proving compilation: STEP and TRANSITION as identifiers compile clean with no warning (EXIT is a hard parse error). The soft-reserved C0543 warning was not reproduced; needs CODESYS's exact soft-reserved list.",
-    "gap": "needs-live-verify"
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording drifted to 'IEC61131-3' + 'reported'; trigger is CHAR/WCHAR/USING not STEP/TIMER). Configurable warning. USING out of scope (our parser hard-keywords it). TC pending."
   },
   {
     "code": "C0549",

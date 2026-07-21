@@ -483,6 +483,16 @@
           ],
           "default": "warning",
           "description": "C0542 — Inheritance is not intended for a UNION. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.reserved-keyword": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0543 — The name is a reserved keyword in the IEC 61131-3 standard (CHAR/WCHAR/USING). CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         }
       }
     },
