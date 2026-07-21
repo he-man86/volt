@@ -12,32 +12,10 @@
  *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/record-gaps.ts
  */
 import { call } from "./bridge.js"
+import { MINIMAL_PLC, openFixture } from "./bridge-fixture.js"
 
-const MINIMAL_PLC = "PROGRAM PLC_PRG\nEND_PROGRAM\n"
 const PROBE = "VOLT_PROBE_UNDEFINED" // positive control: an undefined identifier that errors iff its unit compiled
-const pushOps = (ops: unknown[]) => call("push", { expectedProjectVersion: null, ops })
-let touched = new Set<string>()
-
-async function robustSet(name: string, src: string): Promise<void> {
-  touched.add(name)
-  const v = (await call("refs")).items[name] ?? null
-  const r = await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: v }])
-  if (r.accepted) return
-  await pushOps([{ op: "deleteItem", name, ifVersion: "UNREADABLE000000" }])
-  await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: null }])
-}
-async function robustDelete(name: string): Promise<void> {
-  const v = (await call("refs")).items[name] ?? "UNREADABLE000000"
-  await pushOps([{ op: "deleteItem", name, ifVersion: v }])
-}
-const refs0 = await call("refs")
-const BASELINE = new Set(Object.keys(refs0.items))
-async function reset(): Promise<void> {
-  await robustSet("PLC_PRG.prg", MINIMAL_PLC)
-  const listed = Object.keys((await call("refs")).items).filter((n) => !BASELINE.has(n) && n !== "PLC_PRG.prg")
-  for (const name of new Set([...listed, ...touched])) if (name !== "PLC_PRG.prg") await robustDelete(name)
-  touched = new Set()
-}
+const fx = await openFixture()
 
 type Case = { code: string; note: string; items: Record<string, string>; plc: string }
 const cases: Case[] = [
@@ -81,9 +59,9 @@ const cases: Case[] = [
 for (const c of cases) {
   console.log(`\n═══ ${c.code} — ${c.note} ═══`)
   try {
-    await reset()
-    for (const [name, src] of Object.entries(c.items)) await robustSet(name, src)
-    await robustSet("PLC_PRG.prg", c.plc)
+    await fx.reset()
+    for (const [name, src] of Object.entries(c.items)) await fx.set(name, src)
+    await fx.set("PLC_PRG.prg", c.plc)
     const r = await call("build", { buildType: "full" })
     const diags = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning")
     const compiled = diags.some((d: any) => String(d.message).includes(PROBE))
@@ -94,5 +72,5 @@ for (const c of cases) {
     console.log(`  ERROR: ${(e as Error).message}`)
   }
 }
-await reset()
+await fx.reset()
 console.log("\ndone.")

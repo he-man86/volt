@@ -30,6 +30,7 @@ import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../src/analysis/index.js"
 import { obsoletePousInText } from "../src/workspace-refs.js"
 import { call, TARGET } from "./bridge.js"
+import { openFixture } from "./bridge-fixture.js"
 
 /** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
  *  `extra` are cross-file context units (a code's `reproFiles`); the symbol table is built from all of them but
@@ -62,10 +63,6 @@ function lspMessagesForCode(
 const WRITE = process.argv.includes("--write")
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : undefined
 const CATALOG = join(import.meta.dir, "..", "docs", "codesys-reference", "error-catalog.json")
-const MINIMAL_PLC = "PROGRAM PLC_PRG\nEND_PROGRAM\n"
-async function pushOps(ops: unknown[]): Promise<any> {
-  return call("push", { expectedProjectVersion: null, ops })
-}
 
 // ── unit → wire mapping ──────────────────────────────────────────────────────
 const TOP = new Set(["function_block", "program", "function", "interface", "global_var_list", "type_decl", "namespace"])
@@ -139,33 +136,10 @@ function splitRepro(source: string): { plcBody?: string; items: { wire: string; 
 const synthPlc = (types: string[], calls: string[]): string =>
   `PROGRAM PLC_PRG\nVAR\n${types.map((t, i) => `  v${i} : ${t};`).join("\n")}\nEND_VAR\n${calls.join("\n")}\nEND_PROGRAM\n`
 
-// ── robust item set: recovers from the UNREADABLE-but-exists state a malformed push can leave behind ─────
-async function robustSet(name: string, src: string): Promise<void> {
-  const v = (await call("refs")).items[name] ?? null
-  const r = await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: v }])
-  if (r.accepted) return
-  // Rejected → the item is UNREADABLE (invisible in /refs but blocks re-create). Delete with the sentinel, recreate.
-  await pushOps([{ op: "deleteItem", name, ifVersion: "UNREADABLE000000" }])
-  await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: null }])
-}
-async function robustDelete(name: string): Promise<void> {
-  const v = (await call("refs")).items[name] ?? "UNREADABLE000000"
-  await pushOps([{ op: "deleteItem", name, ifVersion: v }])
-}
-
 // Vendor (→ which catalog fields to stamp) auto-detected from the bridge's platform.
 const VENDOR: "codesys" | "twincat" = (await call("health")).platform === "twincat" ? "twincat" : "codesys"
 const ACTUAL_FIELD = `${VENDOR}Actual`
-const refs0 = await call("refs")
-const BASELINE = new Set(Object.keys(refs0.items)) // libs/device/task/PLC_PRG present before any fixture
-let touched = new Set<string>() // every item name a fixture created (so UNREADABLE ones still get cleaned)
-/** Reset to a known-clean project: minimal PLC_PRG + every touched/non-baseline item deleted (UNREADABLE-safe). */
-async function resetProject(): Promise<void> {
-  await robustSet("PLC_PRG.prg", MINIMAL_PLC)
-  const listed = Object.keys((await call("refs")).items).filter((n) => !BASELINE.has(n) && n !== "PLC_PRG.prg")
-  for (const name of new Set([...listed, ...touched])) await robustDelete(name)
-  touched = new Set()
-}
+const fx = await openFixture() // shared fixture: set/del items + reset the headless project between repros
 
 // ── the catalog ──────────────────────────────────────────────────────────────
 const catalog = JSON.parse(readFileSync(CATALOG, "utf8"))
@@ -205,9 +179,9 @@ for (const c of targets) {
   let lsp: string[] = []
   let outcome: Outcome = "error"
   try {
-    await resetProject()
-    for (const it of [...items, ...extraItems]) { touched.add(it.wire); await robustSet(it.wire, it.src) }
-    await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
+    await fx.reset()
+    for (const it of [...items, ...extraItems]) await fx.set(it.wire, it.src)
+    await fx.set("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
     const r = await call("build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
     lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode, c.reproFiles)
@@ -221,7 +195,7 @@ for (const c of targets) {
   } catch (e) {
     console.warn(`  ${c.code}: ERROR ${(e as Error).message}`)
   } finally {
-    await resetProject()
+    await fx.reset()
   }
   results.push({ code: c.code, outcome, lsp, actual })
   console.log(`${{ verified: "✓", mismatch: "≠", silent: "∅", error: "✗" }[outcome]} ${c.code} ${outcome}`)
