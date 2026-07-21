@@ -284,25 +284,195 @@
           "default": false,
           "description": "Report unreachable (dead) code — units no direct/indirect task-called path reaches. Off by default, matching the compiler, which never checks code it doesn't compile."
         },
-        "volt.iec.lints.shadowing": {
-          "type": "boolean",
-          "default": false,
-          "description": "Opt-in style lint: flag a local declaration that shadows a same-name symbol in an outer scope. Not a compiler error, so off by default."
+        "volt.iec.diagnostics.pointer-not-convertible": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0033 — Type possibly not convertible to the target type. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         },
-        "volt.iec.lints.unknownAttribute": {
-          "type": "boolean",
-          "default": false,
-          "description": "Opt-in style lint: flag an {attribute '<name>'} whose name is not in the pragma catalog. Off by default — a catalog gap would false-positive."
+        "volt.iec.diagnostics.jump-label-unreferenced": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0118 — A label has not been referenced. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         },
-        "volt.iec.lints.unknownType": {
-          "type": "boolean",
-          "default": false,
-          "description": "Opt-in style lint: flag a declared type name that resolves nowhere. Off by default — types defined inside referenced libraries have no offline definition yet (the 'library floor'), so this can false-positive."
+        "volt.iec.diagnostics.no-op-statement": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0139 — The code has no effect. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         },
-        "volt.iec.lints.inoutOwnAccess": {
-          "type": "boolean",
-          "default": true,
-          "description": "A method/action/property accessing its enclosing FB's VAR_IN_OUT (CODESYS C0371). On by default to match CODESYS (which enables this warning); turn off for a project that disabled the compiler warning."
+        "volt.iec.diagnostics.sign-change-conversion": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0195/C0196 — Implicit conversion changes the sign. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.narrowing-conversion": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0197 — Implicit conversion, possible loss of information. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.string-constant-too-long": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0198 — String constant too long for the destination type. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.constant-no-initial-value": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0228 — No initial value for a constant variable. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.loop-exit-constant": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0266 — Loop exit condition is constant FALSE. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.unknown-attribute": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0351 — Unknown attribute or invalid value. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.enum-comparison": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0354 — Comparison of one enumeration type with another. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.adr-on-bit": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0355 — A single bit cannot be referenced (ADR). CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.inout-own-access": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0371 — Access to a VAR_IN_OUT from an external context. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.message-pragma-warning": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0373 — User-defined warning ({warning} pragma). CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.interface-implements": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0421 — Use keyword EXTENDS for inheritance of interfaces. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.inout-in-initializer": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0441 — Access to an uninitialized VAR_IN_OUT variable. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.input-default-composite": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0525 — The input is only optional when called as a function. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.default-not-constant": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0526 — Default value is not constant. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.abstract-output-default": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0533 — The default value for a VAR_OUTPUT is not used. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
+        "volt.iec.diagnostics.union-inheritance": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0542 — Inheritance is not intended for a UNION. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         }
       }
     },

@@ -2,7 +2,6 @@
  * type-refs — the ONE walk of a unit's type-position name references. A "type-position" is anywhere a type
  * NAME appears: a VAR/field/return/property/alias type (`position: "type"`) or an `EXTENDS`/`IMPLEMENTS` base
  * (`position: "base"`). Two consumers share it, so they can never drift:
- *   - `unknown-type` (diagnostics) — checks `position: "type"`, unqualified names resolve nowhere.
  *   - `findReferences` (rename/references) — matches EVERY ref (incl. bases) to the target symbol, so
  *     renaming a type also updates its `: T` / `EXTENDS T` / `IMPLEMENTS T` uses (the P0 rename-corruption bug).
  */

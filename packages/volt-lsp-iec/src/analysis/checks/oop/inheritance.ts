@@ -4,7 +4,7 @@
  *   C0090 base-class-not-found  — `EXTENDS <name>` where `<name>` resolves to no definition.
  *   C0086 interface-not-found   — `IMPLEMENTS <name>` where `<name>` resolves to no definition.
  *
- * C0090/C0086 reuse the SAME `nameResolves` oracle as `unresolved-identifier`/`unknown-type`, so the library
+ * C0090/C0086 reuse the SAME `nameResolves` oracle as `unresolved-identifier`, so the library
  * floor is shared by construction: a base/interface a referenced library provides (namespace root, catalog
  * built-in, or a symbol in scope) resolves and is skipped — only a name that resolves NOWHERE fires. The
  * self-cycle (C0091) is flagged before the not-found check so `EXTENDS FB` on `FB` reports the cycle, not a

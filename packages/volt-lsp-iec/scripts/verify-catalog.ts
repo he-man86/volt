@@ -38,7 +38,7 @@ function lspMessagesForCode(
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
   ]
   const project = buildSymbolTable(files)
-  return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor, lints: { unknownType: true, unknownAttribute: true } }) })
+  return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)
 }

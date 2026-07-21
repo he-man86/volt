@@ -1,10 +1,9 @@
 /**
- * inout-own-access (D.2 · oop/) — C0371, a WARNING (`lints.inoutOwnAccess`, ON by default). A
- * method/action/property accessor that touches its enclosing FB's VAR_IN_OUT parameter. CODESYS controls this
- * with a per-project compiler-warning toggle that isn't in the materialized ST — but it's ENABLED by default
- * and hardly any project disables it (lenze-mid: on, 96 warnings; pro2193 is the rare one that turned it off).
- * So default ON to match the common case; a project that disabled the warning sets the lint false. When on it
- * matches the compiler exactly — verified byte-identical against pro2193's own build with the warning enabled
+ * inout-own-access (D.2 · oop/) — C0371, a WARNING. A method/action/property accessor that touches its
+ * enclosing FB's VAR_IN_OUT parameter. It's one of CODESYS's toggleable compiler warnings (ENABLED by default,
+ * and hardly any project disables it — lenze-mid: on, 96 warnings; pro2193 is the rare one that turned it off).
+ * So it runs by default; a project that disabled the C0371 warning turns it off via the warning toggle. When on
+ * it matches the compiler exactly — verified byte-identical against pro2193's own build with the warning enabled
  * (0 gaps, property accessors included).
  *
  * NOT the FB's own main body (VAR_IN_OUT lives there — normal), and NOT external instance access (`inst.io`
@@ -20,7 +19,6 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (!ctx.config.lints.inoutOwnAccess) return // default ON; off only for a project that disabled the CODESYS warning (see header + LintConfig)
   for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     const context = externalContext(scope, unit, body) // method/action/property-accessor scope; undefined = the FB's own body
     if (context === undefined) continue

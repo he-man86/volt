@@ -15,25 +15,24 @@ import { readFileSync } from "node:fs"
 import { errorCatalog, type ErrorCode } from "./error-codes.js"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type LintConfig } from "../analysis/index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../analysis/index.js"
 
 const catalog = errorCatalog()
 
-/** Diagnostic messages the LSP emits for a repro (a full ST source), optionally enabling one opt-in lint.
- *  Includes warnings as well as errors — some codes (e.g. C0033 unsafe pointer conversion) are warnings. */
-function lspMessages(repro: string, lint: string | null, extra?: { uri: string; source: string }[]): string[] {
+/** Diagnostic messages the LSP emits for a repro (a full ST source). Every check runs by default (errors always,
+ *  warnings default-ON like CODESYS), so no per-lint config is needed. Includes warnings as well as errors. */
+function lspMessages(repro: string, extra?: { uri: string; source: string }[]): string[] {
   const parseResult = parseSource(repro)
   const files = [
     { uri: "F.fb", parseResult, source: repro },
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
   ]
   const project = buildSymbolTable(files)
-  const lints = lint ? ({ [lint]: true } as Partial<LintConfig>) : undefined
   const semantic = computeSemanticDiagnostics({
     parseResult,
     source: repro,
     project,
-    config: resolveConfig({ vendor: "codesys", lints }),
+    config: resolveConfig({ vendor: "codesys" }),
   })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
@@ -68,11 +67,11 @@ for (const e of catalog) {
     test(name, () => {
       expect(e.repro, `${e.code} implemented but no repro`).not.toBeNull()
       // negative: the error example emits every expected message
-      const bad = lspMessages(e.repro!, e.lint, e.reproFiles)
+      const bad = lspMessages(e.repro!, e.reproFiles)
       for (const want of e.expect ?? []) expect(bad).toContain(want)
       // positive: the correction (if the docs gave one) emits NONE of them
       if (e.fix) {
-        const good = lspMessages(e.fix, e.lint, e.reproFiles)
+        const good = lspMessages(e.fix, e.reproFiles)
         for (const want of e.expect ?? []) expect(good).not.toContain(want)
       }
     })
@@ -81,7 +80,7 @@ for (const e of catalog) {
   } else {
     // checkable (to build) or pending (to harvest) — a visible todo, not a failure.
     test.todo(name, () => {
-      const msgs = lspMessages(e.repro!, e.lint)
+      const msgs = lspMessages(e.repro!)
       for (const want of e.expect ?? []) expect(msgs).toContain(want)
     })
   }

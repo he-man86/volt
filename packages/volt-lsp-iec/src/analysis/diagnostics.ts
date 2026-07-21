@@ -11,7 +11,9 @@ import type { Scope } from "../symbols/index.js"
 import {
   EMPTY_WORKSPACE_REFS,
   resolveConfig,
+  CONFIGURABLE_CODES,
   type AnalysisInitOptions,
+  type ConfigurableCode,
   type ResolvedConfig,
   type Vendor,
   type WorkspaceRefs,
@@ -75,7 +77,6 @@ import { checkAbstractOutputDefault } from "./checks/oop/abstract-output-default
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
-import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
@@ -157,7 +158,6 @@ const CHECKS: readonly Check[] = [
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
   checkAmbiguousGlobal,
-  checkUnknownTypes,
   checkTypeAsValue,
   // declarations/
   checkVarSectionPlacement,
@@ -212,12 +212,25 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
   } else {
     for (const check of CHECKS) check(ctx, out)
   }
-  return out
+  // CODESYS "Compiler warnings" dialog: each configurable code is off / warning / error. Drop it when off,
+  // else FORCE the configured severity (so a code the check emits as error but CODESYS defaults to warning is
+  // corrected). Non-configurable codes pass through untouched — errors always error, like CODESYS.
+  const result: DiagnosticItem[] = []
+  for (const it of out) {
+    if (!CONFIGURABLE_CODES.has(it.code)) {
+      result.push(it)
+      continue
+    }
+    const state = config.diagnostics[it.code as ConfigurableCode]
+    if (state === "off") continue
+    result.push(it.severity === state ? it : { ...it, severity: state })
+  }
+  return result
 }
 
 /** Per-check wall-time accumulator (ms), for the offline profiler only. Enable by assigning `{}`. */
 export let CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
 
 function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
-  return c !== undefined && "lints" in c && typeof (c as ResolvedConfig).vendor === "string"
+  return c !== undefined && "warnings" in c && typeof (c as ResolvedConfig).vendor === "string"
 }

@@ -1,17 +1,17 @@
 /**
- * unknown-attribute lint (opt-in). CODESYS warns on an `{attribute '<name>'}` it doesn't recognize; the
- * check mirrors that when enabled. Off by default (catalog-completeness makes it FP-prone).
+ * unknown-attribute — C0351, a 3-state configurable diagnostic (off/warning/error), default warning (CODESYS's
+ * default). The central filter drops it when set to "off". Here toggled via `diagnostics: { "unknown-attribute" }`.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
-/** unknown-attribute diagnostics for one source, with the lint toggled. */
+/** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
 function attrs(src: string, enabled: boolean) {
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  const config = resolveConfig({ vendor: "codesys", lints: { unknownAttribute: enabled } })
+  const config = resolveConfig({ vendor: "codesys", diagnostics: { "unknown-attribute": enabled ? "warning" : "off" } })
   return computeSemanticDiagnostics({ parseResult, source: src, project, config }).filter(
     (d) => d.code === "unknown-attribute",
   )
@@ -19,7 +19,7 @@ function attrs(src: string, enabled: boolean) {
 
 const withAttr = (a: string) => `{attribute '${a}'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
 
-test("a typo'd attribute is flagged (byte-identical to CODESYS) when the lint is on", () => {
+test("a typo'd attribute IS flagged by default (byte-identical to CODESYS)", () => {
   const d = attrs(withAttr("qualifid_only"), true) // note the typo
   expect(d).toHaveLength(1)
   expect(d[0]?.severity).toBe("warning")
@@ -38,14 +38,14 @@ test("alias spellings of a known attribute are recognized (not flagged)", () => 
   for (const a of ["no_init", "no-init", "TcLinkToOSO", "tc_no_symbol"]) expect(attrs(withAttr(a), true)).toEqual([])
 })
 
-test("the lint is OFF by default (nothing flagged even on a typo)", () => {
+test("the C0351 warning can be turned OFF (toggle) — then a typo is not flagged", () => {
   expect(attrs(withAttr("qualifid_only"), false)).toEqual([])
 })
 
-test("the lint is CODESYS-only — TwinCAT compiles unknown attributes clean (confirmed live)", () => {
+test("the warning is CODESYS-only — TwinCAT compiles unknown attributes clean (confirmed live)", () => {
   const parseResult = parseSource(withAttr("qualifid_only"))
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: withAttr("qualifid_only") }])
-  const config = resolveConfig({ vendor: "twincat", lints: { unknownAttribute: true } })
+  const config = resolveConfig({ vendor: "twincat", diagnostics: { "unknown-attribute": "warning" } })
   const d = computeSemanticDiagnostics({ parseResult, source: withAttr("qualifid_only"), project, config }).filter(
     (x) => x.code === "unknown-attribute",
   )

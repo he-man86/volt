@@ -54,9 +54,9 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     out.push({ severity, span: p.span, source: SOURCE, code: `message-pragma-${dir}`, message: p.messageText })
   }
 
-  // Unknown `{attribute '<name>'}` (opt-in; only as complete as the catalog). CODESYS-only: live /build
-  // confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
-  if (ctx.config.lints.unknownAttribute && ctx.config.vendor === "codesys") {
+  // Unknown `{attribute '<name>'}` — C0351, a toggleable warning (only as complete as the catalog). CODESYS-only:
+  // live /build confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
+  if (ctx.config.vendor === "codesys") {
     for (const p of pragmas) {
       if (p.attributeName === undefined || isKnownAttribute(p.attributeName)) continue
       out.push({

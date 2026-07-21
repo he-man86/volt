@@ -1196,10 +1196,10 @@
     "expect": [
       "Unknown type: 'USNT'"
     ],
-    "status": "implemented",
-    "ourCheck": "unknown-type",
-    "ourCode": "unknown-type",
-    "lint": "unknownType",
+    "status": "ide-only",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
     "verified": {
       "codesys": true,
       "twincat": true

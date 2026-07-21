@@ -188,8 +188,8 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
 
   // The opt-in unknown-attribute lint is only as complete as the pragma catalog. Enable it across the corpus
   // and require ZERO hits: every attribute real projects use must be catalogued, else it would false-positive.
-  test("unknown-attribute lint: pragma catalog covers every attribute in the corpus (0 hits)", () => {
-    const config = resolveConfig({ vendor: "codesys", lints: { unknownAttribute: true } })
+  test("unknown-attribute warning: pragma catalog covers every attribute in the corpus (0 hits)", () => {
+    const config = resolveConfig({ vendor: "codesys", diagnostics: { "unknown-attribute": "warning" } })
     const hits: string[] = []
     for (const project of readdirSync(CORPUS_ROOT)) {
       const dir = join(CORPUS_ROOT, project)

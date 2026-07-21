@@ -12,7 +12,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const diag = (src: string) => {
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: true } }) })
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
 test("a method touching its FB's VAR_IN_OUT warns (C0371), byte-identical", () => {
@@ -57,6 +57,6 @@ test("a project that disabled the warning can turn it off (lints.inoutOwnAccess=
   const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", lints: { inoutOwnAccess: false } }) })
+  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
   expect(ds.filter((d) => d.code === "inout-own-access")).toEqual([])
 })

@@ -34,8 +34,6 @@ export interface Messages {
   undefinedIdentifier(name: string): string
   /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). verified both vendors. */
   ambiguousGlobalName(name: string): string
-  /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
-  unknownType(name: string): string
   /** A type name used where a value is expected — `value := MyEnum` (C0230). verified both vendors. */
   typeNameNotExpected(name: string): string
   /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
@@ -322,8 +320,6 @@ export function messagesFor(vendor: Vendor): Messages {
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
     ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
-    // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
-    unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     // Confirmed via live /build: both say "is no component of"; TwinCAT uppercases the type name.
