@@ -1,6 +1,6 @@
 {
-  "at": "2026-07-11T11:45:26.352Z",
-  "base": "http://127.0.0.1:8556",
+  "at": "2026-07-21T15:41:04.272Z",
+  "base": "pipe volt.bridge.codesys",
   "results": [
     {
       "code": "C0001",
@@ -390,16 +390,6 @@
       ]
     },
     {
-      "code": "C0077",
-      "outcome": "verified",
-      "lsp": [
-        "Unknown type: 'USNT'"
-      ],
-      "actual": [
-        "Unknown type: 'USNT'"
-      ]
-    },
-    {
       "code": "C0080",
       "outcome": "verified",
       "lsp": [
@@ -707,13 +697,13 @@
     },
     {
       "code": "C0145",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
         "Interfaces can only be implemented by function blocks"
       ],
       "actual": [
-        "Identifier 'POU' not defined",
-        "Program name, function or function block instance expected instead of 'POU'"
+        "No definition found for interface 'ITF'",
+        "Interfaces can only be implemented by function blocks"
       ]
     },
     {
@@ -1010,14 +1000,6 @@
       "actual": []
     },
     {
-      "code": "C0215",
-      "outcome": "mismatch",
-      "lsp": [
-        "Direct address declaration is not possible in persistent list"
-      ],
-      "actual": []
-    },
-    {
       "code": "C0216",
       "outcome": "verified",
       "lsp": [
@@ -1254,6 +1236,16 @@
       ]
     },
     {
+      "code": "C0371",
+      "outcome": "verified",
+      "lsp": [
+        "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
+      ],
+      "actual": [
+        "Access to VAR_IN_OUT 'io' declared in 'FB_Test' from external context 'METH'"
+      ]
+    },
+    {
       "code": "C0373",
       "outcome": "verified",
       "lsp": [
@@ -1397,6 +1389,16 @@
       ],
       "actual": [
         "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
+      ]
+    },
+    {
+      "code": "C0582",
+      "outcome": "mismatch",
+      "lsp": [
+        "There is another method with the name 'Calc'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods."
+      ],
+      "actual": [
+        "Unknown type: 'FB_Math'"
       ]
     }
   ]
