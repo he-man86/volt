@@ -16,7 +16,7 @@ pipe.
 │   volt.bridge.twincat      volt.bridge.codesys                                │
 │        ▲                         ▲                                            │
 │   spawns + supervises       user activates in-proc                           │
-│   [VoltBridgeTwincat.exe]   (Tools → Scripting → start_pipe.py)               │
+│   [VoltBridgeTwincat.exe]   (Tools → Scripting → start_volt_codesys.py)               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,9 +56,9 @@ down, so switching is just another click). A vendor with >1 live instance shows 
   for a project) · grey (nothing running). A vendor with no IDE running never paints a fault colour.
 - **Tray menu**: quick actions — "Connect to" (the same unified list), "Activate in CODESYS…", Show logs, Exit.
 - **CODESYS activation is guided, never driven.** The connector does not launch any IDE. "Activate in CODESYS…"
-  copies the `start_pipe.py` path to the clipboard and shows the steps (Tools → Scripting → Execute Script
+  copies the `start_volt_codesys.py` path to the clipboard and shows the steps (Tools → Scripting → Execute Script
   File); once the user runs it, the in-proc host serves the pipe and the project appears in the list.
-  On startup the connector publishes `start_pipe.py` to a **visible `Documents\Volt\`** folder (so it's reachable
+  On startup the connector publishes `start_volt_codesys.py` to a **visible `Documents\Volt\`** folder (so it's reachable
   in the file dialog without un-hiding AppData); the install-dir copy under `codesys-scriptcommands\` stays as a
   backup, and both find the bridge DLLs in the install dir via `%LOCALAPPDATA%`. The activation dialog shows both
   paths.
@@ -74,8 +74,8 @@ down, so switching is just another click). A vendor with >1 live instance shows 
 | var | purpose |
 |---|---|
 | `VOLT_TWINCAT_BRIDGE` | path to `VoltBridgeTwincat.exe` (else: next to the connector, then the dev build output) |
-| `VOLT_CODESYS_SCRIPT` | path to `start_pipe.py` (overrides the published `Documents\Volt\` + install-dir copies the "Activate" action points at) |
-| `VOLT_BRIDGE_DLL` | path to `Volt.Cli.Ide.Codesys.dll` (overrides `start_pipe.py`'s own resolution for a custom install dir) |
+| `VOLT_CODESYS_SCRIPT` | path to `start_volt_codesys.py` (overrides the published `Documents\Volt\` + install-dir copies the "Activate" action points at) |
+| `VOLT_BRIDGE_DLL` | path to `Volt.Cli.Ide.Codesys.dll` (overrides `start_volt_codesys.py`'s own resolution for a custom install dir) |
 
 Data wire: named pipes — `volt.bridge.twincat`, `volt.bridge.codesys`. Control plane: HTTP `127.0.0.1:8550`.
 

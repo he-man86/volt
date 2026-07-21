@@ -3,7 +3,7 @@
  * (incoming/outgoing). Call incoming is TYPE-AWARE: `fb.Step()` resolves through the base's type to
  * the exact method symbol, so a same-named method on a DIFFERENT FB is NOT reported as a caller.
  */
-import type { Location, Range, SymbolKind as LspKind } from "vscode-languageserver-protocol"
+import type { Range, SymbolKind as LspKind } from "vscode-languageserver-protocol"
 import { walkAllExprs, type TopLevel } from "../../syntax/index.js"
 import { findScopeByName, lookup, type Scope, type Symbol } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"

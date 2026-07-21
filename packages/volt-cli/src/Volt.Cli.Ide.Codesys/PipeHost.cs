@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Threading;
 using Volt.Engine.Diagnostics;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
@@ -22,8 +25,32 @@ public static class PipeHost
 
     public static bool IsRunning => _host is not null;
 
+    private static int _resolverInstalled;
+
+    /// <summary>Resolve the bridge DLL's own dependencies (System.Text.Json 8.0.0.0 + its deps) from the folder it
+    /// was loaded from. CODESYS loads us via <c>clr.AddReferenceToFileAndPath</c> (Assembly.LoadFile), which does NOT
+    /// add that folder to the CLR probe path — so a dependency the host process can't already satisfy fails to load.
+    /// This bit only: <c>health</c> serializes <see cref="HealthResponse"/>, whose [JsonPropertyName]/[JsonIgnore]
+    /// attributes force an exact System.Text.Json 8.0.0.0 bind; without this handler that throws and the connector
+    /// (which gates Connect on health) can't attach — even though discovery (instances) works. Install once.</summary>
+    private static void EnsureDependencyResolver()
+    {
+        if (Interlocked.Exchange(ref _resolverInstalled, 1) != 0) return;
+        var dir = Path.GetDirectoryName(typeof(PipeHost).Assembly.Location);
+        if (string.IsNullOrEmpty(dir)) return;
+        AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
+        {
+            // Fires only after the CLR's normal resolution failed; supply the .dll if we ship it beside us.
+            var path = Path.Combine(dir, new AssemblyName(e.Name).Name + ".dll");
+            if (!File.Exists(path)) return null;
+            try { VoltLog.Info($"resolved dependency from bridge dir: {e.Name}"); } catch { }
+            return Assembly.LoadFrom(path);
+        };
+    }
+
     public static string Start(object? projects, object? system, object? online)
     {
+        EnsureDependencyResolver();
         lock (_gate)
         {
             if (IsRunning) return $"Volt bridge already running on pipe {_pipeName}";

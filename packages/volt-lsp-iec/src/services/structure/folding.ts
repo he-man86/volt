@@ -3,16 +3,7 @@
  * and each multi-line block statement (IF/CASE/FOR/WHILE/REPEAT) in a POU body. Pure AST/structure.
  */
 import type { FoldingRange } from "vscode-languageserver-protocol"
-import {
-  parseStatements,
-  walkStatements,
-  type BodySpan,
-  type Span,
-  type TopLevel,
-  unitBodies,
-  isGraphicalBody,
-} from "../../syntax/index.js"
-import { isTrivia } from "../../syntax/index.js"
+import { parseStatements, walkStatements, type Span, unitBodies, isGraphicalBody } from "../../syntax/index.js"
 import { parseVgBody } from "../../graphical/text/parser.js"
 import type { Document } from "../shared/index.js"
 
