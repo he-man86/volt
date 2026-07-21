@@ -124,7 +124,8 @@ export class VoltViews implements vscode.Disposable {
 }
 
 // ── IDE Sync ─────────────────────────────────────────────────────────────────
-function syncRoots(views: WorkspaceView[]): VoltNode[] {
+// Exported for the panel smoke test (pure view-model builder).
+export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	// Not initialized → return nothing so the viewsWelcome (Set Up Workspace / init buttons) renders.
 	if (views.length === 0) return []
 
@@ -132,13 +133,19 @@ function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	const outgoing: VoltNode[] = []
 	const merges: VoltNode[] = []
 	let mismatchPaused = false
+	let anythingToShow = false // stays false only when EVERY bound workspace is offline → yield to the Connect welcome
 	for (const v of views) {
 		// A merge is actionable IN the tree (resolve each file, then Finish); a project mismatch is not.
-		if (v.paused === "merging") { merges.push(mergeNode(v.workspaceRoot, v.conflicts)); continue }
-		if (v.paused === "mismatch") { mismatchPaused = true; continue }
+		if (v.paused === "merging") { merges.push(mergeNode(v.workspaceRoot, v.conflicts)); anythingToShow = true; continue }
+		if (v.paused === "mismatch") { mismatchPaused = true; anythingToShow = true; continue }
+		// Bridge genuinely unreachable → don't claim "In sync" (it isn't); stay silent here so the "Disconnected —
+		// Connect" welcome renders. The Bridge view shows the health + the Reconnect action.
+		if (!v.health.online) continue
+		anythingToShow = true
 		incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
 		outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
 	}
+	if (!anythingToShow) return [] // all bound workspaces offline → viewsWelcome shows the Connect button
 	// Merge subtree(s) render ALONGSIDE other workspaces' drift — a merge in one folder must not hide another's.
 	const roots: VoltNode[] = [...merges]
 	if (incoming.length > 0 || outgoing.length > 0) {
@@ -273,9 +280,11 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[])
 
 		if (v.vendor !== undefined) nodes.push({ key: `vendor:${v.workspaceRoot}`, label: vendorLabel(v.vendor), icon: new vscode.ThemeIcon("plug") })
 
-		// Bridge lifecycle is the connector's job (tray) — the view only reports; it never starts bridges.
+		// Genuinely unreachable → offer a one-click Reconnect (re-points the bridge at the bound project — the same
+		// connect that init does) instead of sending the user to the tray. reconnectBound reports precisely if it
+		// can't (connector not running / open the project in the IDE), so this stays honest.
 		if (!hd.online)
-			nodes.push({ key: `offline:${v.workspaceRoot}`, label: "Offline — start it from the Volt Connector (tray)", icon: new vscode.ThemeIcon("info") })
+			nodes.push({ key: `reconnect:${v.workspaceRoot}`, label: "Reconnect to the IDE", icon: new vscode.ThemeIcon("plug"), command: { command: "volt.connect", title: "Reconnect" } })
 		if (v.paused === "mismatch")
 			nodes.push({ key: `rename:${v.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
 	}

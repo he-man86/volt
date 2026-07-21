@@ -207,7 +207,9 @@
         <div class="init-row">` +
             projects.map((p) => `<button class="btn ${p.vendor === "codesys" ? "primary" : ""}" onclick="doInit('${esc(p.id)}')"><svg class="bolt"><use href="#bolt"/></svg>${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${esc(p.displayName)}${p.dirty ? " *" : ""}</button>`).join("") +
             `</div>`
-          : `<div class="note">Not a Volt workspace yet. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — the project appears here to initialize from.</div>`
+          : s.connectorUp
+            ? `<div class="note">Not a Volt workspace yet. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — the project appears here to initialize from.</div>`
+            : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector detects your open PLC projects and serves the bridge; the project then appears here to initialize from.</div>`
     }
     else if (s.paused) syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
     else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>`
@@ -234,7 +236,10 @@
       bridgeBody =
         `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span></div>` +
         (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
-        (!h.online ? `<div class="note">Bridge offline — start it via the connector.</div>` : "")
+        (!h.online
+          ? `<div class="note">Disconnected — the IDE may be closed, or the Volt Connector isn't running.</div>
+        <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
+          : "")
     }
     const bridgeActs = s.initialized ? icoBtn("i-refresh", "Refresh", "doRefresh()") : ""
 

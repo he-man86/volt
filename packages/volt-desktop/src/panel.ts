@@ -5,7 +5,7 @@ import {
   VoltStatus,
   projectWorkspace,
   readBridgeVendor,
-  detectedProjects,
+  connectorStatus,
   collectDiagnostics,
   type DriftItem,
   type WorkspaceView,
@@ -17,7 +17,7 @@ import type { Shell } from "./context.js"
 // The bound case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to
 // update here; the unbound case only carries the empty arrays renderRail reads unconditionally. `projects` rides
 // on both so the init surface (pick a project) renders the same regardless of bound state.
-type Snap = { projects: DetectedProject[] } & (
+type Snap = { projects: DetectedProject[]; connectorUp: boolean } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -25,11 +25,13 @@ type Snap = { projects: DetectedProject[] } & (
 // Exported for the panel smoke test — the shell → shared view-model projection is pure (no electron).
 export function snapshot(shell: Shell): Snap {
   const projects = shell.projects
+  const connectorUp = shell.connectorUp
   const vs = shell.status
-  if (!vs) return { bound: false, incoming: [], outgoing: [], projects }
+  if (!vs) return { bound: false, incoming: [], outgoing: [], projects, connectorUp }
   return {
     bound: true,
     projects,
+    connectorUp,
     ...projectWorkspace({
       workspaceRoot: vs.workspaceRoot,
       status: vs.cached,
@@ -49,10 +51,15 @@ export function pushStatus(shell: Shell): void {
  *  show instead of the init picker). */
 export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   if (shell.status && readBridgeVendor(shell.status.workspaceRoot) !== undefined) return
-  const next = await detectedProjects()
+  // One connector probe drives BOTH the detected-project list AND whether the connector is even running, so the
+  // init surface can tell "connector not running" apart from "connector up, no IDE project open".
+  const view = await connectorStatus()
+  const next = view?.projects ?? []
+  const up = view !== undefined
   const key = (ps: DetectedProject[]): string => ps.map((p) => p.id).sort().join("|")
-  if (key(next) === key(shell.projects)) return
+  if (up === shell.connectorUp && key(next) === key(shell.projects)) return
   shell.projects = next
+  shell.connectorUp = up
   pushStatus(shell)
 }
 

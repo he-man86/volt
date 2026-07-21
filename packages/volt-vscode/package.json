@@ -614,8 +614,18 @@
       },
       {
         "view": "volt.views.sync",
-        "contents": "$(plug) No PLC project detected yet.\nOpen a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it appears here to initialize from.\n[$(plug) Initialize workspace…](command:volt.init)\n\n$(info) The bridge ships with the Volt app. Don't have it?\n[$(cloud-download) Download Volt](https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe)",
-        "when": "!volt.workspaceInitialized && !volt.hasProjects"
+        "contents": "$(plug) No PLC project detected yet.\nOpen a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it appears here to initialize from.\n[$(plug) Initialize workspace…](command:volt.init)",
+        "when": "!volt.workspaceInitialized && volt.connectorRunning && !volt.hasProjects"
+      },
+      {
+        "view": "volt.views.sync",
+        "contents": "$(circle-slash) The Volt Connector isn't running.\nStart Volt — its tray connector detects your open PLC projects and serves the bridge. Then your project appears here to initialize from.\n\n$(info) Don't have Volt installed?\n[$(cloud-download) Download Volt](https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe)",
+        "when": "!volt.workspaceInitialized && !volt.connectorRunning"
+      },
+      {
+        "view": "volt.views.sync",
+        "contents": "$(debug-disconnect) Disconnected from the IDE.\nThis workspace's bridge isn't reachable — its IDE may be closed, or the Volt Connector isn't running.\n[$(plug) Connect…](command:volt.connect)\n\nRe-points the bridge at this project — the same connect that init does, no tray needed.",
+        "when": "volt.workspaceInitialized && volt.bridgeOffline"
       }
     ]
   },

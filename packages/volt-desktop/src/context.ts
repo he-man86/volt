@@ -15,4 +15,7 @@ export interface Shell {
   // The detected projects across all IDEs (from the connector) — the init surface. The user picks one; there is
   // no vendor button. Vendor rides along on each project as a badge.
   projects: DetectedProject[]
+  // Whether the connector control plane answered at all — lets onboarding tell "connector not running" apart from
+  // "connector up, no IDE project open" (both otherwise show an empty `projects`).
+  connectorUp: boolean
 }
