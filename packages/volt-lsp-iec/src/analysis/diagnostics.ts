@@ -43,6 +43,7 @@ import { checkStatementRules } from "./checks/flow/statement-rules.js"
 import { checkNewInExpression } from "./checks/flow/new-in-expression.js"
 import { checkJumpLabels } from "./checks/flow/jump-labels.js"
 import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
+import { checkEmptyBlock } from "./checks/flow/empty-block.js"
 import { checkLoopExit } from "./checks/flow/loop-exit.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
@@ -130,6 +131,7 @@ const CHECKS: readonly Check[] = [
   checkNewInExpression,
   checkJumpLabels,
   checkNoOpStatement,
+  checkEmptyBlock,
   checkLoopExit,
   checkThisSuperContext,
   // declarations/

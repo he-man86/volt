@@ -255,21 +255,21 @@
     "category": "empty statement block",
     "cause": "A control-structure clause (such as an IF...THEN body) contains no statements at all, not even a semicolon.",
     "message": "At least one statement is expected.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    bTest: BOOL;\nEND_VAR\n\nIF bTest THEN\nEND_IF",
+    "repro": "PROGRAM PLC_PRG\nVAR b : BOOL; END_VAR\nIF b THEN\nEND_IF\nEND_PROGRAM\n",
     "expect": [
-      "At least one statement is expected."
+      "At least one statement is expected"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkEmptyBlock",
+    "ourCode": "empty-block",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). Comment-only/lone-; bodies are legal and not flagged. TC pending."
   },
   {
     "code": "C0015",
@@ -4025,22 +4025,21 @@
     "category": "empty CASE label",
     "cause": "A CASE statement has a label with no statements between it and the next label.",
     "message": "At least one statement is expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      nVar:INT;\nEND_VAR\n\nCASE nVar OF\n      1:\n      2:\n         nVar := nVar + 1;\nEND_CASE",
+    "repro": "PROGRAM PLC_PRG\nVAR i : INT; END_VAR\nCASE i OF\n1:\n2: i := 1;\nEND_CASE\nEND_PROGRAM\n",
     "expect": [
       "At least one statement is expected"
     ],
-    "note": "Locked won't-fix with a test in case-labels: consecutive empty CASE labels are legal fall-through; flagging an empty arm false-positives on real code.",
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). CORRECTS a stale won't-fix: an empty CASE arm (1:\n2:) IS an error; the legal fall-through is a comma list 1,2:. Comment-only/lone-; bodies are legal and not flagged. TC pending.",
+    "status": "implemented",
+    "ourCheck": "checkEmptyBlock",
+    "ourCode": "empty-block",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "triage": "skip",
-    "gap": "wont-fix"
+    "triage": "skip"
   },
   {
     "code": "C0441",

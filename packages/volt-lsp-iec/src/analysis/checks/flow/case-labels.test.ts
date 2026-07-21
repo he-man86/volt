@@ -1,8 +1,8 @@
 /**
  * case-labels (C0216/C0217/C0218/C0219). Const-eval + constancy over CASE selector labels. Docs wording;
- * provisional until a live recording locks it. C0426 (empty arm) is deliberately NOT here — CODESYS accepts
- * fall-through empty arms. C0218 uses `constancyOf`, so enum/VAR CONSTANT labels stay quiet (the earlier
- * `constEval`-only attempt false-positived on those).
+ * provisional until a live recording locks it. C0426 (empty arm) lives in the `empty-block` check — an empty arm
+ * IS an error (live-verified); the legal fall-through is a comma list `1, 2:`. C0218 uses `constancyOf`, so
+ * enum/VAR CONSTANT labels stay quiet (the earlier `constEval`-only attempt false-positived on those).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
@@ -32,11 +32,15 @@ test("C0219 overlapping ranges, rendered lowest-first", () => {
   expect(cs(`  3..5: i := 1;\n  1..4: i := 2;`)).toEqual(["CASE contains overlapping range 1 .. 4 and 3 .. 5"])
 })
 
-test("C0218: a non-constant variable label is flagged; constants/enums/empty-arms are not", () => {
+test("C0218: a non-constant variable label is flagged; constants/enums are not", () => {
   expect(cs(`  a: i := 1;`)).toEqual(["CASE label requires literal or symbolic integer constant"]) // `a` is a var
   expect(cs(`  K: i := 1;`)).toEqual([]) // VAR CONSTANT symbolic label — valid
-  expect(cs(`  1:\n  2: i := 1;`)).toEqual([]) // empty fall-through arm (C0426, won't-fix)
   expect(cs(`  1: i := 1;\n  2..4: i := 2;\n  K: i := 3;\n  5,6: i := 4;`)).toEqual([]) // well-formed
+})
+
+test("an empty CASE arm is an error (C0426, live-verified); comma is the legal fall-through", () => {
+  expect(cs(`  1:\n  2: i := 1;`)).toEqual(["At least one statement is expected"]) // separate empty label → error
+  expect(cs(`  1, 2: i := 1;`)).toEqual([]) // comma-shared body → legal
 })
 
 test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {

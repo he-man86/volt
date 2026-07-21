@@ -187,6 +187,8 @@ export interface Messages {
   pouObsolete(name: string, message: string): string
   /** An `AT` clause whose operand is not a direct address (`i AT ABC`) — C0030. verified live CODESYS; TC pending. */
   directAddressExpectedAt(found: string): string
+  /** An empty control-flow block or CASE arm (C0013/C0426) — a body with no statements. verified live CODESYS; TC pending. */
+  emptyStatementBlock(): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -441,6 +443,7 @@ export function messagesFor(vendor: Vendor): Messages {
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
     directAddressExpectedAt: (found) => `Direct address expected after AT instead of ${found}`,
+    emptyStatementBlock: () => `At least one statement is expected`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
