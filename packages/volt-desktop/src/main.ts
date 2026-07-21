@@ -113,6 +113,15 @@ app.whenReady().then(async () => {
   })
   await shell.win.loadFile(join(__dirname, "shell.html"))
 
+  // ponytail: boot smoke — the window + Volt shell loaded here (opencode/agent is optional and comes later), so
+  // exit before spawning it. Proves the electron entry, the frameless window, and shell.html actually render —
+  // the one thing the pure-logic unit tests can't. Driven by test/e2e/boot.test.ts.
+  if (process.env.VOLT_SMOKE) {
+    const ok = !shell.win.isDestroyed() && shell.win.webContents.getURL().endsWith("shell.html")
+    app.exit(ok ? 0 : 1)
+    return
+  }
+
   shell.view = new WebContentsView()
   // Tell opencode's GUI our real locale. Without this the view sends an Accept-Language opencode's server-side
   // detector maps to Turkish on first load; here we pin it to the OS locale (override with VOLT_LOCALE).

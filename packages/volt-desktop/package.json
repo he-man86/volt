@@ -11,7 +11,8 @@
     "dev": "bun build src/main.ts --target=node --format=esm --outfile=main.mjs --external electron --watch",
     "start": "bun run build && electron .",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test"
+    "test": "bun test src",
+    "test:e2e": "bun run build && bun test test/e2e"
   },
   "dependencies": {
     "@volt/control": "workspace:*"
