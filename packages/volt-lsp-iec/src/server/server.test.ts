@@ -133,7 +133,29 @@ test("server: didOpen pushes diagnostics (type mismatch)", async () => {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
   const params = await got
-  expect(params.diagnostics.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  expect(params.diagnostics.some((d) => d.code === "C0032")).toBe(true)
+  client.dispose()
+})
+
+test("server: a pull-capable client gets NO push (avoids double diagnostics)", async () => {
+  const client = connect()
+  let pushed = false
+  client.onNotification(PublishDiagnosticsNotification.type, () => (pushed = true))
+  // Declare pull-diagnostics support — the client will call textDocument/diagnostic itself.
+  await client.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: { textDocument: { diagnostic: { dynamicRegistration: false } } },
+  })
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
+  })
+  // The pull channel returns the diagnostic…
+  const report = (await client.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: URI } })) as { items: { code?: unknown }[] }
+  expect(report.items.some((d) => d.code === "C0032")).toBe(true)
+  // …and the server did NOT also push it.
+  expect(pushed).toBe(false)
   client.dispose()
 })
 
@@ -184,10 +206,10 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
   }
 
   const suppressed = await diagsFor(false)
-  expect(suppressed.some((d) => d.code === "assignment-type-mismatch")).toBe(false)
+  expect(suppressed.some((d) => d.code === "C0032")).toBe(false)
 
   const emitted = await diagsFor(true)
-  expect(emitted.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  expect(emitted.some((d) => d.code === "C0032")).toBe(true)
 })
 
 test("server: hover inside a VG body resolves a wire's inferred type", async () => {
@@ -662,7 +684,7 @@ test("server: textDocument/diagnostic pulls the same diagnostics as the push cha
     items: { code?: unknown }[]
   }
   expect(report.kind).toBe("full")
-  expect(report.items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  expect(report.items.some((d) => d.code === "C0032")).toBe(true)
   client.dispose()
 })
 
@@ -678,7 +700,7 @@ test("server: didSave re-publishes diagnostics for the saved document", async ()
   const onSave = onceDiag(client, URI)
   await client.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri: URI } })
   const diags = (await onSave) as { code?: unknown }[]
-  expect(diags.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  expect(diags.some((d) => d.code === "C0032")).toBe(true)
   client.dispose()
 })
 
@@ -695,10 +717,10 @@ test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)"
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: deadUri, languageId: "iecst", version: 1, text: deadSrc },
   })
-  expect(((await initial) as { code?: unknown }[]).some((d) => d.code === "assignment-type-mismatch")).toBe(false) // suppressed
+  expect(((await initial) as { code?: unknown }[]).some((d) => d.code === "C0032")).toBe(false) // suppressed
   const afterCfg = onceDiag(client, deadUri)
   await client.sendNotification(DidChangeConfigurationNotification.type, { settings: { diagnoseDeadCode: true } })
-  expect(((await afterCfg) as { code?: unknown }[]).some((d) => d.code === "assignment-type-mismatch")).toBe(true) // now emitted
+  expect(((await afterCfg) as { code?: unknown }[]).some((d) => d.code === "C0032")).toBe(true) // now emitted
   client.dispose()
 })
 
@@ -712,7 +734,7 @@ test("server: workspace/diagnostic reports errors in unopened files (eager index
   }
   const fUri = pathToFileURL(join(dir, "F.fb")).href
   const fReport = report.items.find((r) => r.uri === fUri)
-  expect(fReport?.items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  expect(fReport?.items.some((d) => d.code === "C0032")).toBe(true)
   client.dispose()
   rmSync(dir, { recursive: true, force: true })
 })

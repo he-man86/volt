@@ -16,6 +16,7 @@ import {
   type Messages,
 } from "../analysis/index.js"
 import { computeVgDiagnostics } from "../graphical/index.js"
+import { codesysCodeFor } from "../reference/error-codes.js"
 import { rangeFromSpan, type Document } from "../services/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
 
@@ -27,11 +28,16 @@ const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
 }
 
 function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
+  // Surface the CODESYS `Cnnnn` the check mirrors as the diagnostic code (users recognise it and can cross-
+  // reference the IDE), with a link to its docs page. Falls back to our internal slug for codes with no mapping
+  // (VG / parse errors). Config toggles still key on the slug server-side, so this is display-only.
+  const mapped = codesysCodeFor(item.code)
   return {
     range: rangeFromSpan(item.span),
     severity: SEVERITY[item.severity],
     source: item.source,
-    code: item.code,
+    code: mapped?.code ?? item.code,
+    ...(mapped ? { codeDescription: { href: mapped.url } } : {}),
     message: item.message,
   }
 }

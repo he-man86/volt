@@ -140,6 +140,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   let clientWatchDynReg = false
   let clientConfigPull = false
   let clientProgress = false
+  // When the client supports PULL diagnostics (it will call textDocument/diagnostic), we must NOT also push via
+  // publishDiagnostics — doing both makes every diagnostic appear twice. We still declare the pull provider.
+  let clientSupportsPull = false
   // Which derived data the client will re-request when we send a refresh (after a re-index).
   const clientRefresh = { semanticTokens: false, inlayHint: false, codeLens: false, diagnostics: false }
   // Latest semantic-token result per URI (for `full/delta` diffing) + a monotonic result-id source.
@@ -170,6 +173,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   }
 
   function pushDiagnostics(uri: string): void {
+    if (clientSupportsPull) return // pull-mode client: it calls textDocument/diagnostic; pushing too would double up
     const d = doc(uri)
     if (d === undefined) return
     void conn.sendNotification(PublishDiagnosticsNotification.type, {
@@ -187,7 +191,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     if (s.diagnoseDeadCode === undefined && s.diagnostics === undefined) return false
     store.config = resolveConfig({ vendor, diagnoseDeadCode: s.diagnoseDeadCode === true, diagnostics: s.diagnostics })
     store.invalidate()
-    for (const uri of store.openUris()) pushDiagnostics(uri)
+    for (const uri of store.openUris()) pushDiagnostics(uri) // push-mode clients
+    if (clientSupportsPull) void conn.sendRequest(DiagnosticRefreshRequest.type).catch(() => {}) // pull-mode: re-pull with new config
     return true
   }
 
@@ -220,6 +225,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     clientRefresh.diagnostics = ws?.diagnostics?.refreshSupport === true
     clientConfigPull = ws?.configuration === true
     clientProgress = params.capabilities.window?.workDoneProgress === true
+    clientSupportsPull = params.capabilities.textDocument?.diagnostic !== undefined
     return {
       capabilities: {
         textDocumentSync: { openClose: true, change: TextDocumentSyncKind.Incremental, save: { includeText: false } },
