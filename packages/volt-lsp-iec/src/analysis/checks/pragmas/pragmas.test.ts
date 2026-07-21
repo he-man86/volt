@@ -97,3 +97,24 @@ test("each unclosed {IF} in a nest is flagged; an orphan {END_IF} is separate", 
   expect(orphan).toHaveLength(1)
   expect(orphan[0]?.code).toBe("orphan-conditional-pragma")
 })
+
+// ─── C0051 — hasattribute() attribute operand must be a quoted string (verified live CODESYS 3.5.21) ───
+
+function attrValue(src: string) {
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
+    (d) => d.code === "attribute-value-string",
+  )
+}
+
+test("an unquoted hasattribute() attribute is flagged, byte-identical to CODESYS", () => {
+  const d = attrValue(`PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}\nEND_PROGRAM`)
+  expect(d).toHaveLength(1)
+  expect(d[0]?.message).toBe("Single byte string expected for an attribute value instead of 'MyAttribute'")
+})
+
+test("a quoted attribute value, and a non-hasattribute condition, are not flagged", () => {
+  expect(attrValue(`PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}\nEND_PROGRAM`)).toEqual([])
+  expect(attrValue(`PROGRAM PLC_PRG\n{IF defined(FOO)}\n{END_IF}\nEND_PROGRAM`)).toEqual([])
+})

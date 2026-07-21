@@ -18,7 +18,18 @@ import { SOURCE, type DiagnosticItem } from "../_shared.js"
 export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   const pragmas = lex(ctx.source)
     .filter((t) => t.kind === "pragma")
-    .map((t) => ({ span: t.span, ...parsePragma(t.text) }))
+    .map((t) => ({ span: t.span, text: t.text, ...parsePragma(t.text) }))
+
+  // C0051 — a `hasattribute(pou: X, <attr>)` conditional-compile operand whose attribute is unquoted. The
+  // attribute must be a single-byte string literal ('MyAttribute'); a bare identifier is an error. Verified live
+  // CODESYS 3.5.21. Narrow + FP-safe: fires only on the hasattribute form with a non-quoted last argument.
+  for (const p of pragmas) {
+    const m = /hasattribute\s*\(([^)]*)\)/i.exec(p.text)
+    if (m === null) continue
+    const attr = m[1]!.split(",").pop()!.trim()
+    if (attr.length === 0 || attr.startsWith("'")) continue // quoted (or empty) — valid
+    out.push({ severity: "error", span: p.span, source: SOURCE, code: "attribute-value-string", message: ctx.messages.attributeValueString(attr) })
+  }
 
   // Conditional-compile balance — track the open {IF} stack in source order. An {END_IF}/{ELSE}/{ELSIF}
   // with no open {IF} is an orphan; any {IF} still open at the end is unterminated (both compiler errors,

@@ -891,21 +891,21 @@
     "category": "unquoted attribute value",
     "cause": "A pragma function argument (e.g. hasattribute) is given a bare identifier where a quoted single-byte string literal is required.",
     "message": "Single byte string expected for an attribute value instead of '<value>'.",
-    "repro": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}",
+    "repro": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}\nEND_PROGRAM\n",
     "expect": [
-      "Single byte string expected for an attribute value instead of MyAttribute."
+      "Single byte string expected for an attribute value instead of 'MyAttribute'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkPragmas",
+    "ourCode": "attribute-value-string",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}",
     "triage": "pragma",
-    "note": "Pragma operand/value validation â€” needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording now quotes the attribute). hasattribute() attribute operand must be a single-byte string literal. TC pending."
   },
   {
     "code": "C0053",
