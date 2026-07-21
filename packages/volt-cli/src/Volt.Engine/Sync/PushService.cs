@@ -19,7 +19,9 @@ public static class PushService
 {
     public static PushResponse Handle(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
+        // the version gate) still can't clobber the wrong IDE.
+        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
         ide.FlushPendingWrites();
@@ -200,13 +202,13 @@ public static class PushService
     private static string ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string currentFolder, SetItemOp op)
     {
         if (op.SourceText is { } st && string.IsNullOrWhiteSpace(st))
-            throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': sourceText is empty");
+            throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': sourceText is empty");
 
         // CREATE — no existing item; sourceText is required, toFolder is the placement.
         if (existing is not { } item)
         {
             if (op.SourceText is null)
-                throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': a new item needs sourceText");
+                throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
             WriteItemFromSource(ide, parent, name, existing: null, op.SourceText, op.ToFolder);
             return "created";
         }
@@ -247,14 +249,14 @@ public static class PushService
         var code = ide.KindCode(item);
         var kind = ItemKind.Map(code);
         if (kind == null || !ItemKind.IsSourceKind(kind))
-            throw new BridgeException(400, "UNSUPPORTED", $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
+            throw new BridgeException(BridgeErrorCodes.Unsupported, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
         // The moved item's content: the push's new sourceText if it carried one (move+edit), else the item's
         // current source (pure move), read back for the full-fidelity recreate.
         var src = sourceText ?? Materializer.Materialize(ide, name, kind, item).Text;
         var split = StSplitter.SplitSt(src);
         if (VgBody.Is(split.PouImplementation) || split.Children.Any(c => VgBody.Is(c.Implementation)))
-            throw new BridgeException(400, "UNSUPPORTED",
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
 
         ide.Delete(ide.Parent(item), name);
@@ -277,7 +279,7 @@ public static class PushService
             .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault(g => g.Count() > 1);
         if (dupChild != null)
-            throw new BridgeException(400, "DUPLICATE_CHILD",
+            throw new BridgeException(BridgeErrorCodes.DuplicateChild,
                 $"'{name}' declares more than one child named '{dupChild.Key}' — a duplicate method/action/property " +
                 "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
                 "Rename or remove the duplicate.");
@@ -347,14 +349,14 @@ public static class PushService
             {
                 var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
                 if (currentLang is "CFC" or "SFC")
-                    throw new BridgeException(400, "UNSUPPORTED",
+                    throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
                 if (currentLang is not null && !pouVg)
-                    throw new BridgeException(400, "UNSUPPORTED",
+                    throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a graphical {currentLang} body in the IDE — a textual push would overwrite it. " +
                         "Edit it in the IDE, or delete it first to replace it.");
                 if (currentLang is null && pouVg)
-                    throw new BridgeException(400, "UNSUPPORTED",
+                    throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
             }
             if (pouVg) GraphicalCode.Write(ide, pou, impl, decl);
@@ -372,7 +374,7 @@ public static class PushService
 
             if (VgBody.Is(cimpl))
             {
-                if (existingChild is not { } ec) throw new BridgeException(400, "UNSUPPORTED",
+                if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
                 GraphicalCode.Write(ide, ec, cimpl, decl);   // FB types from the enclosing POU's decl
                 continue;
@@ -529,7 +531,7 @@ public static class PushService
         "enumeration" => ItemKind.PlcDutEnum, "structure" => ItemKind.PlcDutStruct, "gvl" => ItemKind.PlcGvl,
         "interface" => ItemKind.PlcItf, "union" => ItemKind.PlcDutUnion, "alias" => ItemKind.PlcDutAlias,
         // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
-        _ => throw new BridgeException(400, "BAD_REQUEST", $"unknown top-level kind '{kind}'"),
+        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown top-level kind '{kind}'"),
     };
 
     // The splitter only ever emits method/action/property as textual children; interface vs non-interface is
@@ -540,6 +542,6 @@ public static class PushService
         "method" => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
         "action" => ItemKind.PlcAction,
         "property" => isInterface ? ItemKind.PlcItfProp : ItemKind.PlcProp,
-        _ => throw new BridgeException(400, "BAD_REQUEST", $"unknown child kind '{kind}'"),
+        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown child kind '{kind}'"),
     };
 }

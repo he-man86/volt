@@ -14,7 +14,9 @@ public static class BuildService
 {
     public static BuildResponse Handle(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Guard OUTSIDE the try/catch below — else WRONG_PROJECT/PLC_DISCONNECTED would be swallowed into a fake
+        // "build failed" diagnostic instead of surfacing as a proper error frame.
+        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
         try

@@ -24,18 +24,19 @@ public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Connected + right-project guard (replaces the client's old pre-op health check) — atomic with the walk.
+        var health = OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
         var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
             ? new HashSet<string>(request.OnlyItems) : null;
 
-        // Normal /fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
-        // did it forget to supply a sidecar? The /init endpoint should be used for the first pull instead.
+        // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
+        // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.
         // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
         if (!isInit && request.KnownItems == null && request.OnlyItems == null)
-            throw new BridgeException(400, "NO_SIDECAR", "supply knownItems to diff against, or use POST /init for the first pull");
+            throw new BridgeException(BridgeErrorCodes.NoSidecar, "supply knownItems to diff against, or run `volt init` for the first pull");
 
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
@@ -152,6 +153,9 @@ public static class FetchService
             Removed = removed,
             Items = fullVersions,
             Folders = folders,
+            // Echo the project we actually walked, so the client can confirm it before merging.
+            Platform = health.Platform,
+            ProjectName = health.ProjectName,
         };
     }
 

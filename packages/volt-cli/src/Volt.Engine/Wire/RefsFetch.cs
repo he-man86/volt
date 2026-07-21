@@ -32,6 +32,15 @@ public class FetchRequest
     /// seed the first workspace. A normal /fetch without knownItems AND without init=true is an error.</summary>
     [JsonPropertyName("init")]
     public bool Init { get; set; }
+
+    /// <summary>The project this workspace is bound to. When set, the op refuses (WRONG_PROJECT) unless the live
+    /// bridge is serving it — the in-op, race-free replacement for a pre-op health check. Null = no identity check
+    /// (init/discovery, or an older client).</summary>
+    [JsonPropertyName("expectedPlatform")]
+    public string? ExpectedPlatform { get; set; }
+
+    [JsonPropertyName("expectedProjectName")]
+    public string? ExpectedProjectName { get; set; }
 }
 
 public class FetchedItem
@@ -73,4 +82,13 @@ public class FetchResponse
     /// can reconstruct the tree without a separate /refs call.</summary>
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
+
+    /// <summary>The project the bridge actually walked, echoed back so the client can confirm — before it MERGES —
+    /// that it fetched the project it is bound to. An older bridge omits these (null) → the client refuses rather
+    /// than merge an unverifiable tree. (Push guards this server-side; a read verifies it here.)</summary>
+    [JsonPropertyName("platform")]
+    public string? Platform { get; set; }
+
+    [JsonPropertyName("projectName")]
+    public string? ProjectName { get; set; }
 }

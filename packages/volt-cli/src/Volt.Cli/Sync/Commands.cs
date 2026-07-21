@@ -1,5 +1,7 @@
 using System.Text;
+using Volt.Engine;
 using Volt.Engine.Wire;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Sync;
 
@@ -7,6 +9,11 @@ namespace Volt.Cli.Sync;
 /// the original TypeScript implementation (status + pull here; push/build/log/show/merge/diff/init follow.)</summary>
 public static class Commands
 {
+    /// <summary>An op's in-op precondition failure (the bridge guarding "connected + right project") — mapped by
+    /// each command to its own clean refusal result instead of a thrown error. Uses the code the wire now carries.</summary>
+    private static bool IsPreconditionRefusal(PipeCallException e) =>
+        e.Code == BridgeErrorCodes.WrongProject || e.Code == BridgeErrorCodes.PlcDisconnected;
+
     /// <summary>volt init — bind to the bridge, git-init the project, scaffold the Rust project, do the first
     /// (init) fetch and seed the workspace. C# port of commands/init.ts. NOTE: the ST language-reference corpus
     /// (installed from the TS @volt/lsp-iec package) is not yet ported — the workspace is fully functional without
@@ -98,25 +105,39 @@ public static class Commands
             return PullResult.Refused("a merge is already in progress — finish it with `volt merge --continue` or `volt merge --abort` first");
 
         var cfg = Config.LoadConfig(root);
-        var health = bridge.GetHealth();
-        var bindErr = Config.VerifyBinding(cfg, health);
-        if (bindErr is not null) return PullResult.Refused(bindErr);
-
         var sidecar = Sidecar.LoadIdeRefs(root);
 
         // ONE path for dry-run and real pull. Always /fetch (incremental), compute incoming, then the up-to-date
-        // short-circuit; dry-run returns the preview, the real pull falls through to the merge.
-        // Three streamed phases: fetch → hash blobs → merge (git checks out the merged tree). Materialize is folded
-        // (negligible), and the merge is indeterminate — but "Merging" beats a bar frozen at 100%.
+        // short-circuit; dry-run returns the preview, the real pull falls through to the merge. The fetch carries
+        // the bound project so the bridge guards it in-op (no pre-op health round-trip), and runs as the first of
+        // three streamed phases (fetch → hash blobs → merge; materialize is folded, the merge is indeterminate).
         var progress = new PhaseProgress(onProgress, "pull", 3);
-        var fetched = bridge.FetchChanges(new FetchRequest { KnownItems = sidecar?.Items ?? new Dictionary<string, string>() }, progress.Wrap(0, "Fetching from IDE"));
+        FetchResponse fetched;
+        try
+        {
+            fetched = bridge.FetchChanges(new FetchRequest
+            {
+                KnownItems = sidecar?.Items ?? new Dictionary<string, string>(),
+                ExpectedPlatform = cfg.Project.Platform,
+                ExpectedProjectName = cfg.Project.ProjectName,
+            }, progress.Wrap(0, "Fetching from IDE"));
+        }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PullResult.Refused(e.Message); }
+
+        // Confirm we fetched the bound project BEFORE merging. A current bridge enforced the guard server-side and
+        // echoes what it walked (confirm it — cheap); an OLDER bridge does neither, so fall back to a health check.
+        var bindErr = fetched.Platform is null && fetched.ProjectName is null
+            ? Config.VerifyBinding(cfg, bridge.GetHealth())
+            : Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
+        if (bindErr is not null) return PullResult.Refused(bindErr);
+
         var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>());
         var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).OrderBy(x => x, StringComparer.Ordinal).ToList();
 
         StatusData PostStatus() => StatusModel.BuildStatusData(root, new BridgeSnapshot
         {
             Online = true,
-            Detail = $"{health.Platform}/{health.ProjectName ?? "?"}",
+            Detail = $"{cfg.Project.Platform}/{cfg.Project.ProjectName}",
             ProjectMismatch = null,
             Items = fetched.Items,
             Folders = fetched.Folders,
@@ -164,10 +185,9 @@ public static class Commands
         if (!Config.ConfigExists(root)) return PushResult.Rejected("not a Volt workspace — run `volt init` first");
         var gitDir = Git.ResolveGitDir(root);
         var cfg = Config.LoadConfig(root);
-        var health = bridge.GetHealth();
-        var bindErr = Config.VerifyBinding(cfg, health);
-        if (bindErr is not null) return PushResult.Rejected(bindErr);
-
+        // No pre-op health round-trip: the push carries the bound project and the bridge guards it BEFORE applying,
+        // regardless of --force (identity is checked even when the version lease is skipped). The version lease
+        // (ExpectedProjectVersion) additionally guards concurrent edits on any bridge, including older ones.
         var sidecar = Sidecar.LoadIdeRefs(root);
         var voltHead = IdeTree.VoltIdeHead(gitDir);
         if (sidecar is null || voltHead is null)
@@ -252,7 +272,19 @@ public static class Commands
         if (ops.Count == 0) return PushResult.Ok(new List<string>(), null, "nothing to push — the IDE already matches your workspace");
         if (dryRun) return PushResult.Ok(ops.Select(o => o.Name).ToList(), null, "dry run — would push these item(s)");
 
-        var resp = bridge.PushBatch(new PushRequest { Ops = ops, ExpectedProjectVersion = expectedProjectVersion, Force = forcing }, onProgress);
+        PushResponse resp;
+        try
+        {
+            resp = bridge.PushBatch(new PushRequest
+            {
+                Ops = ops,
+                ExpectedProjectVersion = expectedProjectVersion,
+                Force = forcing,
+                ExpectedPlatform = cfg.Project.Platform,
+                ExpectedProjectName = cfg.Project.ProjectName,
+            }, onProgress);
+        }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PushResult.Rejected(e.Message); }
         if (!resp.Accepted)
         {
             if (resp.Conflicts?.Any(c => c.Name == "<project>") == true)
@@ -270,7 +302,7 @@ public static class Commands
         var status = StatusModel.BuildStatusData(root, new BridgeSnapshot
         {
             Online = true,
-            Detail = $"{health.Platform}/{health.ProjectName ?? "?"}",
+            Detail = $"{cfg.Project.Platform}/{cfg.Project.ProjectName}",
             ProjectMismatch = null,
             Items = resp.NewItems!,
             Folders = resp.NewFolders!,
@@ -283,10 +315,20 @@ public static class Commands
     public static BuildResult Build(string root, BridgeClient bridge, bool full, Action<ProgressFrame>? onProgress = null)
     {
         if (!Config.ConfigExists(root)) return BuildResult.Refuse("not a Volt workspace — run `volt init` first");
-        var bindErr = Config.VerifyBinding(Config.LoadConfig(root), bridge.GetHealth());
-        if (bindErr is not null) return BuildResult.Refuse(bindErr);
-
-        var r = bridge.Build(new BuildRequest { BuildType = full ? "full" : "incremental" }, onProgress);
+        // No pre-op health round-trip: the build carries the bound project and the bridge guards it in-op, so the
+        // diagnostics are for the bound project, not whatever happens to be open.
+        var cfg = Config.LoadConfig(root);
+        BuildResponse r;
+        try
+        {
+            r = bridge.Build(new BuildRequest
+            {
+                BuildType = full ? "full" : "incremental",
+                ExpectedPlatform = cfg.Project.Platform,
+                ExpectedProjectName = cfg.Project.ProjectName,
+            }, onProgress);
+        }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return BuildResult.Refuse(e.Message); }
         return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
     }
 

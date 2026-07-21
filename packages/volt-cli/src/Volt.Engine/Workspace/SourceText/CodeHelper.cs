@@ -14,7 +14,7 @@ public static class CodeHelper
     public static CodeHeader ParseCodeHeader(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-            throw new BridgeException(400, "INVALID_CODE_HEADER", "Empty code");
+            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "Empty code");
 
         var lines = code.Split('\n');
         string headerLine = "";
@@ -42,7 +42,7 @@ public static class CodeHelper
         }
 
         if (headerLine.Length == 0)
-            throw new BridgeException(400, "INVALID_CODE_HEADER", "No header line found");
+            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "No header line found");
 
         // Every pattern matches ONLY the keyword + the item name, and requires NOTHING after the name on the
         // header line. That is the whole point of the structural fix: a header's `: type` / return type /
@@ -71,7 +71,7 @@ public static class CodeHelper
             return new CodeHeader(DetectDutSubType(rest), dut);
         }
 
-        throw new BridgeException(400, "INVALID_CODE_HEADER",
+        throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
             $"Unrecognized code header: {(headerLine.Length > 80 ? headerLine.Substring(0, 80) + "..." : headerLine)}");
     }
 

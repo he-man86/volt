@@ -13,8 +13,8 @@ public sealed class PipeRequest
 }
 
 /// <summary>One response frame: exactly one of <c>progress</c> (zero or more), then a terminal <c>result</c> or
-/// <c>error</c>. Omit-when-null means each serialized frame carries a single key — same shape the HTTP NDJSON
-/// stream used, so clients port over unchanged.</summary>
+/// <c>error</c>. Omit-when-null means each serialized frame carries a single key — a newline-delimited JSON stream
+/// over the pipe.</summary>
 internal sealed class PipeFrame
 {
     [JsonPropertyName("progress")] public object? Progress { get; set; }
@@ -33,4 +33,12 @@ public sealed class PipeCallException : System.Exception
 {
     public string Code { get; }
     public PipeCallException(string code, string message) : base(message) => Code = code;
+}
+
+/// <summary>An exception that carries a machine-readable code onto the wire. Transport is the lower layer (it
+/// can't see the Engine's <c>BridgeException</c>), so <see cref="PipeServer"/> reads the code through this seam —
+/// the Engine's exception implements it. Anything else stays a generic <c>INTERNAL_ERROR</c>.</summary>
+public interface ICodedError
+{
+    string ErrorCode { get; }
 }
