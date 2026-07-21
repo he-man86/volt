@@ -38,3 +38,13 @@ test("an ordinary identifier or a real type name is not flagged", () => {
 test("the C0543 warning can be turned off", () => {
   expect(rk("CHAR : INT;", "off")).toEqual([])
 })
+
+test("CODESYS-only — TwinCAT accepts CHAR as an identifier silently (verified live)", () => {
+  const src = `PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const d = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter(
+    (x) => x.code === "reserved-keyword",
+  )
+  expect(d).toEqual([])
+})

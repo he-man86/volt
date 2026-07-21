@@ -265,7 +265,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": "parser",
@@ -451,11 +451,11 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "i AT %IW0 : INT;",
     "triage": "parser",
-    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; doc wording had drifted — current message drops the quotes). TC pending."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; doc wording had drifted — current message drops the quotes). TC pending. TwinCAT wording differs (capital A + quotes around AT) — TC variant added."
   },
   {
     "code": "C0031",
@@ -516,9 +516,9 @@
     "category": "unsafe pointer conversion warning",
     "cause": "A pointer value is implicitly assigned to a non-pointer data type, which may not be portable/safe across platforms.",
     "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    dw : DWORD;\nEND_VAR\n    dw := ptr;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    i : INT;\nEND_VAR\ni := ptr;\nEND_PROGRAM\n",
     "expect": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+      "Cannot convert type 'POINTER TO INT' to type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "pointer-conversion",
@@ -528,7 +528,8 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "note": "Vendor split (verified live 2026-07-21): CODESYS warns on any pointer→elementary; TwinCAT only when the target is too small — a pointer-sized DWORD/LWORD/UDINT/ULINT is accepted. Repro uses ptr→INT (flagged on both)."
   },
   {
     "code": "C0035",
@@ -901,7 +902,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}",
     "triage": "pragma",
@@ -1914,9 +1915,6 @@
       "twincat": true
     },
     "fix": "pi[0] := 0;",
-    "twincatActual": [
-      "Variable of type '1' requires exactly 1 Index"
-    ],
     "note": "TC DETECTS this (build fails) but renders the type as '1' — 'Variable of type '1' requires exactly 1 Index' — a TwinCAT message-formatting quirk, not derivable from the type. CS-verified; TC-detected but wording unmatchable (live 2026-07-11).",
     "twincatWordingDivergence": true
   },
@@ -2066,9 +2064,6 @@
       "twincat": true
     },
     "fix": null,
-    "twincatActual": [
-      "The code 'i;"
-    ],
     "note": "TC emits the warning but its message is truncated/multi-line ('The code 'i;') vs CS's full 'The code 'i;' has no effect. Is this the intent?'. CS-verified; TC wording unmatchable (live 2026-07-11).",
     "twincatWordingDivergence": true
   },
@@ -2111,7 +2106,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "I_r REF= i;",
     "triage": "optionGated"
@@ -2209,8 +2204,8 @@
     },
     "fix": null,
     "twincatActual": [
-      "Identifier 'POU' not defined",
-      "Program name, function or function block instance expected instead of 'POU'"
+      "No definition found for interface 'ITF'",
+      "Interfaces can only be implemented by Functionblocks"
     ],
     "note": "(live-confirmed 2026-07-11, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION IMPLEMENTS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
@@ -3851,7 +3846,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": "ideOnly",
@@ -3874,11 +3869,11 @@
     "lint": "inoutOwnAccess",
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": "optionGated",
-    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified."
+    "note": "OPT-IN warning (lints.inoutOwnAccess, off by default). A method/action accessing its enclosing FB's VAR_IN_OUT. CODESYS warns on this only when a per-project compiler option is set: live builds show lenze-mid emits 96, pro2193 (same CODESYS 3.5 SP21, same access pattern, fully built incl. 'Additional code checks') emits 0. The option is not in the materialized ST, so an always-on check false-positives on an option-off project (175 FPs on pro2193). Enabled -> byte-identical to the compiler (lenze-mid: 20/20 unique, 0 gaps). Wording live-verified. TwinCAT adds a trailing period — TC variant added."
   },
   {
     "code": "C0373",
@@ -4032,7 +4027,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "triage": "skip"
@@ -4463,7 +4458,8 @@
     },
     "fix": null,
     "triage": "parser",
-    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording drifted to 'IEC61131-3' + 'reported'; trigger is CHAR/WCHAR/USING not STEP/TIMER). Configurable warning. USING out of scope (our parser hard-keywords it). TC pending."
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21; wording drifted to 'IEC61131-3' + 'reported'; trigger is CHAR/WCHAR/USING not STEP/TIMER). Configurable warning. USING out of scope (our parser hard-keywords it). TC pending.",
+    "codesysOnly": true
   },
   {
     "code": "C0549",
@@ -4875,6 +4871,9 @@
     "triage": null,
     "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented.",
     "codesysActual": [
+      "Unknown type: 'FB_Math'"
+    ],
+    "twincatActual": [
       "Unknown type: 'FB_Math'"
     ]
   },
