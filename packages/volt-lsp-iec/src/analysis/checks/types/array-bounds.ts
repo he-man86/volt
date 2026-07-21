@@ -3,8 +3,6 @@
  * bounds (`a[5]` where `a : ARRAY[0..3] OF …`). Uniquely enabled by the structured array dims (A.1) +
  * `const-eval` + `infer`. Conservative: a variable index (non-foldable), a dynamic `ARRAY[*]` dim, or
  * non-`bigint` bounds skip → zero-FP.
- *
- * NOTE: the message is PROVISIONAL (bridge-gated), like `overflow`/`subrange`.
  */
 import { walkAllExprs } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"

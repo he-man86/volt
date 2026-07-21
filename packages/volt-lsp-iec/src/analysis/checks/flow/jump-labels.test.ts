@@ -1,6 +1,6 @@
 /**
  * jump-labels — JMP/label analysis (C0114/C0116/C0117/C0118). Each malformed jump yields exactly one code;
- * a well-formed JMP↔label pair stays silent (zero-FP contract). Wording is provisional (no live recording yet).
+ * a well-formed JMP↔label pair stays silent (zero-FP contract).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

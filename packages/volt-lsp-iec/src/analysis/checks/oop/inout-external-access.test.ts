@@ -1,6 +1,6 @@
 /**
  * inout-external-access — C0178. External access to an FB's VAR_IN_OUT member (read or write) is rejected;
- * the FB's own THIS/SUPER access and every other member kind stay silent (zero-FP). Wording provisional.
+ * the FB's own THIS/SUPER access and every other member kind stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

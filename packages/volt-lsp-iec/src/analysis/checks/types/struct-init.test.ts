@@ -1,6 +1,6 @@
 /**
  * unexpected-struct-init (C0076). A struct-literal `(field := …)` initializer on an elementary type. Docs
- * wording (#C0076); provisional until a live recording locks it. Sibling of C0074 (array literal on non-array).
+ * wording (#C0076). Sibling of C0074 (array literal on non-array).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

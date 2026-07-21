@@ -2,7 +2,8 @@
 
 Every code in the CODESYS project-settings **Compiler warnings** dialog, and whether Volt implements a 3-state
 control (off/warning/error) for it. Implemented codes get a `volt.iec.diagnostics.<code>` setting; the rest are
-documented here as gaps, each with the concrete reason it isn't a setting yet.
+documented here as gaps, each with the concrete reason it isn't a setting yet. Regenerate with
+`bun scripts/coverage-doc.ts`.
 
 | CODESYS | Volt status | our code / setting | description |
 |---|---|---|---|
@@ -52,7 +53,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet.
 | C0410 | ⬜ absent | — | — |
 | C0421 | ✅ **3-state setting** | `interface-implements` | interface inheritance keyword |
 | C0422 | ⬜ absent | — | — |
-| C0426 | ⬜ wont-fix | — | empty CASE label |
+| C0426 | ✅ implemented (fixed error) | `empty-block` | empty CASE label |
 | C0441 | ✅ **3-state setting** | `inout-in-initializer` | VAR_IN_OUT default-value misuse |
 | C0447 | ⬜ absent | — | — |
 | C0508 | ⬜ blocked | — | variable/action name collision |
@@ -68,39 +69,31 @@ documented here as gaps, each with the concrete reason it isn't a setting yet.
 | C0533 | ✅ **3-state setting** | `abstract-output-default` | unused output default in abstract method |
 | C0540 | ⬜ needs-live-verify | — | missing no_assign attribute propagation |
 | C0542 | ✅ **3-state setting** | `union-inheritance` | invalid UNION inheritance |
-| C0543 | ⬜ needs-live-verify | — | reserved keyword used as identifier |
+| C0543 | ✅ **3-state setting** | `reserved-keyword` | reserved keyword used as identifier |
 | C0555 | ⬜ ide-only | — | string literal encoding |
 | C0561 | ⬜ needs-live-verify | — | recursive call warning |
 | C0564 | ⬜ needs-live-verify | — | initialization order |
 
-**21 of 66** dialog codes have a control. The other **45** are gaps — grouped by why below.
+**23 of 66** dialog codes are implemented (22 as toggleable 3-state settings, 1 as fixed errors). The other **43** are gaps — grouped by why below.
 
 ## Closing the gaps
 
-A headless-CODESYS verification pass (`scripts/record-gaps.ts`, CODESYS 3.5.21) probed the offline-feasible
-codes: **C0357 is now implemented** (verified wording); **C0540** was verified live (wording captured) but its
-implementation is deferred. The rest below are blocked on IDE build data, a proven false-positive surface, an
-architectural limit, or a trigger the live probe could not reproduce. The corpus (real IDE-clean projects) is the
-arbiter — a check that fires on it is a false positive, not a finding.
+Re-verify each against current CODESYS before acting — the catalog notes are dated observations, not standing facts (headless bridge: `codesys-pipe.ps1 up`, then `scripts/record-gaps.ts`). A check that fires on the IDE-clean corpus is a false positive, not a finding.
 
-### Needs live-CODESYS verification before it can ship (5)
+### Needs live-CODESYS verification (4)
 
-Offline-feasible in principle, but the exact trigger/wording is unverified (`verified:false`) and/or needs
-infrastructure the pipeline lacks. Writing them blind would ship unverified wording or false positives. Path to
-close: record each against the headless CODESYS bridge (`scripts/verify-catalog.ts`), then implement + corpus-gate.
+Offline-feasible in principle, but the exact trigger/wording is unverified and/or needs infrastructure the pipeline lacks.
 
 | CODESYS | what it flags | blocker |
 |---|---|---|
 | C0187 | external reference on program | Probed live (CODESYS 3.5.21, scripts/record-gaps) with the external PROGRAM CALLED from PLC_PRG and a positive control proving compilation: it built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger. |
 | C0540 | missing no_assign attribute propagation | Verified live (CODESYS 3.5.21): "Attribute 'no_assign' missing for POU '<POU>'? The type of the variable '<var>' is attributed with 'no_assign'." (note CODESYS's literal '?'). Implementation deferred: needs no_assign-typed-var detection across the type graph + attribute plumbing; zero corpus surface. |
-| C0543 | reserved keyword used as identifier | Probed live (CODESYS 3.5.21) with the POU reachable + a positive control proving compilation: STEP and TRANSITION as identifiers compile clean with no warning (EXIT is a hard parse error). The soft-reserved C0543 warning was not reproduced; needs CODESYS's exact soft-reserved list. |
 | C0561 | recursive call warning | The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; the mutual-recursion repro could NOT be built on the bridge (the positive control never appeared — pushing two mutually-recursive FUNCTIONs corrupts PLC_PRG parsing), so it is un-verifiable in the current harness. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface. |
 | C0564 | initialization order | Probed live (CODESYS 3.5.21) in a tasked PLC_PRG with a positive control proving compilation: a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred. |
 
 ### Needs IDE build/runtime data — cannot be done offline (11)
 
-These need device/library metadata, codegen, memory layout, or a project option that a headless bridge does not
-have. The IDE build stays authoritative. Not gaps to close — gaps to acknowledge.
+These need device/library metadata, codegen, memory layout, or a project option a headless bridge does not have.
 
 | CODESYS | what it flags | why Volt cannot |
 |---|---|---|
@@ -116,17 +109,18 @@ have. The IDE build stays authoritative. Not gaps to close — gaps to acknowled
 | C0517 | internal object access via SIZEOF | Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor. |
 | C0555 | string literal encoding | Gated on the project option 'UTF-8 encoding for STRING' (not in source) and advisory; not decidable offline. |
 
-### Won't-fix — would false-positive on legal code (3)
+### Won't-fix — would false-positive on legal code (2)
 
-Offline-decidable, but the trigger fires on code CODESYS accepts. Proven against the corpus / live IDE.
+Offline-decidable, but the trigger fires on code CODESYS accepts (proven against the corpus / live IDE).
 
 | CODESYS | what it flags | why not |
 |---|---|---|
 | C0125 | duplicate enum value | CODESYS accepts duplicate enum values by default — proven 5+ corpus FPs (TYPECLASS/BUS_TYPE/DEVICE_TYPE sentinel aliases). Only fires under an unseen strict-enums option. |
 | C0316 | redundant implicit lifecycle call | Base-chaining SUPER^.FB_Init(...) builds clean in the live IDE (2026-07-11); an offline 'already called implicitly' check false-positives on legitimate overrides. |
-| C0426 | empty CASE label | Locked won't-fix with a test in case-labels: consecutive empty CASE labels are legal fall-through; flagging an empty arm false-positives on real code. |
 
 ### Blocked by architecture (1)
+
+
 
 | CODESYS | what it flags | blocker |
 |---|---|---|
@@ -134,8 +128,6 @@ Offline-decidable, but the trigger fires on code CODESYS accepts. Proven against
 
 ### Not yet catalogued (25)
 
-Dialog codes with no catalog entry — the CODESYS message/trigger is not yet recorded, so checkable-vs-ide-only
-can't even be decided. Step one is to record each from live CODESYS (`scripts/verify-catalog.ts`), then it moves
-to one of the groups above.
+Dialog codes with no catalog entry — record each from live CODESYS, then it moves to a group above.
 
 `C0100`, `C0200`, `C0210`, `C0220`, `C0223`, `C0245`, `C0308`, `C0312`, `C0315`, `C0325`, `C0327`, `C0335`, `C0339`, `C0349`, `C0350`, `C0370`, `C0388`, `C0389`, `C0394`, `C0404`, `C0410`, `C0422`, `C0447`, `C0522`, `C0527`

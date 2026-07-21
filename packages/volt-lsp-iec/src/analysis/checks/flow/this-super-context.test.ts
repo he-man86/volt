@@ -1,5 +1,5 @@
 /**
- * this-super-context (C0045 THIS / C0122 SUPER) — used in a PROGRAM/FUNCTION where they're invalid. Provisional.
+ * this-super-context (C0045 THIS / C0122 SUPER) — used in a PROGRAM/FUNCTION where they're invalid.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

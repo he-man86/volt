@@ -1,6 +1,6 @@
 /**
- * case-labels (C0216/C0217/C0218/C0219). Const-eval + constancy over CASE selector labels. Docs wording;
- * provisional until a live recording locks it. C0426 (empty arm) lives in the `empty-block` check — an empty arm
+ * case-labels (C0216/C0217/C0218/C0219). Const-eval + constancy over CASE selector labels. C0426 (empty arm)
+ * lives in the `empty-block` check — an empty arm
  * IS an error (live-verified); the legal fall-through is a comma list `1, 2:`. C0218 uses `constancyOf`, so
  * enum/VAR CONSTANT labels stay quiet (the earlier `constEval`-only attempt false-positived on those).
  */

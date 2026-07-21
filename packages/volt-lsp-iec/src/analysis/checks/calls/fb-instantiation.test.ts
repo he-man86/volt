@@ -1,5 +1,5 @@
 /**
- * fb-instantiation (C0080) — a function block invoked by its type name instead of an instance. Provisional.
+ * fb-instantiation (C0080) — a function block invoked by its type name instead of an instance.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

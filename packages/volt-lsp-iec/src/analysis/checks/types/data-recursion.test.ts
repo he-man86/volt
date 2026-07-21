@@ -1,6 +1,6 @@
 /**
  * data-recursion (C0101): an FB/struct that (transitively) contains an instance of itself. A POINTER/REFERENCE
- * member breaks the cycle and is not flagged. Provisional.
+ * member breaks the cycle and is not flagged.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

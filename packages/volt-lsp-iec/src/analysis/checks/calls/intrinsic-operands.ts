@@ -4,7 +4,7 @@
  *   C0355 adr-on-bit          — `ADR(<BIT var>)`; a single bit has no address (WARNING — the byte is used).
  *   C0242 delete-non-pointer  — `__DELETE(x)` where `x` is not a pointer.
  *   C0070 ini-needs-instance  — `INI(x, …)` where `x` is not an FB / DUT (struct) instance.
- *   C0072 operator-not-possible — a math operator (`ABS`, `SQRT`, …) applied to a non-numeric type. PROVISIONAL.
+ *   C0072 operator-not-possible — a math operator (`ABS`, `SQRT`, …) applied to a non-numeric type.
  *   C0240/C0241 query-pointer-operand   — `__QueryPointer` operands (interface-ref/FB, then pointer).
  *   C0234/C0235 query-interface-operand — `__QueryInterface` operands (interface-ref/FB, then interface-ref).
  *

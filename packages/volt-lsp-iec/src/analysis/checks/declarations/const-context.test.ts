@@ -1,6 +1,6 @@
 /**
  * constant-context: C0161 (non-constant array bound) + C0227 (non-constant VAR CONSTANT init). Both via
- * `constancyOf`, so enum members / VAR CONSTANT stay quiet. Docs wording; provisional until recording.
+ * `constancyOf`, so enum members / VAR CONSTANT stay quiet.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

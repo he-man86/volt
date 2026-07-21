@@ -6,7 +6,7 @@
  * Conservative (zero-FP): the "ambiguous" set is names declared bare (not `qualified_only`) in 2+ distinct
  * PROJECT GVLs — library GVLs are excluded because their signatures flatten into project scope and would
  * manufacture false duplicates (ERR_OK, NULL, … live in many library GVLs). A reference locally shadowed by a
- * var/param is skipped. Wording PROVISIONAL — the only harvested recording was localized (German).
+ * var/param is skipped.
  */
 import { lookup, type Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"

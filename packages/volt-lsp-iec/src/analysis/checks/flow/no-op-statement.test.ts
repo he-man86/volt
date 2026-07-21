@@ -1,5 +1,5 @@
 /**
- * no-op-statement (C0139) — a WARNING for an expression statement with no side effect. Docs wording; provisional.
+ * no-op-statement (C0139) — a WARNING for an expression statement with no side effect.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

@@ -6,7 +6,6 @@
  * Conservative (zero-FP): fires only when the control variable is an elementary integer/bit-string with a known
  * range, the step folds to a non-zero integer constant, and the end bound folds to a constant at/beyond the
  * range limit in the step's direction. Unknown types, non-constant bounds/steps, and reals are skipped.
- * Wording is PROVISIONAL (harvested from the doc example, no live recording yet).
  */
 import { walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"

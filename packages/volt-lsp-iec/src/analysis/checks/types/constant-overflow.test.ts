@@ -1,7 +1,7 @@
 /**
  * constant-too-large (C0001). Only PROVABLE overflows — a literal no type can hold — are flagged; a value
  * that merely doesn't fit the assignment target is C0032's job, not this. Docs wording (13-error-messages
- * #C0001); provisional until a live recording locks it.
+ * #C0001).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

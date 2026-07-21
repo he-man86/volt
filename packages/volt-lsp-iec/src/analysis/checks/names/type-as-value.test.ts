@@ -1,5 +1,5 @@
 /**
- * type-as-value (C0230) — a DUT type name used as an assignment value/target. Provisional.
+ * type-as-value (C0230) — a DUT type name used as an assignment value/target.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

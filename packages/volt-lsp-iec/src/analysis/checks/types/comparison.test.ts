@@ -1,6 +1,6 @@
 /**
  * incompatible-comparison (C0066). A relational operator between two mutually-inconvertible scalar types.
- * Docs wording (#C0066); provisional until a live recording locks it.
+ * Docs wording (#C0066).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

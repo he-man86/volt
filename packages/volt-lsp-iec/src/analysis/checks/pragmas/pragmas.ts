@@ -1,10 +1,12 @@
 /**
- * pragma diagnostics (D.2 · pragmas/). Two catalog-free rules (the rest — unknown/wrong-vendor/
- * conflict/companion/init-slot — need the Layer-F pragma catalog and are FP-prone, so deferred):
+ * pragma diagnostics (D.2 · pragmas/). Several rules over the pragma tokens (the rest — wrong-vendor /
+ * conflict / companion / init-slot — need the Layer-F pragma catalog and are FP-prone, so deferred):
+ *   - CONDITIONAL balance: an orphan `{ELSE}`/`{ELSIF}`/`{END_IF}` with no open `{IF}`, and an `{IF}` left
+ *     unterminated at end of source.
+ *   - C0051 hasattribute: a `{IF hasattribute(pou: X, <attr>)}` whose attribute operand is unquoted.
  *   - MESSAGE pragmas: `{warning 'msg'}` / `{error 'msg'}` surface the author's compile-time message
  *     verbatim at matching severity (both compilers emit these when reached).
- *   - ORPHAN conditional: `{ELSE}`/`{ELSIF}`/`{END_IF}` with no open `{IF}` → the compiler's
- *     "Unexpected pragma: '<D>' found without matching 'if'".
+ *   - C0351 unknown `{attribute '<name>'}` (CODESYS-only) — a toggleable warning, only as complete as the catalog.
  *
  * Pragmas are lexer trivia (stripped from the parsed body), so re-lex the source for `pragma` tokens.
  * ponytail: no `{IF}` predicate evaluation — a message pragma inside a false branch is still surfaced;

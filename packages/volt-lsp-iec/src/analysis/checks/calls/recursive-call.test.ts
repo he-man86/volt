@@ -1,6 +1,6 @@
 /**
  * recursive-call (C0224): a FUNCTION that calls itself is flagged; a return-value assignment and a call to a
- * different function are not. Provisional.
+ * different function are not.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

@@ -4,7 +4,7 @@
  *   C0117 JMP to an undefined label · C0118 a label no JMP ever targets.
  *
  * Labels and JMPs are collected across the whole body (nested blocks included, via `walkStatements`). Matching
- * is case-insensitive (IEC identifiers). Wording is PROVISIONAL until a live recording settles it (Phase 4).
+ * is case-insensitive (IEC identifiers).
  */
 import { walkStatements, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"

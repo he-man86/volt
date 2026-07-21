@@ -1,6 +1,6 @@
 /**
  * fb-init-inout — C0179. An inline FB-init field targeting a VAR_IN_OUT is rejected (only inputs are assignable
- * at declaration); input/output fields and non-FB targets stay silent (zero-FP). Wording provisional.
+ * at declaration); input/output fields and non-FB targets stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

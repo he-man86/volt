@@ -1,5 +1,5 @@
 /**
- * intrinsic-operands: C0131 (ADR of a literal) + C0242 (__DELETE of a non-pointer). Docs wording; provisional.
+ * intrinsic-operands: C0131 (ADR of a literal) + C0242 (__DELETE of a non-pointer).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

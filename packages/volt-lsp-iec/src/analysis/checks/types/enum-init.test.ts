@@ -1,6 +1,6 @@
 /**
  * enum-init (C0124): an enum member initialized with a real value is flagged; integer inits, references to
- * sibling members, and plain enums are not. Provisional.
+ * sibling members, and plain enums are not.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

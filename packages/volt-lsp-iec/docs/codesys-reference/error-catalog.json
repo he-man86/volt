@@ -1201,10 +1201,6 @@
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
-    "verified": {
-      "codesys": true,
-      "twincat": true
-    },
     "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
     "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },

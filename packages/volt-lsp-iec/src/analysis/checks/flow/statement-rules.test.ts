@@ -1,5 +1,5 @@
 /**
- * statement-rules: C0018 (assign to a VAR CONSTANT) + C0132 (EXIT outside a loop). Docs wording; provisional.
+ * statement-rules: C0018 (assign to a VAR CONSTANT) + C0132 (EXIT outside a loop).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"

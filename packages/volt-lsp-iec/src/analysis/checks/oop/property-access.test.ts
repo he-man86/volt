@@ -1,6 +1,6 @@
 /**
  * property-access (C0143): reading a set-only property is flagged; writing it, or reading a
- * property that has a getter, is not. Provisional wording.
+ * property that has a getter, is not.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
