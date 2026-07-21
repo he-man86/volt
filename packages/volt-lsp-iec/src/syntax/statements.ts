@@ -87,6 +87,13 @@ const STMT_SYNC: readonly Keyword[] = [
   "__CATCH", "__FINALLY", "__ENDTRY",
 ]
 
+// Block-CLOSER keywords: within a construct they are consumed by that construct's parser, so one reaching
+// `parseStatement` is a STRAY closer (no open block) — CODESYS reports "Unexpected token '<x>' found" (C0009).
+// Without this we fall through and mis-parse it as an identifier expression ("Identifier 'END_FOR' not defined").
+const STMT_CLOSERS = new Set<Keyword>([
+  "END_IF", "ELSIF", "ELSE", "END_CASE", "END_FOR", "END_WHILE", "END_REPEAT", "UNTIL", "__CATCH", "__FINALLY", "__ENDTRY",
+])
+
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
@@ -114,6 +121,12 @@ function parseStatement(cur: Cursor): Statement | undefined {
     return { kind: "empty", span: semi.span }
   }
   if (t.kind === "keyword") {
+    if (t.keyword !== undefined && STMT_CLOSERS.has(t.keyword)) {
+      // Stray block closer (C0009) — report and consume, so the rest of the body still parses.
+      cur.pushError(`Unexpected token '${t.text}' found`, t.span)
+      cur.consume()
+      return undefined
+    }
     switch (t.keyword) {
       case "IF":
         return parseIf(cur)
