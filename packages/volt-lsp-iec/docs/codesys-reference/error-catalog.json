@@ -2104,17 +2104,17 @@
     "category": "REF= to non-writable target",
     "cause": "The REF= operator's right-hand side is a literal constant rather than a writable variable, so no valid reference can be taken.",
     "message": "Reference assign needs variable with write access",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : REFERENCE TO INT;\nEND_VAR\n\nI_r REF= 314;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : REFERENCE TO INT;\nEND_VAR\nI_r REF= 314;\nEND_PROGRAM\n",
     "expect": [
       "Reference assign needs variable with write access"
     ],
-    "note": "NOT cleanly offline-checkable: a literal RHS is NOT always an error â€” `r REF= 0` is the valid way to null a reference (7 corpus FPs). The real C0141 trigger is narrower than 'RHS is a literal'. Deferred.",
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). Rule: REF= RHS must be a writable variable; non-zero literal / constant errors, but REF= 0 (null idiom) and REF= writable-var are valid. TC pending.",
+    "status": "implemented",
+    "ourCheck": "checkReferenceAssign",
+    "ourCode": "reference-assign-write",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "I_r REF= i;",

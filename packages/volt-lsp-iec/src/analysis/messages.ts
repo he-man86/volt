@@ -191,6 +191,8 @@ export interface Messages {
   emptyStatementBlock(): string
   /** An identifier named after an IEC-reserved keyword CODESYS soft-allows (CHAR/WCHAR/USING) — C0543. verified live CODESYS; TC pending. */
   reservedKeyword(name: string): string
+  /** A `REF=` whose RHS is not a writable variable (a non-zero literal / constant) — C0141. verified live CODESYS; TC pending. */
+  referenceAssignWriteAccess(): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -448,6 +450,7 @@ export function messagesFor(vendor: Vendor): Messages {
     emptyStatementBlock: () => `At least one statement is expected`,
     reservedKeyword: (name) =>
       `The name '${name.toUpperCase()}' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.`,
+    referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
