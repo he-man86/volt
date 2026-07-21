@@ -926,7 +926,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0061",
@@ -1204,7 +1205,8 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0078",
@@ -1227,7 +1229,8 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR",
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0080",
@@ -1600,7 +1603,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0103",
@@ -1621,7 +1625,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0104",
@@ -1642,7 +1647,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0106",
@@ -1663,7 +1669,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0114",
@@ -2301,7 +2308,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the task-to-I/O mapping (which task writes which physical %Q address) — a project+device build concern."
   },
   {
     "code": "C0165",
@@ -2324,7 +2332,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the task-to-I/O mapping (which task writes which physical %Q address) — a project+device build concern."
   },
   {
     "code": "C0168",
@@ -2529,7 +2538,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0182",
@@ -2659,7 +2669,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0189",
@@ -2720,7 +2731,7 @@
     "message": "The operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.",
     "repro": null,
     "expect": null,
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3010,7 +3021,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0211",
@@ -3291,7 +3303,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs graphical (FBD/LD) FB-instance typing resolved against the library — beyond the textual VG surface."
   },
   {
     "code": "C0227",
@@ -3650,7 +3663,7 @@
     "expect": [
       "The instance pinst^ points to will be reinitialized for virtual function calls. Make sure pinst^ doesn't point to a type derived from FBBase."
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3673,7 +3686,7 @@
     "expect": [
       "Calculation of stack usage incomplete because of recursive calls, starting at 'm_Recursive'"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3727,7 +3740,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0344",
@@ -3740,7 +3754,7 @@
     "expect": [
       "The monitoring attribute is not supported for property 'TestProp' and will be ignored."
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3829,7 +3843,7 @@
     "expect": [
       "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3928,7 +3942,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0406",
@@ -3951,7 +3966,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0415",
@@ -3972,7 +3988,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0421",
@@ -4087,7 +4104,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0508",
@@ -4181,7 +4199,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0514",
@@ -4204,7 +4223,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0515",
@@ -4227,7 +4247,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0516",
@@ -4250,7 +4271,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0517",
@@ -4273,7 +4295,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0525",
@@ -4386,7 +4409,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0542",
@@ -4501,7 +4525,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor."
   },
   {
     "code": "C0555",
@@ -4514,7 +4539,7 @@
     "expect": [
       "The string literal 'ä½ å¥½,ä¸–ç•Œ' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4537,7 +4562,7 @@
     "expect": [
       "Call recursion: RECURSIVE -> RECURSIVE"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4680,7 +4705,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0571",
@@ -4703,7 +4729,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the target memory model (retain/persistent/global layout + sizes) — only the compiler/download computes it."
   },
   {
     "code": "C0572",
@@ -4791,7 +4818,8 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
+    "note": "IDE-only â€” needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative).",
+    "ideOnlyReason": "Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns)."
   },
   {
     "code": "C0581",
@@ -4872,7 +4900,7 @@
     "expect": [
       "Maximum nesting depth exceeded"
     ],
-    "status": "ide-only",
+    "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,

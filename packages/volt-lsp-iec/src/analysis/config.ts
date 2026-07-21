@@ -38,6 +38,9 @@ export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
  * historically emitted several of these as ERROR; the filter now forces the configured severity, so the check's
  * own severity no longer matters for a configurable code.) Codes NOT here are non-configurable — errors always
  * error, exactly as CODESYS gives them no dialog control.
+ *
+ * This is 20 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
+ * are still gaps, and why the un-closeable ones can't be — is `docs/codesys-reference/compiler-warnings-coverage.md`.
  */
 export const CONFIGURABLE_CHECKS = [
   { code: "pointer-not-convertible", c: "C0033", label: "Type possibly not convertible to the target type" },
