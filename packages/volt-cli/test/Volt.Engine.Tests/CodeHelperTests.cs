@@ -19,9 +19,10 @@ public class CodeHelperTests
     // ---- the wrapping cases (the whole point of the structural fix) ----
 
     [Fact]
-    public void Struct_with_wrapped_EXTENDS_and_colon_is_a_structure()   // verbatim pro2193 form
+    public void Struct_with_wrapped_EXTENDS_and_colon_is_a_dut()   // verbatim pro2193 form
     {
-        Assert.Equal(("structure", "Fanuc_PositionXYZWPR_Type"),
+        // A DUT is ONE wire kind `dut` — the header no longer carries the struct/enum/union/alias subkind.
+        Assert.Equal(("dut", "Fanuc_PositionXYZWPR_Type"),
             Parse("TYPE Fanuc_PositionXYZWPR_Type\nEXTENDS Fanuc_PositionXYZ_Type :\nSTRUCT\n\trPosW\t: REAL;\nEND_STRUCT\nEND_TYPE\n"));
     }
 
@@ -44,9 +45,9 @@ public class CodeHelperTests
     }
 
     [Fact]
-    public void Enum_with_wrapped_colon_is_an_enumeration()
+    public void Enum_with_wrapped_colon_is_a_dut()
     {
-        Assert.Equal(("enumeration", "Color"), Parse("TYPE Color\n: (Red, Green, Blue);\nEND_TYPE"));
+        Assert.Equal(("dut", "Color"), Parse("TYPE Color\n: (Red, Green, Blue);\nEND_TYPE"));
     }
 
     // ---- same-line + modifier cases (no regressions) ----
@@ -60,8 +61,8 @@ public class CodeHelperTests
     [InlineData("ACTION DoWork", "action", "DoWork")]
     [InlineData("METHOD PUBLIC FINAL Run : BOOL", "method", "Run")]
     [InlineData("PROPERTY PROTECTED Speed : REAL", "property", "Speed")]
-    [InlineData("TYPE Handle : __XWORD; END_TYPE", "alias", "Handle")]
-    [InlineData("TYPE U : UNION\n a : INT;\nEND_UNION\nEND_TYPE", "union", "U")]
+    [InlineData("TYPE Handle : __XWORD; END_TYPE", "dut", "Handle")]
+    [InlineData("TYPE U : UNION\n a : INT;\nEND_UNION\nEND_TYPE", "dut", "U")]
     [InlineData("VAR_GLOBAL\n g : INT;\nEND_VAR", "gvl", null)]
     public void Same_line_and_modifier_headers_parse(string src, string type, string? name) =>
         Assert.Equal((type, name), Parse(src));

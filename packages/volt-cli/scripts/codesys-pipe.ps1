@@ -2,8 +2,7 @@
 <#
 .SYNOPSIS
   Launch the Volt CLI pipe host HEADLESS in CODESYS (no UI), for live smoke of
-  the C# toolchain. Pipe twin of volt-bridge/scripts/codesys-bridge.ps1 — loads
-  Volt.Cli.Ide.Codesys.dll and serves the pipe `volt.bridge.codesys`.
+  the C# toolchain. Loads Volt.Cli.Ide.Codesys.dll and serves the pipe `volt.bridge.codesys`.
 
 .PARAMETER Action   up (launch, default) | down (stop + kill CODESYS) | logs
 .PARAMETER Version  18 or 21 (default 21)

@@ -14,7 +14,7 @@ const codes = (src: string, v: Vendor): string[] =>
     .map((d) => d.code)
     .sort()
 
-// FP-bait battery: code the live compilers ACCEPT (verified against :8556/:8555, 2026-07-07). Each must
+// FP-bait battery: code the live compilers ACCEPT (verified against the live compilers, 2026-07-07). Each must
 // produce ZERO error-severity diagnostics — these are the near-miss cases where a type check is most likely
 // to over-fire. This is what caught the (now-removed) overflow check's false positives.
 test("type checks do not false-positive on compiler-accepted code", () => {

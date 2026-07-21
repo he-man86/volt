@@ -57,6 +57,10 @@ public sealed class FakeIde : IIdeDriver
     /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
     public List<string> Recorded { get; } = new();
 
+    /// <summary>The kindCode passed to each CreateChild, keyed by name — lets a test assert the IDE create
+    /// code chosen (e.g. that every DUT variant creates with the single PlcDut code).</summary>
+    public Dictionary<string, int> CreatedKinds { get; } = new();
+
     // ── test hooks: mutate the IDE OUT FROM UNDER a seeded workspace ─────────────────────────────────
     // These change the walked state (not Recorded) so a subsequent /refs or push-lease check sees a different
     // projectVersion — the "the IDE changed since your last sync" divergence the workspace never applied.
@@ -103,7 +107,7 @@ public sealed class FakeIde : IIdeDriver
                 kids.Any(k => k.Equals("Set", StringComparison.OrdinalIgnoreCase)));
     }
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); CreatedKinds[name] = kindCode; return new ItemRef(name); }
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
     public void Rename(ItemRef item, string newName)
     {

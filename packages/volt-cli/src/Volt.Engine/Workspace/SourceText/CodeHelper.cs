@@ -64,12 +64,11 @@ public static class CodeHelper
         if (MemberName(headerLine, "PROPERTY") is { } prop) return new CodeHeader("property", prop);
 
         // A DUT is unambiguous — only a DUT begins with TYPE. Match just the name (EXTENDS/IMPLEMENTS/`:` may
-        // wrap — the case that silently dropped pro2193's Fanuc_* structs), and take the sub-type from the body.
+        // wrap — the case that silently dropped pro2193's Fanuc_* structs). A DUT is ONE kind `dut`; struct/
+        // enum/union/alias is not a Volt concept — it lives only in the declaration body, and the IDE derives
+        // it from that text on both read and create. Volt never classifies the subtype.
         if (NameAfter(headerLine, "TYPE") is { } dut)
-        {
-            var rest = string.Join("\n", lines, headerIdx, lines.Length - headerIdx);
-            return new CodeHeader(DetectDutSubType(rest), dut);
-        }
+            return new CodeHeader("dut", dut);
 
         throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
             $"Unrecognized code header: {(headerLine.Length > 80 ? headerLine.Substring(0, 80) + "..." : headerLine)}");
@@ -98,13 +97,5 @@ public static class CodeHelper
             if (upper is "PUBLIC" or "PRIVATE" or "PROTECTED" or "INTERNAL") return upper;
         }
         return null;
-    }
-
-    private static string DetectDutSubType(string typeBlock)
-    {
-        if (Regex.IsMatch(typeBlock, @"\bSTRUCT\b", RegexOptions.IgnoreCase)) return "structure";
-        if (Regex.IsMatch(typeBlock, @"\bUNION\b", RegexOptions.IgnoreCase)) return "union";
-        if (Regex.IsMatch(typeBlock, @":\s*\(", RegexOptions.IgnoreCase)) return "enumeration";
-        return "alias";
     }
 }

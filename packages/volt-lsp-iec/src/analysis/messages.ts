@@ -53,7 +53,7 @@ export interface Messages {
   missingInterfaceImpl(kind: "method" | "property", member: string, iface: string): string
   /** A conditional-compile pragma (`{ELSE}`/`{ELSIF}`/`{END_IF}`) with no matching `{IF}`: TwinCAT "Pragma", CODESYS "pragma". */
   orphanPragma(directive: string): string
-  /** A `{IF}` conditional-compile block never closed by `{END_IF}`. Byte-identical on both vendors (confirmed against live :8556/:8555). */
+  /** A `{IF}` conditional-compile block never closed by `{END_IF}`. Byte-identical on both vendors (confirmed against live). */
   unterminatedConditional(): string
   /**
    * An `{attribute '<name>'}` the compiler doesn't recognize. CODESYS's exact wording — note the DOUBLE
@@ -289,7 +289,7 @@ export function messagesFor(vendor: Vendor): Messages {
     // Live-verify pending (bridge up) — from the lenze-mid build the exact form is this. WARNING severity.
     inoutOwnAccess: (param, fb, context) =>
       `Access to VAR_IN_OUT '${param}' declared in '${fb}' from external context '${context}'`,
-    // CODESYS-verified (2026-07-11 live :8556): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
+    // CODESYS-verified (2026-07-11 live): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
@@ -326,11 +326,11 @@ export function messagesFor(vendor: Vendor): Messages {
     unknownType: (name) => `Unknown type: '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
-    // Confirmed via live /build (:8556 + :8555): both say "is no component of"; TwinCAT uppercases the type name.
+    // Confirmed via live /build: both say "is no component of"; TwinCAT uppercases the type name.
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
-    // CODESYS-verified (2026-07-11 live :8556): names the FB TYPE, no "The"/quotes/period. TwinCAT PROVISIONAL
+    // CODESYS-verified (2026-07-11 live): names the FB TYPE, no "The"/quotes/period. TwinCAT PROVISIONAL
     // (mirrors abstractInstantiation's one-word "Functionblock").
     abstractAssignTarget: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be used as a target for an assignment`,
@@ -345,7 +345,7 @@ export function messagesFor(vendor: Vendor): Messages {
     missingInterfaceImpl: (kind, member, iface) =>
       `There is no implementation for ${kind} '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
-    // Confirmed byte-identical on both vendors via live /build (:8556 CODESYS + :8555 TwinCAT, 2026-07-07).
+    // Confirmed byte-identical on both vendors via live /build (CODESYS + TwinCAT, 2026-07-07).
     unterminatedConditional: () => `Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`,
     // CODESYS byte-identical (double space + unquoted name). TwinCAT never emits this (live /build: compiles
     // an unknown attribute clean), so the lint is CODESYS-gated and this builder is CODESYS-only in practice.
@@ -462,7 +462,7 @@ export function messagesFor(vendor: Vendor): Messages {
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
-    // CODESYS-verified (2026-07-11 live :8556): no quotes around the name.
+    // CODESYS-verified (2026-07-11 live): no quotes around the name.
     externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL ${name}`,
     deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,

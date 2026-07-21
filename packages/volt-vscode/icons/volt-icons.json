@@ -13,10 +13,7 @@
     "prg": "_st",
     "fun": "_st",
     "itf": "_st",
-    "struct": "_st",
-    "enum": "_st",
-    "union": "_st",
-    "alias": "_st",
+    "dut": "_st",
     "gvl": "_st"
   },
   "languageIds": {

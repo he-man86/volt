@@ -16,7 +16,7 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return // live /build (2026-07-11 :8555): TwinCAT accepts this — no such rule
+  if (ctx.config.vendor !== "codesys") return // live /build (2026-07-11): TwinCAT accepts this — no such rule
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined || s.target.kind !== "ident_expr") return

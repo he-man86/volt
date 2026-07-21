@@ -253,14 +253,16 @@ to vendored source (enforced by `check-console-divergence.ts`).
 Auth · Workspaces, then per-workspace Users · Billing · GO · Payments · 28-Day Usage · Disabled Models (fields in
 `support/src/lib/lookup.ts`, rendered by `support/src/component/result.tsx`). Accepts `email` / `wrk_` / `key_` /
 `sk-`. It works and reads the prod DB via `Resource.Database` — but is **never deployed** and has **no auth**.
-- [ ] `infra/support.ts` — `sst.cloudflare.x.SolidStart` for `packages/console/support` at `support.${domain}`,
-      imported from `sst.config.ts` `run()` (mirror `console.ts`); link `Resource.Database` (+ `SupportApiKey` if used).
-- [ ] **Gate it** — the app ships with no login (`support/src/app.tsx`). Front with **Cloudflare Access** (or reuse
-      the `CONSOLE_DEV_EMAILS` allowlist pattern). MUST NOT expose an unauthenticated customer-data lookup publicly.
-- [ ] Deploy from **CI/WSL** — same Unix constraint as `console/app` (SolidStart `vite build` mangles Windows paths).
-- [ ] Verify `support.dev.volt-ai.dev` resolves + a lookup returns for a known account; keep the opencode UI as-is
-      (light Volt skin via `volt-theme.css` only if wanted).
-- [ ] production: gate + prod secrets set before it serves live customer data.
+- [x] `infra/support.ts` — `sst.cloudflare.x.SolidStart` for `packages/console/support` at `support.${domain}`,
+      imported from `sst.config.ts` `run()` (`await import("./infra/support.js")`, line 38); links `database` +
+      the Zen price/limit linkables. `buildCommand: "bunx vite build"` (the vendored pkg has no build script).
+- [x] **Gate it** — `supportAccess` (`cloudflare.ZeroTrustAccessApplication`) fronts the host with Cloudflare
+      Zero Trust email SSO; allow-list from `SUPPORT_ALLOWED_EMAILS` (defaults to the owner). No app code touched.
+- [x] Deploy from **CI/WSL** — the deploy was exercised live on `dev` (commit #55 fixed a `ZEN_LIMITS`
+      duplicate-component error that only arises because support IS in the deploy alongside console).
+- [x] Verify `support.dev.volt-ai.dev` resolves + a lookup returns for a known account (confirmed on `dev`; the
+      lookup/overview features landed in #56–#60).
+- [ ] production: prod gate + prod secrets — rolls into the **console-production-launch** change (prod stage).
 
 ### 6b — Operator usage rollup — the aggregate "how many users / activity" view
 Decided (was Stage 4c#2 "a choice"): **we need it.** MVP = **SQL over the PlanetScale DB**, NOT opencode's

@@ -42,7 +42,7 @@ public static class PouToStText
     }
 
     private static bool HasBody(string kind) =>
-        kind is not ("gvl" or "structure" or "enumeration" or "union" or "alias");
+        kind is not ("gvl" or "dut");
 
     private static string EndKeyword(string kind) => kind switch
     {

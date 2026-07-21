@@ -1,6 +1,8 @@
 namespace Volt.Engine.Workspace;
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Single source of truth for item-type codes, their wire kind strings, and workspace file extensions —
@@ -25,12 +27,15 @@ public static class ItemKind
     public const int PlcPouProg = 602;
     public const int PlcPouFunc = 603;
     public const int PlcPouFb = 604;
-    public const int PlcDutEnum = 605;
-    public const int PlcDutStruct = 606;
-    public const int PlcDutUnion = 607;
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
-    public const int PlcDutAlias = 623;     // TwinCAT reports EVERY DUT as 623; struct/enum/union refined from the decl
+    // A DUT is ONE code, ONE wire kind (`dut`), ONE `.dut` extension. The struct/enum/union/alias distinction
+    // is NOT a Volt concept at all — it lives solely in the declaration body, and BOTH the IDE's create and
+    // its read derive it from that text. TwinCAT reports every DUT as 623 and creates every DUT with 623;
+    // CODESYS classifies every IDUTObject here and creates with one create_dut call, re-deriving the subtype
+    // from the written declaration. (605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — never produced,
+    // never needed; deleted with the four-way split.)
+    public const int PlcDut = 623;
 
     // ── [both] children inlined in a POU / interface ──
     public const int PlcAction = 608;
@@ -94,10 +99,7 @@ public static class ItemKind
         PlcPouProg => "program",
         PlcPouFunc => "function",
         PlcPouFb => "function_block",
-        PlcDutEnum => "enumeration",
-        PlcDutStruct => "structure",
-        PlcDutUnion => "union",
-        PlcDutAlias => "alias",
+        PlcDut => "dut",
         PlcAction => "action",
         PlcMethod => "method",
         PlcItfMeth => "interface_method",
@@ -133,13 +135,10 @@ public static class ItemKind
 
     /// <summary>Top-level source kinds (full ST text): FB, function, program, DUTs, GVL, interface.</summary>
     public static bool IsTopLevelCrud(int code) =>
-        code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcDutEnum or PlcDutStruct
-             or PlcDutUnion or PlcDutAlias or PlcGvl or PlcItf;
+        code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcDut or PlcGvl or PlcItf;
 
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
-    public static bool IsSourceKind(string kind) =>
-        kind is "function_block" or "function" or "program" or "interface" or "gvl"
-             or "structure" or "enumeration" or "union" or "alias";
+    public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
 
     /// <summary>A "manager" node that is a PURE CONTAINER — a library / recipe / visualization manager. It only
     /// GROUPS its children (library references, recipes, visualizations) and has no content of its own (a bare
@@ -157,42 +156,52 @@ public static class ItemKind
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef
              or PlcItfPropGet or PlcItfPropSet;
 
-    /// <summary>Workspace file extension for a kind string (lowercase). Source kinds are named by KIND
-    /// (function_block→fb, program→prg, function→fun, interface→itf, DUTs→struct/enum/union/alias,
-    /// gvl→gvl); read-only reference manifests keep their own name. No silent fallback. A POU's body
-    /// LANGUAGE is not in the extension: an editable FBD/LD body is the same <c>.fb</c>/<c>.prg</c>/<c>.fun</c>
-    /// as a textual one (graphical detected by the NETWORK marker), and a CFC/SFC body is that kind extension
-    /// too, materialized as an <c>(* @volt-graphical: LANG *)</c> informational comment. Kind is recovered
-    /// from file content on push, so the extension carries kind alone.</summary>
-    public static string ExtFor(string kind) => kind switch
+    // ── The canonical workspace-file table ─────────────────────────────────────────────────────────────
+    // Every kind that materializes as a file, in output order, paired with its extension. This is THE single
+    // source of truth for extensions: ExtFor, IsSourceKind, and the CLI's extension registry
+    // (Volt.Cli.Sync.Extensions) all derive from it — no second hand-kept list — and
+    // volt-scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, opencode-config, control)
+    // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
+    // .fb/.prg/.fun as a textual one (graphical detected by the NETWORK marker), a CFC/SFC body is that kind
+    // extension too (materialized as an `(* @volt-graphical: LANG *)` comment). Kind is recovered from file
+    // content on push, so the extension carries kind alone.
+
+    /// <summary>Writable source kinds (assembled ST text), each with its file extension.</summary>
+    public static readonly IReadOnlyList<(string Kind, string Ext)> SourceKindExtensions = new (string, string)[]
     {
-        "function_block" => "fb",
-        "program" => "prg",
-        "function" => "fun",
-        "interface" => "itf",
-        "structure" => "struct",
-        "enumeration" => "enum",
-        "union" => "union",
-        "alias" => "alias",
-        "gvl" => "gvl",
-        "tmc_file" => "tmc",
-        "library" => "library",
-        "device" => "device",
-        "project_info" => "projectinfo",
-        "trace" => "trace",
-        "recipe" => "recipe",
-        "symbol_config" => "symbols",
-        "task" => "task",
-        "image_pool" => "image_pool",
-        "parameter_list" => "parameter_list",
-        "text_list" => "text_list",
-        "recipe_manager" => "recipe_manager",
-        "visualization_manager" => "visualization_manager",
-        "visualization" => "visualization",
-        "library_manager" => "library_manager",
-        "class_diagram" => "class_diagram",
-        "external_types" => "external_types",
-        "folder" => "",
-        _ => throw new ArgumentException($"No extension for kind '{kind}' — add it to ItemKind.ExtFor"),
+        ("function_block", "fb"), ("program", "prg"), ("function", "fun"),
+        ("interface", "itf"), ("dut", "dut"), ("gvl", "gvl"),
     };
+
+    /// <summary>Read-only reference kinds (opaque manifests / descriptors), each with its file extension.</summary>
+    public static readonly IReadOnlyList<(string Kind, string Ext)> ReferenceKindExtensions = new (string, string)[]
+    {
+        ("library", "library"), ("device", "device"), ("project_info", "projectinfo"),
+        ("trace", "trace"), ("recipe", "recipe"), ("symbol_config", "symbols"), ("task", "task"),
+        ("image_pool", "image_pool"), ("parameter_list", "parameter_list"), ("text_list", "text_list"),
+        ("recipe_manager", "recipe_manager"), ("visualization_manager", "visualization_manager"),
+        ("visualization", "visualization"), ("library_manager", "library_manager"),
+        ("class_diagram", "class_diagram"), ("external_types", "external_types"), ("tmc_file", "tmc"),
+    };
+
+    private static readonly HashSet<string> SourceKinds =
+        new(SourceKindExtensions.Select(x => x.Kind), StringComparer.Ordinal);
+
+    private static readonly Dictionary<string, string> ExtByKind =
+        SourceKindExtensions.Concat(ReferenceKindExtensions)
+            .ToDictionary(x => x.Kind, x => x.Ext, StringComparer.Ordinal);
+
+    /// <summary>Every workspace file extension paired with whether it is writable source (<c>true</c>) vs a
+    /// read-only reference (<c>false</c>) — the CLI's <c>Volt.Cli.Sync.Extensions</c> registry is built from
+    /// this, so access and the extension list live in ONE place.</summary>
+    public static IEnumerable<(string Ext, bool IsSource)> FileExtensions =>
+        SourceKindExtensions.Select(x => (x.Ext, true)).Concat(ReferenceKindExtensions.Select(x => (x.Ext, false)));
+
+    /// <summary>Workspace file extension for a kind string (lowercase); a folder has no extension (""). No
+    /// silent fallback — an unmapped kind throws so a new kind is caught, not dropped.</summary>
+    public static string ExtFor(string kind) =>
+        kind == "folder" ? ""
+        : ExtByKind.TryGetValue(kind, out var ext) ? ext
+        : throw new ArgumentException(
+            $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");
 }

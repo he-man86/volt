@@ -697,7 +697,7 @@
     "expect": [
       "Either all or none formal parameter have to be denoted in function call"
     ],
-    "note": "Live IDE (2026-07-11 :8556) does NOT emit the documented 'all-or-none' message on mixed named+positional args — it emits C0044 'Assignment to input missing for parameter <n>' (which IS implemented). The C0042 wording isn't reproducible; the case is already covered. Won't-fix as C0042.",
+    "note": "Live IDE (2026-07-11) does NOT emit the documented 'all-or-none' message on mixed named+positional args — it emits C0044 'Assignment to input missing for parameter <n>' (which IS implemented). The C0042 wording isn't reproducible; the case is already covered. Won't-fix as C0042.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1936,7 +1936,7 @@
       "twincat": false
     },
     "fix": "inst.METH1();",
-    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Method referenced as a value without (): IDE errors as 'Cannot convert type '<method>' to type '<T>'' — a semantic-alias (same defect, different wording via the IDE's compile order). Our wording is more precise; unverifiable byte-for-byte.",
+    "note": "(live-confirmed 2026-07-11, not a false positive) Method referenced as a value without (): IDE errors as 'Cannot convert type '<method>' to type '<T>'' — a semantic-alias (same defect, different wording via the IDE's compile order). Our wording is more precise; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'METH1' to type 'INT'"
     ],
@@ -2182,7 +2182,7 @@
     "twincatActual": [
       "No definition found for base class 'Base'"
     ],
-    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION EXTENDS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
+    "note": "(live-confirmed 2026-07-11, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION EXTENDS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0145",
@@ -2212,7 +2212,7 @@
       "Identifier 'POU' not defined",
       "Program name, function or function block instance expected instead of 'POU'"
     ],
-    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION IMPLEMENTS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
+    "note": "(live-confirmed 2026-07-11, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'FUNCTION IMPLEMENTS' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0149",
@@ -2240,7 +2240,7 @@
     "twincatActual": [
       "Unknown type: 'ITF'"
     ],
-    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'VAR block in an INTERFACE' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
+    "note": "(live-confirmed 2026-07-11, not a false positive) Bridge-blocked (structural): the bridge's own header/body parser rejects 'VAR block in an INTERFACE' before the IDE compiles it (Unrecognized code header / Expected METHOD/ACTION/PROPERTY). The LSP catches it early instead of a cryptic push rejection — like C0098/C0582."
   },
   {
     "code": "C0161",
@@ -3114,7 +3114,7 @@
     "codesysActual": [],
     "twincatActual": [],
     "triage": "skip",
-    "note": "REMOVED as a false positive: live CODESYS 3.5 (2026-07-11 :8556) builds VAR_GLOBAL PERSISTENT [RETAIN] with a direct AT %MB/%QB/%IB address CLEAN. The documented rule likely applies only to the special Persistent-Variables object, which we can't distinguish from a regular persistent GVL offline, so the check over-fired. Won't-fix."
+    "note": "REMOVED as a false positive: live CODESYS 3.5 (2026-07-11) builds VAR_GLOBAL PERSISTENT [RETAIN] with a direct AT %MB/%QB/%IB address CLEAN. The documented rule likely applies only to the special Persistent-Variables object, which we can't distinguish from a regular persistent GVL offline, so the check over-fired. Won't-fix."
   },
   {
     "code": "C0216",
@@ -3264,7 +3264,7 @@
       "twincat": false
     },
     "fix": null,
-    "note": "(live-confirmed 2026-07-11 :8556, not a false positive) Direct recursion in a FUNCTION: IDE errors 'Cannot convert type 'Unknown type: 'Fib(...)'' + 'function/FB instance expected instead of Fib' — a semantic-alias. Our 'Call Recursion' wording is clearer; unverifiable byte-for-byte.",
+    "note": "(live-confirmed 2026-07-11, not a false positive) Direct recursion in a FUNCTION: IDE errors 'Cannot convert type 'Unknown type: 'Fib(...)'' + 'function/FB instance expected instead of Fib' — a semantic-alias. Our 'Call Recursion' wording is clearer; unverifiable byte-for-byte.",
     "codesysActual": [
       "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
       "Program name, function or function block instance expected instead of 'Fib'"
@@ -3467,7 +3467,7 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    g_i : INT;\nEND_VAR\nEND_PROGRAM",
     "triage": "skip",
-    "note": "Live IDE does NOT flag a VAR_EXTERNAL/VAR_GLOBAL type mismatch (2026-07-11 :8556 built the repro clean). An offline check would be a false positive. Won't-fix. (C0237, the no-global-definition case, IS flagged and is implemented.)"
+    "note": "Live IDE does NOT flag a VAR_EXTERNAL/VAR_GLOBAL type mismatch (2026-07-11 built the repro clean). An offline check would be a false positive. Won't-fix. (C0237, the no-global-definition case, IS flagged and is implemented.)"
   },
   {
     "code": "C0237",
@@ -3710,7 +3710,7 @@
     },
     "fix": null,
     "triage": "skip",
-    "note": "Live IDE (2026-07-11 :8556) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
+    "note": "Live IDE (2026-07-11) builds SUPER^.FB_Init(bInitRetains, bInCopyCode) CLEAN — base-chaining is legitimate, so an offline 'already called implicitly' check would false-positive on real overrides. Won't-fix (the C0316 case is narrower/context-specific and not offline-separable)."
   },
   {
     "code": "C0319",
@@ -4064,7 +4064,7 @@
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF",
-    "note": "Env-gated (not verifiable without a __NEW memory pool): live IDE (2026-07-11 :8556) errors 'No memory for dynamic object creation defined' first, masking C0454. Documented rule + conservative check (fires only on __NEW inside another expression) — no demonstrable FP.",
+    "note": "Env-gated (not verifiable without a __NEW memory pool): live IDE (2026-07-11) errors 'No memory for dynamic object creation defined' first, masking C0454. Documented rule + conservative check (fires only on __NEW inside another expression) — no demonstrable FP.",
     "codesysActual": [
       "No memory for dynamic object creation defined for application 'Device.Application'",
       "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
@@ -4162,7 +4162,7 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    refAbstract1 : REFERENCE TO AbstractPOU;\n    refAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\nrefAbstract1 REF= refAbstract2;\nEND_PROGRAM\n\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK",
     "triage": null,
-    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT. TwinCAT lacks this rule (live :8555 built the repro clean, 2026-07-11) — check is CODESYS-gated.",
+    "note": "Value-assign (:=) into a (reference to a) project abstract FB. Conservative: plain := with a simple-ident target only; REF= rebind and pointer targets excluded. Wording CODESYS-verified (names the target var); PROVISIONAL on TwinCAT. TwinCAT lacks this rule (live built the repro clean, 2026-07-11) — check is CODESYS-gated.",
     "codesysOnly": true
   },
   {

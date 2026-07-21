@@ -22,9 +22,9 @@ import {
   ownerPou,
 } from "../src/analysis/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../src/workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
-const EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 const filter = process.argv[2]
 
 const walk = (d: string): string[] => {
@@ -32,7 +32,7 @@ const walk = (d: string): string[] => {
   for (const n of readdirSync(d)) {
     const p = join(d, n)
     if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (EXTS.has(extname(p).toLowerCase())) out.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
   }
   return out
 }

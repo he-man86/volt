@@ -3,7 +3,7 @@
  *
  * `volt pull` mirrors the IDE project as text files. This module crawls that tree once and returns:
  *
- *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`) — the
+ *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.dut`/`.gvl`) — the
  *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
  *   - **reference names** the unresolved-identifier check must SKIP (they resolve OUTSIDE the project):
  *       - `.library` files carry a `NAMESPACE <name>` line — the root of a qualified library reference.
@@ -17,19 +17,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
 import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./analysis/index.js"
-
-/** Kind-named source extensions the binder cross-indexes (CFC/SFC read-only bodies are not here). */
-export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
-  ".fb",
-  ".prg",
-  ".fun",
-  ".itf",
-  ".struct",
-  ".enum",
-  ".union",
-  ".alias",
-  ".gvl",
-])
+import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
 function walkFiles(root: string): string[] {
@@ -146,7 +134,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
         deviceInstances.add(deviceInstanceOf(file).toLowerCase())
       } else if (ext === ".task") {
         for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
-      } else if (SOURCE_EXTENSIONS.has(ext)) {
+      } else if (SOURCE_EXTENSION_SET.has(ext)) {
         sources.push({ path: file, source: readFileSync(file, "utf8") })
       }
     } catch {

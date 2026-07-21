@@ -128,24 +128,11 @@ public sealed partial class BeckhoffDriver
         Volt.Engine.Graphical.PlcOpenDocument.InterfacePropertyAccessors(
             _om.ExportPouXml(_om.Parent(property.Native)), _om.GetName(property.Native));
 
-    // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.PlcDutAlias) — the struct/enum/union/alias
-    // distinction lives only in the declaration. Refine it from the decl (shared CodeHelper, the same
-    // basis CODESYS uses), so the wire kind matches across vendors. Only a DUT pays the extra decl read.
-    private int ClassifiedKind(object node)
-    {
-        int raw = _om.ItemType(node);
-        if (raw != ItemKind.PlcDutAlias) return raw;
-        try { return DutCode(CodeHelper.ParseCodeHeader(_om.ReadDeclaration(node)).Type); }
-        catch { return raw; }
-    }
-
-    private static int DutCode(string type) => type switch
-    {
-        "structure" => ItemKind.PlcDutStruct,
-        "union" => ItemKind.PlcDutUnion,
-        "enumeration" => ItemKind.PlcDutEnum,
-        _ => ItemKind.PlcDutAlias,
-    };
+    // TwinCAT reports EVERY DUT as one tree type (623 = ItemKind.PlcDut) — a DUT is a single wire kind (`dut`),
+    // so we emit the raw code as-is. The struct/enum/union/alias distinction is NOT computed on a read (its only
+    // consumer was the four-way extension, now unified to `.dut`); it is derived from the declaration on push-
+    // create only. This drops the per-DUT declaration read the walk used to pay.
+    private int ClassifiedKind(object node) => _om.ItemType(node);
 
     private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();
 

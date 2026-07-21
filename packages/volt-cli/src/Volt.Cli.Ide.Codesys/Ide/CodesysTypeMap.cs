@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys
@@ -48,10 +47,11 @@ namespace Volt.Cli.Ide.Codesys
             if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
             // IDUTObject is the usual struct/enum/union/alias. ITextListEnumerationObject is a text-list-backed
             // enumeration — a normal `TYPE X : (…)` enum whose members map to a text list, surfaced by CODESYS
-            // as its OWN object kind (not IDUTObject). Both refine from the declaration into the same DUT kinds;
-            // without the second, a text-list enum drops to Unknown and every reference is unresolved (real
-            // cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
-            if (Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject")) return RefineDut(declaration);
+            // as its OWN object kind (not IDUTObject); without it, a text-list enum drops to Unknown and every
+            // reference is unresolved (real cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
+            // A DUT is ONE wire kind (`dut`) — the struct/enum/union/alias subkind is NOT computed here (it is
+            // derived from the declaration on push-create only), so no declaration read is needed on the walk.
+            if (Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject")) return ItemKind.PlcDut;
             if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 
             // Recognized non-source kinds — distinct wire kinds matching TwinCAT
@@ -124,12 +124,12 @@ namespace Volt.Cli.Ide.Codesys
                 Console.Error.WriteLine($"[bridge] unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
         }
 
-        /// <summary>True when the node's kind is REFINED from its declaration text — POU (keyword →
-        /// fb/func/prog/itf) or DUT/text-list-enum (struct/enum/union/alias). The driver reads the Interface
-        /// aspect only for these, so this predicate MUST stay in sync with the RefinePou/RefineDut branches
-        /// in <see cref="CodeForObject"/> — keeping both here makes that a single-file invariant.</summary>
+        /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →
+        /// fb/func/prog/itf). A DUT is NOT refined on a read (it is one wire kind `dut`), so it does not need
+        /// the declaration here. This predicate MUST stay in sync with the RefinePou branch in
+        /// <see cref="CodeForObject"/> — keeping both here makes that a single-file invariant.</summary>
         public static bool NeedsDeclaration(HashSet<string> ifaces) =>
-            Has(ifaces, "IPOUObject") || Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject");
+            Has(ifaces, "IPOUObject");
 
         /// <summary>Containers we recurse into but never emit.</summary>
         public static bool IsRecurseOnlyContainer(int code) =>
@@ -159,17 +159,6 @@ namespace Volt.Cli.Ide.Codesys
             if (k.StartsWith("FUNCTION")) return ItemKind.PlcPouFunc;
             if (k.StartsWith("PROGRAM")) return ItemKind.PlcPouProg;
             return ItemKind.PlcPouFb; // default
-        }
-
-        private static int RefineDut(string? decl)
-        {
-            var u = (decl ?? "").ToUpperInvariant();
-            if (u.IndexOf("STRUCT", StringComparison.Ordinal) >= 0) return ItemKind.PlcDutStruct;
-            if (u.IndexOf("UNION", StringComparison.Ordinal) >= 0) return ItemKind.PlcDutUnion;
-            // Enum value-list form `TYPE x : (a,b,c);` — match the colon IMMEDIATELY followed by '(', not
-            // any '(' anywhere (an alias whose comment contains a paren would otherwise misclassify).
-            if (Regex.IsMatch(u, @":\s*\(")) return ItemKind.PlcDutEnum;
-            return ItemKind.PlcDutAlias;
         }
 
         private static int RefineAccessor(string? name) =>
