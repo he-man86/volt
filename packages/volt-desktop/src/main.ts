@@ -35,7 +35,7 @@ if (process.argv.includes("--selftest")) {
 
 const { app, BrowserWindow, WebContentsView, ipcMain, shell: electronShell, dialog } = await import("electron")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [] }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [], connectorUp: false }
 
 function layoutView() {
   if (!shell.win || !shell.view) return

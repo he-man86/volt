@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, detectedProjects, type VoltSeverity } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, type VoltSeverity } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -71,8 +71,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	// buttons: the user picks a project, vendor is derived. Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
-		const projects = unbound ? await detectedProjects() : []
+		// One connector probe drives BOTH onboarding signals: whether the connector is even running (so the welcome
+		// can tell "connector not running" apart from "no IDE project open" — they used to look identical) AND the
+		// detected-project list. Only probed while unbound; a bound folder's live health comes from VoltStatus.
+		const view = unbound ? await connectorStatus() : undefined
+		const projects = view?.projects ?? []
 		void vscode.commands.executeCommand("setContext", "volt.hasProjects", projects.length > 0)
+		void vscode.commands.executeCommand("setContext", "volt.connectorRunning", !unbound || view !== undefined)
 		views?.setDetected(projects)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
@@ -162,6 +167,10 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 	const d = aggregate([...statuses.values()].map((s) => ({ status: s.cached, health: s.health })))
 	const initialized = statuses.size > 0
 	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
+	// A bound workspace whose bridge is genuinely unreachable (connector down = "offline", or its IDE isn't serving
+	// the bound project = "noproject") → drives the "Disconnected — Connect" welcome. NOT a tray-deselect, which
+	// stays connected (the IDE host is live and sync still works), so this correctly won't nag there.
+	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", initialized && (d.severity === "offline" || d.severity === "noproject"))
 
 	if (!initialized) { statusBar.hide(); return }
 
