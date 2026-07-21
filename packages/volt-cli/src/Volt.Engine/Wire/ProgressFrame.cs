@@ -18,4 +18,13 @@ public sealed class ProgressFrame
 
     [JsonPropertyName("phase")]
     public string? Phase { get; set; }
+
+    // Multi-phase operations (pull/init: fetch → write → finalize) set these so a frontend can fold the per-phase
+    // fraction into one monotonic overall bar: (PhaseIndex + Done/Total) / PhaseCount. Null on a single-phase op
+    // (a bare fetch/push/build), where Done/Total alone is the whole bar.
+    [JsonPropertyName("phaseIndex")]
+    public int? PhaseIndex { get; set; }
+
+    [JsonPropertyName("phaseCount")]
+    public int? PhaseCount { get; set; }
 }

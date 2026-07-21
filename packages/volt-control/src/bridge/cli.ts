@@ -35,6 +35,9 @@ export interface ProgressUpdate {
 	done: number
 	total?: number | null
 	phase?: string | null
+	// Multi-phase op (pull/init): fold (phaseIndex + done/total) / phaseCount into one overall bar. Null = single phase.
+	phaseIndex?: number | null
+	phaseCount?: number | null
 }
 
 const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with volt-git's reporter (PROGRESS_JSON_PREFIX)
