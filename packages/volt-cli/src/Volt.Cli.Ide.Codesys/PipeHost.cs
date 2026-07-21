@@ -63,7 +63,7 @@ public static class PipeHost
                 : overridePipe!;
 
             VoltLog.Init("codesys");
-            VoltLog.Info($"in-proc bridge starting on pipe {_pipeName}");
+            VoltLog.Debug($"in-proc bridge starting on pipe {_pipeName}");
 
             _driver = new CodesysDriver(projects);
             _driver.Connect(); // snapshot on the primary thread (we are on it now)
@@ -79,6 +79,7 @@ public static class PipeHost
             }
 
             var where = _driver.IsConnected ? "connected to IDE" : "no IDE engine";
+            VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
             return $"Volt bridge started on pipe {_pipeName} ({where})";
         }
     }

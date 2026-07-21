@@ -21,7 +21,7 @@ public static class RefsService
         var hit = new List<string>();
         if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");
         if (snap.Unreadable > 0) hit.Add($"{snap.Unreadable} unreadable");
-        VoltLog.Info($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
+        VoltLog.Debug($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
 
         return new RefsResponse
         {

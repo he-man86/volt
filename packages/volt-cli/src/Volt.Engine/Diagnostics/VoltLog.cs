@@ -44,6 +44,10 @@ public static class VoltLog
             _source = string.IsNullOrEmpty(source) ? "volt" : source;
             _dir = dir ?? DefaultDir();
             _enabled = true;
+            // Info is the connection/status story; per-op mechanics (fetch/refs/build/…) are Debug. Set
+            // VOLT_LOG_DEBUG=1 to surface them for troubleshooting.
+            if (string.Equals(Environment.GetEnvironmentVariable("VOLT_LOG_DEBUG"), "1", StringComparison.Ordinal))
+                _level = VoltLogLevel.Debug;
             try { Directory.CreateDirectory(_dir); Prune(); } catch { /* best effort */ }
         }
     }
