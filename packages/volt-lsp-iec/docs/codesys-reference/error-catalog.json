@@ -516,9 +516,9 @@
     "category": "unsafe pointer conversion warning",
     "cause": "A pointer value is implicitly assigned to a non-pointer data type, which may not be portable/safe across platforms.",
     "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    dw : DWORD;\nEND_VAR\n    dw := ptr;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    i : INT;\nEND_VAR\ni := ptr;\nEND_PROGRAM\n",
     "expect": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+      "Cannot convert type 'POINTER TO INT' to type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "pointer-conversion",
@@ -526,10 +526,10 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "twincatActual": []
+    "note": "Vendor split (verified live 2026-07-21): CODESYS warns on any pointer→elementary; TwinCAT only when the target is too small — a pointer-sized DWORD/LWORD/UDINT/ULINT is accepted. Repro uses ptr→INT (flagged on both)."
   },
   {
     "code": "C0035",
