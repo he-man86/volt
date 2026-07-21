@@ -73,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
 		const projects = unbound ? await detectedProjects() : []
 		void vscode.commands.executeCommand("setContext", "volt.hasProjects", projects.length > 0)
+		views?.setDetected(projects)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
 
