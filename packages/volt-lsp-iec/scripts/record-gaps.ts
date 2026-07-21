@@ -1,13 +1,20 @@
 /**
  * One-off: build crafted repros for the unverified "compiler-warnings" gap codes on the LIVE CODESYS bridge and
- * dump the IDE's ACTUAL diagnostics (code + severity + message). Trigger/wording verification for the coverage
- * doc. Throwaway (not a gate). UNREADABLE-safe cleanup: every pushed name is tracked and force-deleted on reset.
+ * dump the IDE's ACTUAL diagnostics. Trigger/wording verification for the coverage doc. Throwaway (not a gate).
+ *
+ * METHODOLOGY (learned the hard way): an untasked POU is NOT compiled, so "no diagnostic" is ambiguous — it can
+ * mean "built and silent" OR "never built". So every case (a) makes its POU reachable from the TASKED PLC_PRG
+ * (FB/type → VAR + call; FUNCTION → call; PROGRAM → call by name), and (b) carries a POSITIVE CONTROL: a
+ * reference to `VOLT_PROBE_UNDEFINED`, which — if the unit compiled — MUST surface as "not defined". If the
+ * control fires but the target code doesn't, the silence is genuine; if the control is ALSO absent, the unit was
+ * never built and the case is invalid.
  *
  *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/record-gaps.ts
  */
 import { call } from "./bridge.js"
 
 const MINIMAL_PLC = "PROGRAM PLC_PRG\nEND_PROGRAM\n"
+const PROBE = "VOLT_PROBE_UNDEFINED" // positive control: an undefined identifier that errors iff its unit compiled
 const pushOps = (ops: unknown[]) => call("push", { expectedProjectVersion: null, ops })
 let touched = new Set<string>()
 
@@ -23,7 +30,6 @@ async function robustDelete(name: string): Promise<void> {
   const v = (await call("refs")).items[name] ?? "UNREADABLE000000"
   await pushOps([{ op: "deleteItem", name, ifVersion: v }])
 }
-
 const refs0 = await call("refs")
 const BASELINE = new Set(Object.keys(refs0.items))
 async function reset(): Promise<void> {
@@ -35,21 +41,41 @@ async function reset(): Promise<void> {
 
 type Case = { code: string; note: string; items: Record<string, string>; plc: string }
 const cases: Case[] = [
-  // C0187 — several candidate triggers for "external reference on a PROGRAM".
-  { code: "C0187a", note: "{attribute 'external'} on PROGRAM", items: { "extA.prg": "{attribute 'external'}\nPROGRAM extA\nVAR\n  x : INT;\nEND_VAR\nEND_PROGRAM\n" }, plc: MINIMAL_PLC },
-  { code: "C0187b", note: "PROGRAM with VAR_EXTERNAL", items: { "extB.prg": "PROGRAM extB\nVAR_EXTERNAL\n  g : INT;\nEND_VAR\nEND_PROGRAM\n" }, plc: MINIMAL_PLC },
-
-  // C0543 — soft-reserved IEC keyword as an identifier, one candidate at a time (avoid hard-keyword parse aborts).
-  { code: "C0543-STEP", note: "var named STEP", items: { "F1.fb": "FUNCTION_BLOCK F1\nVAR\n  STEP : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }, plc: "PROGRAM PLC_PRG\nVAR\n  f : F1;\nEND_VAR\nf();\nEND_PROGRAM\n" },
-  { code: "C0543-RETAIN", note: "var named EXIT", items: { "F2.fb": "FUNCTION_BLOCK F2\nVAR\n  EXIT : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }, plc: "PROGRAM PLC_PRG\nVAR\n  f : F2;\nEND_VAR\nf();\nEND_PROGRAM\n" },
-  { code: "C0543-TIME", note: "var named TIMER", items: { "F3.fb": "FUNCTION_BLOCK F3\nVAR\n  TIMER : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }, plc: "PROGRAM PLC_PRG\nVAR\n  f : F3;\nEND_VAR\nf();\nEND_PROGRAM\n" },
-
-  // C0561 — the configurable recursion WARNING (vs C0224 error). Try method self-recursion + recursive-attr fn.
-  { code: "C0561-method", note: "a METHOD that calls itself", items: { "R.fb": "FUNCTION_BLOCK R\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nM := THIS^.M();\nEND_METHOD\n" }, plc: "PROGRAM PLC_PRG\nVAR\n  r : R;\nEND_VAR\nr.M();\nEND_PROGRAM\n" },
-  { code: "C0561-recattr", note: "{attribute 'recursive'} function calling itself", items: { "Fac.fun": "{attribute 'recursive'}\nFUNCTION Fac : INT\nVAR_INPUT\n  n : INT;\nEND_VAR\nIF n > 1 THEN Fac := n * Fac(n - 1); END_IF\nEND_FUNCTION\n" }, plc: "PROGRAM PLC_PRG\nVAR\n  r : INT;\nEND_VAR\nr := Fac(5);\nEND_PROGRAM\n" },
-
-  // C0564 — a var initialized from a later, not-yet-initialized var, in one POU.
-  { code: "C0564", note: "PLC_PRG var b := a before a is initialized", items: {}, plc: "PROGRAM PLC_PRG\nVAR\n  b : INT := a;\n  a : INT := 5;\nEND_VAR\nEND_PROGRAM\n" },
+  // C0187 — external reference on a PROGRAM. extProg is now CALLED from PLC_PRG (reachable), and PLC_PRG carries
+  // the positive control so we can see whether extProg was actually pulled into the build.
+  {
+    code: "C0187",
+    note: "external PROGRAM, CALLED from PLC_PRG (reachable)",
+    items: { "extProg.prg": "{external}\nPROGRAM extProg\nVAR\n  x : INT;\nEND_VAR\nEND_PROGRAM\n" },
+    plc: `PROGRAM PLC_PRG\nVAR\nEND_VAR\nextProg();\n${PROBE};\nEND_PROGRAM\n`,
+  },
+  // C0543 — soft-reserved keyword as identifier. F1 is instantiated + called; its body has the positive control.
+  {
+    code: "C0543-STEP",
+    note: "var named STEP; F1 reachable + probed",
+    items: { "F1.fb": `FUNCTION_BLOCK F1\nVAR\n  STEP : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
+    plc: "PROGRAM PLC_PRG\nVAR\n  f : F1;\nEND_VAR\nf();\nEND_PROGRAM\n",
+  },
+  {
+    code: "C0543-TRANSITION",
+    note: "var named TRANSITION; F4 reachable + probed",
+    items: { "F4.fb": `FUNCTION_BLOCK F4\nVAR\n  TRANSITION : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
+    plc: "PROGRAM PLC_PRG\nVAR\n  f : F4;\nEND_VAR\nf();\nEND_PROGRAM\n",
+  },
+  // C0561 — mutual recursion between two FUNCTIONs, both reachable via PLC_PRG (isolated run, clean reset).
+  {
+    code: "C0561-mutual",
+    note: "A()<->B() mutual recursion, both called",
+    items: { "A.fun": "FUNCTION A : INT\nA := B();\nEND_FUNCTION\n", "B.fun": "FUNCTION B : INT\nB := A();\nEND_FUNCTION\n" },
+    plc: "PROGRAM PLC_PRG\nVAR\n  r : INT;\nEND_VAR\nr := A();\nEND_PROGRAM\n",
+  },
+  // C0564 — init order. Vars live in PLC_PRG itself (always tasked/built); probe confirms compilation.
+  {
+    code: "C0564",
+    note: "PLC_PRG b := a before a init (+probe)",
+    items: {},
+    plc: `PROGRAM PLC_PRG\nVAR\n  b : INT := a;\n  a : INT := 5;\nEND_VAR\n${PROBE};\nEND_PROGRAM\n`,
+  },
 ]
 
 for (const c of cases) {
@@ -60,8 +86,10 @@ for (const c of cases) {
     await robustSet("PLC_PRG.prg", c.plc)
     const r = await call("build", { buildType: "full" })
     const diags = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning")
-    if (diags.length === 0) console.log("  (no error/warning diagnostics)")
-    for (const d of diags) console.log(`  [${d.severity}] ${d.code ?? "—"}  ${JSON.stringify(d.message)}`)
+    const compiled = diags.some((d: any) => String(d.message).includes(PROBE))
+    console.log(`  positive control (${PROBE}) seen: ${compiled ? "YES — unit compiled" : "NO — unit was NOT built (case invalid)"}`)
+    for (const d of diags) if (!String(d.message).includes(PROBE)) console.log(`  [${d.severity}] ${d.code ?? "—"}  ${JSON.stringify(d.message)}`)
+    if (diags.every((d: any) => String(d.message).includes(PROBE))) console.log("  (no diagnostics besides the control)")
   } catch (e) {
     console.log(`  ERROR: ${(e as Error).message}`)
   }

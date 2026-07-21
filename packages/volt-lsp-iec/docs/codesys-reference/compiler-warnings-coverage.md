@@ -91,11 +91,11 @@ close: record each against the headless CODESYS bridge (`scripts/verify-catalog.
 
 | CODESYS | what it flags | blocker |
 |---|---|---|
-| C0187 | external reference on program | Probed live (CODESYS 3.5.21, scripts/record-gaps): {external}, {attribute 'external'}, and VAR_EXTERNAL on a PROGRAM all built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger. |
+| C0187 | external reference on program | Probed live (CODESYS 3.5.21, scripts/record-gaps) with the external PROGRAM CALLED from PLC_PRG and a positive control proving compilation: it built with NO diagnostic — the C0187 trigger was not reproduced. Deferred pending the real trigger. |
 | C0540 | missing no_assign attribute propagation | Verified live (CODESYS 3.5.21): "Attribute 'no_assign' missing for POU '<POU>'? The type of the variable '<var>' is attributed with 'no_assign'." (note CODESYS's literal '?'). Implementation deferred: needs no_assign-typed-var detection across the type graph + attribute plumbing; zero corpus surface. |
-| C0543 | reserved keyword used as identifier | Probed live (CODESYS 3.5.21): STEP/TIMER as identifiers are accepted silently, EXIT is a hard parse error — the soft-reserved C0543 warning was not reproduced. Needs CODESYS's exact soft-reserved list. |
-| C0561 | recursive call warning | The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; live recursion repros (method self-call, {attribute 'recursive'}) triggered compiler parse-corruption, not a clean C0561 warning. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface. |
-| C0564 | initialization order | Probed live (CODESYS 3.5.21): a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred. |
+| C0543 | reserved keyword used as identifier | Probed live (CODESYS 3.5.21) with the POU reachable + a positive control proving compilation: STEP and TRANSITION as identifiers compile clean with no warning (EXIT is a hard parse error). The soft-reserved C0543 warning was not reproduced; needs CODESYS's exact soft-reserved list. |
+| C0561 | recursive call warning | The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; the mutual-recursion repro could NOT be built on the bridge (the positive control never appeared — pushing two mutually-recursive FUNCTIONs corrupts PLC_PRG parsing), so it is un-verifiable in the current harness. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface. |
+| C0564 | initialization order | Probed live (CODESYS 3.5.21) in a tasked PLC_PRG with a positive control proving compilation: a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred. |
 
 ### Needs IDE build/runtime data — cannot be done offline (11)
 

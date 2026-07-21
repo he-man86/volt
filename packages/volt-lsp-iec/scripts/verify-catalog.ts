@@ -14,6 +14,14 @@
  * PLC_PRG turns it UNREADABLE and un-settable; recovery is delete-with-the-`UNREADABLE000000`-sentinel then
  * recreate. Every fixture starts from a hard reset (minimal PLC_PRG + all non-baseline items deleted). Safe
  * against the headless fixture project only.
+ *
+ * Why `verified` is trustworthy despite tasking: a `verified` outcome REQUIRES the IDE to have emitted the LSP's
+ * message, which only happens if the unit was actually compiled (or the diagnostic is parse/declaration-level,
+ * reported regardless of tasking). So reachability can never manufacture a false `verified` — at worst an unbuilt
+ * repro shows `mismatch`/`silent` (a false NEGATIVE to review). NOTE: `synthPlc` instantiates FB/type/interface
+ * and calls functions, but does NOT call a standalone (non-PLC_PRG) PROGRAM — the few such repros are all
+ * parse-level codes that report anyway; a codegen-level PROGRAM repro must bring its own PLC_PRG. To PROVE a unit
+ * built during ad-hoc probing, add a positive control (an undefined-identifier reference) — see record-gaps.ts.
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
