@@ -9,17 +9,21 @@ and it also surfaces as the perceived progress freeze while the silent tree-buil
 
 ## What Changes
 
-- Replace `Git.WriteBlobs`'s **temp-file staging** with a stream-based object writer (`git fast-import`, or
-  hash-object over already-written `src/` paths) so fetched content becomes git objects **without a throwaway
-  temp copy**. One content→object write, from memory/stream, not memory→temp→object.
-- Apply across **every command that stages blobs** — `init` (biggest win: full project) and `pull` (incremental
-  changed-set), both via `IdeTree.BuildVoltIdeTree`. `push` is unaffected (it reads existing git objects via
-  `GitShowBytes`); `status`/`build`/`show`/`merge` do no bulk blob staging.
-- For `init` specifically, evaluate fusing the working-tree write + index population so `ReadTreeToIndex` isn't a
-  separate third pass, while keeping `pull`'s compositional `volt/ide` tree (changed + `parentIde` + `HEAD`
-  scaffold) — which is a synthetic tree, NOT the working tree, so it can't be replaced by `git add`.
-- **Behavior-preserving:** git object SHAs and round-trip content stay **byte-identical** (`--no-filters`
-  semantics preserved). No wire, bridge, or command-surface change — only how bytes reach git.
+- **Stop hand-rolling git.** `BuildVoltIdeTree` currently reproduces git's own bulk-import with four processes +
+  a temp-file pass: `WriteBlobs`(temp→`hash-object`) + `update-index` + `write-tree`, then `commit-tree`. Replace
+  all of it with **one `git fast-import` stream** that emits the blobs, tree, and commit together: changed items
+  go **inline** (`M … inline` + `data <n>` raw bytes — no temp, no `hash-object`, no filters), unchanged/scaffold
+  reference existing objects **by SHA** (from `ls-tree`, no re-hash). The entry composition is unchanged.
+- Apply to **every command that stages blobs** — `init` (biggest win: full project) and `pull` (incremental
+  changed-set), both via `BuildVoltIdeTree`. `push` is unaffected (reads existing objects via `GitShowBytes`);
+  `status`/`build`/`show`/`merge` stage no blobs.
+- Content-to-disk drops from **3× to 2×** on init (temp + object + `src/` → object + `src/`), the irreducible git
+  minimum. Optional follow-up: fuse `init`'s working-tree write with index population to drop the separate
+  `ReadTreeToIndex` pass — measured, not assumed.
+- **Behavior-preserving:** git object SHAs and round-trip content stay **byte-identical** — `fast-import` stores
+  raw stream bytes (no gitattributes/CRLF filters), matching today's `--no-filters`. `git add` is explicitly
+  rejected: `.gitattributes` (`* text=auto eol=lf`) would make it normalize line endings and change SHAs. No
+  wire, bridge, or command-surface change — only how bytes reach git.
 
 ## Capabilities
 

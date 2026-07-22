@@ -37,30 +37,34 @@ function of content. `push` reads objects via `GitShowBytes` (no bulk write) —
 
 ## Decisions
 
-**D1 — Object writer: `git fast-import` over write-then-hash.**
-Replace the temp-staging in `WriteBlobs` with `git fast-import`, which streams a `blob`/`data <n>` record per
-content over one stdin pipe and emits objects directly — no temp files, no working-tree dependency, one process.
-- *Why over write-src-then-hash-real-paths:* that approach only works when content is already on disk in the
-  right place. It fits `init` (hashed set == `src/` set) but NOT `pull`, whose `volt/ide` tree is a **synthetic
-  composition** (changed + `parentIde`-unchanged + `HEAD`-scaffold) that is deliberately NOT the working tree.
-  `fast-import` is content-stream based, so it serves both with one code path.
-- *Why over `git add`/`update-index --add`:* `git add` hashes from the working tree **with filters applied**
-  (CRLF/gitattributes), which would change SHAs and threaten round-trip fidelity. `fast-import` writes raw bytes
-  (equivalent to `--no-filters`). Byte-identity is preserved.
-- SHAs come back via `fast-import`'s mark mechanism (`mark :n` per blob → `get-mark`/marks-file), mapping each
-  content index to its object SHA, replacing the ordered stdout of `hash-object`.
+**D1 — Build the whole `volt/ide` commit with ONE `git fast-import` stream — stop hand-rolling git.**
+Today `BuildVoltIdeTree` does `WriteBlobs`(temp files) + `update-index --index-info` + `write-tree`, then
+`CommitVoltIde` runs `commit-tree` — four processes and a temp-file pass to reproduce what `fast-import` (git's
+own bulk-history importer) does in one stream. Replace all of it with a single `fast-import` `commit`:
+- **changed** items → `M <mode> inline <path>` + `data <n> <raw-bytes>` — content goes straight into the object,
+  no temp file, no `hash-object` pass, no gitattributes/CRLF filters (byte-identical to today's `--no-filters`,
+  and `data <n>` is a raw byte count so it's *more* faithful to non-UTF-8 than `Encoding.UTF8.GetBytes`).
+- **unchanged** IDE items + **scaffold** → `M <mode> <sha> <path>`, referencing the existing objects by the SHAs
+  we already read from `ls-tree(parentIde)` / `ls-tree(HEAD)` — no re-hash, identical to today's composition.
+- The stream emits the blobs, the tree, AND the commit; `get-mark`/the commit mark yields the commit SHA.
 
-**D2 — Keep `BuildVoltIdeTree`'s composition; swap only the blob step.**
-`ListTree(parentIde)` + `ListTree(HEAD)` (reusing already-hashed SHAs, no rehash) and `write-tree` are already
-optimal. Only the `Git.WriteBlobs(...)` call inside it changes to the stream writer. This bounds the blast radius
-and keeps init/pull identical below the blob step.
+The *entry composition* is unchanged (same changed/unchanged/scaffold sets we compute now) — only the mechanism
+changes, so init and pull stay identical below this line. This eliminates: the temp-file pass, the separate
+`hash-object`, `update-index`, `write-tree`, and `commit-tree` processes.
+- *Why not `git add`/`update-index --add` from the worktree:* `.gitattributes` is `* text=auto eol=lf`, so
+  `git add` would apply CRLF normalization → different SHAs and corrupted round-trip. `fast-import` stores the
+  exact stream bytes (no filters), preserving byte-identity — which is the whole reason today's code uses
+  `--no-filters`.
+- *Why not write-src-then-hash-real-paths:* fits `init` (hashed set == `src/`) but NOT `pull`, whose `volt/ide`
+  tree is synthetic (not the working tree). `fast-import` inline data serves both with one path and no worktree
+  dependency.
 
-**D3 — `init` index population stays `ReadTreeToIndex` for now.**
+**D2 — `init` index population stays `ReadTreeToIndex` for now.**
 Fusing the working-tree write with index population (so no separate `read-tree`) is a smaller, separable win and
 risks the working-tree/index/objects three-way consistency that keeps `git status` clean post-init. Do it only if
 measurement shows `read-tree` is a material cost after D1; otherwise leave it. (Tracked as an optional task.)
 
-**D4 — Verification is byte-identity first, perf second.**
+**D3 — Verification is byte-identity first, perf second.**
 A `GitTests` case asserts the new writer returns the **same SHAs** as the old `WriteBlobs` for a content set
 (golden equality), `IdeTreeTests` asserts identical trees, and the e2e parity suite (`crud-cycle`,
 `graphical/roundtrip`) proves the full round-trip against a live bridge. Perf (init wall-clock, write count) is
@@ -84,10 +88,10 @@ measured before/after but is not the gate — correctness is.
 2. Route `BuildVoltIdeTree` through it; run C# + e2e gates on CODESYS and TwinCAT.
 3. Measure init before/after (wall-clock + write count) and record in the change log.
 4. Delete the temp-staging `WriteBlobs` once gates are green.
-5. (Optional, D3) fuse index population; re-run gates.
+5. (Optional, D2) fuse index population; re-run gates.
 
 ## Open Questions
 
-- Does `read-tree` (D3) show up materially after D1, or is it noise? (Answer with the measurement in step 3.)
+- Does `read-tree` (D2) show up materially after D1, or is it noise? (Answer with the measurement in step 3.)
 - Is there any item kind whose content is intentionally non-UTF-8 today (so the `data <n>` raw-byte path changes
   a SHA vs the current UTF-8 round-trip)? Confirm against the corpus/e2e fixtures before deleting the old path.

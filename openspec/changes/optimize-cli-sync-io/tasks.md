@@ -6,22 +6,24 @@ Grounding (verify still true when picking this up):
 - Byte-identity is load-bearing: `--no-filters` means the blob == raw UTF-8 bytes. Any new writer MUST match.
 - The dotnet SDK path gotcha applies — build/test via `C:\Program Files\dotnet\dotnet.exe`.
 
-## 1. Stream-based object writer (byte-identity gate first)
+## 1. `fast-import` commit writer (byte-identity gate first)
 
-- [ ] 1.1 Add a `WriteBlobsStreaming` (or similar) to `Git.cs` using `git fast-import` — one process, a
-      `blob`/`mark :n`/`data <n>` record per content over stdin, raw bytes (no filters), returning SHAs by mark.
-      Handle the empty set (no-op) and a single item.
-- [ ] 1.2 GOLDEN GATE: a `GitTests` case asserting `WriteBlobsStreaming(contents)` returns SHAs **identical** to
-      the existing `WriteBlobs(contents)` across a representative set (ASCII, UTF-8 multibyte, empty file, large
-      file, a binary/opaque blob). Red before the writer is correct, green after.
-- [ ] 1.3 Keep the old `WriteBlobs` in place (fallback) until step 3 — do not delete yet.
+- [ ] 1.1 Add a `Git.CommitViaFastImport` (or similar) that drives `git fast-import`: one `commit <ref>` with
+      `M <mode> inline <path>` + `data <n>` raw bytes for changed items, `M <mode> <sha> <path>` for
+      unchanged/scaffold, and returns the commit SHA (via the commit mark / `get-marks`). Emit `done`; handle the
+      empty set and a single item cleanly.
+- [ ] 1.2 GOLDEN GATE: a `GitTests` case asserting the `fast-import` path yields the **same tree + commit SHAs**
+      as the current `WriteBlobs` + `update-index` + `write-tree` + `commit-tree` for a representative set (ASCII,
+      UTF-8 multibyte, empty file, large file, a binary/opaque blob, an unchanged-by-SHA entry). Red first.
+- [ ] 1.3 Keep the old `WriteBlobs`/`BuildTree`/`CommitVoltIde` path in place (fallback) until step 3.
 
 ## 2. Route init + pull through it
 
-- [ ] 2.1 Point `IdeTree.BuildVoltIdeTree` at the streaming writer for the changed-content blob step; leave the
-      `ListTree(parentIde)` + `ListTree(HEAD)` composition and `write-tree` unchanged.
-- [ ] 2.2 `IdeTreeTests`: assert `BuildVoltIdeTree` yields an **identical tree SHA** to the pre-change path for
-      the same inputs (init: `parentIde=null`; pull: with `parentIde` + removed set).
+- [ ] 2.1 Rework `BuildVoltIdeTree`/`CommitVoltIde` (or a new `BuildAndCommitVoltIde`) to compute the same
+      changed / unchanged-by-SHA / scaffold-by-SHA entry sets and feed them to the `fast-import` writer instead
+      of temp-hashing + `write-tree` + `commit-tree`. Composition logic (which files) is unchanged.
+- [ ] 2.2 `IdeTreeTests`: assert the produced **tree + commit SHAs are identical** to the pre-change path for the
+      same inputs (init: `parentIde=null`; pull: with `parentIde` + removed set).
 - [ ] 2.3 `InitCommandTests` + `PullCommandTests` stay green (behavior + resulting refs unchanged).
 
 ## 3. Prove fidelity end-to-end, then delete the temp path
