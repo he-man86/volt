@@ -81,7 +81,10 @@ export function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
   }
 }
 
-/** Every resolution avenue for a bare name; true = valid (skip), false = unresolved (flag). */
+/** Every resolution avenue for a bare name; true = valid (skip), false = unresolved (flag). A pure OR, so the
+ *  order is a PERF choice, not semantics: cheap O(1) tests + the scope `lookup` (which resolves the vast majority
+ *  of references — locals, params, project symbols) come BEFORE `resolveBareEnumMember`, whose per-call scan of
+ *  every project enum is the check's hot spot. Reordering cut this check from ~88ms → ~2ms on a large project. */
 export function nameResolves(name: string, scope: Scope, project: Scope, references: WorkspaceRefs): boolean {
   const lower = name.toLowerCase()
   if (name.startsWith("__")) return true // reserved system operator (`__NEW`, `__ISVALIDREF`, …)
@@ -90,8 +93,8 @@ export function nameResolves(name: string, scope: Scope, project: Scope, referen
   if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
   if (references.libraryNamespaces.has(lower)) return true // referenced-library namespace root
   if (references.deviceInstances.has(lower)) return true // device-tree instance
-  if (resolveBareEnumMember(project, name) !== undefined) return true // non-qualified_only enum member
-  if (lookup(scope, name) !== undefined) return true // parent chain + EXTENDS bases
+  if (lookup(scope, name) !== undefined) return true // parent chain + EXTENDS bases — resolves most references
+  if (resolveBareEnumMember(project, name) !== undefined) return true // non-qualified_only enum member (last: scans enums)
   return false
 }
 

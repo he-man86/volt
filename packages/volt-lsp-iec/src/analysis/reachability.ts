@@ -145,6 +145,7 @@ export function deadPousFromInfos(infos: readonly FileReachInfo[], taskRoots?: R
   const pous = new Set<string>() // lc names of all top-level POUs
   const programs: string[] = [] // lc names of PROGRAM roots
   const implementers = new Map<string, string[]>() // lc interface -> lc FBs implementing it
+  const byOwner = new Map<string, FileReachInfo[]>() // owner POU (lc) -> the file(s) it owns
 
   for (const info of infos) {
     for (const p of info.pous) pous.add(p)
@@ -153,6 +154,11 @@ export function deadPousFromInfos(infos: readonly FileReachInfo[], taskRoots?: R
       const list = implementers.get(iface)
       if (list !== undefined) list.push(...fbs)
       else implementers.set(iface, [...fbs])
+    }
+    if (info.owner !== undefined) {
+      const owned = byOwner.get(info.owner)
+      if (owned !== undefined) owned.push(info)
+      else byOwner.set(info.owner, [info])
     }
   }
 
@@ -164,33 +170,32 @@ export function deadPousFromInfos(infos: readonly FileReachInfo[], taskRoots?: R
   const taskProgramRoots = taskRoots !== undefined ? programs.filter((p) => taskRoots.has(p)) : []
   const roots = taskProgramRoots.length > 0 ? taskProgramRoots : programs
 
-  // Fixpoint: seed the PROGRAM roots, then repeatedly pull in POUs referenced by any ACTIVE file, plus
-  // the implementers of any interface referenced by an active file (dynamic dispatch ⇒ live). A file is
-  // active if it's a root (GVL/type — a global instance or typed field) or a POU whose owner is reachable.
-  // An interface's own `.itf` file is NEITHER — passive — so an interface is "used" only when a genuinely
-  // reachable unit references it as a type, not merely by its own declaration.
+  // Worklist transitive closure (O(edges), not O(iterations × edges)): a file's refs are scanned ONCE — either
+  // upfront if it's a root file (GVL/type — always active), or the moment its owner POU becomes reachable. Each
+  // ref that names a POU (or an interface, whose implementers go live via dynamic dispatch) is pulled in and its
+  // owning file queued. An interface's own `.itf` file is passive — never a root, no owner match — so it's
+  // scanned only when a genuinely reachable unit references it. Equivalent to the old fixpoint, without re-scans.
   const reachable = new Set<string>(roots)
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const info of infos) {
-      const active = info.root || (info.owner !== undefined && reachable.has(info.owner))
-      if (!active) continue
-      for (const ref of info.refs) {
-        if (pous.has(ref) && !reachable.has(ref)) {
-          reachable.add(ref)
-          changed = true
-        }
-        const impls = implementers.get(ref)
-        if (impls !== undefined) {
-          for (const fb of impls)
-            if (!reachable.has(fb)) {
-              reachable.add(fb)
-              changed = true
-            }
-        }
+  const worklist: string[] = [...roots]
+  const scan = (info: FileReachInfo): void => {
+    for (const ref of info.refs) {
+      if (pous.has(ref) && !reachable.has(ref)) {
+        reachable.add(ref)
+        worklist.push(ref)
       }
+      const impls = implementers.get(ref)
+      if (impls !== undefined)
+        for (const fb of impls)
+          if (!reachable.has(fb)) {
+            reachable.add(fb)
+            worklist.push(fb)
+          }
     }
+  }
+  for (const info of infos) if (info.root) scan(info) // root files are active from the start
+  while (worklist.length > 0) {
+    const owned = byOwner.get(worklist.pop()!)
+    if (owned !== undefined) for (const info of owned) scan(info)
   }
 
   const dead = new Set<string>()
@@ -260,14 +265,27 @@ export function deadMemberSpansFromInfos(
     }
   }
 
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const m of members) {
-      if (m.live || !liveRefs.has(m.name)) continue
+  // Worklist closure (O(members + refs), not O(iterations × members)): a member goes live when its name enters
+  // liveRefs; activating it adds its own refs, which may activate more. Index members by name so each new live
+  // ref activates only the members it names, instead of re-scanning every member each round.
+  const byName = new Map<string, MemberNode[]>()
+  for (const m of members) {
+    const list = byName.get(m.name)
+    if (list !== undefined) list.push(m)
+    else byName.set(m.name, [m])
+  }
+  const worklist: string[] = [...liveRefs]
+  while (worklist.length > 0) {
+    const nodes = byName.get(worklist.pop()!)
+    if (nodes === undefined) continue
+    for (const m of nodes) {
+      if (m.live) continue
       m.live = true
-      for (const r of m.refs) liveRefs.add(r)
-      changed = true
+      for (const r of m.refs)
+        if (!liveRefs.has(r)) {
+          liveRefs.add(r)
+          worklist.push(r)
+        }
     }
   }
 
