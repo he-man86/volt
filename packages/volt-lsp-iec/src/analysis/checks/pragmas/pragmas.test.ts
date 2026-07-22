@@ -38,6 +38,16 @@ test("alias spellings of a known attribute are recognized (not flagged)", () => 
   for (const a of ["no_init", "no-init", "TcLinkToOSO", "tc_no_symbol"]) expect(attrs(withAttr(a), true)).toEqual([])
 })
 
+// CODESYS quirk (verified live: a bogus attribute on a built+referenced DUT emits nothing, unlike the same on a
+// POU variable): the attribute-check pass does not run on a TYPE declaration. So an unknown attribute on a DUT is
+// NOT flagged, even though the identical typo on a POU IS. (Corpus-found: `qualified_oly`/`strit` on an enum.)
+test("an unknown attribute on a DUT (type_decl) is NOT flagged — POU still is", () => {
+  const dut = (a: string) => `{attribute '${a}'}\nTYPE E : (Idle, Running); END_TYPE`
+  expect(attrs(dut("qualifid_only"), true)).toEqual([]) // DUT → skipped (matches CODESYS)
+  expect(attrs(dut("totally_bogus"), true)).toEqual([]) // any unknown attr on a DUT → skipped
+  expect(attrs(withAttr("qualifid_only"), true)).toHaveLength(1) // same typo on a POU → still flagged
+})
+
 test("the C0351 warning can be turned OFF (toggle) — then a typo is not flagged", () => {
   expect(attrs(withAttr("qualifid_only"), false)).toEqual([])
 })

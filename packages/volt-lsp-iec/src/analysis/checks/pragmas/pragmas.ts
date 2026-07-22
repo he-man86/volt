@@ -69,7 +69,11 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
 
   // Unknown `{attribute '<name>'}` — C0351, a toggleable warning (only as complete as the catalog). CODESYS-only:
   // live /build confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
-  if (ctx.config.vendor === "codesys") {
+  // ALSO skipped on a DUT (type_decl) file: CODESYS does not run the attribute-check pass on a type declaration —
+  // an unknown attribute on a `TYPE …` (verified live: a bogus attribute on a built, referenced DUT emits nothing,
+  // whereas the same on a POU variable warns C0351). Firing here false-positived on `qualified_oly`/`strit` typos.
+  const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "type_decl")
+  if (ctx.config.vendor === "codesys" && !isDut) {
     for (const p of pragmas) {
       // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
       // a typo (`'noe'`) is a real C0351 that also cascades downstream (the PROGRAM's export breaks → C0564 init

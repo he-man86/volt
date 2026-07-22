@@ -40,18 +40,6 @@ export function buildFalsePositives(lspErrorMessages: readonly string[], buildMe
   return lspErrorMessages.filter((m) => !build.has(canon(m)))
 }
 
-// Known divergences pending live-CODESYS verification (canon-compared). NOT a silent allow: each is a specific
-// lead to re-check against the real build next time the IDE is open, per the "re-verify vs live CS" rule — the
-// gate still catches every OTHER (new) false positive. pro2193: the LSP flags unknown-attribute on two typo'd
-// attributes of a project DUT (`enumErrorReaction`), which the build does NOT emit — either CODESYS doesn't warn
-// unknown-attribute on a DUT (→ LSP should skip it), or that object is excluded from build. Resolve on re-record.
-const KNOWN_PENDING_FPS: Record<string, string[]> = {
-  pro2193: [
-    "The attribute qualified_oly is unknown and will be ignored by the  compiler.",
-    "The attribute strit is unknown and will be ignored by the  compiler.",
-  ],
-}
-
 // CODESYS truncates its message list at 100 warnings (emits a "More than 100 warnings occured" marker). Past
 // that point the build is an INCOMPLETE oracle: an LSP warning absent from it may be a real one that was cut,
 // not a false positive — so the ⊆ FP check is unsound and the project must be re-recorded with the cap raised.
@@ -145,10 +133,7 @@ describe("corpus build-conformance (LSP errors+warnings ⊆ real IDE build)", ()
       // than silently green-lighting or red-flagging noise.
       if (isTruncated(buildMsgs))
         throw new Error(`${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) before this gate is meaningful.`)
-      const pending = new Set((KNOWN_PENDING_FPS[project] ?? []).map(canon))
-      const fps = buildFalsePositives(lspMessages(join(CORPUS_ROOT, project), project), buildMsgs).filter(
-        (m) => !pending.has(canon(m)),
-      )
+      const fps = buildFalsePositives(lspMessages(join(CORPUS_ROOT, project), project), buildMsgs)
       expect(fps).toEqual([])
     }, 120_000)
   }

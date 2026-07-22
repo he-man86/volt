@@ -1,5 +1,5 @@
-{attribute 'qualified_oly'}
-{attribute 'strit'}
+{attribute 'qualified_only'}
+{attribute 'strict'}
 TYPE enumErrorReaction :
 (
 	No_reaction		:= TO_WORD(L_IE1P.L_IE1P_Reaction.No_Reaction),	// No reaction, cycle continues
