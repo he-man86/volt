@@ -59,6 +59,14 @@ test("mismatch retargets to acceptRename", () => {
   expect(d.action).toBe("acceptRename")
 })
 
+test("probing (unknown health) never reads as insync/connected", () => {
+  // The bug: aggregate started conn="ok" and ignored `unknown`, so the pre-probe window reported "insync".
+  const probing: WorkspaceState = { status: status(), health: { kind: "unknown" } }
+  const d = aggregate([probing])
+  expect(d.severity).not.toBe("insync")
+  expect(d.severity).toBe("offline")
+})
+
 test("healthDisplay maps each kind", () => {
   expect(healthDisplay(connected)).toMatchObject({ online: true, tone: "ok" })
   expect(healthDisplay({ kind: "degraded", health: { status: "degraded", connected: true } })).toMatchObject({ online: true, tone: "warn" })

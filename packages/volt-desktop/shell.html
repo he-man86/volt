@@ -150,7 +150,7 @@
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
   let activeTab = "sync" // which rail tab is lit + scrolled to while the panel is open
-  let busy = null // live progress text for the in-flight action (pull/push/build/init), else null
+  let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
@@ -189,14 +189,11 @@
     const s = snap
     const n = s.incoming.length + s.outgoing.length
 
-    // 1. IDE Sync
+    // 1. IDE Sync — the whole section is driven by the shared `mode` (same field the VS Code extension switches on).
+    // pull/push/build appear ONLY in `ready`; refresh is always available (it re-probes, never mutates). No
+    // connect/disconnect icons — Connect is the big button in the body when offline (see below).
     const syncActs = s.initialized
-      ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") +
-        icoBtn("i-push", "Push · workspace → IDE", "doPush()") +
-        icoBtn("i-build", "Build", "doBuild()") +
-        icoBtn("i-connect", "Reconnect · re-point the bridge at the bound project", "doConnect()") +
-        icoBtn("i-disconnect", "Disconnect · clear the active connection (IDEs stay live)", "doDisconnect()") +
-        refreshBtn("Refresh")
+      ? (s.mode === "ready" ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") + icoBtn("i-push", "Push · workspace → IDE", "doPush()") + icoBtn("i-build", "Build", "doBuild()") : "") + refreshBtn("Refresh")
       : ""
     // One live-progress note, shown above the sync body during any action (formatProgress feeds `busy`).
     const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
@@ -218,8 +215,12 @@
             ? `<div class="note">Not a Volt workspace yet. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — the project appears here to initialize from.</div>`
             : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector detects your open PLC projects and serves the bridge; the project then appears here to initialize from.</div>`
     }
-    else if (s.paused) syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
-    else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>`
+    // Offline: the ONLY action is a big Connect button, in the SAME location/style as the Init button above. No
+    // pull/push while offline (they're impossible), and never a false "In sync".
+    else if (s.mode === "offline") syncBody = busyNote + `<div class="note">Disconnected from the IDE — its window may be closed, or the Volt Connector isn't running.</div>
+        <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
+    else if (s.mode === "merging" || s.mode === "mismatch") syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
+    else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
     else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
 
     // 2. Diagnostics
@@ -244,8 +245,7 @@
         `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span></div>` +
         (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
         (!h.online
-          ? `<div class="note">Disconnected — the IDE may be closed, or the Volt Connector isn't running.</div>
-        <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
+          ? `<div class="note">Disconnected — the IDE may be closed, or the Volt Connector isn't running. Use Connect in IDE Sync above.</div>`
           : "")
     }
     const bridgeActs = s.initialized ? refreshBtn("Refresh") : ""
@@ -277,8 +277,7 @@
   async function doPull() { busy = "Pulling…"; render(); await volt.pull() }
   async function doPush() { busy = "Pushing…"; render(); await volt.push() }
   async function doBuild() { busy = "Building…"; render(); await volt.build() }
-  async function doConnect() { busy = "Reconnecting…"; render(); await volt.connect() }
-  async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
+  async function doConnect() { busy = "Connecting…"; render(); await volt.connect() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }

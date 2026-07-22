@@ -1,18 +1,27 @@
 import { expect, mock, test } from "bun:test"
+import * as control from "@volt/control"
 
 // The diff-compare content provider: it resolves each side of a `vscode.diff` by shelling out to `volt show <ref>
-// <path>`. Stub the tiny vscode surface (Uri.from, used by buildUri) keeping the components so parseUri round-trips,
-// and stub runVolt so we drive exit codes deterministically.
+// <path>`. Stub the tiny vscode surface (Uri.from, used by buildUri) keeping the components so parseUri round-trips.
+// bun's mock.module is process-global, so make these SUPERSETS: include the fields panel.test.ts's vscode mock uses
+// (ThemeIcon / TreeItemCollapsibleState) so leakage across files is harmless.
 mock.module("vscode", () => ({
 	Uri: { from: (p: { scheme: string; authority?: string; path: string }) => ({ scheme: p.scheme, authority: p.authority ?? "", path: p.path }) },
 	EventEmitter: class {
 		event = (): void => {}
 	},
+	ThemeIcon: class {
+		constructor(public readonly id: string) {}
+	},
+	TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
 }))
 
 let lastArgs: { root: string; args: string[]; opts: unknown } | undefined
 let nextResult: { code: number; stdout: Buffer; stderr: string }
+// Spread the REAL module (so isPouFile/projectWorkspace/etc. survive for other test files that share this process)
+// and override only runVolt.
 mock.module("@volt/control", () => ({
+	...control,
 	runVolt: async (root: string, args: string[], opts: unknown) => {
 		lastArgs = { root, args, opts }
 		return nextResult

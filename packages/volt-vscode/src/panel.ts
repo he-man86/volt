@@ -134,16 +134,26 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	const merges: VoltNode[] = []
 	let mismatchPaused = false
 	let anythingToShow = false // stays false only when EVERY bound workspace is offline → yield to the Connect welcome
+	// One switch on the shared `mode` (the desktop switches on the same field) so the two frontends can't drift.
 	for (const v of views) {
-		// A merge is actionable IN the tree (resolve each file, then Finish); a project mismatch is not.
-		if (v.paused === "merging") { merges.push(mergeNode(v.workspaceRoot, v.conflicts)); anythingToShow = true; continue }
-		if (v.paused === "mismatch") { mismatchPaused = true; anythingToShow = true; continue }
-		// Bridge genuinely unreachable → don't claim "In sync" (it isn't); stay silent here so the "Disconnected —
-		// Connect" welcome renders. The Bridge view shows the health + the Reconnect action.
-		if (!v.health.online) continue
-		anythingToShow = true
-		incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
-		outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
+		switch (v.mode) {
+			case "merging": // actionable IN the tree — resolve each file, then Finish
+				merges.push(mergeNode(v.workspaceRoot, v.conflicts))
+				anythingToShow = true
+				break
+			case "mismatch":
+				mismatchPaused = true
+				anythingToShow = true
+				break
+			case "offline": // stay silent so the "Disconnected — Connect" welcome renders (Bridge view carries health)
+			case "uninitialized": // can't occur for a bound workspace, but the switch stays exhaustive
+				break
+			case "ready":
+				anythingToShow = true
+				incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
+				outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
+				break
+		}
 	}
 	if (!anythingToShow) return [] // all bound workspaces offline → viewsWelcome shows the Connect button
 	// Merge subtree(s) render ALONGSIDE other workspaces' drift — a merge in one folder must not hide another's.

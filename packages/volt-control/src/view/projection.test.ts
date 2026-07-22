@@ -63,6 +63,23 @@ test("projectWorkspace: a project mismatch alone reports the mismatch reason", (
   expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" }).paused).toBe("mismatch")
 })
 
+// ── syncMode: the state machine both shells render from ──────────────────────
+test("projectWorkspace.mode: the offline/ready/merging/mismatch/uninitialized state machine", () => {
+  const unreachable: HealthState = { kind: "unreachable", reason: "x" }
+  const mk = (over: Partial<StatusJson>, health: HealthState, vendor?: "codesys") =>
+    projectWorkspace({ workspaceRoot: "/ws", status: statusWith(over), health, vendor }).mode
+
+  expect(mk({}, connected, "codesys")).toBe("ready") // initialized + online + clean
+  expect(mk({}, unreachable, "codesys")).toBe("offline") // initialized but bridge down
+  expect(mk({}, { kind: "unknown" }, "codesys")).toBe("offline") // probing counts as not-ready
+  expect(mk({}, connected)).toBe("uninitialized") // no vendor ⇒ onboarding
+  // merge/mismatch outrank offline — resolvable with the bridge down.
+  expect(mk({ merging: { projectVersion: "v", conflicts: [] } }, unreachable, "codesys")).toBe("merging")
+  expect(
+    mk({ projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] } }, unreachable, "codesys"),
+  ).toBe("mismatch")
+})
+
 // ── outcome descriptors ──────────────────────────────────────────────────────
 test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refused offers Force Pull", () => {
   const conflict = describePull({ kind: "conflict", paths: ["A.fb", "B.fb"] })

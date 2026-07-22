@@ -123,7 +123,11 @@ async function doFinishMerge(statuses: Map<string, VoltStatus>, workspaceRoot: s
 }
 
 async function doAbortMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
-	const outcome = await mergeAbort(workspaceRoot)
+	// Same notification spinner as pull/push/merge — no bridge action should run without feedback.
+	const outcome = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt merge --abort" },
+		() => mergeAbort(workspaceRoot),
+	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`merge --abort: ${outcome.message}`)
 	await presentOutcome(describeMerge(outcome), vscodePresenter, async () => {})
@@ -133,7 +137,10 @@ async function doAbortMerge(statuses: Map<string, VoltStatus>, workspaceRoot: st
 async function doTakeSide(statuses: Map<string, VoltStatus>, node: { merge?: { workspaceRoot: string; relPath: string } } | undefined, side: "mine" | "ide"): Promise<void> {
 	const m = node?.merge
 	if (m === undefined) return
-	const outcome = await mergeResolve(m.workspaceRoot, m.relPath, side)
+	const outcome = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: `Taking ${side === "ide" ? "the IDE's" : "your"} version` },
+		() => mergeResolve(m.workspaceRoot, m.relPath, side),
+	)
 	await settleFor(statuses, m.workspaceRoot, outcome)
 	if (outcome.kind === "error") {
 		logln(`merge --resolve ${m.relPath}: ${outcome.message}`)
@@ -282,9 +289,13 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.takeMyVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "mine")),
 
 		reg("volt.connect", async () => { const w = ws(); if (w) await doReconnect(statuses, w) }),
+		// Palette-only (no button — it just clears the connector's active-connection highlight; the CLI never gates
+		// sync on it). Kept for power users, with the same notification indicator as its peers.
 		reg("volt.disconnect", async () => {
-			await disconnect() // clear the active connection; every host stays live
-			for (const s of statuses.values()) await s.refresh(true)
+			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt disconnect" }, async () => {
+				await disconnect() // clear the active connection; every host stays live
+				for (const s of statuses.values()) await s.refresh(true)
+			})
 			vscode.window.showInformationMessage("Disconnected. Every IDE stays live — connect again to switch.")
 		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),

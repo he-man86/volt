@@ -726,28 +726,18 @@
       "view/title": [
         {
           "command": "volt.pull",
-          "when": "view == volt.views.sync && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized && volt.bridgeOnline",
           "group": "navigation@1"
         },
         {
           "command": "volt.push",
-          "when": "view == volt.views.sync && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized && volt.bridgeOnline",
           "group": "navigation@2"
         },
         {
           "command": "volt.build",
-          "when": "view == volt.views.sync && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized && volt.bridgeOnline",
           "group": "navigation@3"
-        },
-        {
-          "command": "volt.connect",
-          "when": "view == volt.views.sync && volt.workspaceInitialized",
-          "group": "navigation@4"
-        },
-        {
-          "command": "volt.disconnect",
-          "when": "view == volt.views.sync && volt.workspaceInitialized",
-          "group": "navigation@5"
         },
         {
           "command": "volt.refresh",
@@ -777,12 +767,12 @@
         },
         {
           "command": "volt.forcePull",
-          "when": "volt.workspaceInitialized",
+          "when": "volt.workspaceInitialized && volt.bridgeOnline",
           "group": "2_force@1"
         },
         {
           "command": "volt.forcePush",
-          "when": "volt.workspaceInitialized",
+          "when": "volt.workspaceInitialized && volt.bridgeOnline",
           "group": "2_force@2"
         },
         {
@@ -809,7 +799,7 @@
       },
       {
         "view": "volt.views.sync",
-        "contents": "$(circle-slash) The Volt Connector isn't running.\nStart Volt — its tray connector detects your open PLC projects and serves the bridge. Then your project appears here to initialize from.\n\n$(info) Don't have Volt installed?\n[$(cloud-download) Download Volt](https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe)",
+        "contents": "$(circle-slash) The Volt Connector isn't running.\nStart Volt — its tray connector detects your open PLC projects and serves the bridge. Then your project appears here to initialize from.",
         "when": "!volt.workspaceInitialized && !volt.connectorRunning"
       },
       {

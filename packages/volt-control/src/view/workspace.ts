@@ -32,6 +32,21 @@ export interface WorkspaceInput {
   vendor?: Vendor
 }
 
+/** The one state machine both frontends switch on to decide what the IDE-Sync surface shows. Derived once here
+ *  so the extension and the desktop never re-derive (and drift). `uninitialized` is the onboarding state — each
+ *  shell splits it into its own "detected project → Init" vs "no project" using data not in this model. */
+export type SyncMode = "uninitialized" | "merging" | "mismatch" | "offline" | "ready"
+
+/** Precedence: a local merge/mismatch must be resolvable even when the bridge is down, so they outrank `offline`;
+ *  `ready` (the action row + drift) only when initialized, online, and not paused. */
+export function syncMode(initialized: boolean, paused: WorkspaceView["paused"], online: boolean): SyncMode {
+  if (!initialized) return "uninitialized"
+  if (paused === "merging") return "merging"
+  if (paused === "mismatch") return "mismatch"
+  if (!online) return "offline"
+  return "ready"
+}
+
 export interface WorkspaceView {
   initialized: boolean
   workspaceRoot: string
@@ -40,6 +55,8 @@ export interface WorkspaceView {
   health: HealthDisplay
   /** Why the IDE axis is paused (distinct reasons drive distinct affordances), or null when live. */
   paused: "mismatch" | "merging" | null
+  /** The single state both shells render from — gates the action row, the Connect affordance, and the drift list. */
+  mode: SyncMode
   incoming: DriftItem[]
   outgoing: DriftItem[]
   /** Conflicted files while `paused === "merging"` (empty otherwise) — drives per-file take-a-side rows. */
@@ -61,12 +78,15 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
   const st = input.status
   // merging wins over mismatch (worst-state-first, matching aggregate); items hide while paused.
   const paused: WorkspaceView["paused"] = st?.merging != null ? "merging" : st?.projectMismatch != null ? "mismatch" : null
+  const initialized = input.vendor !== undefined
+  const health = healthDisplay(input.health)
   return {
-    initialized: input.vendor !== undefined,
+    initialized,
     workspaceRoot: input.workspaceRoot,
     vendor: input.vendor,
-    health: healthDisplay(input.health),
+    health,
     paused,
+    mode: syncMode(initialized, paused, health.online),
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],
     outgoing: st !== undefined && paused === null ? driftItems(st, "outgoing") : [],
     conflicts:

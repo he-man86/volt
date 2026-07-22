@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, type VoltSeverity } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -63,9 +63,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	views = new VoltViews()
 	context.subscriptions.push(views)
 
-	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-	statusBar.command = "volt.status"
-
 	// Ask the connector (the one aggregator) whether any PLC project is detected across all IDEs — `volt.hasProjects`
 	// drives the IDE Sync view welcome (pick a project to initialize) + the init command's enablement. No vendor
 	// buttons: the user picks a project, vendor is derived. Skipped once a folder is bound.
@@ -86,13 +83,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	const ensureWorkspace = (folderPath: string): void => {
 		if (statuses.has(folderPath)) { void statuses.get(folderPath)?.refresh(true); return }
 		const folder = workspaceFolders().find((f) => f.uri.fsPath === folderPath)
-		if (folder !== undefined && hasVoltConfig(folder)) addWorkspace(folder, decorations, statusBar)
-		updateGlobalUi(statusBar)
+		if (folder !== undefined && hasVoltConfig(folder)) addWorkspace(folder, decorations)
+		updateContextKeys()
 		void refreshBridgeLive()
 	}
 
 	context.subscriptions.push(
-		statusBar,
 		{ dispose: () => clearInterval(bridgeTimer) },
 		vscode.window.registerFileDecorationProvider(decorations),
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new VoltContentProvider()),
@@ -100,21 +96,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	)
 
 	for (const folder of workspaceFolders()) {
-		if (hasVoltConfig(folder)) addWorkspace(folder, decorations, statusBar)
+		if (hasVoltConfig(folder)) addWorkspace(folder, decorations)
 	}
 	// Gate the UI immediately (before the first status lands) so the menu when-clauses resolve.
 	views.update(statuses)
-	updateGlobalUi(statusBar)
+	updateContextKeys()
 	void refreshBridgeLive()
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeWorkspaceFolders((e) => {
-			for (const folder of e.added) { if (hasVoltConfig(folder)) addWorkspace(folder, decorations, statusBar) }
+			for (const folder of e.added) { if (hasVoltConfig(folder)) addWorkspace(folder, decorations) }
 			for (const folder of e.removed) {
 				statuses.get(folder.uri.fsPath)?.dispose(); statuses.delete(folder.uri.fsPath)
 			}
 			views?.update(statuses)
-			updateGlobalUi(statusBar)
+			updateContextKeys()
 			void refreshBridgeLive()
 		}),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
@@ -137,49 +133,32 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 }
 
-function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecorations, statusBar: vscode.StatusBarItem): void {
+function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecorations): void {
 	const s = new VoltStatus(folder.uri.fsPath)
 
 	s.onDidChange.event(() => {
 		views?.update(statuses)
 		if (s.cached !== undefined) decorations.refresh(s.cached)
-		updateGlobalUi(statusBar)
+		updateContextKeys()
 	})
 	statuses.set(folder.uri.fsPath, s)
 	void s.start()
 }
 
-/** Drive the `volt.workspaceInitialized` context key (gates the view-title actions) AND the ambient
- *  status-bar indicator, both off the shared `aggregate()` display model (health / merge / mismatch /
- *  drift, worst-state-wins) — the one place that mapping lives now, rendered by every surface. */
-const SEV_ICON: Record<VoltSeverity, string> = {
-	uninitialized: "circle-slash",
-	merging: "git-merge",
-	mismatch: "warning",
-	offline: "plug",
-	noproject: "circle-slash",
-	degraded: "warning",
-	drift: "sync",
-	insync: "check",
-}
-
-function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
+/** Drive the menu when-clause context keys off the shared `aggregate()` display model (worst-state-wins). No
+ *  status-bar item — Volt's ambient presence is the activity-bar container; the sync/bridge views carry the state.
+ *   - `volt.workspaceInitialized` — any bound workspace exists (base gate for the view actions).
+ *   - `volt.bridgeOnline` — the bridge is reachable (insync / drift / degraded) → pull/push/build are allowed.
+ *   - `volt.bridgeOffline` — initialized but genuinely unreachable (offline / noproject / probing) → the Connect
+ *     welcome shows. NOT a tray-deselect (that stays connected, sync still works), and NOT merge/mismatch (their
+ *     own affordances handle those). */
+function updateContextKeys(): void {
 	const d = aggregate([...statuses.values()].map((s) => ({ status: s.cached, health: s.health })))
 	const initialized = statuses.size > 0
+	const online = d.severity === "insync" || d.severity === "drift" || d.severity === "degraded"
 	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
-	// A bound workspace whose bridge is genuinely unreachable (connector down = "offline", or its IDE isn't serving
-	// the bound project = "noproject") → drives the "Disconnected — Connect" welcome. NOT a tray-deselect, which
-	// stays connected (the IDE host is live and sync still works), so this correctly won't nag there.
+	void vscode.commands.executeCommand("setContext", "volt.bridgeOnline", initialized && online)
 	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", initialized && (d.severity === "offline" || d.severity === "noproject"))
-
-	if (!initialized) { statusBar.hide(); return }
-
-	statusBar.text = `$(${SEV_ICON[d.severity]}) ${d.label}`
-	statusBar.tooltip = d.tooltip
-	statusBar.command = d.action === "acceptRename" ? "volt.acceptProjectRename" : "volt.status"
-	statusBar.backgroundColor =
-		d.severity === "mismatch" || d.severity === "offline" ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined
-	statusBar.show()
 }
 
 export function deactivate(): Thenable<void>[] {

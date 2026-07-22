@@ -104,6 +104,11 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
       case "unreachable":
         conn = "offline"
         break
+      case "unknown":
+        // Pre-probe: we have NOT confirmed a connection, so never let it read as "connected/in sync". Treat it as
+        // offline (conservative + honest) until a probe returns — the brief probing window flips to ready on success.
+        if (conn === "ok") conn = "offline"
+        break
       case "disconnected":
         if (conn === "ok") conn = "noproject"
         break

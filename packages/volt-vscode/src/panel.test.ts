@@ -16,8 +16,8 @@ mock.module("vscode", () => ({
 const { bridgeRoots, syncRoots } = await import("./panel.js")
 
 // Minimal WorkspaceView fixtures — only the fields the builders read.
-const offlineView = { workspaceRoot: "/w", health: { label: "Disconnected", tone: "error", online: false }, vendor: "codesys", paused: null, incoming: [], outgoing: [], conflicts: [] }
-const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true } }
+const offlineView = { workspaceRoot: "/w", health: { label: "Disconnected", tone: "error", online: false }, vendor: "codesys", paused: null, mode: "offline", incoming: [], outgoing: [], conflicts: [] }
+const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true }, mode: "ready" }
 
 const proj = (over: Record<string, unknown> = {}) => ({
   id: "codesys::MyMachine:",
