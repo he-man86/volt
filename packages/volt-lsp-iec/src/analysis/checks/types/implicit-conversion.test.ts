@@ -66,3 +66,11 @@ test("conversion arg already the source type does NOT warn (zero-FP)", () => {
   expect(conv("i : INT; w : WORD;", "i := WORD_TO_INT(w);")).toEqual([]) // arg WORD = source WORD
   expect(conv("s : STRING; i : INT;", "s := TO_STRING(i);")).toEqual([]) // TO_STRING has no elementary source
 })
+
+// EXPT is modeled as returning LREAL, so a conversion whose arg is an EXPT result sees the narrowing.
+// Corpus-found (lenze fc_DintToTime): `REAL_TO_DINT(EXPT(10, DecShift))` — LREAL result narrows into REAL.
+test("a conversion arg that is an EXPT result (LREAL) narrows into a REAL source", () => {
+  const d = conv("d : DINT; n : DINT;", "d := REAL_TO_DINT(EXPT(10, n));")
+  expect(d).toHaveLength(1)
+  expect(d[0]?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")
+})

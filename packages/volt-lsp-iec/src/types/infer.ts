@@ -22,6 +22,7 @@ import type {
 import { canonicalElem, elementaryType, isDatetime, isDuration } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
+import { lookupReference } from "../reference/index.js"
 
 /** Infer the type of an ST expression. `unknown` on any unresolved sub-part (conservative). */
 export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
@@ -316,6 +317,19 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
 }
 
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
+  // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
-  return sym?.typeExpr !== undefined ? resolveTypeExpr(sym.typeExpr, project) : UNKNOWN
+  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+  // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
+  // FIXED modeled return type (EXPT→LREAL) yields that. Flows a built-in's result into downstream checks — e.g.
+  // `REAL_TO_DINT(EXPT(…))` needs EXPT's LREAL to see the implicit LREAL→REAL narrowing on the argument.
+  if (call.callee.kind === "ident_expr") {
+    const conv = /_TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name) ?? /^TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name)
+    const modeled = conv?.[1] ?? lookupReference(call.callee.name)?.returnType
+    if (modeled !== undefined) {
+      const elem = elementaryType(modeled)
+      if (elem !== undefined) return elementaryTypeRef(elem)
+    }
+  }
+  return UNKNOWN
 }

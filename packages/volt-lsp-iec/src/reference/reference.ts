@@ -17,6 +17,10 @@ export interface ReferenceEntry {
   oneLiner: string
   /** Extra detail rendered under the one-liner (e.g. a type's range/width). */
   details?: string
+  /** Elementary result type for an operator/function with a FIXED return type (`EXPT`→`LREAL`), so type
+   *  inference can flow a built-in's result into downstream checks (e.g. narrowing a conversion argument).
+   *  Only set where the type is unambiguous; a type-preserving operator (ABS, SEL) leaves it undefined. */
+  returnType?: string
 }
 
 // ─── operators + standard functions (curated) ────────────────────────────────
@@ -65,7 +69,7 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("LN", "operator", "Natural logarithm."),
   ref("LOG", "operator", "Base-10 logarithm."),
   ref("EXP", "operator", "e raised to a power."),
-  ref("EXPT", "operator", "Power. `EXPT(base, exp)`."),
+  { ...ref("EXPT", "operator", "Power. `EXPT(base, exp)`."), returnType: "LREAL" }, // CODESYS: always LREAL
   ref("SIN", "operator", "Sine (radians)."),
   ref("COS", "operator", "Cosine (radians)."),
   ref("TAN", "operator", "Tangent (radians)."),
