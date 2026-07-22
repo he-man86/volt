@@ -55,29 +55,61 @@ function hasQualifiedOnly(source: string): boolean {
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them. */
 export function buildSymbolTable(files: readonly SymbolTableInput[]): Scope {
   const project = createProjectScope()
-  for (const { uri, parseResult, source } of files) {
-    // Track the most recent FB/PROGRAM/INTERFACE scope in THIS file so standalone
-    // methods/actions/properties that follow it (the workspace one-item-per-file layout:
-    // a POU, then its members as top-level siblings) parent to it — else member-var
-    // references in those bodies resolve nowhere.
-    let currentMemberHost: Scope | undefined
-    for (const unit of parseResult.units) {
-      const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, source ?? "")
-      if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
-        currentMemberHost = newScope
-      }
-      if (unit.kind === "function") currentMemberHost = undefined
-    }
-  }
+  for (const file of files) bindFile(project, file)
   linkExtends(project)
   return project
 }
 
 /**
+ * Bind ONE file's units into an existing project scope (the incremental-index unit of work). Appends the
+ * file's top-level scopes + project symbols; tags each new top-level child with the file URI so
+ * `unbindFile` can drop exactly this file's contribution later. Caller re-runs `linkExtends` afterwards.
+ */
+export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTableInput): void {
+  const start = project.children.length
+  // Track the most recent FB/PROGRAM/INTERFACE scope in THIS file so standalone
+  // methods/actions/properties that follow it (the workspace one-item-per-file layout:
+  // a POU, then its members as top-level siblings) parent to it — else member-var
+  // references in those bodies resolve nowhere.
+  let currentMemberHost: Scope | undefined
+  for (const unit of parseResult.units) {
+    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, source ?? "")
+    if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
+      currentMemberHost = newScope
+    }
+    if (unit.kind === "function") currentMemberHost = undefined
+  }
+  // Only makeScope(project, …) appends to project.children, so the new top-level scopes are exactly this
+  // slice — tag them with the file URI. Nested member scopes (children of these) need no tag: dropping the
+  // top-level scope drops its whole subtree.
+  for (let i = start; i < project.children.length; i++) project.children[i]!.defUri = uri
+  project._childIndex = undefined // children changed — bust the lazy name index (length-based staleness misses same-count swaps)
+  project._childIndexLen = undefined
+}
+
+/**
+ * Remove one file's contribution from a project scope: its top-level scopes (by `defUri` tag, subtrees
+ * included) and its project-level symbols (by `Symbol.uri`). Inverse of `bindFile`. Caller re-runs
+ * `linkExtends` so any base pointer into a removed scope is dropped.
+ */
+export function unbindFile(project: Scope, uri: string): void {
+  project.children = project.children.filter((c) => c.defUri !== uri)
+  for (const [key, arr] of project.symbols) {
+    const kept = arr.filter((s) => s.uri !== uri)
+    if (kept.length === 0) project.symbols.delete(key)
+    else if (kept.length !== arr.length) project.symbols.set(key, kept)
+  }
+  project._childIndex = undefined
+  project._childIndexLen = undefined
+}
+
+/**
  * Post-pass: link each `EXTENDS` scope to its base scope. Separated from the ingest walk because
- * the base may live in a later file — resolution needs the whole project ingested first.
+ * the base may live in a later file — resolution needs the whole project ingested first. Idempotent:
+ * resets every base pointer first so an incremental re-link can't leave a link into a removed scope.
  */
 export function linkExtends(project: Scope): void {
+  for (const c of project.children) c.baseScope = undefined
   const byName = new Map<string, Scope>()
   for (const c of project.children) {
     if (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface" || c.kind === "struct")

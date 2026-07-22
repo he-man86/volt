@@ -3,7 +3,17 @@
 export * from "./config.js"
 export * from "./messages.js"
 export * from "./diagnostics.js"
-export { deadPous, deadMemberSpans, inDeadMember, ownerPou, type ReachabilityInput } from "./reachability.js"
+export {
+  deadPous,
+  deadMemberSpans,
+  deadPousFromInfos,
+  deadMemberSpansFromInfos,
+  fileReachInfo,
+  inDeadMember,
+  ownerPou,
+  type ReachabilityInput,
+  type FileReachInfo,
+} from "./reachability.js"
 export { SOURCE, type DiagnosticItem } from "./checks/_shared.js"
 export { assignmentPairError } from "./checks/types/assignment.js"
 export { narrowingPairError } from "./checks/types/narrowing.js"
