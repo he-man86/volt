@@ -298,7 +298,13 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			else if (s.statusError !== undefined) output().appendLine(`status unavailable: ${s.statusError}`)
 			output().show()
 		}),
-		reg("volt.refresh", async () => { for (const s of statuses.values()) await s.refresh() }),
+		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a loading bar in the
+		// Sync view's title so the refresh button gives feedback instead of appearing to do nothing.
+		reg("volt.refresh", () =>
+			vscode.window.withProgress({ location: { viewId: "volt.views.sync" } }, async () => {
+				for (const s of statuses.values()) await s.refresh()
+			}),
+		),
 
 		reg("volt.openConfig", () => {
 			const w = ws(); if (!w) return

@@ -32,6 +32,8 @@
     -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
   .bolt { width: 15px; height: 15px; color: var(--accent); flex: none; }
   .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.spin { animation: spin .8s linear infinite; transform-origin: center; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .titlebar { height: 40px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 6px 0 14px; background: var(--chrome); border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
@@ -149,12 +151,17 @@
   let open = false
   let activeTab = "sync" // which rail tab is lit + scrolled to while the panel is open
   let busy = null // live progress text for the in-flight action (pull/push/build/init), else null
+  let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
   const rows = (items) => items.map((f) => `<div class="row"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
   const grp = (label, items) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${rows(items)}` : ""
   const icoBtn = (icon, title, onclick, off) => `<button class="ico-btn" title="${title}" ${off ? "disabled" : ""} onclick="${onclick}"><svg class="ico"><use href="#${icon}"/></svg></button>`
+  // The refresh action, spinning + disabled while a refresh is in flight (both the Sync and Bridge sections use it).
+  const refreshBtn = (title) => refreshing
+    ? `<button class="ico-btn" title="Refreshing…" disabled><svg class="ico spin"><use href="#i-refresh"/></svg></button>`
+    : icoBtn("i-refresh", title, "doRefresh()")
   const section = (key, title, acts, body) => `<div class="sect" id="sect-${key}"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
 
   function renderRail() {
@@ -189,7 +196,7 @@
         icoBtn("i-build", "Build", "doBuild()") +
         icoBtn("i-connect", "Reconnect · re-point the bridge at the bound project", "doConnect()") +
         icoBtn("i-disconnect", "Disconnect · clear the active connection (IDEs stay live)", "doDisconnect()") +
-        icoBtn("i-refresh", "Refresh", "doRefresh()")
+        refreshBtn("Refresh")
       : ""
     // One live-progress note, shown above the sync body during any action (formatProgress feeds `busy`).
     const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
@@ -241,7 +248,7 @@
         <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
           : "")
     }
-    const bridgeActs = s.initialized ? icoBtn("i-refresh", "Refresh", "doRefresh()") : ""
+    const bridgeActs = s.initialized ? refreshBtn("Refresh") : ""
 
     const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
 
@@ -272,7 +279,7 @@
   async function doBuild() { busy = "Building…"; render(); await volt.build() }
   async function doConnect() { busy = "Reconnecting…"; render(); await volt.connect() }
   async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
-  function doRefresh() { volt.refresh() }
+  function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }
 
@@ -281,7 +288,7 @@
     busy = p ? ((p.message ?? "Working…") + (p.pct != null ? ` ${p.pct}%` : "")) : null
     render()
   })
-  volt.onStatus((s) => { snap = s; render() })
+  volt.onStatus((s) => { snap = s; refreshing = false; render() })
   volt.onDiagnostics((d) => { diag = d; render() })
   render()
 </script>
