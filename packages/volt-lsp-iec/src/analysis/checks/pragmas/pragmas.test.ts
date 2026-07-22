@@ -56,6 +56,38 @@ test("an attribute with a value payload resolves its name", () => {
   expect(attrs(`{attribute 'pack_mode' := '1'}\nTYPE T : STRUCT x : INT; END_STRUCT END_TYPE`, true)).toEqual([])
 })
 
+// ─── C0351: an INVALID VALUE for the known `{attribute 'symbol'}` (symbol-export access mode) ───
+// Live-found (pro2193): a `'noe'` typo for `'none'` — the root C0351 that cascades into downstream C0564
+// init warnings. Same C0351 code + toggle as the unknown-NAME case, distinct SymbolConfig-prefixed wording.
+
+const prog = (attr: string) => `{attribute 'symbol' := '${attr}'}\nPROGRAM P\nVAR_INPUT x : INT; END_VAR\nEND_PROGRAM`
+
+test("a typo'd 'symbol' value ('noe') is flagged with the SymbolConfig wording", () => {
+  const d = attrs(prog("noe"), true)
+  expect(d).toHaveLength(1)
+  expect(d[0]?.severity).toBe("warning")
+  expect(d[0]?.message).toBe("SymbolConfig: Invalid value 'noe' for attribute 'symbol'. Should be one of: none, read, write, readwrite")
+})
+
+test("every legal 'symbol' value is accepted (zero-FP), case-insensitively", () => {
+  for (const v of ["none", "read", "write", "readwrite", "None", "ReadWrite"]) expect(attrs(prog(v), true)).toEqual([])
+})
+
+test("the invalid-value warning rides the SAME C0351 toggle (off ⇒ silent) and is CODESYS-only", () => {
+  expect(attrs(prog("noe"), false)).toEqual([]) // toggled off with the unknown-attribute (C0351) control
+  const src = prog("noe")
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "P.prg", parseResult, source: src }])
+  const tc = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+    .filter((d) => d.code === "unknown-attribute")
+  expect(tc).toEqual([]) // CODESYS-gated, like the unknown-name case
+})
+
+test("an attribute other than 'symbol' with an odd value is NOT value-checked (only 'symbol' has a closed set)", () => {
+  // `monitoring` is a known attribute; we don't police its value — no published closed set, so zero-FP.
+  expect(attrs(`{attribute 'monitoring' := 'whatever'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`, true)).toEqual([])
+})
+
 // ─── conditional-compile balance ({IF}/{ELSIF}/{ELSE}/{END_IF}) — wording confirmed against live CODESYS + TwinCAT ───
 
 function condDiags(src: string, vendor: "codesys" | "twincat" = "codesys") {

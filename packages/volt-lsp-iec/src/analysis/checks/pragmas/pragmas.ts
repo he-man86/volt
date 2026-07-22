@@ -71,6 +71,21 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // live /build confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
   if (ctx.config.vendor === "codesys") {
     for (const p of pragmas) {
+      // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
+      // a typo (`'noe'`) is a real C0351 that also cascades downstream (the PROGRAM's export breaks → C0564 init
+      // warnings). Same C0351 code + toggle as the unknown-NAME case, distinct wording. Only `symbol` has a
+      // published closed value set, so it's the only one checked (zero-FP: every other attribute is skipped).
+      if (p.attributeName?.toLowerCase() === "symbol" && p.attributeValue !== undefined && !SYMBOL_VALUES.has(p.attributeValue.toLowerCase())) {
+        out.push({
+          severity: "warning",
+          span: p.span,
+          source: SOURCE,
+          code: "unknown-attribute",
+          message: ctx.messages.invalidSymbolAttributeValue(p.attributeValue),
+        })
+        continue
+      }
+      // C0351 — an unknown attribute NAME (only as complete as the catalog).
       if (p.attributeName === undefined || isKnownAttribute(p.attributeName)) continue
       out.push({
         severity: "warning",
@@ -83,6 +98,9 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   }
 }
 
+/** The legal access modes for `{attribute 'symbol'}` (symbol-table export). CODESYS: none/read/write/readwrite. */
+const SYMBOL_VALUES: ReadonlySet<string> = new Set(["none", "read", "write", "readwrite"])
+
 function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive: string }): DiagnosticItem {
   return {
     severity: "error",
@@ -93,8 +111,8 @@ function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive:
   }
 }
 
-/** Extract a pragma's directive (first word), a message pragma's quoted body, and an attribute's name. */
-function parsePragma(text: string): { directive: string; messageText?: string; attributeName?: string } {
+/** Extract a pragma's directive (first word), a message pragma's quoted body, and an attribute's name+value. */
+function parsePragma(text: string): { directive: string; messageText?: string; attributeName?: string; attributeValue?: string } {
   const m = /^\{\s*([^\s}]+)/.exec(text)
   const directive = m?.[1] ?? ""
   const dir = directive.toLowerCase()
@@ -103,9 +121,9 @@ function parsePragma(text: string): { directive: string; messageText?: string; a
     if (body !== null) return { directive, messageText: body[1] }
   }
   if (dir === "attribute") {
-    // `{attribute 'name'}` or `{attribute 'name' := 'value'}` — the name is the first quoted string.
-    const name = /^\{\s*attribute\s+'([^']*)'/i.exec(text)
-    if (name !== null) return { directive, attributeName: name[1] }
+    // `{attribute 'name'}` or `{attribute 'name' := 'value'}` — name + optional value, both first-quoted.
+    const m2 = /^\{\s*attribute\s+'([^']*)'(?:\s*:=\s*'([^']*)')?/i.exec(text)
+    if (m2 !== null) return { directive, attributeName: m2[1], attributeValue: m2[2] }
   }
   return { directive }
 }

@@ -59,6 +59,10 @@ export interface Messages {
    * recording; its wording is provisional (best-effort, bridge-gated).
    */
   unknownAttribute(name: string): string
+  /** An invalid VALUE for the `{attribute 'symbol'}` pragma — C0351, the symbol-export access mode. Only
+   *  `none/read/write/readwrite` are legal; a typo (`'noe'`) breaks the whole PROGRAM's symbol export, so
+   *  downstream C0564 init warnings cascade from it. Verified live CODESYS (SymbolConfig-prefixed wording). */
+  invalidSymbolAttributeValue(value: string): string
   /** A constant array index outside the dimension's `lo..hi` bounds. PROVISIONAL (bridge-gated). */
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
   /** A FUNCTION/METHOD called with the wrong number of inputs (C0040). verified both vendors. */
@@ -358,6 +362,9 @@ export function messagesFor(vendor: Vendor): Messages {
     // CODESYS byte-identical (double space + unquoted name). TwinCAT never emits this (live /build: compiles
     // an unknown attribute clean), so the lint is CODESYS-gated and this builder is CODESYS-only in practice.
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
+    // CODESYS wording (live /build): "SymbolConfig:" prefix + the legal set. TwinCAT recording pending.
+    invalidSymbolAttributeValue: (value) =>
+      `SymbolConfig: Invalid value '${value}' for attribute 'symbol'. Should be one of: none, read, write, readwrite`,
     // Confirmed byte-identical on both vendors via live /build (2026-07-07).
     arrayIndexOutOfBounds: (index, lo, hi) =>
       `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
