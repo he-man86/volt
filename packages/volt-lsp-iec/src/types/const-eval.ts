@@ -7,7 +7,7 @@
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
 import type { Scope } from "../symbols/index.js"
-import { lookup } from "../symbols/index.js"
+import { lookup, isLibrarySymbol } from "../symbols/index.js"
 import type { Expr, VarDecl } from "../syntax/index.js"
 
 export type ConstValue = bigint | number | boolean | undefined
@@ -40,7 +40,7 @@ export function constancyOf(expr: Expr, scope: Scope): Constancy {
       const found = lookup(scope, expr.name)
       if (found === undefined) return "unknown" // unresolved — could be a library constant or a typo
       const sym = found.symbol
-      if (sym.uri.includes("Library Manager")) return "unknown" // library symbol — may be a constant we can't see
+      if (isLibrarySymbol(sym)) return "unknown" // library symbol — may be a constant we can't see (normalizes %20)
       if (sym.kind === "enum_value" || sym.constant === true) return "constant"
       if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
         return "variable"

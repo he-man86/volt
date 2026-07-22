@@ -43,6 +43,25 @@ test("a plain variable is variable; a VAR CONSTANT is constant", () => {
   }
 })
 
+test("a constant from a library file resolves as non-variable under a live `%20` URI (not flagged)", () => {
+  // The live server keys library files by `file://` URI with `Library%20Manager` (encoded space). A raw
+  // `.includes("Library Manager")` missed it, so a library global used as e.g. an array bound false-positived
+  // as `variable`. constancyOf must NOT return "variable" for a library symbol regardless of URI encoding.
+  const libUri = "file:///App/Library%20Manager/CANopen/GC.gvl"
+  const libSrc = `VAR_GLOBAL\n  GC_MAX : USINT := 9;\nEND_VAR`
+  const useSrc = `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := GC_MAX;\nEND_FUNCTION_BLOCK`
+  const libPr = parseSource(libSrc)
+  const usePr = parseSource(useSrc)
+  const project = buildSymbolTable([
+    { uri: libUri, parseResult: libPr, source: libSrc },
+    { uri: "file:///F.fb", parseResult: usePr, source: useSrc },
+  ])
+  for (const { scope, statements } of bodies(usePr.units, project)) {
+    const s = statements[0]
+    if (s?.kind === "assign") expect(constancyOf(s.value, scope)).not.toBe("variable") // GC_MAX — library symbol
+  }
+})
+
 test("an enum member is constant (inline enum), an unresolved name is unknown", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  st : (A, B, C);\n  n : INT;\nEND_VAR\nCASE st OF\n  A: n := Missing;\nEND_CASE\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)

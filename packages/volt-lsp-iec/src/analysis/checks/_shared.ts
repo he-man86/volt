@@ -40,16 +40,6 @@ export function forEachExpr(
   for (const { scope, statements } of bodies(parseResult.units, project)) walkAllExprs(statements, (e) => visit(e, scope))
 }
 
-/**
- * True when a symbol comes from a referenced-library SIGNATURE (a `Library Manager` folder), not project
- * source. The bridge materializes a library's declaration but not everything a project POU carries — notably
- * PROPERTIES are absent from the precompiled language model — so member/section checks skip library types to
- * stay zero-FP. (Methods ARE now materialized, so those resolve; the skip remains for the property residual.)
- *
- * Normalize the space first: the live server keys symbols by `file://` URI (`Library%20Manager`), the corpus
- * and unit tests by raw OS path (`Library Manager`). Matching only the raw form left the guard silently OFF
- * under the real LSP — library property access then false-positived. Single source of truth for all callers.
- */
-export function isLibrarySymbol(sym: { uri: string }): boolean {
-  return sym.uri.replace(/%20/g, " ").includes("Library Manager")
-}
+// `isLibrarySymbol` moved to the symbols layer (B) so types (const-eval/infer) reach the SAME normalized
+// predicate — re-exported here so analysis callers keep importing it from `_shared`. See its doc in symbol.ts.
+export { isLibrarySymbol } from "../../symbols/index.js"
