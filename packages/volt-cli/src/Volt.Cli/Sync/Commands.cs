@@ -213,8 +213,6 @@ public static class Commands
         var guardItems = sidecar.Items;
         var expectedProjectVersion = forceWithLease is not null ? forceWithLease : force ? null : sidecar.ProjectVersion;
 
-        string HeadSrc(string rel) => Git.GitShowBytes(root, "HEAD", $"src/{rel}") is { } b ? Encoding.UTF8.GetString(b) : "";
-
         var rows = Git.DiffRefs(root, IdeTree.Range, "HEAD", "src");
 
         var affected = rows.SelectMany(r => r.Kind == "rename"
@@ -223,6 +221,14 @@ public static class Commands
         var readOnly = affected.Where(Extensions.IsReadOnly).ToList();
         if (readOnly.Count > 0)
             return PushResult.Rejected("read-only items can't be pushed — revert these:\n" + string.Join("\n", readOnly.Select(p => "  " + p)));
+
+        // Read every changed blob in ONE `git cat-file --batch` (was a `git show` spawn per file — matters on a
+        // large / --force push). The BLOB at HEAD, NOT the worktree file: `.gitattributes` (`* text=auto eol=lf`)
+        // eol-smudges the worktree, so a direct read could diverge from what the IDE must receive.
+        var blobs = Git.ReadBlobsBatch(root, rows.Where(r => r.Kind != "delete")
+            .Select(r => $"HEAD:src/{Files.StripSrcPrefix(r.Kind == "rename" ? r.NewPath : r.Path)}")
+            .Distinct(StringComparer.Ordinal).ToList());
+        string HeadSrc(string rel) => blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b) : "";
 
         var ops = new List<PushOp>();
         void SetForChange(string rel)

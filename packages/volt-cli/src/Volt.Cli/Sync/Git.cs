@@ -369,6 +369,51 @@ public static class Git
         return p.ExitCode != 0 ? null : ms.ToArray();
     }
 
+    /// <summary>Read many blobs in ONE <c>git cat-file --batch</c> — the batch mirror of <see cref="GitShowBytes"/>.
+    /// Feed <c>&lt;ref&gt;:&lt;repoPath&gt;</c> specs on stdin; each blob comes back size-prefixed (binary-exact,
+    /// spaces-in-path safe). Returns spec → raw bytes for the blobs that exist (a <c>missing</c> spec is omitted).
+    /// Push uses this to read every changed file at once instead of a <c>git show</c> spawn per file.</summary>
+    public static IReadOnlyDictionary<string, byte[]> ReadBlobsBatch(string root, IReadOnlyList<string> specs)
+    {
+        var result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        if (specs.Count == 0) return result;
+
+        var psi = new ProcessStartInfo("git")
+        { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, UseShellExecute = false };
+        foreach (var a in new[] { "-C", root, "cat-file", "--batch" }) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi)!;
+        using var outMs = new MemoryStream();
+        var copyTask = p.StandardOutput.BaseStream.CopyToAsync(outMs);
+        var errTask = p.StandardError.BaseStream.CopyToAsync(Stream.Null);
+        var stdin = Encoding.UTF8.GetBytes(string.Join("\n", specs) + "\n");
+        p.StandardInput.BaseStream.Write(stdin, 0, stdin.Length);
+        p.StandardInput.BaseStream.Flush();
+        p.StandardInput.Close();
+        p.WaitForExit();
+        copyTask.GetAwaiter().GetResult();
+        errTask.GetAwaiter().GetResult();
+        if (p.ExitCode != 0) throw new GitError("cat-file --batch", p.ExitCode, "");
+
+        var buf = outMs.GetBuffer();
+        var len = (int)outMs.Length;
+        var pos = 0;
+        foreach (var spec in specs)
+        {
+            // Header line per object, in input order: "<sha> <type> <size>", or "<input> missing".
+            var nl = Array.IndexOf(buf, (byte)'\n', pos, len - pos);
+            if (nl < 0) break;
+            var header = Encoding.UTF8.GetString(buf, pos, nl - pos);
+            pos = nl + 1;
+            if (header.EndsWith(" missing", StringComparison.Ordinal)) continue;
+            var size = int.Parse(header.Substring(header.LastIndexOf(' ') + 1));
+            var content = new byte[size];
+            Array.Copy(buf, pos, content, 0, size);
+            pos += size + 1; // content + its trailing '\n'
+            result[spec] = content;
+        }
+        return result;
+    }
+
     public static string? MergeBase(string root, string a, string b)
     {
         var r = Run(new[] { "-C", root, "merge-base", a, b }, allowFail: true);

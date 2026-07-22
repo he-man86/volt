@@ -123,6 +123,42 @@ public class GitTests
         finally { ForceDelete(root); }
     }
 
+    /// <summary>GOLDEN GATE for push's batch read: `ReadBlobsBatch` (one `cat-file --batch`) MUST return the same
+    /// raw bytes as the per-file `GitShowBytes` for every spec — incl. a CRLF blob (which must come back raw, not
+    /// eol-smudged) and a spaced path — with a `missing` spec omitted.</summary>
+    [Fact]
+    public void ReadBlobsBatch_matches_GitShowBytes_per_file()
+    {
+        var root = TempRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var files = new (string Path, string Content)[]
+            {
+                ("src/FB_A.fb", "FUNCTION_BLOCK FB_A\nEND_FUNCTION_BLOCK\n"),
+                ("src/P.prg", "PROGRAM P\r\nEND_PROGRAM\r\n"),          // CRLF — must return raw
+                ("src/Uni.st", "// ünïcödé comment\n"),                  // UTF-8 multibyte
+                ("src/Plc Logic/x.prg", "PROGRAM x\nEND_PROGRAM\n"),     // spaced path
+            };
+            var entries = files.Select(f => new IndexEntry("100644", Git.WriteBlob(gitDir, f.Content), f.Path)).ToArray();
+            var commit = Git.CommitTree(gitDir, Git.BuildTree(gitDir, entries), Array.Empty<string>(), "c");
+
+            var specs = files.Select(f => $"{commit}:{f.Path}").ToList();
+            specs.Add($"{commit}:src/does-not-exist.fb"); // missing → omitted, not thrown
+            var batch = Git.ReadBlobsBatch(root, specs);
+
+            foreach (var f in files)
+            {
+                var single = Git.GitShowBytes(root, commit, f.Path);
+                Assert.True(batch.TryGetValue($"{commit}:{f.Path}", out var batched));
+                Assert.Equal(single, batched); // byte-identical
+            }
+            Assert.False(batch.ContainsKey($"{commit}:src/does-not-exist.fb"));
+            Assert.Empty(Git.ReadBlobsBatch(root, Array.Empty<string>())); // empty set → empty
+        }
+        finally { ForceDelete(root); }
+    }
+
     [Fact]
     public void Worktree_diff_sees_an_added_src_file_vs_a_ref()
     {

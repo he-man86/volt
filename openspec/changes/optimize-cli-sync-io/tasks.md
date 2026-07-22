@@ -38,20 +38,17 @@ Grounding:
 - [ ] 3.2 Delete `WriteBlobs`/`BuildTree` (+ their tests) once 3.1 is green; `WriteTreeViaFastImport` is the only
       path.
 
-## 4b. Push: batch the per-file blob read (the read-side mirror of init)
+## 4b. Push: batch the per-file blob read (the read-side mirror of init)  ✅
 
-Push detects changes with one `git diff` (`DiffRefs`) but then reads each changed file with a separate
-`GitShowBytes(HEAD, …)` — one `git show` spawn PER file (`HeadSrc` in `SetForChange`/rename). For a large or
-`--force` push that's the same N-spawn cost init had. Batch it, git-native.
-
-- [ ] 4b.1 Add `Git.ReadBlobsBatch(root, specs)` driving ONE `git cat-file --batch` (feed `HEAD:src/<path>` per
-      changed file, parse the size-prefixed responses byte-exactly). Needs a byte-level `Run` variant — `cat-file
-      --batch` output interleaves ASCII headers with raw content; don't UTF-8-decode the framing.
-- [ ] 4b.2 Route push's `HeadSrc` through it (pre-read all changed/renamed paths once, look up per op).
-- [ ] 4b.3 MUST read the BLOB, not the working tree — `.gitattributes` (`* text=auto eol=lf`) eol-smudges the
-      worktree file, so `File.ReadAllBytes(src/…)` could diverge from what push must send. Gate: a `GitTests`
-      case asserting batch-read bytes == `GitShowBytes` per file, incl. a CRLF blob.
-- [ ] 4b.4 `PushCommandTests` stay green; situational win (small pushes are already fine — measure a large one).
+- [x] 4b.1 `Git.ReadBlobsBatch` drives ONE `git cat-file --batch` — feeds `<ref>:<repoPath>` specs, reads stdout
+      at the BYTE level (`BaseStream.CopyToAsync`, like `GitShowBytes`), parses the size-prefixed responses
+      byte-exactly (spaces-in-path + `missing` handled). Empty set → empty.
+- [x] 4b.2 Push reads all changed/renamed blobs in one call after the read-only check (so a rejected push reads
+      nothing); `HeadSrc` is now a dict lookup keyed by `HEAD:src/<rel>`.
+- [x] 4b.3 Reads the BLOB, not the eol-smudged worktree. Gate: `GitTests.ReadBlobsBatch_matches_GitShowBytes_per_file`
+      asserts batch bytes == `GitShowBytes` per file, incl. a CRLF blob + a spaced path + a missing spec. Green.
+- [x] 4b.4 `PushCommandTests` green (full sync suite 96/96). Situational win — large/`--force` pushes drop from
+      N `git show` spawns to one process.
 
 ## 4. Measure + decide the index-fusion follow-up
 
