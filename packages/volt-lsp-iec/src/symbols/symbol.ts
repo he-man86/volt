@@ -136,3 +136,17 @@ export function defineSymbol(scope: Scope, sym: Symbol): void {
 export function lookupLocal(scope: Scope, name: string): Symbol[] {
   return scope.symbols.get(name.toLowerCase()) ?? []
 }
+
+/**
+ * True when a symbol/URI comes from a referenced-library SIGNATURE (a `Library Manager` folder) rather than
+ * project source. A referenced library is a precompiled blob the consuming project never recompiles, so its
+ * materialized declarations must NOT be error-checked (they'd false-positive on code CODESYS never builds).
+ *
+ * Normalizes `%20` FIRST: the live server keys symbols by `file://` URI (`Library%20Manager`); the corpus and
+ * unit tests by raw OS path (`Library Manager`). Matching only the raw form silently disabled the guard under
+ * the real LSP. Lives in layer B so BOTH types (const-eval/infer) and analysis reach the ONE source of truth —
+ * do NOT re-inline `.includes("Library Manager")`; the raw match is the exact footgun this replaces.
+ */
+export function isLibrarySymbol(sym: { uri: string }): boolean {
+  return sym.uri.replace(/%20/g, " ").includes("Library Manager")
+}

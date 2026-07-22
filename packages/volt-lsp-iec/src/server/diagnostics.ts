@@ -17,6 +17,7 @@ import {
 } from "../analysis/index.js"
 import { computeVgDiagnostics } from "../graphical/index.js"
 import { codesysCodeFor } from "../reference/error-codes.js"
+import { isLibrarySymbol } from "../symbols/index.js"
 import { rangeFromSpan, type Document } from "../services/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
 
@@ -44,6 +45,13 @@ function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
 
 /** The full LSP diagnostic set for one document — semantic + VG + parse errors, with dead-code suppression. */
 export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d: Document): Diagnostic[] {
+  // ROOT gate for the whole library-FP class: a referenced library is a precompiled blob the consuming
+  // project never recompiles, so CODESYS runs no check on its materialized source — any error we emit on it is
+  // a false positive the user can't act on. Library files are marked by their `Library Manager/` path (the
+  // bridge materializes them there). Skip them in ONE place, so no per-check `isLibrarySymbol` guard can silently
+  // drift and reintroduce the class (as the raw-vs-`%20` match did). Per-check guards still matter for a PROJECT
+  // file that *references* a library symbol; this gate is for diagnosing the library file itself.
+  if (isLibrarySymbol({ uri: d.uri })) return []
   const owner = ownerPou(d.parseResult)
   const dead = owner !== undefined && store.deadSet().has(owner)
   // Excluded/uncalled methods inside this (live) file — keyed by the resolved doc URI (matches the store map).

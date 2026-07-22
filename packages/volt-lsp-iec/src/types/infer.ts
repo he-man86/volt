@@ -7,7 +7,7 @@
  * off the node instead of re-resolving a `TypeExpr` (the win of the folded model).
  */
 import type { Scope, Symbol } from "../symbols/index.js"
-import { childScopesByName, lookup, lookupLocal } from "../symbols/index.js"
+import { childScopesByName, lookup, lookupLocal, isLibrarySymbol } from "../symbols/index.js"
 import type {
   BinaryExpr,
   CallExpr,
@@ -161,8 +161,8 @@ function fbChainSections(fb: FunctionBlock, definedIn: Scope): { sections: VarSe
     seen.add(baseName.toLowerCase())
     const baseSym: Symbol | undefined = lookup(where, baseName)?.symbol
     // A library base's uri sits under "Library Manager"; its signature flattens sections, so it can't be
-    // trusted for arity (mirrors `isLibrarySymbol`, which layer C can't import from analysis).
-    if (baseSym === undefined || baseSym.uri.includes("Library Manager") || baseSym.ast.kind !== "function_block") {
+    // trusted for arity. `isLibrarySymbol` normalizes the `%20` the live server sends (a raw match missed it).
+    if (baseSym === undefined || isLibrarySymbol(baseSym) || baseSym.ast.kind !== "function_block") {
       complete = false
       break
     }
