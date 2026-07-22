@@ -85,6 +85,7 @@ export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTab
   for (let i = start; i < project.children.length; i++) project.children[i]!.defUri = uri
   project._childIndex = undefined // children changed — bust the lazy name index (length-based staleness misses same-count swaps)
   project._childIndexLen = undefined
+  project._spanIndex = undefined // and the span→scope index — else scopeForUnit misses the rebound file's fresh spans
 }
 
 /**
@@ -101,6 +102,7 @@ export function unbindFile(project: Scope, uri: string): void {
   }
   project._childIndex = undefined
   project._childIndexLen = undefined
+  project._spanIndex = undefined
 }
 
 /**

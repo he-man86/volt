@@ -103,6 +103,11 @@ export interface Scope {
    *  linear `.find` per lookup is an O(n) tax on the hot inference path. Rebuilt when `children` grows. */
   _childIndex?: Map<string, Scope[]>
   _childIndexLen?: number
+  /** Lazy span→scope index for `scopeForUnit` (project root only). Like `_childIndex`, an incremental rebind
+   *  must NULL it explicitly — a same-count file swap replaces spans without changing counts, so no length
+   *  guard can detect staleness. A stale index makes `scopeForUnit` miss the rebound file's fresh spans and
+   *  name-walk into a same-named sibling POU's member (cross-unit scope contamination). */
+  _spanIndex?: Map<Span, Scope>
 }
 
 export function createProjectScope(): Scope {

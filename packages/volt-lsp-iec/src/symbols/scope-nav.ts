@@ -121,12 +121,12 @@ export function scopeForUnit(project: Scope, unit: TopLevel): Scope | undefined 
 }
 
 // Called by ~13 checks × every file: a per-call DFS over the project tree (thousands of scopes) made the
-// whole diagnostic pass O(files × project) — quadratic. Index span→scope ONCE per project (keyed on root
-// identity, like childScopesByName / the data-recursion graph) so `scopeForUnit` is O(1).
-const spanIndexCache = new WeakMap<Scope, Map<Span, Scope>>()
+// whole diagnostic pass O(files × project) — quadratic. Index span→scope ONCE per project (cached on the root
+// scope's `_spanIndex`, like `_childIndex`) so `scopeForUnit` is O(1). `bindFile`/`unbindFile` NULL it on every
+// incremental rebind — without that a stale index misses the rebound file's fresh spans and name-walks into a
+// same-named sibling POU's scope (the cross-unit contamination that surfaces on `didOpen`).
 function spanIndex(project: Scope): Map<Span, Scope> {
-  const cached = spanIndexCache.get(project)
-  if (cached !== undefined) return cached
+  if (project._spanIndex !== undefined) return project._spanIndex
   const index = new Map<Span, Scope>()
   const visit = (scope: Scope): void => {
     for (const child of scope.children) {
@@ -135,8 +135,7 @@ function spanIndex(project: Scope): Map<Span, Scope> {
     }
   }
   visit(project)
-  spanIndexCache.set(project, index)
-  return index
+  return (project._spanIndex = index)
 }
 
 /**
