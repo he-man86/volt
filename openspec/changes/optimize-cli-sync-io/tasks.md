@@ -33,10 +33,17 @@ Grounding:
 
 ## 3. Prove fidelity end-to-end, then delete the temp path
 
-- [ ] 3.1 Run `bun test test/e2e` (`crud-cycle`, `graphical/roundtrip`) against a live bridge on BOTH CODESYS and
-      TwinCAT — round-trip byte-identical. (Needs a live bridge; can't run headless — USER side.)
-- [ ] 3.2 Delete `WriteBlobs`/`BuildTree` (+ their tests) once 3.1 is green; `WriteTreeViaFastImport` is the only
-      path.
+- [x] 3.1 **CODESYS: validated live** (headless via `codesys-pipe.ps1`). e2e parity **52/52** (fetch, push,
+      crud-cycle, roundtrip, clear, children, kinds). Real CLI cycle against the live bridge:
+        - `volt init` — **593 files in 0.83s**, `git status` **CLEAN** (fast-import tree ≡ working tree, byte-identical).
+        - `volt push` (a project POU) — read via `ReadBlobsBatch`, accepted, round-trip clean.
+        - `volt pull` — clean.
+      (The one "modified" file on the first run was a Windows `MAX_PATH` artifact of a deep temp dir, not a
+      content diff — clean in a normal-length root.)
+- [ ] 3.1b **TwinCAT: pending** — same suite with a live TwinCAT bridge. The golden gate is vendor-independent
+      (git plumbing on identical content), so this is confirmation, not new risk.
+- [ ] 3.2 Delete `WriteBlobs`/`BuildTree` (+ the golden-reference test) once 3.1b is green; `WriteTreeViaFastImport`
+      is the only path. Kept for now as the byte-identity oracle.
 
 ## 4b. Push: batch the per-file blob read (the read-side mirror of init)  ✅
 
