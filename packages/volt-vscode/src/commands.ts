@@ -291,17 +291,23 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.status", async () => {
 			const s = pickStatus(statuses)
 			if (s === undefined) return
-			await s.refresh()
+			// A notification toast while the (cold-spawned) `volt status` runs — same indicator as push/pull — then a
+			// toast with the summary, so the result is visible without digging into the output channel.
+			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt status" }, () => s.refresh())
 			const c = s.cached
-			output().appendLine("── volt status ──")
-			if (c !== undefined) output().appendLine(c.summary)
-			else if (s.statusError !== undefined) output().appendLine(`status unavailable: ${s.statusError}`)
-			output().show()
+			if (c !== undefined) {
+				output().appendLine(`── volt status ──\n${c.summary}`)
+				void vscode.window.showInformationMessage(`Volt: ${c.summary}`)
+			} else {
+				const msg = s.statusError ?? "status unavailable"
+				output().appendLine(`── volt status ──\n${msg}`)
+				void vscode.window.showWarningMessage(`Volt status: ${msg}`)
+			}
 		}),
-		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a loading bar in the
-		// Sync view's title so the refresh button gives feedback instead of appearing to do nothing.
+		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a notification toast
+		// (same indicator as push/pull) so the refresh button gives feedback instead of appearing to do nothing.
 		reg("volt.refresh", () =>
-			vscode.window.withProgress({ location: { viewId: "volt.views.sync" } }, async () => {
+			vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt refresh" }, async () => {
 				for (const s of statuses.values()) await s.refresh()
 			}),
 		),
