@@ -1,7 +1,0 @@
-TYPE L_TB1P_DIRECTION :
-(
-	DEFAULT := 0,
-	CW := 1,
-	CCW := 2
-);
-END_TYPE

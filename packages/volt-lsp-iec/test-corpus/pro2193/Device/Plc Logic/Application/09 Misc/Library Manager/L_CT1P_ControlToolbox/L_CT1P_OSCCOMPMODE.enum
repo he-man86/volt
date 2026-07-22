@@ -1,8 +1,0 @@
-TYPE L_CT1P_OSCCOMPMODE :
-(
-	INACTIVE := 0,
-	FAST := 1,
-	MEDIUM := 2,
-	ROBUST := 5
-);
-END_TYPE

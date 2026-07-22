@@ -1,6 +1,0 @@
-LIBRARY CAA CANopen Manager
-NAMESPACE CO
-RESOLUTION CAA CANopen Manager, 3.5.17.0 (CAA Technical Workgroup)
-PLACEHOLDER true
-SYSTEM false
-DEPENDENCIES CAA Types, CAA CANopen Stack

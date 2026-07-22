@@ -1,8 +1,0 @@
-TYPE L_MC1P_GRINDINMODE :
-(
-	CW := 1,
-	CCW := 2,
-	CWCCW := 3,
-	CCWCW := 4
-);
-END_TYPE

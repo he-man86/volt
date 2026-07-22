@@ -1,5 +1,0 @@
-LIBRARY SysTypes
-NAMESPACE SysTypes
-RESOLUTION SysTypes, 3.1.2.0 (System)
-PLACEHOLDER true
-SYSTEM false

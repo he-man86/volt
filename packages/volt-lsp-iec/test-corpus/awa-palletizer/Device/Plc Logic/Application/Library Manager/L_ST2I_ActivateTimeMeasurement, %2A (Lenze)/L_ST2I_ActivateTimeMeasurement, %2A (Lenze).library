@@ -1,5 +1,0 @@
-LIBRARY L_ST2I_ActivateTimeMeasurement, * (Lenze)
-NAMESPACE L_ST2I
-RESOLUTION L_ST2I_ActivateTimeMeasurement, * (Lenze)
-PLACEHOLDER false
-SYSTEM false

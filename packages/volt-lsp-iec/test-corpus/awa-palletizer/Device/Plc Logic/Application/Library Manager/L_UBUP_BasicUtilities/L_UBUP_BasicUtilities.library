@@ -1,6 +1,5 @@
 LIBRARY L_UBUP_BasicUtilities
 NAMESPACE L_UBUP
-RESOLUTION L_UBUP_BasicUtilities, 3.34.0.6 (Lenze)
+RESOLUTION L_UBUP_BasicUtilities, * (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES CmpApp, CmpEventMgr, Standard, CAA Mathematics, SysTask, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, SysTime, SysMem, SysFile, CmpAsyncMgr, Analyzation, IecVarAccess, IecVarAccess3 Interfaces, * (System), CAA Types, CAA FB Factory, CmpIecTask, SysTarget, L_IE1P_ApplicationErrorsTypes, Util, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), L_SSYP_CmpLenzeIPCSystem

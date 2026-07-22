@@ -1,6 +1,0 @@
-LIBRARY L_DCO_DriveCommunication
-NAMESPACE L_DCO
-RESOLUTION L_DCO_DriveCommunication, 3.33.0.3 (Lenze)
-PLACEHOLDER true
-SYSTEM false
-DEPENDENCIES IoStandard, IoDrvBase, Standard, Base Interfaces, * (System), CmpErrors2 Interfaces, * (System), SysCpuHandling, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, IoDriver Interfaces, * (System), IoDriver Parameter Interfaces, * (System)

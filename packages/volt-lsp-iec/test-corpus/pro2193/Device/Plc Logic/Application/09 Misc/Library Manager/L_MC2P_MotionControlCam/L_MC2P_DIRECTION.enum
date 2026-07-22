@@ -1,8 +1,0 @@
-TYPE L_MC2P_DIRECTION :
-(
-	DEFAULT := 0,
-	CW := 1,
-	CCW := 2,
-	STOP := 3
-);
-END_TYPE

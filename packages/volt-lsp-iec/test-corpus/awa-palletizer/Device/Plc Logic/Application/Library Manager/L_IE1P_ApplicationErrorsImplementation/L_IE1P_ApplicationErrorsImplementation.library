@@ -1,6 +1,0 @@
-LIBRARY L_IE1P_ApplicationErrorsImplementation
-NAMESPACE L_IE1P_Implementation
-RESOLUTION L_IE1P_ApplicationErrorsImplementation, 3.34.0.15 (Lenze)
-PLACEHOLDER true
-SYSTEM false
-DEPENDENCIES L_PLCLoggingAccess, Standard, L_SEMP_ErrorManagement, L_IMHP_ModuleHandler, VisuDialogs, SysTime, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IE1P_ApplicationErrorsTypes, SysTypes2 Interfaces, * (System), CmpEventMgr

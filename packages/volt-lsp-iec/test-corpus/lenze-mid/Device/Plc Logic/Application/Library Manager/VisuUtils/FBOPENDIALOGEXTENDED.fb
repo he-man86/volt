@@ -12,3 +12,12 @@ VAR
 	ITFCAPTURECURRENTCLIENT : ICaptureCurrentClient;
 END_VAR
 END_FUNCTION_BLOCK
+
+METHOD CALLOPENDIALOG
+VAR_INPUT
+	VISUDIALOG : VisuElemBase.IVisualisationDialog;
+	DLGMANAGER : VisuElemBase.IDialogManager;
+	PPOSITIONRECT : POINTER TO VisuElemBase.VisuStructSimpleRectangle;
+	PCLIENTDATATOUSE : POINTER TO VisuElemBase.VisuStructClientData;
+END_VAR
+END_METHOD

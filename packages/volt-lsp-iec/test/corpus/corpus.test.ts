@@ -145,70 +145,15 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     expect(totalBases).toBeGreaterThan(0)
   }, CORPUS_TIMEOUT)
 
-  // Layer D (D.3): the analysis checks must produce ZERO error-severity diagnostics on the corpus.
-  // The corpus compiles clean in the IDE, so every error-severity diagnostic here is a false positive.
-  // (Warnings — narrowing, author message pragmas — are legitimate and not counted.)
-  test("semantic checks emit zero error-severity false positives on the corpus", () => {
-    const config = resolveConfig({ vendor: "codesys" })
-    const falsePositives: string[] = []
-    for (const project of readdirSync(CORPUS_ROOT)) {
-      const dir = join(CORPUS_ROOT, project)
-      if (!statSync(dir).isDirectory()) continue
-      const inputs = walk(dir).map((uri) => {
-        const source = readFileSync(uri, "utf8")
-        return { uri, source, parseResult: parseSource(source) }
-      })
-      const scope = buildSymbolTable(inputs)
-      const references = loadWorkspaceRefs(dir)
-      const messages = messagesFor("codesys")
-      // Dead code rides through in the corpus now (the bridge no longer omits it); the LSP suppresses its
-      // diagnostics structurally by default, so match the server and skip a file whose owner POU is dead.
-      const dead = deadPous(inputs, loadTaskRoots(dir))
-      const deadMembers = deadMemberSpans(inputs, dead)
-      for (const f of inputs) {
-        const owner = ownerPou(f.parseResult)
-        if (owner !== undefined && dead.has(owner)) continue
-        const dm = deadMembers.get(f.uri) // spans of this file's excluded/uncalled methods
-        for (const d of computeSemanticDiagnostics({
-          parseResult: f.parseResult,
-          source: f.source,
-          project: scope,
-          config,
-          references,
-        })) {
-          if (d.severity === "error" && !inDeadMember(d.span, dm))
-            falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
-        }
-        // VG code-correctness checks (sink type-checks) must also be false-positive-free on real graphical code.
-        for (const d of computeVgDiagnostics(f, scope, messages, references)) {
-          if (d.severity === "error" && !d.code.startsWith("VG_") && !inDeadMember(d.span, dm))
-            falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
-        }
-      }
-    }
-    expect(falsePositives).toEqual([])
-  }, CORPUS_TIMEOUT) // heavy: all checks (incl. member-access inference) over every corpus file
-
-  // The opt-in unknown-attribute lint is only as complete as the pragma catalog. Enable it across the corpus
-  // and require ZERO hits: every attribute real projects use must be catalogued, else it would false-positive.
-  test("unknown-attribute warning: pragma catalog covers every attribute in the corpus (0 hits)", () => {
-    const config = resolveConfig({ vendor: "codesys", diagnostics: { "unknown-attribute": "warning" } })
-    const hits: string[] = []
-    for (const project of readdirSync(CORPUS_ROOT)) {
-      const dir = join(CORPUS_ROOT, project)
-      if (!statSync(dir).isDirectory()) continue
-      const inputs = walk(dir).map((uri) => {
-        const source = readFileSync(uri, "utf8")
-        return { uri, source, parseResult: parseSource(source) }
-      })
-      const scope = buildSymbolTable(inputs)
-      for (const f of inputs) {
-        for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project: scope, config }))
-          if (d.code === "unknown-attribute") hits.push(`${project}${f.uri.slice(dir.length)} ${d.message}`)
-      }
-    }
-    expect(hits).toEqual([])
-  }, CORPUS_TIMEOUT) // heavy: a second full-corpus diagnostic pass with the lint enabled
+  // RETIRED — superseded by `build-conformance.test.ts`, the ground-truth oracle (LSP errors+warnings ⊆ the
+  // real IDE build, per project). Two tests lived here and both encoded the FALSE "corpus compiles clean"
+  // premise ([[corpus-not-clean-build-oracle]]): (1) "zero error-severity false positives" — the projects are
+  // NOT clean (they carry real build errors/warnings and typo'd attributes), and it lacked the library-file
+  // gate the server applies, so it flagged precompiled-library patterns; (2) "pragma catalog covers every
+  // attribute (0 hits)" — real projects legitimately contain attribute TYPOS (`noe`/`qualified_oly`/`strit`),
+  // which SHOULD hit. build-conformance subsumes both: an LSP diagnostic the build never emitted (a catalog-gap
+  // FP, or a spurious error) shows up there as a false positive, with the whitespace/truncation/library-gate
+  // handling those blanket assertions never had.
 
   // Diagnostic-identity invariants over the FULL LSP wire path (documentDiagnostics — the exact bytes a
   // client receives), folded into the corpus so every real file is checked, not just synthetic cases:

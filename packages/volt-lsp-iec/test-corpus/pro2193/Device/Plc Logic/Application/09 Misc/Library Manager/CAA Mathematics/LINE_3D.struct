@@ -1,6 +1,0 @@
-TYPE LINE_3D :
-STRUCT
-	VP : Vector3D;
-	VV : Vector3D;
-END_STRUCT
-END_TYPE

@@ -1,6 +1,5 @@
 LIBRARY L_TS2P_TechModulesSynchronizingCamming
 NAMESPACE L_TS2P
-RESOLUTION L_TS2P_TechModulesSynchronizingCamming, 3.34.0.70 (Lenze)
+RESOLUTION L_TS2P_TechModulesSynchronizingCamming, 3.33.0.16 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES CAA Mathematics, L_IE1P_ApplicationErrors, Standard, L_MC2P_MotionControlCam, L_MC1P_MotionControlBasic, L_UBUP_BasicUtilities, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_TB2P_TechModulesBasic, L_USPP_SignalProcessing, L_UM1P_MulticoreBasic
