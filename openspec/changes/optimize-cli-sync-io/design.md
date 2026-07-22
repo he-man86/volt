@@ -41,9 +41,10 @@ function of content. `push` reads objects via `GitShowBytes` (no bulk write) —
 Today `BuildVoltIdeTree` does `WriteBlobs`(temp files) + `update-index --index-info` + `write-tree`, then
 `CommitVoltIde` runs `commit-tree` — four processes and a temp-file pass to reproduce what `fast-import` (git's
 own bulk-history importer) does in one stream. Replace all of it with a single `fast-import` `commit`:
-- **changed** items → `M <mode> inline <path>` + `data <n> <raw-bytes>` — content goes straight into the object,
-  no temp file, no `hash-object` pass, no gitattributes/CRLF filters (byte-identical to today's `--no-filters`,
-  and `data <n>` is a raw byte count so it's *more* faithful to non-UTF-8 than `Encoding.UTF8.GetBytes`).
+- **changed** items → `M <mode> inline <path>` + `data <n> <bytes>` — content goes straight into the object, no
+  temp file, no `hash-object` pass, no gitattributes/CRLF filters (byte-identical to today's `--no-filters`).
+  `MaterializedFile.Content` is a `string`, so the stream bytes are its UTF-8 encoding — exactly what
+  `WriteBlobs` does (`Encoding.UTF8.GetBytes`); there is no non-UTF-8/binary content path to worry about.
 - **unchanged** IDE items + **scaffold** → `M <mode> <sha> <path>`, referencing the existing objects by the SHAs
   we already read from `ls-tree(parentIde)` / `ls-tree(HEAD)` — no re-hash, identical to today's composition.
 - The stream emits the blobs, the tree, AND the commit; `get-mark`/the commit mark yields the commit SHA.
@@ -77,10 +78,14 @@ measured before/after but is not the gate — correctness is.
 - **`fast-import` availability/quirks** (it's a plumbing command, always present in git, but has its own stream
   grammar and needs a clean `done`) → keep `WriteBlobs` as a fallback path behind a flag during rollout; delete
   once the golden + e2e gates are green on both vendors.
-- **Encoding edge cases** (a file whose bytes aren't clean UTF-8) → the current path already assumes UTF-8
-  (`Encoding.UTF8.GetBytes`); `fast-import` takes a raw byte count (`data <n>`), so it is actually *more* faithful
-  for non-UTF-8 bytes. Assert with a binary/opaque-item fixture.
-- **Empty/edge sets** (0 items, 1 item, huge item) → unit-cover; `fast-import` must no-op cleanly on empty.
+- **Content edge cases** → the content set the golden reuses is already baselined in
+  `GitTests.WriteBlobs_batch_matches_per_file_WriteBlob`: empty content, CRLF-that-must-not-normalize, UTF-8
+  multibyte, no-trailing-newline, and the empty set. `fast-import` must UTF-8-encode the `string` content
+  identically. (Content is always a `string`, so there is no non-UTF-8/binary case.)
+- **Path edge cases** (spaces, deep nesting) → real corpus paths have spaces; `fast-import`'s `M … <path>` field
+  is space-sensitive where `update-index --index-info` (tab-separated) is not. Baselined in
+  `IdeTreeTests.Paths_with_spaces_round_trip_into_the_tree`; the rewrite MUST keep it green.
+- **Empty/edge sets** (0 items, 1 item, huge item) → `fast-import` must no-op cleanly on empty; unit-cover 1 item.
 
 ## Migration Plan
 

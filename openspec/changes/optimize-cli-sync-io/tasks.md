@@ -13,8 +13,10 @@ Grounding (verify still true when picking this up):
       unchanged/scaffold, and returns the commit SHA (via the commit mark / `get-marks`). Emit `done`; handle the
       empty set and a single item cleanly.
 - [ ] 1.2 GOLDEN GATE: a `GitTests` case asserting the `fast-import` path yields the **same tree + commit SHAs**
-      as the current `WriteBlobs` + `update-index` + `write-tree` + `commit-tree` for a representative set (ASCII,
-      UTF-8 multibyte, empty file, large file, a binary/opaque blob, an unchanged-by-SHA entry). Red first.
+      as the current `WriteBlobs` + `update-index` + `write-tree` + `commit-tree`. Reuse the already-baselined
+      edge cases — the content set in `WriteBlobs_batch_matches_per_file_WriteBlob` (empty, CRLF, UTF-8 multibyte,
+      no-trailing-newline, empty set) and `IdeTreeTests.Paths_with_spaces_round_trip_into_the_tree` — plus an
+      unchanged-by-SHA entry and a single-item set. Red first. (Content is a `string`; no binary case.)
 - [ ] 1.3 Keep the old `WriteBlobs`/`BuildTree`/`CommitVoltIde` path in place (fallback) until step 3.
 
 ## 2. Route init + pull through it
