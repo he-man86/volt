@@ -81,6 +81,31 @@ public class IdeTreeTests
     }
 
     [Fact]
+    public void Paths_with_spaces_round_trip_into_the_tree()
+    {
+        // Real projects nest under folders with spaces (e.g. "Plc Logic/Application/010 PC01/pgPC01.prg").
+        // The tree entry's path field must carry them verbatim — a rewrite of the blob/tree writer (e.g. via
+        // `git fast-import`, whose `M <mode> <ref> <path>` field is space-sensitive) MUST keep this working.
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var head = Git.CommitTree(gitDir, Git.BuildTree(gitDir, Array.Empty<IndexEntry>()), Array.Empty<string>(), "empty");
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null,
+                new List<MaterializedFile>
+                {
+                    new("Plc Logic/Application/010 PC01/pgPC01.prg", "PROGRAM pgPC01\nEND_PROGRAM\n"),
+                    new("Global Vars/GVL Constants.gvl", "VAR_GLOBAL CONSTANT\nEND_VAR\n"),
+                },
+                Array.Empty<string>());
+
+            Assert.Equal("PROGRAM pgPC01\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.prg"));
+            Assert.Equal("VAR_GLOBAL CONSTANT\nEND_VAR\n", Blob(root, tree, "src/Global Vars/GVL Constants.gvl"));
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    [Fact]
     public void Init_seeds_the_whole_ide_with_no_parent()
     {
         var root = TestUtil.NewRepo();

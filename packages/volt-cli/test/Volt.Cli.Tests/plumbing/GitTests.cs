@@ -76,6 +76,7 @@ public class GitTests
                 "",                                   // empty item (a cleared body)
                 "PROGRAM P\r\nVAR\r\nEND_VAR\r\n",    // pre-existing CRLF must NOT be filtered/normalized
                 "// ünïcödé comment\nVAR y : REAL; END_VAR\n",
+                "END_FUNCTION_BLOCK",                 // no trailing newline — bytes preserved exactly
             };
             var expected = contents.Select(c => Git.WriteBlob(gitDir, c)).ToList();
             var batched = Git.WriteBlobs(gitDir, contents);
