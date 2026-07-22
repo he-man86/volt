@@ -22,6 +22,6 @@ export function formatProgress(p: ProgressUpdate): { pct?: number; message?: str
   const count = frac !== undefined ? `${p.done}/${p.total}` : undefined
   // LEAD with the concrete count — a live "1234/8000" reads faster than a bar and is what the user tracks; the
   // phase label is the suffix. An indeterminate phase (no total, e.g. Merging/Finalizing) shows just its label.
-  const message = count !== undefined ? (p.phase != null ? `${count} · ${p.phase}` : count) : p.phase
+  const message = count !== undefined ? (p.phase != null ? `${count} · ${p.phase}` : count) : (p.phase ?? undefined)
   return { pct, message }
 }
