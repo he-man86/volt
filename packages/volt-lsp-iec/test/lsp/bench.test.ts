@@ -25,13 +25,14 @@ import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const ITERATIONS = 40
 // p95 ceiling for one edit→diagnostics on the LARGEST project POU of the largest corpus project (pro2193,
-// 7759 files). Post root-causing (2026-07-22) the worst case is ~80ms p50 / ~130ms p95, split between the
-// semantic pass and an O(project)/edit floor — `linkExtends` + span-index rebuild, which are NOT yet
-// incremental (the symbol-table bind is). The three algorithmic hot spots were fixed: bare-enum scan before
-// scope lookup (88→4ms), and two naive reachability fixpoints (74→9ms, and dead-members) — those were the
-// real bugs. The budget catches a REGRESSION of that class (reintroducing any O(project)×O(refs) cost blows
-// well past it), not the remaining floor. Over budget on a NON-huge project ⇒ root-cause (a timeout is a bug);
-// the next lever for the floor itself is incremental EXTENDS relinking + span-index maintenance.
+// 7759 files). Post root-causing (2026-07-22): a TYPICAL POU edits at ~36ms p50; only the atypical 58 KB
+// largest POU hits ~62ms p50 / ~86ms p95. Three algorithmic hot spots were fixed (bare-enum scan before scope
+// lookup 88→4ms; two naive reachability fixpoints 74→9ms + dead-members) — those were the real bugs. The
+// residual floor (present on ANY edit, ~36ms) is the dead-code reachability passes `deadSet`+`deadMembers`
+// (~18ms, genuinely O(project)/edit — recomputed even for a within-body edit) plus rebind; NOT linkExtends
+// (2ms) or the span-index rebuild (1.4ms), which are negligible. The extra ~26ms on the largest file is the
+// O(file) semantic pass. The budget catches a REGRESSION of the fixed class; the next lever is caching the
+// dead set across reachability-unchanged edits. Over budget on a NON-huge project ⇒ root-cause (a timeout is a bug).
 const BUDGET_MS = 160
 
 function walk(dir: string): string[] {
