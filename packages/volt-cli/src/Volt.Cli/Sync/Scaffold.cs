@@ -1,35 +1,19 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Volt.Cli.Sync;
 
 public sealed record ScaffoldReport(List<string> Created, List<string> Skipped);
 
-/// <summary>Workspace scaffold — turns a Volt-bound directory into a standard Cargo (Rust) project under `rust/`
-/// plus a README and VS Code settings. Idempotent: existing files are kept unless force. C# port of
-/// the original TypeScript implementation</summary>
+/// <summary>Workspace scaffold — seeds a Volt-bound directory with a README describing the sync workflow and
+/// VS Code file associations for the ST kinds. Idempotent: existing files are kept unless <c>force</c>.</summary>
 public static class Scaffold
 {
-    private const string Fallback = "plc_workspace";
-
-    private static string ToCrateName(string projectName)
-    {
-        var s = Regex.Replace(projectName.ToLowerInvariant(), "[^a-z0-9-]+", "-");
-        s = Regex.Replace(s, "^-+|-+$", "");
-        if (Regex.IsMatch(s, "^[0-9]")) s = "plc-" + s; // a Cargo lib name can't start with a digit
-        return s.Length > 0 ? s : Fallback;
-    }
-
     public static ScaffoldReport WriteWorkspaceScaffold(string root, string projectName, bool force = false)
     {
-        var name = ToCrateName(projectName);
         var files = new (string Path, string Content)[]
         {
             (".vscode/settings.json", VscodeSettings()),
             ("README.md", Readme(projectName)),
-            ("rust/Cargo.toml", CargoToml(name)),
-            ("rust/src/lib.rs", LibRs(projectName)),
-            ("rust/tests/smoke.rs", SmokeTest()),
         };
         var created = new List<string>();
         var skipped = new List<string>();
@@ -44,38 +28,15 @@ public static class Scaffold
         return new ScaffoldReport(created, skipped);
     }
 
-    private static string CargoToml(string name) => string.Join("\n", new[]
-    {
-        "[package]", $"name = \"{name}\"", "version = \"0.1.0\"", "edition = \"2021\"", "",
-        "# Add crates that help your project here, then `cargo build`.", "[dependencies]", "",
-    });
-
-    private static string LibRs(string projectName) => string.Join("\n", new[]
-    {
-        $"//! Rust for the \"{projectName}\" PLC project.", "//!",
-        "//! The Volt language server transpiles this project's Structured Text into Rust modules here.",
-        "//! Add your own code and pull in crates via `Cargo.toml`, then run `cargo test`.", "",
-    });
-
-    private static string SmokeTest() => string.Join("\n", new[]
-    {
-        "// Proves the Rust project is wired up. Run: `cargo test` (from the `rust/` folder).",
-        "#[test]", "fn wired_up() {", "    assert_eq!(2 + 2, 4);", "}", "",
-    });
-
     private static string VscodeSettings()
     {
-        var associations = new Dictionary<string, string>
-        {
-            ["*.fb"] = "structured-text", ["*.prg"] = "structured-text", ["*.fun"] = "structured-text",
-            ["*.itf"] = "structured-text", ["*.dut"] = "structured-text", ["*.gvl"] = "structured-text",
-        };
         var settings = new Dictionary<string, object>
         {
-            ["files.associations"] = associations,
-            ["rust-analyzer.linkedProjects"] = new[] { "rust/Cargo.toml" },
-            ["files.watcherExclude"] = new Dictionary<string, bool> { ["**/rust/target/**"] = true },
-            ["search.exclude"] = new Dictionary<string, bool> { ["**/rust/target"] = true },
+            ["files.associations"] = new Dictionary<string, string>
+            {
+                ["*.fb"] = "structured-text", ["*.prg"] = "structured-text", ["*.fun"] = "structured-text",
+                ["*.itf"] = "structured-text", ["*.dut"] = "structured-text", ["*.gvl"] = "structured-text",
+            },
         };
         return JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }) + "\n";
     }
@@ -99,15 +60,9 @@ public static class Scaffold
         "| Program | `.prg` | | Interface | `.itf` |",
         "| Function | `.fun` | | DUT (struct/enum/union/alias) | `.dut` |",
         "| Function block | `.fb` | | Global var list | `.gvl` |", "",
-        "## Rust",
-        "The Volt language server transpiles your Structured Text into Rust under **`rust/`** — a normal Cargo",
-        "project. Install [rustup](https://rustup.rs) once, then from the `rust/` folder:", "",
-        "```sh", "cargo test      # run the Rust tests", "cargo build     # compile", "```", "",
-        "Add crates that help your project to `rust/Cargo.toml` under `[dependencies]`.", "",
         "## What lives where",
         "- `.git/`    a normal git repo — Volt keeps its binding + IDE baseline in `.git/volt/`",
         "- `.claude/` AI language reference for ST (committed)",
-        "- `src/`     synced from the IDE (leave to Volt — don't put Rust here)",
-        "- `rust/`    your Rust: the transpiled code, your crates, and `cargo test`", "",
+        "- `src/`     synced from the IDE (leave to Volt)", "",
     });
 }

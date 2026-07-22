@@ -29,7 +29,7 @@ public sealed record MergeOutcome(string Kind, IReadOnlyList<string> Paths);
 /// git plumbing — the only place we shell out to <c>git</c>. Two families: object-store ops take the absolute
 /// git dir (build the refs/remotes/volt/ide tree in the object DB); worktree ops take the project root
 /// (status/merge/diff need the working tree). IDE commits use a FIXED author/committer + epoch so the same IDE
-/// state yields the same SHA. C# port of the original TypeScript implementation
+/// state yields the same SHA.
 /// </summary>
 public static class Git
 {
@@ -79,39 +79,10 @@ public static class Git
     public static string WriteBlob(string gitDir, string content) =>
         Run(new[] { "--git-dir", gitDir, "hash-object", "-w", "--stdin" }, Encoding.UTF8.GetBytes(content)).StdOut.Trim();
 
-    /// <summary>Hash+write many blobs in ONE `git hash-object` process instead of one per file. The per-file spawn
-    /// is the dominant cost of a large `init` (8k items ⇒ 8k git processes ≈ minutes); batching cuts it to one.
-    /// Each content is written to a temp file, all paths fed via `--stdin-paths`, SHAs returned in input order.
-    /// `--no-filters` + raw UTF-8 bytes keep the object byte-identical to the single-blob `--stdin` path (no
-    /// path-based CRLF/clean filters). <paramref name="onProgress"/> ticks the temp-write loop.</summary>
-    public static List<string> WriteBlobs(string gitDir, IReadOnlyList<string> contents, Action<int, int>? onProgress = null)
-    {
-        if (contents.Count == 0) return new List<string>();
-        var dir = Directory.CreateTempSubdirectory("voltg-blobs-").FullName;
-        try
-        {
-            var paths = new List<string>(contents.Count);
-            for (var i = 0; i < contents.Count; i++)
-            {
-                var p = Path.Combine(dir, i.ToString());
-                File.WriteAllBytes(p, Encoding.UTF8.GetBytes(contents[i]));
-                paths.Add(p);
-                if (onProgress != null && ((i + 1) % 25 == 0 || i + 1 == contents.Count)) onProgress(i + 1, contents.Count);
-            }
-            var stdin = string.Join("\n", paths) + "\n";
-            var shas = Run(new[] { "--git-dir", gitDir, "hash-object", "-w", "--no-filters", "--stdin-paths" },
-                Encoding.UTF8.GetBytes(stdin)).StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            if (shas.Length != contents.Count)
-                throw new GitError("hash-object --stdin-paths", -1, $"expected {contents.Count} SHAs, got {shas.Length}");
-            return shas.Select(s => s.Trim()).ToList();
-        }
-        finally { try { Directory.Delete(dir, recursive: true); } catch { /* temp cleanup best-effort */ } }
-    }
-
     /// <summary>Build a tree via ONE <c>git fast-import</c> stream — git's own bulk importer, replacing the
     /// temp-file + <c>hash-object</c> + <c>update-index</c> + <c>write-tree</c> dance. Changed items go INLINE
     /// (raw UTF-8 bytes straight into the object via <c>data &lt;n&gt;</c> — no temp file, no filters, so
-    /// byte-identical to <see cref="WriteBlobs"/>'s <c>--no-filters</c>); unchanged/scaffold entries reference
+    /// byte-identical to a raw <c>hash-object --no-filters</c>); unchanged/scaffold entries reference
     /// their existing objects by SHA (no re-hash). Returns the tree SHA (via a throwaway commit — fast-import's
     /// unit is a commit — whose identity is irrelevant since only its tree is read). <paramref name="onProgress"/>
     /// ticks per inline item. Byte-identical tree to <see cref="BuildTree"/> for the same entries.</summary>

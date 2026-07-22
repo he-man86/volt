@@ -11,8 +11,8 @@ public sealed class BridgeError : Exception
 }
 
 /// <summary>
-/// The bridge client — the CLI's view of the live IDE, over the NAMED PIPE, using Core's wire DTOs directly. C#
-/// port of the original TypeScript implementation Two simplifications the unification enables: no zod schemas
+/// The bridge client — the CLI's view of the live IDE, over the NAMED PIPE, using Core's wire DTOs directly.
+/// Two simplifications the unification enables: no zod schemas
 /// (the DTOs ARE the contract) and no wire-version handshake (one definition, so no drift to guard against). The
 /// one guard kept is <see cref="GuardEmptyItems"/> — never treat an empty item set as truth unless the IDE is
 /// provably attached (a stale bridge returning empty would otherwise look like "the engineer deleted everything").

@@ -17,8 +17,8 @@ public sealed class WorkspaceConfig
 
 /// <summary>
 /// Workspace config + binding — the bridge binding (which bridge + IDE project this workspace is linked to),
-/// stored INSIDE the repo at <c>.git/volt/</c> (camelCase JSON, byte-compatible with the TS backup's config).
-/// C# port of the original TypeScript implementation
+/// stored INSIDE the repo at <c>.git/volt/</c> (camelCase JSON).
+///
 /// </summary>
 public static class Config
 {

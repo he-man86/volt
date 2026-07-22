@@ -3,7 +3,7 @@ namespace Volt.Cli.Sync;
 /// <summary>
 /// refs/remotes/volt/ide — the live IDE modelled as a git remote-tracking branch. Each commit's tree is the
 /// user's branch tree with ONLY <c>src/</c> swapped for the IDE's state, so the merge never touches the scaffold.
-/// C# port of the original TypeScript implementation — the correctness-critical merge engine.
+/// The correctness-critical merge engine.
 /// </summary>
 public static class IdeTree
 {

@@ -36,13 +36,13 @@ public class InitCommandTests
             Assert.Equal("ok", r.Kind);
             Assert.True(r.GitCreated);
             Assert.Equal("codesys/Demo", r.Project);
-            Assert.True(r.Scaffold >= 5);
+            Assert.True(r.Scaffold >= 2); // README.md + .vscode/settings.json
             Assert.True(r.Pulled >= 2);
 
             Assert.True(Config.ConfigExists(root));
             Assert.True(File.Exists(Path.Combine(root, "src", "PLC_PRG.prg")));
             Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Motor.fb")));
-            Assert.True(File.Exists(Path.Combine(root, "rust", "Cargo.toml")));
+            Assert.True(File.Exists(Path.Combine(root, "README.md")));
             Assert.True(File.Exists(Path.Combine(root, ".gitattributes")));
 
             Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);

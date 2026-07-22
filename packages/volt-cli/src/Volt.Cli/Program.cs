@@ -7,7 +7,7 @@ using Volt.Cli.Transport;
 namespace Volt.Cli;
 
 /// <summary>
-/// The `volt` CLI entry — C# port of the original TypeScript implementation Resolves the bridge from the workspace
+/// The `volt` CLI entry — Resolves the bridge from the workspace
 /// binding, dispatches the verb, renders (pretty or --json), sets the exit code. Talks to the bridge over the
 /// NAMED PIPE (Volt.Cli.Transport), reusing Volt.Engine's DTOs — one wire contract.
 /// </summary>
@@ -176,7 +176,7 @@ internal static class Program
         return code;
     }
 
-    // ── arg parsing (port of bin.ts parseArgs) ──────────────────────────────────
+    // ── arg parsing ──────────────────────────────────
 
     private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--limit", "--resolve", "--timeout", "--force-with-lease" };
 

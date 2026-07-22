@@ -60,37 +60,12 @@ public class GitTests
         finally { ForceDelete(root); }
     }
 
-    /// <summary>The batched blob write (one git process for N files, the fast path a large init uses) MUST produce
-    /// the byte-identical objects the per-file <see cref="Git.WriteBlob"/> does — same SHAs, same order — or the
-    /// volt/ide baseline would silently diverge.</summary>
-    [Fact]
-    public void WriteBlobs_batch_matches_per_file_WriteBlob()
-    {
-        var root = TempRepo();
-        try
-        {
-            var gitDir = Git.ResolveGitDir(root);
-            var contents = new[]
-            {
-                "FUNCTION_BLOCK FB_A\nVAR x : INT; END_VAR\n",
-                "",                                   // empty item (a cleared body)
-                "PROGRAM P\r\nVAR\r\nEND_VAR\r\n",    // pre-existing CRLF must NOT be filtered/normalized
-                "// ünïcödé comment\nVAR y : REAL; END_VAR\n",
-                "END_FUNCTION_BLOCK",                 // no trailing newline — bytes preserved exactly
-            };
-            var expected = contents.Select(c => Git.WriteBlob(gitDir, c)).ToList();
-            var batched = Git.WriteBlobs(gitDir, contents);
-            Assert.Equal(expected, batched);
-            Assert.Empty(Git.WriteBlobs(gitDir, Array.Empty<string>()));
-        }
-        finally { ForceDelete(root); }
-    }
-
     /// <summary>GOLDEN GATE for the sync-io optimization: the `git fast-import` tree writer MUST produce the
-    /// byte-identical tree SHA that `WriteBlobs` + `BuildTree` do — same inline content (incl. every edge case),
-    /// same unchanged-by-SHA entries — or the volt/ide baseline silently diverges.</summary>
+    /// byte-identical tree SHA that `hash-object` + `BuildTree` do — same inline content (incl. every edge case:
+    /// empty, CRLF, UTF-8, no-trailing-newline, spaced path), same unchanged-by-SHA entries — or the volt/ide
+    /// baseline silently diverges.</summary>
     [Fact]
-    public void FastImport_tree_matches_WriteBlobs_plus_BuildTree()
+    public void FastImport_tree_matches_hash_object_plus_BuildTree()
     {
         var root = TempRepo();
         try
@@ -108,9 +83,9 @@ public class GitTests
             var existing = Git.WriteBlob(gitDir, "unchanged-object\n");
             var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.fb") };
 
-            // OLD path: batch-hash blobs → build tree.
-            var shas = Git.WriteBlobs(gitDir, inline.Select(x => x.Content).ToList());
-            var oldTree = Git.BuildTree(gitDir, inline.Select((x, i) => new IndexEntry(x.Mode, shas[i], x.Path)).Concat(byRef).ToList());
+            // Reference path: hash each blob, build the tree the canonical way.
+            var oldTree = Git.BuildTree(gitDir,
+                inline.Select(x => new IndexEntry(x.Mode, Git.WriteBlob(gitDir, x.Content), x.Path)).Concat(byRef).ToList());
 
             // NEW path: one fast-import stream.
             var newTree = Git.WriteTreeViaFastImport(gitDir, inline, byRef);

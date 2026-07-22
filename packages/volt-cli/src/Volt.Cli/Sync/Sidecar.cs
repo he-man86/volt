@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace Volt.Cli.Sync;
 
 /// <summary>The optimistic-concurrency baseline — what the IDE last had (full name → version, and → folder) —
-/// persisted at <c>.git/volt/ide-refs.json</c>. camelCase JSON, byte-compatible with the TS backup's sidecar.
-/// C# port of the original TypeScript implementation</summary>
+/// persisted at <c>.git/volt/ide-refs.json</c>. camelCase JSON.
+///</summary>
 public sealed class IdeRefs
 {
     public string ProjectVersion { get; set; } = "";

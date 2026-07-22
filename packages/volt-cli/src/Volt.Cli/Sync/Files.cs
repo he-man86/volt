@@ -2,9 +2,9 @@ namespace Volt.Cli.Sync;
 
 public sealed record SrcFile(string Path, string Content);
 
-/// <summary>Workspace file IO — reads/writes the <c>src/</c> tree (the PLC text) and the root
-/// <c>.gitignore</c>/<c>.gitattributes</c>. All paths are src-relative; on disk they live at
-/// <c>&lt;root&gt;/src/&lt;path&gt;</c>. C# port of the original TypeScript implementation</summary>
+/// <summary>Workspace file IO — reads/writes the <c>src/</c> tree (the PLC text) and seeds the root
+/// <c>.gitattributes</c>. All paths are src-relative; on disk they live at
+/// <c>&lt;root&gt;/src/&lt;path&gt;</c>.</summary>
 public static class Files
 {
     public const string SrcDir = "src";
@@ -25,22 +25,10 @@ public static class Files
         }
     }
 
-    /// <summary>Ensure the root <c>.gitignore</c> ignores Rust build output, and seed <c>.gitattributes</c>
-    /// (blanket LF) if absent.</summary>
-    public static void EnsureGitignore(string root)
+    /// <summary>Seed the root <c>.gitattributes</c> (blanket LF — the bridge always emits LF) if absent. A Volt
+    /// workspace is all tracked text (no build artifacts), so there's nothing to <c>.gitignore</c>.</summary>
+    public static void EnsureGitattributes(string root)
     {
-        var giPath = System.IO.Path.Combine(root, ".gitignore");
-        var wanted = new[] { "/rust/target/" };
-        var lines = File.Exists(giPath) ? File.ReadAllText(giPath).Split('\n').ToList() : new List<string>();
-        var changed = false;
-        foreach (var w in wanted)
-            if (!lines.Any(l => l.Trim() == w)) { lines.Add(w); changed = true; }
-        if (changed)
-        {
-            if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1); // drop one trailing blank
-            File.WriteAllText(giPath, string.Join("\n", lines) + "\n");
-        }
-
         var gaPath = System.IO.Path.Combine(root, ".gitattributes");
         if (!File.Exists(gaPath)) File.WriteAllText(gaPath, Extensions.GitattributesContent());
     }

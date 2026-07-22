@@ -5,8 +5,7 @@ using Volt.Cli.Transport;
 
 namespace Volt.Cli.Sync;
 
-/// <summary>The `volt` verbs — orchestration over BridgeClient + git + the sync model. C# port of
-/// the original TypeScript implementation (status + pull here; push/build/log/show/merge/diff/init follow.)</summary>
+/// <summary>The `volt` verbs — orchestration over BridgeClient + git + the sync model.</summary>
 public static class Commands
 {
     /// <summary>An op's in-op precondition failure (the bridge guarding "connected + right project") — mapped by
@@ -14,10 +13,9 @@ public static class Commands
     private static bool IsPreconditionRefusal(PipeCallException e) =>
         e.Code == BridgeErrorCodes.WrongProject || e.Code == BridgeErrorCodes.PlcDisconnected;
 
-    /// <summary>volt init — bind to the bridge, git-init the project, scaffold the Rust project, do the first
-    /// (init) fetch and seed the workspace. C# port of commands/init.ts. NOTE: the ST language-reference corpus
-    /// (installed from the TS @volt/lsp-iec package) is not yet ported — the workspace is fully functional without
-    /// it; corpus stays 0 until it's bundled with volt-cli.</summary>
+    /// <summary>volt init — bind to the bridge, git-init the project, scaffold the workspace (README + VS Code
+    /// settings), do the first (init) fetch and seed <c>src/</c>. NOTE: the ST language-reference corpus is not
+    /// yet bundled with volt-cli — the workspace is fully functional without it; corpus stays 0 until then.</summary>
     public static InitResult Init(string workspace, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
         var root = System.IO.Path.GetFullPath(workspace);
@@ -32,7 +30,7 @@ public static class Commands
 
         var gitCreated = !Git.IsInsideRepo(root);
         if (gitCreated) Git.GitInit(root);
-        Files.EnsureGitignore(root);
+        Files.EnsureGitattributes(root);
 
         Config.SaveConfig(root, new WorkspaceConfig
         {
@@ -72,7 +70,7 @@ public static class Commands
     }
 
     /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared
-    /// status model. C# port of commands/status.ts.</summary>
+    /// status model.</summary>
     public static StatusData Status(string root, BridgeClient bridge)
     {
         var cfg = Config.ConfigExists(root) ? Config.LoadConfig(root) : null;
@@ -95,12 +93,12 @@ public static class Commands
     }
 
     /// <summary>volt pull — fetch the IDE, commit it onto refs/remotes/volt/ide, then git-merge into the branch.
-    /// C# port of commands/pull.ts. On conflict the sidecar is intentionally NOT advanced.</summary>
+    /// On conflict the sidecar is intentionally NOT advanced.</summary>
     public static PullResult Pull(string root, BridgeClient bridge, bool dryRun = false, Action<ProgressFrame>? onProgress = null)
     {
         if (!Config.ConfigExists(root)) return PullResult.Refused("not a Volt workspace — run `volt init` first");
         var gitDir = Git.ResolveGitDir(root);
-        Files.EnsureGitignore(root);
+        Files.EnsureGitattributes(root);
 
         if (Git.IsMerging(root))
             return PullResult.Refused("a merge is already in progress — finish it with `volt merge --continue` or `volt merge --abort` first");
@@ -179,7 +177,7 @@ public static class Commands
     }
 
     /// <summary>volt push — diff HEAD against the IDE baseline, send the changes (with ifVersion guards), then
-    /// fast-forward refs/remotes/volt/ide to HEAD's tree. C# port of commands/push.ts. Operates on COMMITTED
+    /// fast-forward refs/remotes/volt/ide to HEAD's tree. Operates on COMMITTED
     /// history; a dirty tree is auto-committed first.</summary>
     public static PushResult Push(string root, BridgeClient bridge, bool force = false, string? forceWithLease = null, bool dryRun = false, Action<ProgressFrame>? onProgress = null)
     {
@@ -318,7 +316,7 @@ public static class Commands
         return PushResult.Ok(ops.Select(o => o.Name).ToList(), status);
     }
 
-    /// <summary>volt build — build via the IDE, return normalized diagnostics. C# port of commands/build.ts.</summary>
+    /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>
     public static BuildResult Build(string root, BridgeClient bridge, bool full, Action<ProgressFrame>? onProgress = null)
     {
         if (!Config.ConfigExists(root)) return BuildResult.Refuse("not a Volt workspace — run `volt init` first");
@@ -352,7 +350,7 @@ public static class Commands
     }
 
     /// <summary>volt show &lt;ref&gt; &lt;src-rel-path&gt; — raw file bytes at a ref (HEAD / VOLTIDE / MERGE_* /
-    /// WORKSPACE / BRIDGE). C# port of commands/show.ts.</summary>
+    /// WORKSPACE / BRIDGE).</summary>
     public static (byte[]? Bytes, string? Error) Show(string root, BridgeClient bridge, string @ref, string rel)
     {
         if (@ref == "BRIDGE")
@@ -381,7 +379,7 @@ public static class Commands
         return bytes is not null ? (bytes, null) : (null, $"{rel} not found at {@ref}");
     }
 
-    /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve. C# port of commands/merge.ts.</summary>
+    /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve.</summary>
     public static (int Code, string Message) Merge(string root, bool cont = false, bool abort = false, string? resolve = null, bool useOurs = false, bool useTheirs = false)
     {
         if (abort)
