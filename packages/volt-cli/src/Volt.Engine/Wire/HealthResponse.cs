@@ -50,4 +50,9 @@ public class HealthResponse
     // bridge whose project is being churned. Additive + omitted-when-null: an older client just ignores it.
     [JsonPropertyName("activeOp")]
     public string? ActiveOp { get; set; }
+
+    // How many COLD library-signature extractions (precompiles) this session has done — observability, and the
+    // deterministic hook the live e2e uses to prove the signature cache skips the precompile on unchanged libraries.
+    [JsonPropertyName("libExtractCount")]
+    public int LibExtractCount { get; set; }
 }

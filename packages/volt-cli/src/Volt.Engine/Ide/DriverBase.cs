@@ -52,7 +52,24 @@ public abstract class DriverBase : IIdeSession
     public abstract void FlushPendingWrites();
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
-    public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
+
+    // ── library-signature extraction, cached by the referenced-library fingerprint ──
+    private readonly Library.LibSignatureCache _libCache = new();
+
+    /// <summary>Referenced-library signatures, cached by <see cref="ReferencedLibraryFingerprint"/>. When the
+    /// fingerprint is unchanged the cached signatures are returned WITHOUT precompiling (a library's API is
+    /// immutable per version). Not virtual — the vendor overrides the two seams below, not this.</summary>
+    public IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
+        _libCache.GetOrExtract(ReferencedLibraryFingerprint(), ExtractLibrarySignaturesUncached);
+
+    /// <summary>A BUILD-FREE fingerprint of the referenced-library set (each entry encodes name+version). Unchanged
+    /// ⇒ identical signatures ⇒ the precompile is skipped. Default empty: a driver with no library signatures
+    /// (TwinCAT) never precompiles.</summary>
+    protected virtual string ReferencedLibraryFingerprint() => "";
+
+    /// <summary>The real extraction (precompile + read), run only on a fingerprint miss. Default empty (TwinCAT).</summary>
+    protected virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignaturesUncached() =>
+        Array.Empty<Library.LibSignature>();
 
     // Debug-only introspection; drivers without a signature model (TwinCAT) inherit this empty default.
     public virtual IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
@@ -95,5 +112,6 @@ public abstract class DriverBase : IIdeSession
             Version = Version,
             ProjectName = projectName,
             ProjectDirty = projectDirty,
+            LibExtractCount = _libCache.MissCount,
         };
 }

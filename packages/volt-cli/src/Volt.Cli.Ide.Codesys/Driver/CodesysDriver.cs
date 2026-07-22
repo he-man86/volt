@@ -93,8 +93,14 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override bool Build() =>
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
-    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+    // The precompile + read — run only on a fingerprint miss (DriverBase caches the result).
+    protected override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignaturesUncached() =>
         _om.ExtractLibrarySignatures();
+
+    // Build-FREE fingerprint: the sorted referenced-library manifests (each encodes name+version+deps — the same
+    // string the .library items use as their version-hash input). No precompile — read from Library-Manager metadata.
+    protected override string ReferencedLibraryFingerprint() =>
+        string.Join("\n", LibraryRefManifests());
 
     public override IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         _om.DebugLibrarySignatures(nameFilter);
