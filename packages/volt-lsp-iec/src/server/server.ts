@@ -301,7 +301,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     semTok.delete(p.textDocument.uri) // drop the semantic-token result cache for the closed doc
     // The file may still be in the disk index; re-publish so any diagnostics reflect the on-disk copy.
     pushDiagnostics(p.textDocument.uri)
-    if (doc(p.textDocument.uri) === undefined)
+    // Clear diagnostics for a file no longer indexed — but only for push clients. A pull client owns its
+    // channel (it re-pulls and gets []); pushing to it here would be the very double-channel the pull guard
+    // forbids. (Guarded like pushDiagnostics; not `clientSupportsPull` inline so the intent reads.)
+    if (!clientSupportsPull && doc(p.textDocument.uri) === undefined)
       void conn.sendNotification(PublishDiagnosticsNotification.type, { uri: p.textDocument.uri, diagnostics: [] })
   })
   // A save re-validates (a fallback for clients that don't emit watched-file events); the open buffer is

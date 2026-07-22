@@ -96,6 +96,9 @@ export interface Scope {
   baseScope?: Scope
   /** For an `enum`/`gvl` scope carrying `{attribute 'qualified_only'}`: members are NOT bare-accessible. */
   qualifiedOnly?: boolean
+  /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
+   *  by `unbindFile` to surgically drop one file's scopes on an incremental re-index. Undefined elsewhere. */
+  defUri?: string
   /** Lazy name→children index for `childScopesByName` — the project root has thousands of children, so a
    *  linear `.find` per lookup is an O(n) tax on the hot inference path. Rebuilt when `children` grows. */
   _childIndex?: Map<string, Scope[]>

@@ -159,6 +159,48 @@ The server SHALL declare and handle `workspace/didChangeWatchedFiles` for kind-n
 - **WHEN** a `.library` file changes on disk and a watched-files change event is delivered
 - **THEN** the refreshed library namespaces are reflected in resolution without restarting the server
 
+### Requirement: Symbol and dead-code indexing is incremental
+
+A single-document edit SHALL re-index ONLY that document, not the whole project: the server maintains the
+project symbol table incrementally (unbind the file's old scopes/symbols by URI, re-bind the new, re-link
+`EXTENDS`) and memoizes each file's dead-code inputs (the identifier scan) by document identity, re-scanning
+only the edited file. The incrementally-maintained project scope SHALL be identical to a from-scratch rebuild
+of the merged document set (same resolvable content; same-name items collapse last-write-wins, per the
+protocol invariant). A wholesale disk reseed (`initialize`, watched-file events) MAY rebuild from scratch —
+that is not the per-keystroke path. Per-edit diagnostics + go-to-definition latency SHALL stay within a
+documented budget; a request over budget is a defect to root-cause, not a threshold to raise.
+
+#### Scenario: An edit does not rebuild the world
+- **WHEN** one document in a large project is edited by one character and diagnostics are requested
+- **THEN** only the changed file (plus cross-file EXTENDS re-links) is re-indexed and re-scanned, and its
+  diagnostics equal those a full-project rebuild would produce
+
+### Requirement: Diagnostics are delivered on exactly one channel
+
+The server declares pull diagnostics (`diagnosticProvider`). A client that advertises pull support
+(`textDocument.diagnostic`) SHALL receive diagnostics ONLY via the pull channel (`textDocument/diagnostic` ·
+`workspace/diagnostic`); the server SHALL NOT also push `publishDiagnostics` to it — including the clear-on-
+close empty publish (a pull client re-pulls `[]` on its own channel). A client WITHOUT pull support receives
+them via push on open/change/save. A `didChangeConfiguration` SHALL reach each client kind on its own channel:
+a push re-publish, or a `DiagnosticRefreshRequest` prompting a re-pull. There is no "both" state — advertising
+pull suppresses every push for that client.
+
+#### Scenario: A pull-capable client is not double-served
+- **WHEN** a client initializes with `textDocument.diagnostic`, opens a document with an error, edits, saves, and closes it
+- **THEN** it receives NO `publishDiagnostics` for that document across any of those events, and the pull channel carries the diagnostic
+
+### Requirement: Every semantic diagnostic carries its compiler code
+
+A diagnostic from a semantic check SHALL expose the CODESYS `Cnnnn` it mirrors as its LSP `code`, with a
+`codeDescription` link to that code's docs. Codes with no catalog mapping — graphical `VG_*`, raw parse errors
+(no code), and the handful of semantic slugs not yet mapped to a `Cnnnn` (tracked as `KNOWN_UNMAPPED` in
+`test/lsp/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
+diagnostics on one document SHALL share the same `(range, code)`.
+
+#### Scenario: A diagnostic shows the recognizable code, once
+- **WHEN** a document triggers exactly one occurrence of a mapped check (e.g. an assignment type mismatch → C0032)
+- **THEN** the client receives a single diagnostic whose `code` is `C0032` and whose `codeDescription` links to its docs
+
 ### Requirement: ST POU bodies are parsed into a statement/expression AST
 
 The language server SHALL parse the body of every Structured Text POU (function block, program, function, method, action, property accessor) into a statement/expression abstract syntax tree, in addition to the existing token stream. The tree SHALL cover the ST statement forms (`IF`/`ELSIF`/`ELSE`, `CASE`, `FOR`, `WHILE`, `REPEAT`, assignment, `RETURN`/`EXIT`/`CONTINUE`, and bare call statements) and the ST expression forms (binary and unary operators with IEC precedence, member access `a.b`, indexing `a[i]`, dereference `p^`, address-of, function/method calls with positional and named `param := value` arguments, parenthesised sub-expressions, identifiers, and typed/untyped literals). Every node SHALL carry the source span of its tokens so LSP queries can map a node back to document coordinates.

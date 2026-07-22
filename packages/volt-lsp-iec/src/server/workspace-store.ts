@@ -13,11 +13,13 @@
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
 import { parseSource, type Span } from "../syntax/index.js"
-import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { buildSymbolTable, bindFile, unbindFile, linkExtends, type Scope } from "../symbols/index.js"
 import {
-  deadPous,
-  deadMemberSpans,
+  deadPousFromInfos,
+  deadMemberSpansFromInfos,
+  fileReachInfo,
   EMPTY_WORKSPACE_REFS,
+  type FileReachInfo,
   type ResolvedConfig,
   type WorkspaceRefs,
 } from "../analysis/index.js"
@@ -55,9 +57,17 @@ export class WorkspaceStore {
   config: ResolvedConfig
 
   private cachedDocs: Document[] | undefined
-  private cachedProject: Scope | undefined
+  // The project symbol table, maintained INCREMENTALLY: built once (lazily), then a single-file edit
+  // re-indexes only that file (`rebindKey`) instead of rebuilding the whole table per keystroke. Undefined
+  // until first built or after a full disk reseed. `boundDocs` mirrors what is currently bound, keyed like
+  // `docs()` (normalized key → the exact Document object bound), so an edit can unbind the old + bind the new.
+  private projectScope: Scope | undefined
+  private boundDocs = new Map<string, Document>()
   private cachedDead: Set<string> | undefined
   private cachedDeadMembers: Map<string, Span[]> | undefined
+  // Per-document dead-code inputs (the lex-heavy part), memoized by Document identity — an edit re-scans
+  // only the changed file, not all N. A WeakMap so a replaced Document's info is collected automatically.
+  private reachCache = new WeakMap<Document, FileReachInfo>()
 
   constructor(config: ResolvedConfig) {
     this.config = config
@@ -84,7 +94,37 @@ export class WorkspaceStore {
   }
 
   project(): Scope {
-    return (this.cachedProject ??= buildSymbolTable(this.docs()))
+    if (this.projectScope === undefined) {
+      const docs = this.docs()
+      this.projectScope = buildSymbolTable(docs)
+      this.boundDocs.clear()
+      for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
+    }
+    return this.projectScope
+  }
+
+  /** The currently-merged Document for a key (open buffer wins, else disk, else gone) — the bind unit. */
+  private mergedDoc(key: string): Document | undefined {
+    const td = this.open.get(key)
+    if (td !== undefined) return this.openParse(td)
+    return this.disk.get(key)
+  }
+
+  /** Incrementally re-index a single file after an edit: unbind the old contribution, bind the new, re-link
+   *  EXTENDS. No-op until the project has been built once (a pre-query edit just leaves it unbuilt so the
+   *  first `project()` builds fresh). O(changed file), not O(project). */
+  private rebindKey(key: string): void {
+    if (this.projectScope === undefined) return
+    const old = this.boundDocs.get(key)
+    if (old !== undefined) unbindFile(this.projectScope, old.uri)
+    const desired = this.mergedDoc(key)
+    if (desired !== undefined) {
+      bindFile(this.projectScope, { uri: desired.uri, parseResult: desired.parseResult, source: desired.source })
+      this.boundDocs.set(key, desired)
+    } else {
+      this.boundDocs.delete(key)
+    }
+    linkExtends(this.projectScope)
   }
 
   workspace(): Document[] {
@@ -104,27 +144,45 @@ export class WorkspaceStore {
     return this.disk.get(key)
   }
 
+  /** Per-file dead-code inputs for the merged doc set, reusing memoized infos for unchanged files. */
+  private reachInfos(): FileReachInfo[] {
+    return this.docs().map((d) => {
+      let info = this.reachCache.get(d)
+      if (info === undefined) {
+        info = fileReachInfo({ uri: d.uri, source: d.source, parseResult: d.parseResult })
+        this.reachCache.set(d, info)
+      }
+      return info
+    })
+  }
+
   deadSet(): Set<string> {
-    return (this.cachedDead ??= this.config.diagnoseDeadCode ? new Set() : deadPous(this.workspace(), this.taskRoots))
+    return (this.cachedDead ??= this.config.diagnoseDeadCode
+      ? new Set()
+      : deadPousFromInfos(this.reachInfos(), this.taskRoots))
   }
 
   deadMembers(): Map<string, Span[]> {
     return (this.cachedDeadMembers ??= this.config.diagnoseDeadCode
       ? new Map()
-      : deadMemberSpans(this.workspace(), this.deadSet()))
+      : deadMemberSpansFromInfos(this.reachInfos(), this.deadSet()))
   }
 
+  /** Clear the derived caches that are NOT the symbol table (merged doc list + dead-code). The project scope
+   *  is maintained incrementally, so it is NOT rebuilt here — a config change (the only external caller)
+   *  never alters symbol structure, only which diagnostics the dead-code passes suppress. */
   invalidate(): void {
     this.cachedDocs = undefined
-    this.cachedProject = undefined
     this.cachedDead = undefined
     this.cachedDeadMembers = undefined
   }
 
   // ─── open-layer mutations (client document sync) ──────────────────────────
   openDocument(uri: string, languageId: string, version: number, text: string): void {
-    this.open.set(normalizeKey(uri), TextDocument.create(uri, languageId, version, text))
+    const key = normalizeKey(uri)
+    this.open.set(key, TextDocument.create(uri, languageId, version, text))
     this.invalidate()
+    this.rebindKey(key)
   }
 
   /** Apply incremental changes to an open document. Returns false if the URI was never opened. */
@@ -137,6 +195,7 @@ export class WorkspaceStore {
     // version (`version ?? td.version`) would leave the version-keyed cache returning the pre-edit parse.
     this.cache.delete(key)
     this.invalidate()
+    this.rebindKey(key)
     return true
   }
 
@@ -146,14 +205,18 @@ export class WorkspaceStore {
     this.open.delete(key)
     this.cache.delete(key)
     this.invalidate()
+    this.rebindKey(key) // reverts the binding to the disk entry (or drops it if none)
   }
 
   // ─── disk-layer mutation (eager crawl + watched-file events), keyed by `file://` URI ──
-  /** Seed (or reseed) the whole disk layer from a source crawl. */
+  /** Seed (or reseed) the whole disk layer from a source crawl. A wholesale reseed drops the incremental
+   *  project so the next `project()` rebuilds it fresh — this is the init/watched-file path, not the hot one. */
   seedDisk(files: readonly { uri: string; source: string }[]): void {
     this.disk.clear()
     for (const f of files)
       this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseSource(f.source) })
+    this.projectScope = undefined
+    this.boundDocs.clear()
     this.invalidate()
   }
 }

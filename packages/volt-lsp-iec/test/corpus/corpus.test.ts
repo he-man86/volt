@@ -23,6 +23,9 @@ import {
   resolveConfig,
 } from "../../src/analysis/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
+import { WorkspaceStore } from "../../src/server/workspace-store.js"
+import { documentDiagnostics } from "../../src/server/diagnostics.js"
+import { allowedCode } from "../lsp/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
@@ -206,6 +209,38 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     expect(hits).toEqual([])
   }, CORPUS_TIMEOUT) // heavy: a second full-corpus diagnostic pass with the lint enabled
+
+  // Diagnostic-identity invariants over the FULL LSP wire path (documentDiagnostics — the exact bytes a
+  // client receives), folded into the corpus so every real file is checked, not just synthetic cases:
+  //   1. every code is a Cnnnn / VG_* / parse (no code) / KNOWN_UNMAPPED (see test/lsp/diagnostic-codes.ts)
+  //   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed can't recur
+  test("every corpus diagnostic has a valid code identity and no (range,code) duplicates", () => {
+    const messages = messagesFor("codesys")
+    const offenders: string[] = []
+    const dupes: string[] = []
+    for (const project of readdirSync(CORPUS_ROOT)) {
+      const dir = join(CORPUS_ROOT, project)
+      if (!statSync(dir).isDirectory()) continue
+      const projFiles = walk(dir)
+      if (projFiles.length === 0) continue
+      const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+      store.workspaceRefs = loadWorkspaceRefs(dir)
+      store.taskRoots = loadTaskRoots(dir)
+      store.seedDisk(projFiles.map((p) => ({ uri: p, source: readFileSync(p, "utf8") })))
+      for (const d of store.workspace()) {
+        const seen = new Set<string>()
+        for (const diag of documentDiagnostics(store, messages, d)) {
+          if (!allowedCode(diag.code)) offenders.push(`${project}${d.uri.slice(dir.length)} [${String(diag.code)}]`)
+          const r = diag.range
+          const key = `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}|${String(diag.code)}`
+          if (seen.has(key)) dupes.push(`${project}${d.uri.slice(dir.length)} ${key}`)
+          seen.add(key)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+    expect(dupes).toEqual([])
+  }, CORPUS_TIMEOUT) // heavy: full LSP diagnostic pass over every corpus file
 
   // A.3 format-roundtrip gate: `parse(format(x)) ≡ parse(x)` across the whole corpus. Formatting must
   // re-emit valid ST that re-parses to an EQUIVALENT AST (span/token-free, body statements embedded,

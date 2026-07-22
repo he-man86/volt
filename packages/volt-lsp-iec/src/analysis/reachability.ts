@@ -31,6 +31,33 @@ export interface ReachabilityInput {
   parseResult: ParseResult
 }
 
+/** Per top-level unit: the lex-derived facts the member-reachability pass needs. */
+interface UnitInfo {
+  name: string // lc
+  kind: TopLevel["kind"]
+  span: Span
+  isPou: boolean
+  refs: Set<string> // identifiers (lc) appearing inside this unit's span
+}
+
+/**
+ * ALL lex-derived facts about ONE file — the ONLY expensive (source-scanning) part of dead-code analysis.
+ * Extracted so the server can MEMOIZE it per parsed document: on a keystroke, only the edited file is
+ * re-scanned; the other N-1 files' infos are reused, instead of re-lexing the whole project every edit.
+ * A pure function of `(source, parseResult)`, so caching by document identity is sound.
+ */
+export interface FileReachInfo {
+  uri: string
+  owner?: string // primary POU (lc), if any
+  root: boolean // GVL/type file — always active
+  refs: Set<string> // every identifier (lc) in the file (deadPous edges)
+  pous: string[] // POU names (lc) this file declares (namespaces flattened)
+  programs: string[] // PROGRAM names (lc)
+  implementers: [string, string[]][] // interface(lc) → implementing FBs(lc)
+  ifaceMethods: string[] // interface method names (lc) declared at top level
+  units: UnitInfo[] // top-level units, for member reachability
+}
+
 type Pou = Program | FunctionBlock | Function
 
 const isPou = (u: TopLevel): u is Pou =>
@@ -63,24 +90,70 @@ function firstPou(units: readonly TopLevel[]): Pou | undefined {
  * non-matching (a library, or a project whose task config wasn't loaded) ⇒ fall back to ALL PROGRAMs as
  * roots, preserving the uncertain-⇒-live safety.
  */
-export function deadPous(files: readonly ReachabilityInput[], taskRoots?: ReadonlySet<string>): Set<string> {
+/**
+ * Extract every lex-derived fact about one file (the expensive, memoizable step). One lexer pass feeds both
+ * `deadPous` (whole-file identifier set) and `deadMemberSpans` (per-unit identifier buckets).
+ */
+export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
+  const { source, parseResult, uri } = file
+  const refs = new Set<string>()
+  const ordered = [...parseResult.units].filter((u) => "span" in u).sort((a, b) => a.span.start - b.span.start)
+  const buckets = new Map<TopLevel, Set<string>>()
+  for (const u of ordered) buckets.set(u, new Set())
+  let ui = 0
+  for (const tok of lex(source)) {
+    if (tok.kind !== "identifier") continue
+    const lc = tok.text.toLowerCase()
+    refs.add(lc)
+    while (ui < ordered.length && ordered[ui]!.span.end <= tok.span.start) ui++
+    if (ui < ordered.length && ordered[ui]!.span.start <= tok.span.start) buckets.get(ordered[ui]!)!.add(lc)
+  }
+
+  const pous = new Set<string>()
+  const programs: string[] = []
+  const implementers = new Map<string, string[]>()
+  catalog(parseResult.units, pous, programs, implementers)
+
+  const ifaceMethods: string[] = []
+  for (const u of parseResult.units)
+    if (u.kind === "interface") for (const m of u.methods) ifaceMethods.push(m.name.text.toLowerCase())
+
+  const units: UnitInfo[] = parseResult.units.map((u) => ({
+    name: "name" in u && u.name !== undefined ? u.name.text.toLowerCase() : "",
+    kind: u.kind,
+    span: u.span,
+    isPou: isPou(u),
+    refs: buckets.get(u) ?? new Set<string>(),
+  }))
+
+  const owner = ownerPou(parseResult)
+  return {
+    uri,
+    owner,
+    root: owner === undefined && hasRootDecl(parseResult.units),
+    refs,
+    pous: [...pous],
+    programs,
+    implementers: [...implementers],
+    ifaceMethods,
+    units,
+  }
+}
+
+/** Dead POUs from pre-extracted per-file infos (the graph fixpoint only — no lexing). */
+export function deadPousFromInfos(infos: readonly FileReachInfo[], taskRoots?: ReadonlySet<string>): Set<string> {
   const pous = new Set<string>() // lc names of all top-level POUs
   const programs: string[] = [] // lc names of PROGRAM roots
   const implementers = new Map<string, string[]>() // lc interface -> lc FBs implementing it
 
-  interface FileInfo {
-    owner?: string // primary POU (lc) of this file, if any
-    root: boolean // a GVL/type file — always active (a global instance / typed field keeps its target live)
-    refs: Set<string> // every identifier (lc) appearing in the file
-  }
-  const infos: FileInfo[] = []
-
-  for (const f of files) {
-    const refs = new Set<string>()
-    for (const t of lex(f.source)) if (t.kind === "identifier") refs.add(t.text.toLowerCase())
-    catalog(f.parseResult.units, pous, programs, implementers)
-    const owner = ownerPou(f.parseResult)
-    infos.push({ owner, root: owner === undefined && hasRootDecl(f.parseResult.units), refs })
+  for (const info of infos) {
+    for (const p of info.pous) pous.add(p)
+    for (const pr of info.programs) programs.push(pr)
+    for (const [iface, fbs] of info.implementers) {
+      const list = implementers.get(iface)
+      if (list !== undefined) list.push(...fbs)
+      else implementers.set(iface, [...fbs])
+    }
   }
 
   // No entry points ⇒ can't determine reachability (e.g. a library) ⇒ mark nothing dead.
@@ -125,6 +198,12 @@ export function deadPous(files: readonly ReachabilityInput[], taskRoots?: Readon
   return dead
 }
 
+/** Dead POUs across the workspace (lexes each file). Convenience wrapper over `fileReachInfo` +
+ *  `deadPousFromInfos` for callers that don't cache per-file infos (tests, one-shot analysis). */
+export function deadPous(files: readonly ReachabilityInput[], taskRoots?: ReadonlySet<string>): Set<string> {
+  return deadPousFromInfos(files.map(fileReachInfo), taskRoots)
+}
+
 /**
  * Dead MEMBERS — methods/actions of a LIVE POU that are unreachable from live code (the finer granularity
  * beyond `deadPous`). CODESYS excludes individual methods from build; an excluded method (its calls
@@ -143,11 +222,17 @@ export function deadMemberSpans(
   files: readonly ReachabilityInput[],
   deadPouNames: ReadonlySet<string>,
 ): Map<string, Span[]> {
+  return deadMemberSpansFromInfos(files.map(fileReachInfo), deadPouNames)
+}
+
+/** Dead member spans from pre-extracted per-file infos (the graph fixpoint only — no lexing). */
+export function deadMemberSpansFromInfos(
+  infos: readonly FileReachInfo[],
+  deadPouNames: ReadonlySet<string>,
+): Map<string, Span[]> {
   const LIFECYCLE = new Set(["fb_init", "fb_exit", "fb_reinit"])
   const ifaceMethods = new Set<string>()
-  for (const f of files)
-    for (const u of f.parseResult.units)
-      if (u.kind === "interface") for (const m of u.methods) ifaceMethods.add(m.name.text.toLowerCase())
+  for (const info of infos) for (const m of info.ifaceMethods) ifaceMethods.add(m)
 
   interface MemberNode {
     uri: string
@@ -159,21 +244,19 @@ export function deadMemberSpans(
   const members: MemberNode[] = []
   const liveRefs = new Set<string>() // identifier names (lc) referenced by live code
 
-  for (const f of files) {
-    const owner = ownerPou(f.parseResult)
-    if (owner !== undefined && deadPouNames.has(owner)) continue // whole file already suppressed
-    const byUnit = bucketIdentifiers(f.source, f.parseResult.units)
-    for (const u of f.parseResult.units) {
-      const refs = byUnit.get(u) ?? new Set<string>()
-      if (isPou(u)) {
+  for (const info of infos) {
+    if (info.owner !== undefined && deadPouNames.has(info.owner)) continue // whole file already suppressed
+    for (const u of info.units) {
+      const refs = u.refs
+      if (u.isPou) {
         for (const r of refs) liveRefs.add(r) // the owner POU's own body seeds the live set
         continue
       }
       if (u.kind !== "method" && u.kind !== "action" && u.kind !== "property") continue
-      const name = u.name.text.toLowerCase()
+      const name = u.name
       const whitelisted = u.kind === "property" || LIFECYCLE.has(name) || ifaceMethods.has(name)
       if (whitelisted) for (const r of refs) liveRefs.add(r)
-      members.push({ uri: f.uri, name, span: u.span, refs, live: whitelisted })
+      members.push({ uri: info.uri, name, span: u.span, refs, live: whitelisted })
     }
   }
 
@@ -203,20 +286,6 @@ export function inDeadMember(span: Span, deadSpans: readonly Span[] | undefined)
   if (deadSpans === undefined) return false
   for (const d of deadSpans) if (span.start >= d.start && span.start < d.end) return true
   return false
-}
-
-/** Identifier names (lc) per top-level unit — one span-ordered pass (units + tokens both sorted by start). */
-function bucketIdentifiers(source: string, units: readonly TopLevel[]): Map<TopLevel, Set<string>> {
-  const ordered = [...units].filter((u) => "span" in u).sort((a, b) => a.span.start - b.span.start)
-  const map = new Map<TopLevel, Set<string>>()
-  for (const u of ordered) map.set(u, new Set())
-  let ui = 0
-  for (const tok of lex(source)) {
-    if (tok.kind !== "identifier") continue
-    while (ui < ordered.length && ordered[ui].span.end <= tok.span.start) ui++
-    if (ui < ordered.length && ordered[ui].span.start <= tok.span.start) map.get(ordered[ui])!.add(tok.text.toLowerCase())
-  }
-  return map
 }
 
 /** A file with no POU is an always-active root iff it declares a global (GVL) or a type — either can
