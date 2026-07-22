@@ -19,6 +19,8 @@ export function formatProgress(p: ProgressUpdate): { pct?: number; message?: str
       : frac !== undefined
         ? Math.floor(frac * 100)
         : undefined
-  const message = p.phase ?? (frac !== undefined ? `${p.done}/${p.total}` : undefined)
+  const count = frac !== undefined ? `${p.done}/${p.total}` : undefined
+  // Show BOTH the phase label and its per-phase count so the toast keeps a live loading state, not just the phase name.
+  const message = p.phase != null ? (count ? `${p.phase} (${count})` : p.phase) : count
   return { pct, message }
 }

@@ -25,7 +25,8 @@ public static class IdeTree
         string? parentIde,
         IReadOnlyList<MaterializedFile> ideFiles,
         IReadOnlyList<string> removedNames,
-        Action<int, int>? onBlobs = null)
+        Action<int, int>? onBlobs = null,
+        Action? onTreeBuild = null)
     {
         var entries = new List<IndexEntry>();
         var seen = new HashSet<string>();
@@ -59,6 +60,9 @@ public static class IdeTree
                     Add(new IndexEntry(e.Mode, e.Sha, e.Path));
             }
 
+        // Building the tree from 8k+ entries is one silent `git` process — signal it so the bar/label don't
+        // freeze on the just-finished "Hashing objects" phase while it runs.
+        onTreeBuild?.Invoke();
         return Git.BuildTree(gitDir, entries);
     }
 
