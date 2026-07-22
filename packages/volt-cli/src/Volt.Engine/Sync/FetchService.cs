@@ -231,12 +231,16 @@ public static class FetchService
     /// every live <c>.library</c> version matches what the client already has, AND no <c>.library</c> the client
     /// knows has been removed. An add, a version bump, or a removal all make it false ⇒ re-extract. Reuses the same
     /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
+    // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
+    // in the client's knownItems (only .library keys are relevant to the library-change decision).
+    private static readonly string LibraryExt = "." + ItemKind.ExtFor("library");
+
     public static bool LibrariesUnchanged(IReadOnlyDictionary<string, string> liveLibVersions, IReadOnlyDictionary<string, string> knownItems)
     {
         foreach (var kv in liveLibVersions)
             if (!knownItems.TryGetValue(kv.Key, out var known) || known != kv.Value) return false; // added or changed
         foreach (var key in knownItems.Keys)
-            if (key.EndsWith(".library", StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(key)) return false; // removed
+            if (key.EndsWith(LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(key)) return false; // removed
         return true;
     }
 

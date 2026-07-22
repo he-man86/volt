@@ -94,7 +94,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
     // The precompile + read — FetchService calls this only when a .library version changed.
-    protected override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignaturesCore() =>
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
     public override IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>

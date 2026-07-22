@@ -5,14 +5,22 @@ using Xunit;
 
 namespace Volt.Cli.Tests;
 
-/// <summary>Method C: FetchService extracts library signatures (the precompile) ONLY when a `.library` version
-/// changed vs the client's knownItems. The `.library` files are hashed like any other file and already carried in
-/// knownItems, so this reuses that change signal — no cache, no fingerprint field.</summary>
+/// <summary>Method C: FetchService runs the referenced-library precompile ONLY when a `.library` version changed vs
+/// the client's knownItems. The `.library` files are hashed like any other file and already carried in knownItems,
+/// so this reuses that change signal — no cache, no fingerprint field. (FakeIde.ExtractCalls counts real
+/// extractions.)</summary>
 public class LibrarySignatureFetchTests
 {
-    private static FakeIde WithLibrary() => new FakeIde(
+    private static FakeIde.Item Lib(string name, string version) =>
+        FakeIde.Item.Library(name, $"LIBRARY {name}\nNAMESPACE {name}\nRESOLUTION {name}, {version} (System)");
+
+    private static FakeIde OneLib() => new FakeIde(
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
-        FakeIde.Item.Library("CmpX", "LIBRARY CmpX\nNAMESPACE CmpX\nRESOLUTION CmpX, 1.0.0.0 (System)"));
+        Lib("CmpX", "1.0.0.0"));
+
+    private static FakeIde TwoLibs() => new FakeIde(
+        FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+        Lib("CmpX", "1.0.0.0"), Lib("CmpY", "2.0.0.0"));
 
     // The pure decision — unchanged / added / version-bumped / removed.
     [Fact]
@@ -28,7 +36,7 @@ public class LibrarySignatureFetchTests
     [Fact]
     public void Init_always_extracts()
     {
-        var ide = WithLibrary();
+        var ide = OneLib();
         FetchService.Handle(ide, new FetchRequest { Init = true });
         Assert.Equal(1, ide.ExtractCalls);
     }
@@ -36,23 +44,59 @@ public class LibrarySignatureFetchTests
     [Fact]
     public void Unchanged_library_versions_skip_the_precompile()
     {
-        var ide = WithLibrary();
+        var ide = OneLib();
         var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // learn versions (extracts once)
         Assert.Equal(1, ide.ExtractCalls);
-
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(full) }); // libs unchanged
-        Assert.Equal(1, ide.ExtractCalls); // NO second precompile — the point of the change
+        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(full) }); // unchanged
+        Assert.Equal(1, ide.ExtractCalls); // NO second precompile
     }
 
     [Fact]
     public void A_changed_library_version_re_extracts()
     {
-        var ide = WithLibrary();
+        var ide = OneLib();
         var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items;
-        Assert.Equal(1, ide.ExtractCalls);
+        var stale = new Dictionary<string, string>(full) { ["CmpX.library"] = "old-version" };
+        FetchService.Handle(ide, new FetchRequest { KnownItems = stale });
+        Assert.Equal(2, ide.ExtractCalls);
+    }
 
-        // The client's known .library version no longer matches the live one (a version swap) → re-extract.
-        var stale = new Dictionary<string, string>(full) { ["CmpX.library"] = "some-old-version" };
+    [Fact]
+    public void A_new_library_re_extracts()
+    {
+        var ide = OneLib();
+        // The client knows the POU but has never seen CmpX.library → a library appeared → extract.
+        FetchService.Handle(ide, new FetchRequest { KnownItems = new() { ["PLC_PRG.prg"] = "whatever" } });
+        Assert.Equal(1, ide.ExtractCalls);
+    }
+
+    [Fact]
+    public void A_removed_library_re_extracts()
+    {
+        var ide = OneLib();
+        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // extracts once
+        // The client also had an Old.library that no longer exists live → removal → extract.
+        var known = new Dictionary<string, string>(full) { ["Old.library"] = "v" };
+        FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        Assert.Equal(2, ide.ExtractCalls);
+    }
+
+    [Fact]
+    public void OnlyItems_with_libraries_skips_the_precompile()
+    {
+        var ide = OneLib(); // has a library, but a directed preview never extracts
+        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.prg" } });
+        Assert.Equal(0, ide.ExtractCalls);
+    }
+
+    [Fact]
+    public void Multiple_libraries_one_bumped_re_extracts_the_rest_do_not()
+    {
+        var ide = TwoLibs();
+        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // extracts once
+        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(full) }); // both unchanged
+        Assert.Equal(1, ide.ExtractCalls);
+        var stale = new Dictionary<string, string>(full) { ["CmpY.library"] = "old" }; // only CmpY differs
         FetchService.Handle(ide, new FetchRequest { KnownItems = stale });
         Assert.Equal(2, ide.ExtractCalls);
     }
