@@ -20,7 +20,8 @@ export function formatProgress(p: ProgressUpdate): { pct?: number; message?: str
         ? Math.floor(frac * 100)
         : undefined
   const count = frac !== undefined ? `${p.done}/${p.total}` : undefined
-  // Show BOTH the phase label and its per-phase count so the toast keeps a live loading state, not just the phase name.
-  const message = p.phase != null ? (count ? `${p.phase} (${count})` : p.phase) : count
+  // LEAD with the concrete count — a live "1234/8000" reads faster than a bar and is what the user tracks; the
+  // phase label is the suffix. An indeterminate phase (no total, e.g. Merging/Finalizing) shows just its label.
+  const message = count !== undefined ? (p.phase != null ? `${count} · ${p.phase}` : count) : p.phase
   return { pct, message }
 }

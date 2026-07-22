@@ -108,6 +108,53 @@ public static class Git
         finally { try { Directory.Delete(dir, recursive: true); } catch { /* temp cleanup best-effort */ } }
     }
 
+    /// <summary>Build a tree via ONE <c>git fast-import</c> stream — git's own bulk importer, replacing the
+    /// temp-file + <c>hash-object</c> + <c>update-index</c> + <c>write-tree</c> dance. Changed items go INLINE
+    /// (raw UTF-8 bytes straight into the object via <c>data &lt;n&gt;</c> — no temp file, no filters, so
+    /// byte-identical to <see cref="WriteBlobs"/>'s <c>--no-filters</c>); unchanged/scaffold entries reference
+    /// their existing objects by SHA (no re-hash). Returns the tree SHA (via a throwaway commit — fast-import's
+    /// unit is a commit — whose identity is irrelevant since only its tree is read). <paramref name="onProgress"/>
+    /// ticks per inline item. Byte-identical tree to <see cref="BuildTree"/> for the same entries.</summary>
+    public static string WriteTreeViaFastImport(
+        string gitDir,
+        IReadOnlyList<(string Mode, string Path, string Content)> inline,
+        IReadOnlyList<IndexEntry> byRef,
+        Action<int, int>? onProgress = null)
+    {
+        if (inline.Count == 0 && byRef.Count == 0) return EmptyTree;
+        const string tmpRef = "refs/volt/fast-import-tmp";
+        var buf = new MemoryStream();
+        void W(string ascii) { var b = Encoding.UTF8.GetBytes(ascii); buf.Write(b, 0, b.Length); }
+
+        W($"commit {tmpRef}\n");
+        W("committer ide <ide@volt.local> 0 +0000\n"); // throwaway commit — only its tree is used
+        W("data 0\n");                                  // empty message
+        for (var i = 0; i < inline.Count; i++)
+        {
+            var (mode, path, content) = inline[i];
+            var bytes = Encoding.UTF8.GetBytes(content);
+            W($"M {mode} inline {StreamPath(path)}\n");
+            W($"data {bytes.Length}\n");
+            buf.Write(bytes, 0, bytes.Length);
+            W("\n");
+            if (onProgress != null && ((i + 1) % 25 == 0 || i + 1 == inline.Count)) onProgress(i + 1, inline.Count);
+        }
+        foreach (var e in byRef) W($"M {e.Mode} {e.Sha} {StreamPath(e.Path)}\n");
+        W("done\n");
+
+        Run(new[] { "--git-dir", gitDir, "fast-import", "--quiet", "--done" }, buf.ToArray());
+        try { return Run(new[] { "--git-dir", gitDir, "rev-parse", $"{tmpRef}^{{tree}}" }).StdOut.Trim(); }
+        finally { Run(new[] { "--git-dir", gitDir, "update-ref", "-d", tmpRef }, allowFail: true); }
+    }
+
+    /// <summary>A fast-import path token. Normal paths (incl. spaces + UTF-8) go verbatim — fast-import reads an
+    /// unquoted path as the rest of the line, byte-for-byte. Only a leading <c>"</c> or an embedded newline
+    /// forces C-style quoting (never seen in real PLC paths, but correct if it happens).</summary>
+    private static string StreamPath(string path) =>
+        path.Length > 0 && path[0] != '"' && !path.Contains('\n')
+            ? path
+            : "\"" + path.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n") + "\"";
+
     /// <summary>Recursive blob listing of a tree/commit (no subtree rows).</summary>
     public static List<TreeEntry> ListTree(string gitDir, string treeish)
     {

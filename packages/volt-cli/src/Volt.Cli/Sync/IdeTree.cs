@@ -25,30 +25,30 @@ public static class IdeTree
         string? parentIde,
         IReadOnlyList<MaterializedFile> ideFiles,
         IReadOnlyList<string> removedNames,
-        Action<int, int>? onBlobs = null,
-        Action? onTreeBuild = null)
+        Action<int, int>? onBlobs = null)
     {
-        var entries = new List<IndexEntry>();
         var seen = new HashSet<string>();
-        void Add(IndexEntry e) { if (seen.Add(e.Path)) entries.Add(e); }
+        var inline = new List<(string Mode, string Path, string Content)>(); // changed items → raw bytes, no temp
+        var byRef = new List<IndexEntry>();                                   // unchanged/scaffold → existing SHA
+        void AddInline(string path, string content) { if (seen.Add(path)) inline.Add(("100644", path, content)); }
+        void AddRef(IndexEntry e) { if (seen.Add(e.Path)) byRef.Add(e); }
 
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
         var removed = new HashSet<string>(removedNames);
 
-        // Changed IDE items — fresh content from the fetch. Batch-hash in one git process (a large init is 8k+
-        // items; one `git hash-object` per file was the dominant cost).
-        var shas = Git.WriteBlobs(gitDir, ideFiles.Select(f => f.Content).ToList(), onBlobs);
-        for (var i = 0; i < ideFiles.Count; i++)
-            Add(new IndexEntry("100644", shas[i], $"{Files.SrcDir}/{ideFiles[i].Path}"));
+        // Changed IDE items — fresh content from the fetch, streamed INLINE into git objects (no temp file, no
+        // per-file hash-object). Added first so they win the `seen` de-dup over any same-path parent/scaffold entry.
+        foreach (var f in ideFiles) AddInline($"{Files.SrcDir}/{f.Path}", f.Content);
 
-        // Unchanged IDE items — from the previous volt/ide tree (the IDE's last-known content, NOT the user's HEAD).
+        // Unchanged IDE items — from the previous volt/ide tree (the IDE's last-known content, NOT the user's HEAD),
+        // referenced by their existing SHA (no re-hash).
         if (parentIde is not null)
             foreach (var e in Git.ListTree(gitDir, parentIde))
             {
                 var rel = SrcRel(e.Path);
                 if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel) && !removed.Contains(rel))
-                    Add(new IndexEntry(e.Mode, e.Sha, e.Path));
+                    AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }
 
         // Scaffold + non-tracked src/ files — from HEAD (the user's side; the merge leaves these untouched).
@@ -57,13 +57,12 @@ public static class IdeTree
             {
                 var rel = SrcRel(e.Path);
                 if (rel is null || !Extensions.IsTrackedPath(rel))
-                    Add(new IndexEntry(e.Mode, e.Sha, e.Path));
+                    AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }
 
-        // Building the tree from 8k+ entries is one silent `git` process — signal it so the bar/label don't
-        // freeze on the just-finished "Hashing objects" phase while it runs.
-        onTreeBuild?.Invoke();
-        return Git.BuildTree(gitDir, entries);
+        // ONE fast-import stream builds blobs + tree together — no temp files, no separate hash-object /
+        // update-index / write-tree passes, byte-identical to the old path (proven by the golden test).
+        return Git.WriteTreeViaFastImport(gitDir, inline, byRef, onBlobs);
     }
 
     public static string CommitVoltIde(string gitDir, string treeSha, string? parent, string message) =>

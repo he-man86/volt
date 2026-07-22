@@ -86,6 +86,43 @@ public class GitTests
         finally { ForceDelete(root); }
     }
 
+    /// <summary>GOLDEN GATE for the sync-io optimization: the `git fast-import` tree writer MUST produce the
+    /// byte-identical tree SHA that `WriteBlobs` + `BuildTree` do — same inline content (incl. every edge case),
+    /// same unchanged-by-SHA entries — or the volt/ide baseline silently diverges.</summary>
+    [Fact]
+    public void FastImport_tree_matches_WriteBlobs_plus_BuildTree()
+    {
+        var root = TempRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var inline = new (string Mode, string Path, string Content)[]
+            {
+                ("100644", "src/FB_A.fb", "FUNCTION_BLOCK FB_A\nVAR x : INT; END_VAR\n"),
+                ("100644", "src/Empty.st", ""),                                      // empty (cleared body)
+                ("100644", "src/P.prg", "PROGRAM P\r\nVAR\r\nEND_VAR\r\n"),          // CRLF, not normalized
+                ("100644", "src/Uni.st", "// ünïcödé\nVAR y : REAL; END_VAR\n"),      // UTF-8 multibyte
+                ("100644", "src/NoNl.st", "END_FUNCTION_BLOCK"),                     // no trailing newline
+                ("100644", "src/Plc Logic/010 PC01/pgMain.prg", "PROGRAM pgMain\nEND_PROGRAM\n"), // spaced path
+            };
+            var existing = Git.WriteBlob(gitDir, "unchanged-object\n");
+            var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.fb") };
+
+            // OLD path: batch-hash blobs → build tree.
+            var shas = Git.WriteBlobs(gitDir, inline.Select(x => x.Content).ToList());
+            var oldTree = Git.BuildTree(gitDir, inline.Select((x, i) => new IndexEntry(x.Mode, shas[i], x.Path)).Concat(byRef).ToList());
+
+            // NEW path: one fast-import stream.
+            var newTree = Git.WriteTreeViaFastImport(gitDir, inline, byRef);
+
+            Assert.Equal(oldTree, newTree);
+            // Empty set → the canonical empty tree, no throwaway ref left behind.
+            Assert.Equal("4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                Git.WriteTreeViaFastImport(gitDir, Array.Empty<(string, string, string)>(), Array.Empty<IndexEntry>()));
+        }
+        finally { ForceDelete(root); }
+    }
+
     [Fact]
     public void Worktree_diff_sees_an_added_src_file_vs_a_ref()
     {
