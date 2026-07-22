@@ -5,6 +5,7 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
     "lib": ["es2022"],
     "types": ["node", "bun"],
     "noEmit": true,

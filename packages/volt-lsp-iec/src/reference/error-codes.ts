@@ -8,9 +8,11 @@
  * status: `implemented` (a check emits it) · `checkable` (offline-analyzable, to build) ·
  * `ide-only` (needs a live build / library resolution, out of LSP scope) · `pending` (not harvested yet).
  */
-import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
-import { dirname, join } from "node:path"
+// The catalog is EMBEDDED via a static JSON import, NOT read from disk at runtime. The LSP ships as a
+// bundle; a `readFileSync` off an `import.meta.url`-relative path baked the BUILD machine's absolute path
+// into the bundle (ENOENT `D:\a\volt\...\error-catalog.json` on every other machine). A JSON import is
+// inlined into the artifact by the bundler, so the data travels with the code.
+import catalogData from "../../docs/codesys-reference/error-catalog.json" with { type: "json" }
 
 export type ErrorStatus = "implemented" | "checkable" | "ide-only" | "pending"
 
@@ -35,20 +37,9 @@ export interface ErrorCode {
   triage?: "parser" | "pragma" | "resolution" | "optionGated" | "ideOnly" | "skip"
 }
 
-const CATALOG_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "docs",
-  "codesys-reference",
-  "error-catalog.json",
-)
-
-let cache: ErrorCode[] | undefined
-
-/** The full catalog, one entry per documented code. */
+/** The full catalog, one entry per documented code (embedded at build — see the import note above). */
 export function errorCatalog(): ErrorCode[] {
-  return (cache ??= JSON.parse(readFileSync(CATALOG_PATH, "utf8")) as ErrorCode[])
+  return catalogData as unknown as ErrorCode[]
 }
 
 /** One entry by code (`"C0077"`), or undefined. */
@@ -56,16 +47,6 @@ export function lookupErrorCode(code: string): ErrorCode | undefined {
   return errorCatalog().find((e) => e.code === code)
 }
 
-let ourCodeMap: Map<string, { code: string; url: string }> | undefined
-/** Reverse map: our diagnostic slug (`inout-own-access`) → the CODESYS `Cnnnn` it mirrors + its docs URL, so a
- *  diagnostic can surface the compiler code the user recognizes. First-wins when a slug covers several codes
- *  (e.g. `sign-change-conversion` → C0195/C0196). Undefined for a slug with no catalog mapping (VG/internal). */
-export function codesysCodeFor(ourCode: string): { code: string; url: string } | undefined {
-  ourCodeMap ??= new Map(
-    errorCatalog()
-      .filter((e) => e.ourCode)
-      .reverse() // reverse so the FIRST catalog entry wins after the Map dedupes on last-set
-      .map((e) => [e.ourCode!, { code: e.code, url: e.url }]),
-  )
-  return ourCodeMap.get(ourCode)
-}
+// The runtime slug→(code,url) lookup (`codesysCodeFor`) lives in the generated `error-code-map.ts`, NOT here:
+// this module embeds the full 230KB test catalog and is test-only, so the running LSP must not import it.
+// A drift test (error-codes.test.ts) keeps that generated map in sync with this catalog.

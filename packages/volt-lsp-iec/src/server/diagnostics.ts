@@ -16,7 +16,7 @@ import {
   type Messages,
 } from "../analysis/index.js"
 import { computeVgDiagnostics } from "../graphical/index.js"
-import { codesysCodeFor } from "../reference/error-codes.js"
+import { codesysCodeFor } from "../reference/error-code-map.js"
 import { isLibrarySymbol } from "../symbols/index.js"
 import { rangeFromSpan, type Document } from "../services/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"

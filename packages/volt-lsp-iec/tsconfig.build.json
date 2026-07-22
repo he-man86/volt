@@ -8,6 +8,7 @@
     "module": "nodenext",
     "declaration": true,
     "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
     "lib": ["es2022"]
   },
   "include": ["src", "test"],

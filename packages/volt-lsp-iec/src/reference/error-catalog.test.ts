@@ -91,3 +91,14 @@ for (const e of catalog) {
 }
 
 export type { ErrorCode }
+
+// Consistency guard: the LSP-owned code map (error-code-map.ts, the runtime source of truth) and this test
+// catalog must AGREE on every mapped code — same slug→(Cnnnn, url). Neither derives from the other; this just
+// catches a code added to one and forgotten in the other. Add a new mapped code to error-code-map.ts (and its
+// catalog entry gets `ourCode`); if they diverge, this fails.
+test("the LSP code map and the catalog agree on every mapped code", async () => {
+  const { CODESYS_CODE_MAP } = await import("./error-code-map.js")
+  const fromCatalog: Record<string, [string, string]> = {}
+  for (const e of errorCatalog()) if (e.ourCode && !(e.ourCode in fromCatalog)) fromCatalog[e.ourCode] = [e.code, e.url]
+  expect(CODESYS_CODE_MAP).toEqual(fromCatalog)
+})
