@@ -81,32 +81,6 @@ namespace Volt.Cli.Ide.Codesys
         public Guid GuidOf(object node) => GetMember(Unwrap(node), "guid") is Guid g ? g : Guid.Empty;
         public int HandleOf(object node) => GetMember(Unwrap(node), "handle") is int h ? h : 0;
 
-        /// <summary>True when the node is EFFECTIVELY excluded from the build (inheritance-aware: a folder
-        /// excluded from build excludes its subtree). Reads the ScriptObject's `effectively_excluded_from_build`,
-        /// falling back to `build_properties.exclude_from_build`, else false (fail-open — an item we cannot
-        /// classify is treated as built and still checked).</summary>
-        public bool IsExcludedFromBuild(object node)
-        {
-            var n = Unwrap(node);
-            if (GetMember(n, "effectively_excluded_from_build") is bool eff) return eff;
-            var bp = GetMember(n, "build_properties");
-            if (bp != null && GetMember(bp, "exclude_from_build") is bool ex) return ex;
-            return false;
-        }
-
-        /// <summary>Diagnostic (/debug spike): report which build-exclusion members exist on the ScriptObject
-        /// and their raw values, so the reflection path can be confirmed against a live IDE.</summary>
-        public string ExcludeProbe(object node)
-        {
-            var n = Unwrap(node);
-            string eff;
-            try { eff = GetMember(n, "effectively_excluded_from_build")?.ToString() ?? "<null>"; }
-            catch (Exception e) { eff = "<threw: " + e.Message + ">"; }
-            string ex;
-            try { var bp = GetMember(n, "build_properties"); ex = bp == null ? "<no build_properties>" : (GetMember(bp, "exclude_from_build")?.ToString() ?? "<null>"); }
-            catch (Exception e) { ex = "<threw: " + e.Message + ">"; }
-            return $"effectively_excluded_from_build={eff}; build_properties.exclude_from_build={ex}";
-        }
 
         // ── object model: resolve a tree node to its IObject ───────────────────
         /// <summary>The object-model <c>IObject</c> for read (cheap, no serialization).</summary>

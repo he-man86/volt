@@ -75,10 +75,11 @@ guard that throws** — real projects legitimately repeat these names, and throw
 
 ### Wire / materialization invariants (each cites its Core symbol)
 
-- **Exclude-from-build is OMITTED; dead code is RETURNED.** Objects the IDE won't compile
-  (`ProjectItem.ExcludeFromBuild`, folder-inherited) are dropped from `refs`/`fetch` entirely — no compiler
-  ground truth. Everything else is ordinary source **including** dead/uncalled POUs; reachability is the LSP's
-  job, not a wire field.
+- **Dead code is RETURNED; reachability is the LSP's job.** All source is returned over `refs`/`fetch`
+  **including** dead/uncalled POUs — reachability is analyzed downstream, not a wire field. (Exclude-from-build
+  filtering was scoped — an object the IDE won't compile has no compiler ground truth — but is NOT implemented:
+  excluded objects are currently returned like any other source. If added, wire it into the tree walk, not a
+  `/debug` probe.)
 - **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Graphical/GraphicalCode`). A read-only body
   materializes empty with an `(* @volt-graphical: <LANG> *)` marker and is refused on push.
 - **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Graphical/Vg/VgParser`,
