@@ -61,7 +61,7 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   }
 
   // Declaration path — the cursor is on a defining identifier, a type name, or a modifier.
-  const onDef = symbolDefinedAt(project, offset)
+  const onDef = symbolDefinedAt(doc, project, offset)
   if (onDef !== undefined) return onDef
   const tok = tokenAtOffset(doc.source, offset)
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
@@ -99,16 +99,26 @@ function unitScopeAtOffset(parseResult: ParseResult, project: Scope, offset: num
 }
 
 /** The symbol whose DEFINING identifier span covers the offset (cursor sits on a declaration). */
-function symbolDefinedAt(project: Scope, offset: number): Symbol | undefined {
+// The offset is a position in ONE document, so a symbol defined at it can only be one THIS document declares —
+// walking the whole project tree (85k+ symbols on a large project) was both an O(project) tax on the go-to-def
+// hot path AND a latent bug (a doc-local offset can coincidentally fall inside another file's span). Restrict to
+// this doc's contribution: its top-level names (project-scope symbols tagged by `uri`) + its own scope subtrees
+// (project children tagged by `defUri`).
+function symbolDefinedAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
+  for (const syms of project.symbols.values())
+    for (const s of syms) if (s.uri === doc.uri && spanContains(s.span, offset)) return s
   const walk = (scope: Scope): Symbol | undefined => {
-    for (const syms of scope.symbols.values()) {
-      for (const s of syms) if (spanContains(s.span, offset)) return s
-    }
+    for (const syms of scope.symbols.values()) for (const s of syms) if (spanContains(s.span, offset)) return s
     for (const child of scope.children) {
       const inner = walk(child)
       if (inner !== undefined) return inner
     }
     return undefined
   }
-  return walk(project)
+  for (const child of project.children)
+    if (child.defUri === doc.uri) {
+      const found = walk(child)
+      if (found !== undefined) return found
+    }
+  return undefined
 }
