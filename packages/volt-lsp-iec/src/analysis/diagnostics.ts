@@ -6,7 +6,7 @@
  *
  * Adding a check: implement `(ctx, out) => void` in `checks/<group>/` and register it below.
  */
-import type { ParseResult } from "../syntax/index.js"
+import { lex, type ParseResult, type Token } from "../syntax/index.js"
 import type { Scope } from "../symbols/index.js"
 import {
   EMPTY_WORKSPACE_REFS,
@@ -101,6 +101,9 @@ export interface CheckContext {
   activeVendor: Vendor
   /** Workspace reference-file names (library namespaces + device instances) the checks may skip. */
   references: WorkspaceRefs
+  /** The source lexed ONCE, shared by every pragma/attribute-token check. The parser strips pragmas, so these
+   *  checks re-lex — three of them independently did (~5ms each on a large file); this memoizes to one lex. */
+  tokens: () => readonly Token[]
 }
 
 type Check = (ctx: CheckContext, out: DiagnosticItem[]) => void
@@ -201,6 +204,7 @@ export interface DiagnosticsArgs {
 
 export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
   const config = isResolved(args.config) ? args.config : resolveConfig(args.config)
+  let tokenCache: readonly Token[] | undefined
   const ctx: CheckContext = {
     parseResult: args.parseResult,
     source: args.source,
@@ -209,6 +213,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     messages: messagesFor(config.vendor),
     activeVendor: config.vendor,
     references: args.references ?? EMPTY_WORKSPACE_REFS,
+    tokens: () => (tokenCache ??= lex(args.source)),
   }
   const out: DiagnosticItem[] = []
   if (CHECK_TIMING !== undefined) {

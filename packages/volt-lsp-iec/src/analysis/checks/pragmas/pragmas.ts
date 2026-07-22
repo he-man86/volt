@@ -12,13 +12,12 @@
  * ponytail: no `{IF}` predicate evaluation — a message pragma inside a false branch is still surfaced;
  * upgrade to branch-aware when a corpus case needs it.
  */
-import { lex } from "../../../syntax/index.js"
 import { isKnownAttribute } from "../../../reference/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const pragmas = lex(ctx.source)
+  const pragmas = ctx.tokens()
     .filter((t) => t.kind === "pragma")
     .map((t) => ({ span: t.span, text: t.text, ...parsePragma(t.text) }))
 

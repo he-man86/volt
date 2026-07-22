@@ -25,15 +25,14 @@ import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const ITERATIONS = 40
 // p95 ceiling for one edit→diagnostics on the LARGEST project POU of the largest corpus project (pro2193,
-// 7759 files). Post root-causing (2026-07-22): a TYPICAL POU edits at ~36ms p50; only the atypical 58 KB
-// largest POU hits ~62ms p50 / ~86ms p95. Three algorithmic hot spots were fixed (bare-enum scan before scope
-// lookup 88→4ms; two naive reachability fixpoints 74→9ms + dead-members) — those were the real bugs. The
-// residual floor (present on ANY edit, ~36ms) is the dead-code reachability passes `deadSet`+`deadMembers`
-// (~18ms, genuinely O(project)/edit — recomputed even for a within-body edit) plus rebind; NOT linkExtends
-// (2ms) or the span-index rebuild (1.4ms), which are negligible. The extra ~26ms on the largest file is the
-// O(file) semantic pass. The budget catches a REGRESSION of the fixed class; the next lever is caching the
-// dead set across reachability-unchanged edits. Over budget on a NON-huge project ⇒ root-cause (a timeout is a bug).
-const BUDGET_MS = 160
+// 7759 files). After the 2026-07-22 perf pass the worst case is ~31ms p50 / ~55ms p95 — a 5.4× cut from the
+// ~168ms this bench first exposed (it had passed vacuously by editing a bodyless library DUT). Fixes: bare-enum
+// scan reordered after scope lookup (88→4ms), two naive reachability fixpoints → worklists (74→9ms + members),
+// one shared lex for the pragma/attribute/deprecated checks (~11ms), and the dead-code fixpoints now recompute
+// ONLY when an edit changes something reachability-relevant (skipping ~18ms/edit on the common within-body
+// keystroke). 90ms leaves headroom for slow CI runners; a regression of any of those classes blows well past it.
+// Over budget ⇒ root-cause (a timeout is a bug, not a threshold to raise).
+const BUDGET_MS = 90
 
 function walk(dir: string): string[] {
   const out: string[] = []

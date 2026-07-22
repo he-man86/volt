@@ -9,6 +9,8 @@ export {
   deadPousFromInfos,
   deadMemberSpansFromInfos,
   fileReachInfo,
+  deadNameUniverse,
+  reachDeadEquivalent,
   inDeadMember,
   ownerPou,
   type ReachabilityInput,

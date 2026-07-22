@@ -8,7 +8,7 @@
  * exactly the "leading trivia" ownership the parser skips. Zero-FP: only fires for `pack_mode` and only when the
  * owned unit is a FUNCTION/METHOD, so a pack_mode on a struct/var (its legal home) is never flagged.
  */
-import { lex, isTrivia } from "../../../syntax/index.js"
+import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -23,7 +23,7 @@ export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]
   if (kindAt.size === 0) return
 
   let leading: { name: string; span: DiagnosticItem["span"] }[] = []
-  for (const t of lex(ctx.source)) {
+  for (const t of ctx.tokens()) {
     if (t.kind === "pragma") {
       const name = attributeName(t.text)
       if (name !== undefined) leading.push({ name, span: t.span })

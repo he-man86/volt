@@ -10,12 +10,12 @@
  * (C0099 — inline local enums — is intentionally NOT here: they are common and compile clean, so it is deferred
  * as a corpus-gate demotion; see the catalog note.)
  */
-import { lex, isTrivia } from "../../../syntax/index.js"
+import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkDeprecatedKeyword(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const toks = lex(ctx.source).filter((t) => !isTrivia(t.kind))
+  const toks = ctx.tokens().filter((t) => !isTrivia(t.kind))
   for (let i = 0; i + 1 < toks.length; i++) {
     const t = toks[i]!
     if (t.kind !== "identifier" || t.text.toUpperCase() !== "FUNCTIONBLOCK") continue

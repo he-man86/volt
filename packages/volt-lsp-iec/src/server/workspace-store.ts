@@ -18,6 +18,8 @@ import {
   deadPousFromInfos,
   deadMemberSpansFromInfos,
   fileReachInfo,
+  deadNameUniverse,
+  reachDeadEquivalent,
   EMPTY_WORKSPACE_REFS,
   type FileReachInfo,
   type ResolvedConfig,
@@ -65,6 +67,14 @@ export class WorkspaceStore {
   private boundDocs = new Map<string, Document>()
   private cachedDead: Set<string> | undefined
   private cachedDeadMembers: Map<string, Span[]> | undefined
+  // Dead-code caching across edits: the fixpoints are O(project), so recompute ONLY when an edit actually
+  // changes something dead-relevant. `deadDirty` gates a recompute; `deadNames`/`deadInfoSnapshot` capture the
+  // name universe + per-file reachInfo the current dead caches reflect, so `rebindKey` can compare the edited
+  // file and keep the caches when nothing dead-relevant moved (a within-body edit — the common keystroke).
+  private deadDirty = true
+  private deadNames: ReadonlySet<string> = new Set()
+  private deadInfoSnapshot = new Map<string, FileReachInfo>()
+  private deadConfigDc = false // last-seen config.diagnoseDeadCode, to catch a config toggle (rare, not per-edit)
   // Per-document dead-code inputs (the lex-heavy part), memoized by Document identity — an edit re-scans
   // only the changed file, not all N. A WeakMap so a replaced Document's info is collected automatically.
   private reachCache = new WeakMap<Document, FileReachInfo>()
@@ -125,6 +135,7 @@ export class WorkspaceStore {
       this.boundDocs.delete(key)
     }
     linkExtends(this.projectScope)
+    this.markDeadDirtyIfReachChanged(key, desired)
   }
 
   workspace(): Document[] {
@@ -144,37 +155,58 @@ export class WorkspaceStore {
     return this.disk.get(key)
   }
 
+  /** The memoized dead-code reachInfo for one document (lex-heavy; keyed by Document identity, so only a
+   *  re-parsed file re-lexes). */
+  private reachOf(d: Document): FileReachInfo {
+    let info = this.reachCache.get(d)
+    if (info === undefined) {
+      info = fileReachInfo({ uri: d.uri, source: d.source, parseResult: d.parseResult })
+      this.reachCache.set(d, info)
+    }
+    return info
+  }
+
   /** Per-file dead-code inputs for the merged doc set, reusing memoized infos for unchanged files. */
   private reachInfos(): FileReachInfo[] {
-    return this.docs().map((d) => {
-      let info = this.reachCache.get(d)
-      if (info === undefined) {
-        info = fileReachInfo({ uri: d.uri, source: d.source, parseResult: d.parseResult })
-        this.reachCache.set(d, info)
-      }
-      return info
-    })
+    return this.docs().map((d) => this.reachOf(d))
   }
 
   deadSet(): Set<string> {
-    return (this.cachedDead ??= this.config.diagnoseDeadCode
-      ? new Set()
-      : deadPousFromInfos(this.reachInfos(), this.taskRoots))
+    const dc = this.config.diagnoseDeadCode
+    if (dc !== this.deadConfigDc) {
+      this.deadDirty = true // a diagnoseDeadCode toggle changes the whole suppression behaviour
+      this.deadConfigDc = dc
+    }
+    if (dc) return (this.cachedDead = new Set()) // diagnosing dead code ⇒ suppress nothing (overwrite any stale set)
+    if (this.cachedDead !== undefined && !this.deadDirty) return this.cachedDead
+    const infos = this.reachInfos()
+    this.cachedDead = deadPousFromInfos(infos, this.taskRoots)
+    this.cachedDeadMembers = undefined // dead set recomputed ⇒ member spans stale
+    this.deadNames = deadNameUniverse(infos)
+    this.deadInfoSnapshot = new Map(infos.map((i) => [normalizeKey(i.uri), i]))
+    this.deadDirty = false
+    return this.cachedDead
   }
 
   deadMembers(): Map<string, Span[]> {
-    return (this.cachedDeadMembers ??= this.config.diagnoseDeadCode
-      ? new Map()
-      : deadMemberSpansFromInfos(this.reachInfos(), this.deadSet()))
+    const dead = this.deadSet() // recomputes (and clears cachedDeadMembers) if reachability changed
+    if (this.config.diagnoseDeadCode) return (this.cachedDeadMembers = new Map()) // overwrite any stale map
+    return (this.cachedDeadMembers ??= deadMemberSpansFromInfos(this.reachInfos(), dead))
   }
 
-  /** Clear the derived caches that are NOT the symbol table (merged doc list + dead-code). The project scope
-   *  is maintained incrementally, so it is NOT rebuilt here — a config change (the only external caller)
-   *  never alters symbol structure, only which diagnostics the dead-code passes suppress. */
+  /** After a single-file rebind, mark the dead caches stale ONLY if that file's reachability actually changed
+   *  (a within-body edit — the common keystroke — leaves them valid, skipping the O(project) fixpoints). No-op
+   *  once already dirty or before the first dead compute (nothing to compare against). */
+  private markDeadDirtyIfReachChanged(key: string, desired: Document | undefined): void {
+    if (this.deadDirty || this.cachedDead === undefined) return
+    const newInfo = desired !== undefined ? this.reachOf(desired) : undefined
+    if (!reachDeadEquivalent(this.deadInfoSnapshot.get(key), newInfo, this.deadNames)) this.deadDirty = true
+  }
+
+  /** Clear the merged-doc-list cache. The symbol table + dead caches are maintained incrementally (rebindKey /
+   *  the deadDirty gate), so they are NOT dropped here — only the memoized docs() view. */
   invalidate(): void {
     this.cachedDocs = undefined
-    this.cachedDead = undefined
-    this.cachedDeadMembers = undefined
   }
 
   // ─── open-layer mutations (client document sync) ──────────────────────────
@@ -217,6 +249,10 @@ export class WorkspaceStore {
       this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseSource(f.source) })
     this.projectScope = undefined
     this.boundDocs.clear()
+    this.cachedDead = undefined // wholesale reseed ⇒ the dead caches + their snapshot are stale
+    this.cachedDeadMembers = undefined
+    this.deadDirty = true
+    this.deadInfoSnapshot.clear()
     this.invalidate()
   }
 }
