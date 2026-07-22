@@ -33,6 +33,60 @@ public class ShowCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    // The incoming-diff compare (panel.ts): HEAD (your repo's last commit) ↔ BRIDGE (live IDE). After a pull, an
+    // IDE edit must make the two panes DIFFER — the bug that started this was HEAD/VOLTIDE showing identical panes.
+    [Fact]
+    public void Show_HEAD_vs_BRIDGE_is_the_incoming_compare()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);                    // HEAD = committed repo = x := 1
+            ide.MutateImplementation("PLC_PRG", "x := 9;"); // the engineer edits in the IDE → incoming
+            var head = ShowText(root, client, "HEAD");
+            var bridge = ShowText(root, client, "BRIDGE");
+            Assert.Contains("x := 1;", head);   // your repo's last commit
+            Assert.Contains("x := 9;", bridge);  // the live IDE
+            Assert.NotEqual(head, bridge);       // the two panes differ → the diff is non-empty
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    // An ADDED incoming item isn't in HEAD. `volt show HEAD` must report ABSENT (→ exit 2 → empty diff pane), NOT a
+    // hard error — otherwise the left pane renders "volt show failed: … not found at HEAD" instead of a blank side.
+    [Fact]
+    public void Show_HEAD_absent_item_is_flagged_absent_not_error()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var (bytes, err, absent) = Commands.Show(root, client, "HEAD", "Added.prg");
+            Assert.Null(bytes);
+            Assert.True(absent);                       // → CmdShow exits 2 → the content provider renders ""
+            Assert.Contains("not found at HEAD", err);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    // A genuine error (a path that maps to no item) is NOT absent → exit 1 → the pane shows the error.
+    [Fact]
+    public void Show_unrecognized_path_is_an_error_not_absent()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var (bytes, _, absent) = Commands.Show(root, client, "BRIDGE", "not-a-path");
+            Assert.Null(bytes);
+            Assert.False(absent);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Show_errors_on_a_missing_workspace_file()
     {
@@ -41,7 +95,7 @@ public class ShowCommandTests
         try
         {
             Commands.Pull(root, client);
-            var (bytes, err) = Commands.Show(root, client, "WORKSPACE", "Nope.prg");
+            var (bytes, err, _) = Commands.Show(root, client, "WORKSPACE", "Nope.prg");
             Assert.Null(bytes);
             Assert.Contains("not in the workspace", err);
         }
@@ -56,7 +110,7 @@ public class ShowCommandTests
         try
         {
             Commands.Pull(root, client);
-            var (bytes, err) = Commands.Show(root, client, "BRIDGE", "Nope.prg");
+            var (bytes, err, _) = Commands.Show(root, client, "BRIDGE", "Nope.prg");
             Assert.Null(bytes);
             Assert.Contains("bridge has no item", err);
         }

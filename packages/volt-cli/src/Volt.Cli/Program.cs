@@ -163,10 +163,12 @@ internal static class Program
         var refName = a.Operand(0);
         var rel = a.Operand(1);
         if (refName is null || rel is null) { Console.Error.WriteLine("usage: volt show <ref> <path>"); return 1; }
-        var (bytes, error) = Commands.Show(root, bridge, refName, rel);
+        var (bytes, error, absent) = Commands.Show(root, bridge, refName, rel);
         if (bytes is not null) { using var o = Console.OpenStandardOutput(); o.Write(bytes, 0, bytes.Length); return 0; }
         Console.Error.WriteLine(error);
-        return 1;
+        // Absent (item not present at this ref — e.g. an added/removed item in a diff) → exit 2, which the diff
+        // content-provider renders as an empty pane. A genuine error (bad path / no merge) → exit 1.
+        return absent ? 2 : 1;
     }
 
     private static int CmdMerge(string root, Args a)

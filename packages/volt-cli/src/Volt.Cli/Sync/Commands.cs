@@ -356,21 +356,23 @@ public static class Commands
     }
 
     /// <summary>volt show &lt;ref&gt; &lt;src-rel-path&gt; — raw file bytes at a ref (HEAD / VOLTIDE / MERGE_* /
-    /// WORKSPACE / BRIDGE).</summary>
-    public static (byte[]? Bytes, string? Error) Show(string root, BridgeClient bridge, string @ref, string rel)
+    /// WORKSPACE / BRIDGE). <c>Absent</c> distinguishes "the item legitimately isn't present at this ref" (an
+    /// added/removed item in a diff — the caller renders an EMPTY pane) from a genuine error (bad path, no merge):
+    /// CmdShow maps Absent → exit 2 (which the diff content-provider renders as ""), a real error → exit 1.</summary>
+    public static (byte[]? Bytes, string? Error, bool Absent) Show(string root, BridgeClient bridge, string @ref, string rel)
     {
         if (@ref == "BRIDGE")
         {
             var name = Extensions.FullNameFromPath(rel);
-            if (name is null) return (null, $"unrecognized path: {rel}");
+            if (name is null) return (null, $"unrecognized path: {rel}", false);
             var resp = bridge.FetchChanges(new FetchRequest { KnownItems = new() { [name] = "" }, OnlyItems = new() { name } });
             var item = resp.Changed.FirstOrDefault(i => i.Name == name);
-            return item is not null ? (Encoding.UTF8.GetBytes(item.SourceText), null) : (null, $"bridge has no item {name}");
+            return item is not null ? (Encoding.UTF8.GetBytes(item.SourceText), null, false) : (null, $"bridge has no item {name}", true);
         }
         if (@ref == "WORKSPACE")
         {
             var p = System.IO.Path.Combine(root, Files.SrcDir, rel);
-            return File.Exists(p) ? (File.ReadAllBytes(p), null) : (null, $"{rel} is not in the workspace");
+            return File.Exists(p) ? (File.ReadAllBytes(p), null, false) : (null, $"{rel} is not in the workspace", true);
         }
         var gitRef = @ref switch
         {
@@ -380,9 +382,9 @@ public static class Commands
             "MERGE_BASE" => Git.MergeBase(root, "HEAD", "MERGE_HEAD"),
             _ => @ref,
         };
-        if (gitRef is null) return (null, "no merge in progress (MERGE_BASE unavailable)");
+        if (gitRef is null) return (null, "no merge in progress (MERGE_BASE unavailable)", false);
         var bytes = Git.GitShowBytes(root, gitRef, $"{Files.SrcDir}/{rel}");
-        return bytes is not null ? (bytes, null) : (null, $"{rel} not found at {@ref}");
+        return bytes is not null ? (bytes, null, false) : (null, $"{rel} not found at {@ref}", true);
     }
 
     /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve.</summary>

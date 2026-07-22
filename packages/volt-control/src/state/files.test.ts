@@ -99,3 +99,38 @@ describe("readStateMtime", () => {
 		expect(readStateMtime(testDir)).toBe(0);
 	});
 });
+
+// The gap: the VoltStatus tracker auto-refreshes only on (a) an IDE-side health edge (→ incoming) and
+// (b) a change to .git/volt/ide-refs.json — the mtime poll's signal, which moves ONLY on pull/push. NOTHING
+// watches the workspace `src/` tree, so an OUTGOING change (a workspace edit) is auto-detected only via the
+// extension's onDidSaveTextDocument hook (editor saves only) — and never on the desktop, nor for agent/terminal/
+// external edits. This test pins that: editing a tracked src file leaves readStateMtime (the poll signal)
+// unchanged, so the tracker cannot see the edit without a manual refresh. The fix is a debounced src/ watcher.
+describe("outgoing detection gap", () => {
+	let testDir: string;
+	beforeEach(() => {
+		testDir = join(tmpdir(), `volt-outgoing-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		mkdirSync(testDir, { recursive: true });
+	});
+	afterEach(() => rmSync(testDir, { recursive: true, force: true }));
+
+	test("editing a workspace src file does NOT move the mtime-poll signal (so outgoing isn't auto-detected)", () => {
+		const stateDir = join(testDir, ".git", "volt");
+		mkdirSync(stateDir, { recursive: true });
+		writeFileSync(join(stateDir, "ide-refs.json"), "{}");
+		const before = readStateMtime(testDir);
+
+		// An out-of-editor outgoing change: the agent / a terminal / an external editor writes a tracked POU.
+		const srcDir = join(testDir, "src", "POUs");
+		mkdirSync(srcDir, { recursive: true });
+		const pou = join(srcDir, "FB_Motor.fb");
+		writeFileSync(pou, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR\nx := 1;");
+		// Bump the POU's mtime far into the future to rule out any filesystem resolution race.
+		const future = new Date(Date.now() + 10_000);
+		utimesSync(pou, future, future);
+
+		// It IS a tracked file (so it belongs in `outgoing`) — yet the poll signal is unchanged.
+		expect(isPouFile(pou)).toBe(true);
+		expect(readStateMtime(testDir)).toBe(before);
+	});
+});

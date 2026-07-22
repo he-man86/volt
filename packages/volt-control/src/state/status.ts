@@ -4,7 +4,7 @@
  * state-file mtime poll. Pure over volt-control (no `vscode`), so the VS Code extension and the desktop shell
  * share ONE tracker and each renders `onDidChange` in its own UI.
  */
-import { existsSync } from "node:fs";
+import { existsSync, watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
 import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
@@ -19,6 +19,8 @@ import { isPouFile, readStateMtime } from "./files.js";
 // edit-detection latency close to the old /refs poll without a full-project scan (which is what /refs was).
 const HEALTH_MS = 4_000;
 const MTIME_MS = 3_000;
+// Coalesce a burst of src writes (e.g. the agent rewriting many files) into one refresh.
+const WATCH_DEBOUNCE_MS = 400;
 
 /** After a pull/push: adopt the resulting status the action already returned (ONE bridge call, no follow-up
  *  `volt status`). Adopt on ANY outcome that carried a status (ok, and a pull conflict — which already fetched
@@ -53,6 +55,8 @@ export class VoltStatus {
 
 	private heartbeat: ReturnType<typeof setInterval> | null = null;
 	private mtimePoll: ReturnType<typeof setInterval> | null = null;
+	private srcWatcher: FSWatcher | null = null;
+	private watchDebounce: ReturnType<typeof setTimeout> | null = null;
 	private lastMtime = 0;
 	private lastRefreshMs = 0;
 	private bridgeVendor: Vendor | undefined;
@@ -72,13 +76,40 @@ export class VoltStatus {
 		// One /health poll drives health AND IDE-change detection (no separate /refs poll, no slow heartbeat).
 		this.heartbeat = setInterval(() => this.pollConnection(), HEALTH_MS);
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
+		this.watchSrc();
 		this.pollConnection();
 		await this.refresh();
+	}
+
+	/** Watch the workspace `src/` tree so an OUTGOING change is detected however it's made — the agent's tools, a
+	 *  terminal, git, an external editor — not just an in-editor save (the extension's onDidSaveTextDocument, absent
+	 *  on the desktop). The mtime/health polls can't see src edits (they watch ide-refs.json + IDE health), so this
+	 *  is the only auto-trigger for outgoing. refresh()'s 1s debounce + the mutation gate absorb our own pull/push
+	 *  writes. ponytail: fs.watch recursive is Windows/macOS only — Volt is Windows-only, so no extra dep. */
+	private watchSrc(): void {
+		const srcDir = join(this.workspaceRoot, "src");
+		if (!existsSync(srcDir)) return; // uninitialized → nothing to push; init creates src/ before start()
+		try {
+			this.srcWatcher = watch(srcDir, { recursive: true }, (_event, filename) => {
+				// Only tracked source kinds are push candidates; ignore editor temp/other files. A null filename
+				// (rare) is treated as "something changed" → refresh.
+				if (typeof filename === "string" && !isPouFile(filename)) return;
+				if (this.watchDebounce !== null) clearTimeout(this.watchDebounce);
+				this.watchDebounce = setTimeout(() => {
+					this.watchDebounce = null;
+					void this.refresh();
+				}, WATCH_DEBOUNCE_MS);
+			});
+		} catch {
+			/* watch unsupported / src vanished → fall back to the save-hook + polls */
+		}
 	}
 
 	dispose(): void {
 		if (this.heartbeat !== null) clearInterval(this.heartbeat);
 		if (this.mtimePoll !== null) clearInterval(this.mtimePoll);
+		if (this.srcWatcher !== null) this.srcWatcher.close();
+		if (this.watchDebounce !== null) clearTimeout(this.watchDebounce);
 		this.onDidChange.dispose();
 	}
 

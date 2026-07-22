@@ -1,8 +1,15 @@
-import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { expect, spyOn, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VoltStatus, isIdeChangeEdge } from "./status.js";
+
+/** Poll until `cond()` is true or `ms` elapses — fs.watch delivers events + the handler debounces, so a fixed
+ *  sleep would be racy. */
+async function until(cond: () => boolean, ms = 3000): Promise<void> {
+	const start = Date.now();
+	while (!cond() && Date.now() - start < ms) await new Promise((r) => setTimeout(r, 50));
+}
 
 // Change detection now rides the /health poll (no /refs). These pin the edge decision the poll makes.
 test("isIdeChangeEdge: fires on a projectDirty false→true edge, not on the first read or while staying dirty", () => {
@@ -33,6 +40,43 @@ test("refresh on an unbound workspace clears state and fires onDidChange (no bri
 		expect(fired).toBe(1); // onDidChange fires once, even on the empty path
 		s.dispose(); // safe without start() — the interval handles are null
 	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+// The outgoing-detection fix: a workspace src edit (however made — agent, terminal, external editor) triggers a
+// refresh via the src/ watcher, not just an in-editor save. Within the 3s window neither poll fires a refresh
+// (health poll needs a bound vendor; mtime poll needs ide-refs.json), so a recorded refresh came from the watcher.
+test("a workspace src edit triggers a refresh (src watcher closes the outgoing gap)", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "volt-watch-"));
+	mkdirSync(join(dir, "src", "POUs"), { recursive: true }); // src/ must exist before start() attaches the watcher
+	const s = new VoltStatus(dir);
+	const spy = spyOn(s, "refresh");
+	try {
+		await s.start();
+		spy.mockClear(); // ignore start()'s own initial refresh
+		writeFileSync(join(dir, "src", "POUs", "FB_Motor.fb"), "FUNCTION_BLOCK FB_Motor\nx := 1;");
+		await until(() => spy.mock.calls.length > 0);
+		expect(spy.mock.calls.length).toBeGreaterThan(0);
+	} finally {
+		s.dispose();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("the src watcher ignores non-source files (no refresh for a README)", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "volt-watch-"));
+	mkdirSync(join(dir, "src"), { recursive: true });
+	const s = new VoltStatus(dir);
+	const spy = spyOn(s, "refresh");
+	try {
+		await s.start();
+		spy.mockClear();
+		writeFileSync(join(dir, "src", "README.md"), "not a POU");
+		await until(() => spy.mock.calls.length > 0, 900); // well past the debounce; should never fire
+		expect(spy.mock.calls.length).toBe(0);
+	} finally {
+		s.dispose();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });

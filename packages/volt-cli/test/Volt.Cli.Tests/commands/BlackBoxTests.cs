@@ -177,15 +177,15 @@ public class BlackBoxTests
     }
 
     [Fact]
-    public void Show_success_zero_missing_one_and_usage_one()
+    public void Show_exit_codes_success_zero_absent_two_and_usage_one()
     {
         var (root, host, pipe) = Boot(ConnectedIde(Prg()));
         try
         {
             RunVolt(root, pipe, "pull");
             Assert.Equal(0, RunVolt(root, pipe, "show", "WORKSPACE", "PLC_PRG.prg").Code);
-            Assert.Equal(1, RunVolt(root, pipe, "show", "WORKSPACE", "Nope.prg").Code);   // missing file
-            Assert.Equal(1, RunVolt(root, pipe, "show").Code);                            // usage
+            Assert.Equal(2, RunVolt(root, pipe, "show", "WORKSPACE", "Nope.prg").Code);   // absent item → empty diff pane (not an error)
+            Assert.Equal(1, RunVolt(root, pipe, "show").Code);                            // usage error
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
