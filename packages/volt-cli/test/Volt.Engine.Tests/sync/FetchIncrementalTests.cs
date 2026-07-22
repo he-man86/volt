@@ -49,6 +49,24 @@ public class FetchIncrementalTests
         Assert.DoesNotContain(resp.Changed, c => c.Name == "FB_Motor.fb");
     }
 
+    // A directed fetch (onlyItems) — the VS Code diff preview — discards everything but the named items, so it must
+    // NOT pay the library precompile. A full fetch still extracts (the workspace needs the whole library API).
+    [Fact]
+    public void OnlyItems_skips_the_library_build()
+    {
+        var ide = TwoItem();
+        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.prg" } });
+        Assert.Equal(0, ide.ExtractCalls);
+    }
+
+    [Fact]
+    public void A_full_fetch_still_extracts_the_library_signatures()
+    {
+        var ide = TwoItem();
+        Fetch(ide, new());
+        Assert.Equal(1, ide.ExtractCalls);
+    }
+
     [Fact]
     public void Removed_reports_a_known_name_that_no_longer_exists()
     {

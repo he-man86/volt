@@ -238,8 +238,11 @@ public sealed class FakeIde : IIdeDriver
     // released — lets a test observe /health while the op runs (extraction is the FIRST thing a verbose /init does).
     public ManualResetEventSlim? ExtractEntered { get; init; }
     public ManualResetEventSlim? ExtractBlock { get; init; }
+    /// <summary>How many times extraction (the precompile) ran — lets a test prove a directed fetch skips the build.</summary>
+    public int ExtractCalls;
     public IReadOnlyList<LibSignature> ExtractLibrarySignatures()
     {
+        ExtractCalls++;
         ExtractEntered?.Set();
         ExtractBlock?.Wait();
         return LibSignatures;

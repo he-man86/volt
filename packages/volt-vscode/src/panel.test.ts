@@ -10,6 +10,7 @@ mock.module("vscode", () => ({
   EventEmitter: class {
     event = (): void => {}
   },
+  Uri: { from: (parts: unknown) => parts, file: (p: string) => ({ fsPath: p }) },
 }))
 
 const { bridgeRoots, syncRoots } = await import("./panel.js")
@@ -59,4 +60,24 @@ test("bound + online + no drift → 'In sync' (unchanged)", () => {
 test("bound + offline → Bridge view offers a one-click Reconnect (volt.connect), not a tray pointer", () => {
   const roots = bridgeRoots([offlineView as never], [])
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(true)
+})
+
+// The bug this guards: incoming used to diff VOLTIDE ↔ BRIDGE, but VOLTIDE (refs/remotes/volt/ide) IS the IDE
+// remote-tracking branch — after a pull it equals BRIDGE, so the diff showed two identical panes. The left side
+// must be the user's local repo (HEAD), giving the "IDE → local repo" diff.
+const diffRefs = (dir: "incoming" | "outgoing") => {
+  const item = { name: "Foo", sub: "M", relPath: "POUs/Foo.pou" }
+  const view = { ...onlineView, [dir]: [item] }
+  const roots = syncRoots([view as never])
+  const node = roots.find((n) => n.key === `group:${dir}`)?.children?.[0]
+  const [left, right] = node!.command!.arguments as { path: string }[]
+  return { left: left.path, right: right.path }
+}
+
+test("incoming diff = HEAD (repo's last commit) ↔ BRIDGE (live IDE), never the IDE-tracking VOLTIDE ref", () => {
+  expect(diffRefs("incoming")).toEqual({ left: "/HEAD/POUs/Foo.pou", right: "/BRIDGE/POUs/Foo.pou" })
+})
+
+test("outgoing diff = VOLTIDE (synced baseline) ↔ WORKSPACE (working file)", () => {
+  expect(diffRefs("outgoing")).toEqual({ left: "/VOLTIDE/POUs/Foo.pou", right: "/WORKSPACE/POUs/Foo.pou" })
 })

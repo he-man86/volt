@@ -204,9 +204,11 @@ function group(dir: string, label: string, children: VoltNode[]): VoltNode {
 // (the editor API) are built here.
 function itemNode(it: DriftItem, workspaceRoot: string, dir: "incoming" | "outgoing"): VoltNode {
 	const onDisk = vscode.Uri.file(join(workspaceRoot, "src", it.relPath))
-	// Both diff against the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
-	//   incoming → VOLTIDE ↔ BRIDGE    (the live IDE — what a pull brings in)
-	//   outgoing → VOLTIDE ↔ WORKSPACE (your working file — reflects uncommitted edits)
+	// incoming → HEAD ↔ BRIDGE    (your repo's last commit vs the live IDE — what a pull brings in).
+	//   NOT VOLTIDE: refs/remotes/volt/ide IS the IDE modelled as a remote-tracking branch, so after any pull it
+	//   already equals BRIDGE — the diff would show two identical panes. HEAD is the user's actual local repo.
+	// outgoing → VOLTIDE ↔ WORKSPACE (last-synced IDE baseline vs your working file — what a push sends).
+	const leftRef = dir === "incoming" ? "HEAD" : "VOLTIDE"
 	const rightRef = dir === "incoming" ? "BRIDGE" : "WORKSPACE"
 	const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
 	return {
@@ -219,7 +221,7 @@ function itemNode(it: DriftItem, workspaceRoot: string, dir: "incoming" | "outgo
 		command: {
 			command: "vscode.diff",
 			title: "Diff",
-			arguments: [buildUri(workspaceRoot, "VOLTIDE", it.relPath), buildUri(workspaceRoot, rightRef, it.relPath), `${it.name} — ${verb}`],
+			arguments: [buildUri(workspaceRoot, leftRef, it.relPath), buildUri(workspaceRoot, rightRef, it.relPath), `${it.name} — ${verb}`],
 		},
 	}
 }

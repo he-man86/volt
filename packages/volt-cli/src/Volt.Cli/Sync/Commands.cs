@@ -50,6 +50,7 @@ public static class Commands
         // fast-import stream: blobs + tree) → write files → finalize (git index). (Materialize is negligible — a
         // fast in-memory transform — so it gets no phase of its own.)
         var progress = new PhaseProgress(onProgress, "init", 4);
+        progress.Enter(0, "Fetching from IDE"); // label up front — Init's fetch stays silent through its precompile+walk
         var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var gitDir = Git.ResolveGitDir(root);
@@ -114,6 +115,9 @@ public static class Commands
         FetchResponse fetched;
         try
         {
+            // Show the phase the instant the CLI reaches it — the bridge's own frames don't arrive until AFTER its
+            // silent precompile+walk, so without this the bar dead-spins on the bare title for seconds.
+            progress.Enter(0, "Fetching from IDE");
             fetched = bridge.FetchChanges(new FetchRequest
             {
                 KnownItems = sidecar?.Items ?? new Dictionary<string, string>(),
@@ -280,6 +284,8 @@ public static class Commands
         PushResponse resp;
         try
         {
+            // Label up front — PushService walks the whole project (silently) before its first "applying" frame.
+            onProgress?.Invoke(new ProgressFrame { Operation = "push", Phase = "Pushing to IDE", Done = 0, Total = null });
             resp = bridge.PushBatch(new PushRequest
             {
                 Ops = ops,

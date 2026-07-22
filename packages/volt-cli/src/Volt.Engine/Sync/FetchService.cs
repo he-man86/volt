@@ -55,8 +55,12 @@ public static class FetchService
         // can never stale a handle mid-materialize (which would silently drop an item's source to the Unreadable
         // sentinel). (2) PROGRESS: knowing the signature count up front folds it into ONE total, so the signatures
         // tick through the SAME bar as the items with no separate phase. The stream's keepAlive heartbeat covers the
-        // (silent) precompile. EVERY fetch gathers the full library API — the workspace is always complete.
-        IReadOnlyList<LibSignature> libSigs = ide.ExtractLibrarySignatures();
+        // (silent) precompile. A FULL fetch gathers the whole library API so the workspace is complete.
+        //
+        // A DIRECTED fetch (onlyItems — the VS Code diff preview, E2E harness) wants only the named items' source and
+        // discards everything else, so it must NOT pay the build: skip extraction entirely. No build ⇒ no handle can
+        // be staled mid-materialize, so the safety ordering above is moot for this path.
+        IReadOnlyList<LibSignature> libSigs = onlyItems != null ? Array.Empty<LibSignature>() : ide.ExtractLibrarySignatures();
         // Materialize the walk once so we know the total up front (for the progress fraction) and don't re-walk.
         var walked = ide.WalkItems();
         var total = walked.Count + libSigs.Count;
