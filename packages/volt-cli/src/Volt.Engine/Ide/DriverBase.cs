@@ -53,22 +53,25 @@ public abstract class DriverBase : IIdeSession
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
 
-    // ── library-signature extraction, cached by the referenced-library fingerprint ──
-    private readonly Library.LibSignatureCache _libCache = new();
+    // ── referenced-library signatures ──
+    // FetchService calls ExtractLibrarySignatures ONLY when a referenced library's .library version changed (the
+    // client sends the versions it has in knownItems; the .library files are hashed like any other file). So the
+    // precompile runs only on a real library change — no session-scoped cache, no cross-session cold rebuild.
 
-    /// <summary>Referenced-library signatures, cached by <see cref="ReferencedLibraryFingerprint"/>. When the
-    /// fingerprint is unchanged the cached signatures are returned WITHOUT precompiling (a library's API is
-    /// immutable per version). Not virtual — the vendor overrides the two seams below, not this.</summary>
-    public IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
-        _libCache.GetOrExtract(ReferencedLibraryFingerprint(), ExtractLibrarySignaturesUncached);
+    /// <summary>Cold extractions (real precompiles) this session — observability + the deterministic hook the live
+    /// e2e uses to prove an unchanged-library fetch does NOT build.</summary>
+    public int LibExtractCount { get; private set; }
 
-    /// <summary>A BUILD-FREE fingerprint of the referenced-library set (each entry encodes name+version). Unchanged
-    /// ⇒ identical signatures ⇒ the precompile is skipped. Default empty: a driver with no library signatures
-    /// (TwinCAT) never precompiles.</summary>
-    protected virtual string ReferencedLibraryFingerprint() => "";
+    /// <summary>Precompile + read the referenced-library signatures. FetchService gates the call on a changed
+    /// .library version, so this only ever runs when it must.</summary>
+    public IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures()
+    {
+        LibExtractCount++;
+        return ExtractLibrarySignaturesCore();
+    }
 
-    /// <summary>The real extraction (precompile + read), run only on a fingerprint miss. Default empty (TwinCAT).</summary>
-    protected virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignaturesUncached() =>
+    /// <summary>The vendor's actual extraction (precompile + read). Default empty (TwinCAT has no library signatures).</summary>
+    protected virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignaturesCore() =>
         Array.Empty<Library.LibSignature>();
 
     // Debug-only introspection; drivers without a signature model (TwinCAT) inherit this empty default.
@@ -112,6 +115,6 @@ public abstract class DriverBase : IIdeSession
             Version = Version,
             ProjectName = projectName,
             ProjectDirty = projectDirty,
-            LibExtractCount = _libCache.MissCount,
+            LibExtractCount = LibExtractCount,
         };
 }

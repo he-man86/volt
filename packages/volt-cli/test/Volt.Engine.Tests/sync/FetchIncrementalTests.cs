@@ -50,7 +50,7 @@ public class FetchIncrementalTests
     }
 
     // A directed fetch (onlyItems) — the VS Code diff preview — discards everything but the named items, so it must
-    // NOT pay the library precompile. A full fetch still extracts (the workspace needs the whole library API).
+    // NOT pay the library precompile.
     [Fact]
     public void OnlyItems_skips_the_library_build()
     {
@@ -59,12 +59,14 @@ public class FetchIncrementalTests
         Assert.Equal(0, ide.ExtractCalls);
     }
 
+    // Method C: with no `.library` items there is nothing to extract, so even a full fetch does not precompile.
+    // (Library-change-gated extraction is covered by LibrarySignatureFetchTests.)
     [Fact]
-    public void A_full_fetch_still_extracts_the_library_signatures()
+    public void A_lib_less_full_fetch_does_not_precompile()
     {
         var ide = TwoItem();
         Fetch(ide, new());
-        Assert.Equal(1, ide.ExtractCalls);
+        Assert.Equal(0, ide.ExtractCalls);
     }
 
     [Fact]

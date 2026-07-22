@@ -1,28 +1,23 @@
-## 1. Spike (gates the whole change) — headless CODESYS
+## 1. Replace Method A with Method C (decide from the `.library` versions)
 
-- [x] 1.1 Build-free `ReferencedLibraryFingerprint()` — CONFIRMED. `GetLibraryRefs` (ILibManObject metadata) already reads resolutions without a precompile; the CODESYS fingerprint reuses it via `LibraryRefManifests()`. Verified live: `.library` resolutions carry versions with no build.
-- [~] 1.2 Cold-vs-warm measured on the FIXTURE (cold 2469 ms vs warm 97 ms). A large-corpus (5000+ sig) measurement is still worth taking to size the cold first-fetch win — not blocking.
-- [x] 1.3 Signatures byte-stable per resolution — CONFIRMED live (0 mismatches across fetches, fixture 590 sigs).
+- [x] 1.1 Delete `LibSignatureCache` + `LibSignatureCacheTests`; drop `ReferencedLibraryFingerprint` (DriverBase + CODESYS) and `LibraryRefManifests`/`CollectLibManifests` (CodesysDriver.Tree)
+- [x] 1.2 `DriverBase.ExtractLibrarySignatures()` = increment `LibExtractCount` + call `ExtractLibrarySignaturesCore()` (vendor). Keep `LibExtractCount` in health (the e2e hook). CODESYS `Core` = `_om.ExtractLibrarySignatures()`; Beckhoff inherits empty
+- [x] 1.3 Add pure `LibrariesUnchanged(liveLibVersions, knownItems)`: every live `.library` version matches `knownItems`, and no `.library` entry in `knownItems` is missing live (add/change/remove all → false)
 
-## 2. Cache seam (Volt.Engine)
+## 2. FetchService — decide after the single build-free walk
 
-- [x] 2.1 `LibSignatureCache` (standalone) + `DriverBase.ExtractLibrarySignatures()` wraps it over `ReferencedLibraryFingerprint()` + `ExtractLibrarySignaturesUncached()`; no explicit rebind-clear needed (fingerprint is content-derived)
-- [x] 2.2 Beckhoff inherits the empty defaults (no library signatures yet) — cache is a harmless no-op
-- [x] 2.3 Offline unit tests (`LibSignatureCacheTests`): same fingerprint → one extraction; changed fingerprint (version swap) → re-extract; first call extracts
+- [x] 2.1 Move `WalkItems()` before the extraction; in the existing materialize loop collect `liveLibVersions` (fullName→version) for `kind == "library"` items (their versions come from the SAME `SafeVersion`, so zero divergence)
+- [x] 2.2 After the loop: `librariesUnchanged = !init && knownItems != null && LibrariesUnchanged(liveLibVersions, knownItems)`; extract iff `!(onlyItems || librariesUnchanged)` — so `Build(app)` runs only when a `.library` changed
+- [x] 2.3 Verify the ordering is safe (build after materialize can't stale handles — the precompile reads its own model; same property that lets `onlyItems` skip the build); adjust progress (sig count not known up front → render sigs as a tail)
 
-## 3. CODESYS implementation
+## 3. Tests
 
-- [x] 3.1 `LibraryRefManifests()` — build-free descent collecting every Library Manager's refs
-- [x] 3.2 `Build(app)` + `AllPrecompiledSignatures` moved into `ExtractLibrarySignaturesUncached()`; the cached wrapper decides whether to call it
-- [x] 3.3 Extract-before-walk ordering preserved: the fingerprint read is build-free (runs first); a miss builds before the walk, a hit does no build
+- [x] 3.1 Offline unit test for `LibrariesUnchanged` (unchanged / added / changed-version / removed)
+- [x] 3.2 Offline FetchService test (FakeIde + `FakeIde.Item.Library`): a second fetch whose `knownItems` includes the `.library` version does NOT extract (`LibExtractCount` flat); a changed/absent `.library` version DOES; init always extracts
+- [x] 3.3 Update the live `libcache.test.ts`: fetch once, feed the `.library` items' versions back as `knownItems`, assert the second fetch leaves `libExtractCount` flat and ships no new signature items; empty `knownItems` still extracts
 
-## 4. Verify (headless CODESYS)
+## 4. Verify
 
-- [x] 4.1 Cache hit skips the precompile — `HealthResponse.libExtractCount` is unchanged across a second unchanged-library fetch (live e2e)
-- [x] 4.2 Hit is byte-identical to the prior extraction (folder+name → version; live e2e), and full e2e parity suite green (71/71)
-- [~] 4.3 A live library version swap → miss: not automatable headlessly (can't rewrite the fixture's library refs); the invalidation logic is covered offline (`LibSignatureCacheTests` changed-fingerprint) + the fingerprint-encodes-version live assertion
-- [x] 4.4 `dotnet test` green (engine 296, connector 30, cli 98) + live e2e 71/71
-
-## 5. Decide Phase 2 (cross-session disk cache)
-
-- [ ] 5.1 DEFERRED. Phase 1 (in-proc) is shipped + verified. The bigger win — the FIRST pull after reopening the IDE — needs a disk-persisted `fingerprint → signatures`. Decide after a large-corpus measurement (1.2); if pursued, spec location + invalidation as a follow-up change.
+- [x] 4.1 `dotnet test` (engine + connector + cli) green; root typecheck/lint clean
+- [x] 4.2 Live headless CODESYS: `libcache.test.ts` + full e2e parity suite green
+- [x] 4.3 Commit + push

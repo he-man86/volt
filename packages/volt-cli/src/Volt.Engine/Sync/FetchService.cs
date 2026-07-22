@@ -49,24 +49,20 @@ public static class FetchService
 
         var sw = Stopwatch.StartNew();
 
-        // Precompile + extract the referenced-library signatures FIRST — before we walk the project items — for TWO
-        // reasons. (1) SAFETY: extraction runs a build, and the item handles WalkItems hands back are live IDE objects
-        // we dereference when materializing each item below; obtaining them AFTER the build guarantees a precompile
-        // can never stale a handle mid-materialize (which would silently drop an item's source to the Unreadable
-        // sentinel). (2) PROGRESS: knowing the signature count up front folds it into ONE total, so the signatures
-        // tick through the SAME bar as the items with no separate phase. The stream's keepAlive heartbeat covers the
-        // (silent) precompile. A FULL fetch gathers the whole library API so the workspace is complete.
-        //
-        // A DIRECTED fetch (onlyItems — the VS Code diff preview, E2E harness) wants only the named items' source and
-        // discards everything else, so it must NOT pay the build: skip extraction entirely. No build ⇒ no handle can
-        // be staled mid-materialize, so the safety ordering above is moot for this path.
-        IReadOnlyList<LibSignature> libSigs = onlyItems != null ? Array.Empty<LibSignature>() : ide.ExtractLibrarySignatures();
-        // Materialize the walk once so we know the total up front (for the progress fraction) and don't re-walk.
+        // Walk the project FIRST — the walk is build-free (a tree descent, no precompile). We extract the referenced-
+        // library signatures ONLY when a library actually changed, decided below from the .library files' own versions
+        // (each is hashed like any other file), so the expensive precompile runs on a real library change, not every
+        // fetch. Ordering is safe: the precompile reads its own language model, never the walked item handles, and
+        // every item is already materialized by the time we (maybe) build — so a build can't stale a handle
+        // mid-materialize (the same property that lets the onlyItems preview skip the build).
         var walked = ide.WalkItems();
-        var total = walked.Count + libSigs.Count;
+        var total = walked.Count; // the signature count folds in AFTER we know whether we're extracting (below)
         var done = 0;
         var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
         var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Warn)
+        // The live .library file versions (fullName → version), captured in the loop — the change signal for the
+        // referenced-library set. Compared to the client's knownItems to decide whether to extract.
+        var liveLibVersions = new Dictionary<string, string>();
         onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total });
 
         foreach (var it in walked)
@@ -108,6 +104,9 @@ public static class FetchService
                 // its `.library` file.
                 var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
                 if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
+                // The .library file's version IS the change signal for its library (the manifest encodes the
+                // resolved name+version); collect it to decide whether the signatures need re-extracting.
+                liveLibVersions[fullName] = version;
             }
 
             if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version) continue;
@@ -136,9 +135,19 @@ public static class FetchService
         // library API files and read as nonsense ("880 items, 8104 changed").
         var projectChanged = changed.Count;
 
+        // Extract the referenced-library signatures ONLY when they're needed: never for a directed onlyItems preview,
+        // never on a fetch whose .library versions all match the client's knownItems (no library changed — a
+        // library's API is immutable per version, so the client's existing signature files still stand), and always
+        // on init. This is the whole optimization: the precompile (Build) runs iff a .library version changed.
+        var librariesUnchanged = !isInit && LibrariesUnchanged(liveLibVersions, knownItems);
+        IReadOnlyList<LibSignature> libSigs = (onlyItems != null || librariesUnchanged)
+            ? Array.Empty<LibSignature>()
+            : ide.ExtractLibrarySignatures();
+        total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
+
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
-        // the AI gets the full public API of the used libraries). Render the pre-extracted signatures now, ticking
-        // the SAME progress bar (no separate phase); `done` == walked.Count here (the walk finished).
+        // the AI gets the full public API of the used libraries). Render the signatures now, ticking the SAME
+        // progress bar (no separate phase); `done` == walked.Count here (the walk finished).
         var (libRenderNull, libUnmatched) = AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
@@ -216,6 +225,19 @@ public static class FetchService
             });
         }
         return (renderNull, unmatched);
+    }
+
+    /// <summary>True when the referenced-library set is unchanged versus the client's <paramref name="knownItems"/>:
+    /// every live <c>.library</c> version matches what the client already has, AND no <c>.library</c> the client
+    /// knows has been removed. An add, a version bump, or a removal all make it false ⇒ re-extract. Reuses the same
+    /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
+    public static bool LibrariesUnchanged(IReadOnlyDictionary<string, string> liveLibVersions, IReadOnlyDictionary<string, string> knownItems)
+    {
+        foreach (var kv in liveLibVersions)
+            if (!knownItems.TryGetValue(kv.Key, out var known) || known != kv.Value) return false; // added or changed
+        foreach (var key in knownItems.Keys)
+            if (key.EndsWith(".library", StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(key)) return false; // removed
+        return true;
     }
 
     /// <summary>Format the non-zero drop tallies for the completion log — e.g. <c> (skipped: 2 unmapped-kind,

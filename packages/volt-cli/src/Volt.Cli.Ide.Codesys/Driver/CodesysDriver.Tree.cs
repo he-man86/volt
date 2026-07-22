@@ -29,40 +29,6 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         return items;
     }
 
-    /// <summary>BUILD-FREE: the sorted manifests of every referenced library (across all Library Managers). Each
-    /// manifest encodes name+version+deps (metadata via <see cref="CodesysObjectModel.GetLibraryRefs"/>, no
-    /// precompile), so the set is the signature cache's fingerprint — a version swap / add / remove changes it, a
-    /// code-only edit (which can't happen to a versioned library) does not. Descends containers only; leaf source
-    /// items are never entered, so this is a cheap structural pass.</summary>
-    public IReadOnlyList<string> LibraryRefManifests()
-    {
-        var manifests = new List<string>();
-        var root = _om.PrimaryProject;
-        if (root != null) CollectLibManifests(root, manifests);
-        manifests.Sort(StringComparer.Ordinal);
-        return manifests;
-    }
-
-    private void CollectLibManifests(object node, List<string> acc)
-    {
-        IReadOnlyList<object> children;
-        try { children = _om.GetChildren(node); }
-        catch { return; } // an unreadable subtree stops this branch, never the fingerprint (matches Walk)
-        foreach (var child in children)
-        {
-            var code = KindCodeOf(child);
-            if (code == ItemKind.PlcLibMan)
-            {
-                foreach (var lib in _om.GetLibraryRefs(child)) acc.Add(lib.Manifest);
-                continue;
-            }
-            // Descend containers (device / folder / structural node / other managers); never enter leaf items.
-            if (code == ItemKind.Device || code == ItemKind.PlcFolder
-                || CodesysTypeMap.IsRecurseOnlyContainer(code) || ItemKind.IsContainerManager(code))
-                CollectLibManifests(child, acc);
-        }
-    }
-
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
     // structural node (PLC Logic / Application / Task Configuration), or a device — nests its children under its
     // own name, so the tree reads exactly as the IDE: Device → Plc Logic → Application → usercode, with the
