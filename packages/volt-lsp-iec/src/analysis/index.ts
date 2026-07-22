@@ -16,6 +16,6 @@ export {
 } from "./reachability.js"
 export { SOURCE, type DiagnosticItem } from "./checks/_shared.js"
 export { assignmentPairError } from "./checks/types/assignment.js"
-export { narrowingPairError } from "./checks/types/narrowing.js"
+export { narrowingPairError, conversionArgError } from "./checks/types/narrowing.js"
 export { binaryOpError } from "./checks/types/binary-operators.js"
 export { unresolvedInExprs, unresolvedMembers, type BareRef, type MemberRef } from "./checks/names/_identifier-resolution.js"

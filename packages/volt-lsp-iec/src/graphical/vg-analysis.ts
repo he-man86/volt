@@ -9,8 +9,10 @@
  *      Byte-identical wording per vendor; the corpus 0-FP gate covers it. Sinks nested in EN/ENO boxes and
  *      the assignments inside EXECUTE boxes are checked too.
  *
- * ponytail: only the assignment type-check is mirrored for VG so far — narrowing/binary-operator checks
- * aren't factored into per-pair helpers yet; adding them is a follow-on.
+ * Type checks mirrored for VG (all share the ST per-pair/per-node helpers so wording stays byte-identical):
+ * assignment mismatch + sink narrowing (`checkStatements`/`checkPair`), binary-operator (`checkBinaryOps`), and
+ * conversion-argument narrowing/sign-change (`checkConversionArgs`). ponytail: not every ST type check runs on
+ * VG yet — the remainder is added the same way (per-node helper over `operandExprs`) as corpus cases surface.
  *
  * vg-undeclared-identifier: an operand naming something declared nowhere reachable — the VG analogue of ST's
  * unresolved-identifier, sharing its exact resolution rules (`unresolvedInExprs`), against the per-network
@@ -28,6 +30,7 @@ import { inferExprType } from "../types/index.js"
 import {
   assignmentPairError,
   narrowingPairError,
+  conversionArgError,
   binaryOpError,
   unresolvedInExprs,
   unresolvedMembers,
@@ -59,6 +62,7 @@ export function computeVgDiagnostics(
       for (const [network, scope] of analysis.networkScopes) {
         checkStatements(network.statements, scope, project, messages, out)
         checkBinaryOps(network.statements, scope, project, messages, out)
+        checkConversionArgs(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
         checkLabels(network.statements, out)
         checkPins(network.statements, scope, project, out)
@@ -297,6 +301,24 @@ function checkBinaryOps(
     walkExpr(e, (x) => {
       if (x.kind !== "binary") return
       const d = binaryOpError(x, scope, project, messages)
+      if (d !== undefined) out.push(d)
+    })
+  }
+}
+
+/** vg conversion-argument narrowing/sign-change: an operand `<SRC>_TO_<DST>(arg)` implicitly converts `arg` to
+ *  `<SRC>` — the SAME C0195/C0197 the ST check emits, so a graphical `UINT_TO_WORD(anINT)` operand warns exactly
+ *  as textual code would. (Sink narrowing is already covered by `checkPair`; this closes the operand case.) */
+function checkConversionArgs(
+  statements: readonly VgStatement[],
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  for (const e of operandExprs(statements)) {
+    walkExpr(e, (x) => {
+      const d = conversionArgError(x, scope, project, messages)
       if (d !== undefined) out.push(d)
     })
   }

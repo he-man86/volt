@@ -5,9 +5,9 @@
  * relation — this check only maps the returned kind to a severity + per-vendor wording, it does not re-decide.
  * The vendor-specific capitalization ("Possible"/"possible") comes from `messages`, not an `if` here.
  */
-import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { classifyConversion, elementaryType, inferExprType, type Type } from "../../../types/index.js"
+import { classifyConversion, elementaryType, elementaryTypeRef, inferExprType, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
@@ -15,11 +15,46 @@ import { SOURCE, type DiagnosticItem } from "../_shared.js"
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
-      if (s.kind !== "assign" || s.op !== undefined) return
-      const diag = narrowingPairError(s.target, s.value, scope, ctx.project, ctx.messages)
-      if (diag !== undefined) out.push(diag)
+      if (s.kind === "assign" && s.op === undefined) {
+        const diag = narrowingPairError(s.target, s.value, scope, ctx.project, ctx.messages)
+        if (diag !== undefined) out.push(diag)
+      }
+      for (const e of stmtExprs(s))
+        walkExpr(e, (x) => {
+          const diag = conversionArgError(x, scope, ctx.project, ctx.messages)
+          if (diag !== undefined) out.push(diag)
+        })
     })
   }
+}
+
+/** The elementary SOURCE type of a conversion call `<SRC>_TO_<DST>` (`UINT_TO_WORD` → UINT), or undefined for a
+ *  non-typed conversion (`TO_STRING`) or a non-elementary source. The `<SRC>` before `_TO_` names the type the
+ *  argument is implicitly converted TO before the cast — where CODESYS emits the same C0195/C0197 an assignment
+ *  would (the sole reason `UINT_TO_WORD(anINT)` warns "change of sign" and `REAL_TO_DINT(anLREAL)` warns "loss"). */
+const CONVERSION_SOURCE_RE = /^([A-Za-z][A-Za-z0-9]*)_TO_[A-Za-z]/i
+
+/**
+ * The implicit-conversion WARNING for a conversion-function ARGUMENT, or undefined. `<SRC>_TO_<DST>(arg)`
+ * converts `arg` to `<SRC>` first, so an `arg` that narrows/sign-changes into `<SRC>` warns exactly as the
+ * assignment `<SRC>Var := arg` would — the class the assignment-only check missed (both the textual
+ * `REAL_TO_DINT(EXPT(…))` and the graphical `UINT_TO_WORD(…)` corpus cases). Exported so the VG sink check
+ * runs it over graphical operands too.
+ */
+export function conversionArgError(
+  x: Expr,
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+): DiagnosticItem | undefined {
+  if (x.kind !== "call" || x.callee.kind !== "ident_expr") return undefined
+  const m = CONVERSION_SOURCE_RE.exec(x.callee.name)
+  if (m === null) return undefined
+  const srcElem = elementaryType(m[1]!)
+  if (srcElem === undefined) return undefined // e.g. TO_STRING (no explicit source) or non-elementary
+  const arg = x.args[0]?.value
+  if (arg === undefined) return undefined
+  return conversionWarning(elementaryTypeRef(srcElem), inferExprType(arg, scope, project), arg, messages)
 }
 
 /**
@@ -35,15 +70,21 @@ export function narrowingPairError(
   project: Scope,
   messages: Messages,
 ): DiagnosticItem | undefined {
-  const lhs = inferExprType(target, scope, project)
-  const rhs = inferExprType(value, scope, project)
+  return conversionWarning(
+    inferExprType(target, scope, project),
+    inferExprType(value, scope, project),
+    target,
+    messages,
+  )
+}
+
+/** Map a source→value conversion to its narrowing/sign-change warning on `at`, or undefined. The ONE mapping —
+ *  both the assignment pair and the conversion-arg check funnel through it, so wording stays byte-identical. */
+function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
   const kind = classifyConversion(lhs, rhs)
-  if (kind === "narrow") {
-    return warn(target, "narrowing-conversion", messages.narrowing(name(rhs), name(lhs)))
-  }
-  if (kind === "sign-change") {
-    return warn(target, "sign-change-conversion", messages.signChange(sign(rhs), name(rhs), sign(lhs), name(lhs)))
-  }
+  if (kind === "narrow") return warn(at, "narrowing-conversion", messages.narrowing(name(rhs), name(lhs)))
+  if (kind === "sign-change")
+    return warn(at, "sign-change-conversion", messages.signChange(sign(rhs), name(rhs), sign(lhs), name(lhs)))
   return undefined
 }
 

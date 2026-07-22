@@ -350,6 +350,21 @@ END_FUNCTION_BLOCK`
   expect(d?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")
 })
 
+// Corpus-found (lenze FB_Lenze_i550, Network 1): a conversion-call OPERAND whose argument sign-changes into the
+// conversion's source type. VG never ran the conversion-arg check before — the whole type-check class was blind
+// to graphical bodies. Byte-identical to the CODESYS build.
+test("VG: a conversion-arg operand that sign-changes (UINT_TO_WORD of an INT) warns like ST", () => {
+  const src = `FUNCTION_BLOCK F
+VAR w : WORD; i : INT; END_VAR
+NETWORK 1 FBD
+w := UINT_TO_WORD(i);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const d = vgDiags(src).find((x) => x.code === "sign-change-conversion")
+  expect(d?.severity).toBe("warning")
+  expect(d?.message).toBe("Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign")
+})
+
 // Gap found via a re-harvested corpus: a RESET/SET coil value collides with a same-named enum member.
 test("VG: a reset-coil sink (`:= RESET`) is not typed as an enum→BOOL mismatch", () => {
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE

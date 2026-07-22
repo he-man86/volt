@@ -44,3 +44,25 @@ test("an integer narrowing (DINT→INT) is an ERROR, not a conversion warning �
 test("a safe widening (SINT→INT) produces no conversion warning", () => {
   expect(conv("x : INT; s : SINT;", "x := s;")).toEqual([])
 })
+
+// ── conversion-function ARGUMENTS: `<SRC>_TO_<DST>(arg)` implicitly converts `arg` to `<SRC>` ──────────────
+// Corpus-found (lenze): `REAL_TO_DINT(<LREAL>)` and `UINT_TO_WORD(<INT>)` — CODESYS warns on the argument
+// exactly as an assignment to a `<SRC>` variable would. The assignment-only check missed this whole class.
+
+test("conversion arg that narrows (REAL_TO_DINT of an LREAL) warns 'loss of information'", () => {
+  const d = conv("d : DINT; l : LREAL;", "d := REAL_TO_DINT(l);")
+  expect(d).toHaveLength(1)
+  expect(d[0]?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")
+})
+
+test("conversion arg that sign-changes (UINT_TO_WORD of an INT) warns 'change of sign'", () => {
+  const d = conv("w : WORD; i : INT;", "w := UINT_TO_WORD(i);")
+  expect(d).toHaveLength(1)
+  expect(d[0]?.message).toBe("Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign")
+})
+
+test("conversion arg already the source type does NOT warn (zero-FP)", () => {
+  expect(conv("r : REAL; i : INT;", "r := INT_TO_REAL(i);")).toEqual([]) // arg INT = source INT
+  expect(conv("i : INT; w : WORD;", "i := WORD_TO_INT(w);")).toEqual([]) // arg WORD = source WORD
+  expect(conv("s : STRING; i : INT;", "s := TO_STRING(i);")).toEqual([]) // TO_STRING has no elementary source
+})
