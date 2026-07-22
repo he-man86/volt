@@ -19,7 +19,8 @@ fetch (pipe) → MaterializeItem → BuildVoltIdeTree:
 Verified facts (read, not inferred): `WriteBlobs` stages **every** content to a temp file (`Git.cs:97`) because
 `hash-object --stdin-paths` consumes *paths*, not content. `WriteSrcFiles` writes the same content to `src/`
 (`Files.cs:23`). Both use raw UTF-8 (no BOM); `--no-filters` means the blob is the raw bytes, so SHAs are a pure
-function of content. `push` reads objects via `GitShowBytes` (no bulk write) — out of scope.
+function of content. `push` writes no blobs, but reads each changed one with a per-file `GitShowBytes` — batched
+in D3, the read-side mirror.
 
 ## Goals / Non-Goals
 
@@ -32,7 +33,8 @@ function of content. `push` reads objects via `GitShowBytes` (no bulk write) —
 
 **Non-Goals:**
 - Changing the `volt/ide`-as-git-remote model or the pull merge semantics.
-- Optimizing `push` (already reads objects), `status`, `build`, `show`, `merge`.
+- Optimizing `status`, `build`, `show` (no bulk git), or `merge` (already fully native — `--abort`/`--continue`/
+  `checkout --ours|--theirs`). `push` IS in scope for the read-side batch (D3), but only that.
 - Collapsing the working-tree write itself — objects + working tree coexisting is inherent to git.
 
 ## Decisions
@@ -65,7 +67,17 @@ Fusing the working-tree write with index population (so no separate `read-tree`)
 risks the working-tree/index/objects three-way consistency that keeps `git status` clean post-init. Do it only if
 measurement shows `read-tree` is a material cost after D1; otherwise leave it. (Tracked as an optional task.)
 
-**D3 — Verification is byte-identity first, perf second.**
+**D3 — Push reads blobs in one `git cat-file --batch`, not per-file `git show` — and NOT the working tree.**
+Push detects changes with one `git diff` but reads each changed file with a separate `GitShowBytes(HEAD, …)`
+spawn — the read mirror of init's per-file write. Batch them through one `cat-file --batch` (feed
+`HEAD:src/<path>`, parse size-prefixed responses).
+- *Why not read the working tree directly (`File.ReadAllBytes`), which would need no git at all:* `.gitattributes`
+  is `* text=auto eol=lf`, so the checked-out worktree file is eol-**smudged** and can differ from the blob push
+  must send. `cat-file --batch` returns the raw blob (byte-identical to `GitShowBytes`), so this is a pure
+  speedup, not a fidelity change. Gate it on a batch-bytes == `GitShowBytes` test including a CRLF blob.
+- Situational: small pushes already spawn a handful of `git show`; the win is large/`--force` pushes.
+
+**D4 — Verification is byte-identity first, perf second.**
 A `GitTests` case asserts the new writer returns the **same SHAs** as the old `WriteBlobs` for a content set
 (golden equality), `IdeTreeTests` asserts identical trees, and the e2e parity suite (`crud-cycle`,
 `graphical/roundtrip`) proves the full round-trip against a live bridge. Perf (init wall-clock, write count) is

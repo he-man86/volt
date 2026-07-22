@@ -14,9 +14,10 @@ and it also surfaces as the perceived progress freeze while the silent tree-buil
   all of it with **one `git fast-import` stream** that emits the blobs, tree, and commit together: changed items
   go **inline** (`M … inline` + `data <n>` raw bytes — no temp, no `hash-object`, no filters), unchanged/scaffold
   reference existing objects **by SHA** (from `ls-tree`, no re-hash). The entry composition is unchanged.
-- Apply to **every command that stages blobs** — `init` (biggest win: full project) and `pull` (incremental
-  changed-set), both via `BuildVoltIdeTree`. `push` is unaffected (reads existing objects via `GitShowBytes`);
-  `status`/`build`/`show`/`merge` stage no blobs.
+- Apply to **every command that spawns git per file.** Write side: `init` (biggest win) + `pull` stage blobs
+  via `BuildVoltIdeTree` → `fast-import`. Read side: `push` reads each changed blob with a separate `git show`
+  (`GitShowBytes`) — batch it via one `git cat-file --batch` (the read mirror; situational, large/force pushes).
+  `merge` is already native (`--abort`/`--continue`/`checkout`); `status`/`build`/`show` do no bulk git.
 - Content-to-disk drops from **3× to 2×** on init (temp + object + `src/` → object + `src/`), the irreducible git
   minimum. Optional follow-up: fuse `init`'s working-tree write with index population to drop the separate
   `ReadTreeToIndex` pass — measured, not assumed.
