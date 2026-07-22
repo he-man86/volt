@@ -21,13 +21,6 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         return names;
     }
 
-    /// <summary>Diagnostic (/debug): effective exclude-from-build for a tree node plus the raw member probe.</summary>
-    public string ExcludeFromBuildProbe(ItemRef item)
-    {
-        if (item.Native is LibRefNode) return "n/a (library ref)";
-        return $"{_om.IsExcludedFromBuild(item.Native)} | {_om.ExcludeProbe(item.Native)}";
-    }
-
     public IReadOnlyList<ProjectItem> WalkItems()
     {
         var items = new List<ProjectItem>();
