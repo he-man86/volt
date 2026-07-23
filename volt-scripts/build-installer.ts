@@ -92,6 +92,36 @@ const iscc = [
   "ISCC",
 ].find((p) => existsSync(p) || p === "ISCC")!
 
+// 0. The .iss must not contain control characters. Editing it programmatically has silently injected BEL/BS/VT
+// four times (a Python "\bin" becoming a backspace turned {app}\current\bin into "currentin", which shipped a
+// PATH entry pointing nowhere). Inno compiles such a file happily — the corruption only shows up as a path that
+// silently does not exist, which is the hardest kind of bug to trace back here.
+{
+  const iss = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8")
+  const bad = [...iss].filter((c) => c.charCodeAt(0) < 32 && c.charCodeAt(0) !== 10 && c.charCodeAt(0) !== 13 && c.charCodeAt(0) !== 9)
+  if (bad.length > 0) {
+    const codes = [...new Set(bad.map((c) => "0x" + c.charCodeAt(0).toString(16)))].join(", ")
+    console.error(`✗ installer/Volt.iss contains ${bad.length} control character(s) (${codes}) — almost certainly a mangled backslash escape from a scripted edit. Fix before building.`)
+    process.exit(1)
+  }
+  // The load-bearing log markers are a CONTRACT: the lifecycle gate asserts them and installer/README.md documents
+  // them for support. If someone removes a Log() line while refactoring, the gate would fail on a machine — catch
+  // it here at build time instead. This list must match assertLog()'s in test-install-lifecycle.ts.
+  const requiredMarkers = [
+    "volt: install ",
+    "junction active ->",
+    "OPENCODE_CONFIG_DIR=",
+    "started the connector:",
+    "reverting environment",
+    "removed the junction and every version directory",
+  ]
+  const absent = requiredMarkers.filter((m) => !iss.includes(m))
+  if (absent.length > 0) {
+    console.error(`✗ installer/Volt.iss is missing required log marker(s): ${absent.map((m) => `"${m}"`).join(", ")} — these are the support/gate contract. Restore them before building.`)
+    process.exit(1)
+  }
+}
+
 // 1. The Volt payload (CLI + LSP + connector + config + docs).
 if (!skipDist) run("bun", ["volt-scripts/build-payload.ts"])
 for (const dir of ["bin", "connector", "opencode-config", "docs"]) {

@@ -1,16 +1,20 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32;
 
 namespace Volt.Cli.Connector
 {
     /// <summary>
-    /// The opencode-integration + PATH wiring. Install() runs on every connector startup (idempotent); Uninstall()
-    /// runs from the Inno uninstaller via `VoltConnector.exe --uninstall` (see Program.cs). Sets per-user env vars
-    /// so opencode picks up Volt's config and the shell resolves `volt` / `volt-lsp-iec`. Idempotent + best-effort:
-    /// never throws. Additive to opencode (an extra merged config dir) — uninstall reverts it.
+    /// The per-user integration the connector owns: the login item, the Start Menu shortcut, and the visible copy
+    /// of the CODESYS activation scripts. Install() runs on every connector startup (idempotent); Uninstall() runs
+    /// from the Inno uninstaller via `VoltConnector.exe --uninstall` (see Program.cs). Best-effort: never throws.
+    ///
+    /// ENV VARS ARE NOT SET HERE. OPENCODE_CONFIG_DIR, PATH and VOLT_BRIDGE_DLL are published by the INSTALLER
+    /// (PublishEnv in Volt.iss) and reverted by the uninstaller. They had two owners, and that is precisely what
+    /// broke: the connector computes its paths from where its own exe sits, so when the installer launched it
+    /// before {app}\current existed it published VERSION-SCOPED values — violating the one invariant the versioned
+    /// layout rests on. Only the installer knows the final layout at the moment it is complete, so only the
+    /// installer writes these. One fact, one owner.
     /// </summary>
     internal static class VoltEnv
     {
@@ -37,8 +41,6 @@ namespace Volt.Cli.Connector
                 return self;
             }
         }
-        private static string BinDir => Path.GetFullPath(Path.Combine(ConnectorDir, "bin"));
-        private static string ConfigDir => Path.GetFullPath(Path.Combine(ConnectorDir, "opencode-config"));
         private static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
         private static string GuiShortcut =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Volt.lnk");
@@ -49,7 +51,6 @@ namespace Volt.Cli.Connector
         private static string CodesysDir => Path.GetFullPath(Path.Combine(ConnectorDir, "codesys-scriptcommands"));
         private static readonly string[] ScriptNames = { "start_volt_codesys.py", "stop_volt_codesys.py" };
         private static string ShippedScript => Path.Combine(CodesysDir, "start_volt_codesys.py");
-        private static string CodesysDll => Path.Combine(CodesysDir, "Volt.Cli.Ide.Codesys.dll");
         internal static string VisibleScriptDir =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Volt");
         internal static string VisibleScript => Path.Combine(VisibleScriptDir, "start_volt_codesys.py");
@@ -61,15 +62,9 @@ namespace Volt.Cli.Connector
         {
             try
             {
-                SetUserVar("OPENCODE_CONFIG_DIR", ConfigDir, expand: false);
-                PathAdd(BinDir);
-                Broadcast();
                 LoginItem.EnsureRegistered();
                 CreateGuiShortcut();
                 PublishCodesysScript();
-                // Point start_volt_codesys.py at the ACTUAL install-dir DLL, so the visible Documents\Volt copy resolves it
-                // regardless of the install location (the %LOCALAPPDATA% fallback only covers the default dir).
-                if (File.Exists(CodesysDll)) SetUserVar("VOLT_BRIDGE_DLL", CodesysDll, expand: false);
             }
             catch { /* hooks are best-effort — never block install */ }
         }
@@ -122,12 +117,6 @@ namespace Volt.Cli.Connector
                         if (p.Id != self)
                             try { p.Kill(); p.WaitForExit(3000); } catch { }
 
-                if (string.Equals(ReadUserVar("OPENCODE_CONFIG_DIR"), ConfigDir, StringComparison.OrdinalIgnoreCase))
-                    DeleteUserVar("OPENCODE_CONFIG_DIR");
-                if (string.Equals(ReadUserVar("VOLT_BRIDGE_DLL"), CodesysDll, StringComparison.OrdinalIgnoreCase))
-                    DeleteUserVar("VOLT_BRIDGE_DLL");
-                PathRemove(BinDir);
-                Broadcast();
                 LoginItem.Unregister();
                 try { File.Delete(GuiShortcut); } catch { }
                 // Remove the published scripts + their folder (only if we left it empty).
@@ -138,61 +127,5 @@ namespace Volt.Cli.Connector
             catch { /* best-effort */ }
         }
 
-        // ── per-user env via the registry, preserving PATH's REG_EXPAND_SZ ─────────────────────────────────
-        // Environment.SetEnvironmentVariable(User) rewrites the value as REG_SZ; doing that to PATH strips its
-        // REG_EXPAND_SZ type so any %VAR% entries stop expanding at login. Write PATH as ExpandString instead,
-        // and dedup case-insensitively (Windows paths are case-insensitive; add + remove must agree).
-        private const string EnvKey = "Environment";
-
-        private static void PathAdd(string dir)
-        {
-            var raw = ReadUserVar("Path") ?? "";
-            foreach (var p in raw.Split(';'))
-                if (string.Equals(p, dir, StringComparison.OrdinalIgnoreCase)) return; // already on PATH
-            SetUserVar("Path", raw.Length == 0 ? dir : raw + ";" + dir, expand: true);
-        }
-
-        private static void PathRemove(string dir)
-        {
-            var raw = ReadUserVar("Path") ?? "";
-            var kept = string.Join(";", Array.FindAll(raw.Split(';'),
-                p => p.Length > 0 && !string.Equals(p, dir, StringComparison.OrdinalIgnoreCase)));
-            SetUserVar("Path", kept, expand: true);
-        }
-
-        private static string? ReadUserVar(string name)
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(EnvKey);
-            // DoNotExpand: read the raw stored value (with any %VAR% intact) so a round-trip preserves it.
-            return key?.GetValue(name, null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
-        }
-
-        private static void SetUserVar(string name, string value, bool expand)
-        {
-            using var key = Registry.CurrentUser.CreateSubKey(EnvKey);
-            key.SetValue(name, value, expand ? RegistryValueKind.ExpandString : RegistryValueKind.String);
-        }
-
-        private static void DeleteUserVar(string name)
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(EnvKey, writable: true);
-            key?.DeleteValue(name, throwOnMissingValue: false);
-        }
-
-        // Registry writes don't notify running processes (SetEnvironmentVariable used to); broadcast so new
-        // shells + Explorer pick up the change without a logoff.
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, string lParam,
-            uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
-
-        private static void Broadcast()
-        {
-            try
-            {
-                SendMessageTimeout((IntPtr)0xffff /*HWND_BROADCAST*/, 0x1A /*WM_SETTINGCHANGE*/, IntPtr.Zero,
-                    "Environment", 0x0002 /*SMTO_ABORTIFHUNG*/, 5000, out _);
-            }
-            catch { /* notification is best-effort */ }
-        }
     }
 }

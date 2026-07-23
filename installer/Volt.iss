@@ -49,22 +49,14 @@ Name: "vscode";   Description: "Install the Volt extension into VS Code";  Group
 Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
 Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
 
-[InstallDelete]
-; [Files] only ADDS/overwrites — it never removes what an older version left, so stale files survive upgrades
-; forever. This retires the pre-0.2.0 leak: those payloads carried a package.json, and opencode INSTALLS a config
-; dir's declared deps at runtime — creating opencode-config\node_modules and needing a registry on machines that may
-; have none. Keep in sync with CFG_NEVER_SHIP in volt-scripts/build-payload.ts: same list, two enforcement points
-; (never ship it / delete what older versions shipped).
-;
-; NAMED ENTRIES, not the whole dir: InstallDelete runs BEFORE [Files], and Inno does NOT roll back deletions when
-; an install aborts (a locked file, a cancel). Wiping {app}\opencode-config would leave an aborted upgrade with the
-; dir GONE and OPENCODE_CONFIG_DIR still pointing at it — opencode silently degrades to vanilla, no error. These
-; five are junk in every version, so deleting them is safe even if the install then fails.
-Type: files; Name: "{app}\current\opencode-config\package.json"
-Type: files; Name: "{app}\current\opencode-config\package-lock.json"
-Type: files; Name: "{app}\current\opencode-config\bun.lock"
-Type: files; Name: "{app}\current\opencode-config\.gitignore"
-Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
+; NO [InstallDelete]. It ran here until this audit, and did nothing: four of its five entries named
+; {app}\current\opencode-config\*, but [InstallDelete] executes BEFORE the file copy and long before
+; ssPostInstall repoints the junction - so `current` still resolved to the OUTGOING version, which the connector
+; prunes anyway. The fifth named the flat {app}\opencode-config\node_modules, which RemoveFlatPayload
+; already removes. The leak they were meant to retire (a package.json in the config dir, which makes opencode
+; install deps at runtime) is prevented at the source by CFG_NEVER_SHIP in volt-scripts/build-payload.ts: the
+; payload cannot contain them at all. Deleted rather than kept "just in case" - unauditable entries are how this
+; file became untrustworthy.
 
 [Files]
 ; NO restartreplace here, and it is worth knowing why before reaching for it. A file held open ABORTS AND ROLLS
@@ -78,22 +70,18 @@ Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Run]
-; These target the VERSION directory, not {app}\current, and that is deliberate. Inno executes [Run] entries as
-; part of the install step, while CurStepChanged(ssPostInstall) — where the junction is created — fires AFTER
-; them. Pointing these at `current` launched nothing: the junction did not exist yet, and `nowait runhidden`
-; swallowed the failure, so the connector never started and OPENCODE_CONFIG_DIR was never written. The invariant
-; is about values RECORDED OUTSIDE {app} (PATH, the config dir, the shortcut, the login item); a [Run] filename is
-; transient and internal to this install, so naming the version here is correct rather than a violation.
-; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on
-; startup, then runs the tray. --silent = launched by us, not a double-click.
-; The connector is NOT launched here. [Run] executes BEFORE CurStepChanged(ssPostInstall) creates the junction,
-; so a connector started from here finds no {app}\current beside it, falls back to its own version directory,
-; and publishes VERSION-SCOPED values for PATH + OPENCODE_CONFIG_DIR — violating the one invariant the layout
-; rests on. It is launched from ssPostInstall instead, immediately after the junction is activated. This is the
-; third bug caused by [Run] running before ssPostInstall; the ordering is the trap, so the launch moved rather
-; than the path being nudged again.
-; Optional components — only on an interactive install (skip on the connector's silent in-place update).
-; winget stays interactive-only (heavy + needs network) — skip it on the connector's silent auto-update.
+; The CONNECTOR IS NOT LAUNCHED HERE - it is started from CurStepChanged(ssPostInstall), and that is load-bearing.
+; Inno executes [Run] as part of the install step, BEFORE ssPostInstall creates {app}\current. A connector started
+; from here finds no junction beside it and resolves everything against its own version directory. Three separate
+; bugs came from this ordering, so the launch moved rather than the path being nudged again.
+;
+; These entries name the VERSION directory for the same reason: `current` does not exist yet. That is not a
+; violation of the version-free invariant - that invariant governs values RECORDED OUTSIDE {app} (PATH,
+; OPENCODE_CONFIG_DIR, the shortcut, the login item), and a [Run] filename is transient and internal to this
+; install.
+;
+; Optional components. winget is interactive-only (heavy, needs network) - skipped on the connector's silent
+; auto-update. The extension refresh is NOT: see WantExt.
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
 ; The extension refresh, however, MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
 ; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
@@ -111,13 +99,16 @@ Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\app-{#AppVer
 Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
-[UninstallDelete]
-; Anything created inside opencode-config AFTER install is untracked by Inno, so it would survive uninstall and keep
-; {app} alive — a dirty uninstall. test:install can't catch it (it never runs opencode, so nothing is created).
-Type: filesandordirs; Name: "{app}\opencode-config"
+; NO [UninstallDelete]. Its one entry named the flat {app}\opencode-config, a path the versioned layout never
+; creates - the config dir now lives inside each app-<version>\, and usPostUninstall removes every one of those
+; wholesale with rmdir /s /q. It was covering a layout that no longer exists.
 
 [UninstallRun]
-; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.
+; The connector's own uninstall hook. It does NOT revert env any more - PATH, OPENCODE_CONFIG_DIR and
+; VOLT_BRIDGE_DLL are reverted directly in CurUninstallStepChanged, because delegating that to a binary this same
+; uninstall is deleting broke twice on ordering. What remains here is only what the connector knows and the
+; installer does not: the login item, the Start Menu shortcut, and the copies of the CODESYS activation scripts
+; published into Documents\Volt. Ordering against usUninstall is asserted from the log, not assumed.
 Filename: "{app}\current\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
 ; Take the sideloaded extension with us. It is useless without the `volt` CLI this uninstall removes from PATH —
 ; left behind it keeps loading, fails every command, and looks like a broken Volt rather than an absent one. Run
@@ -146,6 +137,7 @@ begin
 
   Result := Exec(ExpandConstant('{cmd}'), '/c where ' + Launcher, '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
   if Result then LauncherCache.Add(Launcher + '=1') else LauncherCache.Add(Launcher + '=0');
+  Log('volt: editor ' + Launcher + ' on PATH=' + IntToStr(Integer(Result)));
 end;
 
 function ExtInstalled(Launcher: String): Boolean;
@@ -171,6 +163,7 @@ begin
   if not EditorOnPath(Launcher) then exit;
   if WizardSilent() then Result := ExtInstalled(Launcher)
   else Result := WizardIsTaskSelected(TaskName);
+  Log('volt: extension for ' + Launcher + ' -> install=' + IntToStr(Integer(Result)));
 end;
 
 function NotSilent(): Boolean;
@@ -186,33 +179,133 @@ function SetCurrentJunction(TargetDir: String): Boolean;
 var Code: Integer; Cur: String;
 begin
   Cur := ExpandConstant('{app}\current');
+  Log('volt: activating ' + TargetDir + ' via junction ' + Cur);
+  if not DirExists(TargetDir) then
+    Log('volt: WARNING target directory does not exist - the payload did not land where expected');
   if DirExists(Cur) then
+  begin
     Exec(ExpandConstant('{cmd}'), '/c rmdir "' + Cur + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Log('volt: unlinked existing junction, rmdir exit=' + IntToStr(Code));
+  end
+  else
+    Log('volt: no existing junction (first install)');
   Result := Exec(ExpandConstant('{cmd}'), '/c mklink /J "' + Cur + '" "' + TargetDir + '"',
                  '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) and DirExists(Cur);
+  if Result then
+  begin
+    Log('volt: junction active -> ' + TargetDir);
+    // Probe the SAME subdirectory both ways. This separates the two failure modes that look identical from
+    // the outside: 'the payload is not there' (both false) versus 'the junction does not resolve' (direct
+    // true, through-junction false). Without it, a missing file at this point is unattributable - which is
+    // where an entire debugging session went.
+    Log('volt: probe direct  \bin exists=' + IntToStr(Integer(DirExists(TargetDir + '\bin'))));
+    Log('volt: probe junction \bin exists=' + IntToStr(Integer(DirExists(Cur + '\bin'))));
+  end
+  else Log('volt: FAILED to create junction, mklink exit=' + IntToStr(Code));
 end;
 
-/// Remove the payload an older, FLAT install left directly in {app}. Without this both {app}in and
-/// {app}\currentin exist and whichever PATH lists first wins — a stale binary shadowing the new one, which is
+/// Remove the payload an older, FLAT install left directly in {app}. Without this both {app}\bin and
+/// {app}\current\bin exist and whichever PATH lists first wins — a stale binary shadowing the new one, which is
 /// the failure this whole change exists to end. Named entries only: Inno does not roll back deletions, and the
 /// junction is never deleted recursively.
 procedure RemoveFlatPayload;
 var Code: Integer; A: String;
 begin
   A := ExpandConstant('{app}');
+  if DirExists(A + '\bin') or FileExists(A + '\VoltConnector.exe') then
+    Log('volt: migrating a FLAT install - removing the old payload directly under ' + A)
+  else
+    Log('volt: no flat payload to migrate');
   Exec(ExpandConstant('{cmd}'),
-    '/c rmdir /s /q "' + A + 'in" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
+    '/c rmdir /s /q "' + A + '\bin" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
     ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' +
     ' & del /q "' + A + '\Volt*.exe" "' + A + '\version.txt" "' + A + '\volt-vscode.vsix" 2>nul',
     '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+/// Publish PATH + OPENCODE_CONFIG_DIR from the INSTALLER, not from the connector.
+///
+/// These were written by VoltConnector on startup, which makes them depend on a process's lifetime — and that
+/// dependency caused four ordering bugs in a row: [Run] firing before the junction existed, uninstall cleanup
+/// destroying the exe before [UninstallRun] could use it, the connector resolving a junction that was not there
+/// yet, and finally setup exiting before the connector had written anything. The uninstall side was fixed by
+/// doing the revert here instead, and has been solid since; this is the symmetric half.
+///
+/// Both values resolve through {app}\current — never a version directory. That is the invariant the whole layout
+/// rests on: a versioned value would force every update to rewrite HKCU and would dangle whenever the pruner
+/// removed the directory it named. The connector still calls its own Install() on startup; it is idempotent and
+/// now computes the same version-free paths, so the two agree instead of racing.
+/// True when Dir is already one of PATH's ';'-separated entries (case-insensitive - Windows paths are).
+function PathHasEntry(PathVal, Dir: String): Boolean;
+var Rest, Part: String;
+begin
+  Result := False;
+  Rest := PathVal + ';';
+  while Pos(';', Rest) > 0 do
+  begin
+    Part := Trim(Copy(Rest, 1, Pos(';', Rest) - 1));
+    Rest := Copy(Rest, Pos(';', Rest) + 1, Length(Rest));
+    if CompareText(Part, Dir) = 0 then begin Result := True; exit; end;
+  end;
+end;
+
+procedure PublishEnv(TargetDir: String);
+var PathVal, CurBin, CfgDir, DllPath: String;
+begin
+  CfgDir := ExpandConstant('{app}\current\opencode-config');
+  if RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR', CfgDir) then
+    Log('volt: OPENCODE_CONFIG_DIR=' + CfgDir)
+  else
+    Log('volt: FAILED to write OPENCODE_CONFIG_DIR');
+  // Verify against the REAL directory, never through {app}\current. A reparse point is not reliably
+  // resolvable by the process that just created it - measured: DirExists(current\bin) was FALSE 1ms after
+  // mklink returned, while the same directory probed directly was TRUE, and the junction was perfect
+  // seconds later. Checking through it made every verification here a coin flip and stopped the connector
+  // from launching at all. The VALUE written to the registry stays the 'current' form - that is the
+  // invariant; only the existence CHECK uses the path we just wrote the files to.
+  if not DirExists(TargetDir + '\opencode-config') then Log('volt: WARNING opencode-config missing in ' + TargetDir);
+  DllPath := ExpandConstant('{app}\current\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll');
+  if FileExists(TargetDir + '\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll') then
+  begin
+    RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL', DllPath);
+    Log('volt: VOLT_BRIDGE_DLL=' + DllPath);
+  end
+  else
+    Log('volt: CODESYS bridge DLL not present, VOLT_BRIDGE_DLL not set: ' + DllPath);
+  CurBin := ExpandConstant('{app}\current\bin');
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then PathVal := '';
+  // Entry-wise, NOT a substring test. Pos() would accept a PATH entry of '\current\binx' as already
+  // containing '\current\bin', silently skipping the append - and a PATH entry that looks right but is not is
+  // exactly the failure that shipped ('\Volt\currentin'). The uninstall side splits on ';' to strip entries, so
+  // the add side splits too: add and remove agree by construction, not by two similar-looking string tests.
+  if not PathHasEntry(PathVal, CurBin) then
+  begin
+    if (PathVal <> '') and (Copy(PathVal, Length(PathVal), 1) <> ';') then PathVal := PathVal + ';';
+    if RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal + CurBin) then
+      Log('volt: appended to user PATH: ' + CurBin)
+    else
+      Log('volt: FAILED to append to user PATH: ' + CurBin);
+  end
+  else
+    Log('volt: PATH already contains ' + CurBin + ' - left unchanged');
+  if not DirExists(TargetDir + '\bin') then Log('volt: WARNING bin missing in ' + TargetDir);
 end;
 
 /// Activate the version we just wrote — the LAST thing before [Run], so a failed copy never leaves `current`
 /// pointing at an incomplete directory. If the junction cannot be created (a filesystem without reparse points),
 /// fail loudly rather than silently leaving an install nothing can find.
 procedure CurStepChanged(CurStep: TSetupStep);
-var PostCode: Integer;
+var PostCode: Integer; ConnExe, Mode: String;
 begin
+  if CurStep = ssInstall then
+  begin
+    // One line at the top of every install that says WHAT this run is. A support log is far easier to read
+    // when its first Volt line states the version, the target, whether it was silent (an auto-update) or
+    // interactive (a human), and whether an install was already present (an upgrade vs a fresh install).
+    if WizardSilent() then Mode := 'silent' else Mode := 'interactive';
+    Log('volt: install {#AppVersion} -> ' + ExpandConstant('{app}') + ', mode=' + Mode
+        + ', existing=' + IntToStr(Integer(DirExists(ExpandConstant('{app}\current')))));
+  end;
   if CurStep = ssPostInstall then
   begin
     if not SetCurrentJunction(ExpandConstant('{app}\app-{#AppVersion}')) then
@@ -221,9 +314,18 @@ begin
     else
     begin
       RemoveFlatPayload;
+      PublishEnv(ExpandConstant('{app}\app-{#AppVersion}'));
       // NOW start the connector — the junction exists, so VoltEnv resolves through {app}\current and every value
       // it publishes outside {app} is version-free, which is what makes an update a no-op for the environment.
-      Exec(ExpandConstant('{app}\current\VoltConnector.exe'), '--silent', '', SW_HIDE, ewNoWait, PostCode);
+      // The version directory, not the junction: see PublishEnv. A [Run]-style filename is transient and
+      // internal to this install, so it is free to name the version; only RECORDED values must be stable.
+      ConnExe := ExpandConstant('{app}\app-{#AppVersion}\VoltConnector.exe');
+      if not FileExists(ConnExe) then
+        Log('volt: connector MISSING, cannot start: ' + ConnExe)
+      else if Exec(ConnExe, '--silent', '', SW_HIDE, ewNoWait, PostCode) then
+        Log('volt: started the connector: ' + ConnExe)
+      else
+        Log('volt: FAILED to start the connector, error=' + IntToStr(PostCode) + ' (' + SysErrorMessage(PostCode) + ')');
     end;
   end;
 end;
@@ -244,9 +346,11 @@ begin
   //     releases behind while the connector moved on. opencode restarts it on demand, so closing it costs nothing.
   //     `restartreplace` on [Files] is NOT an alternative: it needs admin rights to schedule a reboot-time replace,
   //     and Volt installs per-user.
+  Log('volt: stopping running Volt processes before the file copy (VoltConnector, VoltBridgeTwincat, Volt, volt, volt-lsp-iec)');
   Exec(ExpandConstant('{cmd}'),
     '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('volt: taskkill returned ' + IntToStr(ResultCode) + ' (128 = none were running, which is normal on a fresh install)');
   Sleep(1200); // let the OS release the file handles before [Files] runs
 end;
 
@@ -257,14 +361,30 @@ end;
 ///
 /// usUninstall fires BEFORE any file is removed, which is the only useful moment. Same list as
 /// PrepareToInstall, same reasoning — Volt's own processes only, never the user's IDE.
+/// Uninstall logging. Inno's SetupLogging=yes covers SETUP only - the uninstaller writes a log just when it is
+/// passed /LOG, which a real user's uninstall never is. So an uninstall that half-worked (a leftover junction, a
+/// PATH entry that survived) left no trace at all, and support had nothing to look at. Append our own line to the
+/// shared store instead, where the tray Log window and the install logs already live. Log() too, so a /LOG run
+/// keeps everything in one file. Best-effort: never let logging break an uninstall.
+procedure ULog(Msg: String);
+var Dir: String;
+begin
+  Log('volt: ' + Msg);
+  Dir := ExpandConstant('{localappdata}\Volt\logs');
+  if ForceDirectories(Dir) then
+    SaveStringToFile(Dir + '\uninstall-' + GetDateTimeString('yyyy-mm-dd', '-', '-') + '.log',
+      GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' [uninstall] ' + Msg + #13#10, True);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var ResultCode: Integer; PathVal, NewPath, Part: String;
+var ResultCode, I: Integer; PathVal, NewPath, Part: String;
 begin
   if CurUninstallStep = usUninstall then
   begin
     Exec(ExpandConstant('{cmd}'),
       '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    ULog('stopped running Volt processes, taskkill exit=' + IntToStr(ResultCode));
     Sleep(1200); // let the OS release the handles before Inno starts deleting
   end;
   // AFTER Inno's own removal — not in usUninstall. [UninstallRun] runs `current\VoltConnector.exe --uninstall`
@@ -278,7 +398,9 @@ begin
   // launch, nothing to race. The [UninstallRun] entry stays for the parts only the connector knows about.
   if CurUninstallStep = usPostUninstall then
   begin
+    ULog('reverting environment');
     RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
+    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL');
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Volt');
     // PATH is a list — strip only Volt's own entries, never rewrite the whole value.
     if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then
@@ -300,13 +422,30 @@ begin
         NewPath := NewPath + PathVal;
       end;
       RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', NewPath);
+      ULog('PATH rewritten without Volt entries');
     end;
   end;
 
   if CurUninstallStep = usPostUninstall then
-    Exec(ExpandConstant('{cmd}'),
-      '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  begin
+    // Retry: the junction cannot be unlinked while a process has it as its working directory, and the processes
+    // killed above are not always fully reaped by the time we get here. A single attempt left `current` behind on
+    // one run of the lifecycle gate while later runs were clean - a race, so treat it as one rather than sleeping
+    // longer and hoping. Each attempt is logged, so a leftover now says WHY instead of just appearing.
+    for I := 1 to 5 do
+    begin
+      Exec(ExpandConstant('{cmd}'),
+        '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if not DirExists(ExpandConstant('{app}\current')) then Break;
+      ULog('attempt ' + IntToStr(I) + ': {app}\current still present, retrying');
+      Sleep(500);
+    end;
+    if DirExists(ExpandConstant('{app}\current')) then
+      ULog('FAILED to remove {app}\current - something still holds it')
+    else
+      ULog('removed the junction and every version directory');
+  end;
 end;
 
 procedure DeinitializeSetup();

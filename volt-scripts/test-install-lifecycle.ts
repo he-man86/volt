@@ -33,7 +33,7 @@
  * the same build is reinstalled over itself, which still exercises the file-in-use path.
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { resolve, join } from "node:path"
 
 if (process.platform !== "win32") {
@@ -74,9 +74,16 @@ let failures = 0
 const fail = (step: string, msg: string): void => { failures++; console.error(`  ✗ [${step}] ${msg}`) }
 const ok = (msg: string): void => console.log(`  ✓ ${msg}`)
 
+// Returns the VALUE when one is named, not `reg query`'s raw stdout. Returning the blob was survivable for the
+// old `includes("volt")` checks but silently broke the moment a check needed the value itself — an assertion that
+// resolves a path cannot be handed a multi-line "HKEY_CURRENT_USER\Environment / Path REG_EXPAND_SZ C:\..." dump.
+// Value lines are "<indent><name><spaces><TYPE><spaces><data>", and data may itself contain spaces.
 const reg = (key: string, value?: string): string | null => {
   const r = spawnSync("reg", ["query", key, ...(value ? ["/v", value] : [])], { encoding: "utf8" })
-  return r.status === 0 ? r.stdout : null
+  if (r.status !== 0) return null
+  if (!value) return r.stdout
+  const line = (r.stdout ?? "").split("\n").find((l) => new RegExp(`^\\s+${value}\\s+REG_`, "i").test(l))
+  return line ? line.replace(new RegExp(`^\\s+${value}\\s+REG_\\w+\\s+`, "i"), "").trim() : null
 }
 /** The binary's OWN stamped version — the fact, as opposed to version.txt's claim. build-cli.ps1 stamps
  *  FileVersion from VOLT_VERSION, so this is directly comparable to the release number. */
@@ -110,6 +117,41 @@ function runUninstall(step: string): void {
   if (r.status !== 0) fail(step, `uninstaller exited ${r.status}`)
   // Inno's uninstaller returns before it has finished deleting itself.
   for (let i = 0; i < 30 && existsSync(uninstaller); i++) spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"])
+}
+
+const logStore = join(process.env.LOCALAPPDATA!, "Volt", "logs")
+
+/** Newest log matching a prefix, or null. The installer writes install-<ts>.log / uninstall-<date>.log there. */
+function newestLog(prefix: string): string | null {
+  if (!existsSync(logStore)) return null
+  const files = readdirSync(logStore)
+    .filter((f) => f.startsWith(prefix) && f.endsWith(".log"))
+    .map((f) => join(logStore, f))
+  if (files.length === 0) return null
+  return files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]!
+}
+
+/**
+ * Assert the LOG, not just the end state. The end state cannot tell "the step ran and was correctly a no-op" from
+ * "the step never ran" — those need different fixes and today look identical. Each expected marker must appear in
+ * order, and no marker signalling a failed action (WARNING / FAILED / MISSING) may appear. This is what converts
+ * the audit from a one-time read into something a removed step fails CI over, instead of a customer discovering it.
+ */
+function assertLog(step: string, prefix: string, required: string[]): void {
+  const file = newestLog(prefix)
+  if (file === null) return fail(step, `no ${prefix}*.log written — the installer logged nothing`)
+  const text = readFileSync(file, "utf8")
+  let from = 0
+  for (const marker of required) {
+    const at = text.indexOf(marker, from)
+    if (at < 0) return fail(step, `log marker missing or out of order: "${marker}" (in ${file})`)
+    from = at + marker.length
+  }
+  const bad = text
+    .split("\n")
+    .filter((l) => l.includes("volt:") && /\b(WARNING|FAILED|MISSING)\b/.test(l))
+  if (bad.length > 0) fail(step, `log records a failed action: ${bad.map((l) => l.split("volt:")[1]!.trim()).join(" | ")}`)
+  else ok(`${step}: log clean, ${required.length} markers in order`)
 }
 
 /** THE assertion. Every shipped binary + version.txt must agree, or the install is half-applied. */
@@ -178,16 +220,50 @@ function assertInstalled(step: string): void {
   // values point at a directory the pruner may already have removed — a registry race traded for a file-lock
   // one. This assertion was written once and silently never applied (the edit did not match), so the gate went
   // GREEN on an install that violated it. A gate that certifies a broken invariant is worse than no gate.
-  const userPath = reg("HKCU\Environment", "Path") ?? ""
-  for (const [name, value] of [["OPENCODE_CONFIG_DIR", env ?? ""], ["Path", userPath]] as const)
+  const userPath = reg("HKCU\\Environment", "Path") ?? ""
+  // Match THIS install's entries — those under installDir — not any path containing "volt". The broad match also
+  // caught a developer's stale `...\Github\volt\dist\volt\connector\bin` from an earlier dev run: a real leftover,
+  // but not one THIS installer wrote, so failing the gate on it tests the machine's history, not the install.
+  const voltEntries = userPath.split(";").filter((p) => p.toLowerCase().startsWith(installDir.toLowerCase()))
+  for (const [name, value] of [["OPENCODE_CONFIG_DIR", env ?? ""], ...voltEntries.map((p) => ["Path", p] as const)] as const)
     if (/app-\d+\.\d+\.\d+/i.test(value))
       fail(step, `${name} records a VERSIONED path — it must resolve through \current`)
+
+  // Version-free is only half the invariant: a recorded path that does not EXIST is just as broken, and looks
+  // identical to the check above. A mangled backslash once shipped `...\Volt\currentin` on PATH — no version, so
+  // this gate called the install clean while `volt` resolved to nothing at all. Every recorded path is resolved.
+  if (voltEntries.length === 0) fail(step, "no Volt entry on PATH")
+  for (const p of [...voltEntries, env ?? ""])
+    if (!existsSync(p)) fail(step, `recorded path does not exist: ${p}`)
+
+  // The install must not only END correct, it must have DONE each step and said so. These are the load-bearing
+  // markers: junction activated, env published, connector launched — the three that were silently failing.
+  assertLog(step, "install-", [
+    "volt: install ",
+    "junction active ->",
+    "OPENCODE_CONFIG_DIR=",
+    "started the connector:",
+  ])
 }
 
 /** After an uninstall NOTHING may remain — a leftover keeps {app} alive and poisons the next install. */
 function assertClean(step: string): void {
+  // Uninstall finishes ASYNCHRONOUSLY relative to the process we waited on. Inno's uninstaller relaunches itself
+  // from %TEMP% and deletes the original unins000.exe early, so waiting for that file to vanish (which is what
+  // runUninstall does) can return while usPostUninstall is still unlinking the junction and removing app-* dirs.
+  // The uninstall log proved this: it recorded "removed the junction and every version directory" AFTER the gate
+  // had already reported `current` as a leftover, and {app} was empty moments later. Poll instead of sampling once
+  // — a fixed sleep would be both slower and still a guess. A genuine leftover never disappears, so this cannot
+  // mask a real failure; it only stops the gate from reporting a cleanup that had not finished yet.
+  const deadline = Date.now() + 15_000
+  let left: string[] = []
+  while (Date.now() < deadline) {
+    if (!existsSync(installDir)) break
+    left = readdirSync(installDir)
+    if (left.length === 0) break
+    spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"])
+  }
   if (existsSync(installDir)) {
-    const left = readdirSync(installDir)
     if (left.length > 0) fail(step, `${left.length} leftover entr(ies) in ${installDir}: ${left.slice(0, 8).join(", ")}`)
     else ok(`${step}: install dir empty`)
   } else ok(`${step}: install dir gone`)
@@ -196,6 +272,12 @@ function assertClean(step: string): void {
   if (env !== null && env.toLowerCase().includes("volt")) fail(step, "OPENCODE_CONFIG_DIR still points at Volt")
   const run = reg("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "Volt")
   if (run !== null) fail(step, "login item still present")
+
+  assertLog(step, "uninstall-", [
+    "reverting environment",
+    "PATH rewritten without Volt entries",
+    "removed the junction and every version directory",
+  ])
 }
 
 // ── the flow ─────────────────────────────────────────────────────────────────
