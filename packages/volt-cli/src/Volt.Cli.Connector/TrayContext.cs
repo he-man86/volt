@@ -61,10 +61,20 @@ namespace Volt.Cli.Connector
         }
 
         // ── tick: refresh the model, then repaint the views ────────────────
+        private bool _adopted; // startup-only: see AdoptServingConnection
+
         private async Task TickAsync()
         {
             foreach (var w in _workers) _supervisor.EnsureWorker(w); // respawn a crashed worker
             await _conn.RefreshAsync();
+
+            // First tick only: the selection is in-memory, so a connector restart left the tray amber while the
+            // bridges were still serving and every workspace synced fine. Re-adopt what is already live.
+            if (!_adopted)
+            {
+                _adopted = true;
+                _conn.AdoptServingConnection();
+            }
 
             var agg = _conn.Aggregate();
             var pending = Updater.PendingVersion;

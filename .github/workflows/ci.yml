@@ -95,6 +95,13 @@ jobs:
           bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
       - name: Wiring check (config layer + LSP/tool registration)
         run: bun run volt-scripts/check-wiring.ts
+      # The extension-install gate. A Linux runner has no editor, so this checks the half that does not need one —
+      # that `bun run package` stamps the GIT-DERIVED version. That is the regression that actually shipped: a
+      # constant 0.0.1 can never out-version an installed dev build, so every `--install-extension` silently
+      # no-op'd and the editor kept running old code. The editor-side assertions stay a local gate (`bun run
+      # test:ext` on Windows), like verify-opencode.
+      - name: Extension packaging (version is git-derived, not the base)
+        run: bun run test:ext
 
   # The unified C# toolchain (packages/volt-cli). Windows-only: the solution builds the net48 in-proc CODESYS host,
   # the net8-windows TwinCAT worker, and the WinForms connector, none of which compile on Linux. A required context

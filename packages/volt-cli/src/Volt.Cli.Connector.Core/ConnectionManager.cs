@@ -139,6 +139,24 @@ namespace Volt.Cli.Connector
             return h.ProjectName == (p.Attach.Project ?? p.DisplayName) || h.ProjectName == p.DisplayName;
         }
 
+        /// <summary>Adopt an already-serving project as the active connection, for vendors with nothing selected.
+        /// STARTUP ONLY — call it once, after the first refresh. The selection lives in memory, so a connector
+        /// restart used to leave the tray amber ("nothing connected") while every workspace synced happily against
+        /// bridges that were still serving. Re-adopting makes the tray describe reality again.
+        /// <para>It is deliberately NOT part of the refresh loop: a deselected bridge stops serving, so this could
+        /// never undo a Disconnect — but a project the user disconnected and then RE-selected elsewhere shouldn't
+        /// be silently re-adopted on a tick either. Only adopts when a vendor has exactly ONE serving project, so
+        /// it never guesses between two open IDEs.</para></summary>
+        public void AdoptServingConnection()
+        {
+            foreach (var vendor in _selected.Keys.ToList())
+            {
+                if (_selected[vendor] != null) continue;
+                var serving = _projects.Where(p => p.Vendor == vendor && IsServingProject(p.Id)).ToList();
+                if (serving.Count == 1) _selected[vendor] = serving[0];
+            }
+        }
+
         /// <summary>Is this project's bridge serving it right now — the single signal every surface renders from
         /// (the tray colour, both frontends' connection status, and what the CLI would find on the pipe).</summary>
         public bool IsServingProject(string projectId) => _serving.TryGetValue(projectId, out var s) && s;

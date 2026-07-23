@@ -30,10 +30,10 @@ import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync } from "node:fs"
 import { resolve, join } from "node:path"
 
-if (process.platform !== "win32") {
-  console.error("test:ext is Windows-only (the editor extension dirs + installer are Windows).")
-  process.exit(1)
-}
+// The EDITOR half is Windows-only (that's where the extension dirs and the installer live), but the packaging
+// invariant — that `bun run package` stamps the git-derived version — is platform-neutral and is the one that
+// actually regressed. Run it anywhere, so CI can gate it on a runner with no editor installed.
+const editorsInspectable = process.platform === "win32"
 
 const repo = resolve(import.meta.dirname, "..")
 const pkgDir = resolve(repo, "packages/volt-vscode")
@@ -41,7 +41,7 @@ const EXT_ID = "volt-ai.volt-vscode"
 const verifyOnly = process.argv.includes("--verify")
 
 // The same (extensions dir → CLI) pairing the installer and reinstall-dev.ps1 use, so all three cover one set.
-const EDITORS = [
+const EDITORS = !editorsInspectable ? [] : [
   { dir: ".vscode", cli: "code" },
   { dir: ".vscode-insiders", cli: "code-insiders" },
   { dir: ".vscode-oss", cli: "codium" },
@@ -59,7 +59,7 @@ const run = (cmd: string, args: string[]): { code: number; out: string } => {
   const r = spawnSync(cmd, args, { encoding: "utf8", shell: true })
   return { code: r.status ?? 1, out: `${r.stdout ?? ""}${r.stderr ?? ""}` }
 }
-const onPath = (cli: string): boolean => run("where", [cli]).code === 0
+const onPath = (cli: string): boolean => editorsInspectable && run("where", [cli]).code === 0
 
 // ── the one version, from the one place ──────────────────────────────────────
 const expected = run("bun", [resolve(repo, "volt-scripts/version.ts"), "--vsix"]).out.trim()
@@ -138,9 +138,16 @@ for (const ed of EDITORS) {
   else console.log(`  ! ${ed.dir}: ${after.length - 1} orphaned folder(s) alongside the live one — the editor deletes these on a full restart: ${after.filter((f) => !f.endsWith(seen.get(ed.cli) ?? "")).join(", ")}`)
 }
 
+// No editor is a legitimate environment — CI runners have none — and the MOST important invariant does not need
+// one: that `bun run package` stamps the git-derived version. That is the regression that actually shipped (a
+// constant 0.0.1 could never out-version an installed dev build, so every install silently no-op'd), and it is
+// caught above. Pass on the packaging half rather than failing a machine that simply has no editor.
 if (present === 0) {
-  console.error("\n✗ no editor CLI on PATH (code / code-insiders / codium / cursor / windsurf) — nothing to gate.")
-  process.exit(1)
+  console.log(
+    verifyOnly
+      ? "\n! no editor CLI on PATH — nothing installed to verify."
+      : "\n! no editor CLI on PATH (code / code-insiders / codium / cursor / windsurf) — checked packaging only.",
+  )
 }
 
 // Editors drifting apart is its own bug: the installer sideloads into each one separately, so one failing (a

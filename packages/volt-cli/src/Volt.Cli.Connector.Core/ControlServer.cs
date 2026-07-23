@@ -90,11 +90,19 @@ namespace Volt.Cli.Connector
             try { ctx = _listener.EndGetContext(ar); }
             catch { return; }
             try { _listener.BeginGetContext(OnContext, null); } catch { /* listener stopped */ }
-            try { Handle(ctx); }
+            // Fire-and-forget the ASYNC handler: /status can refresh (probing every bridge pipe) and
+            // /connect + /disconnect await a wire call, so handling inline would tie up the listener callback
+            // thread for the duration and serialize unrelated requests behind it.
+            _ = HandleSafeAsync(ctx);
+        }
+
+        private async Task HandleSafeAsync(HttpListenerContext ctx)
+        {
+            try { await Handle(ctx).ConfigureAwait(false); }
             catch (Exception ex) { Log.Error($"control plane handler error: {ex.Message}"); try { ctx.Response.StatusCode = 500; ctx.Response.Close(); } catch { } }
         }
 
-        private void Handle(HttpListenerContext ctx)
+        private async Task Handle(HttpListenerContext ctx)
         {
             // CSRF guard (same rule as the bridge data plane): reject cross-origin browser requests. First-party
             // callers (the VS Code extension's Node fetch, the desktop app) never send an `Origin` header.
@@ -108,12 +116,12 @@ namespace Volt.Cli.Connector
             var path = ctx.Request.Url!.AbsolutePath.Trim('/');
             var method = ctx.Request.HttpMethod;
 
-            if (method == "GET" && path == "status") { WriteJson(ctx, 200, _snapshot().GetAwaiter().GetResult()); return; }
+            if (method == "GET" && path == "status") { WriteJson(ctx, 200, await _snapshot().ConfigureAwait(false)); return; }
 
             if (method == "POST" && path == "connect")
             {
                 var id = ReadBody<ConnectBody>(ctx)?.ProjectId;
-                var ok = !string.IsNullOrEmpty(id) && _connect(id!).GetAwaiter().GetResult();
+                var ok = !string.IsNullOrEmpty(id) && await _connect(id!).ConfigureAwait(false);
                 WriteJson(ctx, ok ? 200 : 400, new { ok });
                 return;
             }
@@ -123,7 +131,7 @@ namespace Volt.Cli.Connector
                 // The bridge stops serving sync; every host stays live and re-connectable. `gated` is false when
                 // the bridge is too old to have the op — still a 200 (the selection DID clear), but the caller
                 // must warn: that bridge keeps serving the CLI, so "disconnected" would be a lie.
-                var gated = _disconnect().GetAwaiter().GetResult();
+                var gated = await _disconnect().ConfigureAwait(false);
                 WriteJson(ctx, 200, new { ok = true, gated });
                 return;
             }
