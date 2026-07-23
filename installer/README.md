@@ -15,7 +15,7 @@ the one invariant the whole layout rests on.
 
 | Location | What | Written by | Removed on uninstall? |
 |---|---|---|---|
-| `%LOCALAPPDATA%\Programs\Volt\app-<version>\` | one whole payload per version: connector at root, `bin\` (CLI+LSP), `opencode-config\`, `desktop\`, `docs\`, `codesys-scriptcommands\`, `volt-vscode.vsix`, `version.txt` | Inno (`[Files]` → `app-{#AppVersion}`) | **yes** — Inno owns it; uninstall removes every `app-*` |
+| `%LOCALAPPDATA%\Programs\Volt\app-<version>\` | one whole payload per version: connector at root, `bin\` (CLI+LSP), `opencode-config\`, `desktop\`, `docs\`, `codesys-scriptcommands\`, `volt-vscode.vsix` (no version.txt — every binary carries its version stamped in) | Inno (`[Files]` → `app-{#AppVersion}`) | **yes** — Inno owns it; uninstall removes every `app-*` |
 | `%LOCALAPPDATA%\Programs\Volt\current` | junction → the active version directory; the only path anything outside `{app}` references | `[Code]` `SetCurrentJunction` (`rmdir`+`mklink /J`) | yes — `rmdir` unlinks it, then version dirs go |
 | `%LOCALAPPDATA%\Volt\logs\` | `connector-*.log`, `<vendor>-*.log`, `install-*.log`, `uninstall-*.log` — the shared log store the tray's Log window reads | connector (`Log.cs`), bridges (Core's `VoltLog`), Setup (`DeinitializeSetup` + `ULog`) | **no** — deliberate, see below |
 | `%APPDATA%\Microsoft\...\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → the desktop GUI | connector (`VoltEnv.CreateGuiShortcut`) | yes (`VoltEnv.Uninstall`) |

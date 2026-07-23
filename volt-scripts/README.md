@@ -109,14 +109,16 @@ those failures need an install **over an existing one**, with files held open:
   hit an Abort/Retry/Ignore box that `/SUPPRESSMSGBOXES` defaults to **Abort**, and reverted — silently, exit code
   and all. Files sorting after the locked one (notably `bin\volt.exe`) stayed several releases behind while the
   connector moved on, so a shipped CLI feature looked broken for days.
-- **`version.txt` is what the tray reports as "installed"**, and it is a text file the installer writes. It
-  asserts nothing about the binaries beside it, so a half-applied install reports the version it *meant* to be.
+- **A version could be reported without being installed.** The tray once trusted a `version.txt` the installer
+  wrote; it asserted nothing about the binaries beside it, so a half-applied install reported the version it
+  *meant* to be. That file is gone — every binary now carries its version stamped in.
 
 The flow: `install → uninstall → install → update → update → uninstall → install → uninstall`, asserting after
 every step. Two assertions carry the weight:
 
-- **Measured versions, not paperwork.** `build-cli.ps1` stamps `VOLT_VERSION` into every exe's `FileVersion`, so
-  each binary is asked what it *is* and compared against what the install claims. Comparing binaries only to each
+- **Measured versions, not paperwork.** `build-cli.ps1` stamps `VOLT_VERSION` into every exe's `FileVersion` (the
+  bun-compiled LSP gets it via a compile-time `--define`), so each binary is asked what it *is* and compared
+  against the version directory Inno created. Comparing binaries only to each
   other is not enough — an update that replaced none of them would be self-consistent and still stale. The
   extension is checked the same way, via the editor's own `--list-extensions --show-versions`; folder listings are
   not evidence (they survived both an uninstall that deregistered it and an install that skipped it).

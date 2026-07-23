@@ -9,11 +9,11 @@
  *   bun volt-scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
  * Pipeline: build-payload.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
- * assemble the payload (connector at root; bin/ opencode-config/ docs/ desktop/ + version.txt + .vsix as siblings)
+ * assemble the payload (connector at root; bin/ opencode-config/ docs/ desktop/ + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -185,11 +185,11 @@ cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
 cpSync(resolve(payload, "opencode-config"), resolve(stage, "opencode-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
-// The connector reads version.txt (auto-update: current version) beside itself; the .vsix is what the per-editor
-// extension wizard tasks sideload via `<editor> --install-extension`. Hard-fail on a missing .vsix: the tasks
-// would silently install nothing, and nothing downstream catches it — test:install runs /VERYSILENT, which skips
-// those tasks entirely (Check: NotSilent in the .iss).
-writeFileSync(resolve(stage, "version.txt"), version)
+// No version.txt is shipped: every binary carries its version stamped in (FileVersion for the .NET exes, a
+// compile-time define for the bun-built LSP), so a sidecar file could only drift from the binary — which is the
+// bug it caused. The .vsix is what the per-editor extension wizard tasks sideload via `<editor>
+// --install-extension`. Hard-fail on a missing .vsix: the tasks would silently install nothing, and nothing
+// downstream catches it — test:install runs /VERYSILENT, which skips those tasks entirely (Check: NotSilent).
 const vsix = resolve(payload, "volt-vscode.vsix")
 if (!existsSync(vsix)) {
   console.error("✗ volt-vscode.vsix missing from dist/volt — the installer's extension tasks would install nothing")

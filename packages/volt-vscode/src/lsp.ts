@@ -141,9 +141,9 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	const vendor = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
 	const serverOptions: ServerOptions = {
 		command: process.execPath,
-		// `--server-version` gives the server its true identity: running under the editor's node there is no
-		// version.txt to read, so without this its serverInfo would report "(dev)". This is the extension version,
-		// which moves every build (see volt-scripts/version.ts).
+		// `--server-version` gives the server its true identity: running under the editor's node it executes the
+		// LSP's raw .js (not the stamped exe), so without this its serverInfo would report "(dev)". This is the
+		// extension version, which moves every build (see volt-scripts/version.ts).
 		args: [serverModule, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys", "--server-version", extVersion],
 		transport: TransportKind.stdio,
 		options: { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },

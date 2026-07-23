@@ -19,15 +19,15 @@ internal static class Program
 
     private static void EmitJson(object x) => Console.Out.Write(JsonSerializer.Serialize(x, Json) + "\n");
 
-    /// <summary>The shipped Volt version from version.txt (the installer writes it at the install root; volt.exe
-    /// runs from &lt;root&gt;\bin). "(dev)" when run from the build tree with no version.txt.</summary>
+    /// <summary>volt.exe's OWN stamped FileVersion — the fact, not a sidecar file's claim. build-cli.ps1 stamps
+    /// every binary from VOLT_VERSION, so this is the shipped version and cannot drift from the binary the way a
+    /// version.txt beside it could. "(dev)" when run from a build tree that carries no stamp.</summary>
     private static string ShippedVersion()
     {
         try
         {
-            var dir = System.AppContext.BaseDirectory;
-            foreach (var c in new[] { System.IO.Path.Combine(dir, "version.txt"), System.IO.Path.Combine(dir, "..", "version.txt") })
-                if (System.IO.File.Exists(c)) return System.IO.File.ReadAllText(c).Trim();
+            var v = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Environment.ProcessPath!).FileVersion?.Trim();
+            if (!string.IsNullOrEmpty(v) && v != "0.0.0.0") return v!;
         }
         catch { }
         return "(dev)";
@@ -35,8 +35,8 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        // `volt --version` — the one shipped version (version.txt, placed at the install root by the installer), so
-        // every Volt binary reports the SAME version and the connector's Status window can verify they're in sync.
+        // `volt --version` — the binary's own stamped version, so every Volt binary reports the SAME version (all
+        // stamped from one VOLT_VERSION at build) and the connector's Status window can verify they're in sync.
         if (args.Length > 0 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version"))
         {
             Console.WriteLine(ShippedVersion());

@@ -94,8 +94,9 @@ check("CODESYS reference corpus index", () =>
 // so there is no separate client/server to keep in lockstep — the pipe host and client compile against one Core.
 
 console.log("\nProduct version parity");
-// Volt ships ONE version. volt-desktop is the source of truth (it names the release tag + version.txt, which the
-// connector's auto-updater compares); the .vsix the installer sideloads must carry the same number. They're
+// Volt ships ONE version. volt-desktop is the source of truth (it names the release tag; the same number is
+// stamped into every binary's FileVersion, which the connector's auto-updater reads); the .vsix the installer
+// sideloads must carry the same number. They're
 // separate package.json files because the extension also self-publishes to the Marketplace. release.ts and
 // release.yml both refuse a mismatch — but those only run at release, by which point a half-bump is already on
 // dev. This runs on every push/PR, so the drift fails in the PR that introduces it.

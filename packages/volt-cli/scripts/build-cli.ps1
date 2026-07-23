@@ -23,11 +23,11 @@ Write-Output "========================================"
 Write-Output " Volt CLI toolchain build (pipe)"
 Write-Output "========================================"
 
-# Stamp the RELEASE version into every binary, so each one is self-describing and "what is installed" can be
-# MEASURED off the file instead of trusted from version.txt beside it. That text file is what the tray reported,
-# and it is written by the installer -- so a half-applied update (one where a locked file made Inno roll back
-# after some components had already been replaced) confidently reported the version it MEANT to be. A binary
-# cannot lie about its own version. Empty outside CI: a dev build stays 1.0.0.
+# Stamp the RELEASE version into every binary, so each one is self-describing and "what is installed" is MEASURED
+# off the binary itself. This is the ONLY version record now -- there is no version.txt (it was written by the
+# installer, so a half-applied update where a locked file made Inno roll back after some components were replaced
+# confidently reported the version it MEANT to be; a binary cannot lie about its own version). The bun-compiled
+# LSP gets the equivalent via a compile-time --define in build-payload.ts. Empty outside CI: a dev build stays 1.0.0.
 $VER = $env:VOLT_VERSION
 $VERARGS = if ($VER) { @("/p:Version=$VER", "/p:FileVersion=$VER") } else { @() }
 if ($VER) { Write-Output "  stamping version $VER into every binary" }

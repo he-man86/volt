@@ -29,7 +29,17 @@ function run(cmd: string, args: string[], cwd = repo): boolean {
 }
 
 function compile(entry: string, name: string): void {
-  if (!run("bun", ["build", "--compile", "--outfile", resolve(bin, name + ext), entry])) {
+  // Bake VOLT_VERSION into the binary — the JS parallel to build-cli.ps1 stamping FileVersion into the .NET exes.
+  // A bun-compiled exe has no PE FileVersion to read, so this define is how the LSP knows its own version without a
+  // version.txt beside it (which is gone — it reported what the install MEANT to be and could drift from the
+  // binary). Unstamped local builds get "(dev)". Keep the constant name in sync with bin.ts.
+  //
+  // SINGLE quotes, deliberately. `run` uses shell:true on Windows, so the compile goes through cmd.exe, which
+  // STRIPS double quotes from an arg — `__VOLT_VERSION__="1.2.3"` reached bun as an unquoted, invalid define and
+  // silently fell back to "(dev)" (caught only because the build asserts the stamp). Single quotes pass through
+  // cmd.exe untouched and are a valid JS string literal for esbuild's define. Verified through a shell:true spawn.
+  const version = process.env.VOLT_VERSION ?? "(dev)"
+  if (!run("bun", ["build", "--compile", `--define`, `__VOLT_VERSION__='${version}'`, "--outfile", resolve(bin, name + ext), entry])) {
     console.error(`✗ failed to compile ${name}`)
     process.exit(1)
   }
@@ -44,6 +54,18 @@ mkdirSync(bin, { recursive: true })
 // that.
 console.log("• volt-lsp-iec")
 compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
+
+// VERIFY the stamp landed. The version is baked via a compile-time --define, which failed SILENTLY once (cmd.exe
+// stripped the quotes) and fell back to "(dev)" — a shipped binary that could not report its own version, exactly
+// the drift version.txt was removed to prevent. So when VOLT_VERSION is set, prove the compiled exe reports it.
+if (process.env.VOLT_VERSION) {
+  const out2 = spawnSync(resolve(bin, "volt-lsp-iec" + ext), ["--version"], { encoding: "utf8" }).stdout ?? ""
+  if (!out2.includes(process.env.VOLT_VERSION)) {
+    console.error(`✗ volt-lsp-iec did not bake in VOLT_VERSION (${process.env.VOLT_VERSION}); reported: ${out2.trim() || "nothing"}`)
+    process.exit(1)
+  }
+  console.log(`  ✓ volt-lsp-iec stamped ${process.env.VOLT_VERSION}`)
+}
 
 // Ship the language-reference corpus beside the binaries. `bun --compile` only embeds imported JS, not this
 // fs-read docs tree, so `volt init`'s installCorpus reads it from `resources/volt/docs` (init.ts resolves

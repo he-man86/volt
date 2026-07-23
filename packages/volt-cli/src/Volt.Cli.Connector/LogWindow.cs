@@ -165,11 +165,15 @@ namespace Volt.Cli.Connector
             try
             {
                 if (!Directory.Exists(Log.Dir)) return rows;
-                // The connector writes structured "{source}-{date}.log" files; the installer deliberately
-                // mirrors Setup's own (free-form, 400KB+) log into this same folder as install-*.log so the
-                // support bundle has it. It doesn't parse into rows and would crowd out the real logs — skip it.
+                // This window is the CONNECTOR's runtime surface: it shows the structured "{source}-{date}.log"
+                // files (connector, twincat, codesys). The installer/uninstaller also drop their logs in this same
+                // folder for the support bundle — Setup's own free-form 400KB+ log as install-*.log, and the
+                // uninstall summary as uninstall-*.log — but those are install-time records in a different format;
+                // they belong in the folder (which "Open logs" opens), not as rows here where they'd render broken
+                // and crowd out the live logs. Skip both prefixes.
                 var files = Directory.GetFiles(Log.Dir, "*.log")
                     .Where(f => !Path.GetFileName(f).StartsWith("install-", StringComparison.OrdinalIgnoreCase))
+                    .Where(f => !Path.GetFileName(f).StartsWith("uninstall-", StringComparison.OrdinalIgnoreCase))
                     .ToArray();
                 // Give each log file a fair share of the total budget so a chatty source
                 // (e.g. TwinCAT with thousands of lines) doesn't crowd out quieter ones

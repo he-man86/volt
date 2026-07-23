@@ -170,9 +170,12 @@ function assertInstalled(step: string): void {
   if (versions.length > 2) fail(step, `${versions.length} version directories retained: ${versions.join(", ")}`)
   else ok(`${step}: ${versions.length} version dir(s), current → ${versions.join(", ")}`)
 
-  const versionFile = join(current, "version.txt")
-  if (!existsSync(versionFile)) return fail(step, "version.txt missing — nothing to check against")
-  const claimed = readFileSync(versionFile, "utf8").trim()
+  // The oracle is the version DIRECTORY Inno created — `app-<version>` — not a version.txt in the payload (that
+  // file is gone; every binary is stamped instead). This is strictly stronger: the directory name is what the
+  // installer actually laid down, so a binary whose own stamp disagrees with the directory it sits in did not get
+  // replaced. `versions` holds the active one (and briefly a predecessor); check against the one `current` points
+  // at, which readdir cannot distinguish, so take the newest by name — matching what the connector prunes to.
+  const claimed = versions.sort().at(-1)!.replace(/^app-/, "")
 
   const exes = [
     join(current, "VoltConnector.exe"),
@@ -182,9 +185,8 @@ function assertInstalled(step: string): void {
   const missing = exes.filter((e) => !existsSync(e))
   for (const e of missing) fail(step, `${e.replace(installDir, "")} missing`)
 
-  // Compare each binary's OWN stamped version against version.txt. Checking the binaries against EACH OTHER is
-  // not enough: an update that replaced none of them would be self-consistent and still stale. version.txt is
-  // the version the installer intended, so any binary that disagrees with it did not get replaced.
+  // Each binary's OWN stamped version must equal the directory's. Checking binaries against EACH OTHER is not
+  // enough: an update that replaced none of them would be self-consistent and still stale.
   const present = exes.filter(existsSync)
   const reported = present.map((e) => [e.replace(installDir, ""), fileVersion(e)] as const)
   const stale = reported.filter(([, v]) => v !== claimed)
@@ -192,7 +194,16 @@ function assertInstalled(step: string): void {
     fail(step, `component(s) not at ${claimed}: ${stale.map(([n, v]) => `${n}=${v ?? "?"}`).join(", ")}`)
   else ok(`${step}: every binary reports ${claimed}`)
 
-  if (!existsSync(join(current, "bin", "volt-lsp-iec.exe"))) fail(step, "bin/volt-lsp-iec.exe missing")
+  // The LSP is bun-compiled, so it has no PE FileVersion — its version is baked in via a compile-time define and
+  // it can only be asked by running it. Ask: a `(dev)` here means the define silently failed to land (it did once,
+  // when cmd.exe stripped the quotes), which no FileVersion check could see.
+  const lsp = join(current, "bin", "volt-lsp-iec.exe")
+  if (!existsSync(lsp)) fail(step, "bin/volt-lsp-iec.exe missing")
+  else {
+    const lspv = (spawnSync(lsp, ["--version"], { encoding: "utf8" }).stdout ?? "").trim()
+    if (!lspv.includes(claimed)) fail(step, `volt-lsp-iec reports "${lspv}", not ${claimed} (compile-time version define did not land)`)
+    else ok(`${step}: volt-lsp-iec reports ${claimed}`)
+  }
   if (!existsSync(join(current, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
 
   // The EXTENSION, asked of the editor itself. A silent install only refreshes editors that already have it, so
