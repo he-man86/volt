@@ -17,7 +17,26 @@ namespace Volt.Cli.Connector
         // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and opencode-config\
         // (the agent layer) as sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe
         // so it survives wherever the user installed us.
-        private static string ConnectorDir => AppContext.BaseDirectory;
+        // Every path published OUTSIDE {app} — PATH, OPENCODE_CONFIG_DIR, the Start Menu shortcut, the login
+        // item — MUST resolve through {app}\current, never through this version directory. That is the invariant
+        // the versioned-install layout rests on: a published value naming a version would force every update to
+        // rewrite HKCU (trading a file-lock race for a registry one) and would dangle between the install and the
+        // new connector's first run. Falls back to the exe's own directory when no `current` sits beside it — a
+        // flat install (the pre-migration layout) or a dev run out of the build output; both must keep working.
+        private static string ConnectorDir
+        {
+            get
+            {
+                var self = AppContext.BaseDirectory;
+                var parent = Directory.GetParent(self.TrimEnd(Path.DirectorySeparatorChar))?.FullName;
+                if (parent != null)
+                {
+                    var current = Path.Combine(parent, "current");
+                    if (Directory.Exists(current)) return current;
+                }
+                return self;
+            }
+        }
         private static string BinDir => Path.GetFullPath(Path.Combine(ConnectorDir, "bin"));
         private static string ConfigDir => Path.GetFullPath(Path.Combine(ConnectorDir, "opencode-config"));
         private static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
