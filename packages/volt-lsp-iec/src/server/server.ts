@@ -131,7 +131,7 @@ function workspaceRoot(rootUri: string | null | undefined, rootPath: string | nu
   return rootPath != null && rootPath.length > 0 ? rootPath : undefined
 }
 
-export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys"): void {
+export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys", version = "(dev)"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
   const messages = messagesFor(vendor)
   const store = new WorkspaceStore(resolveConfig({ vendor }))
@@ -260,7 +260,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         // answer workspace-wide pulls too.
         diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true },
       },
-      serverInfo: { name: "volt-lsp-iec", version: "0.1.0" },
+      serverInfo: { name: "volt-lsp-iec", version },
     }
   })
 

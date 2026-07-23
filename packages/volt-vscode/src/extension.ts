@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { resolveOpencodeExe, hasOpencode } from "./agent.js"
-import { startLsp } from "./lsp.js"
+import { startLsp, stopLsp, registerLspCommands } from "./lsp.js"
 import { registerCommands } from "./commands.js"
 import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
@@ -122,6 +122,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeWindowState((ws) => { if (ws.focused) void refreshBridgeLive() }),
 	)
 
+	// Register the LSP commands UNCONDITIONALLY (they guard on the live client internally) so a palette
+	// invocation never errors "command not found" even when the server fails to launch below.
+	context.subscriptions.push(...registerLspCommands())
+
 	// The LSP is best-effort: a failure to launch the server must NOT fail activation (which would
 	// tear down the Volt views). Sync + views work without it.
 	try {
@@ -161,7 +165,10 @@ function updateContextKeys(): void {
 	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", initialized && (d.severity === "offline" || d.severity === "noproject"))
 }
 
-export function deactivate(): Thenable<void>[] {
+export function deactivate(): Thenable<void> {
 	for (const [, s] of statuses) s.dispose()
-	return []
+	// Return the LSP shutdown PROMISE (not an array — VS Code only awaits a thenable return value, so the old
+	// `return []` was never awaited) so the editor WAITS for the stdio server to exit before killing the
+	// extension host. Fire-and-forget disposal let the server orphan on an extension update → the zombie LSP.
+	return stopLsp()
 }

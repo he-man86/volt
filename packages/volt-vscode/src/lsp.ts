@@ -48,6 +48,51 @@ function analysisOptions(): { diagnoseDeadCode: boolean; diagnostics: Record<str
 	return { diagnoseDeadCode: c.get<boolean>("diagnostics.deadCode", false), diagnostics }
 }
 
+// The live client, so `deactivate()` can AWAIT the server's shutdown. Without this the client was only
+// disposed via context.subscriptions (fire-and-forget) — on an extension UPDATE the host is torn down
+// before the stdio child exits, orphaning it as a zombie LSP that survives reloads and serves stale,
+// wrong go-to-def results. Holding the ref + returning stop() from deactivate makes the editor wait.
+let activeClient: LanguageClient | undefined
+let lspInfo: { version: string; module: string } | undefined
+
+/** Stop the running server and wait for it to exit — called from the extension's `deactivate`. */
+export async function stopLsp(): Promise<void> {
+	const c = activeClient
+	activeClient = undefined
+	lspInfo = undefined
+	if (c !== undefined) await c.stop().catch(() => c.dispose())
+}
+
+/** The LSP commands, registered UNCONDITIONALLY at activation (not inside startLsp) so they exist even when
+ *  the server failed to launch — otherwise invoking a palette command declared in package.json errors with
+ *  "command not found" exactly when the user is trying to diagnose why the LSP is down. Each guards on the
+ *  live client and offers a recovery path. */
+export function registerLspCommands(): vscode.Disposable[] {
+	const notRunning = async (): Promise<void> => {
+		const pick = await vscode.window.showWarningMessage("Volt LSP is not running.", "Reload Window")
+		if (pick === "Reload Window") void vscode.commands.executeCommand("workbench.action.reloadWindow")
+	}
+	return [
+		vscode.commands.registerCommand("volt.lsp.showInfo", async () => {
+			if (activeClient === undefined || lspInfo === undefined) return notRunning()
+			// Version in the message (a notification collapses newlines, so the module path would be truncated
+			// here); the full path lives in the status-bar tooltip and the output channel's startup line.
+			const pick = await vscode.window.showInformationMessage(`Volt LSP v${lspInfo.version}`, "Show Output", "Restart")
+			if (pick === "Show Output") activeClient.outputChannel.show()
+			else if (pick === "Restart") await vscode.commands.executeCommand("volt.lsp.restart")
+		}),
+		vscode.commands.registerCommand("volt.lsp.restart", async () => {
+			if (activeClient === undefined) return notRunning()
+			await activeClient.restart()
+			vscode.window.showInformationMessage("Volt LSP restarted")
+		}),
+		vscode.commands.registerCommand("volt.lsp.showOutput", () => {
+			if (activeClient === undefined) void vscode.window.showWarningMessage("Volt LSP is not running.")
+			else activeClient.outputChannel.show()
+		}),
+	]
+}
+
 export async function startLsp(context: vscode.ExtensionContext): Promise<vscode.Disposable[]> {
 	// Read the manifest's declared namespace `volt.iec.*`. Was `volt.lsp.*` (never existed); the keys
 	// were also declared under the legacy `volt.structuredText.*` (the LSP's old name) — now `volt.iec.*`.
@@ -58,6 +103,10 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 		vscode.window.showWarningMessage("Volt LSP server not found — Structured Text intelligence is disabled.")
 		return []
 	}
+	// The one number that identifies which build is serving you: the extension version moves every build
+	// (<maj>.<min>.<commit-count>, see volt-scripts/version.ts), and the server bundle ships inside this
+	// extension — so extension version == server version, and the resolved module PATH names the exact folder.
+	const extVersion = (context.extension.packageJSON as { version?: string }).version ?? "unknown"
 
 	// The server is stdio-only and needs `--stdio` plus a vendor flag (it defaults to codesys, so
 	// `auto`/`codesys` both pass --codesys). Run it via the editor's own runtime with
@@ -66,7 +115,10 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	const vendor = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
 	const serverOptions: ServerOptions = {
 		command: process.execPath,
-		args: [serverModule, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys"],
+		// `--server-version` gives the server its true identity: running under the editor's node there is no
+		// version.txt to read, so without this its serverInfo would report "(dev)". This is the extension version,
+		// which moves every build (see volt-scripts/version.ts).
+		args: [serverModule, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys", "--server-version", extVersion],
 		transport: TransportKind.stdio,
 		options: { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
 	}
@@ -82,21 +134,31 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 
 	const client = new LanguageClient("volt-lsp", "Volt LSP", serverOptions, clientOptions)
 	await client.start()
+	activeClient = client
+	lspInfo = { version: extVersion, module: serverModule }
 
+	// Make "which LSP am I running" answerable at a glance. The status-bar item shows the version; its
+	// tooltip + the "Volt LSP: Show Info" command reveal the exact server MODULE PATH — which names the
+	// installed extension folder (…/volt-vscode-<version>/dist/lsp-server.js), so a stale build is obvious.
+	// (No PID: the client doesn't expose the server child's PID, and process.pid is the editor's host, not
+	// the server — showing it would send you hunting the wrong process. The module path is the identity.)
+	client.outputChannel.appendLine(`Volt LSP started — extension v${extVersion}\n  server module: ${serverModule}`)
+	const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0)
+	status.text = `$(server-process) Volt LSP ${extVersion}`
+	status.tooltip = `Volt LSP ${extVersion}\n${serverModule}\nClick for info`
+	status.command = "volt.lsp.showInfo"
+	status.show()
+
+	// The client is NOT returned here (so it isn't also torn down via context.subscriptions) — `stopLsp()`
+	// from `deactivate` is its sole, awaited teardown. The LSP commands live in `registerLspCommands` (wired
+	// unconditionally in activate). This returns only the disposables tied to a live client.
 	return [
-		client,
+		status,
 		// Push the live-togglable config (dead-code + lints) whenever a `volt.iec.*` setting changes, so a
 		// toggle takes effect without a restart. Vendor is fixed at launch (a change needs Volt LSP: Restart).
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration("volt.iec"))
 				void client.sendNotification(DidChangeConfigurationNotification.type, { settings: analysisOptions() })
-		}),
-		vscode.commands.registerCommand("volt.lsp.restart", async () => {
-			await client.restart()
-			vscode.window.showInformationMessage("Volt LSP restarted")
-		}),
-		vscode.commands.registerCommand("volt.lsp.showOutput", () => {
-			client.outputChannel.show()
 		}),
 	]
 }

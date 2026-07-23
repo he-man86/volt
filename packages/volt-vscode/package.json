@@ -668,6 +668,11 @@
         "category": "Volt"
       },
       {
+        "command": "volt.lsp.showInfo",
+        "title": "Volt: Show Language Server Info",
+        "category": "Volt"
+      },
+      {
         "command": "volt.openReference",
         "title": "Volt: Open CODESYS Language Reference",
         "category": "Volt"
