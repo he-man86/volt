@@ -247,7 +247,7 @@ end;
 /// usUninstall fires BEFORE any file is removed, which is the only useful moment. Same list as
 /// PrepareToInstall, same reasoning — Volt's own processes only, never the user's IDE.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var ResultCode: Integer;
+var ResultCode: Integer; PathVal, NewPath, Part: String;
 begin
   if CurUninstallStep = usUninstall then
   begin
@@ -260,6 +260,38 @@ begin
   // to revert PATH + OPENCODE_CONFIG_DIR, and deleting the version directories any earlier destroys the exe
   // before it can do that: the env was left pointing at a Volt that no longer existed. Unlink `current` with
   // rmdir (a recursive delete would delete the version directory THROUGH the junction), then take the versions.
+  // Revert the environment HERE, in the uninstaller itself, rather than delegating to
+  // `VoltConnector.exe --uninstall` via [UninstallRun]. Delegating means the revert depends on the lifetime of a
+  // binary this same uninstall is deleting — which broke twice already (once when cleanup ran before
+  // [UninstallRun] and destroyed the exe first). Doing it directly cannot be defeated by ordering: no process to
+  // launch, nothing to race. The [UninstallRun] entry stays for the parts only the connector knows about.
+  if CurUninstallStep = usPostUninstall then
+  begin
+    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Volt');
+    // PATH is a list — strip only Volt's own entries, never rewrite the whole value.
+    if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then
+    begin
+      NewPath := '';
+      while Pos(';', PathVal) > 0 do
+      begin
+        Part := Copy(PathVal, 1, Pos(';', PathVal) - 1);
+        PathVal := Copy(PathVal, Pos(';', PathVal) + 1, Length(PathVal));
+        if (Part <> '') and (Pos('\programs\volt', Lowercase(Part)) = 0) then
+        begin
+          if NewPath <> '' then NewPath := NewPath + ';';
+          NewPath := NewPath + Part;
+        end;
+      end;
+      if (PathVal <> '') and (Pos('\programs\volt', Lowercase(PathVal)) = 0) then
+      begin
+        if NewPath <> '' then NewPath := NewPath + ';';
+        NewPath := NewPath + PathVal;
+      end;
+      RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', NewPath);
+    end;
+  end;
+
   if CurUninstallStep = usPostUninstall then
     Exec(ExpandConstant('{cmd}'),
       '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
