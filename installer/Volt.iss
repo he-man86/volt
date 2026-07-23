@@ -79,6 +79,15 @@ Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --ac
 ; The extension refresh, however, MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
 ; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
 ; encodes both cases: interactive → honor the checkbox; silent → refresh only editors that ALREADY have it.
+; UNINSTALL FIRST, then install. Every dev build carries a new version (0.0.<count>, so `--install-extension`
+; actually upgrades — see volt-scripts/version.ts), and the editor only garbage-collects superseded version folders
+; on a full RESTART. An editor left open across a few auto-updates therefore accumulates one
+; `volt-ai.volt-vscode-0.0.<count>` folder per build (13 in two days, observed). Uninstalling by id first removes
+; every version, so at most one folder survives regardless of whether the editor is ever restarted. Cheap + offline;
+; if the uninstall no-ops (nothing installed) the install right after is unaffected.
+Filename: "{cmd}"; Parameters: "/c code --uninstall-extension volt-ai.volt-vscode";     Check: WantExt('code','vscode');       StatusMsg: "Removing older Volt extension versions from VS Code…";  Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c windsurf --uninstall-extension volt-ai.volt-vscode"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Removing older Volt extension versions from Windsurf…"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c cursor --uninstall-extension volt-ai.volt-vscode";   Check: WantExt('cursor','cursor');     StatusMsg: "Removing older Volt extension versions from Cursor…";   Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Check: WantExt('code','vscode');       StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden

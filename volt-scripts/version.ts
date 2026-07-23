@@ -20,6 +20,7 @@
  *
  *   bun volt-scripts/version.ts                 # print the three lines
  *   bun volt-scripts/version.ts >> "$GITHUB_OUTPUT"
+ *   bun volt-scripts/version.ts --vsix          # print ONLY the vsix version (for `vsce package <version>`)
  */
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
@@ -45,5 +46,13 @@ if (!/^\d+\.\d+\.\d+$/.test(base) || !/^\d+\.\d+\.\d+(\.\d+)?$/.test(version) ||
   process.exit(1)
 }
 
-for (const line of [`version=${version}`, `base=${base}`, `vsix=${vsix}`, `prerelease=${isTag ? "false" : "true"}`])
-  console.log(line)
+// `--vsix` prints the bare extension version so a LOCAL `bun run package` stamps the same git-derived version CI
+// does. Without it the local build carried the base 0.0.1 forever — lower than every installed dev build, so
+// `--install-extension` no-op'd (or left a stray 0.0.1 folder) and the editor kept loading the old extension while
+// the source said otherwise. The one number, computed once, whoever builds.
+if (process.argv.includes("--vsix")) {
+  console.log(vsix)
+} else {
+  for (const line of [`version=${version}`, `base=${base}`, `vsix=${vsix}`, `prerelease=${isTag ? "false" : "true"}`])
+    console.log(line)
+}

@@ -56,10 +56,13 @@ console.log("  ✓ docs corpus → dist/volt/docs")
 console.log("• volt-vscode extension (.vsix)")
 const vsixDir = resolve(repo, "packages/volt-vscode")
 if (run("bun", ["run", "package"], vsixDir)) {
-  // vsce names the package from volt-vscode's own version, so construct the exact filename. Do NOT glob+sort:
-  // this dir is never cleaned (old .vsix files accumulate, gitignored) and a sort is LEXICAL — at 0.10.0,
-  // "volt-vscode-0.10.0.vsix" sorts BEFORE "volt-vscode-0.2.0.vsix", which would silently ship a stale extension.
-  const vsix = `volt-vscode-${(await import(resolve(vsixDir, "package.json"))).default.version}.vsix`
+  // vsce names the package from the version `bun run package` passes it — the git-derived one from version.ts,
+  // NOT volt-vscode's stored package.json version (which stays at the base 0.0.1 locally, since `package` passes
+  // --no-update-package-json). Ask the same script for the same answer. Do NOT glob+sort: this dir is never
+  // cleaned (old .vsix files accumulate, gitignored) and a sort is LEXICAL — at 0.10.0, "volt-vscode-0.10.0.vsix"
+  // sorts BEFORE "volt-vscode-0.2.0.vsix", which would silently ship a stale extension.
+  const vsixVersion = spawnSync("bun", [resolve(repo, "volt-scripts/version.ts"), "--vsix"], { cwd: repo, encoding: "utf8", shell: process.platform === "win32" }).stdout?.trim()
+  const vsix = `volt-vscode-${vsixVersion}.vsix`
   if (existsSync(resolve(vsixDir, vsix))) {
     cpSync(resolve(vsixDir, vsix), resolve(out, "volt-vscode.vsix"))
     console.log(`  ✓ extension → dist/volt/volt-vscode.vsix (${vsix})`)
