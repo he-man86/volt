@@ -7,8 +7,11 @@
  * build and publish).
  *
  * Windows only; per-user install, reads HKCU. Best on a throwaway machine / CI runner — it really does install
- * and uninstall Volt. A /VERYSILENT install skips the opencode-winget + VS-Code-extension steps (Check:
- * NotSilent in the .iss), so this exercises Volt's OWN install/uninstall, not the third-party installs.
+ * and uninstall Volt. A /VERYSILENT install skips the opencode-winget step (Check: NotSilent in the .iss) but
+ * NOT the extension sideload — that one is gated by WantExt, which on a silent run refreshes editors that already
+ * have the extension. So a silent install DOES touch your editors, and this asserts it leaves them sane: an
+ * installer change once uninstalled the extension from every editor and skipped the reinstall (the uninstall step
+ * flipped the very predicate the install step was gated on), and nothing here noticed.
  *
  *   bun run test:install [path\to\Volt-win-Setup.exe]
  */
@@ -82,6 +85,17 @@ for (const name of ["Volt.exe", "VoltConnector.exe", "VoltBridgeTwincat.exe"]) {
   }
 }
 
+// Which editors had the Volt extension BEFORE the install. A silent run refreshes exactly those (WantExt), so
+// this is the baseline the post-install assertion compares against — captured here, before anything is touched.
+const hadExt = new Map<string, boolean>()
+for (const cli of ["code", "windsurf", "cursor"]) {
+  if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+  hadExt.set(
+    cli,
+    spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout?.toLowerCase().includes("volt-ai.volt-vscode") === true,
+  )
+}
+
 // ── install ───────────────────────────────────────────────────────────────────
 console.log(`• installing ${setup} (/VERYSILENT)`)
 const inst = spawnSync(setup, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
@@ -100,9 +114,25 @@ console.log("• verifying install:")
 check("install dir + VoltConnector.exe", existsSync(connector))
 check("OPENCODE_CONFIG_DIR → opencode-config", envHas("OPENCODE_CONFIG_DIR", configDir))
 check("PATH contains \\bin", envHas("Path", binDir))
-// The extension tasks themselves are skipped under /VERYSILENT (Check: NotSilent), so all we can assert here is
-// that the .vsix they sideload actually shipped — without it those tasks are no-ops on a real install.
+// The .vsix must ship, or the sideload tasks are no-ops on a real install.
 check("volt-vscode.vsix present", existsSync(vsix))
+
+// And every editor that HAD the extension must still report one afterwards. This is the assertion that was
+// missing when the installer started uninstalling the extension and skipping the reinstall: the folders were
+// still on disk (so a directory listing looked fine) while `--list-extensions` reported nothing at all.
+const EXT_ID = "volt-ai.volt-vscode"
+const editorReports = (cli: string): boolean =>
+  spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true })
+    .stdout?.toLowerCase()
+    .includes(EXT_ID) === true
+const editorsOnPath = ["code", "windsurf", "cursor"].filter(
+  (cli) => spawnSync("where", [cli], { encoding: "utf8", shell: true }).status === 0,
+)
+for (const cli of editorsOnPath) {
+  // Only editors that had it before are refreshed on a silent run — an editor that never had it staying without
+  // it is correct, not a failure. `hadExt` is captured before the install (see above).
+  if (hadExt.get(cli) === true) check(`${cli} still reports the Volt extension`, editorReports(cli))
+}
 // Both best-effort per the connector's code, and both behave differently in a headless session (COM shortcut,
 // per-user Run key) — report but don't gate. Their CLEANUP checks below stay hard, so a leftover still fails.
 check("Start Menu shortcut", existsSync(shortcut), true)
