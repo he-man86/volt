@@ -51,6 +51,37 @@ export const ABORT_MERGE: OutcomeAction = {
   confirmMessage: "Abort discards this merge and restores your workspace to before the pull. Your in-merge edits are lost. This cannot be undone.",
 }
 
+/** The four genuinely different endings of a Disconnect, described ONCE. Both shells rendered this with their own
+ *  hand-written if/else and their own wording, which is precisely how the two frontends drift — the desktop was
+ *  already showing an out-of-date bridge as an "error" while VS Code showed a "warning", for the same event.
+ *  Note `ok && !gated && reason === "unsupported"` is the dangerous one: the bridge is STILL SYNCING, so it must
+ *  never be reported as a plain success. */
+export function describeDisconnect(r: { ok: boolean; gated: boolean; reason?: string }): OutcomeView {
+  if (!r.ok) return { tone: "error", message: "Couldn't reach the Volt Connector — is it running?", actions: [] }
+  if (r.reason === "unreachable")
+    return { tone: "info", message: "Already disconnected — that IDE is no longer running.", actions: [] }
+  if (!r.gated)
+    return {
+      tone: "warn",
+      message:
+        "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
+      actions: [],
+    }
+  return { tone: "info", message: "Disconnected — the IDE stays open. Connect again to resume syncing.", actions: [] }
+}
+
+/** The confirm shown before `volt init` binds a folder. Shared so both shells state the SAME consequences: init is
+ *  not a preview — it makes the folder a git repo and pulls the whole project in. VS Code had this copy and the
+ *  desktop had no confirm at all, so the same click meant different things depending on which app you were in. */
+export function confirmInitMessage(projectName: string, platform: string): string {
+  return `Set up this folder to sync with “${projectName}” (${platform})?`
+}
+export function confirmInitDetail(workspaceRoot: string): string {
+  return `${workspaceRoot}
+
+This makes the folder a git repository and pulls the PLC project's code into it. Your IDE project is not modified.`
+}
+
 export function describePull(outcome: PullOutcome): OutcomeView {
   switch (outcome.kind) {
     case "ok":

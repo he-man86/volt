@@ -527,9 +527,9 @@
         },
         {
           "id": "volt.views.reference",
-          "name": "Reference & Agent",
+          "name": "Agent & Settings",
           "icon": "$(book)",
-          "contextualTitle": "Volt — Reference & Agent"
+          "contextualTitle": "Volt — Agent & Settings"
         }
       ]
     },

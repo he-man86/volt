@@ -18,6 +18,9 @@ import {
   describePull,
   describePush,
   describeMerge,
+  describeDisconnect,
+  confirmInitMessage,
+  confirmInitDetail,
   presentOutcome,
   settleOutcome,
   formatProgress,
@@ -169,13 +172,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const r = await disconnect(await boundProjectId(shell.status?.workspaceRoot ?? ""))
       clearProgress()
       await shell.status?.refresh(true)
-      // Same three outcomes the VS Code command distinguishes — an out-of-date bridge keeps syncing, so
-      // reporting a plain "Disconnected" there would be a lie.
-      if (!r.ok) notify("error", "Couldn't reach the Volt Connector — is it running?")
-      else if (r.reason === "unreachable") notify("info", "Already disconnected — that IDE is no longer running.")
-      else if (!r.gated)
-        notify("error", "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.")
-      else notify("info", "Disconnected — the IDE stays open. Connect again to resume syncing.")
+      // Described ONCE in @volt/control so this and the VS Code command can't word it differently — they already
+      // did (this reported an out-of-date bridge as an "error", VS Code as a "warning", for the same event).
+      const view = describeDisconnect(r)
+      notify(view.tone === "error" ? "error" : "info", view.message)
     }),
   )
   // Accept a project rename — re-init the BOUND workspace with its existing vendor. Sync pauses when the IDE's
@@ -204,6 +204,22 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
+
+      // CONFIRM first, with the same copy VS Code uses. Init is not a preview: it makes the folder a git repo and
+      // pulls the whole project in. VS Code asked; the desktop just did it, so the same click meant different
+      // things depending on which app you were in — and a stray click on a project row bound a folder for good.
+      if (!shell.win) return
+      const platform = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+      const { response } = await dialog.showMessageBox(shell.win, {
+        type: "question",
+        message: confirmInitMessage(project.displayName, platform),
+        detail: confirmInitDetail(root),
+        buttons: ["Set Up Workspace", "Cancel"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      if (response !== 0) return
+
       const out = await initFromProject(project, root, { onProgress: report })
       clearProgress()
       if (out.code === 0) await bindWorkspace(shell, root)

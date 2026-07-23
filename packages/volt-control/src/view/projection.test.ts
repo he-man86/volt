@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { projectWorkspace, onboardingMode } from "./workspace.js"
-import { describePull, describePush, describeMerge } from "./outcomes.js"
+import { describePull, describePush, describeMerge, describeDisconnect } from "./outcomes.js"
 import type { StatusJson } from "./types.js"
 import type { HealthState } from "../bridge/health.js"
 
@@ -132,4 +132,21 @@ test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else i
   expect(sync.tone).toBe("info")
   expect(sync.actions).toEqual([])
   expect(sync.message).toContain("already matches")
+})
+
+// ── describeDisconnect: one wording for both shells ──────────────────────────
+// Both frontends hand-wrote this if/else and had already drifted — the desktop showed an out-of-date bridge as an
+// "error", VS Code as a "warning", for the same event. The dangerous case is `ok && !gated && unsupported`: that
+// bridge is STILL SYNCING, so it must never read as a plain success.
+test("describeDisconnect: four distinct outcomes, and an un-gated bridge is never reported as success", () => {
+  expect(describeDisconnect({ ok: false, gated: false }).tone).toBe("error")
+  expect(describeDisconnect({ ok: true, gated: true, reason: "gated" }).tone).toBe("info")
+
+  const gone = describeDisconnect({ ok: true, gated: false, reason: "unreachable" })
+  expect(gone.tone).toBe("info") // already disconnected — nothing to fix, so no alarm
+  expect(gone.message).toContain("no longer running")
+
+  const stale = describeDisconnect({ ok: true, gated: false, reason: "unsupported" })
+  expect(stale.tone).toBe("warn")
+  expect(stale.message).toContain("STILL syncing") // the bit that must not be softened
 })

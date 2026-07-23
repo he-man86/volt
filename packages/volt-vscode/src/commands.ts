@@ -4,7 +4,7 @@ import {
 	VoltStatus,
 	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects, readBridgeVendor,
 	mergeContinue, mergeAbort, mergeResolve,
-	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
+	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
 } from "@volt/control"
 
@@ -323,15 +323,9 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 				for (const s of statuses.values()) await s.refresh(true)
 				return res
 			})
-			// Four genuinely different outcomes — never report one's message for another.
-			if (!r.ok) vscode.window.showErrorMessage("Couldn't reach the Volt Connector — is it running?")
-			else if (r.reason === "unreachable")
-				vscode.window.showInformationMessage("Already disconnected — that IDE is no longer running.")
-			else if (!r.gated)
-				vscode.window.showWarningMessage(
-					"Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
-				)
-			else vscode.window.showInformationMessage("Disconnected — the IDE stays open. Connect again to resume syncing.")
+			// The four outcomes are described ONCE in @volt/control, so this and the desktop can't word them
+			// differently (they already had).
+			await presentOutcome(describeDisconnect(r), vscodePresenter, async () => {})
 		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a notification toast

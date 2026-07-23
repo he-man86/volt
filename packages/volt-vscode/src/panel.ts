@@ -12,7 +12,7 @@ function viewOf(s: VoltStatus): WorkspaceView {
 //   IDE Sync    — incoming/outgoing drift, click-to-diff vs the last-synced baseline (was the SCM group)
 //   Diagnostics — a summary + per-file counts sourced from the LSP's published diagnostics; jumps to Problems
 //   Bridge      — the WHOLE connection lifecycle: which project, initialize, connect, disconnect
-//   Reference   — Agent + language-reference launchers (were palette-only)
+//   Agent & Settings — the three launchers worth a click; everything else stays in the palette
 //
 // The Sync/Bridge split is the load-bearing one: **Sync answers "what changed", Bridge answers "am I attached to
 // an IDE".** Init/Connect/Disconnect used to live in Sync's welcome markdown, which meant the connection state was
@@ -397,7 +397,7 @@ function detectedNode(p: DetectedProject): VoltNode {
 	}
 }
 
-// ── Reference & Agent (static launchers) ─────────────────────────────────────
+// ── Agent & Settings (static launchers) ──────────────────────────────────────
 function referenceNodes(): VoltNode[] {
 	const item = (key: string, label: string, command: string, icon: string): VoltNode => ({
 		key,
@@ -405,10 +405,11 @@ function referenceNodes(): VoltNode[] {
 		icon: new vscode.ThemeIcon(icon),
 		command: { command, title: label },
 	})
+	// Deliberately three. "New Agent Session" and "Open Language Reference" were dropped: the first is a variant of
+	// Open Agent that the agent terminal already offers, and the second opens a scaffolded skill file most users
+	// never touch. Both remain as palette commands — this view is the short list, not an index of everything.
 	return [
 		item("agent", "Open Agent", "volt.openAgent", "comment-discussion"),
-		item("newSession", "New Agent Session", "volt.newAgentSession", "add"),
-		item("reference", "Open Language Reference", "volt.openReference", "book"),
 		item("settings", "Open Settings", "volt.openSettings", "settings-gear"),
 		item("config", "Open Workspace Config", "volt.openConfig", "gear"),
 	]
