@@ -99,3 +99,29 @@ at exactly the expected version. `--verify` inspects what is already installed w
 HEAD's version — that moves with every commit — so it asserts the editors agree instead). Orphaned version folders
 are a warning, not a failure: `--uninstall-extension` deregisters immediately but leaves the directory for the
 editor to delete at startup, so a machine that never quits its editor always has a few, and they are unregistered.
+
+## `test-install-lifecycle.ts` — the install LIFECYCLE gate (`bun run test:install:lifecycle`)
+
+`test:install` proves ONE install and ONE uninstall are clean. It cannot catch what actually shipped, because
+those failures need an install **over an existing one**, with files held open:
+
+- A silent update **aborted and rolled back** because a running editor held `bin\volt-lsp-iec.exe`. Inno retried,
+  hit an Abort/Retry/Ignore box that `/SUPPRESSMSGBOXES` defaults to **Abort**, and reverted — silently, exit code
+  and all. Files sorting after the locked one (notably `bin\volt.exe`) stayed several releases behind while the
+  connector moved on, so a shipped CLI feature looked broken for days.
+- **`version.txt` is what the tray reports as "installed"**, and it is a text file the installer writes. It
+  asserts nothing about the binaries beside it, so a half-applied install reports the version it *meant* to be.
+
+The flow: `install → uninstall → install → update → update → uninstall → install → uninstall`, asserting after
+every step. Two assertions carry the weight:
+
+- **Version consistency** — every shipped binary must report the same build sha. A stale component is a hard
+  failure, not something you find in a user's workspace.
+- **Rollback detection** — the setup log is read for `Rolling back changes` / in-use aborts, because Inno can exit
+  0 on those paths.
+
+`--older <setup.exe>` installs the newer build over an older one, which is the case that broke; without it the
+same build is reinstalled over itself (still exercises the file-in-use path). Windows only, really installs
+several times — throwaway machine or CI runner.
+
+**To reproduce the original bug, run it with an editor open.** That is the state every real user is in.

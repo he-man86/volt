@@ -13,6 +13,7 @@
     "release": "bun volt-scripts/release.ts",
     "test:install": "bun volt-scripts/test-install.ts",
     "test:ext": "bun volt-scripts/test-extension.ts",
+    "test:install:lifecycle": "bun volt-scripts/test-install-lifecycle.ts",
     "compat": "bun install && bun volt-scripts/check-wiring.ts && bun volt-scripts/verify-opencode.ts",
     "secrets:dev": "bun volt-scripts/deploy-secrets.ts --apply dev",
     "deploy:dev": "bunx sst deploy --stage dev",
