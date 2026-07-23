@@ -42,6 +42,8 @@ What is in place today is `PrepareToInstall` + `CurUninstallStepChanged` termina
 
 *Why repointing is safe while files are open:* a process holding a handle under the old target keeps that handle — Windows resolves the reparse point at open time, not per I/O. Nothing breaks mid-session; the new version is picked up when the process next starts.
 
+**VERIFIED, not assumed** (this is the premise the design stands on, so it was tested before planning any of it): with `current\payload.txt` held open EXCLUSIVELY through the junction, `rmdir current` + `mklink /J current v2` succeeded, `current` immediately resolved to v2, and the pre-existing handle still read v1's content. No administrative rights were needed. So an update can activate a new version while every Volt process is running, and those processes continue against the old directory until they next start.
+
 **Everything external points at `current`, nothing at a version.** `PATH` gets `{app}\current\bin`, `OPENCODE_CONFIG_DIR` gets `{app}\current\opencode-config`, the shortcut and login item target `{app}\current\...`. This is what makes an update a no-op for the environment — and it is load-bearing: if any recorded path carried a version, every update would have to rewrite `HKCU` and we would have traded a file-lock race for a registry one.
 
 **Pruning belongs to the connector, not the installer.** At install time the old version is by definition still in use (its processes are running, and the connector may itself be the process that launched setup). At connector startup nothing holds the superseded directory. Best-effort with a log line; never fatal. Retain 2.
