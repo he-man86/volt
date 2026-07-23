@@ -128,7 +128,9 @@ export class VoltStatus {
 	}
 
 	/** @param local Skip the IDE walk — see fetchStatus. Use it for refreshes caused by a LOCAL edit (a save),
-	 *  where only `outgoing` can have changed; the IDE cannot have moved because of something we did on disk. */
+	 *  where only `outgoing` can have changed; the IDE cannot have moved because of something we did on disk.
+	 *  MEASURED on a real 10 MB CODESYS project: full status 9.16s vs 1.13s local. That 9s ran on EVERY save and
+	 *  froze the IDE for its duration, because `/refs` walks the whole project on the IDE's single STA thread. */
 	async refresh(force = false, local = false): Promise<void> {
 		if (this.isRefreshing) {
 			// Don't drop a forced refresh (a user click, or an IDE-change edge) — coalesce it to run once the
