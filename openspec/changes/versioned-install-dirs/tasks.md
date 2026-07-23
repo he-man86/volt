@@ -4,7 +4,7 @@
 - [ ] 1.2 Confirm each of those resolves correctly through a junction (spawn `volt` from `PATH`, have opencode load the config dir, launch the shortcut) before changing any layout — a junction that breaks one of these fails the design, not the implementation.
 - [ ] 1.3 Check the Electron desktop's resource resolution (it runs from inside the version directory) and the `.vsix` sideload source path in `[Run]`, which currently reads `{app}\volt-vscode.vsix`.
 - [ ] 1.4 Check the connector's own self-reference: `Updater` reads its version, `AppContext.BaseDirectory` is used for `version.txt`, and `BridgeSupervisor` spawns workers by path — all become version-scoped, which is correct but must be deliberate.
-- [ ] 1.5 Check `codesys-scriptcommands/` and the CODESYS activation path handed to the user (`start_volt_codesys.py`): the user pastes that path into their IDE, so if it is version-scoped it goes stale on every update. Decide whether it must come from `current`.
+- [ ] 1.5 Point the CODESYS activation path (`start_volt_codesys.py`, which the user pastes into their IDE's script runner) at `{app}\current\...` so it never goes stale after an update. DECIDED: displaying a `current`-based path is fine — a `[version]` placeholder is also understood by users if a version ever needs showing, so this is not a reason to keep a version-scoped path in user-facing text.
 
 ## 2. Installer layout
 
