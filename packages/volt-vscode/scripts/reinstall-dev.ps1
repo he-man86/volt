@@ -61,7 +61,12 @@ if (-not $NoBuild) {
   Write-Host "building .vsix ..."
   Push-Location $pkg
   try {
-    & bun run package
+    # Same native-stderr trap as the install call below: vsce writes warnings (missing LICENSE, activation
+    # events, ...) to stderr even on success, which under ErrorActionPreference='Stop' is TERMINATING and would
+    # abort here -- before the $LASTEXITCODE check written to catch real build failures.
+    $prevBuild = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & bun run package } finally { $ErrorActionPreference = $prevBuild }
     if ($LASTEXITCODE -ne 0) { throw "'bun run package' failed (exit $LASTEXITCODE)" }
   } finally { Pop-Location }
 }

@@ -107,7 +107,7 @@ namespace Volt.Cli.Connector
             // CSRF guard (same rule as the bridge data plane): reject cross-origin browser requests. First-party
             // callers (the VS Code extension's Node fetch, the desktop app) never send an `Origin` header.
             var origin = ctx.Request.Headers["Origin"];
-            if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{ControlPort}", StringComparison.OrdinalIgnoreCase))
+            if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{_port}", StringComparison.OrdinalIgnoreCase))
             {
                 WriteJson(ctx, 403, new { error = "cross-origin browser requests are not allowed" });
                 return;

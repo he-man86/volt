@@ -66,12 +66,11 @@ namespace Volt.Cli.Connector
             foreach (var w in _workers) _supervisor.EnsureWorker(w); // respawn a crashed worker
             await _conn.RefreshAsync();
 
-            // NOT adopting a serving project on startup, deliberately — see AdoptServingConnection, which is kept
-            // (and tested) but intentionally uncalled. It would turn the tray green for a project the user never
-            // connected, purely because its bridge is serving: exactly the "green while only DETECTED, not
-            // connected" behaviour that was reported as wrong. The tray answers "did you connect something", and
-            // after a restart the honest answer is no; the per-workspace status in the editor still reports
-            // connected, because that asks the other question. Wire this up only if the tray's meaning changes.
+            // Deliberately NOT adopting an already-serving project as the active connection here. It would turn
+            // the tray green for a project the user never connected, purely because its bridge is serving —
+            // exactly the "green while only DETECTED, not connected" behaviour that was reported as wrong. The
+            // tray answers "did you connect something"; after a restart the honest answer is no, while the
+            // per-workspace status in the editor still reports connected because it asks the other question.
             var agg = _conn.Aggregate();
             var pending = Updater.PendingVersion;
             _icon.Icon = StatusIcons.For(agg);
@@ -161,6 +160,22 @@ namespace Volt.Cli.Connector
         // live (the CODESYS in-proc host stays loaded, the TwinCAT worker keeps its attach), so reconnecting is
         // just another connect. One place for both the tray menu and the control-plane disconnect, so the
         // "disconnected from X" line is logged wherever it's triggered.
+        /// <summary>Run on the WinForms UI thread. The control plane calls TrayDisconnectAsync from a threadpool
+        /// thread, and everything it touches afterwards — the balloon tip, the NotifyIcon, RebuildConnectMenu's
+        /// ToolStrip collection — is UI state the 4s timer is also mutating. Without this marshal the two collide
+        /// (a ToolStrip cleared mid-rebuild, a torn icon cache) and the tray throws or corrupts its menu.</summary>
+        private Task OnUiThread(Action action)
+        {
+            if (_icon.ContextMenuStrip is not { } menu || !menu.InvokeRequired) { action(); return Task.CompletedTask; }
+            var tcs = new TaskCompletionSource<bool>();
+            menu.BeginInvoke(new Action(() =>
+            {
+                try { action(); tcs.TrySetResult(true); }
+                catch (Exception ex) { tcs.TrySetException(ex); }
+            }));
+            return tcs.Task;
+        }
+
         private async Task<bool> TrayDisconnectAsync()
         {
             var active = _conn.ActiveConnection;
@@ -172,18 +187,18 @@ namespace Volt.Cli.Connector
                 // The bridge didn't take the deselect — it predates the op and KEEPS serving the CLI. Say so
                 // rather than toasting a disconnect that didn't happen.
                 Log.Warn($"{active.DisplayName} ({platform}) did not accept the disconnect — its bridge is out of date");
-                _icon.ShowBalloonTip(6000, "Volt", $"{active.DisplayName} ({platform}) is running an out-of-date bridge, so it stays connected. Restart {platform} (CODESYS: re-run start_volt_codesys.py) to finish updating.", ToolTipIcon.Warning);
-                await TickAsync();
+                await OnUiThread(() => _icon.ShowBalloonTip(6000, "Volt", $"{active.DisplayName} ({platform}) is running an out-of-date bridge, so it stays connected. Restart {platform} (CODESYS: re-run start_volt_codesys.py) to finish updating.", ToolTipIcon.Warning));
+                await OnUiThread(() => _ = TickAsync());
                 return false;
             }
             Log.Info($"disconnected from {active.DisplayName} ({platform})");
             // Toast it, exactly like OnConnected does. Disconnect can be triggered from ANOTHER window (the VS Code
             // view / the desktop app) via the control plane, so without this the tray silently changed state — the
             // one place the user looks to confirm it said nothing at all.
-            _icon.ShowBalloonTip(4000, "Volt", $"Disconnected from {active.DisplayName} ({platform}). The IDE stays open — connect again to resume.", ToolTipIcon.Info);
+            await OnUiThread(() => _icon.ShowBalloonTip(4000, "Volt", $"Disconnected from {active.DisplayName} ({platform}). The IDE stays open — connect again to resume.", ToolTipIcon.Info));
             // Repaint now instead of waiting up to a full 4s poll: the icon colour + menu are how the user sees
             // that a disconnect driven from another window actually landed.
-            await TickAsync();
+            await OnUiThread(() => _ = TickAsync());
             return true;
         }
 

@@ -85,6 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # test:ext derives the extension version from the commit COUNT (see version.ts)
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -100,6 +102,9 @@ jobs:
       # constant 0.0.1 can never out-version an installed dev build, so every `--install-extension` silently
       # no-op'd and the editor kept running old code. The editor-side assertions stay a local gate (`bun run
       # test:ext` on Windows), like verify-opencode.
+      # NOTE: needs the job's `fetch-depth: 0`. With a shallow clone `git rev-list --count` is 1, so version.ts
+      # computes exactly the base (0.0.1) that this gate exists to prove is NOT used, and it passes no matter
+      # what. Vacuous gates are worse than none.
       - name: Extension packaging (version is git-derived, not the base)
         run: bun run test:ext
 

@@ -155,7 +155,11 @@
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
 
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
+  // Escapes ' as well as the usual four: project names come from the IDE and land inside a single-quoted JS
+  // string in an onclick (doInit('<id>')), so a project called "Bob's Machine" would otherwise close the literal
+  // and leave the button a syntax error that silently does nothing — with the id being attacker-influencable
+  // markup on top of that.
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
   const rows = (items) => items.map((f) => `<div class="row"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
   const grp = (label, items) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${rows(items)}` : ""

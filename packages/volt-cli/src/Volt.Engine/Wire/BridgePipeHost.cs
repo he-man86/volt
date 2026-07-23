@@ -67,7 +67,16 @@ public sealed class BridgePipeHost : IDisposable
             case "select":
                 // Bind the chosen project (retarget/rebind); a state change, so mark the bridge busy for it.
                 // Also the un-pause: connecting anything resumes service.
-                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); _paused = false; return (object)new { ok = true }; });
+            {
+                // Un-pause BEFORE the IDE work, not after. Clearing it afterwards loses a `deselect` that lands
+                // while SelectProject is still on the STA thread: the deselect sets _paused, answers ok, every UI
+                // reports a clean disconnect — and then this write un-gates the bridge, so `volt push` keeps
+                // writing to the IDE. That is precisely the failure the gate exists to prevent. Racing the other
+                // way is safe and correct: a deselect that arrives during a select wins, and the user's last
+                // action is the one that sticks.
+                _paused = false;
+                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); return (object)new { ok = true }; });
+            }
             case "deselect":
                 // The tray's Disconnect. Refuse sync until the next `select`; tear nothing down. Deliberately NOT
                 // wrapped in Busy(): it neither touches the IDE nor waits for the STA thread, so it answers even
