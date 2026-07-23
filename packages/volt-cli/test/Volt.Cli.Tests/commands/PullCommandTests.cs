@@ -80,6 +80,62 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>THE bug this was added for. Both frontends have shown a "Force Pull" button with a "this cannot be
+    /// undone, your local edits are discarded" confirm since long before the CLI could do it: volt-control passed
+    /// `--force`, `Commands.Pull` had no such parameter, and the unknown flag was silently ignored — so the user
+    /// clicked through a destructive warning and got a plain pull that changed nothing.
+    /// <para>The IDE is deliberately UNCHANGED here, because that is the state a user is actually in when they
+    /// reach for it: they edited locally, want it thrown away, and there is nothing incoming. The non-force path
+    /// short-circuits on "already up to date" — force must not.</para></summary>
+    [Fact]
+    public void Force_pull_discards_local_edits_even_when_the_IDE_has_not_changed()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);                        // base: x := 1
+            var pristine = File.ReadAllText(PrgPath(root));
+            File.WriteAllText(PrgPath(root), pristine.Replace("x := 1;", "x := 999;"));
+            var stray = Path.Combine(root, "src", "Scratch.prg"); // an untracked file is local work too
+            File.WriteAllText(stray, "PROGRAM Scratch\nEND_PROGRAM");
+
+            var plain = Commands.Pull(root, client);            // a NORMAL pull preserves local work...
+            Assert.Equal("ok", plain.Kind);
+            Assert.Contains("x := 999;", File.ReadAllText(PrgPath(root)));
+
+            var forced = Commands.Pull(root, client, force: true);
+
+            Assert.Equal("ok", forced.Kind);
+            Assert.Equal(pristine, File.ReadAllText(PrgPath(root))); // ...force takes the IDE's state
+            Assert.False(File.Exists(stray));                        // including dropping untracked files
+            Assert.Contains("discarded", forced.Message);            // and SAYS so — a silent force is the bug
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>Force pull must not destroy anything outside src/ — the README, .vscode, and whatever else the
+    /// engineer keeps beside the code are not Volt's to discard.</summary>
+    [Fact]
+    public void Force_pull_leaves_everything_outside_src_alone()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var notes = Path.Combine(root, "NOTES.md");
+            File.WriteAllText(notes, "my working notes");
+            File.WriteAllText(PrgPath(root), "corrupted");
+
+            Commands.Pull(root, client, force: true);
+
+            Assert.True(File.Exists(notes));
+            Assert.Equal("my working notes", File.ReadAllText(notes));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Pull_refuses_while_a_merge_is_already_in_progress()
     {

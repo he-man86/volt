@@ -96,7 +96,7 @@ internal static class Program
 
     private static int CmdPull(string root, BridgeClient bridge, Args a)
     {
-        var r = Commands.Pull(root, bridge, a.Has("--dry-run"), Reporter.Create());
+        var r = Commands.Pull(root, bridge, a.Has("--dry-run"), Reporter.Create(), a.Has("--force"));
         if (a.Has("--json")) { EmitJson(r); return r.Kind == "ok" ? 0 : 2; }
         if (r.Kind == "refused") { Console.Error.WriteLine(r.Reason); return 1; }
         if (r.Kind == "conflict")

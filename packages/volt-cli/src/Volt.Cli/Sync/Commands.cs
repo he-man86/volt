@@ -95,7 +95,12 @@ public static class Commands
 
     /// <summary>volt pull — fetch the IDE, commit it onto refs/remotes/volt/ide, then git-merge into the branch.
     /// On conflict the sidecar is intentionally NOT advanced.</summary>
-    public static PullResult Pull(string root, BridgeClient bridge, bool dryRun = false, Action<ProgressFrame>? onProgress = null)
+    /// <param name="force">Discard uncommitted <c>src/</c> edits and take the IDE's state. Both frontends have
+    /// offered a "Force Pull" button with a "this cannot be undone" confirm since before this parameter existed —
+    /// volt-control passed <c>--force</c>, the CLI silently ignored the unknown flag, and the user got a plain
+    /// pull. A destructive-looking button that does nothing is worse than no button, which is why this is wired
+    /// rather than removed. Scoped to <c>src/</c>: everything else in the workspace is the engineer's.</param>
+    public static PullResult Pull(string root, BridgeClient bridge, bool dryRun = false, Action<ProgressFrame>? onProgress = null, bool force = false)
     {
         if (!Config.ConfigExists(root)) return PullResult.Refused("not a Volt workspace — run `volt init` first");
         var gitDir = Git.ResolveGitDir(root);
@@ -147,12 +152,29 @@ public static class Commands
             ProjectVersion = fetched.ProjectVersion,
         });
 
-        if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
-            return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
         if (dryRun)
-            return PullResult.Ok(synced, PostStatus(), "dry run — these IDE items would be merged in");
+            return PullResult.Ok(synced, PostStatus(), synced.Count == 0
+                ? "dry run — already up to date with the IDE"
+                : "dry run — these IDE items would be merged in");
 
-        // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree).
+        // --force discards local work, so it must run even when there is nothing INCOMING: "up to date with the
+        // IDE" is exactly the state a user is in when they edit locally and then want their edit thrown away.
+        // Short-circuiting first (as the non-force path does) is what made Force Pull look broken.
+        if (force)
+        {
+            var discarded = Git.DiscardSrc(root);
+            // Fall through to the merge only if the IDE actually moved; otherwise the discard IS the whole job.
+            if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
+                return PullResult.Ok(synced, PostStatus(), discarded == 0
+                    ? "already up to date with the IDE — nothing local to discard"
+                    : $"discarded {discarded} local change(s); workspace now matches the IDE");
+        }
+        else if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
+            return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
+
+        // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree). After a --force
+        // discard there is nothing left to commit, so the IDE's state wins the merge outright — which is the
+        // documented promise ("overwrites them with the IDE's state").
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders };

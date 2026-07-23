@@ -225,6 +225,22 @@ public static class Git
         return dirty.Count;
     }
 
+    /// <summary>Throw away every uncommitted change under <c>src/</c> — modifications, staged edits, and untracked
+    /// files alike — so the tree matches HEAD. This is the discard half of <c>volt pull --force</c> ("overwrite my
+    /// workspace with the IDE's state"), and it is scoped to <c>src/</c> on purpose: the rest of the workspace
+    /// (README, .vscode, anything the engineer keeps beside the code) is NOT Volt's to destroy.
+    /// <para>Returns how many paths were discarded, for the result message — a force that silently did nothing is
+    /// exactly the failure this command was added to fix.</para></summary>
+    public static int DiscardSrc(string root)
+    {
+        var dirty = DirtySrc(root);
+        if (dirty.Count == 0) return 0;
+        Run(new[] { "-C", root, "reset", "-q", "--", "src" });          // unstage anything already added
+        Run(new[] { "-C", root, "checkout", "--", "src" }, allowFail: true); // restore tracked files to HEAD
+        Run(new[] { "-C", root, "clean", "-qfd", "--", "src" });        // and drop files that were never tracked
+        return dirty.Count;
+    }
+
     /// <summary>Stage and commit the entire working tree — the baseline commit on <c>volt init</c>. Returns false
     /// if there was nothing to commit.</summary>
     public static bool CommitAll(string root, string message)
