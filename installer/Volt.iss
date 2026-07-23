@@ -67,7 +67,15 @@ Type: files; Name: "{app}\opencode-config\.gitignore"
 Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 
 [Files]
-Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; `restartreplace` is LOAD-BEARING, not belt-and-braces. Without it a silent auto-update ABORTS AND ROLLS BACK
+; whenever any file here is open — and one always is: an editor running the Volt extension holds
+; bin\volt-lsp-iec.exe. Inno retries the delete 4×, then hits an Abort/Retry/Ignore box which /SUPPRESSMSGBOXES
+; DEFAULTS TO ABORT, so setup logs "User canceled the installation process" and reverts. Observed: the connector
+; updated but bin\volt.exe (which sorts after volt-lsp-iec.exe, so the run never reached it) stayed several
+; releases behind, the [Run] step never fired so the tray never restarted, and a shipped CLI feature looked
+; broken for days. With this flag a locked file is queued for replacement at the next reboot and setup CONTINUES,
+; so everything else lands and the update is at worst deferred instead of silently reverted.
+Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion restartreplace
 
 [Run]
 ; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on

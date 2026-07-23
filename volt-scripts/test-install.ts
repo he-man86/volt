@@ -99,6 +99,9 @@ for (const cli of ["code", "windsurf", "cursor"]) {
 // ── install ───────────────────────────────────────────────────────────────────
 console.log(`• installing ${setup} (/VERYSILENT)`)
 const inst = spawnSync(setup, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
+// A ROLLBACK is the failure mode that actually shipped: a file held open by a running editor made Inno abort and
+// revert, silently, leaving a half-old install. Inno still exits 0 in some abort paths, so the exit code alone is
+// not proof — the file checks below are. Kept as an explicit note so nobody "simplifies" them away.
 if (inst.status !== 0) {
   // 5 = Setup aborted during install; on a dev box that's almost always a Volt process it couldn't close.
   const hint = inst.status === 5 ? " — a Volt process is holding the install dir (close Volt and retry)" : ""

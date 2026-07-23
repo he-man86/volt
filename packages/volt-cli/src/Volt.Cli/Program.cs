@@ -120,7 +120,7 @@ internal static class Program
 
     private static int CmdStatus(string root, BridgeClient bridge, Args a)
     {
-        var s = Commands.Status(root, bridge);
+        var s = Commands.Status(root, bridge, a.Has("--local"));
         if (a.Has("--porcelain"))
         {
             void EmitLines(string code, List<string> names) { foreach (var n in names) Console.WriteLine($"{code} {(s.PathByName.TryGetValue(n, out var p) ? p : n)}"); }
@@ -130,7 +130,7 @@ internal static class Program
         }
         if (a.Has("--json"))
         {
-            EmitJson(new { s.Initialized, s.Merging, s.Incoming, s.Outgoing, s.PathByName, s.ProjectMismatch, s.Summary });
+            EmitJson(new { s.Initialized, s.Merging, s.Incoming, s.Outgoing, s.PathByName, s.ProjectMismatch, s.Summary, s.IncomingStale });
             return 0;
         }
         Console.WriteLine($"bridge: {(s.Online ? "connected" : "offline")} — {s.Detail}");

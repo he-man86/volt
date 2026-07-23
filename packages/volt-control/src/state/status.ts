@@ -97,7 +97,11 @@ export class VoltStatus {
 				if (this.watchDebounce !== null) clearTimeout(this.watchDebounce);
 				this.watchDebounce = setTimeout(() => {
 					this.watchDebounce = null;
-					void this.refresh();
+					// LOCAL refresh: a src/ write can only change OUTGOING. A full status issues a /refs, which walks
+					// the whole project on the IDE's single thread — seconds of frozen CODESYS, per edit, for an
+					// answer the IDE cannot have changed. This is the desktop's ONLY outgoing trigger, so it is also
+					// where the freeze hurt most (the agent rewriting many files debounces into one of these).
+					void this.refresh(false, true);
 				}, WATCH_DEBOUNCE_MS);
 			});
 		} catch {
@@ -123,7 +127,9 @@ export class VoltStatus {
 		this.onDidChange.fire();
 	}
 
-	async refresh(force = false): Promise<void> {
+	/** @param local Skip the IDE walk — see fetchStatus. Use it for refreshes caused by a LOCAL edit (a save),
+	 *  where only `outgoing` can have changed; the IDE cannot have moved because of something we did on disk. */
+	async refresh(force = false, local = false): Promise<void> {
 		if (this.isRefreshing) {
 			// Don't drop a forced refresh (a user click, or an IDE-change edge) — coalesce it to run once the
 			// in-flight one settles, so the view reflects the latest state instead of waiting for the next poll.
@@ -144,10 +150,16 @@ export class VoltStatus {
 
 			// UI-agnostic probe + `volt status --json` live in volt-control. On any error keep the last good
 			// `cached` (just surface the error); only a successful fetch replaces it.
-			const res = await fetchStatus(this.workspaceRoot);
+			const res = await fetchStatus(this.workspaceRoot, local);
 			this.health = res.health;
 			if (res.status !== undefined) {
-				this.cached = res.status;
+				// A --local status did not compute `incoming` (it never asked the IDE), so carry the last known one
+				// forward. Replacing it wholesale would blank the incoming list on every save — reporting "the IDE
+				// has nothing for you" purely because we chose not to look.
+				this.cached =
+					res.status.incomingStale === true && this.cached !== undefined
+						? { ...res.status, incoming: this.cached.incoming, pathByName: { ...this.cached.pathByName, ...res.status.pathByName } }
+						: res.status;
 				this.statusError = undefined;
 			} else {
 				this.statusError = res.error;

@@ -116,9 +116,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			updateContextKeys()
 			void refreshBridgeLive()
 		}),
+		// A save can only change OUTGOING — the IDE cannot have moved because we wrote a file on disk. Refresh
+		// LOCALLY so this doesn't issue a /refs, which walks the entire project on the IDE's single thread and
+		// freezes CODESYS for seconds on every save. Incoming still updates on the 4s health poll and on the
+		// state-file mtime poll, which are the events that can actually change it.
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			for (const [, s] of statuses) {
-				if (doc.uri.fsPath.startsWith(s.workspaceRoot) && s.isTrackedFile(doc.fileName)) s.refresh()
+				if (doc.uri.fsPath.startsWith(s.workspaceRoot) && s.isTrackedFile(doc.fileName)) s.refresh(false, true)
 			}
 		}),
 		// Re-probe when the window regains focus, so reconnecting an IDE updates the onboarding promptly.

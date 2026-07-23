@@ -98,4 +98,37 @@ public class StatusCommandTests
         }
         finally { if (!down) host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>`--local` exists to keep a LOCAL edit from freezing the IDE. `/refs` walks the entire project on
+    /// the IDE's single STA thread — seconds of frozen CODESYS on a real project — and it answers exactly one
+    /// question: what is INCOMING. Outgoing and merge state are pure git, so a status triggered by saving a file
+    /// has no reason to touch the IDE at all.
+    /// <para>The contract that makes it safe: an un-computed Incoming must not read as an EMPTY one, or every save
+    /// would tell the user the IDE has nothing for them. IncomingStale says which it is.</para></summary>
+    [Fact]
+    public void Local_status_reports_outgoing_without_walking_the_IDE()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            ide.MutateImplementation("PLC_PRG", "x := 42;");        // the IDE moves → a real INCOMING change
+            File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.prg"),
+                File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.prg")) + "\n// local edit\n");
+
+            var full = Commands.Status(root, client);
+            Assert.False(full.IncomingStale);
+            Assert.NotEmpty(full.Incoming.Modified);                 // the walk saw the IDE-side edit
+            Assert.NotEmpty(full.Outgoing.Modified);
+
+            var local = Commands.Status(root, client, localOnly: true);
+
+            Assert.True(local.Online);                               // health still ran (it is cheap)
+            Assert.NotEmpty(local.Outgoing.Modified);                // outgoing is pure git — still correct
+            Assert.True(local.IncomingStale);                        // ...and it SAYS incoming wasn't computed,
+            Assert.Empty(local.Incoming.Modified);                   // which is why empty here is not a claim
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

@@ -65,7 +65,10 @@ function parseJson<T>(stdout: string): T | null {
 
 /** Connection status (from the connector) + `volt status --json` drift (from the CLI). UI-agnostic; never throws.
  *  The split: connection status is the connector's domain; git drift needs the local repo, so it stays the CLI's. */
-export async function fetchStatus(workspaceRoot: string): Promise<StatusResult> {
+/** @param local Skip the IDE walk. `volt status` issues a `/refs` that enumerates the WHOLE project on the IDE's
+ *  single STA thread — seconds of frozen CODESYS on a large project. Only INCOMING needs it; outgoing and merge
+ *  state are pure git. So a refresh caused by a LOCAL edit passes `local: true` and leaves the IDE alone. */
+export async function fetchStatus(workspaceRoot: string, local = false): Promise<StatusResult> {
   if (readBridgeVendor(workspaceRoot) === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
   const health = await boundStatus(workspaceRoot)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
@@ -73,7 +76,7 @@ export async function fetchStatus(workspaceRoot: string): Promise<StatusResult> 
   // terminal CLI. `volt status` would issue an expensive /refs into a single-threaded bridge that's mid-churn, so
   // hold off and keep the last drift. The state-file mtime poll fires the one reconcile when the mutation lands.
   if (bridgeActiveOp(health) !== undefined) return { health }
-  const r = await runVolt(workspaceRoot, ["status", "--json"])
+  const r = await runVolt(workspaceRoot, ["status", "--json", ...(local ? ["--local"] : [])])
   if (r.code !== 0) return { health, error: r.stderr || r.stdout }
   try {
     return { health, status: JSON.parse(r.stdout) as StatusJson }

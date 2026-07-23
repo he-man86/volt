@@ -43,6 +43,10 @@ public sealed class StatusData
     public bool Online { get; set; }
     public string Detail { get; set; } = "";
     public string? Recommend { get; set; }
+    /// <summary>TRUE when this status skipped the IDE walk (`volt status --local`), so <see cref="Incoming"/> was
+    /// not computed. An empty Incoming then means "we didn't ask", NOT "the IDE has nothing for you" — a client
+    /// must keep showing the last known incoming rather than clearing it.</summary>
+    public bool IncomingStale { get; set; }
 }
 
 /// <summary>The pull outcome (mirrors the TS client's PullResult / @volt/control's PullOutcome). Nullable fields +

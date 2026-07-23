@@ -72,7 +72,13 @@ public static class Commands
 
     /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared
     /// status model.</summary>
-    public static StatusData Status(string root, BridgeClient bridge)
+    /// <param name="localOnly">Skip the IDE walk. `/refs` enumerates the ENTIRE project on the IDE's single
+    /// STA thread — seconds of frozen CODESYS on a big project — and it is needed for exactly one thing: the
+    /// INCOMING set. Outgoing and merge state are pure git (see StatusModel), so a refresh triggered by a LOCAL
+    /// edit has no reason to touch the IDE at all. The cheap health call still runs, so online/mismatch stay
+    /// accurate; only Incoming is left uncomputed, and <see cref="StatusData.IncomingStale"/> says so, so a client
+    /// keeps showing the last known incoming instead of rendering "nothing incoming" (which would be a lie).</param>
+    public static StatusData Status(string root, BridgeClient bridge, bool localOnly = false)
     {
         var cfg = Config.ConfigExists(root) ? Config.LoadConfig(root) : null;
         var snap = new BridgeSnapshot { Online = false, Detail = "offline" };
@@ -82,7 +88,7 @@ public static class Commands
             var online = health.Connected;
             var mismatch = cfg is not null ? Config.ProjectMismatch(cfg, health) : null;
             var detail = online ? $"{health.Platform}/{health.ProjectName ?? "?"}" : (health.Status ?? "offline");
-            snap = online && mismatch is null
+            snap = online && mismatch is null && !localOnly
                 ? BuildSnap(online, detail, mismatch, bridge.GetRefs())
                 : new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch };
         }
@@ -90,7 +96,11 @@ public static class Commands
         {
             snap = new BridgeSnapshot { Online = false, Detail = ex.Message };
         }
-        return StatusModel.BuildStatusData(root, snap);
+        var data = StatusModel.BuildStatusData(root, snap);
+        // Only a real /refs can tell us what the IDE has. Say when we didn't ask, so nobody reads the empty
+        // Incoming as "the IDE has no changes for you".
+        data.IncomingStale = localOnly && snap.Online && snap.ProjectMismatch is null;
+        return data;
     }
 
     /// <summary>volt pull — fetch the IDE, commit it onto refs/remotes/volt/ide, then git-merge into the branch.
