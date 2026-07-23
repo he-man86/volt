@@ -107,6 +107,14 @@ namespace Volt.Cli.Connector
             foreach (var p in merged)
             {
                 if (!_byVendor.TryGetValue(p.Vendor, out var s)) continue;
+                // The SELECTED project's probe was already taken above for the vendor health — same pipe, same
+                // call. Reuse it instead of asking twice per tick (this loop already probes every project, and
+                // /status can now trigger a refresh on demand, so the round-trips add up).
+                if (SelectedOf(p.Vendor)?.Id == p.Id && _health.TryGetValue(p.Vendor, out var known))
+                {
+                    serving[p.Id] = IsServing(known, p);
+                    continue;
+                }
                 try { serving[p.Id] = IsServing(await s.ProbeAsync(p), p); }
                 catch { serving[p.Id] = false; }
             }
