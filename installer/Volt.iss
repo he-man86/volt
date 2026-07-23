@@ -86,7 +86,12 @@ Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdi
 ; transient and internal to this install, so naming the version here is correct rather than a violation.
 ; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on
 ; startup, then runs the tray. --silent = launched by us, not a double-click.
-Filename: "{app}\app-{#AppVersion}\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
+; The connector is NOT launched here. [Run] executes BEFORE CurStepChanged(ssPostInstall) creates the junction,
+; so a connector started from here finds no {app}\current beside it, falls back to its own version directory,
+; and publishes VERSION-SCOPED values for PATH + OPENCODE_CONFIG_DIR — violating the one invariant the layout
+; rests on. It is launched from ssPostInstall instead, immediately after the junction is activated. This is the
+; third bug caused by [Run] running before ssPostInstall; the ordering is the trap, so the launch moved rather
+; than the path being nudged again.
 ; Optional components — only on an interactive install (skip on the connector's silent in-place update).
 ; winget stays interactive-only (heavy + needs network) — skip it on the connector's silent auto-update.
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
@@ -206,6 +211,7 @@ end;
 /// pointing at an incomplete directory. If the junction cannot be created (a filesystem without reparse points),
 /// fail loudly rather than silently leaving an install nothing can find.
 procedure CurStepChanged(CurStep: TSetupStep);
+var PostCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -213,7 +219,12 @@ begin
       MsgBox('Volt could not create the {app}\current link. The files are installed under app-{#AppVersion} but nothing will resolve them.',
              mbCriticalError, MB_OK)
     else
+    begin
       RemoveFlatPayload;
+      // NOW start the connector — the junction exists, so VoltEnv resolves through {app}\current and every value
+      // it publishes outside {app} is version-free, which is what makes an update a no-op for the environment.
+      Exec(ExpandConstant('{app}\current\VoltConnector.exe'), '--silent', '', SW_HIDE, ewNoWait, PostCode);
+    end;
   end;
 end;
 

@@ -172,6 +172,16 @@ function assertInstalled(step: string): void {
   if (reg(uninstallKey) === null) fail(step, "Add/Remove entry missing")
   const env = reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR")
   if (env === null || !env.toLowerCase().includes("volt")) fail(step, "OPENCODE_CONFIG_DIR not set to the Volt config")
+
+  // THE invariant the whole versioned layout rests on: nothing recorded OUTSIDE {app} may name a version. If it
+  // does, every update has to rewrite HKCU, and between the update and the new connector's first run those
+  // values point at a directory the pruner may already have removed — a registry race traded for a file-lock
+  // one. This assertion was written once and silently never applied (the edit did not match), so the gate went
+  // GREEN on an install that violated it. A gate that certifies a broken invariant is worse than no gate.
+  const userPath = reg("HKCU\Environment", "Path") ?? ""
+  for (const [name, value] of [["OPENCODE_CONFIG_DIR", env ?? ""], ["Path", userPath]] as const)
+    if (/app-\d+\.\d+\.\d+/i.test(value))
+      fail(step, `${name} records a VERSIONED path — it must resolve through \current`)
 }
 
 /** After an uninstall NOTHING may remain — a leftover keeps {app} alive and poisons the next install. */
