@@ -133,6 +133,13 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
 
   ipcMain.handle("volt:pull", () => runGuarded(() => runPull()))
   ipcMain.handle("volt:push", () => runGuarded(() => runPush()))
+  // Force + merge finalisation as FIRST-CLASS actions, not just outcome-dialog buttons. They were reachable only
+  // reactively (after a refused pull/push), so a workspace that was ALREADY mid-merge when the app opened had no
+  // way out: the section said "resolve the files, then finish the merge" and offered nothing to finish it with.
+  ipcMain.handle("volt:forcePull", () => runGuarded(() => runPull(true)))
+  ipcMain.handle("volt:forcePush", () => runGuarded(() => runPush(true)))
+  ipcMain.handle("volt:finishMerge", () => runGuarded(() => runFinishMerge()))
+  ipcMain.handle("volt:abortMerge", () => runGuarded(() => runAbortMerge()))
   ipcMain.handle("volt:build", () =>
     runGuarded(async () => {
       const st = shell.status

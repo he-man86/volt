@@ -245,14 +245,25 @@
     // appear ONLY in `ready`; refresh is always available (it re-probes, never mutates). No connect/init here — the
     // states that would need them defer to IDE Connection above.
     const syncActs = s.initialized
-      ? (s.mode === "ready" ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") + icoBtn("i-push", "Push · workspace → IDE", "doPush()") + icoBtn("i-build", "Build", "doBuild()") : "") + refreshBtn("Refresh")
+      ? (s.mode === "ready"
+          ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") +
+            icoBtn("i-push", "Push · workspace → IDE", "doPush()") +
+            icoBtn("i-build", "Build", "doBuild()") +
+            // Force variants confirm before running (see doForcePull/doForcePush) — they were previously reachable
+            // only as buttons in the dialog AFTER a refusal, so there was no way to force deliberately.
+            icoBtn("i-alert", "Force pull · DISCARD local edits, take the IDE's state", "doForcePull()") +
+            icoBtn("i-connect", "Force push · OVERWRITE the IDE with your workspace", "doForcePush()")
+          : "") + refreshBtn("Refresh")
       : ""
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
     else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
     else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — accept the project rename in IDE Connection above.</div>`
-    else if (s.mode === "merging") syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files, then finish the merge.</div>`
+    else if (s.mode === "merging") syncBody = busyNote +
+      `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files in your editor, then finish.</div>
+       <div class="init-row"><button class="btn primary" onclick="doFinishMerge()">Finish merge</button><button class="btn" onclick="doAbortMerge()">Abort merge</button></div>
+       <div class="note">Finish stages your resolutions and advances the IDE baseline. Abort restores the workspace to before the pull.</div>`
     else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
     else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
 
@@ -298,6 +309,16 @@
   async function doConnect() { busy = "Connecting…"; render(); await volt.connect() }
   async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
   async function doAcceptRename() { busy = "Accepting rename…"; render(); await volt.acceptRename() }
+  async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.
+
+This cannot be undone.")) return; busy = "Force pulling…"; render(); await volt.forcePull() }
+  async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.
+
+This cannot be undone.")) return; busy = "Force pushing…"; render(); await volt.forcePush() }
+  async function doFinishMerge() { busy = "Finishing merge…"; render(); await volt.finishMerge() }
+  async function doAbortMerge() { if (!confirm("Abort discards this merge and restores your workspace to before the pull.
+
+Your in-merge edits are lost. This cannot be undone.")) return; busy = "Aborting merge…"; render(); await volt.abortMerge() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }
