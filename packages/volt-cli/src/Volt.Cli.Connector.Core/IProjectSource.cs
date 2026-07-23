@@ -10,6 +10,20 @@ namespace Volt.Cli.Connector
     /// load-bearing ExternalAttach/InIdeLoad asymmetry is kept behind. Everything above it (the
     /// <see cref="ConnectionManager"/>, the tray, the window, the control plane) is vendor-neutral.
     /// </summary>
+    /// <remarks>Placed above the interface it serves.</remarks>
+    /// <summary>What happened when we told a bridge to stop serving.</summary>
+    public enum UnbindResult
+    {
+        /// <summary>The bridge accepted it and is now refusing sync. The only real disconnect.</summary>
+        Gated,
+        /// <summary>The bridge answered but has no `deselect` op — it predates the gate and KEEPS SERVING. The
+        /// user must restart that IDE (CODESYS: re-run start_volt_codesys.py) to finish updating.</summary>
+        Unsupported,
+        /// <summary>Nothing answered: the IDE closed or its host is gone. Already disconnected in every sense
+        /// that matters — nothing to fix, nothing to warn about.</summary>
+        Unreachable,
+    }
+
     public interface IProjectSource
     {
         /// <summary>Vendor id: "codesys" | "twincat" — matches <see cref="DetectedProject.Vendor"/> + the pipe name.</summary>
@@ -29,10 +43,11 @@ namespace Volt.Cli.Connector
         /// <summary>Stop serving the given project — the bridge refuses sync ops until the next
         /// <see cref="BindAsync"/>. Nothing is torn down: the in-proc host / worker stays loaded and re-bindable,
         /// so Disconnect is a gate, not a shutdown. Never throws (an unreachable bridge is already disconnected).
-        /// <para>Returns FALSE when the bridge did not accept the deselect — which on a mixed install means an
-        /// OLD bridge that has no such op and will happily keep serving `volt push`. The UI has to say so: a
-        /// Disconnect button that silently does nothing is worse than no button.</para></summary>
-        Task<bool> UnbindAsync(DetectedProject project);
+        /// <para>The three outcomes are genuinely different to the user, so they are NOT collapsed into a bool:
+        /// an OLD bridge keeps serving `volt push` and needs an IDE restart, while an UNREACHABLE one is simply
+        /// gone and there is nothing to warn about. Reporting "out of date, still syncing" for a closed IDE sends
+        /// people hunting a problem that doesn't exist.</para></summary>
+        Task<UnbindResult> UnbindAsync(DetectedProject project);
 
         /// <summary>Health of the given project's bridge (the tray colour + status text). <paramref name="selected"/>
         /// is the currently-connected project of this vendor (or null) — a vendor with per-instance bridges

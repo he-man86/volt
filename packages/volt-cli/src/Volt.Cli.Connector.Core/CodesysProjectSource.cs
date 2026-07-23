@@ -57,11 +57,14 @@ namespace Volt.Cli.Connector
             return _wireFor(project.Pipe!).CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
-        public async Task<bool> UnbindAsync(DetectedProject project)
+        public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
-            if (string.IsNullOrEmpty(project.Pipe)) return false;
-            try { await _wireFor(project.Pipe!).CallAsync("deselect"); return true; }
-            catch { return false; } // the IDE closed, OR its in-proc host predates `deselect` — caller decides
+            if (string.IsNullOrEmpty(project.Pipe)) return UnbindResult.Unreachable;
+            try { await _wireFor(project.Pipe!).CallAsync("deselect"); return UnbindResult.Gated; }
+            // The host ANSWERED with an error: it is loaded but predates `deselect`, so it keeps serving.
+            catch (PipeCallException) { return UnbindResult.Unsupported; }
+            // Nothing answered — that IDE closed. Already disconnected; nothing to warn about.
+            catch { return UnbindResult.Unreachable; }
         }
 
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)

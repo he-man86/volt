@@ -34,9 +34,10 @@ internal sealed class FakeProjectSource : IProjectSource
                          : Task.FromResult<IReadOnlyList<DetectedProject>>(Projects.ToList());
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
-    /// <summary>Set false to play an OUT-OF-DATE bridge: one with no `deselect` op, which keeps serving the CLI.</summary>
-    public bool UnbindSucceeds { get; set; } = true;
-    public Task<bool> UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.FromResult(UnbindSucceeds); }
+    /// <summary>What the fake bridge does on unbind — Unsupported plays an OUT-OF-DATE bridge (keeps serving the
+    /// CLI), Unreachable plays one whose IDE has closed.</summary>
+    public UnbindResult UnbindOutcome { get; set; } = UnbindResult.Gated;
+    public Task<UnbindResult> UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.FromResult(UnbindOutcome); }
     public Task<BridgeHealth> ProbeAsync(DetectedProject? selected) => Task.FromResult(Health);
 }
 
@@ -171,7 +172,7 @@ public class ConnectionManagerTests
         await mgr.ConnectAsync(pA);
         Assert.Equal(pA, mgr.ActiveConnection);
 
-        Assert.True(await mgr.DisconnectAsync()); // true = the bridge accepted the deselect
+        Assert.Equal(UnbindResult.Gated, await mgr.DisconnectAsync()); // the bridge accepted the deselect
 
         // The bridge is told to stop serving — clearing the selection alone would leave the CLI (which reaches
         // the pipe directly, never the connector) still pushing and pulling.
@@ -190,6 +191,25 @@ public class ConnectionManagerTests
     /// skips when it is fresh. Without the skip, a burst of polling clients would re-probe every pipe on every
     /// request; without the re-probe, a change made outside Volt (an IDE closing) lags the tray tick PLUS the
     /// client's own poll interval.</summary>
+    /// <summary>THE per-project fix. A VS Code window shows the connection for the project ITS workspace is bound
+    /// to, which is often not the tray's active one — so a global disconnect from that window gated a DIFFERENT
+    /// project: the clicked row stayed connected while another workspace silently stopped syncing.</summary>
+    [Fact]
+    public async Task Disconnect_targets_the_named_project_not_the_active_one()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var pA = cds.Add("MachineA");
+        var pB = cds.Add("MachineB");
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(pA); // A is the ACTIVE connection
+
+        Assert.Equal(UnbindResult.Gated, await mgr.DisconnectAsync(pB.Id)); // ...but B is what we disconnect
+
+        Assert.Equal(new[] { pB }, cds.Unbound);        // B's bridge was gated
+        Assert.Equal(pA, mgr.ActiveConnection);         // A's highlight is untouched
+    }
+
     [Fact]
     public async Task RefreshIfStale_reprobes_when_old_and_skips_when_fresh()
     {
@@ -230,13 +250,13 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Disconnect_reports_false_when_the_bridge_is_too_old_to_be_gated()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindSucceeds = false };
+        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindOutcome = UnbindResult.Unsupported };
         var pA = cds.Add("MachineA");
         var mgr = Mgr(cds);
         await mgr.RefreshAsync();
         await mgr.ConnectAsync(pA);
 
-        Assert.False(await mgr.DisconnectAsync());
+        Assert.Equal(UnbindResult.Unsupported, await mgr.DisconnectAsync());
         Assert.Null(mgr.ActiveConnection); // the selection clears either way
     }
 
@@ -245,12 +265,12 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Disconnect_with_no_active_connection_is_a_silent_no_op()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindSucceeds = false };
+        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindOutcome = UnbindResult.Unsupported };
         cds.Add("MachineA");
         var mgr = Mgr(cds);
         await mgr.RefreshAsync();
 
-        Assert.True(await mgr.DisconnectAsync());
+        Assert.Equal(UnbindResult.Gated, await mgr.DisconnectAsync()); // nothing to disconnect is a no-op
         Assert.Empty(cds.Unbound);
     }
 }

@@ -164,17 +164,32 @@ namespace Volt.Cli.Connector
         /// CODESYS host and running TwinCAT project stays loaded and re-connectable, so reconnecting is just another
         /// <see cref="ConnectAsync"/>. The bridge-side gate is what makes this real: the CLI reaches the pipe
         /// directly, so clearing the selection alone would leave push/pull working.</summary>
-        /// <returns>FALSE when the bridge did not accept the deselect — an OLD bridge (mid-update, or a CODESYS
-        /// in-proc host loaded before this shipped) has no such op and KEEPS SERVING the CLI. The selection is
-        /// cleared either way, so the UI would look disconnected while `volt push` still worked — exactly the bug
-        /// this whole gate exists to kill. Callers must surface a false.</returns>
-        public async Task<bool> DisconnectAsync()
+        /// <summary>Disconnect a SPECIFIC project (or, with no id, whatever is the active connection).
+        /// <para>Per-project because the UI is: a VS Code window shows the connection for the project ITS workspace
+        /// is bound to, which is often not the tray's active one. A global disconnect there gated a different
+        /// project than the row described — silently stopping sync for another workspace while the row that was
+        /// clicked stayed connected.</para>
+        /// <para>Note the asymmetry that remains, deliberately: the BRIDGE gate is per host, so on TwinCAT (one
+        /// worker for every project) disconnecting one project stops sync for all of them. That was chosen over
+        /// per-project gating for simplicity; targeting the right bridge is what this fixes.</para></summary>
+        /// <returns>What the bridge did — <see cref="UnbindResult.Unsupported"/> means it KEEPS SERVING and the
+        /// caller must say so; <see cref="UnbindResult.Unreachable"/> means it is simply gone.</returns>
+        public async Task<UnbindResult> DisconnectAsync(string? projectId = null)
         {
-            var gated = true;
-            if (ActiveConnection is { } active && _byVendor.TryGetValue(active.Vendor, out var source))
-                gated = await source.UnbindAsync(active);
-            _selected = _selected.ToDictionary(kv => kv.Key, _ => (DetectedProject?)null);
-            return gated;
+            var target = projectId is null
+                ? ActiveConnection
+                : _projects.FirstOrDefault(p => p.Id == projectId);
+
+            var result = UnbindResult.Gated; // nothing to disconnect is a no-op, not a failure
+            if (target != null && _byVendor.TryGetValue(target.Vendor, out var source))
+                result = await source.UnbindAsync(target);
+
+            // Clear the highlight only when it pointed at what we just disconnected — disconnecting project B
+            // must not un-highlight project A.
+            if (target != null)
+                _selected = _selected.ToDictionary(kv => kv.Key, kv => kv.Value?.Id == target.Id ? null : kv.Value);
+
+            return result;
         }
 
         /// <summary>The one active connection across all vendors (or null). Vendor-neutral — the single-connection

@@ -251,7 +251,7 @@ public class DisconnectLifecycleTests
             host.Stop(); // the IDE closes between the click and the deselect
             for (int i = 0; i < 150 && File.Exists(@"\\.\pipe\" + pipe); i++) Thread.Sleep(20);
 
-            await mgr.DisconnectAsync(); // must not throw
+            Assert.Equal(UnbindResult.Unreachable, await mgr.DisconnectAsync()); // reported as GONE, not "out of date"
             Assert.Null(mgr.ActiveConnection);
         }
         finally { host.Dispose(); }

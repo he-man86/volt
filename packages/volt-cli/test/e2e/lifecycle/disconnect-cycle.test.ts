@@ -17,9 +17,16 @@ import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fet
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 
-/** Put the bridge back in service. Idempotent: a `select` on an already-serving bridge is a no-op rebind. */
+// The project this bridge was serving when the suite started. An EMPTY `select` is not a no-op on TwinCAT: it
+// resolves null/null/null by walking the solution and taking the FIRST match, so on a solution with more than one
+// project `resume()` would silently re-point the engineer's live bridge at a different one. Capture the identity
+// up front and always select it back by name.
+let bound: { instanceId?: string | null; project?: string | null; plcProject?: string | null } = {}
+
+/** Put the bridge back in service, on the SAME project it started on. Idempotent: a `select` on an
+ *  already-serving bridge is a no-op rebind. */
 async function resume(): Promise<void> {
-	await bridge.select()
+	await bridge.select(bound)
 }
 
 /** Is the bridge serving sync right now? (What `volt push` would find.) */
@@ -34,6 +41,12 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		await requireHealthy()
 		// Fail loudly rather than silently skipping: a bridge without `deselect` is an OLD build, and a green run
 		// against it would be a lie. (This is the exact trap the stale-bundled-bridge snapshot fell into before.)
+		// Remember exactly which project is live, so every resume() re-selects THIS one by name.
+		const inst = await bridge.instances()
+		const i0 = inst.instances?.[0]
+		const p0 = i0?.projects?.[0]
+		bound = { instanceId: i0?.instanceId, project: p0?.project, plcProject: p0?.subProjects?.[0] ?? null }
+
 		const code = await opErrorCode(() => bridge.deselect())
 		if (code !== null) throw new Error(`this bridge has no 'deselect' op (${code}) — rebuild it before running this suite`)
 		await resume()
@@ -133,6 +146,15 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		// Disconnecting mid-write must never leave the IDE half-updated, so `deselect` deliberately does not abort
 		// (nor wait for) a running op: it isn't wrapped in Busy() and touches no IDE state.
 		const build = bridge.build({ buildType: "full" }) // the slowest op the bridge has
+		// WAIT until the build is genuinely running before deselecting. Firing them back to back only STARTS the
+		// build promise: if the deselect wins the race to Dispatch, the build is refused with PLC_DISCONNECTED and
+		// the assertion below fails for a reason unrelated to the invariant. health.activeOp is the bridge telling
+		// us the op holds the IDE thread.
+		for (let i = 0; i < 200; i++) {
+			if ((await bridge.health()).activeOp === "build") break
+			await new Promise((r) => setTimeout(r, 50))
+		}
+		expect((await bridge.health()).activeOp).toBe("build")
 		await bridge.deselect() // lands while the build holds the IDE thread
 
 		const buildResult = await build

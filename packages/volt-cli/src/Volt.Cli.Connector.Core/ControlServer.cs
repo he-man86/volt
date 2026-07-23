@@ -53,7 +53,7 @@ namespace Volt.Cli.Connector
         // Both connect + disconnect are awaited before the response is written: each ends in a `select`/`deselect`
         // on the bridge pipe, and a client that refreshes its status right after the 200 would otherwise race it.
         private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
-        private readonly Func<Task<bool>> _disconnect;        // → false when the bridge was too old to be gated
+        private readonly Func<string?, Task<UnbindResult>> _disconnect; // projectId (null = the active one)
         private readonly Action<string> _restart;             // worker id
         private readonly int _port;
         private volatile bool _running;
@@ -62,7 +62,7 @@ namespace Volt.Cli.Connector
 
         /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
         /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
-        public ControlServer(Func<Task<ConnectorView>> snapshot, Func<string, Task<bool>> connect, Func<Task<bool>> disconnect, Action<string> restart, int port = ControlPort)
+        public ControlServer(Func<Task<ConnectorView>> snapshot, Func<string, Task<bool>> connect, Func<string?, Task<UnbindResult>> disconnect, Action<string> restart, int port = ControlPort)
         {
             _snapshot = snapshot;
             _connect = connect;
@@ -128,11 +128,14 @@ namespace Volt.Cli.Connector
 
             if (method == "POST" && path == "disconnect")
             {
-                // The bridge stops serving sync; every host stays live and re-connectable. `gated` is false when
-                // the bridge is too old to have the op — still a 200 (the selection DID clear), but the caller
-                // must warn: that bridge keeps serving the CLI, so "disconnected" would be a lie.
-                var gated = await _disconnect().ConfigureAwait(false);
-                WriteJson(ctx, 200, new { ok = true, gated });
+                // Optional projectId: a frontend disconnects the project ITS workspace is bound to, which is not
+                // necessarily the tray's active one. Absent → the active connection (the tray's own menu item).
+                var target = ReadBody<ConnectBody>(ctx)?.ProjectId;
+                var outcome = await _disconnect(string.IsNullOrEmpty(target) ? null : target).ConfigureAwait(false);
+                // Always a 200 — the highlight cleared regardless. `gated` says whether the BRIDGE actually
+                // stopped serving; `reason` distinguishes an out-of-date bridge (still syncing, needs an IDE
+                // restart) from one that is simply gone (nothing to warn about).
+                WriteJson(ctx, 200, new { ok = true, gated = outcome == UnbindResult.Gated, reason = outcome.ToString().ToLowerInvariant() });
                 return;
             }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -40,10 +41,13 @@ namespace Volt.Cli.Connector
             return _wire.CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
-        public async Task<bool> UnbindAsync(DetectedProject project)
+        public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
-            try { await _wire.CallAsync("deselect"); return true; }
-            catch { return false; } // unreachable (already not serving) OR too old to know the op — caller decides
+            try { await _wire.CallAsync("deselect"); return UnbindResult.Gated; }
+            // The bridge ANSWERED, with an error: it is running and simply has no such op, so it keeps serving.
+            catch (PipeCallException) { return UnbindResult.Unsupported; }
+            // Nothing answered at all — the worker is gone, so there is nothing left to gate.
+            catch { return UnbindResult.Unreachable; }
         }
 
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)

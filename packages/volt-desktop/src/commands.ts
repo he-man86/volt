@@ -12,6 +12,7 @@ import {
   readBridgeVendor,
   reconnectBound,
   disconnect,
+  boundProjectId,
   mergeContinue,
   mergeAbort,
   describePull,
@@ -157,12 +158,14 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
       // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
-      const r = await disconnect()
+      // This workspace's project, not the tray's active connection (see the VS Code command).
+      const r = await disconnect(await boundProjectId(shell.status?.workspaceRoot ?? ""))
       clearProgress()
       await shell.status?.refresh(true)
       // Same three outcomes the VS Code command distinguishes — an out-of-date bridge keeps syncing, so
       // reporting a plain "Disconnected" there would be a lie.
       if (!r.ok) notify("error", "Couldn't reach the Volt Connector — is it running?")
+      else if (r.reason === "unreachable") notify("info", "Already disconnected — that IDE is no longer running.")
       else if (!r.gated)
         notify("error", "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.")
       else notify("info", "Disconnected — the IDE stays open. Connect again to resume syncing.")

@@ -176,20 +176,27 @@ namespace Volt.Cli.Connector
             return tcs.Task;
         }
 
-        private async Task<bool> TrayDisconnectAsync()
+        private async Task<UnbindResult> TrayDisconnectAsync(string? projectId)
         {
-            var active = _conn.ActiveConnection;
-            var gated = await _conn.DisconnectAsync();
-            if (active == null) return gated;
+            var active = projectId is null ? _conn.ActiveConnection : _conn.Projects.FirstOrDefault(p => p.Id == projectId);
+            var result = await _conn.DisconnectAsync(projectId);
+            if (active == null) return result;
             var platform = _conn.DisplayNameOf(active.Vendor);
-            if (!gated)
+            if (result == UnbindResult.Unsupported)
             {
                 // The bridge didn't take the deselect — it predates the op and KEEPS serving the CLI. Say so
                 // rather than toasting a disconnect that didn't happen.
                 Log.Warn($"{active.DisplayName} ({platform}) did not accept the disconnect — its bridge is out of date");
                 await OnUiThread(() => _icon.ShowBalloonTip(6000, "Volt", $"{active.DisplayName} ({platform}) is running an out-of-date bridge, so it stays connected. Restart {platform} (CODESYS: re-run start_volt_codesys.py) to finish updating.", ToolTipIcon.Warning));
                 await OnUiThread(() => _ = TickAsync());
-                return false;
+                return result;
+            }
+            if (result == UnbindResult.Unreachable)
+            {
+                // The IDE closed before the click landed. Already disconnected — no scary warning, just say so.
+                Log.Info($"{active.DisplayName} ({platform}) was already gone");
+                await OnUiThread(() => _ = TickAsync());
+                return result;
             }
             Log.Info($"disconnected from {active.DisplayName} ({platform})");
             // Toast it, exactly like OnConnected does. Disconnect can be triggered from ANOTHER window (the VS Code
@@ -199,14 +206,14 @@ namespace Volt.Cli.Connector
             // Repaint now instead of waiting up to a full 4s poll: the icon colour + menu are how the user sees
             // that a disconnect driven from another window actually landed.
             await OnUiThread(() => _ = TickAsync());
-            return true;
+            return result;
         }
 
         /// <summary>The menu-click wrapper: never throws (the handler is async void — an escaped exception would
         /// take the tray down with it). The control plane calls TrayDisconnectAsync directly and surfaces errors.</summary>
         private async Task DisconnectFromTray()
         {
-            try { await TrayDisconnectAsync(); }
+            try { await TrayDisconnectAsync(null); }
             catch (Exception ex) { Log.Error($"disconnect failed: {ex.Message}"); }
         }
 

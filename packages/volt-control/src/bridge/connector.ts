@@ -98,21 +98,42 @@ export async function connectProject(projectId: string, timeoutMs = 4_000): Prom
 export interface DisconnectResult {
   ok: boolean
   gated: boolean
+  /** Why, when `gated` is false: `unsupported` = an out-of-date bridge that KEEPS SYNCING (restart that IDE);
+   *  `unreachable` = its IDE is already gone, so there is nothing to warn about. Collapsing these told people to
+   *  go fix an out-of-date bridge when they had simply closed the IDE. */
+  reason?: "gated" | "unsupported" | "unreachable"
 }
 
 /** Disconnect the active connection (POST /disconnect). Every activated host stays LIVE — the bridge just stops
  *  serving sync until the next connect. Never throws (connector down → {ok:false}). */
-export async function disconnect(timeoutMs = 4_000): Promise<DisconnectResult> {
+export async function disconnect(projectId?: string, timeoutMs = 4_000): Promise<DisconnectResult> {
   try {
-    const res = await fetch(`${CONTROL_BASE}/disconnect`, { method: "POST", signal: AbortSignal.timeout(timeoutMs) })
+    // Name the project. A frontend disconnects the project ITS workspace is bound to, which is frequently not the
+    // tray's active connection — without this, clicking Disconnect in one window gated a DIFFERENT project and
+    // silently stopped another workspace's sync while the row that was clicked stayed connected.
+    const res = await fetch(`${CONTROL_BASE}/disconnect`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(projectId !== undefined ? { projectId } : {}),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
     if (!res.ok) return { ok: false, gated: false }
     // `gated` is absent on an older CONNECTOR (it answered a bare {ok:true}); that connector can't have gated the
     // bridge either, so absent must read as false — never as success.
-    const body = (await res.json().catch(() => ({}))) as { gated?: boolean }
-    return { ok: true, gated: body.gated === true }
+    const body = (await res.json().catch(() => ({}))) as { gated?: boolean; reason?: DisconnectResult["reason"] }
+    return { ok: true, gated: body.gated === true, reason: body.reason }
   } catch {
     return { ok: false, gated: false }
   }
+}
+
+/** The connector's id for the project THIS workspace is bound to, or undefined when it isn't detected. Shells
+ *  pass it to {@link disconnect} so they act on their own project rather than the tray's active one. */
+export async function boundProjectId(workspaceRoot: string): Promise<string | undefined> {
+  const bound = readBoundProject(workspaceRoot)
+  if (bound === undefined) return undefined
+  const projects = await detectedProjects()
+  return projects.find((p) => p.vendor === bound.vendor && (p.projectName ?? p.displayName) === bound.projectName)?.id
 }
 
 /** The bound workspace's live connection status (use case A). PER-WORKSPACE: it reflects whether THIS workspace's

@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, detectedProjects, readBridgeVendor,
+	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects, readBridgeVendor,
 	mergeContinue, mergeAbort, mergeResolve,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
@@ -313,13 +313,20 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		// The Bridge view's counterpart to Reconnect. The bridge stops serving sync (the CLI's push/pull are refused)
 		// but nothing is torn down — the IDE stays open and re-connectable, so this is a pause, not a shutdown.
 		reg("volt.disconnect", async () => {
+			const w = ws()
+			if (!w) return
 			const r = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt disconnect" }, async () => {
-				const res = await disconnect()
+				// Disconnect THIS workspace's project, not the tray's active connection. They are routinely
+				// different (two IDEs open, two windows), and the global call gated the wrong project: the row the
+				// user clicked stayed connected while another workspace silently stopped syncing.
+				const res = await disconnect(await boundProjectId(w))
 				for (const s of statuses.values()) await s.refresh(true)
 				return res
 			})
-			// Three genuinely different outcomes — never report the first one's message for the other two.
+			// Four genuinely different outcomes — never report one's message for another.
 			if (!r.ok) vscode.window.showErrorMessage("Couldn't reach the Volt Connector — is it running?")
+			else if (r.reason === "unreachable")
+				vscode.window.showInformationMessage("Already disconnected — that IDE is no longer running.")
 			else if (!r.gated)
 				vscode.window.showWarningMessage(
 					"Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
