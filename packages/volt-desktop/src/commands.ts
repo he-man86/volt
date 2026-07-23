@@ -154,9 +154,11 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   )
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
-      await disconnect() // clear the active connection; every host stays live
+      // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
+      await disconnect()
       clearProgress()
       await shell.status?.refresh(true)
+      notify("info", "Disconnected — the IDE stays open. Connect again to resume syncing.")
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))

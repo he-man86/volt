@@ -132,14 +132,14 @@
 </div>
 
 <nav id="rail">
+  <button class="rail-btn" id="railBridge" title="IDE Connection" onclick="tab('bridge')">
+    <svg class="ico"><use href="#i-bridge"/></svg><span class="rail-status" id="bridgeStatus"></span>
+  </button>
   <button class="rail-btn" id="railSync" title="IDE changes" onclick="tab('sync')">
     <svg class="bolt"><use href="#bolt"/></svg><span class="rail-badge hide" id="driftBadge">0</span>
   </button>
   <button class="rail-btn" id="railDiag" title="Diagnostics" onclick="tab('diag')">
     <svg class="ico"><use href="#i-alert"/></svg><span class="rail-badge err hide" id="diagBadge">0</span>
-  </button>
-  <button class="rail-btn" id="railBridge" title="Bridge" onclick="tab('bridge')">
-    <svg class="ico"><use href="#i-bridge"/></svg><span class="rail-status" id="bridgeStatus"></span>
   </button>
 </nav>
 
@@ -149,7 +149,9 @@
   let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [], projects: [] }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
-  let activeTab = "sync" // which rail tab is lit + scrolled to while the panel is open
+  // Which rail tab is lit + scrolled to while the panel is open. Defaults to the connection: it's the first thing
+  // to set up, and the first thing to check when sync stops.
+  let activeTab = "bridge"
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
 
@@ -176,10 +178,10 @@
     if (d && d.errors > 0) db.className = "rail-badge err", (db.textContent = d.errors)
     else if (d && d.warnings > 0) db.className = "rail-badge warn", (db.textContent = d.warnings)
     else db.className = "rail-badge err hide"
-    // Bridge tab — a corner status dot in the health tone (ok / warn / error).
+    // IDE Connection tab — a corner status dot in the health tone (ok / warn / error).
     document.getElementById("bridgeStatus").className = "rail-status" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
     // Active-tab highlight (VS Code activity-bar style): the rail stays, the open tab is lit.
-    for (const [t, id] of [["sync", "railSync"], ["diag", "railDiag"], ["bridge", "railBridge"]])
+    for (const [t, id] of [["bridge", "railBridge"], ["sync", "railSync"], ["diag", "railDiag"]])
       document.getElementById(id).classList.toggle("on", open && activeTab === t)
   }
 
@@ -189,41 +191,61 @@
     const s = snap
     const n = s.incoming.length + s.outgoing.length
 
-    // 1. IDE Sync — the whole section is driven by the shared `mode` (same field the VS Code extension switches on).
-    // pull/push/build appear ONLY in `ready`; refresh is always available (it re-probes, never mutates). No
-    // connect/disconnect icons — Connect is the big button in the body when offline (see below).
+    // One live-progress note, shown above the acting section's body (formatProgress feeds `busy`).
+    const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
+
+    // 1. IDE Connection — the WHOLE connection lifecycle: which project, set up, connect, disconnect. It leads the
+    // panel because it's the first thing a new user must do and the first thing to check when sync stops. IDE Sync
+    // below is only "what changed" — it never owns connecting (that split is mirrored in the VS Code extension).
+    let bridgeBody
+    if (!s.bound) bridgeBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
+    else if (!s.initialized) {
+      // The onboarding STATE is decided in @volt/control (onboardingMode, on the snapshot) so this and the VS Code
+      // view can't drift; only the markup is ours. Pick a DETECTED PROJECT to set this workspace up from — one
+      // button per project, its platform a badge. No vendor buttons.
+      const projects = s.projects || []
+      bridgeBody = busy
+        ? busyNote
+        : s.onboarding === "choose-project"
+          ? `<div class="note">This folder isn't syncing with an IDE yet — pick the project to set it up from:</div>
+        <div class="init-row">` +
+            projects.map((p) => `<button class="btn ${p.vendor === "codesys" ? "primary" : ""}" onclick="doInit('${esc(p.id)}')"><svg class="bolt"><use href="#bolt"/></svg>${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${esc(p.displayName)}${p.dirty ? " *" : ""}</button>`).join("") +
+            `</div><div class="note">Creates the git workspace and pulls the project's code — the IDE is not modified.</div>`
+          : s.onboarding === "no-project"
+            ? `<div class="note">No PLC project detected. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — it then appears here to set up.</div>`
+            : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector finds your open PLC projects and serves the bridge; they then appear here to set up.</div>`
+    } else {
+      // Bound: state first (connected, and to WHAT), then exactly ONE action — Connect or Disconnect, never both,
+      // never neither. That symmetry is what keeps the tray optional.
+      const h = s.health || { label: "…", tone: "warn", online: false }
+      bridgeBody =
+        busyNote +
+        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span><span class="n">${h.online ? "connected" : "not connected"}</span></div>` +
+        (!h.online
+          ? (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
+            `<div class="note">Not syncing — the IDE window may be closed, or the Volt Connector isn't running.</div>
+             <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
+          : `<div class="init-row"><button class="btn" onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>
+             <div class="note">Stops syncing. The IDE stays open — Connect again to resume.</div>`)
+    }
+    const bridgeActs = s.initialized ? refreshBtn("Refresh") : ""
+
+    // 2. IDE Sync — driven by the shared `mode` (the same field the VS Code extension switches on). pull/push/build
+    // appear ONLY in `ready`; refresh is always available (it re-probes, never mutates). No connect/init here — the
+    // states that would need them defer to IDE Connection above.
     const syncActs = s.initialized
       ? (s.mode === "ready" ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") + icoBtn("i-push", "Push · workspace → IDE", "doPush()") + icoBtn("i-build", "Build", "doBuild()") : "") + refreshBtn("Refresh")
       : ""
-    // One live-progress note, shown above the sync body during any action (formatProgress feeds `busy`).
-    const busyNote = busy ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(busy)}</div>` : ""
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
-    else if (!s.initialized) {
-      // Pick a DETECTED PROJECT to initialize this workspace from — one button per project, its platform a badge.
-      // No vendor buttons. When none are detected, point the user at opening/activating their IDE.
-      const projects = s.projects || []
-      const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
-      syncBody = busy
-        ? busyNote
-        : projects.length
-          ? `<div class="note">Not a Volt workspace yet — pick the project to initialize from:</div>
-        <div class="init-row">` +
-            projects.map((p) => `<button class="btn ${p.vendor === "codesys" ? "primary" : ""}" onclick="doInit('${esc(p.id)}')"><svg class="bolt"><use href="#bolt"/></svg>${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${esc(p.displayName)}${p.dirty ? " *" : ""}</button>`).join("") +
-            `</div>`
-          : s.connectorUp
-            ? `<div class="note">Not a Volt workspace yet. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — the project appears here to initialize from.</div>`
-            : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector detects your open PLC projects and serves the bridge; the project then appears here to initialize from.</div>`
-    }
-    // Offline: the ONLY action is a big Connect button, in the SAME location/style as the Init button above. No
-    // pull/push while offline (they're impossible), and never a false "In sync".
-    else if (s.mode === "offline") syncBody = busyNote + `<div class="note">Disconnected from the IDE — its window may be closed, or the Volt Connector isn't running.</div>
-        <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
-    else if (s.mode === "merging" || s.mode === "mismatch") syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>IDE sync paused — resolve in the Bridge section.</div>`
+    else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
+    else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
+    else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — the IDE's project name no longer matches this workspace.</div>`
+    else if (s.mode === "merging") syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files, then finish the merge.</div>`
     else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
     else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
 
-    // 2. Diagnostics
+    // 3. Diagnostics
     const diagActs = s.bound ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
     let diagBody
     if (!s.bound) diagBody = `<div class="note">No project open.</div>`
@@ -235,27 +257,12 @@
         `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div>` +
         diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("")
 
-    // 3. Bridge
-    let bridgeBody
-    if (!s.bound) bridgeBody = `<div class="note">No project open.</div>`
-    else if (!s.initialized) bridgeBody = `<div class="note">Not a Volt workspace — initialize it in IDE Sync above.</div>`
-    else {
-      const h = s.health || { label: "…", tone: "warn", online: false }
-      bridgeBody =
-        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span></div>` +
-        (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
-        (!h.online
-          ? `<div class="note">Disconnected — the IDE may be closed, or the Volt Connector isn't running. Use Connect in IDE Sync above.</div>`
-          : "")
-    }
-    const bridgeActs = s.initialized ? refreshBtn("Refresh") : ""
-
     const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
 
     document.getElementById("panel").innerHTML =
+      section("bridge", "IDE Connection", bridgeActs, bridgeBody) +
       section("sync", "IDE Sync", syncActs, syncBody + warn) +
-      section("diag", "Diagnostics", diagActs, diagBody) +
-      section("bridge", "Bridge", bridgeActs, bridgeBody)
+      section("diag", "Diagnostics", diagActs, diagBody)
   }
 
   // A rail tab: open the panel and jump to its section; clicking the already-open tab collapses (VS Code style).
@@ -278,6 +285,7 @@
   async function doPush() { busy = "Pushing…"; render(); await volt.push() }
   async function doBuild() { busy = "Building…"; render(); await volt.build() }
   async function doConnect() { busy = "Connecting…"; render(); await volt.connect() }
+  async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }

@@ -7,17 +7,21 @@ import {
   readBridgeVendor,
   connectorStatus,
   collectDiagnostics,
+  onboardingMode,
   type DriftItem,
   type WorkspaceView,
   type DetectedProject,
+  type OnboardingMode,
 } from "@volt/control"
 import type { Shell } from "./context.js"
 
 // The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and the detected `projects`.
 // The bound case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to
 // update here; the unbound case only carries the empty arrays renderRail reads unconditionally. `projects` rides
-// on both so the init surface (pick a project) renders the same regardless of bound state.
-type Snap = { projects: DetectedProject[]; connectorUp: boolean } & (
+// on both so the connection surface (pick a project) renders the same regardless of bound state. `onboarding` is
+// the SHARED decision (@volt/control) for how an unbound folder gets connected — the renderer switches on it
+// instead of re-deriving it, which is how it and the VS Code view previously drifted apart.
+type Snap = { projects: DetectedProject[]; connectorUp: boolean; onboarding: OnboardingMode } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -26,12 +30,14 @@ type Snap = { projects: DetectedProject[]; connectorUp: boolean } & (
 export function snapshot(shell: Shell): Snap {
   const projects = shell.projects
   const connectorUp = shell.connectorUp
+  const onboarding = onboardingMode(connectorUp, projects.length)
   const vs = shell.status
-  if (!vs) return { bound: false, incoming: [], outgoing: [], projects, connectorUp }
+  if (!vs) return { bound: false, incoming: [], outgoing: [], projects, connectorUp, onboarding }
   return {
     bound: true,
     projects,
     connectorUp,
+    onboarding,
     ...projectWorkspace({
       workspaceRoot: vs.workspaceRoot,
       status: vs.cached,

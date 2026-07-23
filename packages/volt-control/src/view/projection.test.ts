@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { projectWorkspace } from "./workspace.js"
+import { projectWorkspace, onboardingMode } from "./workspace.js"
 import { describePull, describePush, describeMerge } from "./outcomes.js"
 import type { StatusJson } from "./types.js"
 import type { HealthState } from "../bridge/health.js"
@@ -78,6 +78,17 @@ test("projectWorkspace.mode: the offline/ready/merging/mismatch/uninitialized st
   expect(
     mk({ projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] } }, unreachable, "codesys"),
   ).toBe("mismatch")
+})
+
+// ── onboardingMode: how an UNBOUND folder gets connected ─────────────────────
+// The gap this closes: `uninitialized` used to be split by each shell independently, and they diverged — one of
+// them couldn't tell "connector down" from "no project open", which need OPPOSITE fixes (start Volt vs open a
+// project). One decision, both shells.
+test("onboardingMode: connector-down outranks the (necessarily empty) project list", () => {
+  expect(onboardingMode(false, 0)).toBe("no-connector")
+  expect(onboardingMode(false, 3)).toBe("no-connector") // stale list from before it died — still 'start Volt'
+  expect(onboardingMode(true, 0)).toBe("no-project")
+  expect(onboardingMode(true, 1)).toBe("choose-project")
 })
 
 // ── outcome descriptors ──────────────────────────────────────────────────────

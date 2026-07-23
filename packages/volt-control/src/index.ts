@@ -21,7 +21,7 @@ export * from "./state/files.js" // isPouFile, readStateMtime
 // view/ — Node-free presentation models
 export * from "./view/types.js" // StatusJson, ChangeSet, ProjectMismatch, changeCount
 export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState
-export * from "./view/workspace.js" // projectWorkspace, WorkspaceView, WorkspaceInput, DriftItem
+export * from "./view/workspace.js" // projectWorkspace, syncMode, onboardingMode, WorkspaceView, WorkspaceInput, DriftItem
 export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 

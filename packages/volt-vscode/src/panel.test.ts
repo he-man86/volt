@@ -28,23 +28,31 @@ const proj = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-// The bug this guards: the welcome button is static markdown and can't show WHICH project it binds. The Bridge
-// view fills that gap — an unbound folder with a detected project must render its NAME, clickable to initialize.
+// The bug this guards: the welcome button is static markdown and can't show WHICH project it binds. This view
+// fills that gap — an unbound folder with a detected project must render its NAME, clickable to set up. (Row 0 is
+// the "click one to set up" header, so the project rows start at 1.)
 test("unbound + a detected project → a named, clickable init row", () => {
-  const [node] = bridgeRoots([], [proj()])
+  const [, node] = bridgeRoots([], [proj()])
   expect(node?.label).toBe("MyMachine")
   expect(node?.description).toBe("CODESYS") // vendorLabel(codesys)
   expect(node?.command?.command).toBe("volt.init")
 })
 
 test("ideVersion disambiguates the platform label when a vendor has >1 live instance", () => {
-  const [node] = bridgeRoots([], [proj({ ideVersion: "CODESYS 3.5.19" })])
+  const [, node] = bridgeRoots([], [proj({ ideVersion: "CODESYS 3.5.19" })])
   expect(node?.description).toBe("CODESYS · CODESYS 3.5.19")
 })
 
-test("unbound + nothing detected → the plain empty state", () => {
+test("unbound + nothing detected → says so, and what to do about it", () => {
   const [node] = bridgeRoots([], [])
-  expect(node?.label).toBe("No workspace bound")
+  expect(node?.label).toBe("No PLC project detected")
+})
+
+// "Connector down" and "connector up, no project open" used to render identically — the fix for one is to start
+// Volt, for the other to open a project, so they must never look the same.
+test("unbound + connector down → names the connector, not the project list", () => {
+  const [node] = bridgeRoots([], [], false)
+  expect(node?.label).toBe("The Volt Connector isn't running")
 })
 
 // The gap this guards: an offline bound workspace used to falsely read "In sync" AND only pointed at the tray.
@@ -60,6 +68,15 @@ test("bound + online + no drift → 'In sync' (unchanged)", () => {
 test("bound + offline → Bridge view offers a one-click Reconnect (volt.connect), not a tray pointer", () => {
   const roots = bridgeRoots([offlineView as never], [])
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(true)
+  expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(false) // already disconnected
+})
+
+// Disconnect is a REAL disconnect now (the bridge refuses sync until you reconnect), so it earns a button —
+// the mirror of Reconnect, on the same row set, instead of hiding in the command palette.
+test("bound + online → Bridge view offers Disconnect (volt.disconnect)", () => {
+  const roots = bridgeRoots([onlineView as never], [])
+  expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(true)
+  expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(false)
 })
 
 // The bug this guards: incoming used to diff VOLTIDE ↔ BRIDGE, but VOLTIDE (refs/remotes/volt/ide) IS the IDE

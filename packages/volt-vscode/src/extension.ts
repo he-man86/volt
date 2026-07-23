@@ -63,19 +63,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	views = new VoltViews()
 	context.subscriptions.push(views)
 
-	// Ask the connector (the one aggregator) whether any PLC project is detected across all IDEs — `volt.hasProjects`
-	// drives the IDE Sync view welcome (pick a project to initialize) + the init command's enablement. No vendor
-	// buttons: the user picks a project, vendor is derived. Skipped once a folder is bound.
+	// Ask the connector (the one aggregator) whether any PLC project is detected across all IDEs. The RESULT drives
+	// the Bridge view — which owns the whole connection lifecycle (name the project → initialize → connect →
+	// disconnect); the Sync view's welcomes only point there. No vendor buttons: the user picks a project, vendor
+	// is derived. Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
 		const unbound = statuses.size === 0 && workspaceFolders().length > 0
-		// One connector probe drives BOTH onboarding signals: whether the connector is even running (so the welcome
-		// can tell "connector not running" apart from "no IDE project open" — they used to look identical) AND the
-		// detected-project list. Only probed while unbound; a bound folder's live health comes from VoltStatus.
+		// One connector probe drives BOTH onboarding signals: whether the connector is even running (so the Bridge
+		// view can tell "connector not running" apart from "no IDE project open" — they used to look identical) AND
+		// the detected-project list. Only probed while unbound; a bound folder's live health comes from VoltStatus.
 		const view = unbound ? await connectorStatus() : undefined
 		const projects = view?.projects ?? []
 		void vscode.commands.executeCommand("setContext", "volt.hasProjects", projects.length > 0)
-		void vscode.commands.executeCommand("setContext", "volt.connectorRunning", !unbound || view !== undefined)
-		views?.setDetected(projects)
+		views?.setDetected(projects, !unbound || view !== undefined)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
 

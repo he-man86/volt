@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, onboardingMode, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -11,8 +11,13 @@ function viewOf(s: VoltStatus): WorkspaceView {
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
 //   IDE Sync    — incoming/outgoing drift, click-to-diff vs the last-synced baseline (was the SCM group)
 //   Diagnostics — a summary + per-file counts sourced from the LSP's published diagnostics; jumps to Problems
-//   Bridge      — connection health / project / vendor (was status-bar only)
+//   Bridge      — the WHOLE connection lifecycle: which project, initialize, connect, disconnect
 //   Reference   — Agent + language-reference launchers (were palette-only)
+//
+// The Sync/Bridge split is the load-bearing one: **Sync answers "what changed", Bridge answers "am I attached to
+// an IDE".** Init/Connect/Disconnect used to live in Sync's welcome markdown, which meant the connection state was
+// described in two places and (worse) static markdown can't name the project it would bind. Every connection
+// affordance now lives here as a real row, and Sync's welcomes just point down.
 // The git axis stays the editor's built-in Git; Volt owns only the IDE axis, now in its own area.
 
 const SOURCE = "volt-lsp-iec" // the LSP tags its diagnostics with this — the precise Volt filter
@@ -75,6 +80,7 @@ export class VoltViews implements vscode.Disposable {
 	// list changes (they arrive on separate events — status refresh vs the 10s bridge poll).
 	private lastViews: WorkspaceView[] = []
 	private detected: DetectedProject[] = []
+	private connectorUp = true
 
 	constructor() {
 		this.disposables.push(
@@ -104,14 +110,16 @@ export class VoltViews implements vscode.Disposable {
 		const views = [...statuses.values()].map(viewOf)
 		this.lastViews = views
 		this.sync.setRoots(syncRoots(views))
-		this.bridge.setRoots(bridgeRoots(views, this.detected))
+		this.bridge.setRoots(bridgeRoots(views, this.detected, this.connectorUp))
 	}
 
-	/** The connector's detected-project list (unbound onboarding). Names them in the Bridge view so the user sees
-	 *  WHICH project "Initialize workspace…" will bind — the welcome button is static markdown and can't. */
-	setDetected(projects: DetectedProject[]): void {
+	/** The connector's detected-project list + whether the connector answered at all (unbound onboarding). Names
+	 *  the projects in the Bridge view so the user sees WHICH one "Initialize" will bind, and tells "connector
+	 *  down" apart from "connector up, no project open" — two states that used to look identical. */
+	setDetected(projects: DetectedProject[], connectorUp: boolean): void {
 		this.detected = projects
-		this.bridge.setRoots(bridgeRoots(this.lastViews, this.detected))
+		this.connectorUp = connectorUp
+		this.bridge.setRoots(bridgeRoots(this.lastViews, this.detected, this.connectorUp))
 	}
 
 	refreshDiagnostics(): void {
@@ -281,31 +289,100 @@ function diagnosticRoots(): VoltNode[] {
 	]
 }
 
-// ── Bridge status ─────────────────────────────────────────────────────────────
+// ── Bridge: the connection lifecycle, start to finish ────────────────────────
 // Exported for the panel smoke test (the view-model builder is pure; only the widget layer needs the host).
-export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[]): VoltNode[] {
+export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[], connectorUp = true): VoltNode[] {
 	const nodes: VoltNode[] = []
 	for (const v of views) {
 		const hd = v.health
-		const icon = hd.tone === "ok" ? "pass" : hd.tone === "error" ? "error" : "warning"
-		nodes.push({ key: `bridge:${v.workspaceRoot}`, label: hd.label, icon: new vscode.ThemeIcon(icon), tooltip: v.workspaceRoot })
+		// Row 1 answers the only question that matters at a glance — connected, and to WHAT. The label already
+		// reads "<IDE> — <project>" when live, so state goes in the description rather than repeating the name.
+		nodes.push({
+			key: `bridge:${v.workspaceRoot}`,
+			label: hd.label,
+			description: hd.online ? "connected" : "not connected",
+			icon: new vscode.ThemeIcon(hd.tone === "ok" ? "pass-filled" : hd.tone === "error" ? "error" : "warning"),
+			tooltip: `${hd.online ? "Syncing with this IDE project." : "Not syncing — pull and push are unavailable."}\n${v.workspaceRoot}`,
+		})
 
-		if (v.vendor !== undefined) nodes.push({ key: `vendor:${v.workspaceRoot}`, label: vendorLabel(v.vendor), icon: new vscode.ThemeIcon("plug") })
+		// The vendor row only earns its place when the health label CAN'T name the IDE (offline, where the label is
+		// an error string). Connected, a second row reading just "CODESYS" said the same word twice.
+		if (v.vendor !== undefined && !hd.online)
+			nodes.push({
+				key: `vendor:${v.workspaceRoot}`,
+				label: vendorLabel(v.vendor),
+				description: "bound platform",
+				icon: new vscode.ThemeIcon("plug"),
+			})
 
-		// Genuinely unreachable → offer a one-click Reconnect (re-points the bridge at the bound project — the same
-		// connect that init does) instead of sending the user to the tray. reconnectBound reports precisely if it
-		// can't (connector not running / open the project in the IDE), so this stays honest.
+		// The one action, and it's always exactly one — Connect or Disconnect, never both, never neither. That
+		// symmetry is the point: the tray is never required, and the view always has something to DO.
+		// Reconnect re-points the bridge at the bound project (the same connect init does) and reports precisely
+		// when it can't. Disconnect is real (the bridge refuses sync) but tears nothing down — the IDE stays open.
 		if (!hd.online)
-			nodes.push({ key: `reconnect:${v.workspaceRoot}`, label: "Reconnect to the IDE", icon: new vscode.ThemeIcon("plug"), command: { command: "volt.connect", title: "Reconnect" } })
+			nodes.push({
+				key: `reconnect:${v.workspaceRoot}`,
+				label: "Connect to the IDE",
+				description: "resume syncing",
+				tooltip: "Re-point the bridge at this workspace's project and resume syncing. Needs the project open in its IDE.",
+				icon: new vscode.ThemeIcon("plug"),
+				command: { command: "volt.connect", title: "Connect" },
+			})
+		else
+			nodes.push({
+				key: `disconnect:${v.workspaceRoot}`,
+				label: "Disconnect from the IDE",
+				description: "pause syncing",
+				tooltip: "Stop syncing with the IDE. The IDE stays open and loaded — connect again here to resume.",
+				icon: new vscode.ThemeIcon("debug-disconnect"),
+				command: { command: "volt.disconnect", title: "Disconnect" },
+			})
 		if (v.paused === "mismatch")
-			nodes.push({ key: `rename:${v.workspaceRoot}`, label: "Accept project rename", icon: new vscode.ThemeIcon("warning"), command: { command: "volt.acceptProjectRename", title: "Accept Rename" } })
+			nodes.push({
+				key: `rename:${v.workspaceRoot}`,
+				label: "Accept project rename",
+				description: "sync paused",
+				tooltip: "The IDE's project name no longer matches this workspace's binding. Accept it to resume syncing.",
+				icon: new vscode.ThemeIcon("warning"),
+				command: { command: "volt.acceptProjectRename", title: "Accept Rename" },
+			})
 	}
 	if (nodes.length > 0) return nodes
 
-	// Unbound: name the connector's detected projects so the user sees WHICH one "Initialize workspace…" binds
-	// (the static welcome button can't show this). Each row initializes; the picker auto-selects when there's one.
-	if (detected.length > 0) return detected.map(detectedNode)
-	return [{ key: "bridge:none", label: "No workspace bound", icon: new vscode.ThemeIcon("circle-slash") }]
+	// ── Unbound: the onboarding ladder. The STATE is decided in @volt/control (onboardingMode) so the desktop
+	// answers identically; only the rows are ours. Rows, not welcome markdown, precisely so the detected project
+	// can be NAMED — the whole reason this view leads the container.
+	switch (onboardingMode(connectorUp, detected.length)) {
+		case "no-connector":
+			return [
+				{
+					key: "bridge:noconnector",
+					label: "The Volt Connector isn't running",
+					description: "start Volt",
+					tooltip: "Start Volt from the Start menu. Its tray connector finds your open PLC projects and serves the bridge — they then appear here to set up.",
+					icon: new vscode.ThemeIcon("circle-slash"),
+				},
+			]
+		case "choose-project":
+			return [
+				{
+					key: "bridge:pick",
+					label: detected.length === 1 ? "Detected project — click to set up" : `${detected.length} detected projects — click one to set up`,
+					icon: new vscode.ThemeIcon("info"),
+				},
+				...detected.map(detectedNode),
+			]
+		case "no-project":
+			return [
+				{
+					key: "bridge:none",
+					label: "No PLC project detected",
+					description: "open one in your IDE",
+					tooltip: "Open a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it then appears here to set up.",
+					icon: new vscode.ThemeIcon("circle-slash"),
+				},
+			]
+	}
 }
 
 function detectedNode(p: DetectedProject): VoltNode {
@@ -314,9 +391,9 @@ function detectedNode(p: DetectedProject): VoltNode {
 		key: `detected:${p.id}`,
 		label: p.displayName,
 		description: platform,
-		tooltip: `Detected PLC project "${p.displayName}" (${platform}) — click to initialize this folder as a Volt workspace bound to it`,
+		tooltip: `Set this folder up to sync with "${p.displayName}" (${platform}).\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
 		icon: new vscode.ThemeIcon("plug"),
-		command: { command: "volt.init", title: "Initialize workspace" },
+		command: { command: "volt.init", title: "Set up this folder" },
 	}
 }
 

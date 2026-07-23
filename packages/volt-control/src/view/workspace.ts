@@ -33,8 +33,8 @@ export interface WorkspaceInput {
 }
 
 /** The one state machine both frontends switch on to decide what the IDE-Sync surface shows. Derived once here
- *  so the extension and the desktop never re-derive (and drift). `uninitialized` is the onboarding state — each
- *  shell splits it into its own "detected project → Init" vs "no project" using data not in this model. */
+ *  so the extension and the desktop never re-derive (and drift). `uninitialized` is the onboarding state — see
+ *  {@link onboardingMode}, which splits it. */
 export type SyncMode = "uninitialized" | "merging" | "mismatch" | "offline" | "ready"
 
 /** Precedence: a local merge/mismatch must be resolvable even when the bridge is down, so they outrank `offline`;
@@ -45,6 +45,24 @@ export function syncMode(initialized: boolean, paused: WorkspaceView["paused"], 
   if (paused === "mismatch") return "mismatch"
   if (!online) return "offline"
   return "ready"
+}
+
+/** How an UNBOUND folder gets connected — the three states of the onboarding ladder, which the connection
+ *  surface (VS Code's "IDE Connection" view / the desktop's section) renders one row-set per. */
+export type OnboardingMode =
+  /** The connector isn't answering — nothing can be detected until Volt is started. */
+  | "no-connector"
+  /** Connector up, but no IDE has a project open (or CODESYS isn't activated). */
+  | "no-project"
+  /** Projects are detected — name them and let the user pick which one this folder binds to. */
+  | "choose-project"
+
+/** This used to be left to each shell ("split `uninitialized` yourself"), and they promptly diverged — different
+ *  states, different wording, and one of them couldn't tell "connector down" (start Volt) from "no project open"
+ *  (open one), which need opposite fixes. It's three lines; it lives here so both shells answer identically. */
+export function onboardingMode(connectorUp: boolean, projectCount: number): OnboardingMode {
+  if (!connectorUp) return "no-connector"
+  return projectCount > 0 ? "choose-project" : "no-project"
 }
 
 export interface WorkspaceView {

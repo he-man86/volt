@@ -225,11 +225,13 @@ async function doReinit(ensureWorkspace: (folder: string) => void, workspaceRoot
 	finishInit(ensureWorkspace, workspaceRoot, r)
 }
 
-/** Pick a detected project from the connector's list (no picker when exactly one). */
+/** Pick a detected project from the connector's list. ALWAYS shown, even for a single project: init binds this
+ *  folder to that project permanently, and the picker is the only place its NAME is stated — auto-selecting made
+ *  the one-project case (the common one) bind silently to something the user never saw named. */
 async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
-	if (projects.length === 1) return projects[0]
 	const items = projects.map((p) => ({
 		label: `${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${p.displayName}${p.dirty ? " *" : ""}`,
+		description: p.ideVersion ?? undefined,
 		project: p,
 	}))
 	const pick = await vscode.window.showQuickPick(items, { placeHolder: "Pick the PLC project to initialize this workspace from" })
@@ -289,32 +291,16 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.takeMyVersion", async (node?: { merge?: { workspaceRoot: string; relPath: string } }) => doTakeSide(statuses, node, "mine")),
 
 		reg("volt.connect", async () => { const w = ws(); if (w) await doReconnect(statuses, w) }),
-		// Palette-only (no button — it just clears the connector's active-connection highlight; the CLI never gates
-		// sync on it). Kept for power users, with the same notification indicator as its peers.
+		// The Bridge view's counterpart to Reconnect. The bridge stops serving sync (the CLI's push/pull are refused)
+		// but nothing is torn down — the IDE stays open and re-connectable, so this is a pause, not a shutdown.
 		reg("volt.disconnect", async () => {
 			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt disconnect" }, async () => {
-				await disconnect() // clear the active connection; every host stays live
+				await disconnect()
 				for (const s of statuses.values()) await s.refresh(true)
 			})
-			vscode.window.showInformationMessage("Disconnected. Every IDE stays live — connect again to switch.")
+			vscode.window.showInformationMessage("Disconnected — the IDE stays open. Connect again to resume syncing.")
 		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
-		reg("volt.status", async () => {
-			const s = pickStatus(statuses)
-			if (s === undefined) return
-			// A notification toast while the (cold-spawned) `volt status` runs — same indicator as push/pull — then a
-			// toast with the summary, so the result is visible without digging into the output channel.
-			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt status" }, () => s.refresh())
-			const c = s.cached
-			if (c !== undefined) {
-				output().appendLine(`── volt status ──\n${c.summary}`)
-				void vscode.window.showInformationMessage(`Volt: ${c.summary}`)
-			} else {
-				const msg = s.statusError ?? "status unavailable"
-				output().appendLine(`── volt status ──\n${msg}`)
-				void vscode.window.showWarningMessage(`Volt status: ${msg}`)
-			}
-		}),
 		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a notification toast
 		// (same indicator as push/pull) so the refresh button gives feedback instead of appearing to do nothing.
 		reg("volt.refresh", () =>

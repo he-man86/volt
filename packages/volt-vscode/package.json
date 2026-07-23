@@ -508,6 +508,12 @@
     "views": {
       "volt": [
         {
+          "id": "volt.views.bridge",
+          "name": "IDE Connection",
+          "icon": "$(plug)",
+          "contextualTitle": "Volt — IDE Connection"
+        },
+        {
           "id": "volt.views.sync",
           "name": "IDE Sync",
           "icon": "icons/volt-activitybar.svg",
@@ -518,12 +524,6 @@
           "name": "Diagnostics",
           "icon": "$(warning)",
           "contextualTitle": "Volt — Diagnostics"
-        },
-        {
-          "id": "volt.views.bridge",
-          "name": "Bridge",
-          "icon": "$(plug)",
-          "contextualTitle": "Volt — Bridge"
         },
         {
           "id": "volt.views.reference",
@@ -610,12 +610,6 @@
         "icon": "$(account)"
       },
       {
-        "command": "volt.status",
-        "title": "Volt: Status",
-        "category": "Volt",
-        "icon": "$(git-pull-request)"
-      },
-      {
         "command": "volt.refresh",
         "title": "Volt: Refresh",
         "category": "Volt",
@@ -629,7 +623,7 @@
       },
       {
         "command": "volt.disconnect",
-        "title": "Volt: Disconnect (clear the active connection; IDEs stay live)",
+        "title": "Volt: Disconnect (stop syncing; the IDE stays open)",
         "category": "Volt",
         "icon": "$(debug-disconnect)"
       },
@@ -794,22 +788,12 @@
     "viewsWelcome": [
       {
         "view": "volt.views.sync",
-        "contents": "$(check) PLC project detected.\n[$(plug) Initialize workspace…](command:volt.init)\n\nPick a project to bind this folder to — the platform (CODESYS / TwinCAT) is detected for you.",
-        "when": "!volt.workspaceInitialized && volt.hasProjects"
+        "contents": "This folder isn't syncing with an IDE yet.\nSet it up in **IDE Connection** above — it names every detected PLC project.",
+        "when": "!volt.workspaceInitialized"
       },
       {
         "view": "volt.views.sync",
-        "contents": "$(plug) No PLC project detected yet.\nOpen a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it appears here to initialize from.\n[$(plug) Initialize workspace…](command:volt.init)",
-        "when": "!volt.workspaceInitialized && volt.connectorRunning && !volt.hasProjects"
-      },
-      {
-        "view": "volt.views.sync",
-        "contents": "$(circle-slash) The Volt Connector isn't running.\nStart Volt — its tray connector detects your open PLC projects and serves the bridge. Then your project appears here to initialize from.",
-        "when": "!volt.workspaceInitialized && !volt.connectorRunning"
-      },
-      {
-        "view": "volt.views.sync",
-        "contents": "$(debug-disconnect) Disconnected from the IDE.\nThis workspace's bridge isn't reachable — its IDE may be closed, or the Volt Connector isn't running.\n[$(plug) Connect…](command:volt.connect)\n\nRe-points the bridge at this project — the same connect that init does, no tray needed.",
+        "contents": "Not connected to the IDE, so there's nothing to compare against.\nReconnect from **IDE Connection** above — no tray needed.",
         "when": "volt.workspaceInitialized && volt.bridgeOffline"
       }
     ]

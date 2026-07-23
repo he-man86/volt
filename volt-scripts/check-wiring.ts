@@ -219,6 +219,6 @@ console.log("     For mutating verbs (volt pull/push/init/merge) opencode prompt
 console.log("  5. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
 console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
 console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");
-console.log("  2. Open a .fb (or other kind) file → expect 'Volt: Status' + 'Volt: Push' status bar buttons (right).");
+console.log("  2. Open a .fb (or other kind) file → expect the Volt activity-bar views (IDE Sync / Diagnostics / Bridge) to populate.");
 console.log("  3. Cmd/Ctrl+Shift+P → 'Volt: Build' → JSON appears in 'Volt' terminal, diagnostics in Problems panel.");
 console.log("  4. Cmd/Ctrl+Shift+P → 'Volt: Push' → quick-pick (normal vs force); force opens modal warning.");
