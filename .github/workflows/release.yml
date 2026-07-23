@@ -80,6 +80,18 @@ jobs:
         if: steps.v.outputs.prerelease == 'false'
         run: bun run test:install
 
+      # The LIFECYCLE gate: install → uninstall → install → update → update → uninstall → install → uninstall,
+      # asserting every binary's stamped version, no rollback in the setup log, and zero leftovers after each
+      # uninstall. test:install above cannot catch what actually shipped, because those failures need an install
+      # OVER an existing one — a locked file made Inno abort and roll back silently, leaving bin/volt.exe releases
+      # behind the connector. Stable only, same reason as above.
+      # NOTE: a CI runner has no editor holding volt-lsp-iec.exe, so this does NOT reproduce the original lock.
+      # It gates the layout and the leftovers; the lock case is the LOCAL run (`bun run test:install:lifecycle`
+      # with an editor open), which is how that bug was found and must stay part of pre-release checks.
+      - name: Install lifecycle (install/uninstall/update x2, version + leftover checks)
+        if: steps.v.outputs.prerelease == 'false'
+        run: bun run test:install:lifecycle
+
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
