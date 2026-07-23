@@ -28,7 +28,7 @@ public class ControlServerTests : IDisposable
     private ControlServer Start(Func<string, Task<bool>> connect, Func<Task<bool>> disconnect)
     {
         var view = new ConnectorView("Connected", Array.Empty<BridgeStatusView>(), Array.Empty<ProjectView>());
-        _server = new ControlServer(() => view, connect, disconnect, _ => { }, _port);
+        _server = new ControlServer(() => Task.FromResult(view), connect, disconnect, _ => { }, _port);
         _server.Start();
         return _server;
     }

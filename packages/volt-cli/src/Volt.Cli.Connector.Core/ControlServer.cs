@@ -47,7 +47,9 @@ namespace Volt.Cli.Connector
         public const int ControlPort = 8550;
 
         private readonly HttpListener _listener = new();
-        private readonly Func<ConnectorView> _snapshot;
+        // Async so GET /status can refresh-if-stale before answering: a client that polls must not read the tray
+        // tick's cache, or a change made outside Volt (an IDE closing) lags by the tick PLUS the client's own poll.
+        private readonly Func<Task<ConnectorView>> _snapshot;
         // Both connect + disconnect are awaited before the response is written: each ends in a `select`/`deselect`
         // on the bridge pipe, and a client that refreshes its status right after the 200 would otherwise race it.
         private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
@@ -60,7 +62,7 @@ namespace Volt.Cli.Connector
 
         /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
         /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
-        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task<bool>> disconnect, Action<string> restart, int port = ControlPort)
+        public ControlServer(Func<Task<ConnectorView>> snapshot, Func<string, Task<bool>> connect, Func<Task<bool>> disconnect, Action<string> restart, int port = ControlPort)
         {
             _snapshot = snapshot;
             _connect = connect;
@@ -106,7 +108,7 @@ namespace Volt.Cli.Connector
             var path = ctx.Request.Url!.AbsolutePath.Trim('/');
             var method = ctx.Request.HttpMethod;
 
-            if (method == "GET" && path == "status") { WriteJson(ctx, 200, _snapshot()); return; }
+            if (method == "GET" && path == "status") { WriteJson(ctx, 200, _snapshot().GetAwaiter().GetResult()); return; }
 
             if (method == "POST" && path == "connect")
             {

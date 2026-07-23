@@ -50,7 +50,7 @@ namespace Volt.Cli.Connector
             _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
-            _control = new ControlServer(Snapshot, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker);
+            _control = new ControlServer(FreshSnapshotAsync, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker);
             _control.Start();
             Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
@@ -91,6 +91,16 @@ namespace Volt.Cli.Connector
             if (connected.Count > 0) return "connected: " + string.Join(", ", connected);
             var n = _conn.Projects.Count;
             return n > 0 ? $"{n} project(s) detected — pick one" : "no project detected";
+        }
+
+        /// <summary>What GET /status answers: LIVE state, not the tray tick's cache. A client polling every few
+        /// seconds would otherwise see a change up to one tick late on top of its own interval — so an IDE closing
+        /// (or a bridge being gated from another window) could take ~8s to show. The 1s floor keeps a burst of
+        /// clients from re-probing every pipe on each request; a mutating action repaints immediately anyway.</summary>
+        private async Task<ConnectorView> FreshSnapshotAsync()
+        {
+            await _conn.RefreshIfStaleAsync(TimeSpan.FromSeconds(1));
+            return Snapshot();
         }
 
         // ── snapshot for the control plane ─────────────────────────────────

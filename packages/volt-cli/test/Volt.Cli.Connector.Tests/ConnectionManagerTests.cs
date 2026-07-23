@@ -186,6 +186,47 @@ public class ConnectionManagerTests
     /// selection still clears (the UI has to stop claiming a connection), but DisconnectAsync must report false so
     /// the shells can warn — otherwise the user sees "Disconnected" while `volt push` still works, which is the
     /// exact bug the gate exists to kill.</summary>
+    /// <summary>GET /status must read LIVE state, so RefreshIfStaleAsync re-probes when the snapshot is old and
+    /// skips when it is fresh. Without the skip, a burst of polling clients would re-probe every pipe on every
+    /// request; without the re-probe, a change made outside Volt (an IDE closing) lags the tray tick PLUS the
+    /// client's own poll interval.</summary>
+    [Fact]
+    public async Task RefreshIfStale_reprobes_when_old_and_skips_when_fresh()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("MachineA");
+        var mgr = Mgr(cds);
+
+        await mgr.RefreshIfStaleAsync(TimeSpan.FromSeconds(1)); // never refreshed → must run
+        Assert.Single(mgr.Projects);
+
+        // Fresh: a second call inside the window must NOT re-enumerate. Prove it by making the source throw —
+        // a skipped refresh can't observe that, and the previous generation stays intact.
+        cds.ThrowOnEnumerate = true;
+        await mgr.RefreshIfStaleAsync(TimeSpan.FromSeconds(30));
+        Assert.Single(mgr.Projects);
+
+        // Stale (a zero window is always stale): it runs, the throwing source contributes nothing, list empties.
+        await mgr.RefreshIfStaleAsync(TimeSpan.Zero);
+        Assert.Empty(mgr.Projects);
+    }
+
+    /// <summary>Concurrent refreshes must serialize — the tray timer and the control plane both trigger them, and
+    /// the published state is replaced per generation rather than mutated, so a reader never sees a half-built one.</summary>
+    [Fact]
+    public async Task Concurrent_refreshes_do_not_corrupt_the_published_state()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("MachineA");
+        cds.Add("MachineB");
+        var mgr = Mgr(cds);
+
+        await Task.WhenAll(Enumerable.Range(0, 12).Select(_ => mgr.RefreshAsync()));
+
+        Assert.Equal(2, mgr.Projects.Count);
+        Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.DisplayName).OrderBy(n => n));
+    }
+
     [Fact]
     public async Task Disconnect_reports_false_when_the_bridge_is_too_old_to_be_gated()
     {

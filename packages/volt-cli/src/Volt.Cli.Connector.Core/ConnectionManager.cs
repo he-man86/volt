@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Volt.Cli.Connector
@@ -21,8 +22,14 @@ namespace Volt.Cli.Connector
         // Per-PROJECT serving state, keyed by DetectedProject.Id — the ground truth "is this project's bridge
         // actually serving it right now". Distinct from _selected (a tray highlight) and from _health (per VENDOR,
         // which is ambiguous the moment two CODESYS instances run). Everything user-facing derives from this.
-        private readonly Dictionary<string, bool> _serving = new();
+        private IReadOnlyDictionary<string, bool> _serving = new Dictionary<string, bool>();
         private IReadOnlyList<DetectedProject> _projects = Array.Empty<DetectedProject>();
+
+        // A refresh runs on the tray's timer AND on demand from the control plane, so it must not run twice at
+        // once: the gate serializes it, and both _projects/_serving are REPLACED wholesale (never mutated in
+        // place) so a concurrent reader always sees one consistent generation.
+        private readonly SemaphoreSlim _refreshGate = new(1, 1);
+        private DateTime _lastRefreshUtc = DateTime.MinValue;
 
         public ConnectionManager(IReadOnlyList<IProjectSource> sources)
         {
@@ -57,6 +64,29 @@ namespace Volt.Cli.Connector
         /// source that is unreachable simply contributes nothing (never throws the whole refresh).</summary>
         public async Task RefreshAsync()
         {
+            await _refreshGate.WaitAsync().ConfigureAwait(false);
+            try { await RefreshCoreAsync().ConfigureAwait(false); }
+            finally { _refreshGate.Release(); }
+        }
+
+        /// <summary>Refresh only if the snapshot is older than <paramref name="maxAge"/>. The control plane calls
+        /// this so a client's GET reads LIVE state instead of whatever the 4s tray tick last cached — otherwise a
+        /// change made outside Volt (an IDE closing) lags by up to the tick PLUS the client's own poll. If another
+        /// refresh is already running, wait for it and use its result rather than starting a second one.</summary>
+        public async Task RefreshIfStaleAsync(TimeSpan maxAge)
+        {
+            if (DateTime.UtcNow - _lastRefreshUtc < maxAge) return;
+            await _refreshGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (DateTime.UtcNow - _lastRefreshUtc < maxAge) return; // a queued caller refreshed it for us
+                await RefreshCoreAsync().ConfigureAwait(false);
+            }
+            finally { _refreshGate.Release(); }
+        }
+
+        private async Task RefreshCoreAsync()
+        {
             var merged = new List<DetectedProject>();
             foreach (var s in _sources)
             {
@@ -73,18 +103,21 @@ namespace Volt.Cli.Connector
             // actually needs, and only the bridge can answer it: a project can be detected (it shows in the
             // selector) while its bridge refuses sync — that is exactly what Disconnect does. Deriving "connected"
             // from detection, or from _selected, is what let the UI claim connected against a gated bridge.
-            _serving.Clear();
+            var serving = new Dictionary<string, bool>();
             foreach (var p in merged)
             {
                 if (!_byVendor.TryGetValue(p.Vendor, out var s)) continue;
-                try { _serving[p.Id] = IsServing(await s.ProbeAsync(p), p); }
-                catch { _serving[p.Id] = false; }
+                try { serving[p.Id] = IsServing(await s.ProbeAsync(p), p); }
+                catch { serving[p.Id] = false; }
             }
+            _serving = serving; // published as one generation — never mutated while a reader is walking it
 
             // Drop a stale selection whose project is no longer detected (its IDE/host closed).
             foreach (var vendor in _selected.Keys.ToList())
                 if (_selected[vendor] is { } sel && merged.All(p => p.Id != sel.Id))
                     _selected[vendor] = null;
+
+            _lastRefreshUtc = DateTime.UtcNow;
         }
 
         /// <summary>Does this health response mean "serving THIS project"? A live channel is not enough: one
