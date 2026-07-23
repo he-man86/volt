@@ -84,10 +84,15 @@ namespace Volt.Cli.Connector
             Connected?.Invoke(project);
         }
 
-        /// <summary>Clear the active connection (deselect). Nothing is torn down — every activated CODESYS host and
-        /// running TwinCAT project stays live and re-connectable; this only forgets which one is "connected".</summary>
-        public void Disconnect()
+        /// <summary>Disconnect the active connection: tell its bridge to stop serving (sync ops are refused as
+        /// PLC_DISCONNECTED until the next connect) AND clear the selection. Nothing is torn down — every activated
+        /// CODESYS host and running TwinCAT project stays loaded and re-connectable, so reconnecting is just another
+        /// <see cref="ConnectAsync"/>. The bridge-side gate is what makes this real: the CLI reaches the pipe
+        /// directly, so clearing the selection alone would leave push/pull working.</summary>
+        public async Task DisconnectAsync()
         {
+            if (ActiveConnection is { } active && _byVendor.TryGetValue(active.Vendor, out var source))
+                await source.UnbindAsync(active);
             foreach (var v in _selected.Keys.ToList()) _selected[v] = null;
         }
 

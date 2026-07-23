@@ -106,6 +106,45 @@ public class PipeTransportTests
         Assert.Equal("NO_SIDECAR", ex.Code);
     }
 
+    /// <summary>The tray's Disconnect, end to end over the wire. `deselect` must REFUSE sync without tearing the
+    /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean
+    /// anything. `health` + `instances` must keep answering while disconnected — they are how the UI shows the
+    /// state and lists the project to reconnect to — and `select` must resume service with no restart.</summary>
+    [Fact]
+    public void Deselect_refuses_sync_until_the_next_select_but_leaves_the_host_serving_health_and_instances()
+    {
+        var pipe = Pipe();
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            HealthConnected = true,
+            HealthProjectName = "Demo",
+        };
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        Assert.True(new PipeClient(pipe).Call("health").GetProperty("connected").GetBoolean());
+        new PipeClient(pipe).Call("refs"); // serving
+
+        new PipeClient(pipe).Call("deselect");
+
+        foreach (var op in new[] { "refs", "fetch", "init", "push", "build" })
+        {
+            var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, new { }));
+            Assert.Equal("PLC_DISCONNECTED", ex.Code);
+        }
+
+        // Nothing was torn down: the host still answers, but reports itself disconnected, and still lists the
+        // project — otherwise there'd be no way back other than restarting the IDE.
+        var health = new PipeClient(pipe).Call("health");
+        Assert.False(health.GetProperty("connected").GetBoolean());
+        Assert.Equal("unavailable", health.GetProperty("status").GetString());
+        Assert.True(new PipeClient(pipe).Call("instances").TryGetProperty("instances", out _));
+
+        new PipeClient(pipe).Call("select", new { });
+        new PipeClient(pipe).Call("refs"); // serving again, no restart
+        Assert.True(new PipeClient(pipe).Call("health").GetProperty("connected").GetBoolean());
+    }
+
     private static string? ActiveOp(string pipe)
     {
         var h = new PipeClient(pipe).Call("health");

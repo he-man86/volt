@@ -40,6 +40,12 @@ namespace Volt.Cli.Connector
             return _wire.CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
+        public async Task UnbindAsync(DetectedProject project)
+        {
+            try { await _wire.CallAsync("deselect"); }
+            catch { /* unreachable → already not serving */ }
+        }
+
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
         {
             try { return HealthProbe.FromWire(await _wire.CallAsync("health")); }

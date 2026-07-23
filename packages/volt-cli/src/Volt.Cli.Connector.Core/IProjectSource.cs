@@ -26,6 +26,11 @@ namespace Volt.Cli.Connector
         /// The project's <see cref="DetectedProject.Attach"/> is this source's own payload.</summary>
         Task BindAsync(DetectedProject project);
 
+        /// <summary>Stop serving the given project — the bridge refuses sync ops until the next
+        /// <see cref="BindAsync"/>. Nothing is torn down: the in-proc host / worker stays loaded and re-bindable,
+        /// so Disconnect is a gate, not a shutdown. Never throws (an unreachable bridge is already disconnected).</summary>
+        Task UnbindAsync(DetectedProject project);
+
         /// <summary>Health of the given project's bridge (the tray colour + status text). <paramref name="selected"/>
         /// is the currently-connected project of this vendor (or null) — a vendor with per-instance bridges
         /// (CODESYS) probes that instance's pipe; a single-bridge vendor (TwinCAT) ignores it.</summary>

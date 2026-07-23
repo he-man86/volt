@@ -57,6 +57,17 @@ export const bridge = {
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => post("/fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => post("/push", req),
 	build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => post("/build", req),
+	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
+	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
+	instances: (): Promise<any> => get("/instances"),
+	select: (req: { instanceId?: string | null; project?: string | null; plcProject?: string | null } = {}): Promise<any> => post("/select", req),
+	deselect: (): Promise<any> => post("/deselect"),
+}
+
+/** The bridge's error code for an op, or null when it succeeded. The e2e client surfaces errors as
+ *  `Error("CODE: message")` (see pipeCall), so the code is the prefix. */
+export async function opErrorCode(run: () => Promise<unknown>): Promise<string | null> {
+	try { await run(); return null } catch (e) { return String((e as Error).message).split(":")[0] }
 }
 
 export async function requireHealthy(): Promise<void> {

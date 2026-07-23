@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading;
+using Volt.Engine;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
@@ -26,6 +27,12 @@ public sealed class BridgePipeHost : IDisposable
     private int _activeOpDepth;
     private volatile string? _activeOpLabel;
 
+    // "Disconnected" without tearing anything down. The tray's Disconnect sets this (`deselect`); the host stays
+    // loaded — the CODESYS in-proc host keeps running, the TwinCAT worker keeps its COM attach — but every sync op
+    // is refused as PLC_DISCONNECTED until a `select` re-binds. This is what makes Disconnect mean something: the
+    // CLI reaches the pipe directly, so a connector-side selection flag alone can never gate sync.
+    private volatile bool _paused;
+
     public BridgePipeHost(IIdeDriver ide, string pipeName)
     {
         _ide = ide;
@@ -36,22 +43,38 @@ public sealed class BridgePipeHost : IDisposable
     public void Stop() => _server.Stop();
     public void Dispose() => _server.Dispose();
 
+    // The ops that stay served while paused — the ones the UI needs to SHOW you're disconnected and get back.
+    private static bool AllowedWhilePaused(string? op) =>
+        op == "health" || op == "instances" || op == "select" || op == "deselect";
+
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
+        if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.PlcDisconnected();
+
         switch (req.Op)
         {
             case "health":
             {
                 var h = _ide.BuildHealthResponse();
                 h.ActiveOp = Volatile.Read(ref _activeOpDepth) > 0 ? _activeOpLabel ?? "busy" : null;
+                if (_paused) { h.Connected = false; h.Status = "unavailable"; }
                 return h;
             }
             case "instances":
-                // Read-only project discovery for the connector's selector — same STA marshalling as refs.
+                // Read-only project discovery for the connector's selector — same STA marshalling as refs. Stays
+                // answerable while paused: that list is HOW the user reconnects.
                 return _ide.RunOnStaThread(() => (object)_ide.EnumerateInstances());
             case "select":
                 // Bind the chosen project (retarget/rebind); a state change, so mark the bridge busy for it.
-                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); return (object)new { ok = true }; });
+                // Also the un-pause: connecting anything resumes service.
+                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); _paused = false; return (object)new { ok = true }; });
+            case "deselect":
+                // The tray's Disconnect. Refuse sync until the next `select`; tear nothing down. Deliberately NOT
+                // wrapped in Busy(): it neither touches the IDE nor waits for the STA thread, so it answers even
+                // while a push is running — and that push, already past the gate, RUNS TO COMPLETION. Disconnecting
+                // mid-write must not leave the IDE half-updated; the gate stops the NEXT op, not the current one.
+                _paused = true;
+                return new { ok = true };
             case "refs":
                 return _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
             case "fetch":

@@ -15,7 +15,7 @@ namespace Volt.Cli.Connector.Tests;
 /// Integration for the connector's CODESYS stack over REAL named pipes (only the IDE is faked). Proves the
 /// discovery-backed <see cref="CodesysProjectSource"/> + <see cref="ConnectionManager"/> handle the multi-instance
 /// lifecycle: every live host is listed with its pipe, connect keeps exactly ONE active (switching clears the
-/// other), Disconnect deselects while hosts stay live, and CLOSING a host drops it — clearing the active connection
+/// other), Disconnect deselects the bridge while hosts stay live + listed, and CLOSING a host drops it — clearing the active connection
 /// if it was the closed one. CI-runnable; a unique per-test prefix isolates it from any real bridge on the box.
 /// </summary>
 public class CodesysSourceLiveTests
@@ -64,10 +64,10 @@ public class CodesysSourceLiveTests
             await mgr.ConnectAsync(projs[1]);  // switch — one active at a time
             Assert.Equal("MachineB", mgr.ActiveConnection?.DisplayName);
 
-            mgr.Disconnect();
+            await mgr.DisconnectAsync();
             Assert.Null(mgr.ActiveConnection);
             await mgr.RefreshAsync();
-            Assert.Equal(2, mgr.Projects.Count); // Disconnect tore nothing down — both hosts still live
+            Assert.Equal(2, mgr.Projects.Count); // Disconnect tore nothing down — both hosts still live + listed
 
             // Connect A, then CLOSE its host: refresh drops it and clears the (now-gone) active connection.
             await mgr.ConnectAsync(mgr.Projects.First(p => p.DisplayName == "MachineA"));

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace Volt.Cli.Connector
 {
@@ -32,7 +33,7 @@ namespace Volt.Cli.Connector
     ///
     ///   GET  /status                 → ConnectorView (aggregate status + the unified project list)
     ///   POST /connect                → body { projectId } — make a detected project the active connection
-    ///   POST /disconnect             → clear the active connection (hosts stay live)
+    ///   POST /disconnect             → disconnect the active connection (the bridge refuses sync; hosts stay live)
     ///   POST /workers/{id}/restart   → respawn a worker
     /// </summary>
     public sealed class ControlServer : IDisposable
@@ -41,14 +42,16 @@ namespace Volt.Cli.Connector
 
         private readonly HttpListener _listener = new();
         private readonly Func<ConnectorView> _snapshot;
-        private readonly Func<string, bool> _connect;   // projectId → connected?
-        private readonly Action _disconnect;            // clear the active connection
-        private readonly Action<string> _restart;       // worker id
+        // Both connect + disconnect are awaited before the response is written: each ends in a `select`/`deselect`
+        // on the bridge pipe, and a client that refreshes its status right after the 200 would otherwise race it.
+        private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
+        private readonly Func<Task> _disconnect;              // disconnect the active connection
+        private readonly Action<string> _restart;             // worker id
         private volatile bool _running;
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-        public ControlServer(Func<ConnectorView> snapshot, Func<string, bool> connect, Action disconnect, Action<string> restart)
+        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task> disconnect, Action<string> restart)
         {
             _snapshot = snapshot;
             _connect = connect;
@@ -98,14 +101,15 @@ namespace Volt.Cli.Connector
             if (method == "POST" && path == "connect")
             {
                 var id = ReadBody<ConnectBody>(ctx)?.ProjectId;
-                var ok = !string.IsNullOrEmpty(id) && _connect(id!);
+                var ok = !string.IsNullOrEmpty(id) && _connect(id!).GetAwaiter().GetResult();
                 WriteJson(ctx, ok ? 200 : 400, new { ok });
                 return;
             }
 
             if (method == "POST" && path == "disconnect")
             {
-                _disconnect();   // clear the active connection; every host stays live
+                // The bridge stops serving sync; every host stays live and re-connectable.
+                _disconnect().GetAwaiter().GetResult();
                 WriteJson(ctx, 200, new { ok = true });
                 return;
             }

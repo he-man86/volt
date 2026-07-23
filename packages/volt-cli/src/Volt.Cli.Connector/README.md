@@ -42,13 +42,21 @@ stays behind the wire.
 
 The **data wire is a named pipe** — `volt.bridge.twincat` (one worker, ROT-multiplexed) and one
 `volt.bridge.codesys.<pid>` **per running CODESYS** (`CodesysProjectSource` discovers them all, so multiple IDEs
-are live at once). The `health`, `instances`, `select`, and sync ops flow over it. There are no HTTP data ports.
+are live at once). The `health`, `instances`, `select`, `deselect`, and sync ops flow over it. There are no HTTP data ports.
 The only HTTP is the localhost **control plane on `:8550`** (orchestration only: `/status`, `/connect`,
 `/disconnect`, `/workers/{id}/restart`).
 
 **One active connection, many live hosts.** Every activated CODESYS + every running TwinCAT project is listed and
-clickable; clicking makes it the ONE active connection (vendor-neutral — `Disconnect` clears it, nothing is torn
-down, so switching is just another click). A vendor with >1 live instance shows the IDE version in the label.
+clickable; clicking makes it the ONE active connection (vendor-neutral), so switching is just another click. A
+vendor with >1 live instance shows the IDE version in the label.
+
+**Disconnect is a gate, not a shutdown.** It sends `deselect` to that project's bridge, which then refuses every
+sync op with `PLC_DISCONNECTED` until the next `select` — and clears the selection. **Nothing is torn down:** the
+CODESYS in-proc host stays loaded (the `start_volt_codesys.py` activation survives), the TwinCAT worker keeps its
+COM attach, the project stays listed, and reconnecting is just another connect with no IDE restart. The gate has
+to live on the bridge because **the CLI reaches the pipe directly and never talks to the connector** — a
+connector-side flag alone would leave `volt push`/`volt pull` working after you pressed Disconnect (it did, until
+this existed). The flag is in-memory: restarting the host or the connector resets it to "serving".
 
 ## What it does
 
@@ -98,3 +106,22 @@ dotnet build src/Volt.Cli.Connector -c Release
 `build-cli.ps1` places `VoltConnector.exe`, the worker binaries, and `codesys-scriptcommands/` together so path
 resolution is zero-config. The UI-free model + its tests live in `Volt.Cli.Connector.Core` /
 `test/Volt.Cli.Connector.Tests`.
+
+## Testing the connection lifecycle
+
+`test/Volt.Cli.Connector.Tests` runs the real model over **real named pipes** with only the IDE faked — no CODESYS,
+no tray, CI-runnable in seconds. The parity boundary is the pipe wire, so a live `BridgePipeHost` on a real pipe
+reproduces every state a real IDE can put the connector in; a headless CODESYS would only add confidence in the
+vendor glue *below* the wire, which is `test/e2e`'s job.
+
+- `CodesysSourceLiveTests` — multi-instance discovery: N live hosts, each on its own pipe, connect/switch, and a
+  host closing mid-session (dropped + deselected).
+- `DisconnectLifecycleTests` — connect/disconnect/reconnect asserted from **both sides after every transition**:
+  the connector's view (`ConnectionManager`) *and* a raw `PipeClient` standing in for the CLI, which reaches the
+  bridge directly and never consults the connector. That second assertion is the point — it is what catches the
+  bug this gate exists for (Disconnect left `volt push` working). Also covers: disconnecting one host leaves its
+  neighbours serving, *switching* is not a disconnect, a disconnected host that then closes is dropped normally,
+  disconnecting an already-dead bridge is silent, and disconnect is idempotent.
+
+When changing anything in this area, verify the tests are **red without the fix** — comment out the `_paused` gate
+in `BridgePipeHost.Dispatch` and three of them must fail.

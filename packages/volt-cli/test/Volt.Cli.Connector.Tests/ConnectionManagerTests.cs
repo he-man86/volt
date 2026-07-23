@@ -17,6 +17,7 @@ internal sealed class FakeProjectSource : IProjectSource
     public BridgeHealth Health { get; set; } = new() { Status = BridgeStatus.Unknown };
     public bool ThrowOnEnumerate { get; set; }
     public List<DetectedProject> Bound { get; } = new();
+    public List<DetectedProject> Unbound { get; } = new();
 
     public FakeProjectSource(string vendor, string display) { Vendor = vendor; DisplayName = display; }
 
@@ -33,6 +34,7 @@ internal sealed class FakeProjectSource : IProjectSource
                          : Task.FromResult<IReadOnlyList<DetectedProject>>(Projects.ToList());
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
+    public Task UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.CompletedTask; }
     public Task<BridgeHealth> ProbeAsync(DetectedProject? selected) => Task.FromResult(Health);
 }
 
@@ -154,7 +156,7 @@ public class ConnectionManagerTests
     }
 
     [Fact]
-    public async Task Disconnect_clears_the_active_connection_but_leaves_projects_listed()
+    public async Task Disconnect_unbinds_the_bridge_and_clears_the_selection_but_leaves_projects_listed()
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var pA = cds.Add("MachineA");
@@ -163,8 +165,11 @@ public class ConnectionManagerTests
         await mgr.ConnectAsync(pA);
         Assert.Equal(pA, mgr.ActiveConnection);
 
-        mgr.Disconnect();
+        await mgr.DisconnectAsync();
 
+        // The bridge is told to stop serving — clearing the selection alone would leave the CLI (which reaches
+        // the pipe directly, never the connector) still pushing and pulling.
+        Assert.Equal(new[] { pA }, cds.Unbound);
         Assert.Null(mgr.ActiveConnection);
         Assert.Null(mgr.SelectedOf("codesys"));
         await mgr.RefreshAsync();

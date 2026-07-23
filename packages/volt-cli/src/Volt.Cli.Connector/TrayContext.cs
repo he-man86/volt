@@ -50,7 +50,7 @@ namespace Volt.Cli.Connector
             _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
             // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
-            _control = new ControlServer(Snapshot, ConnectById, TrayDisconnect, RestartWorker);
+            _control = new ControlServer(Snapshot, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker);
             _control.Start();
             Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
@@ -106,12 +106,15 @@ namespace Volt.Cli.Connector
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
                 Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id, p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
 
-        private bool ConnectById(string projectId)
+        // Awaited (not fire-and-forget): the connect ends in a `select` on the bridge, which is also what resumes
+        // a disconnected bridge — a client that refreshed right after the response would otherwise still see it
+        // disconnected. A connect that throws (the project closed mid-click) is a plain false.
+        private async Task<bool> ConnectByIdAsync(string projectId)
         {
             var p = _conn.Projects.FirstOrDefault(x => x.Id == projectId);
             if (p == null) return false;
-            _ = _conn.ConnectAsync(p);
-            return true;
+            try { await _conn.ConnectAsync(p); return true; }
+            catch (Exception ex) { Log.Warn($"connect to {p.DisplayName} failed: {ex.Message}"); return false; }
         }
 
         private void RestartWorker(string id)
@@ -137,13 +140,23 @@ namespace Volt.Cli.Connector
             }
         }
 
-        // Clear the active connection (every host stays live) and record it. One place for both the tray menu and
-        // the control-plane disconnect, so the "disconnected from X" line is logged wherever it's triggered.
-        private void TrayDisconnect()
+        // Disconnect the active connection — its bridge refuses sync until the next connect, but every host stays
+        // live (the CODESYS in-proc host stays loaded, the TwinCAT worker keeps its attach), so reconnecting is
+        // just another connect. One place for both the tray menu and the control-plane disconnect, so the
+        // "disconnected from X" line is logged wherever it's triggered.
+        private async Task TrayDisconnectAsync()
         {
             var active = _conn.ActiveConnection;
-            _conn.Disconnect();
+            await _conn.DisconnectAsync();
             if (active != null) Log.Info($"disconnected from {active.DisplayName} ({_conn.DisplayNameOf(active.Vendor)})");
+        }
+
+        /// <summary>The menu-click wrapper: never throws (the handler is async void — an escaped exception would
+        /// take the tray down with it). The control plane calls TrayDisconnectAsync directly and surfaces errors.</summary>
+        private async Task DisconnectFromTray()
+        {
+            try { await TrayDisconnectAsync(); }
+            catch (Exception ex) { Log.Error($"disconnect failed: {ex.Message}"); }
         }
 
         // ── menu ────────────────────────────────────────────────────────────
@@ -225,9 +238,11 @@ namespace Volt.Cli.Connector
                 var captured = p;
                 _connectItem.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => ConnectTo(captured)) { Checked = connected });
             }
-            // Disconnect = clear the active connection (every host stays live). Enabled only when one is connected.
+            // Disconnect = the bridge stops serving sync (every host stays live). Enabled only when one is connected.
             _connectItem.DropDownItems.Add(new ToolStripSeparator());
-            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), (_, _) => TrayDisconnect()) // PowerButton
+            // async void handler — an escaped exception would kill the tray process, so it can never propagate
+            // (same guard as ConnectTo).
+            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), async (_, _) => await DisconnectFromTray()) // PowerButton
             {
                 Enabled = _conn.ActiveConnection != null,
             });

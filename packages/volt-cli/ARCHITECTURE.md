@@ -147,7 +147,15 @@ Pipes — a load-bearing asymmetry that mirrors InIdeLoad vs ExternalAttach, **d
   (`BridgeResolver`) and REFUSES on 0/ambiguous rather than target the wrong IDE.
 
 Above the connector everything is vendor-neutral: ONE active connection, a flat project list, click to switch. The
-per-instance-pipe machinery lives entirely below `IProjectSource`. `VOLT_PIPE` overrides the pipe directly (dev,
+per-instance-pipe machinery lives entirely below `IProjectSource`.
+
+**Disconnect gates the bridge, it does not shut anything down.** `deselect` makes `BridgePipeHost` refuse every
+sync op with `PLC_DISCONNECTED` (only `health`/`instances`/`select`/`deselect` keep answering — they are how the
+UI shows the state and finds the way back); the next `select` resumes it. The gate must live here, not in the
+connector, because the CLI opens the pipe directly and never consults the connector — so the connector's
+selection can never gate `volt push`. One flag on the host, so the whole bridge is gated: on TwinCAT that means
+the one worker, which already serves one selected project at a time. In-memory by design — a host or connector
+restart resets it to serving. `VOLT_PIPE` overrides the pipe directly (dev,
 tests, and `volt init` — which has no binding yet — via the shell). The workspace binding stores the vendor +
 project name; `pull`/`push` resolve the live pipe at op-time.
 

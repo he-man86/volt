@@ -57,6 +57,13 @@ namespace Volt.Cli.Connector
             return _wireFor(project.Pipe!).CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
+        public async Task UnbindAsync(DetectedProject project)
+        {
+            if (string.IsNullOrEmpty(project.Pipe)) return;
+            try { await _wireFor(project.Pipe!).CallAsync("deselect"); }
+            catch { /* the IDE closed / host gone → already not serving */ }
+        }
+
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
         {
             // Health of the CONNECTED instance's pipe when one is selected; otherwise "any CODESYS reachable" so the
