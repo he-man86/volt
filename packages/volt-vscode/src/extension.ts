@@ -74,7 +74,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		// the detected-project list. Only probed while unbound; a bound folder's live health comes from VoltStatus.
 		const view = unbound ? await connectorStatus() : undefined
 		const projects = view?.projects ?? []
-		void vscode.commands.executeCommand("setContext", "volt.hasProjects", projects.length > 0)
+		// NOTE: no `volt.hasProjects` context key any more. It used to gate `volt.init`'s `enablement`, which made
+		// the detected-project ROWS dead on click whenever the key was stale or false — VS Code silently does
+		// nothing when a TreeItem's command is disabled, so "click to set up" did exactly that: nothing. The
+		// command reports "No PLC project detected…" itself, which beats a button that ignores you.
 		views?.setDetected(projects, !unbound || view !== undefined)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)

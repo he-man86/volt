@@ -91,6 +91,32 @@ public class DisconnectLifecycleTests
         finally { host.Dispose(); }
     }
 
+    /// <summary>The tray goes GREEN only when something is actually connected — never merely because an IDE is
+    /// running with a project open. The single-worker source used to ignore the selection and report the worker's
+    /// raw health, so TwinCAT painted the tray green the moment XAE was up, before the user connected anything.
+    /// (CODESYS never had it: its per-instance probe already keys off the selection.)</summary>
+    [Fact]
+    public async Task A_detected_but_unconnected_project_does_not_paint_the_tray_connected()
+    {
+        var pipe = _prefix + "1";
+        var host = StartHost(pipe, "MachineA");
+        // A single-worker (TwinCAT-shaped) source over this live host: healthy, project open, nothing selected.
+        var src = new PipeProjectSource("twincat", "TwinCAT", new PipeBridgeWire(pipe), pipe);
+        var mgr = new ConnectionManager(new IProjectSource[] { src });
+        try
+        {
+            await mgr.RefreshAsync();
+            Assert.NotEmpty(mgr.Projects);                            // detected...
+            Assert.Null(mgr.ActiveConnection);                        // ...but not connected
+            Assert.NotEqual(BridgeStatus.Connected, mgr.Aggregate()); // so: not green
+
+            await mgr.ConnectAsync(mgr.Projects[0]);
+            await mgr.RefreshAsync();
+            Assert.Equal(BridgeStatus.Connected, mgr.Aggregate());    // green only once connected
+        }
+        finally { host.Dispose(); }
+    }
+
     /// <summary>Disconnecting ONE project must not disconnect another. Two CODESYS IDEs = two pipes = two
     /// independent gates, so a second workspace bound to the other project keeps syncing. (Per-workspace health,
     /// not the connector's single "active connection", is what the UI reads — there is no stealing.)</summary>

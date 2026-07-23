@@ -105,10 +105,29 @@ public class PipeProjectSourceTests
         var wire = new FakeBridgeWire().On("health",
             """{ "status": "healthy", "projectName": "MyMachine", "projectDirty": true }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
+        var attach = new ProjectRef(null, "MyMachine");
+        var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MyMachine", "codesys", true, attach);
+
+        var h = await src.ProbeAsync(selected);
+
+        Assert.Equal(BridgeStatus.Connected, h.Status);
+        Assert.Equal("MyMachine", h.ProjectName);
+        Assert.True(h.ProjectDirty);
+    }
+
+    /// <summary>A healthy worker with NOTHING selected is "up, waiting for a pick" — not Connected. This test
+    /// used to assert the opposite, which is why the tray went green as soon as TwinCAT was open with a project,
+    /// before the user had connected anything. The project details still ride along for the status text.</summary>
+    [Fact]
+    public async Task Probe_with_nothing_selected_is_Unavailable_not_Connected()
+    {
+        var wire = new FakeBridgeWire().On("health",
+            """{ "status": "healthy", "projectName": "MyMachine", "projectDirty": true }""");
+        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
         var h = await src.ProbeAsync(null);
 
-        Assert.Equal(BridgeStatus.Connected, h.Status);
+        Assert.Equal(BridgeStatus.Unavailable, h.Status);
         Assert.Equal("MyMachine", h.ProjectName);
         Assert.True(h.ProjectDirty);
     }

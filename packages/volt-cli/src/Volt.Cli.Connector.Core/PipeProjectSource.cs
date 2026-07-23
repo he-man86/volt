@@ -48,8 +48,18 @@ namespace Volt.Cli.Connector
 
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
         {
-            try { return HealthProbe.FromWire(await _wire.CallAsync("health")); }
+            BridgeHealth health;
+            try { health = HealthProbe.FromWire(await _wire.CallAsync("health")); }
             catch { return new BridgeHealth { Status = BridgeStatus.Unreachable }; }
+
+            // "Connected" must mean a project is CONNECTED, not merely that the worker attached to an open IDE.
+            // This source ignored `selected` and reported the worker's raw health, so the tray went green as soon
+            // as TwinCAT was running with a project open — before the user had connected anything. (CODESYS never
+            // had the bug: its per-instance probe already keys off the selection.) Downgrade to "up, waiting for a
+            // pick", which is exactly what Unavailable means and what the tray paints amber.
+            if (selected == null && (health.Status == BridgeStatus.Connected || health.Status == BridgeStatus.Degraded))
+                return new BridgeHealth { Status = BridgeStatus.Unavailable, ProjectName = health.ProjectName, ProjectDirty = health.ProjectDirty };
+            return health;
         }
     }
 

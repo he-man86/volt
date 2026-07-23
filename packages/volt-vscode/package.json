@@ -554,9 +554,8 @@
       },
       {
         "command": "volt.init",
-        "title": "Volt: Initialize workspace from a project",
-        "category": "Volt",
-        "enablement": "volt.hasProjects"
+        "title": "Volt: Set up this folder from a detected project",
+        "category": "Volt"
       },
       {
         "command": "volt.acceptProjectRename",
@@ -783,12 +782,12 @@
     "viewsWelcome": [
       {
         "view": "volt.views.sync",
-        "contents": "This folder isn't syncing with an IDE yet.\nSet it up in **IDE Connection** above — it names every detected PLC project.",
+        "contents": "This folder isn't syncing with an IDE yet.",
         "when": "!volt.workspaceInitialized"
       },
       {
         "view": "volt.views.sync",
-        "contents": "Not connected to the IDE, so there's nothing to compare against.\nReconnect from **IDE Connection** above — no tray needed.",
+        "contents": "Not connected to the IDE, so there's nothing to compare against.",
         "when": "volt.workspaceInitialized && volt.bridgeOffline"
       }
     ]
