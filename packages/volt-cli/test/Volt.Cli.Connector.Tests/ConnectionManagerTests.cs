@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Volt.Cli.Connector;
 using Xunit;
@@ -229,6 +230,40 @@ public class ConnectionManagerTests
         // Stale (a zero window is always stale): it runs, the throwing source contributes nothing, list empties.
         await mgr.RefreshIfStaleAsync(TimeSpan.Zero);
         Assert.Empty(mgr.Projects);
+    }
+
+    /// <summary>Readers must never observe a half-built or mixed generation while refreshes churn underneath.
+    /// The model publishes ONE immutable State per generation; before that it held four separate maps, and both a
+    /// torn-collection crash ("collection was modified") and a mixed-generation answer were possible — Aggregate
+    /// combines selection + serving + health, so three independent reads could straddle a tick.</summary>
+    [Fact]
+    public async Task Readers_never_see_a_torn_or_mixed_generation_while_refreshes_churn()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS") { Health = new BridgeHealth { Status = BridgeStatus.Connected } };
+        cds.Add("MachineA");
+        cds.Add("MachineB");
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        // Hammer refreshes on one side while reading every composite accessor on the other. Any in-place mutation
+        // of a live collection surfaces here as an InvalidOperationException out of the reader.
+        var writer = Task.Run(async () => { while (!stop.IsCancellationRequested) await mgr.RefreshAsync(); });
+        var reader = Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                mgr.Aggregate();
+                _ = mgr.Projects.Count;
+                _ = mgr.ActiveConnection;
+                foreach (var p in mgr.Projects) mgr.IsServingProject(p.Id);
+                mgr.HealthOf("codesys");
+                mgr.SelectedOf("codesys");
+            }
+        });
+
+        await Task.WhenAll(writer, reader); // an exception on either side fails the test
+        Assert.Equal(2, mgr.Projects.Count);
     }
 
     /// <summary>Concurrent refreshes must serialize — the tray timer and the control plane both trigger them, and
