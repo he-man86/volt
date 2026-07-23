@@ -59,8 +59,10 @@ const uninstaller = join(installDir, "unins000.exe")
 const appId = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8").match(/AppId=\{\{([0-9A-Fa-f-]+)\}/)?.[1]
 const uninstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{${appId}}_is1`
 
-// Captured ONCE, before anything is installed: a silent run refreshes only editors that already had the
-// extension, so this is the baseline every later step is judged against.
+// Captured ONCE, before anything is installed. `hadExtension` is the immutable original baseline — used only to
+// restore the machine at the end. `expectExt` is the EXPECTED-present state as it evolves through the run: it
+// starts equal to the baseline and every uninstall turns it off, because the gate's own uninstall strips the
+// extension and the silent installs that follow never re-add it (see the extension check for why).
 const hadExtension = new Map<string, boolean>()
 for (const cli of ["code", "windsurf", "cursor"]) {
   if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
@@ -69,6 +71,7 @@ for (const cli of ["code", "windsurf", "cursor"]) {
     (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "").toLowerCase().includes("volt-ai.volt-vscode"),
   )
 }
+const expectExt = new Map(hadExtension)
 
 let failures = 0
 const fail = (step: string, msg: string): void => { failures++; console.error(`  ✗ [${step}] ${msg}`) }
@@ -115,6 +118,9 @@ function runUninstall(step: string): void {
   if (!existsSync(uninstaller)) return fail(step, "uninstaller missing — cannot uninstall")
   const r = spawnSync(uninstaller, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], { stdio: "inherit" })
   if (r.status !== 0) fail(step, `uninstaller exited ${r.status}`)
+  // Uninstall runs [UninstallRun] `--uninstall-extension` on every editor, so the extension is now gone — and a
+  // following SILENT install won't re-add it. Reflect that so later steps don't expect what can't be there.
+  for (const cli of expectExt.keys()) expectExt.set(cli, false)
   // Inno's uninstaller returns before it has finished deleting itself.
   for (let i = 0; i < 30 && existsSync(uninstaller); i++) spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"])
 }
@@ -206,13 +212,15 @@ function assertInstalled(step: string): void {
   }
   if (!existsSync(join(current, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
 
-  // The EXTENSION, asked of the editor itself. A silent install only refreshes editors that already have it, so
-  // an editor that never had it staying without it is correct — but one that HAD it must still report one, and at
-  // a version the editor acknowledges. Folder listings are not evidence: they survived both an uninstall that
-  // deregistered the extension and an install that skipped it.
+  // The EXTENSION, asked of the editor itself. A silent install only REFRESHES editors that already have it — it
+  // never re-adds one, by design (an auto-update must not push into an editor the user removed it from). So the
+  // gate checks presence against the EXPECTED state (expectExt), which every uninstall step turns off: once the
+  // gate's own uninstall has stripped the extension, the silent installs that follow correctly leave it absent,
+  // and asserting it present against the stale ORIGINAL baseline was the gate expecting what /VERYSILENT can't
+  // deliver. (Folder listings are not evidence either — they survived both an uninstall and a skipped install.)
   for (const cli of ["code", "windsurf", "cursor"]) {
     if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
-    if (hadExtension.get(cli) !== true) continue
+    if (expectExt.get(cli) !== true) continue
     const listed = (spawnSync(cli, ["--list-extensions", "--show-versions"], { encoding: "utf8", shell: true }).stdout ?? "")
       .split("\n")
       .map((l) => l.trim())
@@ -304,11 +312,34 @@ const steps: [string, () => void][] = [
   ["8 uninstall", () => { runUninstall("8 uninstall"); assertClean("8 uninstall") }],
 ]
 
+// The gate's uninstall steps run `<editor> --uninstall-extension` against the user's REAL editors (there is no
+// sandbox), and it ends on an uninstall — so left alone it strips the Volt extension from every editor that had
+// it and never puts it back. Restore the captured baseline: reinstall into exactly the editors that had it before
+// the run, from the repo's built vsix (the installed copy is gone after the final uninstall). Leaves the machine
+// as the gate found it. Best-effort and never affects pass/fail — this is courtesy, not an assertion.
+function restoreExtensionBaseline(): void {
+  const vsix = resolve(repo, "dist/volt/volt-vscode.vsix")
+  const toRestore = [...hadExtension].filter(([, had]) => had).map(([cli]) => cli)
+  if (toRestore.length === 0 || !existsSync(vsix)) return
+  console.log(`\n── restoring extension baseline ──`)
+  for (const cli of toRestore) {
+    if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+    const has = (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "")
+      .toLowerCase()
+      .includes("volt-ai.volt-vscode")
+    if (has) { console.log(`  ✓ ${cli}: still present`); continue }
+    const r = spawnSync(cli, ["--install-extension", vsix, "--force"], { encoding: "utf8", shell: true })
+    console.log(r.status === 0 ? `  ✓ ${cli}: restored` : `  ⚠ ${cli}: restore failed (reinstall manually from ${vsix})`)
+  }
+}
+
 console.log(`• lifecycle: ${setup}${olderSetup ? `\n  upgrading from: ${olderSetup}` : "  (same build reinstalled — pass --older for a true upgrade)"}\n`)
 for (const [name, run] of steps) {
   console.log(`── ${name} ──`)
   run()
 }
+
+restoreExtensionBaseline()
 
 console.log(
   failures === 0

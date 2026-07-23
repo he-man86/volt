@@ -376,6 +376,25 @@ begin
       GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' [uninstall] ' + Msg + #13#10, True);
 end;
 
+/// True while any {app}\app-<version> directory still exists. The uninstall's cleanup must wait for these to be
+/// GONE, not just the junction: now that the connector successfully launches from app-<version>\VoltConnector.exe
+/// (it resolves through the junction, but the exe physically lives in the version dir), that process holds the
+/// version dir open, and its self-contained .NET runtime handles take a moment to release after taskkill. The
+/// junction unlinks instantly; the version dir does not. Waiting only on the junction left app-* behind.
+function AppDirsRemain: Boolean;
+var FR: TFindRec;
+begin
+  Result := False;
+  if FindFirst(ExpandConstant('{app}\app-*'), FR) then
+  try
+    repeat
+      if (FR.Attributes and $10) <> 0 then begin Result := True; exit; end; // $10 = FILE_ATTRIBUTE_DIRECTORY
+    until not FindNext(FR);
+  finally
+    FindClose(FR);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var ResultCode, I: Integer; PathVal, NewPath, Part: String;
 begin
@@ -432,17 +451,21 @@ begin
     // killed above are not always fully reaped by the time we get here. A single attempt left `current` behind on
     // one run of the lifecycle gate while later runs were clean - a race, so treat it as one rather than sleeping
     // longer and hoping. Each attempt is logged, so a leftover now says WHY instead of just appearing.
-    for I := 1 to 5 do
+    for I := 1 to 10 do
     begin
       Exec(ExpandConstant('{cmd}'),
         '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      if not DirExists(ExpandConstant('{app}\current')) then Break;
-      ULog('attempt ' + IntToStr(I) + ': {app}\current still present, retrying');
+      // Wait for BOTH the junction AND every version dir. The junction unlinks at once; a version dir the connector
+      // was running from stays locked until its handles release, so this is the condition that actually matters.
+      if (not DirExists(ExpandConstant('{app}\current'))) and (not AppDirsRemain) then Break;
+      ULog('attempt ' + IntToStr(I) + ': junction=' + IntToStr(Integer(DirExists(ExpandConstant('{app}\current'))))
+           + ' app-dirs=' + IntToStr(Integer(AppDirsRemain)) + ', retrying');
       Sleep(500);
     end;
-    if DirExists(ExpandConstant('{app}\current')) then
-      ULog('FAILED to remove {app}\current - something still holds it')
+    if DirExists(ExpandConstant('{app}\current')) or AppDirsRemain then
+      ULog('FAILED to fully remove the install root - something still holds it (junction='
+           + IntToStr(Integer(DirExists(ExpandConstant('{app}\current')))) + ' app-dirs=' + IntToStr(Integer(AppDirsRemain)) + ')')
     else
       ULog('removed the junction and every version directory');
   end;
