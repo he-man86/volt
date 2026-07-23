@@ -4,10 +4,11 @@ using System.IO;
 namespace Volt.Cli.Connector
 {
     /// <summary>The connector's slice of the shared Volt log store (<c>%LOCALAPPDATA%\Volt\logs</c>) — the same
-    /// location and line format the bridges write via Core's <c>VoltLog</c>. The connector deliberately does not
-    /// reference Core (it only speaks the HTTP wire to workers), so this is its own tiny writer. Source
-    /// "connector" for its own lifecycle; a supervised worker's stdout/stderr is re-tagged via <see cref="Raw"/>.</summary>
-    internal static class Log
+    /// location and line format the bridges write via Core's <c>VoltLog</c>, but its own tiny writer (Core's
+    /// logger is tied to the bridge's own init). Source "connector" for its own lifecycle; a supervised worker's
+    /// stdout/stderr is re-tagged via <see cref="Raw"/>. Public, not internal: it lives in Core now (with
+    /// ControlServer, which needs it) and the tray is a separate assembly.</summary>
+    public static class Log
     {
         private static readonly object Gate = new object();
 

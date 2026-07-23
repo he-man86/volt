@@ -47,28 +47,32 @@ namespace Volt.Cli.Connector
         private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
         private readonly Func<Task> _disconnect;              // disconnect the active connection
         private readonly Action<string> _restart;             // worker id
+        private readonly int _port;
         private volatile bool _running;
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task> disconnect, Action<string> restart)
+        /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
+        /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
+        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task> disconnect, Action<string> restart, int port = ControlPort)
         {
             _snapshot = snapshot;
             _connect = connect;
             _disconnect = disconnect;
             _restart = restart;
+            _port = port;
         }
 
         public void Start()
         {
             try
             {
-                _listener.Prefixes.Add($"http://127.0.0.1:{ControlPort}/");
+                _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
                 _listener.Start();
                 _running = true;
                 _listener.BeginGetContext(OnContext, null);
             }
-            catch (Exception ex) { Log.Error($"control plane :{ControlPort} failed: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"control plane :{_port} failed: {ex.Message}"); }
         }
 
         private void OnContext(IAsyncResult ar)
