@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { resolveOpencodeExe, hasOpencode } from "./agent.js"
-import { startLsp, stopLsp, registerLspCommands } from "./lsp.js"
+import { startLsp, stopLsp, registerLspCommands, markLspFailed } from "./lsp.js"
 import { registerCommands } from "./commands.js"
 import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
@@ -135,8 +135,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		const clients = await startLsp(context)
 		context.subscriptions.push(...clients)
 	} catch (err) {
+		const reason = err instanceof Error ? err.message : String(err)
 		console.error("Volt: language server failed to start —", err)
-		void vscode.window.showWarningMessage("Volt: the language server didn't start — IDE sync and the Volt views still work. See the Extension Host log for details.")
+		// Leave a PERSISTENT, clickable trace in the status bar. A toast is dismissible (and easy to miss on
+		// startup), after which nothing on screen said the language server was dead — code just quietly had no
+		// navigation or diagnostics.
+		markLspFailed(reason)
+		void vscode.window.showWarningMessage(
+			"Volt: the language server didn't start — IDE sync and the Volt views still work.",
+			"Show Output",
+		).then((pick) => { if (pick === "Show Output") void vscode.commands.executeCommand("volt.lsp.showOutput") })
 	}
 }
 

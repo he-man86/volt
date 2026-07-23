@@ -67,6 +67,28 @@ export async function stopLsp(): Promise<void> {
  *  the server failed to launch — otherwise invoking a palette command declared in package.json errors with
  *  "command not found" exactly when the user is trying to diagnose why the LSP is down. Each guards on the
  *  live client and offers a recovery path. */
+// ONE status-bar item for the language server's whole life, created lazily and reused. It used to be created only
+// AFTER a successful start, so when the server failed the item never appeared — and with it went the only visible
+// way to restart, exactly when a restart is what you want. Now a failure repaints it red and points at the restart.
+let statusItem: vscode.StatusBarItem | undefined
+function ensureStatusItem(): vscode.StatusBarItem {
+	if (statusItem === undefined) statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0)
+	return statusItem
+}
+
+/** The server didn't start. Show it, in the same place the healthy state lives, wired straight to a restart —
+ *  a dismissible toast is not an affordance, and the palette only helps someone who knows the command exists. */
+export function markLspFailed(reason: string): void {
+	const status = ensureStatusItem()
+	status.text = "$(error) Volt LSP"
+	status.tooltip = `The Volt language server isn't running.
+${reason}
+Click to retry.`
+	status.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground")
+	status.command = "volt.lsp.restart"
+	status.show()
+}
+
 export function registerLspCommands(): vscode.Disposable[] {
 	const notRunning = async (): Promise<void> => {
 		const pick = await vscode.window.showWarningMessage("Volt LSP is not running.", "Reload Window")
@@ -82,6 +104,10 @@ export function registerLspCommands(): vscode.Disposable[] {
 			else if (pick === "Restart") await vscode.commands.executeCommand("volt.lsp.restart")
 		}),
 		vscode.commands.registerCommand("volt.lsp.restart", async () => {
+			// No client means the server never started (or died). `client.restart()` can't help there, and the old
+			// behaviour — "Volt LSP is not running" + Reload Window — made Restart useless in the one state where
+			// the user reaches for it. Reload is still the honest fix (activate() owns the client's lifetime), so
+			// offer it directly rather than reporting a dead end.
 			if (activeClient === undefined) return notRunning()
 			await activeClient.restart()
 			vscode.window.showInformationMessage("Volt LSP restarted")
