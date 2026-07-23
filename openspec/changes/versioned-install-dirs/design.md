@@ -52,6 +52,14 @@ What is in place today is `PrepareToInstall` + `CurUninstallStepChanged` termina
 
 **Migration of an existing flat install is explicit.** The first upgrade must delete the flat payload — otherwise `{app}\bin` (flat) and `{app}\current\bin` both exist, and whichever `PATH` lists first wins. `[InstallDelete]` runs before `[Files]` and is the right hook, but it must name entries precisely: Inno does **not** roll back deletions, so a wildcard wipe of `{app}` would leave an aborted upgrade with nothing installed and `OPENCODE_CONFIG_DIR` pointing at a directory that no longer exists.
 
+**Alternative considered: a "close these applications" wizard gate.** A custom `[Code]` page that detects Volt processes running from `{app}` and blocks Next until they are closed (no Restart Manager, so it avoids the reasons RM was rejected). It is far cheaper than this change and makes the INTERACTIVE install honest — a visible prompt instead of a silent rollback.
+
+Rejected as the primary fix for one reason: **the connector's auto-update runs `/VERYSILENT`, and silent installs skip wizard pages.** Every failure that motivated this change came through that path — the stale `bin/volt.exe`, the tray never relaunching, `volt pull --force` appearing broken for days. A gate the silent path cannot show fixes the case that was not hurting us.
+
+It remains worth adding ON TOP, and is cheap: interactive installs get a clear prompt, and it costs nothing once the layout removes the underlying conflict. Track it separately rather than folding it in here — it is a UX improvement, not a correctness one.
+
+**Interim hardening if this change is deferred:** make the stopgap's kill list data-driven — terminate processes whose executable path resolves under `{app}`, instead of naming images. The hardcoded list is what failed (it omitted `volt-lsp-iec.exe`), and enumeration removes the "someone adds a binary and forgets" mode without touching the layout. It stays racy — a fixed sleep waiting on handle release — so it is a mitigation, not this change.
+
 ## Risks / Trade-offs
 
 - **Junction creation fails (filesystem doesn't support reparse points, e.g. a FAT32 or network target).** → Detect at install; fall back to the current flat layout for that machine rather than failing the install. `DefaultDirName` is under `%LOCALAPPDATA%`, so this is rare but not impossible.
