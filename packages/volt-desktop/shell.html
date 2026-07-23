@@ -309,16 +309,10 @@
   async function doConnect() { busy = "Connecting…"; render(); await volt.connect() }
   async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
   async function doAcceptRename() { busy = "Accepting rename…"; render(); await volt.acceptRename() }
-  async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.
-
-This cannot be undone.")) return; busy = "Force pulling…"; render(); await volt.forcePull() }
-  async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.
-
-This cannot be undone.")) return; busy = "Force pushing…"; render(); await volt.forcePush() }
+  async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.\n\nThis cannot be undone.")) return; busy = "Force pulling…"; render(); await volt.forcePull() }
+  async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.\n\nThis cannot be undone.")) return; busy = "Force pushing…"; render(); await volt.forcePush() }
   async function doFinishMerge() { busy = "Finishing merge…"; render(); await volt.finishMerge() }
-  async function doAbortMerge() { if (!confirm("Abort discards this merge and restores your workspace to before the pull.
-
-Your in-merge edits are lost. This cannot be undone.")) return; busy = "Aborting merge…"; render(); await volt.abortMerge() }
+  async function doAbortMerge() { if (!confirm("Abort discards this merge and restores your workspace to before the pull.\n\nYour in-merge edits are lost. This cannot be undone.")) return; busy = "Aborting merge…"; render(); await volt.abortMerge() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }

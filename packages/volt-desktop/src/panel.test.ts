@@ -1,5 +1,20 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { snapshot } from "./panel.js"
+
+// shell.html is the renderer — a static file loaded at runtime, so nothing type-checks or bundles it, and a
+// syntax error in its <script> silently kills EVERY handler: the rail still draws (static HTML) but clicking a
+// tab does nothing, so the whole IDE panel becomes unopenable. That shipped — a confirm() message written across
+// two source lines put a raw newline INSIDE a string literal (must be \n), which is a SyntaxError that took down
+// tab()/setOpen() and everything else. Parse the script the way the browser would; `new Function` throws on
+// exactly that class without running any of it.
+test("shell.html's script parses (a syntax error there makes the whole IDE panel unopenable)", () => {
+  const html = readFileSync(join(import.meta.dir, "..", "shell.html"), "utf8")
+  const script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)?.[1]
+  expect(script, "shell.html has no <script> block").toBeTruthy()
+  expect(() => new Function(script!)).not.toThrow()
+})
 
 // panel.ts is electron-free (the renderer draws the pixels); snapshot() is the pure shell → shared view-model
 // projection. Smoke it so the desktop package enters the CI gate and the init surface keeps naming projects.
