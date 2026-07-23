@@ -45,7 +45,7 @@ namespace Volt.Cli.Connector
         // Both connect + disconnect are awaited before the response is written: each ends in a `select`/`deselect`
         // on the bridge pipe, and a client that refreshes its status right after the 200 would otherwise race it.
         private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
-        private readonly Func<Task> _disconnect;              // disconnect the active connection
+        private readonly Func<Task<bool>> _disconnect;        // → false when the bridge was too old to be gated
         private readonly Action<string> _restart;             // worker id
         private readonly int _port;
         private volatile bool _running;
@@ -54,7 +54,7 @@ namespace Volt.Cli.Connector
 
         /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
         /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
-        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task> disconnect, Action<string> restart, int port = ControlPort)
+        public ControlServer(Func<ConnectorView> snapshot, Func<string, Task<bool>> connect, Func<Task<bool>> disconnect, Action<string> restart, int port = ControlPort)
         {
             _snapshot = snapshot;
             _connect = connect;
@@ -112,9 +112,11 @@ namespace Volt.Cli.Connector
 
             if (method == "POST" && path == "disconnect")
             {
-                // The bridge stops serving sync; every host stays live and re-connectable.
-                _disconnect().GetAwaiter().GetResult();
-                WriteJson(ctx, 200, new { ok = true });
+                // The bridge stops serving sync; every host stays live and re-connectable. `gated` is false when
+                // the bridge is too old to have the op — still a 200 (the selection DID clear), but the caller
+                // must warn: that bridge keeps serving the CLI, so "disconnected" would be a lie.
+                var gated = _disconnect().GetAwaiter().GetResult();
+                WriteJson(ctx, 200, new { ok = true, gated });
                 return;
             }
 

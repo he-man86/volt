@@ -28,8 +28,11 @@ namespace Volt.Cli.Connector
 
         /// <summary>Stop serving the given project — the bridge refuses sync ops until the next
         /// <see cref="BindAsync"/>. Nothing is torn down: the in-proc host / worker stays loaded and re-bindable,
-        /// so Disconnect is a gate, not a shutdown. Never throws (an unreachable bridge is already disconnected).</summary>
-        Task UnbindAsync(DetectedProject project);
+        /// so Disconnect is a gate, not a shutdown. Never throws (an unreachable bridge is already disconnected).
+        /// <para>Returns FALSE when the bridge did not accept the deselect — which on a mixed install means an
+        /// OLD bridge that has no such op and will happily keep serving `volt push`. The UI has to say so: a
+        /// Disconnect button that silently does nothing is worse than no button.</para></summary>
+        Task<bool> UnbindAsync(DetectedProject project);
 
         /// <summary>Health of the given project's bridge (the tray colour + status text). <paramref name="selected"/>
         /// is the currently-connected project of this vendor (or null) — a vendor with per-instance bridges

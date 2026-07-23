@@ -83,14 +83,28 @@ export async function connectProject(projectId: string, timeoutMs = 4_000): Prom
   }
 }
 
-/** Clear the active connection (POST /disconnect). Every activated host stays live — this only deselects, so the
- *  user can switch by connecting another. Never throws (connector down → false). */
-export async function disconnect(timeoutMs = 4_000): Promise<boolean> {
+/** The outcome of a Disconnect. `ok` — the connector took the request at all. `gated` — the BRIDGE accepted the
+ *  deselect and is now refusing sync. They differ on a mixed install: an out-of-date bridge (mid-update, or a
+ *  CODESYS in-proc host loaded before the gate shipped) has no `deselect` op and keeps serving `volt push`, so
+ *  the selection clears and the UI would claim "disconnected" while sync still worked. Shells must warn on
+ *  `ok && !gated` — a Disconnect button that silently does nothing is worse than no button. */
+export interface DisconnectResult {
+  ok: boolean
+  gated: boolean
+}
+
+/** Disconnect the active connection (POST /disconnect). Every activated host stays LIVE — the bridge just stops
+ *  serving sync until the next connect. Never throws (connector down → {ok:false}). */
+export async function disconnect(timeoutMs = 4_000): Promise<DisconnectResult> {
   try {
     const res = await fetch(`${CONTROL_BASE}/disconnect`, { method: "POST", signal: AbortSignal.timeout(timeoutMs) })
-    return res.ok
+    if (!res.ok) return { ok: false, gated: false }
+    // `gated` is absent on an older CONNECTOR (it answered a bare {ok:true}); that connector can't have gated the
+    // bridge either, so absent must read as false — never as success.
+    const body = (await res.json().catch(() => ({}))) as { gated?: boolean }
+    return { ok: true, gated: body.gated === true }
   } catch {
-    return false
+    return { ok: false, gated: false }
   }
 }
 

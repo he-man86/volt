@@ -100,6 +100,13 @@ Type: filesandordirs; Name: "{app}\opencode-config"
 [UninstallRun]
 ; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.
 Filename: "{app}\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
+; Take the sideloaded extension with us. It is useless without the `volt` CLI this uninstall removes from PATH —
+; left behind it keeps loading, fails every command, and looks like a broken Volt rather than an absent one. Run
+; unconditionally: an editor that never had it (or isn't on PATH) makes this a harmless no-op, and we must not
+; depend on {app} files that Inno may already have deleted.
+Filename: "{cmd}"; Parameters: "/c code --uninstall-extension volt-ai.volt-vscode";     Flags: runhidden; RunOnceId: "VoltExtVsCode"
+Filename: "{cmd}"; Parameters: "/c windsurf --uninstall-extension volt-ai.volt-vscode"; Flags: runhidden; RunOnceId: "VoltExtWindsurf"
+Filename: "{cmd}"; Parameters: "/c cursor --uninstall-extension volt-ai.volt-vscode";   Flags: runhidden; RunOnceId: "VoltExtCursor"
 
 [Code]
 var

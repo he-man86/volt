@@ -57,11 +57,11 @@ namespace Volt.Cli.Connector
             return _wireFor(project.Pipe!).CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
-        public async Task UnbindAsync(DetectedProject project)
+        public async Task<bool> UnbindAsync(DetectedProject project)
         {
-            if (string.IsNullOrEmpty(project.Pipe)) return;
-            try { await _wireFor(project.Pipe!).CallAsync("deselect"); }
-            catch { /* the IDE closed / host gone → already not serving */ }
+            if (string.IsNullOrEmpty(project.Pipe)) return false;
+            try { await _wireFor(project.Pipe!).CallAsync("deselect"); return true; }
+            catch { return false; } // the IDE closed, OR its in-proc host predates `deselect` — caller decides
         }
 
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)

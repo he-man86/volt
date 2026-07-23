@@ -8,6 +8,8 @@ import {
   push,
   build,
   initFromProject,
+  init as voltInit,
+  readBridgeVendor,
   reconnectBound,
   disconnect,
   mergeContinue,
@@ -155,10 +157,31 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
       // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
-      await disconnect()
+      const r = await disconnect()
       clearProgress()
       await shell.status?.refresh(true)
-      notify("info", "Disconnected — the IDE stays open. Connect again to resume syncing.")
+      // Same three outcomes the VS Code command distinguishes — an out-of-date bridge keeps syncing, so
+      // reporting a plain "Disconnected" there would be a lie.
+      if (!r.ok) notify("error", "Couldn't reach the Volt Connector — is it running?")
+      else if (!r.gated)
+        notify("error", "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.")
+      else notify("info", "Disconnected — the IDE stays open. Connect again to resume syncing.")
+    }),
+  )
+  // Accept a project rename — re-init the BOUND workspace with its existing vendor. Sync pauses when the IDE's
+  // project name stops matching the binding; without this the desktop could only STATE the problem while the VS
+  // Code extension could fix it, so a desktop-only user was stuck with sync paused and no way forward.
+  ipcMain.handle("volt:acceptRename", () =>
+    runGuarded(async () => {
+      const st = shell.status
+      if (!st) return
+      const vendor = readBridgeVendor(st.workspaceRoot)
+      if (vendor === undefined) return notify("error", "This folder isn't a Volt workspace.")
+      const r = await voltInit(st.workspaceRoot, vendor, { force: true, onProgress: report })
+      clearProgress()
+      await st.refresh(true)
+      if (r.code === 0) notify("info", "Accepted the project rename — syncing again.")
+      else notify("error", `Couldn't accept the rename: ${firstLine(r.stderr) || `exit ${r.code}`}`)
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))

@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("volt", {
   build: () => ipcRenderer.invoke("volt:build"),
   connect: () => ipcRenderer.invoke("volt:connect"),
   disconnect: () => ipcRenderer.invoke("volt:disconnect"),
+  acceptRename: () => ipcRenderer.invoke("volt:acceptRename"),
   refresh: () => ipcRenderer.send("volt:refresh"),
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),

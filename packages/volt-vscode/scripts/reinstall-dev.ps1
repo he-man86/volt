@@ -93,7 +93,13 @@ foreach ($ed in $editors) {
   if (Test-Path $obsolete) { Remove-Item $obsolete -Force -ErrorAction SilentlyContinue }
 
   Write-Host "  -> $($ed.Cli) --install-extension"
-  & $cli.Source --install-extension $vsix.FullName --force
+  # The editor CLIs write node deprecation warnings to stderr even on success. Under
+  # $ErrorActionPreference='Stop' that surfaces as a terminating NativeCommandError and ABORTS the whole script
+  # mid-loop -- which is how a run once purged VS Code, installed it, and then never reached Windsurf, leaving it
+  # on six stale versions. Relax it around the native call only; $LASTEXITCODE is the real success signal.
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { & $cli.Source --install-extension $vsix.FullName --force } finally { $ErrorActionPreference = $prev }
   if ($LASTEXITCODE -ne 0) { Write-Warning "install into $($ed.Cli) failed (exit $LASTEXITCODE)" }
 }
 

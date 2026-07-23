@@ -34,7 +34,9 @@ internal sealed class FakeProjectSource : IProjectSource
                          : Task.FromResult<IReadOnlyList<DetectedProject>>(Projects.ToList());
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
-    public Task UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.CompletedTask; }
+    /// <summary>Set false to play an OUT-OF-DATE bridge: one with no `deselect` op, which keeps serving the CLI.</summary>
+    public bool UnbindSucceeds { get; set; } = true;
+    public Task<bool> UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.FromResult(UnbindSucceeds); }
     public Task<BridgeHealth> ProbeAsync(DetectedProject? selected) => Task.FromResult(Health);
 }
 
@@ -165,7 +167,7 @@ public class ConnectionManagerTests
         await mgr.ConnectAsync(pA);
         Assert.Equal(pA, mgr.ActiveConnection);
 
-        await mgr.DisconnectAsync();
+        Assert.True(await mgr.DisconnectAsync()); // true = the bridge accepted the deselect
 
         // The bridge is told to stop serving — clearing the selection alone would leave the CLI (which reaches
         // the pipe directly, never the connector) still pushing and pulling.
@@ -174,5 +176,36 @@ public class ConnectionManagerTests
         Assert.Null(mgr.SelectedOf("codesys"));
         await mgr.RefreshAsync();
         Assert.Equal(new[] { "MachineA" }, mgr.Projects.Select(p => p.DisplayName)); // host stays live/listed
+    }
+
+    /// <summary>The mixed-install case: an OUT-OF-DATE bridge has no `deselect` op and keeps serving the CLI. The
+    /// selection still clears (the UI has to stop claiming a connection), but DisconnectAsync must report false so
+    /// the shells can warn — otherwise the user sees "Disconnected" while `volt push` still works, which is the
+    /// exact bug the gate exists to kill.</summary>
+    [Fact]
+    public async Task Disconnect_reports_false_when_the_bridge_is_too_old_to_be_gated()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindSucceeds = false };
+        var pA = cds.Add("MachineA");
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(pA);
+
+        Assert.False(await mgr.DisconnectAsync());
+        Assert.Null(mgr.ActiveConnection); // the selection clears either way
+    }
+
+    /// <summary>Disconnecting with nothing connected is a no-op that reports success — there is no un-gated bridge
+    /// to warn about, so it must not raise the out-of-date warning.</summary>
+    [Fact]
+    public async Task Disconnect_with_no_active_connection_is_a_silent_no_op()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS") { UnbindSucceeds = false };
+        cds.Add("MachineA");
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+
+        Assert.True(await mgr.DisconnectAsync());
+        Assert.Empty(cds.Unbound);
     }
 }

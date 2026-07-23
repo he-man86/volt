@@ -221,7 +221,14 @@
       bridgeBody =
         busyNote +
         `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span><span class="n">${h.online ? "connected" : "not connected"}</span></div>` +
-        (!h.online
+        // A rename outranks online/offline: sync is PAUSED until it's accepted, so offering Connect/Disconnect
+        // here would be answering a question the user didn't ask. (Used to say "resolve in the Bridge section"
+        // and then offer nothing — a dead end the VS Code view never had.)
+        (s.paused === "mismatch"
+          ? `<div class="note">Sync is paused — the IDE's project name no longer matches this workspace's binding.</div>
+             <div class="init-row"><button class="btn primary" onclick="doAcceptRename()"><svg class="bolt"><use href="#bolt"/></svg>Accept the project rename</button></div>
+             <div class="note">Re-binds this workspace to the IDE's current project name. Your code is untouched.</div>`
+          : !h.online
           ? (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
             `<div class="note">Not syncing — the IDE window may be closed, or the Volt Connector isn't running.</div>
              <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
@@ -240,7 +247,7 @@
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
     else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
-    else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — the IDE's project name no longer matches this workspace.</div>`
+    else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — accept the project rename in IDE Connection above.</div>`
     else if (s.mode === "merging") syncBody = busyNote + `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files, then finish the merge.</div>`
     else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
     else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
@@ -286,6 +293,7 @@
   async function doBuild() { busy = "Building…"; render(); await volt.build() }
   async function doConnect() { busy = "Connecting…"; render(); await volt.connect() }
   async function doDisconnect() { busy = "Disconnecting…"; render(); await volt.disconnect() }
+  async function doAcceptRename() { busy = "Accepting rename…"; render(); await volt.acceptRename() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { busy = "Initializing…"; render(); await volt.initWorkspace(projectId) }

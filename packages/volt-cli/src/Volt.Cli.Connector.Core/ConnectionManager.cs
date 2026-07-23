@@ -89,11 +89,17 @@ namespace Volt.Cli.Connector
         /// CODESYS host and running TwinCAT project stays loaded and re-connectable, so reconnecting is just another
         /// <see cref="ConnectAsync"/>. The bridge-side gate is what makes this real: the CLI reaches the pipe
         /// directly, so clearing the selection alone would leave push/pull working.</summary>
-        public async Task DisconnectAsync()
+        /// <returns>FALSE when the bridge did not accept the deselect — an OLD bridge (mid-update, or a CODESYS
+        /// in-proc host loaded before this shipped) has no such op and KEEPS SERVING the CLI. The selection is
+        /// cleared either way, so the UI would look disconnected while `volt push` still worked — exactly the bug
+        /// this whole gate exists to kill. Callers must surface a false.</returns>
+        public async Task<bool> DisconnectAsync()
         {
+            var gated = true;
             if (ActiveConnection is { } active && _byVendor.TryGetValue(active.Vendor, out var source))
-                await source.UnbindAsync(active);
+                gated = await source.UnbindAsync(active);
             foreach (var v in _selected.Keys.ToList()) _selected[v] = null;
+            return gated;
         }
 
         /// <summary>The one active connection across all vendors (or null). Vendor-neutral — the single-connection

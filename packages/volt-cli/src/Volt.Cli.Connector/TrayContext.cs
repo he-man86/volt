@@ -144,12 +144,21 @@ namespace Volt.Cli.Connector
         // live (the CODESYS in-proc host stays loaded, the TwinCAT worker keeps its attach), so reconnecting is
         // just another connect. One place for both the tray menu and the control-plane disconnect, so the
         // "disconnected from X" line is logged wherever it's triggered.
-        private async Task TrayDisconnectAsync()
+        private async Task<bool> TrayDisconnectAsync()
         {
             var active = _conn.ActiveConnection;
-            await _conn.DisconnectAsync();
-            if (active == null) return;
+            var gated = await _conn.DisconnectAsync();
+            if (active == null) return gated;
             var platform = _conn.DisplayNameOf(active.Vendor);
+            if (!gated)
+            {
+                // The bridge didn't take the deselect — it predates the op and KEEPS serving the CLI. Say so
+                // rather than toasting a disconnect that didn't happen.
+                Log.Warn($"{active.DisplayName} ({platform}) did not accept the disconnect — its bridge is out of date");
+                _icon.ShowBalloonTip(6000, "Volt", $"{active.DisplayName} ({platform}) is running an out-of-date bridge, so it stays connected. Restart {platform} (CODESYS: re-run start_volt_codesys.py) to finish updating.", ToolTipIcon.Warning);
+                await TickAsync();
+                return false;
+            }
             Log.Info($"disconnected from {active.DisplayName} ({platform})");
             // Toast it, exactly like OnConnected does. Disconnect can be triggered from ANOTHER window (the VS Code
             // view / the desktop app) via the control plane, so without this the tray silently changed state — the
@@ -158,6 +167,7 @@ namespace Volt.Cli.Connector
             // Repaint now instead of waiting up to a full 4s poll: the icon colour + menu are how the user sees
             // that a disconnect driven from another window actually landed.
             await TickAsync();
+            return true;
         }
 
         /// <summary>The menu-click wrapper: never throws (the handler is async void — an escaped exception would

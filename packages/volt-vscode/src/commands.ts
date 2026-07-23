@@ -313,11 +313,18 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		// The Bridge view's counterpart to Reconnect. The bridge stops serving sync (the CLI's push/pull are refused)
 		// but nothing is torn down — the IDE stays open and re-connectable, so this is a pause, not a shutdown.
 		reg("volt.disconnect", async () => {
-			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt disconnect" }, async () => {
-				await disconnect()
+			const r = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt disconnect" }, async () => {
+				const res = await disconnect()
 				for (const s of statuses.values()) await s.refresh(true)
+				return res
 			})
-			vscode.window.showInformationMessage("Disconnected — the IDE stays open. Connect again to resume syncing.")
+			// Three genuinely different outcomes — never report the first one's message for the other two.
+			if (!r.ok) vscode.window.showErrorMessage("Couldn't reach the Volt Connector — is it running?")
+			else if (!r.gated)
+				vscode.window.showWarningMessage(
+					"Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
+				)
+			else vscode.window.showInformationMessage("Disconnected — the IDE stays open. Connect again to resume syncing.")
 		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a notification toast
