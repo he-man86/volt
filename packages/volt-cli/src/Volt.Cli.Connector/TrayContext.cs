@@ -61,21 +61,17 @@ namespace Volt.Cli.Connector
         }
 
         // ── tick: refresh the model, then repaint the views ────────────────
-        private bool _adopted; // startup-only: see AdoptServingConnection
-
         private async Task TickAsync()
         {
             foreach (var w in _workers) _supervisor.EnsureWorker(w); // respawn a crashed worker
             await _conn.RefreshAsync();
 
-            // First tick only: the selection is in-memory, so a connector restart left the tray amber while the
-            // bridges were still serving and every workspace synced fine. Re-adopt what is already live.
-            if (!_adopted)
-            {
-                _adopted = true;
-                _conn.AdoptServingConnection();
-            }
-
+            // NOT adopting a serving project on startup, deliberately — see AdoptServingConnection, which is kept
+            // (and tested) but intentionally uncalled. It would turn the tray green for a project the user never
+            // connected, purely because its bridge is serving: exactly the "green while only DETECTED, not
+            // connected" behaviour that was reported as wrong. The tray answers "did you connect something", and
+            // after a restart the honest answer is no; the per-workspace status in the editor still reports
+            // connected, because that asks the other question. Wire this up only if the tray's meaning changes.
             var agg = _conn.Aggregate();
             var pending = Updater.PendingVersion;
             _icon.Icon = StatusIcons.For(agg);
