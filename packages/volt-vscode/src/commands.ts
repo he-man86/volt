@@ -207,8 +207,27 @@ function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: st
 	ensureWorkspace(workspaceRoot)
 }
 
-/** Init from a DETECTED PROJECT the user picked — the vendor is derived from it, never chosen. */
+/** Init from a DETECTED PROJECT the user picked — the vendor is derived from it, never chosen.
+ *
+ *  Confirms MODALLY first, naming both sides. Init is not a preview: it makes the folder a git repo and pulls the
+ *  whole PLC project into it. The Bridge view's detected-project rows are `TreeItem.command`s, which VS Code fires
+ *  on a SINGLE CLICK — so a row that reads like a status line was one stray click away from initializing a folder,
+ *  and with exactly one project detected (the common case) nothing asked first. This is that missing question. */
+async function confirmInit(workspaceRoot: string, project: DetectedProject): Promise<boolean> {
+	const platform = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+	const pick = await vscode.window.showInformationMessage(
+		`Set up this folder to sync with “${project.displayName}” (${platform})?`,
+		{
+			modal: true,
+			detail: `${workspaceRoot}\n\nThis makes the folder a git repository and pulls the PLC project's code into it. Your IDE project is not modified.`,
+		},
+		"Set Up Workspace",
+	)
+	return pick === "Set Up Workspace"
+}
+
 async function doInitFromProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
+	if (!(await confirmInit(workspaceRoot, project))) return
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
 		(progress) => initFromProject(project, workspaceRoot, { onProgress: progressBridge(progress) }),
