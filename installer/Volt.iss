@@ -28,7 +28,7 @@ SolidCompression=yes
 WizardStyle=modern
 SetupIconFile={#SetupIcon}
 UninstallDisplayName=Volt
-UninstallDisplayIcon={app}\desktop\Volt.exe
+UninstallDisplayIcon={app}\current\desktop\Volt.exe
 ; Always log. Without this a failed install (e.g. exit 5 = Setup couldn't close a running Volt process) leaves
 ; NOTHING to diagnose — just an exit code. DeinitializeSetup mirrors the log into Volt's shared log store below.
 SetupLogging=yes
@@ -60,10 +60,10 @@ Name: "cursor";   Description: "Install the Volt extension into Cursor";   Group
 ; an install aborts (a locked file, a cancel). Wiping {app}\opencode-config would leave an aborted upgrade with the
 ; dir GONE and OPENCODE_CONFIG_DIR still pointing at it — opencode silently degrades to vanilla, no error. These
 ; five are junk in every version, so deleting them is safe even if the install then fails.
-Type: files; Name: "{app}\opencode-config\package.json"
-Type: files; Name: "{app}\opencode-config\package-lock.json"
-Type: files; Name: "{app}\opencode-config\bun.lock"
-Type: files; Name: "{app}\opencode-config\.gitignore"
+Type: files; Name: "{app}\current\opencode-config\package.json"
+Type: files; Name: "{app}\current\opencode-config\package-lock.json"
+Type: files; Name: "{app}\current\opencode-config\bun.lock"
+Type: files; Name: "{app}\current\opencode-config\.gitignore"
 Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 
 [Files]
@@ -75,12 +75,12 @@ Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 ; days. `restartreplace` looks like the cure and is NOT: it needs ADMINISTRATIVE rights to schedule a reboot-time
 ; replace, and Volt installs per-user. It was tried; setup still rolled back. The cure is closing our own
 ; processes first — see PrepareToInstall in [Code].
-Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Run]
 ; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on
 ; startup, then runs the tray. --silent = launched by us, not a double-click.
-Filename: "{app}\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
+Filename: "{app}\current\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
 ; Optional components — only on an interactive install (skip on the connector's silent in-place update).
 ; winget stays interactive-only (heavy + needs network) — skip it on the connector's silent auto-update.
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
@@ -107,7 +107,7 @@ Type: filesandordirs; Name: "{app}\opencode-config"
 
 [UninstallRun]
 ; Revert env + stop the running tray/workers BEFORE Inno deletes files. Single uninstaller — no second entry.
-Filename: "{app}\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
+Filename: "{app}\current\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
 ; Take the sideloaded extension with us. It is useless without the `volt` CLI this uninstall removes from PATH —
 ; left behind it keeps loading, fails every command, and looks like a broken Volt rather than an absent one. Run
 ; unconditionally: an editor that never had it (or isn't on PATH) makes this a harmless no-op, and we must not
@@ -168,6 +168,49 @@ begin
   Result := not WizardSilent();
 end;
 
+/// Point {app}\current at a version directory. `rmdir` unlinks the reparse point WITHOUT touching the target —
+/// a recursive delete here would delete the previous version's files through the junction. Verified: repointing
+/// succeeds even while a process holds a file open under the old target, and that process keeps its handle.
+function SetCurrentJunction(TargetDir: String): Boolean;
+var Code: Integer; Cur: String;
+begin
+  Cur := ExpandConstant('{app}\current');
+  if DirExists(Cur) then
+    Exec(ExpandConstant('{cmd}'), '/c rmdir "' + Cur + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := Exec(ExpandConstant('{cmd}'), '/c mklink /J "' + Cur + '" "' + TargetDir + '"',
+                 '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) and DirExists(Cur);
+end;
+
+/// Remove the payload an older, FLAT install left directly in {app}. Without this both {app}in and
+/// {app}\currentin exist and whichever PATH lists first wins — a stale binary shadowing the new one, which is
+/// the failure this whole change exists to end. Named entries only: Inno does not roll back deletions, and the
+/// junction is never deleted recursively.
+procedure RemoveFlatPayload;
+var Code: Integer; A: String;
+begin
+  A := ExpandConstant('{app}');
+  Exec(ExpandConstant('{cmd}'),
+    '/c rmdir /s /q "' + A + 'in" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
+    ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' +
+    ' & del /q "' + A + '\Volt*.exe" "' + A + 'ersion.txt" "' + A + 'olt-vscode.vsix" 2>nul',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+/// Activate the version we just wrote — the LAST thing before [Run], so a failed copy never leaves `current`
+/// pointing at an incomplete directory. If the junction cannot be created (a filesystem without reparse points),
+/// fail loudly rather than silently leaving an install nothing can find.
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if not SetCurrentJunction(ExpandConstant('{app}\app-{#AppVersion}')) then
+      MsgBox('Volt could not create the {app}\current link. The files are installed under app-{#AppVersion} but nothing will resolve them.',
+             mbCriticalError, MB_OK)
+    else
+      RemoveFlatPayload;
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode: Integer;
 begin
@@ -206,6 +249,11 @@ begin
       '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Sleep(1200); // let the OS release the handles before Inno starts deleting
+    // Unlink `current` with rmdir FIRST — a recursive delete would delete the version directory THROUGH it, and
+    // Inno would then try to remove files that are already gone. Then take every version directory.
+    Exec(ExpandConstant('{cmd}'),
+      '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
 

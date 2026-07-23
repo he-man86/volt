@@ -114,14 +114,28 @@ function runUninstall(step: string): void {
 
 /** THE assertion. Every shipped binary + version.txt must agree, or the install is half-applied. */
 function assertInstalled(step: string): void {
-  const versionFile = join(installDir, "version.txt")
+  // Everything the payload ships now lives under {app}\current (a junction to app-<version>), so the whole
+  // install is inspected THROUGH the junction — which is also how PATH, OPENCODE_CONFIG_DIR and the shortcut
+  // reach it. Checking the version directory directly would pass even if `current` were missing or stale, and a
+  // broken junction is the one failure that makes an otherwise perfect install unreachable.
+  const current = join(installDir, "current")
+  if (!existsSync(current)) return fail(step, "{app}\current is missing — nothing resolves the install")
+  const versions = existsSync(installDir)
+    ? readdirSync(installDir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith("app-")).map((d) => d.name)
+    : []
+  if (versions.length === 0) fail(step, "no app-<version> directory")
+  // Retain at most 2: the active one and (briefly) its predecessor, which the connector prunes at next start.
+  if (versions.length > 2) fail(step, `${versions.length} version directories retained: ${versions.join(", ")}`)
+  else ok(`${step}: ${versions.length} version dir(s), current → ${versions.join(", ")}`)
+
+  const versionFile = join(current, "version.txt")
   if (!existsSync(versionFile)) return fail(step, "version.txt missing — nothing to check against")
   const claimed = readFileSync(versionFile, "utf8").trim()
 
   const exes = [
-    join(installDir, "VoltConnector.exe"),
-    join(installDir, "VoltBridgeTwincat.exe"),
-    join(installDir, "bin", "volt.exe"),
+    join(current, "VoltConnector.exe"),
+    join(current, "VoltBridgeTwincat.exe"),
+    join(current, "bin", "volt.exe"),
   ]
   const missing = exes.filter((e) => !existsSync(e))
   for (const e of missing) fail(step, `${e.replace(installDir, "")} missing`)
@@ -130,14 +144,14 @@ function assertInstalled(step: string): void {
   // not enough: an update that replaced none of them would be self-consistent and still stale. version.txt is
   // the version the installer intended, so any binary that disagrees with it did not get replaced.
   const present = exes.filter(existsSync)
-  const versions = present.map((e) => [e.replace(installDir, ""), fileVersion(e)] as const)
-  const stale = versions.filter(([, v]) => v !== claimed)
+  const reported = present.map((e) => [e.replace(installDir, ""), fileVersion(e)] as const)
+  const stale = reported.filter(([, v]) => v !== claimed)
   if (stale.length > 0)
     fail(step, `component(s) not at ${claimed}: ${stale.map(([n, v]) => `${n}=${v ?? "?"}`).join(", ")}`)
   else ok(`${step}: every binary reports ${claimed}`)
 
-  if (!existsSync(join(installDir, "bin", "volt-lsp-iec.exe"))) fail(step, "bin/volt-lsp-iec.exe missing")
-  if (!existsSync(join(installDir, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
+  if (!existsSync(join(current, "bin", "volt-lsp-iec.exe"))) fail(step, "bin/volt-lsp-iec.exe missing")
+  if (!existsSync(join(current, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
 
   // The EXTENSION, asked of the editor itself. A silent install only refreshes editors that already have it, so
   // an editor that never had it staying without it is correct — but one that HAD it must still report one, and at
