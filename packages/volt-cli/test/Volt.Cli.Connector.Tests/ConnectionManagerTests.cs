@@ -93,8 +93,12 @@ public class ConnectionManagerTests
     }
 
     [Theory]
-    // Connected wins over everything; then Degraded; then Unavailable (up, no project); else Unknown.
-    [InlineData(BridgeStatus.Connected, BridgeStatus.Unreachable, BridgeStatus.Connected)]
+    // With NOTHING connected, the tray never goes green — a live channel only means "up, waiting for a pick"
+    // (that is why the first row expects Unavailable, not Connected: a healthy bridge with no active connection
+    // used to paint the tray green merely because an IDE was open). Below that: Degraded, then Unavailable, then
+    // Unknown. Green requires an active connection that is actually being served — see the Aggregate tests in
+    // DisconnectLifecycleTests, which drive a real bridge.
+    [InlineData(BridgeStatus.Connected, BridgeStatus.Unreachable, BridgeStatus.Unavailable)]
     [InlineData(BridgeStatus.Degraded, BridgeStatus.Unavailable, BridgeStatus.Degraded)]
     [InlineData(BridgeStatus.Unavailable, BridgeStatus.Unreachable, BridgeStatus.Unavailable)]
     [InlineData(BridgeStatus.Unreachable, BridgeStatus.Unknown, BridgeStatus.Unknown)]

@@ -13,7 +13,13 @@ namespace Volt.Cli.Connector
     /// <c>volt init</c>; <c>IdeVersion</c> disambiguates same-named projects across IDE versions. <c>ProjectName</c>
     /// is the name the workspace BINDING matches on (the vendor's <c>health.ProjectName</c> = the TwinCAT project /
     /// the CODESYS project) — NOT <c>DisplayName</c>, which for TwinCAT is the PLC sub-project.</summary>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
+    /// <param name="Connected">The tray HIGHLIGHT — this is the one project the user last picked. A UI nicety; it
+    /// says nothing about whether sync works.</param>
+    /// <param name="Serving">GROUND TRUTH: this project's own bridge is serving it right now, so pull/push work.
+    /// Clients must render connection state from THIS, never from <paramref name="Connected"/> and never from the
+    /// project merely appearing in the list — a disconnected bridge stays listed (that is how you reconnect), and
+    /// treating "detected" as "connected" is what let the UI claim a connection against a gated bridge.</param>
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null, bool Serving = false);
 
     /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
     /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word;

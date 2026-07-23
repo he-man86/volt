@@ -87,6 +87,53 @@ public class DisconnectLifecycleTests
             await mgr.ConnectAsync(mgr.Projects.Single());
             Assert.True(CliCanSync(pipe));       // resumed with no restart of anything
             Assert.True(CliSeesConnected(pipe));
+
+            // The connector's own view must track the bridge at every step — this is the signal both frontends
+            // render from, and it disagreeing with the CLI is the whole class of bug this feature kept hitting.
+            await mgr.RefreshAsync();
+            Assert.True(mgr.IsServingProject(proj.Id));
+            Assert.Equal(BridgeStatus.Connected, mgr.Aggregate());
+        }
+        finally { host.Dispose(); }
+    }
+
+    /// <summary>The connector's report and the CLI's reality must agree after EVERY transition. They are read
+    /// over different connections by different code paths, so a split here is invisible until a user hits it:
+    /// the UI says connected while `volt push` is refused, or vice versa. Asserted as one pair, per step.</summary>
+    [Fact]
+    public async Task The_connector_view_and_the_CLI_never_disagree_across_the_whole_cycle()
+    {
+        var pipe = _prefix + "1";
+        var host = StartHost(pipe, "MachineA");
+        var mgr = new ConnectionManager(new IProjectSource[] { Source() });
+        try
+        {
+            await mgr.RefreshAsync();
+            var id = mgr.Projects.Single().Id;
+
+            // Detected but never connected: listed, NOT serving, tray not green. ("Detected" is not "connected" —
+            // the assumption that they were the same is what this refactor removed.)
+            Assert.True(mgr.Projects.Count == 1);
+            Assert.Equal(mgr.IsServingProject(id), CliCanSync(pipe));
+            Assert.NotEqual(BridgeStatus.Connected, mgr.Aggregate());
+
+            await mgr.ConnectAsync(mgr.Projects.Single());
+            await mgr.RefreshAsync();
+            Assert.True(mgr.IsServingProject(id));
+            Assert.Equal(mgr.IsServingProject(id), CliCanSync(pipe));
+            Assert.Equal(BridgeStatus.Connected, mgr.Aggregate());
+
+            await mgr.DisconnectAsync();
+            await mgr.RefreshAsync();
+            Assert.False(mgr.IsServingProject(id));                    // the gated bridge is still LISTED...
+            Assert.True(mgr.Projects.Count == 1);                      // ...which is how you reconnect to it
+            Assert.Equal(mgr.IsServingProject(id), CliCanSync(pipe));  // and both sides say the same thing
+            Assert.NotEqual(BridgeStatus.Connected, mgr.Aggregate());  // tray is not green
+
+            await mgr.ConnectAsync(mgr.Projects.Single());
+            await mgr.RefreshAsync();
+            Assert.Equal(mgr.IsServingProject(id), CliCanSync(pipe));
+            Assert.Equal(BridgeStatus.Connected, mgr.Aggregate());
         }
         finally { host.Dispose(); }
     }

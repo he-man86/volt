@@ -104,7 +104,8 @@ namespace Volt.Cli.Connector
             }).ToList(),
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
-                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id, p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
+                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id, p.Pipe, p.IdeVersion, p.Attach.Project,
+                Serving: _conn.IsServingProject(p.Id))).ToList());
 
         // Awaited (not fire-and-forget): the connect ends in a `select` on the bridge, which is also what resumes
         // a disconnected bridge — a client that refreshed right after the response would otherwise still see it

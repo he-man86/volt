@@ -18,6 +18,10 @@ namespace Volt.Cli.Connector
         private readonly Dictionary<string, IProjectSource> _byVendor;
         private readonly Dictionary<string, BridgeHealth> _health = new();
         private readonly Dictionary<string, DetectedProject?> _selected = new();
+        // Per-PROJECT serving state, keyed by DetectedProject.Id — the ground truth "is this project's bridge
+        // actually serving it right now". Distinct from _selected (a tray highlight) and from _health (per VENDOR,
+        // which is ambiguous the moment two CODESYS instances run). Everything user-facing derives from this.
+        private readonly Dictionary<string, bool> _serving = new();
         private IReadOnlyList<DetectedProject> _projects = Array.Empty<DetectedProject>();
 
         public ConnectionManager(IReadOnlyList<IProjectSource> sources)
@@ -64,11 +68,39 @@ namespace Volt.Cli.Connector
                 catch { /* unreachable / mid-load → contributes no projects this tick */ }
             }
             _projects = merged;
+
+            // Ask each project's OWN bridge whether it is serving that project. This is the one question the UI
+            // actually needs, and only the bridge can answer it: a project can be detected (it shows in the
+            // selector) while its bridge refuses sync — that is exactly what Disconnect does. Deriving "connected"
+            // from detection, or from _selected, is what let the UI claim connected against a gated bridge.
+            _serving.Clear();
+            foreach (var p in merged)
+            {
+                if (!_byVendor.TryGetValue(p.Vendor, out var s)) continue;
+                try { _serving[p.Id] = IsServing(await s.ProbeAsync(p), p); }
+                catch { _serving[p.Id] = false; }
+            }
+
             // Drop a stale selection whose project is no longer detected (its IDE/host closed).
             foreach (var vendor in _selected.Keys.ToList())
                 if (_selected[vendor] is { } sel && merged.All(p => p.Id != sel.Id))
                     _selected[vendor] = null;
         }
+
+        /// <summary>Does this health response mean "serving THIS project"? A live channel is not enough: one
+        /// TwinCAT worker multiplexes every open project but holds ONE at a time, so the health's projectName is
+        /// what says which. (CODESYS has a pipe per IDE, where the name always matches — the check is harmless.)
+        /// A bridge that reports no project name at all is not serving anything.</summary>
+        private static bool IsServing(BridgeHealth h, DetectedProject p)
+        {
+            if (h.Status != BridgeStatus.Connected && h.Status != BridgeStatus.Degraded) return false;
+            if (string.IsNullOrEmpty(h.ProjectName)) return false;
+            return h.ProjectName == (p.Attach.Project ?? p.DisplayName) || h.ProjectName == p.DisplayName;
+        }
+
+        /// <summary>Is this project's bridge serving it right now — the single signal every surface renders from
+        /// (the tray colour, both frontends' connection status, and what the CLI would find on the pipe).</summary>
+        public bool IsServingProject(string projectId) => _serving.TryGetValue(projectId, out var s) && s;
 
         /// <summary>Connect a detected project via its own vendor's source, then remember it as THE one active
         /// connection — connecting anything clears every other selection (one connected at a time, vendor-neutral;
@@ -111,8 +143,16 @@ namespace Volt.Cli.Connector
         /// waiting for a project"; "nothing running" folds to neutral Unknown.</summary>
         public BridgeStatus Aggregate()
         {
+            // Green = the project the user CONNECTED is being served. Both halves are required, and they are
+            // different questions:
+            //   • serving alone is not enough — a CODESYS host serves its project the moment it loads, so the
+            //     tray went green merely because an IDE was open, before the user connected anything.
+            //   • selection alone is not enough — that is a highlight; the bridge may be gated or gone.
+            // (Per-WORKSPACE status is the other question and must NOT use selection: a workspace bound to a
+            // non-selected project really does sync, which is why IsServingProject is what the frontends read.)
+            if (ActiveConnection is { } active && IsServingProject(active.Id)) return BridgeStatus.Connected;
             var statuses = _health.Values.Select(h => h.Status).ToList();
-            if (statuses.Contains(BridgeStatus.Connected)) return BridgeStatus.Connected;
+            if (statuses.Contains(BridgeStatus.Connected)) return BridgeStatus.Unavailable; // live channel, nothing connected
             if (statuses.Contains(BridgeStatus.Degraded)) return BridgeStatus.Degraded;
             if (statuses.Contains(BridgeStatus.Unavailable)) return BridgeStatus.Unavailable;
             return BridgeStatus.Unknown;

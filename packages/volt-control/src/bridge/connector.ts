@@ -21,7 +21,14 @@ export interface DetectedProject {
   displayName: string
   vendor: Vendor
   dirty: boolean
+  /** The tray HIGHLIGHT — the project the user last picked. A UI nicety; it says nothing about whether sync
+   *  works. Never derive connection state from it (see {@link DetectedProject.serving}). */
   connected: boolean
+  /** GROUND TRUTH: this project's own bridge is serving it right now, so pull/push work. The ONE signal every
+   *  surface renders connection state from. Absent on an older connector → treated as not serving, never as
+   *  connected: guessing "connected" is the failure mode this field exists to end (a disconnected bridge stays
+   *  listed, because that list is how you reconnect, so "detected" never meant "connected"). */
+  serving?: boolean
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
   /** IDE version, shown in the label when a vendor has more than one live instance. */
@@ -131,15 +138,22 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   const matches = (p: DetectedProject) => (p.projectName ?? p.displayName) === bound.projectName
   const proj = view.projects.find((p) => p.vendor === bound.vendor && matches(p))
   const bridge = view.bridges.find((b) => b.vendor === bound.vendor)
-  if (proj === undefined) {
-    // The bound project's IDE isn't serving it (not open, or its bridge is down) — not the active one either way.
-    return {
-      kind: "disconnected",
-      health: { status: "unavailable", connected: false, ideName: bridge?.displayName ?? bound.vendor, projectName: bound.projectName },
-    }
-  }
-  // Detected → its host is live, so THIS workspace is connected. When it's also the global active connection the
-  // vendor bridge view carries full fidelity (activeOp etc.); otherwise report a plain live-and-connected state.
+  const offline = (): HealthState => ({
+    kind: "disconnected",
+    health: { status: "unavailable", connected: false, ideName: bridge?.displayName ?? bound.vendor, projectName: bound.projectName },
+  })
+
+  // Not detected at all → its IDE isn't open, or its bridge is down.
+  if (proj === undefined) return offline()
+
+  // Detected but NOT serving → disconnected. This is the case that used to be reported as connected ("detected →
+  // its host is live, so this workspace is connected"), which is precisely a gated bridge: still listed so you can
+  // reconnect to it, while refusing every sync op. The UI said connected; `volt push` said PLC_DISCONNECTED.
+  if (proj.serving !== true) return offline()
+
+  // Serving. When it is ALSO the tray's active connection, the per-vendor bridge view carries extra fidelity
+  // (activeOp, so the UI can show a sync in flight) — use it, but only to enrich a state we already established
+  // from `serving`, never to decide it.
   if (proj.connected && bridge !== undefined) return toHealthState(bridge)
   return {
     kind: "connected",
