@@ -78,9 +78,15 @@ Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Run]
+; These target the VERSION directory, not {app}\current, and that is deliberate. Inno executes [Run] entries as
+; part of the install step, while CurStepChanged(ssPostInstall) — where the junction is created — fires AFTER
+; them. Pointing these at `current` launched nothing: the junction did not exist yet, and `nowait runhidden`
+; swallowed the failure, so the connector never started and OPENCODE_CONFIG_DIR was never written. The invariant
+; is about values RECORDED OUTSIDE {app} (PATH, the config dir, the shortcut, the login item); a [Run] filename is
+; transient and internal to this install, so naming the version here is correct rather than a violation.
 ; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on
 ; startup, then runs the tray. --silent = launched by us, not a double-click.
-Filename: "{app}\current\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
+Filename: "{app}\app-{#AppVersion}\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait runhidden
 ; Optional components — only on an interactive install (skip on the connector's silent in-place update).
 ; winget stays interactive-only (heavy + needs network) — skip it on the connector's silent auto-update.
 Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
@@ -96,9 +102,9 @@ Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --ac
 ; running) leaves the user with no extension at all. The accumulating folders are UNREGISTERED — the editor loads
 ; exactly one version and garbage-collects the rest on a full restart — so they cost disk and confuse a human
 ; reading the directory, nothing more. A cosmetic problem is not worth a mode where Volt uninstalls itself.
-Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\volt-vscode.vsix"" --force";     Check: WantExt('code','vscode');       StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";     Check: WantExt('code','vscode');       StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
 [UninstallDelete]
 ; Anything created inside opencode-config AFTER install is untracked by Inno, so it would survive uninstall and keep
@@ -192,7 +198,7 @@ begin
   Exec(ExpandConstant('{cmd}'),
     '/c rmdir /s /q "' + A + 'in" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
     ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' +
-    ' & del /q "' + A + '\Volt*.exe" "' + A + 'ersion.txt" "' + A + 'olt-vscode.vsix" 2>nul',
+    ' & del /q "' + A + '\Volt*.exe" "' + A + '\version.txt" "' + A + '\volt-vscode.vsix" 2>nul',
     '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
@@ -249,12 +255,15 @@ begin
       '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Sleep(1200); // let the OS release the handles before Inno starts deleting
-    // Unlink `current` with rmdir FIRST — a recursive delete would delete the version directory THROUGH it, and
-    // Inno would then try to remove files that are already gone. Then take every version directory.
+  end;
+  // AFTER Inno's own removal — not in usUninstall. [UninstallRun] runs `current\VoltConnector.exe --uninstall`
+  // to revert PATH + OPENCODE_CONFIG_DIR, and deleting the version directories any earlier destroys the exe
+  // before it can do that: the env was left pointing at a Volt that no longer existed. Unlink `current` with
+  // rmdir (a recursive delete would delete the version directory THROUGH the junction), then take the versions.
+  if CurUninstallStep = usPostUninstall then
     Exec(ExpandConstant('{cmd}'),
       '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
 end;
 
 procedure DeinitializeSetup();
