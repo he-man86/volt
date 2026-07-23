@@ -18,8 +18,11 @@
  *
  *   install → uninstall → install → update → update → uninstall → install → uninstall
  *
- * The load-bearing assertion is VERSION CONSISTENCY: every shipped binary and version.txt must report the SAME
- * version. A stale component is then a hard failure instead of something you discover in a user's workspace.
+ * The load-bearing assertion measures the BINARIES, not the paperwork: build-cli.ps1 stamps VOLT_VERSION into
+ * every exe's FileVersion, so each one is asked what it actually is and compared against the version the install
+ * claims. A stale component is a hard failure instead of something you discover in a user's workspace. The
+ * extension is checked the same way — `--list-extensions --show-versions` is the editor's own answer, not a
+ * folder listing (the folders survived an uninstall that deregistered it, which is what made that bug invisible).
  *
  * Windows only; per-user install; this REALLY installs and uninstalls Volt several times. Best on a throwaway
  * machine or a CI runner. Optionally point it at two builds to exercise a genuine upgrade:
@@ -56,6 +59,17 @@ const uninstaller = join(installDir, "unins000.exe")
 const appId = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8").match(/AppId=\{\{([0-9A-Fa-f-]+)\}/)?.[1]
 const uninstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{${appId}}_is1`
 
+// Captured ONCE, before anything is installed: a silent run refreshes only editors that already had the
+// extension, so this is the baseline every later step is judged against.
+const hadExtension = new Map<string, boolean>()
+for (const cli of ["code", "windsurf", "cursor"]) {
+  if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+  hadExtension.set(
+    cli,
+    (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "").toLowerCase().includes("volt-ai.volt-vscode"),
+  )
+}
+
 let failures = 0
 const fail = (step: string, msg: string): void => { failures++; console.error(`  ✗ [${step}] ${msg}`) }
 const ok = (msg: string): void => console.log(`  ✓ ${msg}`)
@@ -64,10 +78,12 @@ const reg = (key: string, value?: string): string | null => {
   const r = spawnSync("reg", ["query", key, ...(value ? ["/v", value] : [])], { encoding: "utf8" })
   return r.status === 0 ? r.stdout : null
 }
-const productVersion = (exe: string): string | null => {
+/** The binary's OWN stamped version — the fact, as opposed to version.txt's claim. build-cli.ps1 stamps
+ *  FileVersion from VOLT_VERSION, so this is directly comparable to the release number. */
+const fileVersion = (exe: string): string | null => {
   const r = spawnSync(
     "powershell",
-    ["-NoProfile", "-Command", `(Get-Item '${exe}').VersionInfo.ProductVersion`],
+    ["-NoProfile", "-Command", `(Get-Item '${exe}').VersionInfo.FileVersion`],
     { encoding: "utf8" },
   )
   return r.status === 0 ? (r.stdout ?? "").trim() || null : null
@@ -107,20 +123,37 @@ function assertInstalled(step: string): void {
     join(installDir, "VoltBridgeTwincat.exe"),
     join(installDir, "bin", "volt.exe"),
   ]
-  for (const exe of exes) {
-    if (!existsSync(exe)) { fail(step, `${exe.replace(installDir, "")} missing`); continue }
-    const v = productVersion(exe)
-    // The C# binaries carry `1.0.0+<sha>`, not the marketing version, so compare them to EACH OTHER: a build
-    // produces one sha across the toolchain, and a mismatch means some component didn't get replaced.
-    if (v === null) fail(step, `${exe.replace(installDir, "")} has no ProductVersion`)
-  }
-  const shas = exes.filter(existsSync).map((e) => productVersion(e)?.split("+")[1] ?? "?")
-  if (new Set(shas).size > 1)
-    fail(step, `components disagree — ${exes.map((e, i) => `${e.replace(installDir, "")}=${shas[i]}`).join(", ")}`)
-  else ok(`${step}: all components at ${shas[0]} (version.txt says ${claimed})`)
+  const missing = exes.filter((e) => !existsSync(e))
+  for (const e of missing) fail(step, `${e.replace(installDir, "")} missing`)
+
+  // Compare each binary's OWN stamped version against version.txt. Checking the binaries against EACH OTHER is
+  // not enough: an update that replaced none of them would be self-consistent and still stale. version.txt is
+  // the version the installer intended, so any binary that disagrees with it did not get replaced.
+  const present = exes.filter(existsSync)
+  const versions = present.map((e) => [e.replace(installDir, ""), fileVersion(e)] as const)
+  const stale = versions.filter(([, v]) => v !== claimed)
+  if (stale.length > 0)
+    fail(step, `component(s) not at ${claimed}: ${stale.map(([n, v]) => `${n}=${v ?? "?"}`).join(", ")}`)
+  else ok(`${step}: every binary reports ${claimed}`)
 
   if (!existsSync(join(installDir, "bin", "volt-lsp-iec.exe"))) fail(step, "bin/volt-lsp-iec.exe missing")
   if (!existsSync(join(installDir, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
+
+  // The EXTENSION, asked of the editor itself. A silent install only refreshes editors that already have it, so
+  // an editor that never had it staying without it is correct — but one that HAD it must still report one, and at
+  // a version the editor acknowledges. Folder listings are not evidence: they survived both an uninstall that
+  // deregistered the extension and an install that skipped it.
+  for (const cli of ["code", "windsurf", "cursor"]) {
+    if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+    if (hadExtension.get(cli) !== true) continue
+    const listed = (spawnSync(cli, ["--list-extensions", "--show-versions"], { encoding: "utf8", shell: true }).stdout ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.toLowerCase().startsWith("volt-ai.volt-vscode"))
+    if (listed.length === 0) fail(step, `${cli} no longer reports the Volt extension`)
+    else if (listed.length > 1) fail(step, `${cli} reports ${listed.length} copies: ${listed.join(", ")}`)
+    else ok(`${step}: ${cli} reports ${listed[0]!.trim()}`)
+  }
   if (!existsSync(uninstaller)) fail(step, "uninstaller missing")
   if (reg(uninstallKey) === null) fail(step, "Add/Remove entry missing")
   const env = reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR")

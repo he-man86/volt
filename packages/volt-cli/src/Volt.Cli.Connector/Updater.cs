@@ -97,12 +97,22 @@ namespace Volt.Cli.Connector
         /// <summary>Fire-and-forget: check now, then on a timer, for the life of the tray.</summary>
         public static void Start()
         {
-            // The installer writes the release version next to the connector (version.txt); its absence marks a
-            // dev build or a bundled copy run out of the tree — no update surface there.
+            // MEASURE the running binary's own version — do not trust version.txt beside it. That file is written
+            // by the installer, so it reports what the update MEANT to be; when a locked file made Inno roll back
+            // mid-install it kept claiming the new version while binaries around it stayed several releases old,
+            // and the tray repeated the claim. A binary cannot lie about its own version, and if THIS exe is old
+            // then the update genuinely did not apply to it. version.txt stays as the fallback for a build that
+            // wasn't version-stamped (a local dev publish is 1.0.0).
             try
             {
-                var f = Path.Combine(AppContext.BaseDirectory, "version.txt");
-                if (File.Exists(f)) CurrentVersion = File.ReadAllText(f).Trim();
+                var stamped = FileVersionInfo.GetVersionInfo(Environment.ProcessPath ?? "").FileVersion?.Trim();
+                if (!string.IsNullOrEmpty(stamped) && stamped != "1.0.0.0" && Version.TryParse(stamped, out _))
+                    CurrentVersion = stamped!;
+                else
+                {
+                    var f = Path.Combine(AppContext.BaseDirectory, "version.txt");
+                    if (File.Exists(f)) CurrentVersion = File.ReadAllText(f).Trim();
+                }
             }
             catch (Exception e) { Log.Warn($"updater: version read failed: {e.Message}"); }
 

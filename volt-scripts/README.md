@@ -115,8 +115,11 @@ those failures need an install **over an existing one**, with files held open:
 The flow: `install → uninstall → install → update → update → uninstall → install → uninstall`, asserting after
 every step. Two assertions carry the weight:
 
-- **Version consistency** — every shipped binary must report the same build sha. A stale component is a hard
-  failure, not something you find in a user's workspace.
+- **Measured versions, not paperwork.** `build-cli.ps1` stamps `VOLT_VERSION` into every exe's `FileVersion`, so
+  each binary is asked what it *is* and compared against what the install claims. Comparing binaries only to each
+  other is not enough — an update that replaced none of them would be self-consistent and still stale. The
+  extension is checked the same way, via the editor's own `--list-extensions --show-versions`; folder listings are
+  not evidence (they survived both an uninstall that deregistered it and an install that skipped it).
 - **Rollback detection** — the setup log is read for `Rolling back changes` / in-use aborts, because Inno can exit
   0 on those paths.
 

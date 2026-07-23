@@ -23,6 +23,15 @@ Write-Output "========================================"
 Write-Output " Volt CLI toolchain build (pipe)"
 Write-Output "========================================"
 
+# Stamp the RELEASE version into every binary, so each one is self-describing and "what is installed" can be
+# MEASURED off the file instead of trusted from version.txt beside it. That text file is what the tray reported,
+# and it is written by the installer -- so a half-applied update (one where a locked file made Inno roll back
+# after some components had already been replaced) confidently reported the version it MEANT to be. A binary
+# cannot lie about its own version. Empty outside CI: a dev build stays 1.0.0.
+$VER = $env:VOLT_VERSION
+$VERARGS = if ($VER) { @("/p:Version=$VER", "/p:FileVersion=$VER") } else { @() }
+if ($VER) { Write-Output "  stamping version $VER into every binary" }
+
 # --- Tests (fail fast — never package a red build) -----------------
 Write-Output "`n[Test] Volt.Cli.Tests"
 & $DOTNET test "$ROOT\test\Volt.Cli.Tests\Volt.Cli.Tests.csproj" -c Release --nologo -v q
@@ -37,19 +46,19 @@ New-Item -ItemType Directory -Force "$DIST\Cli", "$DIST\Twincat", "$DIST\Codesys
 # dependency-free). ponytail: self-contained per exe duplicates the net8 runtime; dedupe into a shared runtime dir
 # only if installer size measurably matters.
 Write-Output "`n[1/4] Volt.Cli (volt.exe)"
-& $DOTNET publish "$ROOT\src\Volt.Cli\Volt.Cli.csproj" -c Release -o "$DIST\Cli" --nologo -v q -r win-x64 --self-contained true
+& $DOTNET publish "$ROOT\src\Volt.Cli\Volt.Cli.csproj" @VERARGS -c Release -o "$DIST\Cli" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Write-Output "  OK -> dist\Cli\volt.exe"
 
 # --- TwinCAT pipe worker (standalone exe) --------------------------
 Write-Output "`n[2/4] Volt.Cli.Ide.Twincat (VoltBridgeTwincat.exe)"
-& $DOTNET publish "$ROOT\src\Volt.Cli.Ide.Twincat\Volt.Cli.Ide.Twincat.csproj" -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
+& $DOTNET publish "$ROOT\src\Volt.Cli.Ide.Twincat\Volt.Cli.Ide.Twincat.csproj" @VERARGS -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
 Write-Output "`n[3/4] Volt.Cli.Ide.Codesys (in-proc DLL)"
-& $DOTNET build "$ROOT\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj" -c Release -o "$DIST\Codesys" --nologo -v q
+& $DOTNET build "$ROOT\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\Codesys" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 # Ship only the user-facing activation scripts; run_pipe_headless.py is a dev/test launcher, not for the installer.
 Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
@@ -57,7 +66,7 @@ Write-Output "  OK -> dist\Codesys\ (Volt.Cli.Ide.Codesys.dll + deps + pipe scri
 
 # --- Connector (the one tray app) — bundle the workers next to it --
 Write-Output "`n[4/4] Volt.Cli.Connector"
-& $DOTNET publish "$ROOT\src\Volt.Cli.Connector\Volt.Cli.Connector.csproj" -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
+& $DOTNET publish "$ROOT\src\Volt.Cli.Connector\Volt.Cli.Connector.csproj" @VERARGS -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
