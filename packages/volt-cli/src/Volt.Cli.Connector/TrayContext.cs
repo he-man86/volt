@@ -148,7 +148,16 @@ namespace Volt.Cli.Connector
         {
             var active = _conn.ActiveConnection;
             await _conn.DisconnectAsync();
-            if (active != null) Log.Info($"disconnected from {active.DisplayName} ({_conn.DisplayNameOf(active.Vendor)})");
+            if (active == null) return;
+            var platform = _conn.DisplayNameOf(active.Vendor);
+            Log.Info($"disconnected from {active.DisplayName} ({platform})");
+            // Toast it, exactly like OnConnected does. Disconnect can be triggered from ANOTHER window (the VS Code
+            // view / the desktop app) via the control plane, so without this the tray silently changed state — the
+            // one place the user looks to confirm it said nothing at all.
+            _icon.ShowBalloonTip(4000, "Volt", $"Disconnected from {active.DisplayName} ({platform}). The IDE stays open — connect again to resume.", ToolTipIcon.Info);
+            // Repaint now instead of waiting up to a full 4s poll: the icon colour + menu are how the user sees
+            // that a disconnect driven from another window actually landed.
+            await TickAsync();
         }
 
         /// <summary>The menu-click wrapper: never throws (the handler is async void — an escaped exception would

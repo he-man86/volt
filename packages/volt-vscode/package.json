@@ -752,11 +752,6 @@
           "command": "volt.openProblems",
           "when": "view == volt.views.diagnostics",
           "group": "navigation@1"
-        },
-        {
-          "command": "volt.refresh",
-          "when": "view == volt.views.bridge",
-          "group": "navigation@1"
         }
       ],
       "volt.more": [

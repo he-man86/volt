@@ -80,3 +80,22 @@ The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md`
 writes on disk.
 
 `tsconfig.json` typechecks every script here (pre-push hook + CI: `tsgo --noEmit -p volt-scripts/tsconfig.json`).
+
+## `test-extension.ts` — the extension-install gate (`bun run test:ext`)
+
+Sideloading a `.vsix` is the ONLY way the Volt extension reaches an editor (release.yml never publishes to the
+Marketplace), and that mechanism has three documented sharp edges that silently leave you running old code:
+
+1. **A VSIX-installed extension never auto-updates** — nothing but our installer will ever move it.
+2. **`--install-extension` is a no-op unless the version strictly increases.** The local `bun run package` used to
+   stamp the base `0.0.1`, lower than every installed dev build, so a local build appeared to install and changed
+   nothing. `package` now passes the git-derived version (`version.ts --vsix`) to vsce.
+3. **A running editor keeps executing the old extension until it is fully QUIT and reopened** — a window reload is
+   not enough. Microsoft closed this as-designed ([vscode#68234](https://github.com/microsoft/vscode/issues/68234)).
+   No test can assert around it; the gate prints the reminder.
+
+`bun run test:ext` builds, installs into every editor CLI on PATH, and fails unless each reports exactly one copy
+at exactly the expected version. `--verify` inspects what is already installed without building (it can't demand
+HEAD's version — that moves with every commit — so it asserts the editors agree instead). Orphaned version folders
+are a warning, not a failure: `--uninstall-extension` deregisters immediately but leaves the directory for the
+editor to delete at startup, so a machine that never quits its editor always has a few, and they are unregistered.
