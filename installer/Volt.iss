@@ -67,15 +67,15 @@ Type: files; Name: "{app}\opencode-config\.gitignore"
 Type: filesandordirs; Name: "{app}\opencode-config\node_modules"
 
 [Files]
-; `restartreplace` is LOAD-BEARING, not belt-and-braces. Without it a silent auto-update ABORTS AND ROLLS BACK
-; whenever any file here is open — and one always is: an editor running the Volt extension holds
-; bin\volt-lsp-iec.exe. Inno retries the delete 4×, then hits an Abort/Retry/Ignore box which /SUPPRESSMSGBOXES
-; DEFAULTS TO ABORT, so setup logs "User canceled the installation process" and reverts. Observed: the connector
-; updated but bin\volt.exe (which sorts after volt-lsp-iec.exe, so the run never reached it) stayed several
-; releases behind, the [Run] step never fired so the tray never restarted, and a shipped CLI feature looked
-; broken for days. With this flag a locked file is queued for replacement at the next reboot and setup CONTINUES,
-; so everything else lands and the update is at worst deferred instead of silently reverted.
-Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion restartreplace
+; NO restartreplace here, and it is worth knowing why before reaching for it. A file held open ABORTS AND ROLLS
+; BACK the whole install: Inno retries the delete, then defaults the suppressed Abort/Retry/Ignore box to Abort
+; and reverts everything — silently, exit 5. Observed in the wild: the connector updated while bin/volt.exe
+; (which sorts AFTER the locked bin/volt-lsp-iec.exe, so the run never reached it) stayed several releases
+; behind, the [Run] step never fired so the tray never restarted, and a shipped CLI feature looked broken for
+; days. `restartreplace` looks like the cure and is NOT: it needs ADMINISTRATIVE rights to schedule a reboot-time
+; replace, and Volt installs per-user. It was tried; setup still rolled back. The cure is closing our own
+; processes first — see PrepareToInstall in [Code].
+Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Run]
 ; The connector self-configures env (OPENCODE_CONFIG_DIR + PATH), the Start Menu shortcut and its login item on
@@ -177,10 +177,36 @@ begin
   //   - /T on the connector also reaps its child bridge workers.
   //   - NOT codesys.exe: the CODESYS bridge runs IN-PROC inside the user's IDE — killing it would close their IDE.
   //   - Volt.exe (Electron desktop + the CLI) without /T, so we don't tree-kill the opencode child (a different image).
+  //   - volt-lsp-iec.exe: the ONE that actually broke updates. opencode spawns it (the config registers it by bare
+  //     name) and it lives for the whole session, so it was almost always holding bin/volt-lsp-iec.exe. Missing it
+  //     here meant Inno hit its retry loop, defaulted the suppressed Abort/Retry/Ignore box to ABORT, and ROLLED
+  //     BACK the entire install — silently, exit 5. Everything sorting after it (notably bin/volt.exe) then stayed
+  //     releases behind while the connector moved on. opencode restarts it on demand, so closing it costs nothing.
+  //     `restartreplace` on [Files] is NOT an alternative: it needs admin rights to schedule a reboot-time replace,
+  //     and Volt installs per-user.
   Exec(ExpandConstant('{cmd}'),
-    '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe >nul 2>&1',
+    '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Sleep(700); // let the OS release the file handles before [Files] runs
+  Sleep(1200); // let the OS release the file handles before [Files] runs
+end;
+
+/// The uninstall half of the same problem. A self-contained .NET app holds its OWN runtime open — clrjit.dll,
+/// coreclr.dll, hostfxr.dll and friends — so uninstalling while the tray is running left ~40 undeletable files
+/// behind, which keeps {app} alive and poisons the next install. [UninstallRun] cannot fix it: that entry IS the
+/// connector, and it is still running when Inno starts deleting.
+///
+/// usUninstall fires BEFORE any file is removed, which is the only useful moment. Same list as
+/// PrepareToInstall, same reasoning — Volt's own processes only, never the user's IDE.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var ResultCode: Integer;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    Exec(ExpandConstant('{cmd}'),
+      '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(1200); // let the OS release the handles before Inno starts deleting
+  end;
 end;
 
 procedure DeinitializeSetup();
