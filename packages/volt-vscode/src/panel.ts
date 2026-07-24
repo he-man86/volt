@@ -369,6 +369,11 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					key: "bridge:pick",
 					label: detected.length === 1 ? "Detected project — click to set up" : `${detected.length} detected projects — click one to set up`,
 					icon: new vscode.ThemeIcon("info"),
+					// The label SAYS "click to set up", so it must actually do that. Without a command it was inert —
+					// you'd click the very row that invites the click and nothing happened, while the real target was
+					// the project row below. volt.init runs its own folder + project picker, so this is correct for
+					// one project or many (the multi-project label reads "click one", and the picker is that choice).
+					command: { command: "volt.init", title: "Set up this folder" },
 				},
 				...detected.map(detectedNode),
 			]
