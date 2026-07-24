@@ -75,7 +75,24 @@ public sealed class BridgePipeHost : IDisposable
                 // way is safe and correct: a deselect that arrives during a select wins, and the user's last
                 // action is the one that sticks.
                 _paused = false;
-                return Busy("select", () => { _ide.SelectProject(Body<SelectRequest>(req)); return (object)new { ok = true }; });
+                return Busy("select", () =>
+                {
+                    var sel = Body<SelectRequest>(req);
+                    _ide.SelectProject(sel);
+                    // UNIFORM post-condition, enforced ONCE here in Core so BOTH vendors behave identically over the
+                    // wire (the parity point): a select must leave the bridge actually SERVING the asked-for project.
+                    // If the driver couldn't attach it — TwinCAT: the project isn't in the bound XAE window; CODESYS:
+                    // the pipe's project no longer matches — the bridge is not connected, so we refuse LOUD with the
+                    // shared PLC_DISCONNECTED code instead of "succeeding" into a state where the next fetch silently
+                    // returns nothing (the multi-window bug). IsConnected is a plain state read — no COM, safe on this
+                    // STA thread. The drivers no longer each decide this; they just attach, Core verifies.
+                    if (!_ide.IsConnected)
+                        throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
+                            string.IsNullOrEmpty(sel.Project)
+                                ? "the bridge could not attach an IDE project"
+                                : $"could not attach “{sel.Project}” — the IDE has no such project open (with more than one IDE window open, make sure it's in the one being served).");
+                    return (object)new { ok = true };
+                });
             }
             case "deselect":
                 // The tray's Disconnect. Refuse sync until the next `select`; tear nothing down. Deliberately NOT

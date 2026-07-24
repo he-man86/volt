@@ -15,7 +15,6 @@ public sealed class NoProjectSelectedException : InvalidOperationException
 {
     public NoProjectSelectedException()
         : base("No project selected — pick a TwinCAT instance/project from the Volt tray (or set VOLT_TC_PROJECT).") { }
-    public NoProjectSelectedException(string message) : base(message) { }
 }
 
 /// <summary>
@@ -95,7 +94,10 @@ internal sealed class TcObjectModel
 
     /// <summary>Bind a SPECIFIC instance/project/PLC project — the connector's `select`. Re-binds the DTE if a
     /// different running instance is named, then re-resolves the chosen project on that live DTE (no worker
-    /// respawn, no IDE restart). Throws <see cref="NoProjectSelectedException"/> if no DTE / project is open.</summary>
+    /// respawn, no IDE restart). Does NOT throw: it attaches what it can and leaves the model connected or not.
+    /// The Core `select` handler (BridgePipeHost) enforces the post-condition uniformly — a select that leaves the
+    /// bridge NOT connected is refused there with the shared PLC_DISCONNECTED, identically for both vendors. This
+    /// method's job is only the vendor-specific attach + diagnostics; it must not decide the wire outcome.</summary>
     public void SelectProject(string? instance, string? project, string? plcProject)
     {
         VoltLog.Info($"select: instance='{instance}' project='{project}' plc='{plcProject}'");
@@ -104,9 +106,9 @@ internal sealed class TcObjectModel
             var dte = RotInstances.Bind(instance!);
             if (dte != null) { _dte = dte; _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null; VoltLog.Info($"select: bound instance '{instance}'"); }
             else
-                // Diagnostic for the multi-TcXaeShell case: Bind couldn't resolve the requested instance in the ROT,
-                // so we fall through on the OLD dte and then fail to find `project` in it → "Unavailable" → 0 items.
-                // Log the instances the ROT DOES list right now so a mismatch (or a vanished instance) is visible.
+                // Multi-TcXaeShell diagnostic: Bind couldn't resolve the requested instance in the ROT. We fall
+                // through on the OLD dte and won't find `project` in it → not connected → Core refuses. Log what the
+                // ROT DOES list so a mismatch (or a vanished instance) is visible.
                 VoltLog.Warn($"select: Bind('{instance}') returned NULL — ROT lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
         }
         if (_dte == null)
@@ -114,23 +116,17 @@ internal sealed class TcObjectModel
             var first = RotInstances.First();
             if (first != null) _dte = first.Value.Dte;
         }
-        if (_dte == null) throw new NoProjectSelectedException();
+        if (_dte == null) { VoltLog.Warn("select: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
         FindTwinCatProject(string.IsNullOrEmpty(project) ? null : project);
-        FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
         if (_sysManager == null)
         {
-            // A specific project was asked for and it isn't on the bound instance — FAIL LOUD. Returning here
-            // silently left the bridge not-connected, so the eventual fetch came back with zero items and the CLI
-            // reported a misleading "is the project open?" instead of "that project isn't in this IDE instance".
-            // This is the multi-XAE trap: selecting a project that lives in a DIFFERENT instance than the one bound.
-            var open = string.Join(", ", SolutionProjectNames());
-            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (solution has: [{open}])");
-            if (!string.IsNullOrEmpty(project))
-                throw new NoProjectSelectedException(
-                    $"'{project}' is not open in the selected TwinCAT instance (it has: {(string.IsNullOrEmpty(open) ? "no projects" : open)}).");
+            // The requested project isn't on the bound instance (the multi-window trap). Leave the model not
+            // connected and let Core refuse loud — do NOT touch PLC lookup on a null sys-manager.
+            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (solution has: [{string.Join(", ", SolutionProjectNames())}])");
+            return;
         }
-        else
-            VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}'");
+        FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
+        VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}'");
     }
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.

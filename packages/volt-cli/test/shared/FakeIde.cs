@@ -82,6 +82,10 @@ public sealed class FakeIde : IIdeDriver
     // ── health knob (drives IsConnected + BuildHealthResponse, as on a real driver) ──
     // Default connected: the common test bridge is up. Binding/disconnect tests flip these knobs.
     public bool HealthConnected { get; init; } = true;
+    // Model a select that CANNOT attach the requested project (the multi-window trap): after it, the driver is not
+    // connected, and the Core `select` handler must refuse loud. Default: select attaches fine.
+    public bool SelectConnects { get; init; } = true;
+    private bool _attached = true;
     public string HealthPlatform { get; init; } = "";
     public string? HealthProjectName { get; init; }
 
@@ -196,7 +200,7 @@ public sealed class FakeIde : IIdeDriver
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
     // Mirror a real driver: IsConnected and BuildHealthResponse().Connected are the SAME signal.
-    public bool IsConnected => HealthConnected;
+    public bool IsConnected => HealthConnected && _attached;
     public string? IdeName => "Fake";
     public string? IdeVersion => "0";
     public string Version => "test";
@@ -209,10 +213,10 @@ public sealed class FakeIde : IIdeDriver
     public void TriggerAsyncProbe() { }
     public HealthResponse BuildHealthResponse() => new HealthResponse
     {
-        Connected = HealthConnected,
+        Connected = IsConnected,
         Platform = HealthPlatform,
         ProjectName = HealthProjectName,
-        Status = HealthConnected ? "healthy" : "unavailable",
+        Status = IsConnected ? "healthy" : "unavailable",
     };
     public bool ShouldMarkDegraded(Exception ex) => false;
     public T RunOnStaThread<T>(Func<T> fn) => fn();
@@ -221,7 +225,7 @@ public sealed class FakeIde : IIdeDriver
     public InstancesResult Instances { get; set; } = new(new List<IdeInstance>());
     public SelectRequest? Selected { get; private set; }
     public InstancesResult EnumerateInstances() => Instances;
-    public void SelectProject(SelectRequest sel) => Selected = sel;
+    public void SelectProject(SelectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
     public void FlushPendingWrites() { }
 

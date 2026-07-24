@@ -106,6 +106,35 @@ public class PipeTransportTests
         Assert.Equal("NO_SIDECAR", ex.Code);
     }
 
+    /// <summary>The Core `select` post-condition, enforced ONCE in BridgePipeHost for BOTH vendors: a select that
+    /// couldn't attach the requested project (the multi-window trap — TwinCAT: not in the bound XAE; CODESYS: the
+    /// pipe's project moved) leaves the driver not-connected, and the host must refuse LOUD with the shared
+    /// PLC_DISCONNECTED — never "ok" into a state where the next fetch silently returns nothing. This lived per
+    /// driver (TwinCAT threw its own exception, CODESYS didn't check at all); moving it here makes the wire error
+    /// identical across vendors by construction. The driver just attaches; Core decides the wire outcome.</summary>
+    [Fact]
+    public void Select_that_cannot_attach_the_project_is_refused_with_PLC_DISCONNECTED()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { SelectConnects = false }, pipe);
+        host.Start();
+
+        var ex = Assert.Throws<PipeCallException>(() =>
+            new PipeClient(pipe).Call("select", new { instanceId = "xae-2", project = "NotOpenHere", plcProject = (string?)null }));
+        Assert.Equal("PLC_DISCONNECTED", ex.Code);
+    }
+
+    [Fact]
+    public void Select_that_attaches_the_project_returns_ok()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        var r = new PipeClient(pipe).Call("select", new { instanceId = "xae-1", project = "P", plcProject = (string?)null });
+        Assert.True(r.GetProperty("ok").GetBoolean());
+    }
+
     /// <summary>The tray's Disconnect, end to end over the wire. `deselect` must REFUSE sync without tearing the
     /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean
     /// anything. `health` + `instances` must keep answering while disconnected — they are how the UI shows the
