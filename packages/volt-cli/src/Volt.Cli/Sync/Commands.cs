@@ -142,11 +142,9 @@ public static class Commands
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PullResult.Refused(e.Message); }
 
-        // Confirm we fetched the bound project BEFORE merging. A current bridge enforced the guard server-side and
-        // echoes what it walked (confirm it — cheap); an OLDER bridge does neither, so fall back to a health check.
-        var bindErr = fetched.Platform is null && fetched.ProjectName is null
-            ? Config.VerifyBinding(cfg, bridge.GetHealth())
-            : Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
+        // Confirm we fetched the bound project BEFORE merging. The bridge enforced the guard server-side and echoes
+        // what it walked (confirm it — cheap; Platform is always stamped, so no version-skew fallback is possible).
+        var bindErr = Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
         if (bindErr is not null) return PullResult.Refused(bindErr);
 
         var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>());
@@ -231,8 +229,8 @@ public static class Commands
         // Unrecognized-extension guard (BEFORE committing anything): a `.dut` etc. can't sync — fail loud instead
         // of silently skipping and reporting "nothing to push".
         var foreign = Git.DiffWorktree(root, IdeTree.Range, "src")
-            .Where(r => r.Kind != "delete")
-            .Select(r => Files.StripSrcPrefix(r.Kind == "rename" ? r.NewPath : r.Path))
+            .Where(r => r.Kind != DiffKinds.Delete)
+            .Select(r => Files.StripSrcPrefix(r.Kind == DiffKinds.Rename ? r.NewPath : r.Path))
             .Where(rel => !Extensions.IsTrackedPath(rel))
             .ToList();
         if (foreign.Count > 0)
@@ -249,7 +247,7 @@ public static class Commands
 
         var rows = Git.DiffRefs(root, IdeTree.Range, "HEAD", "src");
 
-        var affected = rows.SelectMany(r => r.Kind == "rename"
+        var affected = rows.SelectMany(r => r.Kind == DiffKinds.Rename
             ? new[] { Files.StripSrcPrefix(r.OldPath), Files.StripSrcPrefix(r.NewPath) }
             : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
         var readOnly = affected.Where(Extensions.IsReadOnly).ToList();
@@ -259,8 +257,8 @@ public static class Commands
         // Read every changed blob in ONE `git cat-file --batch` (was a `git show` spawn per file — matters on a
         // large / --force push). The BLOB at HEAD, NOT the worktree file: `.gitattributes` (`* text=auto eol=lf`)
         // eol-smudges the worktree, so a direct read could diverge from what the IDE must receive.
-        var blobs = Git.ReadBlobsBatch(root, rows.Where(r => r.Kind != "delete")
-            .Select(r => $"HEAD:src/{Files.StripSrcPrefix(r.Kind == "rename" ? r.NewPath : r.Path)}")
+        var blobs = Git.ReadBlobsBatch(root, rows.Where(r => r.Kind != DiffKinds.Delete)
+            .Select(r => $"HEAD:src/{Files.StripSrcPrefix(r.Kind == DiffKinds.Rename ? r.NewPath : r.Path)}")
             .Distinct(StringComparer.Ordinal).ToList());
         string HeadSrc(string rel) => blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b) : "";
 
@@ -281,7 +279,7 @@ public static class Commands
 
         foreach (var row in rows)
         {
-            if (row.Kind == "delete")
+            if (row.Kind == DiffKinds.Delete)
             {
                 var rel = Files.StripSrcPrefix(row.Path);
                 var item = Materialize.PathToItem(rel);
@@ -289,7 +287,7 @@ public static class Commands
                 if (guardItems.TryGetValue(item.Value.Name, out var v))
                     ops.Add(new DeleteItemOp { Name = item.Value.Name, IfVersion = v });
             }
-            else if (row.Kind == "rename")
+            else if (row.Kind == DiffKinds.Rename)
             {
                 var newRel = Files.StripSrcPrefix(row.NewPath);
                 if (!Extensions.IsPushable(newRel)) continue;

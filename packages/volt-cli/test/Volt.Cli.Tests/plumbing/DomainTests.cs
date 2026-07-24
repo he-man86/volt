@@ -69,10 +69,8 @@ public class DomainTests
             // Binding checks against a health payload.
             var ok = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "Demo", HealthStatus.Healthy, true, false) } };
             Assert.Null(Config.ProjectMismatch(loaded, ok));
-            Assert.Null(Config.VerifyBinding(loaded, ok));
             var wrong = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "Other", HealthStatus.Healthy, true, false) } };
             Assert.NotNull(Config.ProjectMismatch(loaded, wrong));
-            Assert.NotNull(Config.VerifyBinding(loaded, wrong));
         }
         finally { TestUtil.ForceDelete(root); }
     }

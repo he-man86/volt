@@ -130,7 +130,7 @@ internal static class Program
         }
         if (a.Has("--json"))
         {
-            EmitJson(new { s.Initialized, s.Merging, s.Incoming, s.Outgoing, s.PathByName, s.ProjectMismatch, s.Summary, s.IncomingStale });
+            EmitJson(s); // Online/Detail/Recommend are [JsonIgnore]'d, so the type serializes to exactly the --json contract
             return 0;
         }
         Console.WriteLine($"bridge: {(s.Online ? "connected" : "offline")} — {s.Detail}");

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Sync;
 
@@ -30,14 +31,12 @@ public static class Scaffold
 
     private static string VscodeSettings()
     {
-        var settings = new Dictionary<string, object>
-        {
-            ["files.associations"] = new Dictionary<string, string>
-            {
-                ["*.fb"] = "structured-text", ["*.prg"] = "structured-text", ["*.fun"] = "structured-text",
-                ["*.itf"] = "structured-text", ["*.dut"] = "structured-text", ["*.gvl"] = "structured-text",
-            },
-        };
+        // Derived from the one canonical kind table (like Extensions.cs) — a new source kind's extension is added in
+        // ItemKind.FileExtensions and a freshly-`volt init`-ed workspace colours it as structured-text automatically.
+        var associations = new Dictionary<string, string>();
+        foreach (var x in ItemKind.FileExtensions)
+            if (x.IsSource) associations["*." + x.Ext] = "structured-text";
+        var settings = new Dictionary<string, object> { ["files.associations"] = associations };
         return JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }) + "\n";
     }
 

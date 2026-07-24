@@ -70,19 +70,6 @@ public static class Config
         return diff.Count > 0 ? new ProjectMismatch(configured, bridge, diff) : null;
     }
 
-    /// <summary>Null when this workspace can safely act on the bridge; else a refuse string. Checks BOTH that an
-    /// IDE is attached (connected) and that its project matches the binding.</summary>
-    public static string? VerifyBinding(WorkspaceConfig cfg, HealthResponse health)
-    {
-        if (!health.Connected)
-            return "the IDE has no project loaded — open the bound project in the IDE and start its bridge, then retry";
-        var mm = ProjectMismatch(cfg, health);
-        if (mm is not null)
-            return $"bridge is on {mm.BridgeReports.Platform}/{mm.BridgeReports.ProjectName}, but this workspace is bound to " +
-                   $"{mm.ConfiguredAs.Platform}/{mm.ConfiguredAs.ProjectName} — open the bound project in the IDE";
-        return null;
-    }
-
     /// <summary>Null when the identity a fetch echoed matches the binding; else a refuse string. A current bridge
     /// also enforces this server-side (WRONG_PROJECT before it returns), so this is a cheap pre-merge confirmation.</summary>
     public static string? VerifyFetchedIdentity(WorkspaceConfig cfg, string? platform, string? projectName)
