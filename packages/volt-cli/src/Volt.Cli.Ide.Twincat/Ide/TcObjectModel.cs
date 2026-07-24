@@ -104,7 +104,9 @@ internal sealed class TcObjectModel
         if (!string.IsNullOrEmpty(instance))
         {
             var dte = RotInstances.Bind(instance!);
-            if (dte != null) { _dte = dte; _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null; VoltLog.Info($"select: bound instance '{instance}'"); }
+            // The resolved-project fields are cleared by FindTwinCatProject below (it always starts clean), so no
+            // reset here — just retarget the DTE.
+            if (dte != null) { _dte = dte; VoltLog.Info($"select: bound instance '{instance}'"); }
             else
                 // Multi-TcXaeShell diagnostic: Bind couldn't resolve the requested instance in the ROT. We fall
                 // through on the OLD dte and won't find `project` in it → not connected → Core refuses. Log what the
@@ -145,6 +147,11 @@ internal sealed class TcObjectModel
 
     private void FindTwinCatProject(string? wantProject)
     {
+        // Start from a CLEAN slate. This method only SETS the resolved-project fields on a match; it never cleared
+        // them, so a project that isn't found (or a fallback to a different DTE after a failed instance Bind) left
+        // the PREVIOUS project's _sysManager in place — making IsConnected wrongly true and silently serving the OLD
+        // project while a DIFFERENT one was requested. Reset first so a miss leaves the model NOT connected.
+        _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null;
         dynamic solution = _dte!.Solution;
         dynamic projects = solution.Projects;
         int count = projects.Count;
