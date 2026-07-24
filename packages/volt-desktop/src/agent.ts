@@ -15,9 +15,32 @@ const OPENCODE_PORT = process.env.OPENCODE_PORT || "8547"
 
 let child: ReturnType<typeof spawn> | null = null
 
+// Free the pinned port before starting. Because the port is FIXED (for origin stability) and Volt-specific, an
+// occupant is always a stale `opencode serve` orphaned by a previous run — most often when the desktop was killed
+// externally (an update's taskkill, a crash) so killServer never ran. opencode then fails to bind with a bare
+// "ServeError / Unexpected error" and exits 1, which the UI shows as "opencode exited before serving" — the
+// install banner, even though opencode is installed and fine. Reclaiming our own port turns that into a non-event.
+function freePinnedPort(): void {
+  if (process.platform !== "win32") return // the desktop's platform; elsewhere the OS reuses SO_REUSEADDR fine
+  try {
+    const out = spawnSync("cmd", ["/c", `netstat -ano | findstr LISTENING | findstr :${OPENCODE_PORT}`], { encoding: "utf8" }).stdout ?? ""
+    const pids = new Set(
+      out
+        .trim()
+        .split("\n")
+        .map((l) => l.trim().split(/\s+/).pop())
+        .filter((p): p is string => !!p && /^\d+$/.test(p) && p !== "0"),
+    )
+    for (const pid of pids) spawnSync("taskkill", ["/pid", pid, "/T", "/F"])
+  } catch {
+    /* best-effort — if we can't clear it, the spawn below fails loudly as before */
+  }
+}
+
 export function startServer(): Promise<string> {
   // Still parse the URL opencode prints (robust to host/scheme) — we only pin the port. Reject if none prints.
   return new Promise((resolve, reject) => {
+    freePinnedPort() // reclaim the port from any orphaned opencode before binding it
     // shell:true so Windows resolves the `.cmd`/`.ps1` PATH shim npm installs (bare spawn ENOENTs on it).
     child = spawn(OPENCODE_BIN, ["serve", "--port", OPENCODE_PORT], { stdio: ["ignore", "pipe", "pipe"], shell: true })
     const timer = setTimeout(() => reject(new Error("opencode server didn't report a URL within 20s")), 20_000)
