@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Wire;
 
 public class HealthResponse
 {
     [JsonPropertyName("status")]
-    public string Status { get; set; } = "unavailable";
+    public string Status { get; set; } = HealthStatus.Unavailable;
 
     [JsonPropertyName("platform")]
     public string Platform { get; set; } = "";

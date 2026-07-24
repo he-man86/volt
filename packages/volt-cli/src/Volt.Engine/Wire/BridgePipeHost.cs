@@ -63,7 +63,7 @@ public sealed class BridgePipeHost : IDisposable
             {
                 var h = _ide.BuildHealthResponse();
                 h.ActiveOp = Volatile.Read(ref _activeOpDepth) > 0 ? _activeOpLabel ?? "busy" : null;
-                if (_paused) { h.Connected = false; h.Status = "unavailable"; }
+                if (_paused) { h.Connected = false; h.Status = HealthStatus.Unavailable; }
                 return h;
             }
             case Ops.Instances:

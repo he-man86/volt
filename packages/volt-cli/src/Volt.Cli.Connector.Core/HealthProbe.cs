@@ -51,9 +51,9 @@ namespace Volt.Cli.Connector
         {
             Status = root.TryGetProperty("status", out var s) ? s.GetString() switch
             {
-                "healthy" => BridgeStatus.Connected,
-                "degraded" => BridgeStatus.Degraded,
-                "unavailable" => BridgeStatus.Unavailable,
+                HealthStatus.Healthy => BridgeStatus.Connected,
+                HealthStatus.Degraded => BridgeStatus.Degraded,
+                HealthStatus.Unavailable => BridgeStatus.Unavailable,
                 _ => BridgeStatus.Unknown,
             } : BridgeStatus.Unknown,
             ProjectName = TryString(root, "projectName"),

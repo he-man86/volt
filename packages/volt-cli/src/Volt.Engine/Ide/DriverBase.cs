@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Volt.Engine.Diagnostics;
 using Volt.Engine.Wire;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Ide;
 
 /// <summary>Shared base for a vendor driver: implements <see cref="IIdeSession"/>'s degraded-state machine,
@@ -89,7 +91,7 @@ public abstract class DriverBase : IIdeSession
         string? ideName, string? ideVersion, string? projectName, bool projectDirty) =>
         new()
         {
-            Status = connected ? (_isDegraded ? "degraded" : "healthy") : "unavailable",
+            Status = connected ? (_isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy) : HealthStatus.Unavailable,
             Platform = platform,
             PlatformVariant = null,
             Connected = connected,
