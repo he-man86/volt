@@ -87,10 +87,9 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!)
 }
 
-// The agent view's placeholder when opencode isn't installed (or failed to start). The Volt installer offers the
-// opencode CLI as an opt-in wizard task, so this only points at opencode.ai rather than installing anything —
-// one install path to maintain, and Volt never manages opencode behind the user's back.
-// target=_blank → setWindowOpenHandler sends it to the real browser.
+// The agent view's placeholder when opencode isn't installed (or failed to start). Volt does NOT install opencode
+// — it just points at the official site and lets the user install it themselves. target=_blank →
+// setWindowOpenHandler sends it to the real browser.
 function agentBanner(view: WebContentsView, opts: { error?: string }): Promise<void> {
   const footer = opts.error ? `<p style="opacity:.35;margin:2rem 0 0;font:12px ui-monospace,monospace">${esc(opts.error)}</p>` : ""
   return view.webContents.loadURL(
@@ -102,7 +101,7 @@ function agentBanner(view: WebContentsView, opts: { error?: string }): Promise<v
         <h2 style="margin:0 0 .5rem;font-size:1.5rem;letter-spacing:-.01em">Turn on the AI agent</h2>
         <p style="opacity:.7;margin:0 0 1.75rem">The agent view is powered by <b>opencode</b>, an optional runtime. Everything else in Volt — sync, the language server, the IDE bridge — already works without it.</p>
         <a href="https://opencode.ai/download" target="_blank" style="display:inline-block;padding:.7rem 1.6rem;border-radius:10px;background:#e8a94b;color:#16120e;font-weight:600;text-decoration:none;box-shadow:0 6px 20px rgba(232,169,75,.3)">Install opencode</a>
-        <p style="opacity:.5;margin:1.75rem 0 0;font-size:12.5px">Install the <b>official opencode CLI</b>, then restart Volt. The Volt installer can also do this for you. To point at an existing install, set <code style="font-family:ui-monospace,monospace;opacity:.85">OPENCODE_BIN</code>.</p>
+        <p style="opacity:.5;margin:1.75rem 0 0;font-size:12.5px">Install the <b>official opencode CLI</b> from <a href="https://opencode.ai/download" target="_blank" style="color:#e8a94b">opencode.ai</a>, then restart Volt. Already have it? Point Volt at it with <code style="font-family:ui-monospace,monospace;opacity:.85">OPENCODE_BIN</code>.</p>
         ${footer}
       </main></body>`),
   )

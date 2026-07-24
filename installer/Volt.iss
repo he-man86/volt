@@ -41,10 +41,11 @@ SetupLogging=yes
 CloseApplications=no
 
 [Tasks]
-Name: "opencode"; Description: "Install the opencode CLI — the AI agent (via winget)"; GroupDescription: "Optional components:"
-; One task per VS Code-family editor — each offered only if its launcher is on PATH, each independently
-; checkable. This IS the configuration surface: the wizard checkboxes interactively, /TASKS="vscode,cursor"
-; for a scripted install.
+; Volt does NOT install opencode. opencode is a prerequisite the user provides themselves; the apps detect it and,
+; if it's missing, link to opencode.ai. (There used to be an opt-in winget task here; it was removed so Volt has no
+; opencode install path to own.) These tasks are the extension only — one per VS Code-family editor, each offered
+; only if its launcher is on PATH, each independently checkable: the wizard checkboxes interactively,
+; /TASKS="vscode,cursor" for a scripted install.
 Name: "vscode";   Description: "Install the Volt extension into VS Code";  GroupDescription: "Optional components:"; Check: EditorOnPath('code')
 Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
 Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
@@ -80,10 +81,9 @@ Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdi
 ; OPENCODE_CONFIG_DIR, the shortcut, the login item), and a [Run] filename is transient and internal to this
 ; install.
 ;
-; Optional components. winget is interactive-only (heavy, needs network) - skipped on the connector's silent
-; auto-update. The extension refresh is NOT: see WantExt.
-Filename: "{cmd}"; Parameters: "/c winget install --exact --id SST.opencode --accept-source-agreements --accept-package-agreements"; Tasks: opencode; Check: NotSilent; StatusMsg: "Installing the opencode CLI (this can take a minute)…"; Flags: runhidden
-; The extension refresh, however, MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
+; The only optional component is the VS Code-family extension (there is deliberately NO opencode install — Volt
+; doesn't own an opencode install path; the apps link to opencode.ai when it's missing).
+; The extension refresh MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
 ; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
 ; encodes both cases: interactive → honor the checkbox; silent → refresh only editors that ALREADY have it.
 ; DO NOT uninstall before installing. That was tried, to stop superseded version folders accumulating (an editor
@@ -164,12 +164,6 @@ begin
   if WizardSilent() then Result := ExtInstalled(Launcher)
   else Result := WizardIsTaskSelected(TaskName);
   Log('volt: extension for ' + Launcher + ' -> install=' + IntToStr(Integer(Result)));
-end;
-
-function NotSilent(): Boolean;
-begin
-  // On the connector's /VERYSILENT self-update we only refresh the app — don't re-run winget/code.
-  Result := not WizardSilent();
 end;
 
 /// Point {app}\current at a version directory. `rmdir` unlinks the reparse point WITHOUT touching the target —

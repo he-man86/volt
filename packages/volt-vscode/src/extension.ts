@@ -11,8 +11,8 @@ import { VoltStatus, aggregate, connectorStatus } from "@volt/control"
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
 
-// opencode is missing — say so and point at opencode.ai. The Volt installer offers the winget install as an
-// opt-in task, so this doesn't reimplement one; the rest of Volt works without opencode either way.
+// opencode is missing — say so and point at opencode.ai; the user installs it themselves. Volt never installs
+// opencode. The rest of Volt works without it either way.
 async function promptInstallOpencode(): Promise<void> {
 	const get = "Get it from opencode.ai"
 	const pick = await vscode.window.showWarningMessage(
