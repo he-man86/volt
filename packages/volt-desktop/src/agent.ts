@@ -11,7 +11,7 @@ export const READY = /listening on (https?:\/\/\S+)/i // matches `opencode serve
 // Pin the port so the GUI's origin is stable across launches. opencode persists language/settings in
 // cookies+localStorage scoped to scheme://host:port; a random port each launch = a fresh origin = nothing
 // sticks (and re-runs Accept-Language locale detection every time). Override with OPENCODE_PORT.
-export const OPENCODE_PORT = process.env.OPENCODE_PORT || "8547"
+const OPENCODE_PORT = process.env.OPENCODE_PORT || "8547"
 
 let child: ReturnType<typeof spawn> | null = null
 
