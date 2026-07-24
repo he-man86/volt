@@ -313,10 +313,10 @@ public static class Git
             var parts = line.Split('\t');
             var status = parts[0];
             if (status.StartsWith("R", StringComparison.Ordinal))
-                rows.Add(new DiffRow("rename", OldPath: parts[1], NewPath: parts[2], Identical: int.TryParse(status.Substring(1), out var pct) && pct >= 100));
-            else if (status.StartsWith("A", StringComparison.Ordinal)) rows.Add(new DiffRow("add", Path: parts[1]));
-            else if (status.StartsWith("D", StringComparison.Ordinal)) rows.Add(new DiffRow("delete", Path: parts[1]));
-            else rows.Add(new DiffRow("modify", Path: parts[1]));
+                rows.Add(new DiffRow(DiffKinds.Rename, OldPath: parts[1], NewPath: parts[2], Identical: int.TryParse(status.Substring(1), out var pct) && pct >= 100));
+            else if (status.StartsWith("A", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Add, Path: parts[1]));
+            else if (status.StartsWith("D", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Delete, Path: parts[1]));
+            else rows.Add(new DiffRow(DiffKinds.Modify, Path: parts[1]));
         }
         return rows;
     }
@@ -423,9 +423,9 @@ public static class Git
     public static MergeOutcome GitMerge(string root, string @ref, string message)
     {
         var r = Run(new[] { "-C", root, "merge", "--no-edit", "-m", message, @ref }, env: DetEnv, allowFail: true);
-        if (r.Code == 0) return new MergeOutcome("clean", Array.Empty<string>());
+        if (r.Code == 0) return new MergeOutcome(ResultKinds.Clean, Array.Empty<string>());
         var conflicts = UnmergedPaths(root);
-        if (conflicts.Count > 0) return new MergeOutcome("conflict", conflicts);
+        if (conflicts.Count > 0) return new MergeOutcome(ResultKinds.Conflict, conflicts);
         throw new GitError($"merge {@ref}", r.Code, r.StdErr);
     }
 }

@@ -199,7 +199,7 @@ public static class Commands
         Git.UpdateRef(gitDir, IdeTree.Range, commit);
 
         var outcome = Git.GitMerge(root, IdeTree.Range, $"volt: merge IDE @ {fetched.ProjectVersion}");
-        if (outcome.Kind == "conflict")
+        if (outcome.Kind == ResultKinds.Conflict)
         {
             // Stash the IDE refs this pull WOULD have adopted, beside the in-progress merge, so `volt merge
             // --continue` can advance the baseline once conflicts are resolved — no "pull again" tax.

@@ -72,9 +72,16 @@
       vocabulary (kinds, ops, vendor ids, health-status, the error codes) appears outside its definition file. Prove it
       red by temporarily reintroducing one literal, then green. Scoped to intra-C# — it does not reach across the CLI.
 
-## 8. Optional — internal enums (lowest value, last, droppable)
+## 8. Internal discriminators — const strings, NOT enums (premise corrected)
 
-- [ ] 8.1 Result-kind discriminators (`ok`/`error`/`refused`/`conflict`/`rejected`, `Types.cs`) → a C# `enum`; update the
-      `Program.cs`/`Commands.cs`/`Git.cs` comparisons. Internal only (no wire role).
-- [ ] 8.2 Diff-row kind (`add`/`delete`/`rename`/`modify`, `Git.cs`/`Commands.cs`/`StatusModel.cs`) → a C# `enum`.
-- [ ] 8.3 If the churn isn't paying for itself, STOP — these are cosmetic vs. phases 1–7.
+- [x] 8.1 CORRECTION (from reading the code): result-kind is NOT "internal, no wire role" — volt-control PARSES it
+      (`actions.ts` unions `{kind:"refused"|"conflict"|"rejected"}`, `status.ts` checks `out.kind !== "ok"`). An enum
+      would serialize its PascalCase name and BREAK the TS parser. So `ResultKinds` is a `const string` class (Ok/Error/
+      Refused/Rejected/Conflict/Clean) in `Types.cs`, referenced from the factory methods + `Program.cs`/`Commands.cs`/
+      `Git.cs` (MergeOutcome) comparisons. Values unchanged (CLI black-box JSON tests confirm).
+- [x] 8.2 Diff-row kind IS internal (no TS consumer) — `DiffKinds` const class (Add/Delete/Rename/Modify) in `Types.cs`,
+      referenced from `Git.ParseDiffRows` + `StatusModel`. Kept a const string too for consistency (an enum here would be
+      the lone exception + churn the record type for no wire benefit).
+- [x] 8.3 NOT added to the rot-guard: these values (ok/error/add/delete/clean/conflict) are ubiquitous English words —
+      a value-scan would false-positive across git command arrays, severities, and messages. The value-scan guard is for
+      DISTINCTIVE vocabularies; these rely on the const being the obvious call-site choice.

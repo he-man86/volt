@@ -84,8 +84,8 @@ internal static class Program
     private static int CmdInit(BridgeClient bridge, Args a)
     {
         var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, Reporter.Create());
-        if (a.Has("--json")) { EmitJson(r); return r.Kind == "ok" ? 0 : 1; }
-        if (r.Kind == "error") { Console.Error.WriteLine(r.Reason); return 1; }
+        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
+        if (r.Kind == ResultKinds.Error) { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine($"bound to {r.Project}");
         if (r.GitCreated) Console.WriteLine("initialized a git repo for version control");
         if (r.Scaffold > 0) Console.WriteLine($"scaffolded {r.Scaffold} project file(s)");
@@ -97,9 +97,9 @@ internal static class Program
     private static int CmdPull(string root, BridgeClient bridge, Args a)
     {
         var r = Commands.Pull(root, bridge, a.Has("--dry-run"), Reporter.Create(), a.Has("--force"));
-        if (a.Has("--json")) { EmitJson(r); return r.Kind == "ok" ? 0 : 2; }
-        if (r.Kind == "refused") { Console.Error.WriteLine(r.Reason); return 1; }
-        if (r.Kind == "conflict")
+        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 2; }
+        if (r.Kind == ResultKinds.Refused) { Console.Error.WriteLine(r.Reason); return 1; }
+        if (r.Kind == ResultKinds.Conflict)
         {
             Console.WriteLine($"CONFLICT in {r.Paths!.Count} file(s) — resolve the markers, then `volt merge --continue` (or `volt merge --abort`):");
             foreach (var p in r.Paths!) Console.WriteLine($"  ! {p}");
@@ -112,8 +112,8 @@ internal static class Program
     private static int CmdPush(string root, BridgeClient bridge, Args a)
     {
         var r = Commands.Push(root, bridge, a.Has("--force"), a.Value("--force-with-lease"), a.Has("--dry-run"), Reporter.Create());
-        if (a.Has("--json")) { EmitJson(r); return r.Kind == "ok" ? 0 : 2; }
-        if (r.Kind == "rejected") { Console.Error.WriteLine(r.Reason); return 1; }
+        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 2; }
+        if (r.Kind == ResultKinds.Rejected) { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine(r.Message ?? $"pushed {r.Items!.Count} item(s)");
         return 0;
     }

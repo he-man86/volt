@@ -57,9 +57,9 @@ public static class StatusModel
             }
             foreach (var row in Git.DiffWorktree(root, IdeTree.Range, "src"))
             {
-                if (row.Kind == "rename") { Place(Files.StripSrcPrefix(row.OldPath), outgoing.Removed); Place(Files.StripSrcPrefix(row.NewPath), outgoing.Added); }
-                else if (row.Kind == "add") Place(Files.StripSrcPrefix(row.Path), outgoing.Added);
-                else if (row.Kind == "delete") Place(Files.StripSrcPrefix(row.Path), outgoing.Removed);
+                if (row.Kind == DiffKinds.Rename) { Place(Files.StripSrcPrefix(row.OldPath), outgoing.Removed); Place(Files.StripSrcPrefix(row.NewPath), outgoing.Added); }
+                else if (row.Kind == DiffKinds.Add) Place(Files.StripSrcPrefix(row.Path), outgoing.Added);
+                else if (row.Kind == DiffKinds.Delete) Place(Files.StripSrcPrefix(row.Path), outgoing.Removed);
                 else Place(Files.StripSrcPrefix(row.Path), outgoing.Modified);
             }
         }

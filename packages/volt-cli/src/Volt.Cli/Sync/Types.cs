@@ -2,6 +2,30 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Cli.Sync;
 
+/// <summary>The <c>Kind</c> discriminator on a CLI result / merge outcome — the value the <c>--json</c> output
+/// carries and volt-control parses (<c>actions.ts</c>, <c>status.ts</c>). Defined once: the factory methods set it,
+/// <c>Program</c>/<c>Commands</c> compare it. A wire-visible lowercase string (NOT an enum — a client matches the
+/// exact word, and an enum would serialize its PascalCase name and break the TS parser).</summary>
+public static class ResultKinds
+{
+    public const string Ok = "ok";
+    public const string Error = "error";
+    public const string Refused = "refused";
+    public const string Rejected = "rejected";
+    public const string Conflict = "conflict";
+    public const string Clean = "clean";
+}
+
+/// <summary>The <c>Kind</c> on a parsed git diff row — internal to the CLI's status model (produced by
+/// <c>Git.ParseDiffRows</c>, consumed by <c>StatusModel</c>). Defined once; not serialized to TS.</summary>
+public static class DiffKinds
+{
+    public const string Add = "add";
+    public const string Delete = "delete";
+    public const string Rename = "rename";
+    public const string Modify = "modify";
+}
+
 /// <summary>An added/removed/modified set of item names — the shared drift shape. Mirrors @volt/control's
 /// ChangeSet contract (serialized in <c>status --json</c>).</summary>
 public sealed class ChangeSet
@@ -61,10 +85,10 @@ public sealed class PullResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<string>? Paths { get; set; }
 
     public static PullResult Ok(List<string> synced, StatusData? status, string? message = null) =>
-        new() { Kind = "ok", Synced = synced, Status = status, Message = message };
-    public static PullResult Refused(string reason) => new() { Kind = "refused", Reason = reason };
+        new() { Kind = ResultKinds.Ok, Synced = synced, Status = status, Message = message };
+    public static PullResult Refused(string reason) => new() { Kind = ResultKinds.Refused, Reason = reason };
     public static PullResult Conflict(List<string> paths, StatusData? status) =>
-        new() { Kind = "conflict", Paths = paths, Status = status };
+        new() { Kind = ResultKinds.Conflict, Paths = paths, Status = status };
 }
 
 /// <summary>The push outcome: ok{items,status} | rejected{reason}.</summary>
@@ -77,8 +101,8 @@ public sealed class PushResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
 
     public static PushResult Ok(List<string> items, StatusData? status, string? message = null) =>
-        new() { Kind = "ok", Items = items, Status = status, Message = message };
-    public static PushResult Rejected(string reason) => new() { Kind = "rejected", Reason = reason };
+        new() { Kind = ResultKinds.Ok, Items = items, Status = status, Message = message };
+    public static PushResult Rejected(string reason) => new() { Kind = ResultKinds.Rejected, Reason = reason };
 }
 
 /// <summary>The init outcome: ok{project, gitCreated, pulled, scaffold, corpus, note?} | error{reason}.</summary>
@@ -94,8 +118,8 @@ public sealed class InitResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
 
     public static InitResult Ok(string project, bool gitCreated, int pulled, int scaffold, int corpus, string? note = null) =>
-        new() { Kind = "ok", Project = project, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus, Note = note };
-    public static InitResult Error(string reason) => new() { Kind = "error", Reason = reason };
+        new() { Kind = ResultKinds.Ok, Project = project, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus, Note = note };
+    public static InitResult Error(string reason) => new() { Kind = ResultKinds.Error, Reason = reason };
 }
 
 /// <summary>The build outcome — success + duration + normalized diagnostics (reuses Core's BridgeDiagnostic).</summary>
