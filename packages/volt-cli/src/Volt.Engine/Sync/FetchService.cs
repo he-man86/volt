@@ -9,6 +9,8 @@ using Volt.Engine.Library;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 /// <summary><c>/fetch</c>: like <c>/refs</c>, but ships the materialized source for every item whose
@@ -63,7 +65,7 @@ public static class FetchService
         // The live .library file versions (fullName → version), captured in the loop — the change signal for the
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
-        onProgress?.Invoke(new ProgressFrame { Operation = "fetch", Done = 0, Total = total });
+        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Fetch, Done = 0, Total = total });
 
         foreach (var it in walked)
         {
@@ -71,7 +73,7 @@ public static class FetchService
             // without a write per item.
             done++;
             if (onProgress != null && (done % 25 == 0 || done == total))
-                onProgress(new ProgressFrame { Operation = "fetch", Done = done, Total = total });
+                onProgress(new ProgressFrame { Operation = Ops.Fetch, Done = done, Total = total });
 
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) { unmapped++; VoltLog.Debug($"fetch skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
@@ -197,7 +199,7 @@ public static class FetchService
             // fraction as the item walk, picking up where it left off (startDone == walked.Count).
             i++;
             if (onProgress != null && (i % 25 == 0 || i == sigs.Count))
-                onProgress(new ProgressFrame { Operation = "fetch", Done = startDone + i, Total = total });
+                onProgress(new ProgressFrame { Operation = Ops.Fetch, Done = startDone + i, Total = total });
 
             // Render-null: a sub-signature (method/property — covered by its parent FB) or an unknown POUType.
             if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Debug($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }

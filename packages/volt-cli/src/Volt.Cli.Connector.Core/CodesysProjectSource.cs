@@ -42,7 +42,7 @@ namespace Volt.Cli.Connector
             var all = new List<DetectedProject>();
             foreach (var pipe in pipes)
             {
-                try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync("instances"), Vendor, pipe)); }
+                try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Instances), Vendor, pipe)); }
                 catch { /* that host went away mid-enumeration — skip it */ }
             }
             return all;
@@ -54,13 +54,13 @@ namespace Volt.Cli.Connector
             // instance) — harmless, and keeps the wire uniform. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
             var a = project.Attach;
-            return _wireFor(project.Pipe!).CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
+            return _wireFor(project.Pipe!).CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
             if (string.IsNullOrEmpty(project.Pipe)) return UnbindResult.Unreachable;
-            try { await _wireFor(project.Pipe!).CallAsync("deselect"); return UnbindResult.Gated; }
+            try { await _wireFor(project.Pipe!).CallAsync(Ops.Deselect); return UnbindResult.Gated; }
             // The host ANSWERED with an error: it is loaded but predates `deselect`, so it keeps serving.
             catch (PipeCallException) { return UnbindResult.Unsupported; }
             // Nothing answered — that IDE closed. Already disconnected; nothing to warn about.
@@ -73,7 +73,7 @@ namespace Volt.Cli.Connector
             // tray still shows the platform is up and waiting for a pick.
             if (selected?.Pipe is { Length: > 0 } pipe)
             {
-                try { return HealthProbe.FromWire(await _wireFor(pipe).CallAsync("health")); }
+                try { return HealthProbe.FromWire(await _wireFor(pipe).CallAsync(Ops.Health)); }
                 catch { return new BridgeHealth { Status = BridgeStatus.Unreachable }; }
             }
             // Reuse the last enumeration's count (walk only if we've never enumerated yet).

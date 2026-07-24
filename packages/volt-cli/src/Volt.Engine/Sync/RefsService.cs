@@ -6,6 +6,8 @@ using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 public static class RefsService
@@ -16,7 +18,7 @@ public static class RefsService
 
         var sw = Stopwatch.StartNew();
         // /refs IS the project snapshot — the same walk the /push receipt uses, so the two never drift.
-        var snap = ProjectSnapshot.Walk(ide, onProgress, "refs");
+        var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs);
 
         var hit = new List<string>();
         if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");

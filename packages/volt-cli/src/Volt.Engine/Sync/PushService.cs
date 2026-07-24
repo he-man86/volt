@@ -9,6 +9,8 @@ using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 /// <summary><c>/push</c>: apply a batch of <c>set</c> (declarative create/update/rename/move) +
@@ -60,7 +62,7 @@ public static class PushService
         var parent = ide.GetPlcProjectRoot();
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
         var opTotal = request.Ops.Count;
-        onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = 0, Total = opTotal, Phase = "applying" });
+        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
         foreach (var op in request.Ops)
         {
             try { applied.Add((ApplyOp(ide, parent, itemCache, op), op.Name)); }
@@ -75,7 +77,7 @@ public static class PushService
                     currentProjectVersion);
             }
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
-            onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = applied.Count, Total = opTotal });
+            onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = applied.Count, Total = opTotal });
         }
 
         ide.FlushPendingWrites();

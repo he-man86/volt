@@ -22,7 +22,7 @@ namespace Volt.Cli.Connector
         public BridgeStatus Status { get; init; }
         public string? ProjectName { get; init; }
         public bool ProjectDirty { get; init; }
-        /// <summary>The mutating op in flight on the bridge ("pull"/"push"/"build"), or null when idle — surfaced
+        /// <summary>The mutating op in flight on the bridge ("fetch"/"push"/"build"/"init"/"select"), or null when idle — surfaced
         /// so the UI can reflect "a sync is running" without probing the bridge itself.</summary>
         public string? ActiveOp { get; init; }
     }
@@ -36,7 +36,7 @@ namespace Volt.Cli.Connector
                 // The `health` op over the vendor's named pipe. Connect is blocking, so off the UI thread; a short
                 // timeout maps "nothing listening" → Unreachable.
                 var root = await Task.Run(() =>
-                    new PipeClient(PipeNames.ForVendor(vendor)).Call("health", connectTimeoutMs: 2000)).ConfigureAwait(false);
+                    new PipeClient(PipeNames.ForVendor(vendor)).Call(Ops.Health, connectTimeoutMs: 2000)).ConfigureAwait(false);
                 return FromWire(root);
             }
             catch

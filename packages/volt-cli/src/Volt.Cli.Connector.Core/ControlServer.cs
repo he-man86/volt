@@ -23,7 +23,7 @@ namespace Volt.Cli.Connector
 
     /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
     /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word;
-    /// <c>ActiveOp</c> is a mutating op in flight ("pull"/"push"/"build") or null.</summary>
+    /// <c>ActiveOp</c> is a mutating op in flight ("fetch"/"push"/"build"/"init"/"select") or null.</summary>
     public sealed record BridgeStatusView(string Vendor, string DisplayName, string Status, string? ProjectName, bool Dirty, string? ActiveOp);
 
     /// <summary>The control plane's single status snapshot — everything the UI needs in one shape: the aggregate

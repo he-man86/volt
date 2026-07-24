@@ -31,19 +31,19 @@ namespace Volt.Cli.Connector
 
         public async Task<IReadOnlyList<DetectedProject>> EnumerateAsync()
         {
-            try { return WireProjects.Flatten(await _wire.CallAsync("instances"), Vendor, _pipe); }
+            try { return WireProjects.Flatten(await _wire.CallAsync(Ops.Instances), Vendor, _pipe); }
             catch { return Array.Empty<DetectedProject>(); } // unreachable / not loaded → nothing to offer
         }
 
         public Task BindAsync(DetectedProject project)
         {
             var a = project.Attach;
-            return _wire.CallAsync("select", new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
+            return _wire.CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
-            try { await _wire.CallAsync("deselect"); return UnbindResult.Gated; }
+            try { await _wire.CallAsync(Ops.Deselect); return UnbindResult.Gated; }
             // The bridge ANSWERED, with an error: it is running and simply has no such op, so it keeps serving.
             catch (PipeCallException) { return UnbindResult.Unsupported; }
             // Nothing answered at all — the worker is gone, so there is nothing left to gate.
@@ -53,7 +53,7 @@ namespace Volt.Cli.Connector
         public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
         {
             BridgeHealth health;
-            try { health = HealthProbe.FromWire(await _wire.CallAsync("health")); }
+            try { health = HealthProbe.FromWire(await _wire.CallAsync(Ops.Health)); }
             catch { return new BridgeHealth { Status = BridgeStatus.Unreachable }; }
 
             // "Connected" must mean a project is CONNECTED, not merely that the worker attached to an open IDE.

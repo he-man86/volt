@@ -5,6 +5,8 @@ using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 /// <summary>
@@ -45,7 +47,7 @@ public sealed class ProjectSnapshot
 
     /// <summary>Walk every tracked item once, applying the <c>/refs</c> gates. <paramref name="operation"/>
     /// labels the streamed progress frames + skip logs (e.g. "refs").</summary>
-    public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = "refs")
+    public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs)
     {
         var snap = new ProjectSnapshot();
         var walked = ide.WalkItems();

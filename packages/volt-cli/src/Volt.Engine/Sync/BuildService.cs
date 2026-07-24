@@ -6,6 +6,8 @@ using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 /// <summary><c>/build</c>: compile the project and return success + typed diagnostics. A thrown build
@@ -22,7 +24,7 @@ public static class BuildService
         try
         {
             // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
-            onProgress?.Invoke(new ProgressFrame { Operation = "build", Phase = "building" });
+            onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
             ide.FlushPendingWrites();
             var success = ide.Build();
             sw.Stop();

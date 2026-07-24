@@ -27,34 +27,34 @@ public sealed class BridgeClient
 
     private static T De<T>(JsonElement e) => JsonSerializer.Deserialize<T>(e.GetRawText(), Json)!;
 
-    public HealthResponse GetHealth() => De<HealthResponse>(_pipe.Call("health"));
+    public HealthResponse GetHealth() => De<HealthResponse>(_pipe.Call(Ops.Health));
 
     public RefsResponse GetRefs(Action<ProgressFrame>? onProgress = null)
     {
-        var refs = De<RefsResponse>(_pipe.Call("refs", onProgress: Forward(onProgress)));
+        var refs = De<RefsResponse>(_pipe.Call(Ops.Refs, onProgress: Forward(onProgress)));
         GuardEmptyItems(refs.Items.Count);
         return refs;
     }
 
     public FetchResponse FetchChanges(FetchRequest req, Action<ProgressFrame>? onProgress = null)
     {
-        var resp = De<FetchResponse>(_pipe.Call("fetch", req, Forward(onProgress)));
+        var resp = De<FetchResponse>(_pipe.Call(Ops.Fetch, req, Forward(onProgress)));
         GuardEmptyItems(resp.Items.Count);
         return resp;
     }
 
     public FetchResponse Init(Action<ProgressFrame>? onProgress = null)
     {
-        var resp = De<FetchResponse>(_pipe.Call("init", onProgress: Forward(onProgress)));
+        var resp = De<FetchResponse>(_pipe.Call(Ops.Init, onProgress: Forward(onProgress)));
         GuardEmptyItems(resp.Items.Count);
         return resp;
     }
 
     public PushResponse PushBatch(PushRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<PushResponse>(_pipe.Call("push", req, Forward(onProgress)));
+        De<PushResponse>(_pipe.Call(Ops.Push, req, Forward(onProgress)));
 
     public BuildResponse Build(BuildRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<BuildResponse>(_pipe.Call("build", req, Forward(onProgress)));
+        De<BuildResponse>(_pipe.Call(Ops.Build, req, Forward(onProgress)));
 
     private Action<JsonElement>? Forward(Action<ProgressFrame>? onProgress) =>
         onProgress is null ? null : e => { var f = De<ProgressFrame>(e); if (f is not null) onProgress(f); };

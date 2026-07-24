@@ -45,7 +45,7 @@ public sealed class BridgePipeHost : IDisposable
 
     // The ops that stay served while paused — the ones the UI needs to SHOW you're disconnected and get back.
     private static bool AllowedWhilePaused(string? op) =>
-        op == "health" || op == "instances" || op == "select" || op == "deselect";
+        op == Ops.Health || op == Ops.Instances || op == Ops.Select || op == Ops.Deselect;
 
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
@@ -59,18 +59,18 @@ public sealed class BridgePipeHost : IDisposable
 
         switch (req.Op)
         {
-            case "health":
+            case Ops.Health:
             {
                 var h = _ide.BuildHealthResponse();
                 h.ActiveOp = Volatile.Read(ref _activeOpDepth) > 0 ? _activeOpLabel ?? "busy" : null;
                 if (_paused) { h.Connected = false; h.Status = "unavailable"; }
                 return h;
             }
-            case "instances":
+            case Ops.Instances:
                 // Read-only project discovery for the connector's selector — same STA marshalling as refs. Stays
                 // answerable while paused: that list is HOW the user reconnects.
                 return _ide.RunOnStaThread(() => (object)_ide.EnumerateInstances());
-            case "select":
+            case Ops.Select:
                 // Bind the chosen project (retarget/rebind); a state change, so mark the bridge busy for it.
                 // Also the un-pause: connecting anything resumes service.
             {
@@ -81,7 +81,7 @@ public sealed class BridgePipeHost : IDisposable
                 // way is safe and correct: a deselect that arrives during a select wins, and the user's last
                 // action is the one that sticks.
                 _paused = false;
-                return Busy("select", () =>
+                return Busy(Ops.Select, () =>
                 {
                     var sel = Body<SelectRequest>(req);
                     _ide.SelectProject(sel);
@@ -100,23 +100,23 @@ public sealed class BridgePipeHost : IDisposable
                     return (object)new { ok = true };
                 });
             }
-            case "deselect":
+            case Ops.Deselect:
                 // The tray's Disconnect. Refuse sync until the next `select`; tear nothing down. Deliberately NOT
                 // wrapped in Busy(): it neither touches the IDE nor waits for the STA thread, so it answers even
                 // while a push is running — and that push, already past the gate, RUNS TO COMPLETION. Disconnecting
                 // mid-write must not leave the IDE half-updated; the gate stops the NEXT op, not the current one.
                 _paused = true;
                 return new { ok = true };
-            case "refs":
+            case Ops.Refs:
                 return _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
-            case "fetch":
-                return Busy("fetch", () => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
-            case "init":
-                return Busy("init", () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
-            case "push":
-                return Busy("push", () => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
-            case "build":
-                return Busy("build", () => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f)));
+            case Ops.Fetch:
+                return Busy(Ops.Fetch, () => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
+            case Ops.Init:
+                return Busy(Ops.Init, () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
+            case Ops.Push:
+                return Busy(Ops.Push, () => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
+            case Ops.Build:
+                return Busy(Ops.Build, () => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f)));
             default:
                 // A coded error, not a raw InvalidOperationException — so the client sees BAD_REQUEST, not the
                 // catch-all INTERNAL_ERROR. Shared Core, so identical on both vendors.

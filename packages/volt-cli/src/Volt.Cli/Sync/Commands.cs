@@ -49,7 +49,7 @@ public static class Commands
         // pole gets its own phase so the bar/label never freezes on a silent git step: fetch → import objects (one
         // fast-import stream: blobs + tree) → write files → finalize (git index). (Materialize is negligible — a
         // fast in-memory transform — so it gets no phase of its own.)
-        var progress = new PhaseProgress(onProgress, "init", 4);
+        var progress = new PhaseProgress(onProgress, Ops.Init, 4);
         progress.Enter(0, "Fetching from IDE"); // label up front — Init's fetch stays silent through its precompile+walk
         var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
@@ -317,7 +317,7 @@ public static class Commands
         try
         {
             // Label up front — PushService walks the whole project (silently) before its first "applying" frame.
-            onProgress?.Invoke(new ProgressFrame { Operation = "push", Phase = "Pushing to IDE", Done = 0, Total = null });
+            onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Phase = "Pushing to IDE", Done = 0, Total = null });
             resp = bridge.PushBatch(new PushRequest
             {
                 Ops = ops,
