@@ -97,10 +97,16 @@ internal sealed class TcObjectModel
     /// respawn, no IDE restart). Throws <see cref="NoProjectSelectedException"/> if no DTE / project is open.</summary>
     public void SelectProject(string? instance, string? project, string? plcProject)
     {
+        VoltLog.Info($"select: instance='{instance}' project='{project}' plc='{plcProject}'");
         if (!string.IsNullOrEmpty(instance))
         {
             var dte = RotInstances.Bind(instance!);
-            if (dte != null) { _dte = dte; _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null; }
+            if (dte != null) { _dte = dte; _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null; VoltLog.Info($"select: bound instance '{instance}'"); }
+            else
+                // Diagnostic for the multi-TcXaeShell case: Bind couldn't resolve the requested instance in the ROT,
+                // so we fall through on the OLD dte and then fail to find `project` in it → "Unavailable" → 0 items.
+                // Log the instances the ROT DOES list right now so a mismatch (or a vanished instance) is visible.
+                VoltLog.Warn($"select: Bind('{instance}') returned NULL — ROT lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
         }
         if (_dte == null)
         {
@@ -110,6 +116,24 @@ internal sealed class TcObjectModel
         if (_dte == null) throw new NoProjectSelectedException();
         FindTwinCatProject(string.IsNullOrEmpty(project) ? null : project);
         FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
+        if (_sysManager == null)
+            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (its solution has: [{string.Join(" | ", SolutionProjectNames())}]) — bridge will report Unavailable");
+        else
+            VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}'");
+    }
+
+    // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
+    private IEnumerable<string> SolutionProjectNames()
+    {
+        if (_dte == null) yield break;
+        int count;
+        try { count = (int)_dte.Solution.Projects.Count; } catch { yield break; }
+        for (int i = 1; i <= count; i++)
+        {
+            string? nm = null;
+            try { nm = (string)_dte.Solution.Projects.Item(i).Name; } catch { }
+            if (nm != null) yield return nm;
+        }
     }
 
     private void FindTwinCatProject(string? wantProject)
