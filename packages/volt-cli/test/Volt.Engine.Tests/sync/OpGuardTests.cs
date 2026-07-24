@@ -4,6 +4,8 @@ using Volt.Engine.Sync;
 using Volt.Engine.Wire;
 using Xunit;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Cli.Tests;
 
 /// <summary>The in-op "connected + right project" guard that replaced the client's pre-op health round-trip. It's

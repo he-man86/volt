@@ -96,7 +96,7 @@ public sealed class PipeServer : IDisposable
             {
                 // Carry a real code when the op threw one (Engine's BridgeException implements ICodedError);
                 // anything else is a genuine INTERNAL_ERROR.
-                var code = ex is ICodedError coded ? coded.ErrorCode : "INTERNAL_ERROR";
+                var code = ex is ICodedError coded ? coded.ErrorCode : BridgeErrorCodes.InternalError;
                 try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = ex.Message } }); }
                 catch { /* client gone — best effort */ }
             }

@@ -65,7 +65,7 @@ public sealed class BridgeClient
         var connected = false;
         try { connected = GetHealth().Connected; } catch { /* unreachable → treat as not-connected */ }
         if (!connected)
-            throw new BridgeError("PLC_DISCONNECTED",
+            throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
                 "bridge reported zero items and Volt could not confirm an IDE is attached — refusing to treat an empty project as truth (is the project open in the IDE?)");
     }
 }

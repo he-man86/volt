@@ -1,6 +1,8 @@
 using System;
 using System.Text.RegularExpressions;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Workspace.SourceText;
 
 public static class CodeHelper

@@ -27,19 +27,3 @@ public class BridgeException : Exception, ICodedError
         new(BridgeErrorCodes.WrongProject,
             $"the bridge is serving {bridgePlatform}/{bridgeName}, but this workspace is bound to {boundPlatform}/{boundName} — open the bound project in the IDE (or Reconnect)");
 }
-
-/// <summary>The <see cref="BridgeException.ErrorCode"/> values, defined once. They travel on the wire as-is, so
-/// they are plain strings (no enum — nothing branches on them in logic; a client that wants to react matches the
-/// string).</summary>
-public static class BridgeErrorCodes
-{
-    public const string PlcDisconnected = "PLC_DISCONNECTED";
-    public const string WrongProject = "WRONG_PROJECT";
-    public const string NoSidecar = "NO_SIDECAR";
-    public const string NotFound = "NOT_FOUND";
-    public const string BadRequest = "BAD_REQUEST";
-    public const string Unsupported = "UNSUPPORTED";
-    public const string DuplicateChild = "DUPLICATE_CHILD";
-    public const string InvalidCodeHeader = "INVALID_CODE_HEADER";
-    public const string InvalidSt = "INVALID_ST";
-}

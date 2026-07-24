@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Workspace.SourceText;
 
 /// <summary>

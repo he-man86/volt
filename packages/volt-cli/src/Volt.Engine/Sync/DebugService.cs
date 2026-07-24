@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Sync;
 
 /// <summary>

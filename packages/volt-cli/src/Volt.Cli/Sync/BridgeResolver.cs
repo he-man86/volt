@@ -30,7 +30,7 @@ public static class BridgeResolver
     public static string ChooseCodesysPipe(IReadOnlyList<string> pipes, string? boundName, bool isInit, Func<string, string?> nameOf)
     {
         if (pipes.Count == 0)
-            throw new BridgeError("PLC_DISCONNECTED",
+            throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
                 "no CODESYS bridge is running — activate Volt in your CODESYS (tray → “Activate in CODESYS…”), then retry.");
         if (pipes.Count == 1) return pipes[0];
 
@@ -41,7 +41,7 @@ public static class BridgeResolver
         var matches = pipes.Where(p => nameOf(p) == boundName).ToList();
         if (matches.Count == 1) return matches[0];
         if (matches.Count == 0)
-            throw new BridgeError("PLC_DISCONNECTED",
+            throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
                 $"the bound project '{boundName}' isn't open in any of the {pipes.Count} running CODESYS — open it, then retry.");
         throw new BridgeError("AMBIGUOUS_BRIDGE",
             $"{matches.Count} running CODESYS have '{boundName}' open — close all but one, then retry.");
