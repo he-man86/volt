@@ -103,7 +103,7 @@ public static class StSplitter
 		var (pouStart, pouEnd, childrenStart) = FindOuterBlock(lines, outerEnd);
 		var pouLines = lines.Slice(pouStart, pouEnd - pouStart);
 
-		if (kind == "interface")
+		if (kind == ItemKind.Kinds.Interface)
 		{
 			// Header = the INTERFACE line (+ any pragmas above). Children
 			// = METHOD / PROPERTY / ACTION signature blocks INSIDE the
@@ -242,7 +242,7 @@ public static class StSplitter
 
 	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string kind)
 	{
-		if (kind == "interface")
+		if (kind == ItemKind.Kinds.Interface)
 		{
 			// INTERFACE has no impl body; the entire range is declaration.
 			return (string.Join("\n", pouLines).TrimEnd(), "");

@@ -26,7 +26,7 @@ public static class PouToStText
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 
-        if (pou.Kind == "interface")
+        if (pou.Kind == ItemKind.Kinds.Interface)
         {
             foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c)); }
             sb.Append('\n').Append('\n').Append(EndKeyword(pou.Kind));
@@ -42,31 +42,31 @@ public static class PouToStText
     }
 
     private static bool HasBody(string kind) =>
-        kind is not ("gvl" or "dut");
+        kind is not (ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut);
 
     private static string EndKeyword(string kind) => kind switch
     {
-        "function_block" => "END_FUNCTION_BLOCK",
-        "program" => "END_PROGRAM",
-        "function" => "END_FUNCTION",
-        "interface" => "END_INTERFACE",
+        ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
+        ItemKind.Kinds.Program => "END_PROGRAM",
+        ItemKind.Kinds.Function => "END_FUNCTION",
+        ItemKind.Kinds.Interface => "END_INTERFACE",
         _ => $"END_{kind.ToUpperInvariant()}",
     };
 
     private static int KindOrder(string kind) => kind switch
     {
-        "method" => 0,
-        "action" => 1,
-        "property" => 2,
+        ItemKind.Kinds.Method => 0,
+        ItemKind.Kinds.Action => 1,
+        ItemKind.Kinds.Property => 2,
         _ => 3,
     };
 
     private static string AssembleChild(ChildData child)
     {
-        if (child.Kind == "property") return AssembleProperty(child);
+        if (child.Kind == ItemKind.Kinds.Property) return AssembleProperty(child);
         var decl = child.Declaration.TrimEnd();
         var impl = PrependFolder(child.Folder, (child.BodyText ?? "").Trim());
-        var end = child.Kind == "method" ? "END_METHOD" : "END_ACTION";
+        var end = child.Kind == ItemKind.Kinds.Method ? "END_METHOD" : "END_ACTION";
         return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
     }
 
