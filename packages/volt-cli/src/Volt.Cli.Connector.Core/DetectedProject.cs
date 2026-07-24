@@ -21,7 +21,10 @@ namespace Volt.Cli.Connector
         ProjectRef Attach,   // the owning source's bind payload (opaque to the UI)
         string? Pipe = null, // the bridge pipe that serves this project (per-pid for CODESYS, the worker pipe for
                              // TwinCAT) — the source targets it, and the CLI/shells read it (VOLT_PIPE for init)
-        string? IdeVersion = null) // for the label when a vendor has >1 live instance
+        string? IdeVersion = null, // for the label when a vendor has >1 live instance
+        bool Serving = false) // GROUND TRUTH off the wire row: this project's bridge is serving it right now (the
+                              // host stamps exactly one serving row per bridge, and clears it while paused). The
+                              // connector reads this straight through instead of re-probing each project's bridge.
     {
         /// <summary>Build the stable id from the vendor + attach coordinates, so the same open project keeps the
         /// same id across refreshes (selection survives re-enumeration). CODESYS's instance is its pid, so two

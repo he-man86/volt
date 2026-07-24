@@ -132,25 +132,12 @@ namespace Volt.Cli.Connector
                 catch { /* unreachable / mid-load → contributes no projects this tick */ }
             }
 
-            // Ask each project's OWN bridge whether it is serving that project. This is the one question the UI
-            // actually needs, and only the bridge can answer it: a project can be detected (it shows in the
-            // selector) while its bridge refuses sync — that is exactly what Disconnect does. Deriving "connected"
-            // from detection, or from the selection, is what let the UI claim connected against a gated bridge.
-            var serving = new Dictionary<string, bool>();
-            foreach (var p in merged)
-            {
-                if (!_byVendor.TryGetValue(p.Vendor, out var s)) continue;
-                // The SELECTED project's probe was already taken above for the vendor health — same pipe, same
-                // call. Reuse it instead of asking twice per tick.
-                var selected = prior.Selected.TryGetValue(p.Vendor, out var sel) ? sel : null;
-                if (selected?.Id == p.Id && health.TryGetValue(p.Vendor, out var known))
-                {
-                    serving[p.Id] = IsServing(known, p);
-                    continue;
-                }
-                try { serving[p.Id] = IsServing(await s.ProbeAsync(p), p); }
-                catch { serving[p.Id] = false; }
-            }
+            // "Is this project's bridge serving it right now" — the one question the UI needs (a project can be
+            // detected but gated, which is what Disconnect does). It is now a per-row fact ON the wire: the bridge
+            // stamps exactly one serving row and the host clears it while paused, carried straight through
+            // EnumerateAsync. So read it off each row instead of re-probing every project's bridge (which re-fetched
+            // the same cache-served health once per project per tick).
+            var serving = merged.ToDictionary(p => p.Id, p => p.Serving);
 
             // Drop a stale selection whose project is no longer detected (its IDE/host closed).
             var selectedNext = prior.Selected.ToDictionary(
@@ -159,17 +146,6 @@ namespace Volt.Cli.Connector
 
             _state = new State(merged, health, serving, selectedNext);
             _lastRefreshUtc = DateTime.UtcNow;
-        }
-
-        /// <summary>Does this health response mean "serving THIS project"? A live channel is not enough: one
-        /// TwinCAT worker multiplexes every open project but holds ONE at a time, so the health's projectName is
-        /// what says which. (CODESYS has a pipe per IDE, where the name always matches — the check is harmless.)
-        /// A bridge that reports no project name at all is not serving anything.</summary>
-        private static bool IsServing(BridgeHealth h, DetectedProject p)
-        {
-            if (h.Status != BridgeStatus.Connected && h.Status != BridgeStatus.Degraded) return false;
-            if (string.IsNullOrEmpty(h.ProjectName)) return false;
-            return h.ProjectName == (p.Attach.Project ?? p.DisplayName) || h.ProjectName == p.DisplayName;
         }
 
         /// <summary>Connect a detected project via its own vendor's source, then remember it as THE one active

@@ -14,8 +14,8 @@ namespace Volt.Cli.Tests;
 /// <summary>
 /// The bridge wire tests, reformatted for the NAMED-PIPE transport (was HTTP + HttpClient in the bridge's
 /// ProgressStreamTests). Same Core services, same FakeIde, same guarantees — proven over a pipe: a streamed op
-/// yields progress frames then a result, the verbose-init progress folds into one phaseless total, and /health
-/// advertises the activeOp of a concurrent in-flight mutation.
+/// yields progress frames then a result, the verbose-init progress folds into one phaseless total, and `health`
+/// answers from cache (never marshalled) even while a long op holds the IDE thread.
 /// </summary>
 public class PipeTransportTests
 {
@@ -65,32 +65,44 @@ public class PipeTransportTests
     }
 
     [Fact]
-    public void Health_reports_the_active_op_while_a_mutation_is_in_flight_then_clears()
+    public void Health_poll_answers_from_cache_while_the_one_IDE_thread_is_busy_with_a_long_op()
     {
+        // The regression guard. `health` is the ONE ambient poll — liveness + the connectable-projects list — polled
+        // by the connector every ~4s and every control-plane /status. It MUST be served from a cached snapshot, NEVER
+        // marshalled onto the single IDE thread. If it marshals (as the old separate `instances` op did), it queues
+        // behind a long fetch/push/build on that one thread, the connector's refresh stalls, and a busy IDE reads as a
+        // LOST CONNECTION. This models the real single-threaded IDE (serializeSta) and holds that thread in a live op.
         var entered = new ManualResetEventSlim(false);
         var release = new ManualResetEventSlim(false);
-        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        var ide = new FakeIde(serializeSta: true,
+            FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
         {
             ExtractEntered = entered,
             ExtractBlock = release,
+            Projects = new List<ProjectEntry>
+            {
+                new ProjectEntry("codesys", "pid-1", "0", "Proj", "healthy", true, false),
+            },
         };
         var pipe = Pipe();
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        Assert.Null(ActiveOp(pipe)); // idle → no activeOp
-
+        // Hold the one IDE thread inside a running op (init blocks in library-extract on the STA worker).
         var init = Task.Run(() => new PipeClient(pipe).Call("init"));
         Assert.True(entered.Wait(5000), "init never reached the library-extract step");
 
-        Assert.Equal("init", ActiveOp(pipe)); // concurrent /health sees the in-flight op
+        // With the IDE thread held, the health poll must still answer well under the connector's tick — from cache —
+        // carrying BOTH liveness AND the connectable-projects list, and reporting the in-flight op.
+        var health = Task.Run(() => new PipeClient(pipe).Call("health"));
+        Assert.True(health.Wait(2000),
+            "health blocked behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
+        Assert.True(health.Result.TryGetProperty("projects", out var arr) && arr.GetArrayLength() == 1,
+            "health did not carry the connectable-projects list");
+        Assert.True(arr[0].GetProperty("serving").GetBoolean());
 
         release.Set();
         Assert.True(init.Wait(5000), "init did not complete after release");
-
-        string? op = "init";
-        for (var i = 0; i < 100 && op != null; i++) { op = ActiveOp(pipe); if (op != null) Thread.Sleep(20); }
-        Assert.Null(op); // cleared once the op completes
     }
 
     [Fact]
@@ -106,32 +118,32 @@ public class PipeTransportTests
         Assert.Equal("NO_SIDECAR", ex.Code);
     }
 
-    /// <summary>The Core `select` post-condition, enforced ONCE in BridgePipeHost for BOTH vendors: a select that
+    /// <summary>The Core `connect` post-condition, enforced ONCE in BridgePipeHost for BOTH vendors: a connect that
     /// couldn't attach the requested project (the multi-window trap — TwinCAT: not in the bound XAE; CODESYS: the
     /// pipe's project moved) leaves the driver not-connected, and the host must refuse LOUD with the shared
     /// PLC_DISCONNECTED — never "ok" into a state where the next fetch silently returns nothing. This lived per
     /// driver (TwinCAT threw its own exception, CODESYS didn't check at all); moving it here makes the wire error
     /// identical across vendors by construction. The driver just attaches; Core decides the wire outcome.</summary>
     [Fact]
-    public void Select_that_cannot_attach_the_project_is_refused_with_PLC_DISCONNECTED()
+    public void Connect_that_cannot_attach_the_project_is_refused_with_PLC_DISCONNECTED()
     {
         var pipe = Pipe();
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { SelectConnects = false }, pipe);
         host.Start();
 
         var ex = Assert.Throws<PipeCallException>(() =>
-            new PipeClient(pipe).Call("select", new { instanceId = "xae-2", project = "NotOpenHere" }));
+            new PipeClient(pipe).Call("connect", new { instanceId = "xae-2", project = "NotOpenHere" }));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
 
     [Fact]
-    public void Select_that_attaches_the_project_returns_ok()
+    public void Connect_that_attaches_the_project_returns_ok()
     {
         var pipe = Pipe();
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
         host.Start();
 
-        var r = new PipeClient(pipe).Call("select", new { instanceId = "xae-1", project = "P" });
+        var r = new PipeClient(pipe).Call("connect", new { instanceId = "xae-1", project = "P" });
         Assert.True(r.GetProperty("ok").GetBoolean());
     }
 
@@ -167,12 +179,12 @@ public class PipeTransportTests
         Assert.Equal("BAD_REQUEST", ex.Code);
     }
 
-    /// <summary>The tray's Disconnect, end to end over the wire. `deselect` must REFUSE sync without tearing the
+    /// <summary>The tray's Disconnect, end to end over the wire. `disconnect` must REFUSE sync without tearing the
     /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean
-    /// anything. `health` + `instances` must keep answering while disconnected — they are how the UI shows the
-    /// state and lists the project to reconnect to — and `select` must resume service with no restart.</summary>
+    /// anything. `health` must keep answering while disconnected — with NO serving row (so the UI shows disconnected)
+    /// but STILL listing the project (so there's a row to reconnect to) — and `connect` must resume with no restart.</summary>
     [Fact]
-    public void Deselect_refuses_sync_until_the_next_select_but_leaves_the_host_serving_health_and_instances()
+    public void Disconnect_refuses_sync_until_the_next_connect_but_leaves_the_host_serving_health()
     {
         var pipe = Pipe();
         var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
@@ -183,10 +195,10 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        Assert.True(new PipeClient(pipe).Call("health").GetProperty("connected").GetBoolean());
+        Assert.True(AnyServing(pipe)); // a serving row = connected
         new PipeClient(pipe).Call("refs"); // serving
 
-        new PipeClient(pipe).Call("deselect");
+        new PipeClient(pipe).Call("disconnect");
 
         foreach (var op in new[] { "refs", "fetch", "init", "push", "build" })
         {
@@ -194,21 +206,18 @@ public class PipeTransportTests
             Assert.Equal("PLC_DISCONNECTED", ex.Code);
         }
 
-        // Nothing was torn down: the host still answers, but reports itself disconnected, and still lists the
-        // project — otherwise there'd be no way back other than restarting the IDE.
+        // Nothing was torn down: the host still answers, but with NO serving row (disconnected), and health STILL
+        // lists the project — otherwise there'd be no way back other than restarting the IDE.
         var health = new PipeClient(pipe).Call("health");
-        Assert.False(health.GetProperty("connected").GetBoolean());
-        Assert.Equal("unavailable", health.GetProperty("status").GetString());
-        Assert.True(new PipeClient(pipe).Call("instances").TryGetProperty("instances", out _));
+        Assert.False(health.GetProperty("projects").EnumerateArray().Any(p => p.GetProperty("serving").GetBoolean()));
+        Assert.True(health.GetProperty("projects").GetArrayLength() > 0); // still listed to reconnect
 
-        new PipeClient(pipe).Call("select", new { });
+        new PipeClient(pipe).Call("connect", new { });
         new PipeClient(pipe).Call("refs"); // serving again, no restart
-        Assert.True(new PipeClient(pipe).Call("health").GetProperty("connected").GetBoolean());
+        Assert.True(AnyServing(pipe));
     }
 
-    private static string? ActiveOp(string pipe)
-    {
-        var h = new PipeClient(pipe).Call("health");
-        return h.TryGetProperty("activeOp", out var op) && op.ValueKind == JsonValueKind.String ? op.GetString() : null;
-    }
+    private static bool AnyServing(string pipe) =>
+        new PipeClient(pipe).Call("health").GetProperty("projects").EnumerateArray()
+            .Any(p => p.TryGetProperty("serving", out var s) && s.ValueKind == JsonValueKind.True);
 }

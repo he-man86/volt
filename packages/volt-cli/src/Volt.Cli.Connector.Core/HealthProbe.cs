@@ -22,9 +22,6 @@ namespace Volt.Cli.Connector
         public BridgeStatus Status { get; init; }
         public string? ProjectName { get; init; }
         public bool ProjectDirty { get; init; }
-        /// <summary>The mutating op in flight on the bridge ("fetch"/"push"/"build"/"init"/"select"), or null when idle — surfaced
-        /// so the UI can reflect "a sync is running" without probing the bridge itself.</summary>
-        public string? ActiveOp { get; init; }
     }
 
     public static class HealthProbe
@@ -45,21 +42,30 @@ namespace Volt.Cli.Connector
             }
         }
 
-        /// <summary>Map a `health` wire response to <see cref="BridgeHealth"/>. Shared by the tray probe and the
-        /// pipe-backed project source so the status vocabulary is defined once.</summary>
-        public static BridgeHealth FromWire(JsonElement root) => new BridgeHealth
+        /// <summary>Map a `health` wire response to <see cref="BridgeHealth"/>. `health` is a FLAT array of project
+        /// rows; the bridge's connection state is the ONE serving row (at most one per bridge). No serving row → the
+        /// bridge is up but nothing is connected (Unavailable). Shared by the tray probe and the pipe-backed source so
+        /// the status vocabulary is defined once.</summary>
+        public static BridgeHealth FromWire(JsonElement root)
         {
-            Status = root.TryGetProperty("status", out var s) ? s.GetString() switch
+            JsonElement? servingRow = null;
+            if (root.TryGetProperty("projects", out var projects) && projects.ValueKind == JsonValueKind.Array)
+                foreach (var p in projects.EnumerateArray())
+                    if (p.TryGetProperty("serving", out var sv) && sv.ValueKind == JsonValueKind.True) { servingRow = p; break; }
+
+            if (servingRow is not { } row)
+                return new BridgeHealth { Status = BridgeStatus.Unavailable }; // up, but nothing served
+
+            return new BridgeHealth
             {
-                HealthStatus.Healthy => BridgeStatus.Connected,
-                HealthStatus.Degraded => BridgeStatus.Degraded,
-                HealthStatus.Unavailable => BridgeStatus.Unavailable,
-                _ => BridgeStatus.Unknown,
-            } : BridgeStatus.Unknown,
-            ProjectName = TryString(root, "projectName"),
-            ProjectDirty = root.TryGetProperty("projectDirty", out var d) && d.GetBoolean(),
-            ActiveOp = TryString(root, "activeOp"),
-        };
+                // A serving row means connected; its status word only distinguishes clean vs degraded.
+                Status = row.TryGetProperty("status", out var s) && s.GetString() == HealthStatus.Degraded
+                    ? BridgeStatus.Degraded
+                    : BridgeStatus.Connected,
+                ProjectName = TryString(row, "project"),
+                ProjectDirty = row.TryGetProperty("dirty", out var d) && d.GetBoolean(),
+            };
+        }
 
         private static string? TryString(JsonElement el, string name) =>
             el.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;

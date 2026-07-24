@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fetchStatus } from "../bridge/actions.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { readBridgeVendor, bridgeActiveOp, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
+import { readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
 import { boundStatus } from "../bridge/connector.js";
 import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
@@ -179,26 +179,17 @@ export class VoltStatus {
 	}
 
 	private async pollConnection(): Promise<void> {
-		// Skip while OUR OWN mutation holds the in-memory gate. This is the one thing the bridge's activeOp below
-		// can't cover: the gate is held until the whole action settles — PAST the bridge op — so it also absorbs the
-		// state-file write our own pull/push makes (saveIdeRefs), which activeOp has already cleared by then. Reset
-		// the edge baseline so the FIRST post-mutation poll re-baselines WITHOUT firing a spurious refresh.
+		// Skip while OUR OWN mutation holds the in-memory gate — the gate is held until the whole action settles (PAST
+		// the bridge op), so it also absorbs the state-file write our own pull/push makes (saveIdeRefs). Reset the edge
+		// baseline so the FIRST post-mutation poll re-baselines WITHOUT firing a spurious refresh. (Mutations run by
+		// ANOTHER frontend or a terminal `volt push` are no longer surfaced — that command reports its own progress;
+		// this UI just sees the settled state on its next poll.)
 		if (isMutationInFlight(this.workspaceRoot)) {
 			this.seenHealth = false;
 			return;
 		}
 		if (this.bridgeVendor === undefined) return;
 		this.health = await boundStatus(this.workspaceRoot);
-
-		// A mutation is running on the SHARED bridge — ANOTHER frontend, or a terminal `volt init`, that the
-		// in-memory gate above (process-local) can't see. Treat it exactly like our own in-flight mutation: don't
-		// read its churn as an engineer edit and don't fire a /refs. Reset the baseline so the first idle poll
-		// re-baselines without a false edge; the state-file mtime poll delivers the single post-mutation reconcile.
-		if (bridgeActiveOp(this.health) !== undefined) {
-			this.seenHealth = false;
-			this.onDidChange.fire(); // keep the health indicator live
-			return;
-		}
 
 		// Detect an IDE-side edit from the cheap health payload: a projectDirty false→true edge, or a project
 		// switch. Either fires exactly one refresh (its own debounce collapses bursts). No /refs scan.

@@ -9,7 +9,7 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
+import { isBridgeOnline, readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
 import { boundStatus, connectProject, detectedProjects, type DetectedProject } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
@@ -72,10 +72,6 @@ export async function fetchStatus(workspaceRoot: string, local = false): Promise
   if (readBridgeVendor(workspaceRoot) === undefined) return { health: { kind: "unknown" }, error: "workspace not bound to a bridge" }
   const health = await boundStatus(workspaceRoot)
   if (!isBridgeOnline(health)) return { health, error: "bridge offline" }
-  // A mutation (init/pull/push/build) is running on the shared bridge — from THIS process, another frontend, or a
-  // terminal CLI. `volt status` would issue an expensive /refs into a single-threaded bridge that's mid-churn, so
-  // hold off and keep the last drift. The state-file mtime poll fires the one reconcile when the mutation lands.
-  if (bridgeActiveOp(health) !== undefined) return { health }
   const r = await runVolt(workspaceRoot, ["status", "--json", ...(local ? ["--local"] : [])])
   if (r.code !== 0) return { health, error: r.stderr || r.stdout }
   try {

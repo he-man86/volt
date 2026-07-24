@@ -46,8 +46,30 @@ volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
         CodesysDriver / BeckhoffDriver  →  live IDE
 ```
 
-Ops: `health`, `refs`, `fetch`, `push`, `build`, `init`, plus `debug`. Each connection carries one request and
-its streamed frames. There is **no** events/SSE and no wait-change — change-detection is client-polled.
+Ops: `health`, `refs`, `fetch`, `push`, `build`, `init`, plus `connect`/`disconnect` and `debug`. Each connection
+carries one request and its streamed frames. There is **no** events/SSE and no wait-change — change-detection is
+client-polled. (`connect`/`disconnect` are the wire verbs the control-plane `/connect`, `/disconnect` routes map to —
+same name across both layers.)
+
+**`health` is the ONE ambient poll — and it must never marshal onto the IDE thread.** The IDE has exactly ONE work
+thread (CODESYS's primary thread; TwinCAT's STA) and it is genuinely single-threaded — a `fetch`/`push`/`build`
+holds it for the op's whole duration. `health` is what the connector polls every ~4s (plus every control-plane
+`/status`). It is served from a **cached snapshot** refreshed off the request path by the driver's single-flight
+background probe (`TriggerAsyncProbe` → on-thread `SnapshotHealth`). Connections are served concurrently
+(`PipeServer`), so `health` returns immediately even while a long op holds the IDE thread. This once was a *separate*
+`instances` op that **marshalled** onto the IDE thread — so during a long op it queued behind it, the connector's
+refresh stalled, and a busy IDE read as a **lost connection**. Folding discovery into the cache-served `health` fixed
+that by construction. Guarded by `PipeTransportTests.Health_poll_answers_from_cache_while_the_one_IDE_thread_is_busy_with_a_long_op`.
+
+> **`health` is a FLAT array of self-describing project rows and nothing else** — no nesting, no root fields
+> (`HealthResponse.Projects: ProjectEntry[]`). Each row = one connectable project (a leaf; CODESYS/TwinCAT projects
+> have no children): `{ vendor, instanceId, version, project, status, serving, dirty }`. Everything is per-row because
+> the connector concatenates *every* bridge's array into the ONE cross-vendor list it shows (`ConnectorView.Projects`)
+> — so the wire row and the UI row are the same shape, and the connector just concatenates (no transform). `serving`
+> marks the one row the bridge is attached to (host clears all while paused); `status` (`healthy`/`degraded`) is the
+> IDE's channel health. The reverse direction is `connect { instanceId, project }` — the row's *address*, two fields
+> already on it. C#-only computed helpers (`ProjectName`/`Platform`/`Connected` off the serving row) keep CLI
+> call-sites terse; they are `[JsonIgnore]`, never on the wire. See `Instances.cs` / `HealthResponse.cs`.
 
 ## Core — the shared engine (`src/Volt.Engine`)
 
@@ -153,10 +175,10 @@ per-instance-pipe machinery lives entirely below `IProjectSource`.
 Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries above are strictly about how each IDE
 is REACHED — they live below the `IIdeDriver` seam (and the pipe topology below `IProjectSource`). The wire
 behavior and error codes are identical across vendors by construction:
-- **Parity-critical decisions live in Core, once.** A choice a pipe client can observe — a `select` post-condition,
+- **Parity-critical decisions live in Core, once.** A choice a pipe client can observe — a `connect` post-condition,
   the not-connected precondition on project-ops, an error mapping — is decided in `Wire/BridgePipeHost`, delegating
   only irreducible primitives (attach, tree-walk, code r/w) to the driver. The drivers can't diverge these; they
-  don't own them. (E.g. a `select` that can't attach the project, and any project-op on a not-connected bridge,
+  don't own them. (E.g. a `connect` that can't attach the project, and any project-op on a not-connected bridge,
   both refuse with the shared `PLC_DISCONNECTED` on either vendor — the check is in Core, not per driver.)
 - **One error channel:** only `BridgeException`/`BridgeErrorCodes` cross the wire; a driver must not leak a
   vendor-specific exception type as an expected condition.
@@ -167,12 +189,12 @@ behavior and error codes are identical across vendors by construction:
 The fuller programme (shrinking `IIdeDriver` to primitives, a conformance suite over both drivers) is tracked in
 `openspec/changes/bridge-vendor-parity-by-construction`.
 
-**Disconnect gates the bridge, it does not shut anything down.** `deselect` makes `BridgePipeHost` refuse every
-sync op with `PLC_DISCONNECTED` (only `health`/`instances`/`select`/`deselect` keep answering — they are how the
-UI shows the state and finds the way back); the next `select` resumes it. The gate must live here, not in the
-connector, because the CLI opens the pipe directly and never consults the connector — so the connector's
-selection can never gate `volt push`. One flag on the host, so the whole bridge is gated: on TwinCAT that means
-the one worker, which already serves one selected project at a time. In-memory by design — a host or connector
+**Disconnect gates the bridge, it does not shut anything down.** `disconnect` makes `BridgePipeHost` refuse every
+sync op with `PLC_DISCONNECTED` (only `health`/`connect`/`disconnect` keep answering — `health` carries the project
+list too, so it is how the UI shows the state and finds the way back); the next `connect` resumes it. The gate must
+live here, not in the connector, because the CLI opens the pipe directly and never consults the connector — so the
+connector's selection can never gate `volt push`. One flag on the host, so the whole bridge is gated: on TwinCAT that
+means the one worker, which already serves one selected project at a time. In-memory by design — a host or connector
 restart resets it to serving. `VOLT_PIPE` overrides the pipe directly (dev,
 tests, and `volt init` — which has no binding yet — via the shell). The workspace binding stores the vendor +
 project name; `pull`/`push` resolve the live pipe at op-time.

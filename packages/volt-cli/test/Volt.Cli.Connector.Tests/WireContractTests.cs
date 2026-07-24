@@ -8,27 +8,28 @@ using Xunit;
 
 namespace Volt.Cli.Connector.Tests;
 
-/// <summary>Proves the two halves of the connection wire agree: the bridge PRODUCES a Core
-/// <see cref="InstancesResult"/>, and the connector's <see cref="PipeProjectSource"/> CONSUMES that exact
-/// serialized shape into <see cref="DetectedProject"/>s. If either side's field names drift, this fails.</summary>
+/// <summary>Proves the two halves of the connection wire agree: the bridge PRODUCES the connectable-projects list on
+/// its <see cref="HealthResponse"/> (<c>health.projects</c>), and the connector's <see cref="PipeProjectSource"/>
+/// CONSUMES that exact serialized shape into <see cref="DetectedProject"/>s. If either side's field names drift, this
+/// fails. (Discovery folded into <c>health</c> — there is no separate <c>instances</c> op.)</summary>
 public class WireContractTests
 {
     /// <summary>Return the given Core object as the JSON a bridge would put on the wire.</summary>
     private static string Wire(object o) => JsonSerializer.Serialize(o);
 
     [Fact]
-    public async Task Bridge_InstancesResult_deserializes_into_the_connectors_DetectedProjects()
+    public async Task Bridge_health_instances_deserializes_into_the_connectors_DetectedProjects()
     {
         // What a TwinCAT bridge returns for one XAE with an open project (identity only — no PLC-app breakdown).
-        var bridgeResult = new InstancesResult(new List<IdeInstance>
+        var health = new HealthResponse
         {
-            new IdeInstance("vs-1", "Visual Studio", "17.0", new List<IdeProject>
+            Projects = new List<ProjectEntry>
             {
-                new IdeProject("TwinCAT Project1", Dirty: false),
-            }),
-        });
+                new ProjectEntry("twincat", "vs-1", "17.0", "TwinCAT Project1", "healthy", false, false),
+            },
+        };
 
-        var wire = new FakeBridgeWire().On("instances", Wire(bridgeResult));
+        var wire = new FakeBridgeWire().On("health", Wire(health));
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
         var projects = await src.EnumerateAsync();
@@ -42,15 +43,15 @@ public class WireContractTests
     [Fact]
     public async Task Bridge_CODESYS_single_project_deserializes_to_one_entry()
     {
-        var bridgeResult = new InstancesResult(new List<IdeInstance>
+        var health = new HealthResponse
         {
-            new IdeInstance("codesys", "CODESYS", "3.5", new List<IdeProject>
+            Projects = new List<ProjectEntry>
             {
-                new IdeProject("MyMachine", Dirty: true),
-            }),
-        });
+                new ProjectEntry("codesys", "codesys", "3.5", "MyMachine", "healthy", true, true),
+            },
+        };
 
-        var wire = new FakeBridgeWire().On("instances", Wire(bridgeResult));
+        var wire = new FakeBridgeWire().On("health", Wire(health));
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
         var p = Assert.Single(await src.EnumerateAsync());
@@ -60,11 +61,11 @@ public class WireContractTests
     }
 
     [Fact]
-    public void Connector_select_payload_deserializes_into_the_bridges_SelectRequest()
+    public void Connector_connect_payload_deserializes_into_the_bridges_ConnectRequest()
     {
-        // The connector's BindAsync sends { instanceId, project }; the bridge reads SelectRequest (identity-only).
+        // The connector's BindAsync sends { instanceId, project }; the bridge reads ConnectRequest (identity-only).
         var connectorBody = JsonSerializer.Serialize(new { instanceId = "vs-1", project = "TwinCAT Project1" });
-        var sel = JsonSerializer.Deserialize<SelectRequest>(connectorBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var sel = JsonSerializer.Deserialize<ConnectRequest>(connectorBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         Assert.NotNull(sel);
         Assert.Equal("vs-1", sel!.InstanceId);

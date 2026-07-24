@@ -59,9 +59,11 @@ export const bridge = {
 	build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => post("/build", req),
 	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
-	instances: (): Promise<any> => get("/instances"),
-	select: (req: { instanceId?: string | null; project?: string | null } = {}): Promise<any> => post("/select", req),
-	deselect: (): Promise<any> => post("/deselect"),
+	// Discovery folded into `health` — no separate `instances` op. Returns the FLAT connectable-projects array
+	// (`health.projects`), each row self-describing: { vendor, instanceId, version, project, status, serving, dirty }.
+	instances: (): Promise<any[]> => get("/health").then((h) => h.projects ?? []),
+	connect: (req: { instanceId?: string | null; project?: string | null } = {}): Promise<any> => post("/connect", req),
+	disconnect: (): Promise<any> => post("/disconnect"),
 }
 
 /** The bridge's error code for an op, or null when it succeeded. The e2e client surfaces errors as
@@ -70,9 +72,19 @@ export async function opErrorCode(run: () => Promise<unknown>): Promise<string |
 	try { await run(); return null } catch (e) { return String((e as Error).message).split(":")[0] }
 }
 
+/** The bridge's connection state, derived from the flat `health.projects` array the SAME way the connector does
+ *  (C# `HealthProbe.FromWire`): the ONE serving row is the connection. No serving row → "unavailable". There is no
+ *  root `status`/`connected`/`platform` on the wire — they are C#-only computed helpers off the serving row, so e2e
+ *  must derive them here too. */
+export function healthStatus(h: any): "healthy" | "degraded" | "unavailable" {
+	const serving = (h?.projects ?? []).find((p: any) => p.serving)
+	if (!serving) return "unavailable"
+	return serving.status === "degraded" ? "degraded" : "healthy"
+}
+
 export async function requireHealthy(): Promise<void> {
-	const h = await bridge.health()
-	if (h.status !== "healthy") throw new Error(`bridge not healthy: ${h.status}`)
+	const s = healthStatus(await bridge.health())
+	if (s !== "healthy") throw new Error(`bridge not healthy: ${s}`)
 }
 
 // ── test-item identity + cleanup ──────────────────────────────────────────────

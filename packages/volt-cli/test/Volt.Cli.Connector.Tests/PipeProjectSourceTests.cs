@@ -32,8 +32,8 @@ public class PipeProjectSourceTests
     [Fact]
     public async Task Enumerate_maps_a_codesys_project_with_no_subprojects_to_one_entry()
     {
-        var wire = new FakeBridgeWire().On("instances",
-            """{ "instances": [ { "instanceId": "cds-1", "projects": [ { "project": "MyMachine", "dirty": true } ] } ] }""");
+        var wire = new FakeBridgeWire().On("health",
+            """{ "projects": [ { "instanceId": "cds-1", "project": "MyMachine", "dirty": true } ] }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
         var projects = await src.EnumerateAsync();
@@ -50,10 +50,11 @@ public class PipeProjectSourceTests
     {
         // Detection is identity-only: one entry per open project, never a breakdown of the PLC applications inside
         // it — connecting doesn't reach into content.
-        var wire = new FakeBridgeWire().On("instances",
+        var wire = new FakeBridgeWire().On("health",
             """
-            { "instances": [ { "instanceId": "vs-1", "projects": [
-                { "project": "TwinCAT Project13" }, { "project": "TwinCAT Project14" } ] } ] }
+            { "projects": [
+                { "instanceId": "vs-1", "project": "TwinCAT Project13" },
+                { "instanceId": "vs-1", "project": "TwinCAT Project14" } ] }
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
@@ -75,7 +76,7 @@ public class PipeProjectSourceTests
         await src.BindAsync(proj);
 
         var (op, body) = Assert.Single(wire.Calls);
-        Assert.Equal("select", op);
+        Assert.Equal("connect", op);
         Assert.Contains("\"instanceId\":\"vs-1\"", body);
         Assert.Contains("\"project\":\"TwinCAT Project1\"", body);
     }
@@ -88,11 +89,11 @@ public class PipeProjectSourceTests
     [Fact]
     public async Task Enumerate_two_twincat_windows_yields_two_projects_with_distinct_instance_ids()
     {
-        var wire = new FakeBridgeWire().On("instances",
+        var wire = new FakeBridgeWire().On("health",
             """
-            { "instances": [
-                { "instanceId": "!TcXaeShell.DTE.15.0:22268", "projects": [ { "project": "TwinCAT Project13" } ] },
-                { "instanceId": "!TcXaeShell.DTE.15.0:27288", "projects": [ { "project": "TwinCAT Project14" } ] } ] }
+            { "projects": [
+                { "instanceId": "!TcXaeShell.DTE.15.0:22268", "project": "TwinCAT Project13" },
+                { "instanceId": "!TcXaeShell.DTE.15.0:27288", "project": "TwinCAT Project14" } ] }
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
@@ -117,7 +118,7 @@ public class PipeProjectSourceTests
         await src.BindAsync(proj);
 
         var (op, body) = Assert.Single(wire.Calls);
-        Assert.Equal("select", op);
+        Assert.Equal("connect", op);
         Assert.Contains("\"instanceId\":\"!TcXaeShell.DTE.15.0:27288\"", body); // the second window, not the first
         Assert.Contains("\"project\":\"TwinCAT Project14\"", body);
     }
@@ -126,7 +127,7 @@ public class PipeProjectSourceTests
     public async Task Probe_maps_the_health_wire_response()
     {
         var wire = new FakeBridgeWire().On("health",
-            """{ "status": "healthy", "projectName": "MyMachine", "projectDirty": true }""");
+            """{ "projects": [ { "instanceId": "i", "project": "MyMachine", "status": "healthy", "serving": true, "dirty": true } ] }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
         var attach = new ProjectRef(null, "MyMachine");
         var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MyMachine", "codesys", true, attach);
@@ -145,7 +146,7 @@ public class PipeProjectSourceTests
     public async Task Probe_with_nothing_selected_is_Unavailable_not_Connected()
     {
         var wire = new FakeBridgeWire().On("health",
-            """{ "status": "healthy", "projectName": "MyMachine", "projectDirty": true }""");
+            """{ "projects": [ { "instanceId": "i", "project": "MyMachine", "status": "healthy", "serving": true, "dirty": true } ] }""");
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
         var h = await src.ProbeAsync(null);
@@ -159,8 +160,7 @@ public class PipeProjectSourceTests
     public async Task An_unreachable_bridge_enumerates_to_empty_and_probes_Unreachable()
     {
         var wire = new FakeBridgeWire();
-        wire.Throw.Add("instances");
-        wire.Throw.Add("health");
+        wire.Throw.Add("health"); // discovery + probe both ride on health now
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
         Assert.Empty(await src.EnumerateAsync());
@@ -172,8 +172,8 @@ public class PipeProjectSourceTests
 /// unified list shows every running CODESYS, each project carrying its serving pipe.</summary>
 public class CodesysProjectSourceTests
 {
-    private static FakeBridgeWire OneProject(string instanceId, string name) => new FakeBridgeWire().On("instances",
-        $$"""{ "instances": [ { "instanceId": "{{instanceId}}", "projects": [ { "project": "{{name}}", "dirty": false } ] } ] }""");
+    private static FakeBridgeWire OneProject(string instanceId, string name) => new FakeBridgeWire().On("health",
+        $$"""{ "projects": [ { "instanceId": "{{instanceId}}", "project": "{{name}}", "dirty": false } ] }""");
 
     [Fact]
     public async Task Fans_out_over_every_discovered_pipe_stamping_each_projects_pipe()
@@ -199,7 +199,7 @@ public class CodesysProjectSourceTests
     [Fact]
     public async Task Probe_targets_the_selected_projects_pipe()
     {
-        var healthy = new FakeBridgeWire().On("health", """{ "status": "healthy", "projectName": "MachineB" }""");
+        var healthy = new FakeBridgeWire().On("health", """{ "projects": [ { "instanceId": "222", "project": "MachineB", "status": "healthy", "serving": true } ] }""");
         var wires = new Dictionary<string, IBridgeWire> { ["volt.bridge.codesys.222"] = healthy };
         var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
         var attach = new ProjectRef("222", "MachineB");

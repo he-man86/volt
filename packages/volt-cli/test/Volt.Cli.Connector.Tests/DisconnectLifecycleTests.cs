@@ -31,10 +31,10 @@ public class DisconnectLifecycleTests
     {
         HealthConnected = true,
         HealthProjectName = project,
-        Instances = new InstancesResult(new List<IdeInstance>
+        Projects = new List<ProjectEntry>
         {
-            new IdeInstance(project, "CODESYS", "3.5", new List<IdeProject> { new IdeProject(project, false) }),
-        }),
+            new ProjectEntry("codesys", project, "3.5", project, "healthy", true, false),
+        },
     };
 
     private static BridgePipeHost StartHost(string pipe, string project)
@@ -55,7 +55,8 @@ public class DisconnectLifecycleTests
     }
 
     private static bool CliSeesConnected(string pipe) =>
-        new PipeClient(pipe).Call("health").GetProperty("connected").GetBoolean();
+        new PipeClient(pipe).Call("health").GetProperty("projects").EnumerateArray()
+            .Any(p => p.TryGetProperty("serving", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.True);
 
     /// <summary>The core round trip, asserted from BOTH sides after every transition. This is the test that would
     /// have caught the original bug: before the bridge-side gate, `CliCanSync` stayed true after Disconnect.</summary>
@@ -274,7 +275,7 @@ public class DisconnectLifecycleTests
             await mgr.DisconnectAsync(); // no active connection now — must be a harmless no-op
             Assert.False(CliCanSync(pipe));
 
-            new PipeClient(pipe).Call("select", new { }); // a direct select, bypassing the connector
+            new PipeClient(pipe).Call("connect", new { }); // a direct connect, bypassing the connector
             Assert.True(CliCanSync(pipe));
         }
         finally { host.Dispose(); }

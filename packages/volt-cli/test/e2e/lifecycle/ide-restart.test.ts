@@ -43,13 +43,11 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 
 	beforeAll(async () => {
 		await requireHealthy()
-		const inst = await bridge.instances()
-		const i0 = inst.instances?.[0]
-		const p0 = i0?.projects?.[0]
-		bound = { instanceId: i0?.instanceId, project: p0?.project }
-		await bridge.select(bound)
+		const row = (await bridge.instances())?.[0]
+		bound = { instanceId: row?.instanceId, project: row?.project }
+		await bridge.connect(bound)
 	})
-	afterAll(async () => { try { await bridge.select(bound) } catch {} })
+	afterAll(async () => { try { await bridge.connect(bound) } catch {} })
 
 	it("closing the IDE => a clean PLC_DISCONNECTED, not a crash and not a stale wrong-project read", async () => {
 		expect(await serving()).toBe(true)
@@ -72,7 +70,7 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		reopenIde(bound.project!)
 		let up = false
 		for (let i = 0; i < 90; i++) { // up to ~3 min: boot + build
-			const c = await opErrorCode(() => bridge.select(bound))
+			const c = await opErrorCode(() => bridge.connect(bound))
 			if (c === null && (await serving())) { up = true; break }
 			await sleep(2000)
 		}
@@ -86,7 +84,7 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		reopenIde(bound.project!)
 		let recovered = false
 		for (let i = 0; i < 90; i++) {
-			const c = await opErrorCode(() => bridge.select(bound))
+			const c = await opErrorCode(() => bridge.connect(bound))
 			if (c === null && (await serving())) { recovered = true; break }
 			await sleep(2000)
 		}

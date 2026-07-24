@@ -42,7 +42,9 @@ namespace Volt.Cli.Connector
             var all = new List<DetectedProject>();
             foreach (var pipe in pipes)
             {
-                try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Instances), Vendor, pipe)); }
+                // Discovery rides on `health` now (the projects list is a field on it) — one cache-served poll, never
+                // marshalled onto the IDE thread.
+                try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe)); }
                 catch { /* that host went away mid-enumeration — skip it */ }
             }
             return all;
@@ -54,13 +56,13 @@ namespace Volt.Cli.Connector
             // instance) — harmless, and keeps the wire uniform. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
             var a = project.Attach;
-            return _wireFor(project.Pipe!).CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project });
+            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { instanceId = a.Instance, project = a.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
             if (string.IsNullOrEmpty(project.Pipe)) return UnbindResult.Unreachable;
-            try { await _wireFor(project.Pipe!).CallAsync(Ops.Deselect); return UnbindResult.Gated; }
+            try { await _wireFor(project.Pipe!).CallAsync(Ops.Disconnect); return UnbindResult.Gated; }
             // The host ANSWERED with an error: it is loaded but predates `deselect`, so it keeps serving.
             catch (PipeCallException) { return UnbindResult.Unsupported; }
             // Nothing answered — that IDE closed. Already disconnected; nothing to warn about.

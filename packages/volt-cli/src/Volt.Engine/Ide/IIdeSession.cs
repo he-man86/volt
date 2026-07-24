@@ -13,9 +13,8 @@ namespace Volt.Engine.Ide;
 public interface IIdeSession
 {
     bool IsConnected { get; }
-    string? IdeName { get; }
+    /// <summary>The IDE version, shown per-instance in the connector's project label. Not a wire top-level field.</summary>
     string? IdeVersion { get; }
-    string Version { get; }
     void Connect();
     void Disconnect();
 
@@ -24,7 +23,12 @@ public interface IIdeSession
     string? DegradedReason { get; }
     void MarkDegraded(string reason);
     void ClearDegraded();
+    /// <summary>Kick a background, single-flight refresh of the health snapshot (liveness + the connectable-projects
+    /// list). Called by the `health` op so the snapshot refreshes OFF the request path — never marshalled inline, so a
+    /// poll behind a long fetch/push/build can't stall and read a busy IDE as a lost connection.</summary>
     void TriggerAsyncProbe();
+    /// <summary>The ambient poll response: the flat <see cref="HealthResponse.Projects"/> array (liveness + the
+    /// connectable-projects list, per row) from the CACHED snapshot — NEVER a live walk on the request.</summary>
     HealthResponse BuildHealthResponse();
     /// <summary>Should this transport/RPC exception flip the session to degraded? (TwinCAT: dead-COM
     /// HRESULTs; CODESYS in-proc: never.)</summary>
@@ -39,19 +43,14 @@ public interface IIdeSession
     /// <summary>Run a unit of IDE work on the vendor's required (STA / primary) thread.</summary>
     T RunOnStaThread<T>(Func<T> fn);
 
-    // ── project discovery + selection (the connector's `instances` / `select` ops) ──
-    /// <summary>Every IDE instance the bridge can currently see + the projects each has open — what the
-    /// connector shows in its one unified project selector. TwinCAT enumerates running XAE instances over
-    /// COM/ROT; CODESYS reports its in-proc primary project. Empty when nothing is reachable.</summary>
-    InstancesResult EnumerateInstances();
-
+    // ── project selection (the connector's `connect` op; discovery rides on `health`.Projects) ──
     /// <summary>Bind the given instance/project/sub-project so this bridge serves it — the connector's `select`.
     /// TwinCAT re-resolves the chosen project on the live DTE (no worker respawn); CODESYS confirms/rebinds its
     /// active project. A PRIMITIVE: it attaches what it can and leaves the model connected-or-not
     /// (<see cref="IsConnected"/>); it does NOT decide the wire outcome. The Core `select` handler enforces the
     /// post-condition uniformly — a select that leaves the bridge not-connected is refused there with the shared
     /// PLC_DISCONNECTED, identically on both vendors. Must not throw a vendor-specific exception for that case.</summary>
-    void SelectProject(SelectRequest sel);
+    void SelectProject(ConnectRequest sel);
 
     // ── build ──
     /// <summary>Commit any buffered edits to the IDE's own store (TwinCAT SaveAll; CODESYS no-op,

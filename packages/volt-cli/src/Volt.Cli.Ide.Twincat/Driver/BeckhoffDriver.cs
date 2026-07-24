@@ -24,15 +24,11 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     private readonly StaDispatcher _dispatcher = new();
 
     private readonly object _cacheLock = new();
-    private bool _cachedIdeAlive;
-    private string? _cachedProjectName;
-    private bool? _cachedProjectDirty;
+    private List<ProjectEntry> _cachedProjects = new(); // served off the STA thread in the health response; refreshed in SnapshotHealth
     private long _cachedAtMs;
 
     public override bool IsConnected => _om.IsConnected;
 
-    // Family name only (no per-version table — see RotInstances.IdeName); the exact version is IdeVersion.
-    public override string? IdeName => RotInstances.IdeName(_om.IdeProgId);
     public override string? IdeVersion => _om.IdeVersion;
 
     public override void Connect() { _om.Connect(); SnapshotHealth(); }
@@ -47,40 +43,38 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // ── health ──────────────────────────────────────────────────────
     public override HealthResponse BuildHealthResponse()
     {
-        bool ideAlive; string? projectName; bool? projectDirty; long? ageMs;
+        List<ProjectEntry> projects; long? ageMs;
         lock (_cacheLock)
         {
-            ideAlive = _cachedIdeAlive;
-            projectName = _cachedProjectName;
-            projectDirty = _cachedProjectDirty;
+            projects = _cachedProjects;
             ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
         }
+        // Throttle the (heavier) STA refresh to ~5s: a burst of polls answers from cache and only one probe runs.
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        return BuildHealth(Vendors.Twincat, IsConnected, ideAlive, IdeName, IdeVersion, projectName, projectDirty ?? false);
+        return new HealthResponse { Projects = projects };
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
 
-    /// <summary>Refresh the health cache from the live DTE. MUST run on the STA thread (it reads the DTE): the async
-    /// probe calls it via <see cref="RunOnStaThread{T}"/>; <see cref="Connect"/> / <see cref="SelectProject"/> call it
-    /// directly (they already run on the STA thread), so a new binding shows in health AT ONCE — not 5s later on the
-    /// next probe. Matches the CODESYS driver, which refreshes its cache on select the same way.
-    /// <para>LIGHT BY CONTRACT: it reads ONLY top-level liveness (does the bound DTE/solution answer) + the project
-    /// name/dirty — never the PLC application (no node, no LookupTreeItem, no tree walk). The connector polls health
-    /// every tick, and a user who isn't syncing must not have Volt slow or crash their IDE. Recovery — re-binding the
-    /// desired project + resolving the PLC app after a close / re-registration / RPC drop — is DEFERRED to the content
-    /// ops (where RunRead re-acquires on a transient) or a re-select; it NEVER happens on this poll.</para></summary>
+    /// <summary>Refresh the cached health snapshot from the live DTE. MUST run on the STA thread (it reads the DTE):
+    /// the async probe calls it via <see cref="RunOnStaThread{T}"/>; <see cref="Connect"/> / <see cref="SelectProject"/>
+    /// call it directly (they already run on the STA thread), so a new binding shows in health AT ONCE — not 5s later
+    /// on the next probe. Matches the CODESYS driver, which refreshes its cache on select the same way.
+    /// <para>NO PLC-APP TOUCH: it reads only top-level state — the bound DTE/solution liveness, the project name/dirty,
+    /// and the ROT enumeration of every running XAE + its projects (the connectable-projects list that rides in the
+    /// health response). Never the PLC application (no node, no LookupTreeItem, no tree walk). The ROT walk is the one
+    /// non-trivial cost, throttled to ~5s by <see cref="BuildHealthResponse"/> and single-flight, so a user who isn't
+    /// syncing never has Volt slow or crash their IDE. Recovery — re-binding the desired project + resolving the PLC
+    /// app after a close / re-registration / RPC drop — is DEFERRED to the content ops (where RunRead re-acquires on a
+    /// transient) or a re-select; it NEVER happens on this poll.</para></summary>
     private void SnapshotHealth()
     {
         bool ideAlive = _om.ProbeIdeAlive();
         if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
-        string? name = _om.ProjectName;
-        bool? dirty = _om.ProjectDirty();
+        var projects = BuildProjects();
         lock (_cacheLock)
         {
-            _cachedIdeAlive = ideAlive;
-            _cachedProjectName = name;
-            _cachedProjectDirty = dirty;
+            _cachedProjects = projects;
             _cachedAtMs = Environment.TickCount64;
         }
     }
@@ -110,18 +104,41 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         return false;
     }
 
-    // ── project discovery + selection (the connector's instances / select) ──
-    // Runs on the STA thread (BridgePipeHost marshals it) — RotInstances binds foreign, apartment-bound DTEs.
-    public override InstancesResult EnumerateInstances()
+    // ── project discovery + selection (the connector's `connect`; discovery rides on the health response) ──
+    // Runs on the STA thread (SnapshotHealth calls it) — RotInstances binds foreign, apartment-bound DTEs. One flat
+    // row per open project across every running XAE. EXACTLY ONE row is marked `serving` (the invariant the wire
+    // relies on): the served project on the requested XAE window (WantInstance) if it's still there, else the first
+    // window with that project name — so two windows that happen to share a project name never both read as serving.
+    private List<ProjectEntry> BuildProjects()
     {
-        var list = new List<IdeInstance>();
-        foreach (var inst in RotInstances.Enumerate())
-            list.Add(new IdeInstance(inst.InstanceId, inst.IdeName, inst.IdeVersion,
-                inst.Projects.ConvertAll(p => new IdeProject(p.Project, false))));
-        return new InstancesResult(list);
+        var served = _om.ProjectName;
+        var wantInstance = _om.WantInstance;
+        bool connected = _om.IsConnected;
+        bool? servedDirty = connected ? _om.ProjectDirty() : null;
+
+        var rows = RotInstances.Enumerate()
+            .SelectMany(inst => inst.Projects.Select(p => (inst.InstanceId, inst.IdeVersion, p.Project)))
+            .ToList();
+
+        // Pick the ONE serving row: prefer the exact requested instance, else the first name-match.
+        int servingIdx = -1;
+        if (connected && !string.IsNullOrEmpty(served))
+        {
+            servingIdx = rows.FindIndex(r => r.Project == served && r.InstanceId == wantInstance);
+            if (servingIdx < 0) servingIdx = rows.FindIndex(r => r.Project == served);
+        }
+
+        var list = new List<ProjectEntry>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            bool serving = i == servingIdx;
+            list.Add(new ProjectEntry(Vendors.Twincat, rows[i].InstanceId, rows[i].IdeVersion, rows[i].Project,
+                RowStatus(serving), serving, serving && (servedDirty ?? false)));
+        }
+        return list;
     }
 
-    public override void SelectProject(SelectRequest sel)
+    public override void SelectProject(ConnectRequest sel)
     {
         _om.SelectProject(sel.InstanceId, sel.Project);   // re-resolve on the live DTE, no respawn (runs on the STA thread)
         SnapshotHealth();                                 // reflect the new binding in health at once (parity with CODESYS)

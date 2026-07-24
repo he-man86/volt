@@ -1,6 +1,7 @@
 using System.IO;
 using Volt.Engine.Wire;
 using Volt.Cli.Sync;
+using Volt.Cli.Transport;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -66,10 +67,10 @@ public class DomainTests
             Assert.Equal("codesys", Config.ConfiguredVendor(root));
 
             // Binding checks against a health payload.
-            var ok = new HealthResponse { Platform = "codesys", ProjectName = "Demo", Connected = true };
+            var ok = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "Demo", HealthStatus.Healthy, true, false) } };
             Assert.Null(Config.ProjectMismatch(loaded, ok));
             Assert.Null(Config.VerifyBinding(loaded, ok));
-            var wrong = new HealthResponse { Platform = "codesys", ProjectName = "Other", Connected = true };
+            var wrong = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "Other", HealthStatus.Healthy, true, false) } };
             Assert.NotNull(Config.ProjectMismatch(loaded, wrong));
             Assert.NotNull(Config.VerifyBinding(loaded, wrong));
         }

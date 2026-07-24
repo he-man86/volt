@@ -46,7 +46,6 @@ export interface BridgeStatusView {
   status: "Connected" | "Degraded" | "Unavailable" | "Unreachable" | "Unknown"
   projectName: string | null
   dirty: boolean
-  activeOp: string | null
 }
 
 /** The connector's one status snapshot (mirrors C# `ConnectorView`, camelCased). */
@@ -172,9 +171,8 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   // reconnect to it, while refusing every sync op. The UI said connected; `volt push` said PLC_DISCONNECTED.
   if (proj.serving !== true) return offline()
 
-  // Serving. When it is ALSO the tray's active connection, the per-vendor bridge view carries extra fidelity
-  // (activeOp, so the UI can show a sync in flight) — use it, but only to enrich a state we already established
-  // from `serving`, never to decide it.
+  // Serving. When it is ALSO the tray's active connection, prefer the per-vendor bridge view (it carries the
+  // degraded distinction) — but only to enrich a state we already established from `serving`, never to decide it.
   if (proj.connected && bridge !== undefined) return toHealthState(bridge)
   return {
     kind: "connected",
@@ -197,7 +195,6 @@ function toHealthState(b: BridgeStatusView | undefined): HealthState {
     ideName: b.displayName,
     projectName: b.projectName,
     projectDirty: b.dirty,
-    activeOp: b.activeOp,
   }
   switch (b.status) {
     case "Connected":

@@ -1,23 +1,19 @@
 /** health + build — the contract ops over the pipe. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, BASE } from "../harness"
+import { bridge, requireHealthy, healthStatus, BASE } from "../harness"
 
 describe(`endpoints / health+build (${BASE})`, () => {
 	setDefaultTimeout(60_000)
 	beforeAll(requireHealthy)
 
 	describe("/health", () => {
-		it("reports healthy + the stable identifiers", async () => {
+		it("is a flat projects array; the served row carries the stable identifiers", async () => {
 			const h = await bridge.health()
-			expect(h.status).toBe("healthy")
-			expect(h.connected).toBe(true)
-			expect(typeof h.platform).toBe("string")
-			expect(typeof h.version).toBe("string")
-		})
-		it("degraded is false and degradedReason null when healthy", async () => {
-			const h = await bridge.health()
-			expect(h.degraded).toBe(false)
-			expect(h.degradedReason).toBeNull()
+			expect(Array.isArray(h.projects)).toBe(true) // discovery folded into health — no root fields
+			expect(healthStatus(h)).toBe("healthy")       // derived from the one serving row
+			const served = h.projects.find((p: any) => p.serving)
+			expect(typeof served.vendor).toBe("string")   // vendor is per-row now, not a root `platform`
+			expect(typeof served.project).toBe("string")
 		})
 	})
 

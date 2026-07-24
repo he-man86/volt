@@ -23,7 +23,7 @@ async function serving(): Promise<boolean> { return (await opErrorCode(() => bri
  *  correctness (the project becomes servable), not that every single COM call into a flaky IDE succeeds first try. */
 async function selectStable(p: Bound, tries = 12): Promise<void> {
 	for (let i = 0; i < tries; i++) {
-		const code = await opErrorCode(() => bridge.select(p))
+		const code = await opErrorCode(() => bridge.connect(p))
 		if (code === null && (await serving())) return
 		await new Promise((r) => setTimeout(r, 2000))
 	}
@@ -37,15 +37,13 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 
 	beforeAll(async () => {
 		await requireHealthy()
-		const inst = await bridge.instances()
-		const pairs: Bound[] = (inst.instances ?? []).flatMap((i: any) =>
-			(i.projects ?? []).map((p: any) => ({ instanceId: i.instanceId, project: p.project })))
+		const pairs: Bound[] = (await bridge.instances()).map((p: any) => ({ instanceId: p.instanceId, project: p.project }))
 		// Keep only the projects that actually SERVE right now: a window can be in the ROT but crashed / not yet
 		// built, so instances[0] isn't necessarily usable. The bridge-level cases run against a live one; the
 		// multi-instance cases need >= 2 LIVE projects (else they no-op).
 		projects = []
 		for (const p of pairs) {
-			const code = await opErrorCode(() => bridge.select(p))
+			const code = await opErrorCode(() => bridge.connect(p))
 			if (code === null && (await serving())) projects.push(p)
 		}
 		if (projects.length === 0) throw new Error("no servable project — open + BUILD a fixture first (see test/e2e/README.md)")
@@ -57,7 +55,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 
 	it("survives a disconnect storm — rapid deselect/reselect keeps the same project + byte-identical versions", async () => {
 		const before = await snapshot()
-		for (let i = 0; i < 6; i++) { await bridge.deselect(); await resume() }
+		for (let i = 0; i < 6; i++) { await bridge.disconnect(); await resume() }
 		expect(await serving()).toBe(true)
 		const after = await snapshot()
 		expect(after.project).toBe(before.project)      // content-derived version didn't move
@@ -68,13 +66,13 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 	it("work created before a disconnect storm survives it — no lost edits, no corruption", async () => {
 		const name = fid("chaos_survives")
 		await createItem(name, "FUNCTION_BLOCK VltE2E_chaos_survives\nVAR\n\tkeep : INT := 7;\nEND_VAR\nEND_FUNCTION_BLOCK")
-		for (let i = 0; i < 4; i++) { await bridge.deselect(); await resume() }
+		for (let i = 0; i < 4; i++) { await bridge.disconnect(); await resume() }
 		expect(await fetchSource(name)).toContain("keep : INT := 7")
 	})
 
 	it("a refused op during a disconnect storm writes NOTHING — the item never half-exists", async () => {
 		const name = fid("chaos_nowrite")
-		await bridge.deselect()
+		await bridge.disconnect()
 		const code = await opErrorCode(() =>
 			bridge.push({ ops: [{ op: "set", name, toFolder: "", sourceText: "FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK", ifVersion: null }] }))
 		expect(code).toBe(DISCONNECTED)
@@ -116,7 +114,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 		// nothing binds nothing -> the model is not-connected -> Core refuses PLC_DISCONNECTED. CODESYS serves ONE
 		// project per pipe (the name is only confirmatory), so a bogus name still serves its project — skip there.
 		if (VENDOR !== "twincat") return
-		const code = await opErrorCode(() => bridge.select({ project: "VltE2E__no_such_project__" }))
+		const code = await opErrorCode(() => bridge.connect({ project: "VltE2E__no_such_project__" }))
 		expect(code).toBe(DISCONNECTED)
 		await resume()
 		expect(await serving()).toBe(true)   // a real select recovers immediately after a bad one
@@ -127,7 +125,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 		// Sequential, not concurrent: firing overlapping COM selects into a live TcXaeShell can fault it in its own
 		// process (out-of-process automation is single-threaded per instance). A real client serializes too.
 		for (const p of [projects[0], projects[1], projects[0], projects[1], projects[0]]) {
-			await bridge.select(p).catch(() => {}) // ignore an individual transient; the final resume + assert is the check
+			await bridge.connect(p).catch(() => {}) // ignore an individual transient; the final resume + assert is the check
 		}
 		await resume()
 		expect(await serving()).toBe(true)

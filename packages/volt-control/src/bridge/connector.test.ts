@@ -20,8 +20,8 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 const VIEW: ConnectorView = {
   status: "Connected",
   bridges: [
-    { vendor: "codesys", displayName: "CODESYS", status: "Connected", projectName: "MyMachine", dirty: true, activeOp: null },
-    { vendor: "twincat", displayName: "TwinCAT", status: "Unreachable", projectName: null, dirty: false, activeOp: null },
+    { vendor: "codesys", displayName: "CODESYS", status: "Connected", projectName: "MyMachine", dirty: true },
+    { vendor: "twincat", displayName: "TwinCAT", status: "Unreachable", projectName: null, dirty: false },
   ],
   projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true }],
 }

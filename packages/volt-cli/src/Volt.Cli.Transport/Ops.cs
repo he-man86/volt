@@ -10,9 +10,8 @@ namespace Volt.Cli.Transport;
 public static class Ops
 {
     public const string Health = "health";
-    public const string Instances = "instances";
-    public const string Select = "select";
-    public const string Deselect = "deselect";
+    public const string Connect = "connect";
+    public const string Disconnect = "disconnect";
     public const string Refs = "refs";
     public const string Fetch = "fetch";
     public const string Init = "init";

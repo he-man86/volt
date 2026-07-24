@@ -13,7 +13,7 @@
  * the engineer's bridge gated. `resume()` is idempotent, so it is safe to call when already serving.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
+import { bridge, requireHealthy, healthStatus, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 
@@ -26,7 +26,7 @@ let bound: { instanceId?: string | null; project?: string | null } = {}
 /** Put the bridge back in service, on the SAME project it started on. Idempotent: a `select` on an
  *  already-serving bridge is a no-op rebind. */
 async function resume(): Promise<void> {
-	await bridge.select(bound)
+	await bridge.connect(bound)
 }
 
 /** Is the bridge serving sync right now? (What `volt push` would find.) */
@@ -42,12 +42,10 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		// Fail loudly rather than silently skipping: a bridge without `deselect` is an OLD build, and a green run
 		// against it would be a lie. (This is the exact trap the stale-bundled-bridge snapshot fell into before.)
 		// Remember exactly which project is live, so every resume() re-selects THIS one by name.
-		const inst = await bridge.instances()
-		const i0 = inst.instances?.[0]
-		const p0 = i0?.projects?.[0]
-		bound = { instanceId: i0?.instanceId, project: p0?.project }
+		const row = (await bridge.instances())?.[0]
+		bound = { instanceId: row?.instanceId, project: row?.project }
 
-		const code = await opErrorCode(() => bridge.deselect())
+		const code = await opErrorCode(() => bridge.disconnect())
 		if (code !== null) throw new Error(`this bridge has no 'deselect' op (${code}) — rebuild it before running this suite`)
 		await resume()
 	})
@@ -57,7 +55,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 
 	it("deselect refuses every sync op with PLC_DISCONNECTED; select resumes them", async () => {
 		expect(await serving()).toBe(true)
-		await bridge.deselect()
+		await bridge.disconnect()
 
 		// Every op that touches the project — the whole CLI surface (`status`/`pull`/`push`/`build`).
 		expect(await opErrorCode(() => bridge.refs())).toBe(DISCONNECTED)
@@ -70,19 +68,18 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	})
 
 	it("while disconnected the bridge still answers health + instances — the only way back", async () => {
-		await bridge.deselect()
+		await bridge.disconnect()
 
 		// health must keep answering, and must say DISCONNECTED — every frontend polls this to render its state,
 		// and a health that threw (or still claimed 'connected') would leave the UI lying or blank.
 		const h = await bridge.health()
-		expect(h.connected).toBe(false)
-		expect(h.status).toBe("unavailable")
+		expect(healthStatus(h)).toBe("unavailable") // no serving row == not connected
 
 		// instances must keep listing the project: it is what the connector offers as "Connect to", so gating it
 		// would strand the user in the tray with nothing to click.
-		const inst = await bridge.instances()
-		expect(Array.isArray(inst.instances)).toBe(true)
-		expect(inst.instances.length).toBeGreaterThan(0)
+		const projects = await bridge.instances()
+		expect(Array.isArray(projects)).toBe(true)
+		expect(projects.length).toBeGreaterThan(0)
 	})
 
 	it("the IDE session survives untouched — same project, byte-identical versions after a reconnect", async () => {
@@ -91,7 +88,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		const before = await snapshot()
 		const healthBefore = await bridge.health()
 
-		await bridge.deselect()
+		await bridge.disconnect()
 		await resume()
 
 		const after = await snapshot()
@@ -100,14 +97,15 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		expect(after.structure).toBe(before.structure)
 		expect(after.items).toEqual(before.items)        // every item, same hash
 		expect(healthAfter.projectName).toBe(healthBefore.projectName)
-		expect(healthAfter.ideVersion).toBe(healthBefore.ideVersion) // the SAME IDE session, not a re-attach
+		// The SAME IDE session, not a re-attach. IdeVersion lives per-instance now (health carries the projects list).
+		expect(healthAfter.projects?.[0]?.version).toBe(healthBefore.projects?.[0]?.version)
 	})
 
 	it("a refused push writes NOTHING — the gate runs before the IDE is touched", async () => {
 		// The dangerous failure mode: a push that is refused *halfway* would leave the IDE half-updated. The gate
 		// is at dispatch, before any project access, so the item must simply not exist.
 		const name = fid("disc_nowrite")
-		await bridge.deselect()
+		await bridge.disconnect()
 
 		const code = await opErrorCode(() =>
 			bridge.push({ ops: [{ op: "set", name, toFolder: "", sourceText: "FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK", ifVersion: null }] }),
@@ -125,7 +123,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		await createItem(name, src, "")
 		const versionBefore = (await bridge.refs()).items[name]
 
-		await bridge.deselect()
+		await bridge.disconnect()
 		await resume()
 
 		expect((await bridge.refs()).items[name]).toBe(versionBefore)
@@ -133,8 +131,8 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	})
 
 	it("deselect and select are both idempotent", async () => {
-		await bridge.deselect()
-		await bridge.deselect() // a second Disconnect on an already-disconnected bridge
+		await bridge.disconnect()
+		await bridge.disconnect() // a second Disconnect on an already-disconnected bridge
 		expect(await serving()).toBe(false)
 
 		await resume()
@@ -143,19 +141,15 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	})
 
 	it("an op in flight when Disconnect lands still completes — the gate stops the NEXT op, not the current one", async () => {
-		// Disconnecting mid-write must never leave the IDE half-updated, so `deselect` deliberately does not abort
-		// (nor wait for) a running op: it isn't wrapped in Busy() and touches no IDE state.
+		// Disconnecting mid-write must never leave the IDE half-updated, so `disconnect` deliberately does not abort
+		// (nor wait for) a running op: it isn't wrapped in RunOp() and touches no IDE state.
 		const build = bridge.build({ buildType: "full" }) // the slowest op the bridge has
-		// WAIT until the build is genuinely running before deselecting. Firing them back to back only STARTS the
-		// build promise: if the deselect wins the race to Dispatch, the build is refused with PLC_DISCONNECTED and
-		// the assertion below fails for a reason unrelated to the invariant. health.activeOp is the bridge telling
-		// us the op holds the IDE thread.
-		for (let i = 0; i < 200; i++) {
-			if ((await bridge.health()).activeOp === "build") break
-			await new Promise((r) => setTimeout(r, 50))
-		}
-		expect((await bridge.health()).activeOp).toBe("build")
-		await bridge.deselect() // lands while the build holds the IDE thread
+		// Give the build a moment to get PAST the dispatch gate and onto the IDE thread before disconnecting —
+		// otherwise a disconnect that wins the race to Dispatch would refuse the build with PLC_DISCONNECTED (failing
+		// for a reason unrelated to the invariant). A full build takes seconds, so a short wait reliably lands the
+		// disconnect mid-build. (activeOp used to signal this precisely; it was removed, so we time it instead.)
+		await new Promise((r) => setTimeout(r, 750))
+		await bridge.disconnect() // lands while the build holds the IDE thread
 
 		const buildResult = await build
 		expect(buildResult).toBeDefined() // completed, not refused mid-flight
@@ -169,9 +163,9 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		// answer. They're read over separate connections, so a split here means the UI lies in one direction or
 		// the other ("connected" but every push refused, or "disconnected" while pushes land).
 		for (const step of ["serving", "deselected", "resumed"] as const) {
-			if (step === "deselected") await bridge.deselect()
+			if (step === "deselected") await bridge.disconnect()
 			if (step === "resumed") await resume()
-			const reportsConnected = (await bridge.health()).connected
+			const reportsConnected = healthStatus(await bridge.health()) !== "unavailable"
 			expect(reportsConnected).toBe(await serving())
 		}
 	})
@@ -180,7 +174,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		// Each op is its own pipe connection. The flag lives on the HOST, so a second client (another VS Code
 		// window, the desktop app, a terminal) must be refused as well — otherwise "disconnected" would only
 		// apply to whoever clicked it.
-		await bridge.deselect()
+		await bridge.disconnect()
 		const codes = await Promise.all([
 			opErrorCode(() => bridge.refs()),
 			opErrorCode(() => bridge.refs()),

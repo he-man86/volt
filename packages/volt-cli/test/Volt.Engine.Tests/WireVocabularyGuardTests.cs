@@ -33,10 +33,11 @@ public class WireVocabularyGuardTests
             new HashSet<string> { "BridgeErrorCodes.cs" }),
 
         ("op codes (Ops)",
-            new[] { "health", "instances", "select", "deselect", "refs", "fetch", "init", "push", "build" },
-            // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses "select" etc. as
-            // human LOG TAGS in the COM driver (it never dispatches wire ops) — all a distinct vocabulary.
-            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs" }),
+            new[] { "health", "connect", "disconnect", "refs", "fetch", "init", "push", "build" },
+            // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
+            // LOG TAGS in the COM driver; ControlServer's HTTP routes (POST /connect, /disconnect) deliberately match
+            // the wire verbs but are a distinct vocabulary (control-plane URLs, not the pipe op) — all separate.
+            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs", "ControlServer.cs" }),
 
         ("vendor ids (Vendors)",
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },

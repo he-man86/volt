@@ -26,10 +26,10 @@ public class CodesysSourceLiveTests
     {
         HealthConnected = true,
         HealthProjectName = project,
-        Instances = new InstancesResult(new List<IdeInstance>
+        Projects = new List<ProjectEntry>
         {
-            new IdeInstance(project, "CODESYS", "3.5", new List<IdeProject> { new IdeProject(project, false) }),
-        }),
+            new ProjectEntry("codesys", project, "3.5", project, "healthy", true, false),
+        },
     };
 
     private static BridgePipeHost StartHost(string pipe, string project)

@@ -7,6 +7,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Tests;
 
@@ -49,6 +50,18 @@ public sealed class FakeIde : IIdeDriver
 
     private readonly List<Item> _items;
     public FakeIde(params Item[] items) => _items = items.ToList();
+
+    // Opt-in: serialize RunOnStaThread onto ONE background worker, modelling the real IDE's single primary/STA thread.
+    // With this on, a blocked op (ExtractBlock) HOLDS that thread — so a poll-path op that marshals onto it deadlocks,
+    // while one served from cache answers. This is what makes the "poll ops answer while the IDE is busy" test real.
+    public FakeIde(bool serializeSta, params Item[] items) : this(items)
+    {
+        if (!serializeSta) return;
+        _sta = new System.Collections.Concurrent.BlockingCollection<Action>();
+        new Thread(() => { foreach (var job in _sta.GetConsumingEnumerable()) job(); })
+            { IsBackground = true, Name = "fake-sta" }.Start();
+    }
+    private readonly System.Collections.Concurrent.BlockingCollection<Action>? _sta;
     private Item Find(ItemRef r) => _items.First(i => i.Name == (string)r.Native);
     // Tolerant lookup: refs that never entered _items (a freshly CreateChild'd POU, a folder, "<root>") have
     // no children — return 0 rather than throw, matching the pre-children hard-coded ChildCount => 0.
@@ -87,7 +100,9 @@ public sealed class FakeIde : IIdeDriver
     public bool SelectConnects { get; init; } = true;
     private bool _attached = true;
     public string HealthPlatform { get; init; } = "";
-    public string? HealthProjectName { get; init; }
+    // Default non-null so a bare `new FakeIde(...)` models a connected bridge WITH a project loaded (serving). A test
+    // that wants "connected to the IDE but no project" sets this to null explicitly (then nothing serves).
+    public string? HealthProjectName { get; init; } = "FakeProject";
 
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
@@ -199,11 +214,9 @@ public sealed class FakeIde : IIdeDriver
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
-    // Mirror a real driver: IsConnected and BuildHealthResponse().Connected are the SAME signal.
+    // Mirror a real driver: IsConnected and BuildHealthResponse().Connected (derived from Status) are the SAME signal.
     public bool IsConnected => HealthConnected && _attached;
-    public string? IdeName => "Fake";
     public string? IdeVersion => "0";
-    public string Version => "test";
     public void Connect() { }
     public void Disconnect() { }
     public bool IsDegraded => false;
@@ -211,22 +224,34 @@ public sealed class FakeIde : IIdeDriver
     public void MarkDegraded(string reason) { }
     public void ClearDegraded() { }
     public void TriggerAsyncProbe() { }
-    public HealthResponse BuildHealthResponse() => new HealthResponse
+    public HealthResponse BuildHealthResponse()
     {
-        Connected = IsConnected,
-        Platform = HealthPlatform,
-        ProjectName = HealthProjectName,
-        Status = IsConnected ? "healthy" : "unavailable",
-    };
+        // Each configured row only actually `serving` while IsConnected — so a select that fails to attach, or
+        // HealthConnected=false, shows nothing serving, like a real driver. When no rows are configured, model the
+        // default connected bridge: while IsConnected, synthesize the one served row (name from the knob, or a
+        // placeholder) so a bare `new FakeIde(...)` reports connected+serving exactly as the old fake did.
+        var rows = Projects.Select(p => p with { Serving = p.Serving && IsConnected }).ToList();
+        if (rows.Count == 0 && IsConnected && !string.IsNullOrEmpty(HealthProjectName))
+            rows.Add(new ProjectEntry(HealthPlatform, "fake", "0", HealthProjectName!, HealthStatus.Healthy, true, false));
+        return new HealthResponse { Projects = rows };
+    }
     public bool ShouldMarkDegraded(Exception ex) => false;
     public void Recover() { }   // in-memory fake never drops a channel
-    public T RunOnStaThread<T>(Func<T> fn) => fn();
+    public T RunOnStaThread<T>(Func<T> fn)
+    {
+        if (_sta == null) return fn();   // default: inline, no serialization
+        T result = default!; Exception? error = null;
+        using var done = new ManualResetEventSlim(false);
+        _sta.Add(() => { try { result = fn(); } catch (Exception e) { error = e; } finally { done.Set(); } });
+        done.Wait();
+        if (error != null) throw error;
+        return result;
+    }
 
-    // ── instances / select knobs (the connector's discovery + selection ops) ──
-    public InstancesResult Instances { get; set; } = new(new List<IdeInstance>());
-    public SelectRequest? Selected { get; private set; }
-    public InstancesResult EnumerateInstances() => Instances;
-    public void SelectProject(SelectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
+    // ── project rows / connect knobs — the flat connectable-projects list rides on the health response ──
+    public List<ProjectEntry> Projects { get; set; } = new();
+    public ConnectRequest? Selected { get; private set; }
+    public void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
     public void FlushPendingWrites() { }
 

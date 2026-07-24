@@ -8,7 +8,7 @@ using Xunit;
 namespace Volt.Cli.Connector.Tests;
 
 /// <summary>The connector deliberately CANNOT reference Volt.Engine (the parity boundary is the pipe wire), so it
-/// hand-mirrors the `instances` and `health` shapes. Nothing else pins those mirrors to the authoritative
+/// hand-mirrors the `health` shape (liveness + the connectable-projects list). Nothing else pins those mirrors to the authoritative
 /// <c>Volt.Engine.Wire</c> DTOs — a bridge-side rename would silently degrade the tray while the CLI keeps working.
 /// These tests are that pin: the bridge serializes the real DTO (camelCase, as the pipe does), the connector's
 /// parser reads it, and every field the connector relies on must survive. Red the moment the shapes drift.</summary>
@@ -25,33 +25,48 @@ public class WireContractParityTests
     private static JsonElement Serialize<T>(T value) => JsonDocument.Parse(JsonSerializer.Serialize(value, Wire)).RootElement;
 
     [Fact]
-    public void Health_response_round_trips_into_the_connector_reader()
+    public void The_serving_row_round_trips_into_the_connector_reader()
     {
-        var wire = new HealthResponse { Status = "degraded", Connected = true, ProjectName = "MyProj", ProjectDirty = true, ActiveOp = "push" };
+        // The connector reads the ONE serving row for the bridge's connection state.
+        var wire = new HealthResponse
+        {
+            Projects =
+            {
+                new ProjectEntry("codesys", "i", "3.5", "Other", "healthy", false, false),   // listed, not served
+                new ProjectEntry("codesys", "i", "3.5", "MyProj", "degraded", true, true),  // the served one
+            },
+        };
         var h = HealthProbe.FromWire(Serialize(wire));
         Assert.Equal(BridgeStatus.Degraded, h.Status);
         Assert.Equal("MyProj", h.ProjectName);
         Assert.True(h.ProjectDirty);
-        Assert.Equal("push", h.ActiveOp);
     }
 
     [Theory]
     [InlineData("healthy", BridgeStatus.Connected)]
     [InlineData("degraded", BridgeStatus.Degraded)]
-    [InlineData("unavailable", BridgeStatus.Unavailable)]
-    [InlineData("something-new", BridgeStatus.Unknown)] // an unmodeled word must degrade to Unknown, not throw
-    public void Health_status_vocabulary_matches_the_bridge(string wireStatus, BridgeStatus expected)
+    [InlineData("something-new", BridgeStatus.Connected)] // a serving row = connected; only "degraded" downgrades
+    public void A_serving_rows_status_maps_to_the_bridge_status(string rowStatus, BridgeStatus expected)
     {
-        Assert.Equal(expected, HealthProbe.FromWire(Serialize(new HealthResponse { Status = wireStatus })).Status);
+        var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "P", rowStatus, true, false) } };
+        Assert.Equal(expected, HealthProbe.FromWire(Serialize(wire)).Status);
     }
 
     [Fact]
-    public void Instances_result_round_trips_into_the_connector_flatten()
+    public void No_serving_row_is_Unavailable()
     {
-        var wire = new InstancesResult(new List<IdeInstance>
+        // Projects listed but none served = the bridge is up, nothing connected.
+        var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "P", "healthy", false, false) } };
+        Assert.Equal(BridgeStatus.Unavailable, HealthProbe.FromWire(Serialize(wire)).Status);
+    }
+
+    [Fact]
+    public void Health_projects_round_trip_into_the_connector_flatten()
+    {
+        var wire = new HealthResponse
         {
-            new("inst-1", "XAE", "3.5.19", new List<IdeProject> { new("MyProj", true) }),
-        });
+            Projects = { new ProjectEntry("codesys", "inst-1", "3.5.19", "MyProj", "healthy", true, true) },
+        };
         var projects = WireProjects.Flatten(Serialize(wire), "codesys", "volt.bridge.codesys");
         var p = Assert.Single(projects);
         Assert.Equal("MyProj", p.DisplayName);

@@ -17,8 +17,9 @@ public abstract class DriverBase : IIdeSession
     private volatile bool _isDegraded;
     private string? _degradedReason;
 
-    private readonly object _probeGate = new();
-    private bool _probeInFlight;
+    // The one ambient-poll refresher. `health` (liveness + the instances list) is refreshed off the request path,
+    // single-flight, so a poll never marshals onto the busy IDE thread and a busy IDE never reads as a lost connection.
+    private readonly SingleFlight _healthProbe = new();
 
     public bool IsDegraded => _isDegraded;
     public string? DegradedReason => _degradedReason;
@@ -37,11 +38,9 @@ public abstract class DriverBase : IIdeSession
         _degradedReason = null;
     }
 
-    public virtual string Version => "1.0.0";
-
     // ── abstract — vendor must implement ──
     public abstract bool IsConnected { get; }
-    public abstract string? IdeName { get; }
+    /// <summary>The IDE version, shown in the connector's project label (per instance). Not on the wire top-level.</summary>
     public abstract string? IdeVersion { get; }
     public abstract void Connect();
     public abstract void Disconnect();
@@ -52,8 +51,7 @@ public abstract class DriverBase : IIdeSession
     /// overrides to re-establish the desired binding by stable name.</summary>
     public virtual void Recover() { }
     public abstract T RunOnStaThread<T>(Func<T> fn);
-    public abstract InstancesResult EnumerateInstances();
-    public abstract void SelectProject(SelectRequest sel);
+    public abstract void SelectProject(ConnectRequest sel);
     public abstract void FlushPendingWrites();
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
@@ -78,33 +76,31 @@ public abstract class DriverBase : IIdeSession
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). Best-effort — any probe failure is swallowed
     /// here so a transient IDE hiccup never faults the /health request.</summary>
-    protected void RunProbeOnce(Action probe)
+    protected void RunProbeOnce(Action probe) => _healthProbe.Run(probe);
+
+    /// <summary>A best-effort background action that never overlaps itself: a call made while one is in flight is
+    /// dropped and the cache just keeps its last snapshot.</summary>
+    private sealed class SingleFlight
     {
-        lock (_probeGate) { if (_probeInFlight) return; _probeInFlight = true; }
-        Task.Run(() =>
+        private readonly object _gate = new();
+        private bool _inFlight;
+        public void Run(Action work)
         {
-            try { probe(); }
-            catch { /* probe is best-effort — health keeps the last snapshot */ }
-            finally { lock (_probeGate) _probeInFlight = false; }
-        });
+            lock (_gate) { if (_inFlight) return; _inFlight = true; }
+            Task.Run(() =>
+            {
+                try { work(); }
+                catch { /* best-effort — the cache keeps its last snapshot */ }
+                finally { lock (_gate) _inFlight = false; }
+            });
+        }
     }
 
-    /// <summary>Build the uniform health response; the vendor supplies its snapshot values.</summary>
-    protected HealthResponse BuildHealth(string platform, bool connected, bool ideAlive,
-        string? ideName, string? ideVersion, string? projectName, bool projectDirty) =>
-        new()
-        {
-            Status = connected ? (_isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy) : HealthStatus.Unavailable,
-            Platform = platform,
-            PlatformVariant = null,
-            Connected = connected,
-            IdeAlive = ideAlive,
-            Degraded = _isDegraded,
-            DegradedReason = _degradedReason,
-            IdeName = ideName,
-            IdeVersion = ideVersion,
-            Version = Version,
-            ProjectName = projectName,
-            ProjectDirty = projectDirty,
-        };
+    /// <summary>Build the uniform health response; the vendor supplies its cached snapshot values. Liveness collapses
+    /// into the single <c>status</c> word (degraded is folded in), and the connectable-projects list rides along so
+    /// the connector's one ambient poll gets both.</summary>
+    /// <summary>The per-row <c>status</c> for a project row: the SERVING row reflects the driver's degraded state; a
+    /// listed-but-not-served row is just alive (healthy). Degraded only ever attaches to the one project this bridge
+    /// is actually talking to.</summary>
+    protected string RowStatus(bool serving) => serving && _isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy;
 }

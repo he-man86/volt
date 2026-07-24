@@ -121,7 +121,7 @@ namespace Volt.Cli.Connector
             _conn.Sources.Select(s =>
             {
                 var h = _conn.HealthOf(s.Vendor);
-                return new BridgeStatusView(s.Vendor, s.DisplayName, h.Status.ToString(), h.ProjectName, h.ProjectDirty, h.ActiveOp);
+                return new BridgeStatusView(s.Vendor, s.DisplayName, h.Status.ToString(), h.ProjectName, h.ProjectDirty);
             }).ToList(),
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,

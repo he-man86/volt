@@ -9,7 +9,7 @@
 // bridge/ — talking to the volt CLI + the bridge's /health
 export * from "./bridge/cli.js" // setBundledCli, cliScript, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
-export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, bridgeActiveOp, readBridgeVendor, VENDORS, Vendor
+export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, VENDORS, Vendor
 export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, connectProject, DetectedProject, ConnectorView, BridgeStatusView
 export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
 

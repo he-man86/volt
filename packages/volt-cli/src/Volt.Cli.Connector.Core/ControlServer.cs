@@ -22,9 +22,8 @@ namespace Volt.Cli.Connector
     public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null, bool Serving = false);
 
     /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
-    /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word;
-    /// <c>ActiveOp</c> is a mutating op in flight ("fetch"/"push"/"build"/"init"/"select") or null.</summary>
-    public sealed record BridgeStatusView(string Vendor, string DisplayName, string Status, string? ProjectName, bool Dirty, string? ActiveOp);
+    /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word.</summary>
+    public sealed record BridgeStatusView(string Vendor, string DisplayName, string Status, string? ProjectName, bool Dirty);
 
     /// <summary>The control plane's single status snapshot — everything the UI needs in one shape: the aggregate
     /// state, per-vendor bridge health (use case A: the bound workspace's live status), and the ONE unified list

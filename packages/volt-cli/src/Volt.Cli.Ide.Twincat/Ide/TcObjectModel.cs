@@ -49,6 +49,9 @@ internal sealed class TcObjectModel
     /// re-establishes THAT project by its stable name; when false, nothing is bound (health shows no project).</summary>
     public bool HasSelection => !string.IsNullOrEmpty(_wantProject);
     public string? WantProject => _wantProject;
+    /// <summary>The instance the user last explicitly picked (the connect's instanceId) — disambiguates two XAE
+    /// windows that have an identically-named project, so exactly one row is marked serving.</summary>
+    public string? WantInstance => _wantInstance;
 
     // ── COM attach ──────────────────────────────────────────────────
     /// <summary>Startup attach: bind the first running IDE's DTE so health can report the version while showing "no

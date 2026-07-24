@@ -18,7 +18,7 @@ public delegate object PipeDispatch(PipeRequest request, Action<object> emitProg
 /// One request per connection: the client writes a <see cref="PipeRequest"/> line; the server streams zero or
 /// more <c>{"progress":…}</c> frames then exactly one <c>{"result":…}</c> or <c>{"error":…}</c>, and closes.
 /// Connections are served CONCURRENTLY (a fresh pipe instance is armed the moment one is accepted), so a health
-/// call is never blocked behind a long fetch — the property the activeOp busy signal relies on.
+/// call is never blocked behind a long fetch — the property the cache-served ambient poll relies on.
 /// </summary>
 public sealed class PipeServer : IDisposable
 {

@@ -31,19 +31,21 @@ namespace Volt.Cli.Connector
 
         public async Task<IReadOnlyList<DetectedProject>> EnumerateAsync()
         {
-            try { return WireProjects.Flatten(await _wire.CallAsync(Ops.Instances), Vendor, _pipe); }
+            // Discovery rides on `health` now (the projects list is a field on it) — one cache-served poll, never
+            // marshalled onto the STA thread.
+            try { return WireProjects.Flatten(await _wire.CallAsync(Ops.Health), Vendor, _pipe); }
             catch { return Array.Empty<DetectedProject>(); } // unreachable / not loaded → nothing to offer
         }
 
         public Task BindAsync(DetectedProject project)
         {
             var a = project.Attach;
-            return _wire.CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project });
+            return _wire.CallAsync(Ops.Connect, new { instanceId = a.Instance, project = a.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
         {
-            try { await _wire.CallAsync(Ops.Deselect); return UnbindResult.Gated; }
+            try { await _wire.CallAsync(Ops.Disconnect); return UnbindResult.Gated; }
             // The bridge ANSWERED, with an error: it is running and simply has no such op, so it keeps serving.
             catch (PipeCallException) { return UnbindResult.Unsupported; }
             // Nothing answered at all — the worker is gone, so there is nothing left to gate.
@@ -67,38 +69,34 @@ namespace Volt.Cli.Connector
         }
     }
 
-    /// <summary>Shared parse of the <c>instances</c> wire response into flat <see cref="DetectedProject"/>s — one
-    /// per open project (its identity only; detection never reaches into PLC applications). Stamps the serving
-    /// <paramref name="pipe"/> + IDE version onto each so the source, CLI and UI can target/label the instance.</summary>
+    /// <summary>Shared parse of the FLAT <c>health.projects</c> array into <see cref="DetectedProject"/>s — one per
+    /// open project (its identity only; detection never reaches into PLC applications). Stamps the serving
+    /// <paramref name="pipe"/> + IDE version onto each so the source, CLI and UI can target/label the row. The
+    /// per-row serving/status are read by <see cref="HealthProbe"/> for the connection state; enumeration only needs
+    /// identity + dirty + version.</summary>
     public static class WireProjects
     {
         private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
-        public static List<DetectedProject> Flatten(JsonElement instancesRoot, string vendor, string? pipe)
+        public static List<DetectedProject> Flatten(JsonElement healthRoot, string vendor, string? pipe)
         {
-            WireInstances? parsed;
-            try { parsed = JsonSerializer.Deserialize<WireInstances>(instancesRoot.GetRawText(), Json); }
+            WireHealth? parsed;
+            try { parsed = JsonSerializer.Deserialize<WireHealth>(healthRoot.GetRawText(), Json); }
             catch { return new List<DetectedProject>(); }
 
             var list = new List<DetectedProject>();
-            foreach (var inst in parsed?.Instances ?? Enumerable.Empty<WireInstance>())
-            foreach (var proj in inst.Projects ?? Enumerable.Empty<WireProject>())
+            foreach (var p in parsed?.Projects ?? Enumerable.Empty<WireProjectRow>())
             {
-                if (proj.Project is null) continue;
-                list.Add(Make(vendor, pipe, inst, proj.Project, proj.Dirty, proj.Project));
+                if (p.Project is null) continue;
+                var attach = new ProjectRef(p.InstanceId, p.Project);
+                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Serving));
             }
             return list;
         }
 
-        private static DetectedProject Make(string vendor, string? pipe, WireInstance inst, string project, bool dirty, string display)
-        {
-            var attach = new ProjectRef(inst.InstanceId, project);
-            return new DetectedProject(DetectedProject.MakeId(vendor, attach), display, vendor, dirty, attach, pipe, inst.Version);
-        }
-
-        // ── the connector's view of the `instances` wire response (the bridge produces matching JSON) ──
-        private sealed record WireInstances(List<WireInstance>? Instances);
-        private sealed record WireInstance(string? InstanceId, string? Name, string? Version, List<WireProject>? Projects);
-        private sealed record WireProject(string? Project, bool Dirty);
+        // ── the connector's view of the flat `health.projects` array (matching JSON) ──
+        private sealed record WireHealth(List<WireProjectRow>? Projects);
+        private sealed record WireProjectRow(
+            string? Vendor, string? InstanceId, string? Version, string? Project, string? Status, bool Serving, bool Dirty);
     }
 }
