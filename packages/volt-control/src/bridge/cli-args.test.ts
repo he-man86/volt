@@ -88,9 +88,7 @@ test("fetchStatus sends --local only in local mode", async () => {
     ({
       ok: true,
       json: async () => ({
-        status: "Connected",
-        bridges: [{ vendor: "codesys", displayName: "CODESYS", status: "Connected", projectName: "P", dirty: false }],
-        projects: [{ id: "codesys::P:", displayName: "P", vendor: "codesys", dirty: false, connected: true, serving: true, projectName: "P" }],
+        projects: [{ id: "codesys::P:", displayName: "P", vendor: "codesys", dirty: false, connected: true, serving: true, status: "healthy", projectName: "P" }],
       }),
     }) as Response) as typeof fetch
   try {

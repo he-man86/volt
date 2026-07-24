@@ -18,12 +18,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 }
 
 const VIEW: ConnectorView = {
-  status: "Connected",
-  bridges: [
-    { vendor: "codesys", displayName: "CODESYS", status: "Connected", projectName: "MyMachine", dirty: true },
-    { vendor: "twincat", displayName: "TwinCAT", status: "Unreachable", projectName: null, dirty: false },
-  ],
-  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true }],
+  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true, serving: true, status: "healthy", projectName: "MyMachine" }],
 }
 
 function tempWorkspace(vendor?: string): string {
@@ -46,7 +41,7 @@ function boundWorkspace(vendor: string, projectName: string): string {
 // `connected` is only the tray highlight; `serving` is what decides connection state (default true — these
 // fixtures describe live projects unless a test is specifically about a bridge that isn't serving).
 const proj = (vendor: string, name: string, connected: boolean, projectName?: string, serving = true) => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, serving, projectName: projectName ?? name })
-const projView = (projects: unknown[]): ConnectorView => ({ status: "Connected", bridges: [], projects: projects as ConnectorView["projects"] })
+const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
 
 describe("connector client (the UI's single source of connection status)", () => {
   test("connectorStatus parses the aggregated view", async () => {

@@ -11,7 +11,7 @@
  * (`volt status` git drift included — it needs the local repo the connector knows nothing about). Never throws:
  * the connector being down resolves to an empty/unreachable state the UI renders as "start Volt".
  */
-import { readBridgeVendor, readBoundProject, type BridgeHealth, type HealthState, type Vendor } from "./health.js"
+import { readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
 
 const CONTROL_BASE = "http://127.0.0.1:8550"
 
@@ -37,21 +37,15 @@ export interface DetectedProject {
    *  CODESYS, but for TwinCAT it's the TwinCAT project while `displayName` is the PLC sub-project — so binding
    *  lookups must use this, not `displayName`. */
   projectName?: string | null
+  /** The bridge channel health for this row — only meaningful while {@link DetectedProject.serving}. Carries the
+   *  degraded distinction so a bound workspace reads its full state off its own row, with no separate bridge view. */
+  status?: "healthy" | "degraded"
 }
 
-/** Per-vendor live bridge health from the connector (use case A) — the connector's `BridgeStatus` word. */
-export interface BridgeStatusView {
-  vendor: Vendor
-  displayName: string
-  status: "Connected" | "Degraded" | "Unavailable" | "Unreachable" | "Unknown"
-  projectName: string | null
-  dirty: boolean
-}
-
-/** The connector's one status snapshot (mirrors C# `ConnectorView`, camelCased). */
+/** The connector's status snapshot (mirrors C# `ConnectorView`, camelCased): nothing but the ONE unified,
+ *  self-describing project list. Both status use cases read it — the connect surface is the list itself, and a
+ *  bound workspace's live status is its own row. */
 export interface ConnectorView {
-  status: string
-  bridges: BridgeStatusView[]
   projects: DetectedProject[]
 }
 
@@ -141,69 +135,43 @@ export async function boundProjectId(workspaceRoot: string): Promise<string | un
  *  there's no stealing). `unknown` when unbound, `unreachable` when the connector is down. */
 export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   const bound = readBoundProject(workspaceRoot)
-  if (bound === undefined) {
-    // An old/malformed binding without a project name → fall back to the vendor bridge view (backward compat).
-    const vendor = readBridgeVendor(workspaceRoot)
-    if (vendor === undefined) return { kind: "unknown" }
-    const v = await connectorStatus()
-    if (v === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
-    return toHealthState(v.bridges.find((b) => b.vendor === vendor))
-  }
+  const vendor = bound?.vendor ?? readBridgeVendor(workspaceRoot)
+  if (vendor === undefined) return { kind: "unknown" }
+
   const view = await connectorStatus()
   if (view === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
 
-  // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
-  // the PLC sub-project, so displayName would never equal the bound TwinCAT-project name. Fall back to displayName
-  // for an older connector that doesn't send projectName (and CODESYS, where they're equal).
-  const matches = (p: DetectedProject) => (p.projectName ?? p.displayName) === bound.projectName
-  const proj = view.projects.find((p) => p.vendor === bound.vendor && matches(p))
-  const bridge = view.bridges.find((b) => b.vendor === bound.vendor)
-  const offline = (): HealthState => ({
-    kind: "disconnected",
-    health: { status: "unavailable", connected: false, ideName: bridge?.displayName ?? bound.vendor, projectName: bound.projectName },
-  })
+  // THIS workspace's row. Match on the binding name (projectName === health.ProjectName), NOT displayName — for
+  // TwinCAT displayName is the PLC sub-project, so it would never equal the bound TwinCAT-project name. Fall back to
+  // displayName (older connector without projectName / CODESYS, where they're equal). An old binding with no project
+  // name at all falls back to the vendor's serving row.
+  const proj = bound
+    ? view.projects.find((p) => p.vendor === vendor && (p.projectName ?? p.displayName) === bound.projectName)
+    : view.projects.find((p) => p.vendor === vendor && p.serving) ?? view.projects.find((p) => p.vendor === vendor)
 
-  // Not detected at all → its IDE isn't open, or its bridge is down.
-  if (proj === undefined) return offline()
-
-  // Detected but NOT serving → disconnected. This is the case that used to be reported as connected ("detected →
-  // its host is live, so this workspace is connected"), which is precisely a gated bridge: still listed so you can
-  // reconnect to it, while refusing every sync op. The UI said connected; `volt push` said PLC_DISCONNECTED.
-  if (proj.serving !== true) return offline()
-
-  // Serving. When it is ALSO the tray's active connection, prefer the per-vendor bridge view (it carries the
-  // degraded distinction) — but only to enrich a state we already established from `serving`, never to decide it.
-  if (proj.connected && bridge !== undefined) return toHealthState(bridge)
-  return {
-    kind: "connected",
-    health: {
-      status: "healthy",
-      connected: true,
-      ideName: bridge?.displayName ?? bound.vendor,
-      projectName: bound.projectName,
-      projectDirty: proj.dirty,
-    },
-  }
+  return healthStateOf(proj, vendor, bound?.projectName)
 }
 
-/** Map the connector's per-vendor `BridgeStatusView` to the UI's `HealthState` (so consumers keep their type). */
-function toHealthState(b: BridgeStatusView | undefined): HealthState {
-  if (b === undefined) return { kind: "unknown" }
-  const health: BridgeHealth = {
-    status: b.status === "Connected" ? "healthy" : b.status === "Degraded" ? "degraded" : "unavailable",
-    connected: b.status === "Connected" || b.status === "Degraded",
-    ideName: b.displayName,
-    projectName: b.projectName,
-    projectDirty: b.dirty,
-  }
-  switch (b.status) {
-    case "Connected":
-      return { kind: "connected", health }
-    case "Degraded":
-      return { kind: "degraded", health }
-    case "Unreachable":
-      return { kind: "unreachable", reason: "no bridge running" }
-    default: // Unavailable (up, no project) / Unknown
-      return { kind: "disconnected", health }
+/** Derive the workspace's HealthState from its project row (or its absence). Connection state comes ONLY from
+ *  `serving`: a detected-but-not-serving project is a gated bridge (disconnected), never connected — treating
+ *  "detected" as "connected" is what let the UI claim a connection against a gated bridge. Degraded comes off the
+ *  row's own `status`, so there is no separate per-vendor bridge view. */
+function healthStateOf(proj: DetectedProject | undefined, vendor: Vendor, boundName?: string): HealthState {
+  const ideName = vendorLabel(vendor)
+  if (proj?.serving !== true)
+    return {
+      kind: "disconnected",
+      health: { status: "unavailable", connected: false, ideName, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
+    }
+  const degraded = proj.status === "degraded"
+  return {
+    kind: degraded ? "degraded" : "connected",
+    health: {
+      status: degraded ? "degraded" : "healthy",
+      connected: true,
+      ideName,
+      projectName: proj.projectName ?? proj.displayName,
+      projectDirty: proj.dirty,
+    },
   }
 }

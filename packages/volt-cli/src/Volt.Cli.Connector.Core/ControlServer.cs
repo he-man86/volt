@@ -19,16 +19,16 @@ namespace Volt.Cli.Connector
     /// Clients must render connection state from THIS, never from <paramref name="Connected"/> and never from the
     /// project merely appearing in the list — a disconnected bridge stays listed (that is how you reconnect), and
     /// treating "detected" as "connected" is what let the UI claim a connection against a gated bridge.</param>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null, bool Serving = false);
+    /// <param name="Status">The bridge channel health for this row — "healthy" | "degraded", only meaningful when
+    /// <paramref name="Serving"/>. Carries the degraded distinction so the row is fully self-describing.</param>
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, bool Serving, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
 
-    /// <summary>Per-vendor live bridge health — the connector is the one aggregator, so the UI reads connection
-    /// status here instead of re-probing the bridge pipes. <c>Status</c> is the <see cref="BridgeStatus"/> word.</summary>
-    public sealed record BridgeStatusView(string Vendor, string DisplayName, string Status, string? ProjectName, bool Dirty);
-
-    /// <summary>The control plane's single status snapshot — everything the UI needs in one shape: the aggregate
-    /// state, per-vendor bridge health (use case A: the bound workspace's live status), and the ONE unified list
-    /// of detected projects across every vendor (use case B: the init/connect surface).</summary>
-    public sealed record ConnectorView(string Status, IReadOnlyList<BridgeStatusView> Bridges, IReadOnlyList<ProjectView> Projects);
+    /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
+    /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;
+    /// a bound workspace's live status is its own row (serving/dirty/status). There is no separate per-vendor bridge
+    /// view or aggregate word: the tray derives its colour internally (<see cref="ConnectionManager.Aggregate"/>),
+    /// and every client just finds its row.</summary>
+    public sealed record ConnectorView(IReadOnlyList<ProjectView> Projects);
 
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension (and the desktop app) can
@@ -36,7 +36,7 @@ namespace Volt.Cli.Connector
     /// user touching the tray. The data plane is the per-vendor named pipe (`volt.bridge.&lt;vendor&gt;`, where PLC
     /// code flows); this control API is purely orchestration. Localhost only.
     ///
-    ///   GET  /status                 → ConnectorView (aggregate status + the unified project list)
+    ///   GET  /status                 → ConnectorView (the unified, self-describing project list)
     ///   POST /connect                → body { projectId } — make a detected project the active connection
     ///   POST /disconnect             → disconnect the active connection (the bridge refuses sync; hosts stay live)
     ///   POST /workers/{id}/restart   → respawn a worker

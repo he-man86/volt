@@ -89,7 +89,7 @@ namespace Volt.Cli.Connector
             {
                 if (p.Project is null) continue;
                 var attach = new ProjectRef(p.InstanceId, p.Project);
-                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Serving));
+                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Serving, p.Status ?? HealthStatus.Healthy));
             }
             return list;
         }
