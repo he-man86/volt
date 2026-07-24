@@ -62,40 +62,30 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     {
         var r = RunOnStaThread(() =>
         {
-            // 1) No DTE yet → (re)bind + resolve the selected project. "No project selected" is expected until
-            //    the user picks one (never a silent auto-attach); keep it as the reason instead of thrashing.
-            if (!_om.IsAttached)
+            if (_om.HasSelection)
             {
+                // A selection stands → keep serving THAT project. Re-establish it (a FRESH DTE re-acquired by the
+                // project's STABLE name) whenever the binding isn't live: a project close, a TcXaeShell
+                // re-registration (ephemeral moniker), or an 0x800706BA RPC drop all land here — and all recover to
+                // the SAME project, never flipping to another XAE window (the two-window bug). ProbeProjectAlive
+                // touches the live COM node, so it detects a dead handle that IsConnected (a field read) can't.
+                if (!_om.IsConnected || !_om.ProbeProjectAlive())
+                {
+                    try { _om.ReattachProject(); }
+                    catch (Exception ex) { MarkDegraded($"reattach '{_om.WantProject}' failed ({ex.Message})"); }
+                }
+                if (_om.IsConnected && IsDegraded) ClearDegraded();
+            }
+            else if (!_om.IsAttached)
+            {
+                // No project selected yet → soft-attach the DTE so the picker can list projects. Expected state
+                // until the user picks one (never a silent auto-attach to a project).
                 try { Connect(); }
                 catch (NoProjectSelectedException ex) { MarkDegraded(ex.Message); }
                 catch (Exception ex) { MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
             }
 
             bool ideAlive = _om.ProbeIdeAlive();
-            if (!ideAlive)
-            {
-                // The IDE itself went away → drop everything; the next probe re-binds when it returns.
-                if (_om.IsAttached) { try { _om.Disconnect(); } catch { } }
-            }
-            else if (_om.IsConnected)
-            {
-                // We hold a project binding — is it STILL the open project? A close/switch leaves stale COM refs
-                // that would otherwise report a false "connected" with the old project name (the bug this fixes).
-                if (!_om.ProbeProjectAlive())
-                {
-                    try { _om.DropProject(); } catch { }                 // stop reporting the stale project
-                    try { _om.ReattachProject(); } catch { /* not open → fall to "no project" */ }
-                }
-                if (_om.IsConnected && IsDegraded) ClearDegraded();
-            }
-            else if (_om.IsAttached)
-            {
-                // DTE alive but no project bound (a prior close, or the project opened after we attached the DTE)
-                // → re-resolve the SELECTED project under the existing DTE, no full re-attach, no IDE restart.
-                try { _om.ReattachProject(); } catch { /* still not open → stay "no project" */ }
-                if (_om.IsConnected && IsDegraded) ClearDegraded();
-            }
-
             return (alive: ideAlive, project: _om.ProjectName, dirty: _om.ProjectDirty());
         });
         lock (_cacheLock)

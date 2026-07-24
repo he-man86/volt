@@ -38,6 +38,14 @@ internal sealed class TcObjectModel
     private string? _ideProgId;
     private string? _ideVersion;
 
+    // The DESIRED selection — the project the user last explicitly picked (the connector's `select`). Recovery
+    // (ReattachProject, after a project close / re-registration / RPC drop) re-establishes THIS, by its stable
+    // project NAME, instead of resolving the first-available. Without it, any hiccup silently flipped a two-XAE
+    // setup to the other project. Set only by an explicit project select; cleared by Disconnect.
+    private string? _wantInstance;
+    private string? _wantProject;
+    private string? _wantPlc;
+
     public bool IsAttached => _dte != null;
     // "Connected" = a live project is bound. Keyed on the resolved PLC node (not just _plcProjectPath, which can
     // linger as a stale string after the project is closed), so a close/reopen is reflected once the probe drops
@@ -46,6 +54,11 @@ internal sealed class TcObjectModel
     public string? IdeProgId => _ideProgId;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
+
+    /// <summary>Whether the user has explicitly picked a project (the connector's `select`). When true, recovery
+    /// re-establishes THAT project by its stable name; when false, the worker soft-attaches for the picker.</summary>
+    public bool HasSelection => !string.IsNullOrEmpty(_wantProject);
+    public string? WantProject => _wantProject;
 
     // ── COM attach ──────────────────────────────────────────────────
     public void Connect()
@@ -70,6 +83,8 @@ internal sealed class TcObjectModel
         // (health shows "no project loaded") and the PLC project list is available for the picker.
         if (!string.IsNullOrEmpty(targetProject))
         {
+            // Env-pinned startup target (dev/test): record it as the desired selection so recovery re-establishes it.
+            _wantInstance = targetInstance; _wantProject = targetProject; _wantPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
             ResolveSelectedProject();
             VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — {_projectName} / {_plcProjectPath}");
         }
@@ -105,58 +120,81 @@ internal sealed class TcObjectModel
     public void SelectProject(string? instance, string? project, string? plcProject)
     {
         VoltLog.Info($"select: instance='{instance}' project='{project}' plc='{plcProject}'");
+        // Persist the DESIRED selection so recovery re-establishes exactly this (by stable name), never the
+        // first-available. Only an explicit project pick updates it — a soft/empty select must not erase it.
+        if (!string.IsNullOrEmpty(project)) { _wantInstance = instance; _wantProject = project; _wantPlc = plcProject; }
+        // An empty select while a selection stands = re-establish IT (idempotent reconnect), never silently
+        // soft-attach to a DIFFERENT first-available project — that was the two-XAE flip. Soft-attach only when
+        // nothing has been selected yet (the startup picker listing projects).
+        if (string.IsNullOrEmpty(project) && !string.IsNullOrEmpty(_wantProject))
+            BindAndResolve(_wantInstance, _wantProject, _wantPlc, "select");
+        else
+            BindAndResolve(instance, project, plcProject, "select");
+    }
 
-        // 1. Fast path — bind the requested ROT moniker if it's still valid. FindTwinCatProject (below) starts from a
-        //    clean slate, so no reset here — just retarget the DTE.
+    /// <summary>Bind a DTE for <paramref name="project"/> and resolve it + its PLC project — the ONE resolution path,
+    /// shared by <see cref="SelectProject"/> and the recovery <see cref="ReattachProject"/>. Tries the requested ROT
+    /// moniker first, then recovers by the STABLE project name (TcXaeShell re-registers its DTE with a fresh cookie,
+    /// so a captured moniker goes stale and only the name is durable — this also re-acquires a LIVE DTE handle when
+    /// the held one has gone stale, the source of the <c>0x800706BA</c> RPC drop). Leaves the model connected on
+    /// success, not-connected on a miss (Core refuses). Never throws for a not-found project.</summary>
+    private void BindAndResolve(string? instance, string? project, string? plcProject, string tag)
+    {
+        // 1. Fast path — the requested ROT moniker, if it still resolves.
         if (!string.IsNullOrEmpty(instance))
         {
             var dte = RotInstances.Bind(instance!);
-            if (dte != null) { _dte = dte; VoltLog.Info($"select: bound instance '{instance}'"); }
+            if (dte != null) { SwapDte(dte); VoltLog.Info($"{tag}: bound instance '{instance}'"); }
             else
-                // The moniker suffix is EPHEMERAL — TcXaeShell re-registers its DTE with a fresh cookie, so a
-                // captured instanceId goes stale within a session. NOT fatal: we recover by project name (step 3).
-                VoltLog.Warn($"select: Bind('{instance}') returned NULL (stale moniker — TcXaeShell re-registered?); ROT now lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
+                VoltLog.Warn($"{tag}: Bind('{instance}') returned NULL (stale moniker — TcXaeShell re-registered?); ROT now lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
         }
 
-        // 2. Resolve the project on the bound DTE (if we have one).
+        // 2. Resolve the project on the bound DTE.
         if (_dte != null && !string.IsNullOrEmpty(project)) FindTwinCatProject(project);
 
-        // 3. Recovery by STABLE project name. The moniker was stale (step 1) or the requested project isn't on the
-        //    bound DTE (a select that crosses instances). The project name doesn't change across re-registration, so
-        //    scanning every running DTE for it is the reliable multi-XAE path — this is what fixes selecting a
-        //    project whose TcXaeShell has re-registered under a new moniker.
+        // 3. Recover by STABLE project name — the moniker was stale, the project isn't on the bound DTE, or the held
+        //    DTE itself is dead. Re-acquire a FRESH DTE for the project by name; this is the reliable multi-XAE path.
         if (_sysManager == null && !string.IsNullOrEmpty(project))
         {
             var byProject = RotInstances.BindByProject(project!);
             if (byProject != null)
             {
-                _dte = byProject;
+                SwapDte(byProject);
                 FindTwinCatProject(project);
                 if (_sysManager != null)
-                    VoltLog.Info($"select: recovered project '{project}' by name (moniker '{instance}' was stale/mismatched)");
+                    VoltLog.Info($"{tag}: recovered project '{project}' by name (moniker '{instance}' stale/mismatched or DTE dead)");
             }
         }
 
-        // 4. No specific project requested (soft attach for the picker) — take the first running instance and list it.
+        // 4. No specific project requested (soft attach for the picker) — first running instance, list-only.
         if (_dte == null && string.IsNullOrEmpty(project))
         {
             var first = RotInstances.First();
-            if (first != null) _dte = first.Value.Dte;
+            if (first != null) SwapDte(first.Value.Dte);
         }
-        if (_dte == null) { VoltLog.Warn("select: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
-        if (string.IsNullOrEmpty(project)) FindTwinCatProject(null);   // soft attach: resolve first project so PLCs list
+        if (_dte == null) { VoltLog.Warn($"{tag}: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
+        if (string.IsNullOrEmpty(project)) { FindTwinCatProject(null); return; }   // soft attach: resolve first so PLCs list
 
         if (_sysManager == null)
         {
-            // The requested project is on NO running instance (closed, or never open). Leave the model not connected
-            // and let Core refuse LOUD with PLC_DISCONNECTED — do NOT touch PLC lookup on a null sys-manager. Dump
-            // every project the ROT currently sees so the mismatch is diagnosable from the log alone.
             var seen = string.Join(" | ", RotInstances.Enumerate().Select(i => $"{i.InstanceId}: [{string.Join(", ", i.Projects.Select(p => p.Project))}]"));
-            VoltLog.Warn($"select: project '{project}' NOT found on ANY running instance — ROT sees: [{seen}]");
+            VoltLog.Warn($"{tag}: project '{project}' NOT found on ANY running instance — ROT sees: [{seen}]");
             return;
         }
         FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
-        VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
+        VoltLog.Info($"{tag}: resolved '{_projectName}' plc='{_plcProjectPath}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
+    }
+
+    // Retarget the DTE, releasing the previous handle when it's a DIFFERENT object. Re-binding by name after a
+    // re-registration yields a NEW DTE COM object for the same running IDE; dropping the old one avoids both a leak
+    // and keeping a dead reference alive.
+    private void SwapDte(dynamic newDte)
+    {
+        if (_dte != null && !ReferenceEquals(_dte, newDte))
+        {
+            try { Marshal.ReleaseComObject(_dte); } catch { }
+        }
+        _dte = newDte;
     }
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
@@ -264,8 +302,17 @@ internal sealed class TcObjectModel
     public void Disconnect()
     {
         DropProject();
-        if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
+        ReleaseDte();
         VoltLog.Info("disconnected from TwinCAT");
+        // NOTE: the DESIRED selection (_want*) is intentionally kept — a dropped IDE/DTE is transient, and the next
+        // recovery must re-establish the SAME project when TwinCAT returns. Only an explicit new select changes it.
+    }
+
+    // Release the DTE handle and forget it. The moniker is ephemeral and the handle can go dead (0x800706BA), so
+    // recovery re-acquires a FRESH one by project name rather than resolving on a stale/dead reference.
+    private void ReleaseDte()
+    {
+        if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
     }
 
     /// <summary>Drop the project binding but KEEP the DTE — for a project close/switch while the IDE stays open,
@@ -278,14 +325,19 @@ internal sealed class TcObjectModel
         _projectName = null; _plcProjectPath = null;
     }
 
-    /// <summary>Re-resolve the selected project under the CURRENT DTE (no re-bind). Called only when a target was
-    /// selected (so <see cref="_dte"/> is bound) — never a silent first attach. Throws if the project isn't open
-    /// yet, leaving the worker in the "no project" state until it is.</summary>
+    /// <summary>Recovery: re-establish the DESIRED selection (the user's last explicit pick) after a project
+    /// close / re-registration / RPC drop. Re-acquires a FRESH DTE for the project by its STABLE name — the held
+    /// <see cref="_dte"/> may be dead (<c>0x800706BA</c>) and its moniker ephemeral, so it re-binds rather than
+    /// reusing. No-op when nothing was ever selected (stays in the soft/list state). Never throws; leaves the model
+    /// not-connected if the desired project is no longer open, so Core refuses cleanly.</summary>
     public void ReattachProject()
     {
-        if (_dte == null) throw new InvalidOperationException("no IDE bound");
         DropProject();
-        ResolveSelectedProject();
+        if (string.IsNullOrEmpty(_wantProject)) return;   // nothing selected yet → nothing to recover to
+        // The current handle is why we're recovering — release it so BindAndResolve re-acquires a FRESH DTE for the
+        // desired project by name, rather than resolving on a dead/stale reference.
+        ReleaseDte();
+        BindAndResolve(_wantInstance, _wantProject, _wantPlc, "reattach");
     }
 
     // ── health ──────────────────────────────────────────────────────

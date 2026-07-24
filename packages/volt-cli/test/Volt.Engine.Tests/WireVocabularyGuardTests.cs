@@ -34,8 +34,9 @@ public class WireVocabularyGuardTests
 
         ("op codes (Ops)",
             new[] { "health", "instances", "select", "deselect", "refs", "fetch", "init", "push", "build" },
-            // Program.cs/Git.cs use the same words as CLI verbs / git subcommands — a distinct vocabulary.
-            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs" }),
+            // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses "select" etc. as
+            // human LOG TAGS in the COM driver (it never dispatches wire ops) — all a distinct vocabulary.
+            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs" }),
 
         ("vendor ids (Vendors)",
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },
