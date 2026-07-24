@@ -17,7 +17,11 @@ param(
     [ValidateSet("18", "21")]
     [string]$Version = "21",
     [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project",
-    [string]$Instance = ""
+    [string]$Instance = "",
+    # -Ui launches CODESYS WITH its GUI (drops --noUI) — closer to production, where a user runs the same in-proc
+    # host inside the real IDE via "Activate in CODESYS". The runscript still opens the fixture + serves the pipe;
+    # the primary-thread pump keeps the UI responsive. Headless (default) stays the fast CI/dev loop.
+    [switch]$Ui
 )
 $ErrorActionPreference = "Stop"
 
@@ -67,12 +71,21 @@ switch ($Action) {
         $env:VOLT_STOP_FLAG       = $stopFlag
 
         $profileName = Get-Profile
-        $argline = '--profile="{0}" --runscript="{1}" --noUI' -f $profileName, (Resolve-Path $scriptPy).Path
+        # -Ui: keep the GUI (production-like). Headless: --noUI + a hidden window (fast dev/CI loop).
+        $argline = if ($Ui) { '--profile="{0}" --runscript="{1}"' -f $profileName, (Resolve-Path $scriptPy).Path }
+                   else      { '--profile="{0}" --runscript="{1}" --noUI' -f $profileName, (Resolve-Path $scriptPy).Path }
+        Write-Host "Mode:    $(if ($Ui) { 'GUI (production-like)' } else { 'headless' })"
         Write-Host "Profile: $profileName"
         Write-Host "DLL:     $($env:VOLT_BRIDGE_DLL)"
         Write-Host "Project: $($env:VOLT_FIXTURE_PROJECT)"
-        $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Hidden `
-            -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+        # A GUI run must NOT redirect stdout/stderr — CODESYS's UI process wants its own console handles, and
+        # redirecting them can wedge startup. Headless keeps the log redirect (there's no window to read).
+        $proc = if ($Ui) {
+            Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Normal
+        } else {
+            Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Hidden `
+                -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+        }
         $proc.Id | Out-File $pidFile
         Write-Host "CODESYS launched (pid $($proc.Id)). Pipe: volt.bridge.codesys"
         Write-Host "Tail launcher log with: codesys-pipe.ps1 logs"
