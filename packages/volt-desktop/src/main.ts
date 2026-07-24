@@ -3,11 +3,11 @@
 // window and lifecycle; the concern-split siblings mirror the extension: `agent` (opencode), `panel` (the
 // IDE-sync data feed), `commands` (pull/push/init). The active workspace follows the project opencode's GUI
 // is on (sniffed from its x-opencode-directory header), like VS Code binding to its open folder.
-import { existsSync } from "node:fs"
+import { existsSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
 import { setBundledCli, setLspServer } from "@volt/control"
-import { READY, launchAgent, killServer } from "./agent.js"
+import { READY, launchAgent, killServer, OPENCODE_PORT } from "./agent.js"
 import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
 import { registerCommands } from "./commands.js"
 import type { Shell } from "./context.js"
@@ -77,10 +77,22 @@ function activeDirFromRequest(details: { url: string; requestHeaders: Record<str
   return undefined
 }
 
+// Accept-Language for opencode's GUI. Default ENGLISH. opencode detects locale SERVER-SIDE from this header
+// (verified against its lib/language.ts); left to Electron's default it forwards navigator.languages verbatim, so
+// a stray extra keyboard language (e.g. Turkish) that opencode supports while the user's primary (Dutch) it does
+// not would win — the GUI came up in Turkish. English is the right default for a coding tool and is what was
+// asked for. Override with VOLT_LOCALE for a specific language (opencode maps e.g. "de" → German). Set on the
+// request header directly because setUserAgent's acceptLanguages arg does NOT control it here.
+function acceptLanguageHeader(): string {
+  return process.env.VOLT_LOCALE || "en-US"
+}
+
 function watchActiveProject() {
+  const acceptLang = acceptLanguageHeader()
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const dir = activeDirFromRequest(details)
     if (dir !== undefined && dir !== shell.boundRoot && existsSync(dir)) void bindWorkspace(shell, dir)
+    details.requestHeaders["Accept-Language"] = acceptLang
     cb({ requestHeaders: details.requestHeaders })
   })
 }
@@ -123,11 +135,22 @@ app.whenReady().then(async () => {
   }
 
   shell.view = new WebContentsView()
-  // Tell opencode's GUI our real locale. Without this the view sends an Accept-Language opencode's server-side
-  // detector maps to Turkish on first load; here we pin it to the OS locale (override with VOLT_LOCALE).
-  const locale = process.env.VOLT_LOCALE || app.getLocale() || "en-US"
   const sess = shell.view.webContents.session
-  sess.setUserAgent(sess.getUserAgent(), locale)
+
+  // The Accept-Language that forces English is set per-request in watchActiveProject (setUserAgent's language arg
+  // does NOT control the header here). But opencode caches its chosen language in an `oc_locale` COOKIE that
+  // OUTRANKS Accept-Language — so a machine that already came up in Turkish has `oc_locale=tr` stored, which keeps
+  // winning. Clear that web storage once so opencode re-detects from the (now English) header. Gated by a marker
+  // so a user's later in-app language choice isn't wiped each launch. Bumped to v2: the v1 pass ran before the
+  // header was actually forced, so it re-detected tr; v2 clears it now that the header is correct. Safe —
+  // opencode's auth lives in its OWN data dir, not this web storage; only the language/GUI prefs reset.
+  const localeResetMarker = join(app.getPath("userData"), ".opencode-locale-reset-v2")
+  if (!existsSync(localeResetMarker)) {
+    try {
+      await sess.clearStorageData({ origin: `http://127.0.0.1:${OPENCODE_PORT}`, storages: ["localstorage", "cookies"] })
+    } catch { /* best-effort — a stale language is cosmetic, never block launch */ }
+    try { writeFileSync(localeResetMarker, new Date().toISOString()) } catch { /* marker best-effort; worst case we reset again next launch */ }
+  }
   shell.win.contentView.addChildView(shell.view)
   layoutView()
   shell.win.on("resize", layoutView)
