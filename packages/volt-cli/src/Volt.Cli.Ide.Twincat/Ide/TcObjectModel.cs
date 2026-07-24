@@ -9,14 +9,6 @@ using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Twincat;
 
-/// <summary>Thrown by <see cref="TcObjectModel.Connect"/> when no attach target is selected — the worker must
-/// not guess a project. Surfaced as the driver's degraded reason; health then reports "no project loaded".</summary>
-public sealed class NoProjectSelectedException : InvalidOperationException
-{
-    public NoProjectSelectedException()
-        : base("No project selected — pick a TwinCAT instance/project from the Volt tray (or set VOLT_TC_PROJECT).") { }
-}
-
 /// <summary>
 /// Access to the live TwinCAT/Beckhoff project through the XAE automation model — the DTE plus the
 /// system manager and PLC tree — reached out-of-process over COM. The COM objects are late-bound through
@@ -47,10 +39,10 @@ internal sealed class TcObjectModel
     private string? _wantPlc;
 
     public bool IsAttached => _dte != null;
-    // "Connected" = a live project is bound. Keyed on the resolved PLC node (not just _plcProjectPath, which can
-    // linger as a stale string after the project is closed), so a close/reopen is reflected once the probe drops
-    // the node. These are plain field reads — safe to call off the STA thread (health serves from the cache).
-    public bool IsConnected => _dte != null && _sysManager != null && _plcNode != null;
+    // "Connected" = a project is BOUND: its DTE + TwinCAT project (system manager) are resolved. It deliberately
+    // does NOT require the PLC node — that is CONTENT, resolved lazily on the first content op (see EnsurePlc), so a
+    // select/health never has to walk into the PLC application. Plain field reads — safe off the STA thread.
+    public bool IsConnected => _dte != null && _sysManager != null;
     public string? IdeProgId => _ideProgId;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
@@ -61,54 +53,16 @@ internal sealed class TcObjectModel
     public string? WantProject => _wantProject;
 
     // ── COM attach ──────────────────────────────────────────────────
+    /// <summary>Startup attach: bind the first running IDE's DTE so health can report the version while showing "no
+    /// project selected". It resolves NO project — the worker starts bound to nothing, and only <see cref="SelectProject"/>
+    /// binds one (never a silent auto-attach to the first project). If the IDE isn't open yet this throws; the
+    /// connector re-establishes via a `select` once it appears — recovery never runs on the health poll.</summary>
     public void Connect()
     {
-        var targetInstance = Environment.GetEnvironmentVariable("VOLT_TC_INSTANCE");
-        var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
-
-        // Attach to the requested instance, else fall back to the first running one.
-        string? instanceId = string.IsNullOrEmpty(targetInstance) ? null : targetInstance;
-        if (instanceId != null) _dte = RotInstances.Bind(instanceId);
-        if (_dte == null)
-        {
-            var first = RotInstances.First();
-            if (first != null) { _dte = first.Value.Dte; instanceId = first.Value.InstanceId; }
-        }
-        if (_dte == null) throw new InvalidOperationException("No running TwinCAT XAE / Visual Studio instance found.");
-
-        _ideProgId = instanceId == null ? null : RotInstances.ProgId(instanceId);
-        try { _ideVersion = (string?)_dte!.Version; } catch { /* version is cosmetic */ }
-
-        // Only resolve a specific project if a target was explicitly set. Without one, the DTE is attached
-        // (health shows "no project loaded") and the PLC project list is available for the picker.
-        if (!string.IsNullOrEmpty(targetProject))
-        {
-            // Env-pinned startup target (dev/test): record it as the desired selection so recovery re-establishes it.
-            _wantInstance = targetInstance; _wantProject = targetProject; _wantPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
-            ResolveSelectedProject();
-            VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — {_projectName} / {_plcProjectPath}");
-        }
-        else
-        {
-            // Soft attach: find the TwinCAT project so PLCs can be listed, but don't bind a specific one.
-            try { FindTwinCatProject(null); } catch { /* no project → will list nothing */ }
-            VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
-        }
-    }
-
-    /// <summary>Resolve the selected project + PLC project under the current DTE (from the VOLT_TC_* target).
-    /// Shared by first <see cref="Connect"/> and the soft re-resolve <see cref="ReattachProject"/>; throws if
-    /// the requested project isn't currently open.</summary>
-    private void ResolveSelectedProject()
-    {
-        var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
-        var targetPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
-        FindTwinCatProject(string.IsNullOrEmpty(targetProject) ? null : targetProject);
-        // FindTwinCatProject no longer throws (the connector's `select` path relies on the graceful not-connected
-        // handling). This startup path DOES want to fail loud → degraded, so assert the resolution here.
-        if (_sysManager == null)
-            throw new InvalidOperationException($"No TwinCAT project{(string.IsNullOrEmpty(targetProject) ? "" : $" named '{targetProject}'")} found in the running solution.");
-        FindPlcProject(string.IsNullOrEmpty(targetPlc) ? null : targetPlc);
+        var first = RotInstances.First() ?? throw new InvalidOperationException("No running TwinCAT XAE / Visual Studio instance found.");
+        SwapDte(first.Dte);
+        _ideProgId = RotInstances.ProgId(first.InstanceId);
+        VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
     }
 
     /// <summary>Bind a SPECIFIC instance/project/PLC project — the connector's `select`. Re-binds the DTE if a
@@ -181,8 +135,9 @@ internal sealed class TcObjectModel
             VoltLog.Warn($"{tag}: project '{project}' NOT found on ANY running instance — ROT sees: [{seen}]");
             return;
         }
-        FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
-        VoltLog.Info($"{tag}: resolved '{_projectName}' plc='{_plcProjectPath}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
+        // Bound. The PLC application is NOT resolved here — that's content, deferred to EnsurePlc on the first
+        // content op. _wantPlc (set from the select) is what that resolution will target.
+        VoltLog.Info($"{tag}: bound '{_projectName}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
     }
 
     // Retarget the DTE, releasing the previous handle when it's a DIFFERENT object. Re-binding by name after a
@@ -195,6 +150,7 @@ internal sealed class TcObjectModel
             try { Marshal.ReleaseComObject(_dte); } catch { }
         }
         _dte = newDte;
+        try { _ideVersion = (string?)_dte.Version; } catch { /* version is cosmetic */ }
     }
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
@@ -233,34 +189,13 @@ internal sealed class TcObjectModel
                     try { nm = (string)proj.Name; } catch { continue; }
                     if (nm != wantProject) continue;
                 }
-                dynamic obj = proj.Object;   // TcXaeShell: proj.Object IS the SystemManager
+                // Resolve ONLY the TwinCAT project (its system manager) + name. The PLC application inside is CONTENT
+                // — NOT resolved here; EnsurePlc does that lazily on the first content op, so select/health stay out
+                // of the project's tree. TcXaeShell: proj.Object IS the SystemManager; full VS: obj.SystemManager.
+                dynamic obj = proj.Object;
                 try { _sysManager = obj; } catch { _sysManager = null; }
-
-                if (_sysManager != null)
-                {
-                    _projectName = proj.Name;
-                    try { dynamic plcProj = _sysManager.PlcProject; _plcProjectPath = plcProj?.ProjectPath; }
-                    catch
-                    {
-                        try
-                        {
-                            var pp = _sysManager.LookupTreeItem("TIPC");
-                            if (pp != null) { try { _plcProjectPath = pp.Child[1]?.ProjectPath ?? pp.Child[1]?.Name; } catch { } }
-                        }
-                        catch { }
-                    }
-                }
-                if (_sysManager == null)   // full VS: obj.SystemManager
-                {
-                    try
-                    {
-                        _sysManager = obj.SystemManager;
-                        _projectName = proj.Name;
-                        try { dynamic plcProj = _sysManager.PlcProject; _plcProjectPath = plcProj?.ProjectPath; } catch { }
-                    }
-                    catch { continue; }
-                }
-                if (_sysManager != null) break;
+                if (_sysManager == null) { try { _sysManager = obj.SystemManager; } catch { continue; } }
+                if (_sysManager != null) { _projectName = proj.Name; break; }
             }
             catch (Exception ex) { VoltLog.Debug($"FindTwinCatProject: project #{i} skipped ({ex.Message})"); }
         }
@@ -295,6 +230,16 @@ internal sealed class TcObjectModel
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
 
+    /// <summary>Resolve the PLC application node the FIRST time a content op needs it. select/health NEVER call this,
+    /// so the PLC tree is touched only when the user actually syncs (init/pull/push/build). Idempotent — a no-op once
+    /// resolved; DropProject clears it so a reconnect re-resolves. Targets the desired PLC project (<c>_wantPlc</c>).</summary>
+    private void EnsurePlc()
+    {
+        if (_plcNode != null) return;
+        if (_sysManager == null) throw new InvalidOperationException("no TwinCAT project bound");
+        FindPlcProject(_wantPlc);
+    }
+
     private dynamic LookupTreeItemDynamic(string path) => _sysManager!.LookupTreeItem(path);
 
     public object LookupTreeItem(string path) => LookupTreeItemDynamic(path);
@@ -315,9 +260,9 @@ internal sealed class TcObjectModel
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
     }
 
-    /// <summary>Drop the project binding but KEEP the DTE — for a project close/switch while the IDE stays open,
-    /// so the next probe can re-resolve the selected project without a full re-attach. Nulls the fields
-    /// <see cref="IsConnected"/> reads, so it correctly reports "not connected" until re-resolved.</summary>
+    /// <summary>Drop the project + PLC binding (keeps the DTE). Nulls the fields <see cref="IsConnected"/> reads, so
+    /// it reports "not connected" until the next <c>select</c> or content-op recovery re-resolves. Used by that
+    /// recovery (<see cref="ReattachProject"/>) — never by the health poll, which does no resolution.</summary>
     public void DropProject()
     {
         if (_plcNode != null) { try { Marshal.ReleaseComObject(_plcNode); } catch { } _plcNode = null; }
@@ -340,14 +285,15 @@ internal sealed class TcObjectModel
         BindAndResolve(_wantInstance, _wantProject, _wantPlc, "reattach");
     }
 
-    // ── health ──────────────────────────────────────────────────────
+    // ── health (TOP-LEVEL liveness only — no content) ────────────────
+    /// <summary>Does the bound IDE/solution still respond? A single top-level read (project count) — no PLC node, no
+    /// tree walk. This is the ONLY thing the health poll touches.</summary>
     public bool ProbeIdeAlive()
     {
         if (_dte == null) return false;
         try { var _ = (int)_dte.Solution.Count; return true; }
         catch { return false; }
     }
-
 
     /// <summary>Whether the solution has unsaved changes, or null if it can't be read.</summary>
     public bool? ProjectDirty()
@@ -356,15 +302,13 @@ internal sealed class TcObjectModel
     }
 
     // ── tree primitives ─────────────────────────────────────────────
-    /// <summary>The PLC project root (its NestedProject), the default parent for new POUs.</summary>
+    /// <summary>The PLC project root (its NestedProject), the default parent for new POUs. Lazily resolves the PLC
+    /// node on first use (EnsurePlc) — this is THE point where a content op reaches into the PLC application.</summary>
     public object PlcRoot()
     {
-        if (_plcNode != null)
-        {
-            try { return _plcNode.NestedProject; } catch { /* fall through to lookup */ }
-        }
-        if (_plcProjectPath == null) throw new InvalidOperationException("No PLC project found");
-        return LookupTreeItemDynamic(_plcProjectPath);
+        EnsurePlc();
+        try { return _plcNode!.NestedProject; } catch { /* fall through to lookup */ }
+        return LookupTreeItemDynamic(_plcProjectPath!);
     }
 
     // Raw COM reads — these THROW on failure; the tree-walk callers catch and skip/continue (that

@@ -16,8 +16,9 @@ var cts = new CancellationTokenSource();
 var sta = new Thread(() =>
 {
     ComMessageFilter.Register(); // must run on the STA thread that makes the COM calls
+    // Bind a DTE for the version if an IDE is already open; if not, stay degraded — the connector attaches via a
+    // `select` once one appears. No project is auto-bound (the user picks one).
     try { driver.Connect(); }
-    catch (NoProjectSelectedException ex) { driver.MarkDegraded(ex.Message); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
     driver.RunStaMessageLoop(cts.Token);
 })
