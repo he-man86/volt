@@ -51,8 +51,11 @@ pwsh packages/volt-cli/scripts/twincat-instances.ps1 down          # close the o
 $env:VOLT_PIPE="volt.bridge.twincat"; $env:VOLT_VENDOR="twincat"; bun test test/e2e
 ```
 
-The connector must be running (it supervises the worker). Verify the projects are visible before running:
-the worker's `instances` op should list them.
+**One-time build per fixture.** The committed fixtures ship source-only (no `_CompileInfo`), so a freshly-opened
+one isn't fully serveable until it's built: **Build → Build Solution** in TcXaeShell once after opening. Until then
+the DTE registers but the PLC project isn't fully accessible, and the suite reports the bridge as `unavailable`.
+The connector must be running (it supervises the worker); the worker's `instances` op should list the built
+project(s) before you run the suite.
 
 ## A note on TwinCAT stability
 
