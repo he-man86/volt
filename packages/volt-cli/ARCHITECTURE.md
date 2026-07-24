@@ -149,6 +149,24 @@ Pipes — a load-bearing asymmetry that mirrors InIdeLoad vs ExternalAttach, **d
 Above the connector everything is vendor-neutral: ONE active connection, a flat project list, click to switch. The
 per-instance-pipe machinery lives entirely below `IProjectSource`.
 
+**The rule that separates the two — and it is now enforced, not just intended:** *any per-vendor difference that
+Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries above are strictly about how each IDE
+is REACHED — they live below the `IIdeDriver` seam (and the pipe topology below `IProjectSource`). The wire
+behavior and error codes are identical across vendors by construction:
+- **Parity-critical decisions live in Core, once.** A choice a pipe client can observe — a `select` post-condition,
+  the not-connected precondition on project-ops, an error mapping — is decided in `Wire/BridgePipeHost`, delegating
+  only irreducible primitives (attach, tree-walk, code r/w) to the driver. The drivers can't diverge these; they
+  don't own them. (E.g. a `select` that can't attach the project, and any project-op on a not-connected bridge,
+  both refuse with the shared `PLC_DISCONNECTED` on either vendor — the check is in Core, not per driver.)
+- **One error channel:** only `BridgeException`/`BridgeErrorCodes` cross the wire; a driver must not leak a
+  vendor-specific exception type as an expected condition.
+- **Enforced by a guard:** `VendorParityGuardTests` fails the build if a vendor string literal appears in Core code
+  (`Volt.Engine`). Comments may still explain a vendor's PLCopen dialect — the shared transform handles it — but no
+  `vendor == "twincat"` branch may live above the pipe.
+
+The fuller programme (shrinking `IIdeDriver` to primitives, a conformance suite over both drivers) is tracked in
+`openspec/changes/bridge-vendor-parity-by-construction`.
+
 **Disconnect gates the bridge, it does not shut anything down.** `deselect` makes `BridgePipeHost` refuse every
 sync op with `PLC_DISCONNECTED` (only `health`/`instances`/`select`/`deselect` keep answering — they are how the
 UI shows the state and finds the way back); the next `select` resumes it. The gate must live here, not in the
