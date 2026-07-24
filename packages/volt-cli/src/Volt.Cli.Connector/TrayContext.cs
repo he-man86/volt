@@ -10,10 +10,12 @@ namespace Volt.Cli.Connector
 {
     /// <summary>
     /// The one tray app, rebuilt over the <see cref="ConnectionManager"/>. A single NotifyIcon whose colour is
-    /// the aggregate connection state, and a context menu that is a thin view over the model: ONE unified
-    /// "Connect to" list of every detected project across all vendors (each tagged with its platform), a guided
-    /// CODESYS activation affordance, and logs/diagnostics/exit. No per-vendor lanes, no IDE launch — the
-    /// vendor difference lives entirely behind the wire.
+    /// the aggregate connection state, and a context menu that is a thin STATUS view over the model: the detected
+    /// projects across all vendors listed at the ROOT (each tagged with its platform, the connected one marked), a
+    /// force-<b>Disconnect</b>, a guided CODESYS activation affordance, and logs/diagnostics/exit.
+    /// <para>Connecting is driven from the UI (desktop / VS Code) over the control plane — the tray no longer offers
+    /// a "Connect to" action. It still shows what's detected and lets the user force a Disconnect when the UI can't.
+    /// No per-vendor lanes, no IDE launch — the vendor difference lives entirely behind the wire.</para>
     /// </summary>
     public sealed class TrayContext : ApplicationContext
     {
@@ -25,9 +27,13 @@ namespace Volt.Cli.Connector
         private readonly ControlServer _control;
 
         private ToolStripMenuItem _headerItem = null!;
-        private ToolStripMenuItem _connectItem = null!;
+        private ToolStripMenuItem _disconnectItem = null!;
         private ToolStripMenuItem _updateItem = null!;
         private ToolStripSeparator _updateSeparator = null!;
+        // The detected-project rows live at the ROOT and are rebuilt each tick; tracked so they can be removed and
+        // re-inserted (just above the Disconnect item) without rebuilding the whole menu.
+        private readonly List<ToolStripItem> _projectItems = new();
+        private ToolStripSeparator _projectsSeparator = null!;
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
@@ -82,7 +88,7 @@ namespace Volt.Cli.Connector
             _headerItem.Text = pending != null
                 ? $"Volt Connector  ·  {Updater.CurrentVersion} → {pending}"
                 : $"Volt Connector  ·  {Updater.CurrentVersion}";
-            RebuildConnectMenu();
+            RebuildProjectItems();
             ShowUpdateIfReady();
         }
 
@@ -95,7 +101,7 @@ namespace Volt.Cli.Connector
                 .ToList();
             if (connected.Count > 0) return "connected: " + string.Join(", ", connected);
             var n = _conn.Projects.Count;
-            return n > 0 ? $"{n} project(s) detected — pick one" : "no project detected";
+            return n > 0 ? $"{n} project(s) detected — connect from the app" : "no project detected";
         }
 
         /// <summary>What GET /status answers: LIVE state, not the tray tick's cache. A client polling every few
@@ -161,7 +167,7 @@ namespace Volt.Cli.Connector
         // just another connect. One place for both the tray menu and the control-plane disconnect, so the
         // "disconnected from X" line is logged wherever it's triggered.
         /// <summary>Run on the WinForms UI thread. The control plane calls TrayDisconnectAsync from a threadpool
-        /// thread, and everything it touches afterwards — the balloon tip, the NotifyIcon, RebuildConnectMenu's
+        /// thread, and everything it touches afterwards — the balloon tip, the NotifyIcon, RebuildProjectItems'
         /// ToolStrip collection — is UI state the 4s timer is also mutating. Without this marshal the two collide
         /// (a ToolStrip cleared mid-rebuild, a torn icon cache) and the tray throws or corrupts its menu.</summary>
         private Task OnUiThread(Action action)
@@ -237,10 +243,15 @@ namespace Volt.Cli.Connector
             menu.Items.Add(_updateItem);
             menu.Items.Add(_updateSeparator);
 
-            _connectItem = new ToolStripMenuItem("Connect to") { Image = Glyph(0xE71B) }; // Link
-            _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
-            menu.Items.Add(_connectItem);
-            menu.Items.Add(new ToolStripSeparator());
+            // Detected projects are shown at the ROOT (status only — connecting is done from the UI). The rows are
+            // inserted just above the Disconnect item on each tick by RebuildProjectItems.
+            _disconnectItem = new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), async (_, _) => await DisconnectFromTray()) // PowerButton
+            {
+                Enabled = false, // no active connection until the UI connects one
+            };
+            menu.Items.Add(_disconnectItem);
+            _projectsSeparator = new ToolStripSeparator();
+            menu.Items.Add(_projectsSeparator);
 
             menu.Items.Add(new ToolStripMenuItem("Volt Status…", Glyph(0xE946), (_, _) => ShowStatus())); // Info
             menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(0xE7C3), (_, _) => ShowLogs())); // Page
@@ -273,43 +284,46 @@ namespace Volt.Cli.Connector
             return bmp;
         }
 
-        /// <summary>Repopulate the ONE unified "Connect to" list — every detected project across all vendors,
-        /// each with its platform prefix, the connected one checked. No per-vendor lanes.</summary>
-        private void RebuildConnectMenu()
+        /// <summary>Repopulate the ROOT-level detected-project rows (status only — connecting is done from the UI)
+        /// and set the Disconnect item's enabled state. Rows are inserted just above <see cref="_disconnectItem"/>,
+        /// the connected one marked with a check. Removes the previous rows first so a tick can't accumulate them.</summary>
+        private void RebuildProjectItems()
         {
-            _connectItem.DropDownItems.Clear();
+            var menu = _disconnectItem.Owner as ContextMenuStrip;
+            if (menu == null) return;
+
+            foreach (var it in _projectItems) menu.Items.Remove(it);
+            _projectItems.Clear();
+
+            int at = menu.Items.IndexOf(_disconnectItem);   // insert rows directly above Disconnect
+
+            void AddRow(ToolStripItem item) { menu.Items.Insert(at++, item); _projectItems.Add(item); }
+
             if (_conn.Projects.Count == 0)
             {
-                _connectItem.DropDownItems.Add(new ToolStripMenuItem("(no project detected)") { Enabled = false });
-                _connectItem.DropDownItems.Add(new ToolStripSeparator());
-                _connectItem.DropDownItems.Add(new ToolStripMenuItem("Don't see CODESYS? Activate in CODESYS…", null, (_, _) => ShowCodesysActivation()));
-                return;
+                AddRow(new ToolStripMenuItem("No project detected") { Enabled = false });
             }
-            // When a vendor has more than one live instance, show the IDE version so same-named projects (e.g. the
-            // same project open in two CODESYS versions) are distinguishable.
-            var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-            foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+            else
             {
-                var connected = _conn.SelectedOf(p.Vendor)?.Id == p.Id;
-                var ver = multi.Contains(p.Vendor) && !string.IsNullOrEmpty(p.IdeVersion) ? $" ({p.IdeVersion})" : "";
-                var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.DisplayName}{(p.Dirty ? " *" : "")}";
-                var captured = p;
-                _connectItem.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => ConnectTo(captured)) { Checked = connected });
+                // When a vendor has more than one live instance, show the IDE version so same-named projects (e.g.
+                // the same project open in two CODESYS versions) are distinguishable.
+                var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+                foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+                {
+                    var connected = _conn.SelectedOf(p.Vendor)?.Id == p.Id;
+                    var ver = multi.Contains(p.Vendor) && !string.IsNullOrEmpty(p.IdeVersion) ? $" ({p.IdeVersion})" : "";
+                    // Status rows: not clickable (the UI connects). Mark the connected one THREE ways so it's obvious
+                    // even greyed as a disabled row — a "● connected" text tag (readable at any colour), the native
+                    // checkmark, and bold. A plain detected project is greyed with no tag.
+                    var tag = connected ? "   ● connected" : "";
+                    var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.DisplayName}{(p.Dirty ? " *" : "")}{tag}";
+                    var row = new ToolStripMenuItem(label) { Enabled = false, Checked = connected };
+                    if (connected) row.Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold);
+                    AddRow(row);
+                }
             }
-            // Disconnect = the bridge stops serving sync (every host stays live). Enabled only when one is connected.
-            _connectItem.DropDownItems.Add(new ToolStripSeparator());
-            // async void handler — an escaped exception would kill the tray process, so it can never propagate
-            // (same guard as ConnectTo).
-            _connectItem.DropDownItems.Add(new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), async (_, _) => await DisconnectFromTray()) // PowerButton
-            {
-                Enabled = _conn.ActiveConnection != null,
-            });
-        }
 
-        private async void ConnectTo(DetectedProject p)
-        {
-            try { await _conn.ConnectAsync(p); }
-            catch (Exception ex) { _icon.ShowBalloonTip(5000, "Volt", $"Couldn't connect to {p.DisplayName}: {ex.Message}", ToolTipIcon.Warning); }
+            _disconnectItem.Enabled = _conn.ActiveConnection != null;
         }
 
         private void ShowCodesysActivation()
