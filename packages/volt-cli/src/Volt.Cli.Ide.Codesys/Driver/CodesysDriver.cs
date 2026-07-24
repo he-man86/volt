@@ -38,12 +38,21 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override string? IdeName => Vendors.CodesysDisplay;
     public override string? IdeVersion => "3.5";
 
-    /// <summary>Snapshot the project name/dirty/open flags on the primary thread (we are on it at startup).</summary>
-    public override void Connect()
-    {
-        lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; _hasProject = _om.HasPrimaryProject; }
-    }
+    public override void Connect() => SnapshotHealth();   // on the primary thread at startup
     public override void Disconnect() { ClearDegraded(); }
+
+    /// <summary>Refresh the health cache from the in-proc object model's TOP-LEVEL state (project name/dirty/open) —
+    /// no tree walk. MUST run on the primary thread: <see cref="Connect"/> / <see cref="SelectProject"/> call it
+    /// directly (already on it), the async probe via <see cref="RunOnStaThread{T}"/>. So a new binding shows in
+    /// health at once. Parallels the TwinCAT driver's SnapshotHealth — both refresh on select the same way.</summary>
+    private void SnapshotHealth()
+    {
+        string? name = _om.ProjectName;
+        bool dirty = _om.ProjectDirty;
+        bool has = _om.HasPrimaryProject;
+        lock (_cacheLock) { _projectName = name; _projectDirty = dirty; _hasProject = has; }
+        if (has && IsDegraded) ClearDegraded();
+    }
 
     public override T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 
@@ -67,11 +76,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <summary>The in-proc host can only serve the primary project of the CODESYS it was loaded into (it can't
     /// switch to another process's project), so `select` confirms/refreshes that binding rather than switching —
     /// and the connector only ever offers this one CODESYS project. Selecting anything else is a no-op refresh.</summary>
-    public override void SelectProject(SelectRequest sel)
-    {
-        lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; _hasProject = _om.HasPrimaryProject; }
-        if (_hasProject && IsDegraded) ClearDegraded();
-    }
+    public override void SelectProject(SelectRequest sel) => SnapshotHealth();   // confirm/refresh the one primary project
 
     // In-process: no transport that can die mid-call, so never auto-degrade.
     public override bool ShouldMarkDegraded(Exception ex) => false;
@@ -84,11 +89,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         return BuildHealth(Vendors.Codesys, IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, dirty);
     }
 
-    public override void TriggerAsyncProbe() => RunProbeOnce(() =>
-    {
-        var (n, d, has) = RunOnStaThread(() => (_om.ProjectName, _om.ProjectDirty, _om.HasPrimaryProject));
-        lock (_cacheLock) { _projectName = n; _projectDirty = d; _hasProject = has; }
-    });
+    public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
 
     public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 

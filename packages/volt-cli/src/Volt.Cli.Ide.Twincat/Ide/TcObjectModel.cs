@@ -37,7 +37,6 @@ internal sealed class TcObjectModel
     private string? _wantInstance;
     private string? _wantProject;
 
-    public bool IsAttached => _dte != null;
     // "Connected" = a project is BOUND: its DTE + TwinCAT project (system manager) are resolved. It deliberately
     // does NOT require the PLC node — that is CONTENT, resolved lazily on the first content op (see EnsurePlc), so a
     // select/health never has to walk into the PLC application. Plain field reads — safe off the STA thread.
@@ -199,9 +198,9 @@ internal sealed class TcObjectModel
             }
             catch (Exception ex) { VoltLog.Debug($"FindTwinCatProject: project #{i} skipped ({ex.Message})"); }
         }
-        // Do NOT throw here: SelectProject (the connector's `select`) checks _sysManager itself and recovers by
-        // project name / leaves the model not-connected for Core to refuse. The startup path (ResolveSelectedProject)
-        // asserts resolution on its own. Throwing would turn a clean PLC_DISCONNECTED into an opaque INTERNAL_ERROR.
+        // Do NOT throw here: BindAndResolve (the connector's `select`) checks _sysManager itself and recovers by
+        // project name, else leaves the model not-connected for Core to refuse. Throwing would turn a clean
+        // PLC_DISCONNECTED into an opaque INTERNAL_ERROR.
         if (_sysManager == null)
             VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(first)"}' not resolved in the bound DTE (has: [{string.Join(", ", SolutionProjectNames())}])");
     }

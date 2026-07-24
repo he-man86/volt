@@ -35,7 +35,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override string? IdeName => RotInstances.IdeName(_om.IdeProgId);
     public override string? IdeVersion => _om.IdeVersion;
 
-    public override void Connect() => _om.Connect();
+    public override void Connect() { _om.Connect(); SnapshotHealth(); }
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
     // ── STA thread ──────────────────────────────────────────────────
@@ -59,28 +59,31 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         return BuildHealth(Vendors.Twincat, IsConnected, ideAlive, IdeName, IdeVersion, projectName, projectDirty ?? false);
     }
 
-    public override void TriggerAsyncProbe() => RunProbeOnce(() =>
+    public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
+
+    /// <summary>Refresh the health cache from the live DTE. MUST run on the STA thread (it reads the DTE): the async
+    /// probe calls it via <see cref="RunOnStaThread{T}"/>; <see cref="Connect"/> / <see cref="SelectProject"/> call it
+    /// directly (they already run on the STA thread), so a new binding shows in health AT ONCE — not 5s later on the
+    /// next probe. Matches the CODESYS driver, which refreshes its cache on select the same way.
+    /// <para>LIGHT BY CONTRACT: it reads ONLY top-level liveness (does the bound DTE/solution answer) + the project
+    /// name/dirty — never the PLC application (no node, no LookupTreeItem, no tree walk). The connector polls health
+    /// every tick, and a user who isn't syncing must not have Volt slow or crash their IDE. Recovery — re-binding the
+    /// desired project + resolving the PLC app after a close / re-registration / RPC drop — is DEFERRED to the content
+    /// ops (where RunRead re-acquires on a transient) or a re-select; it NEVER happens on this poll.</para></summary>
+    private void SnapshotHealth()
     {
-        // LIGHT BY CONTRACT. The connector polls health every tick, so it must NEVER touch project CONTENT — no PLC
-        // node, no LookupTreeItem, no tree walk. A user who isn't syncing must not have Volt slow or crash their IDE.
-        // All this reads is TOP-LEVEL liveness (is the bound IDE/solution still answering?) — the same thing the
-        // detection poll reads, nothing about the PLC application inside. Recovery — re-binding the desired project
-        // and resolving the PLC app after a close / re-registration / RPC drop — is DEFERRED to the content ops
-        // (init/pull/push/build, where RunRead re-acquires on a transient) or to a re-select. It NEVER happens here.
-        var r = RunOnStaThread(() =>
-        {
-            bool ideAlive = _om.ProbeIdeAlive(); // top-level: does the bound DTE/solution respond? (no content)
-            if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
-            return (alive: ideAlive, project: _om.ProjectName, dirty: _om.ProjectDirty());
-        });
+        bool ideAlive = _om.ProbeIdeAlive();
+        if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
+        string? name = _om.ProjectName;
+        bool? dirty = _om.ProjectDirty();
         lock (_cacheLock)
         {
-            _cachedIdeAlive = r.alive;
-            _cachedProjectName = r.project;
-            _cachedProjectDirty = r.dirty;
+            _cachedIdeAlive = ideAlive;
+            _cachedProjectName = name;
+            _cachedProjectDirty = dirty;
             _cachedAtMs = Environment.TickCount64;
         }
-    });
+    }
 
     // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs; those (and only those)
     // flip the driver to degraded so it can recover instead of hard-failing.
@@ -120,8 +123,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override void SelectProject(SelectRequest sel)
     {
-        _om.SelectProject(sel.InstanceId, sel.Project);   // re-resolve on the live DTE, no respawn
-        if (_om.IsConnected) ClearDegraded();
+        _om.SelectProject(sel.InstanceId, sel.Project);   // re-resolve on the live DTE, no respawn (runs on the STA thread)
+        SnapshotHealth();                                 // reflect the new binding in health at once (parity with CODESYS)
     }
 
     // Op-level recovery (the retry wrapper calls this on the STA thread after a transient dead-channel error): drop
