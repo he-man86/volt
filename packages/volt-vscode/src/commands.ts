@@ -297,6 +297,14 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			const project = await pickProject(projects)
 			if (project) await doInitFromProject(ensureWorkspace, w, project)
 		}),
+		// Set up a SPECIFIC detected project — fired by its Bridge-view row, which passes the project. No
+		// project-picker QuickPick (the click already chose it); just resolve the folder and confirm. This is what
+		// the row's "click to set up" does; volt.init (above) is the palette path that still asks which project.
+		reg("volt.initProject", async (project?: DetectedProject) => {
+			if (!project) return
+			const w = await initTarget()
+			if (w) await doInitFromProject(ensureWorkspace, w, project)
+		}),
 		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doReinit(ensureWorkspace, w, readBridgeVendor(w) ?? "twincat") }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),

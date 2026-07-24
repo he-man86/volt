@@ -364,16 +364,14 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				},
 			]
 		case "choose-project":
+			// A plain header (NOT clickable — clicking it used to fire volt.init and pop the project-picker QuickPick,
+			// which reads like the command palette and confused users). The clickable targets are the project rows
+			// below: one per detected project, each says "click to set up" in its own description and sets ITSELF up.
 			return [
 				{
 					key: "bridge:pick",
-					label: detected.length === 1 ? "Detected project — click to set up" : `${detected.length} detected projects — click one to set up`,
+					label: detected.length === 1 ? "Detected project" : `${detected.length} detected projects`,
 					icon: new vscode.ThemeIcon("info"),
-					// The label SAYS "click to set up", so it must actually do that. Without a command it was inert —
-					// you'd click the very row that invites the click and nothing happened, while the real target was
-					// the project row below. volt.init runs its own folder + project picker, so this is correct for
-					// one project or many (the multi-project label reads "click one", and the picker is that choice).
-					command: { command: "volt.init", title: "Set up this folder" },
 				},
 				...detected.map(detectedNode),
 			]
@@ -395,10 +393,12 @@ function detectedNode(p: DetectedProject): VoltNode {
 	return {
 		key: `detected:${p.id}`,
 		label: p.displayName,
-		description: platform,
+		// "click to set up" sits right after the name, on the row that actually does it. Fires volt.initProject with
+		// THIS project, so clicking sets up exactly what you clicked — no project-picker QuickPick to re-choose it.
+		description: `— click to set up · ${platform}`,
 		tooltip: `Set this folder up to sync with "${p.displayName}" (${platform}).\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
 		icon: new vscode.ThemeIcon("plug"),
-		command: { command: "volt.init", title: "Set up this folder" },
+		command: { command: "volt.initProject", title: "Set up this folder", arguments: [p] },
 	}
 }
 

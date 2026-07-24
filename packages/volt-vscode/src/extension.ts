@@ -1,4 +1,6 @@
 import * as vscode from "vscode"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { resolveOpencodeExe, hasOpencode } from "./agent.js"
 import { startLsp, stopLsp, registerLspCommands, markLspFailed } from "./lsp.js"
 import { registerCommands } from "./commands.js"
@@ -6,7 +8,20 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, setBundledCli } from "@volt/control"
+
+// Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
+// launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
+// retro-fit it. The installer lays volt.exe down at a known place (…\Programs\Volt\current\bin), and points
+// OPENCODE_CONFIG_DIR at a sibling; try both, fall back to PATH (dev / non-default install) so cliScript still works.
+function resolveVoltCli(): string | undefined {
+  const exe = process.platform === "win32" ? "volt.exe" : "volt"
+  const candidates: string[] = []
+  const cfg = process.env.OPENCODE_CONFIG_DIR // …\current\opencode-config
+  if (cfg) candidates.push(join(cfg, "..", "bin", exe))
+  if (process.env.LOCALAPPDATA) candidates.push(join(process.env.LOCALAPPDATA, "Programs", "Volt", "current", "bin", exe))
+  return candidates.find(existsSync)
+}
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -23,9 +38,12 @@ async function promptInstallOpencode(): Promise<void> {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-	// The `volt` CLI is the shipped C# binary the Volt installer puts on PATH — a prerequisite the extension does
-	// not bundle (a per-platform native exe is too heavy for a Marketplace .vsix). volt-control's cliScript falls
-	// back to `volt` on PATH, so no setBundledCli here; the LSP + language features work standalone regardless.
+	// The `volt` CLI is the shipped C# binary the Volt installer lays down (a per-platform native exe is too heavy
+	// to bundle in a Marketplace .vsix). Resolve it by absolute path — PATH alone breaks with `spawn volt ENOENT`
+	// when VS Code predates the install. If not found (dev / non-default install) volt-control's cliScript falls
+	// back to `volt` on PATH; the LSP + language features work standalone regardless.
+	const voltCli = resolveVoltCli()
+	if (voltCli) setBundledCli(voltCli)
 
 	// "Volt: Open Agent" — open, or focus an already-open, agent terminal running opencode (which Volt makes
 	// PLC-aware via OPENCODE_CONFIG_DIR). New Session always starts a fresh one. opencode is a PREREQUISITE the

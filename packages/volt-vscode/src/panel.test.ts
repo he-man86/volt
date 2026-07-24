@@ -31,16 +31,19 @@ const proj = (over: Record<string, unknown> = {}) => ({
 // The bug this guards: the welcome button is static markdown and can't show WHICH project it binds. This view
 // fills that gap — an unbound folder with a detected project must render its NAME, clickable to set up. (Row 0 is
 // the "click one to set up" header, so the project rows start at 1.)
-test("unbound + a detected project → a named, clickable init row", () => {
+test("unbound + a detected project → a named row whose description invites the click, wired to init ITSELF", () => {
   const [, node] = bridgeRoots([], [proj()])
   expect(node?.label).toBe("MyMachine")
-  expect(node?.description).toBe("CODESYS") // vendorLabel(codesys)
-  expect(node?.command?.command).toBe("volt.init")
+  // "click to set up" lives on the row (after the name), not on the header — and the row sets up THIS project
+  // directly (volt.initProject with the project as its arg), so no project-picker QuickPick re-asks which one.
+  expect(node?.description).toBe("— click to set up · CODESYS") // vendorLabel(codesys)
+  expect(node?.command?.command).toBe("volt.initProject")
+  expect(node?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine", vendor: "codesys" })
 })
 
 test("ideVersion disambiguates the platform label when a vendor has >1 live instance", () => {
   const [, node] = bridgeRoots([], [proj({ ideVersion: "CODESYS 3.5.19" })])
-  expect(node?.description).toBe("CODESYS · CODESYS 3.5.19")
+  expect(node?.description).toBe("— click to set up · CODESYS · CODESYS 3.5.19")
 })
 
 test("unbound + nothing detected → says so, and what to do about it", () => {
