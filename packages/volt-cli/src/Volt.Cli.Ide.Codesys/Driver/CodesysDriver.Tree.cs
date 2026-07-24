@@ -55,7 +55,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
             {
                 var deviceFolder = FolderPath.Append(folderPath, name);
                 var hasChildren = HasChildren(child);
-                items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice, false,
+                items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice,
                     hasChildren ? deviceFolder : folderPath));
                 if (hasChildren) Walk(child, deviceFolder, items);
                 continue;
@@ -83,14 +83,14 @@ public sealed partial class CodesysDriver : IDebugIntrospect
                     // A placeholder library's name can carry a Windows-illegal char (the '*' wildcard version,
                     // e.g. "SysTypes2 Interfaces, * (System)") — encode it so the .library file still materializes.
                     foreach (var lib in _om.GetLibraryRefs(child))
-                        items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, false, managerFolder));
+                        items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
                     Walk(child, managerFolder, items);
                 continue;
             }
 
-            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath));
+            items.Add(new ProjectItem(name, new ItemRef(child), code, folderPath));
         }
     }
 

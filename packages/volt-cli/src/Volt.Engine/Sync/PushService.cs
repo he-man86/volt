@@ -48,7 +48,7 @@ public static class PushService
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
             currentVersions[it.Name] = version;
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[it.Name] = version;
-            if (it.IsTopLevelCrud) itemCache[it.Name] = (it.Item, it.Folder);
+            if (ItemKind.IsTopLevelCrud(it.KindCode)) itemCache[it.Name] = (it.Item, it.Folder);
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(gatedVersions);

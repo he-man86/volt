@@ -106,7 +106,7 @@ public sealed class FakeIde : IIdeDriver
 
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
-        _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.IsTopLevel, i.Folder)).ToList();
+        _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.Folder)).ToList();
     public int KindCode(ItemRef item) => Find(item).KindCode;
     public int ChildCount(ItemRef item) => FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) => Find(item).Name;
