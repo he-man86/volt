@@ -9,7 +9,7 @@ namespace Volt.Cli.Ide.Twincat;
 public sealed record TcProject(string Project);
 
 /// <summary>One running TwinCAT XAE / VS instance and the projects it has open.</summary>
-public sealed record TcInstance(string InstanceId, string? IdeName, string? IdeVersion, string? Solution, List<TcProject> Projects);
+public sealed record TcInstance(string InstanceId, string? IdeVersion, List<TcProject> Projects);
 
 /// <summary>
 /// Enumerates the COM Running Object Table for every running DTE instance
@@ -102,7 +102,7 @@ internal static class RotInstances
     /// <summary>The first running DTE instance as (rotDisplayName, dteObject), or null if none are
     /// running. Version-agnostic — whatever the ROT lists (any Visual Studio / TcXaeShell), so the
     /// no-target auto-attach future-proofs the same way the instance picker already does. The display
-    /// name is the instance id understood by <see cref="Bind"/> and <see cref="ProgId"/>.</summary>
+    /// name is the instance id understood by <see cref="Bind"/>.</summary>
     public static (string InstanceId, object Dte)? First()
     {
         foreach (var hit in RunningDtes()) return hit;
@@ -115,13 +115,12 @@ internal static class RotInstances
         var list = new List<TcInstance>();
         foreach (var (name, dte) in RunningDtes())
         {
-            string? ver = null, sln = null;
+            string? ver = null;
             var projects = new List<TcProject>();
             try { ver = (string?)((dynamic)dte).Version; } catch { }
             try
             {
                 dynamic solution = ((dynamic)dte).Solution;
-                try { sln = solution.FullName as string; } catch { }
                 dynamic projs = solution.Projects;
                 int count = projs.Count;
                 for (int i = 1; i <= count; i++)
@@ -142,29 +141,8 @@ internal static class RotInstances
                 }
             }
             catch { }
-            list.Add(new TcInstance(name, IdeName(name), ver, sln, projects));
+            list.Add(new TcInstance(name, ver, projects));
         }
         return list;
-    }
-
-    /// <summary>A coarse host-FAMILY name derived from a ProgID/moniker — "Visual Studio" / "TcXaeShell"
-    /// / the raw string for anything else. Deliberately NO per-version table (e.g. 17.0→"2022"): that is
-    /// hardcoded version knowledge that goes stale every IDE release, and the exact version is already
-    /// carried separately (DTE.Version). Substring family detection is forward-proof — a newer Visual
-    /// Studio / TcXaeShell still resolves correctly.</summary>
-    public static string? IdeName(string? progIdOrMoniker)
-    {
-        if (string.IsNullOrEmpty(progIdOrMoniker)) return null;
-        if (progIdOrMoniker!.IndexOf("TcXaeShell", StringComparison.OrdinalIgnoreCase) >= 0) return "TcXaeShell";
-        if (progIdOrMoniker.IndexOf("VisualStudio.DTE", StringComparison.OrdinalIgnoreCase) >= 0) return "Visual Studio";
-        return progIdOrMoniker;
-    }
-
-    /// <summary>"!VisualStudio.DTE.17.0:1234" → "VisualStudio.DTE.17.0".</summary>
-    public static string? ProgId(string moniker)
-    {
-        var s = moniker.TrimStart('!');
-        var colon = s.LastIndexOf(':');
-        return colon > 0 ? s.Substring(0, colon) : s;
     }
 }

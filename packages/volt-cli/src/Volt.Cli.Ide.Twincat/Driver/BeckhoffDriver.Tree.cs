@@ -101,9 +101,10 @@ public sealed partial class BeckhoffDriver
         {
             object child = _om.ChildAt(parent, i);
             string childName = _om.GetName(child);
-            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase) && ItemKind.IsTopLevelCrud(_om.ItemType(child)))
+            int type = _om.ItemType(child); // one cross-process COM read, reused by both checks below
+            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase) && ItemKind.IsTopLevelCrud(type))
                 return child;
-            if (_om.ItemType(child) == ItemKind.PlcFolder)
+            if (type == ItemKind.PlcFolder)
             {
                 var found = FindItemByName(child, name);
                 if (found != null) return found;

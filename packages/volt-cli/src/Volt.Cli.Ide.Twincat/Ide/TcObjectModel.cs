@@ -27,7 +27,6 @@ internal sealed class TcObjectModel
     private dynamic? _plcNode;
     private string? _projectName;
     private string? _plcProjectPath;
-    private string? _ideProgId;
     private string? _ideVersion;
 
     // The DESIRED selection — the project the user last explicitly picked (the connector's `select`). Recovery
@@ -41,14 +40,12 @@ internal sealed class TcObjectModel
     // does NOT require the PLC node — that is CONTENT, resolved lazily on the first content op (see EnsurePlc), so a
     // select/health never has to walk into the PLC application. Plain field reads — safe off the STA thread.
     public bool IsConnected => _dte != null && _sysManager != null;
-    public string? IdeProgId => _ideProgId;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
 
     /// <summary>Whether the user has explicitly picked a project (the connector's `select`). When true, recovery
     /// re-establishes THAT project by its stable name; when false, nothing is bound (health shows no project).</summary>
     public bool HasSelection => !string.IsNullOrEmpty(_wantProject);
-    public string? WantProject => _wantProject;
     /// <summary>The instance the user last explicitly picked (the connect's instanceId) — disambiguates two XAE
     /// windows that have an identically-named project, so exactly one row is marked serving.</summary>
     public string? WantInstance => _wantInstance;
@@ -62,7 +59,6 @@ internal sealed class TcObjectModel
     {
         var first = RotInstances.First() ?? throw new InvalidOperationException("No running TwinCAT XAE / Visual Studio instance found.");
         SwapDte(first.Dte);
-        _ideProgId = RotInstances.ProgId(first.InstanceId);
         VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
     }
 
