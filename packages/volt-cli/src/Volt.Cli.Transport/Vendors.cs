@@ -12,12 +12,4 @@ public static class Vendors
 
     public const string CodesysDisplay = "CODESYS";
     public const string TwincatDisplay = "TwinCAT";
-
-    /// <summary>Human display name for a vendor id (case-insensitive); echoes the id back if unrecognized.</summary>
-    public static string DisplayFor(string vendor) => vendor.ToLowerInvariant() switch
-    {
-        Codesys => CodesysDisplay,
-        Twincat => TwincatDisplay,
-        _ => vendor,
-    };
 }
