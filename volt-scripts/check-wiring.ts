@@ -147,11 +147,12 @@ function literalArray(src: string, name: string): string[] {
 	return quotedStrings(m[1]);
 }
 
-// Canonical: the C# ItemKind.SourceKindExtensions table — ("kind", "ext") pairs; take each ext (2nd string).
+// Canonical: the C# ItemKind.SourceKindExtensions table — (kind, "ext") pairs; take each ext (the quoted string).
+// The kind column is a `Kinds.*` const (not a literal), so the first tuple element is a dotted identifier.
 const itemKindSrc = readRepo("packages/volt-cli/src/Volt.Engine/Workspace/ItemKind.cs");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
-const CANON = normExts([...canonBlock[1].matchAll(/\(\s*"[^"]+"\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
+const CANON = normExts([...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
 
 const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {
 	const v = pick(JSON.parse(readRepo(rel)));

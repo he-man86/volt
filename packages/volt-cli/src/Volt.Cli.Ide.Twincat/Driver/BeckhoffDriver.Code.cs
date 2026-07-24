@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
+using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Twincat;
 
@@ -53,12 +54,12 @@ public sealed partial class BeckhoffDriver
         if (string.IsNullOrEmpty(xml)) return $"{kind}\n";
 
         // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
-        if (kind == "library") return LibraryManifestFromXml(xml);
+        if (kind == ItemKind.Kinds.Library) return LibraryManifestFromXml(xml);
 
         var name = ExtractTag(xml, "ItemName") ?? ExtractTag(xml, "LibItemName") ?? "?";
         var sb = new StringBuilder();
         sb.Append("Name=").Append(name).Append('\n');
-        if (kind == "task")
+        if (kind == ItemKind.Kinds.Task)
         {
             var linked = ExtractTag(xml, "LinkedTask");
             if (linked != null) sb.Append("linked-task=").Append(linked).Append('\n');

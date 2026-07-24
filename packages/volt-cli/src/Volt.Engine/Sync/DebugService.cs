@@ -58,7 +58,7 @@ public static class DebugService
         foreach (var it in ide.WalkItems())
         {
             var kind = ItemKind.Map(it.KindCode);
-            if (kind is not ("program" or "function" or "function_block")) continue; // only POUs carry graphical bodies
+            if (kind is not (ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock)) continue; // only POUs carry graphical bodies
             string? raw;
             try { raw = ide.ReadXml(it.Item); } catch { raw = null; }
             if (string.IsNullOrEmpty(raw)) continue;

@@ -10,7 +10,7 @@ namespace Volt.Engine.Workspace;
 public static class Materializer
 {
     private static readonly HashSet<string> PouKinds =
-        new() { "program", "function_block", "function", "interface" };
+        new() { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function, ItemKind.Kinds.Interface };
 
     public static WorkspaceItem Materialize(IIdeDriver ide, string name, string kind, ItemRef item)
     {
@@ -67,7 +67,7 @@ public static class Materializer
                 Kind: c.PouType,
                 Name: c.Name,
                 Declaration: c.Declaration?.Trim()
-                    ?? (c.PouType == "action" ? $"ACTION {c.Name}" : $"METHOD {c.Name}"),
+                    ?? (c.PouType == ItemKind.Kinds.Action ? $"ACTION {c.Name}" : $"METHOD {c.Name}"),
                 BodyLanguage: c.BodyLanguage,
                 BodyText: impl,
                 Folder: folderMap.TryGetValue(c.Name, out var f) && f is { Length: > 0 } ? f : null,
@@ -148,7 +148,7 @@ public static class Materializer
             }
 
             var folder = string.IsNullOrEmpty(folderPath) ? null : folderPath;
-            children.Add(new ChildData("property", childName,
+            children.Add(new ChildData(ItemKind.Kinds.Property, childName,
                 ide.ReadDeclaration(child).Trim(), null, null,
                 folder, getterCode, setterCode, getterDecl, setterDecl));
         }

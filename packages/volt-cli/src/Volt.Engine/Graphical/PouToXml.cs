@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Xml.Linq;
+using Volt.Engine.Workspace;
 
 namespace Volt.Engine.Graphical;
 
@@ -48,8 +49,8 @@ public static class PouToXml
         var methodAddData = new XElement(ns + "addData");
         foreach (var c in pou.Children)
         {
-            if (c.Kind is not ("method" or "action")) continue;
-            var childEl = new XElement(c.Kind == "method" ? "Method" : "Action",
+            if (c.Kind is not (ItemKind.Kinds.Method or ItemKind.Kinds.Action)) continue;
+            var childEl = new XElement(c.Kind == ItemKind.Kinds.Method ? "Method" : "Action",
                 new XAttribute("name", c.Name));
 
             // Child declaration
@@ -69,7 +70,7 @@ public static class PouToXml
             childEl.Add(new XElement("addData"));  // CODESYS requires this
 
             methodAddData.Add(new XElement(ns + "data",
-                new XAttribute("name", AddDataNs + (c.Kind == "method" ? "method" : "action")),
+                new XAttribute("name", AddDataNs + (c.Kind == ItemKind.Kinds.Method ? ItemKind.Kinds.Method : ItemKind.Kinds.Action)),
                 new XAttribute("handleUnknown", "implementation"),
                 childEl));
         }

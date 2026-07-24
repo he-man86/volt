@@ -52,23 +52,23 @@ public static class CodeHelper
         //   FUNCTION_BLOCK is checked before FUNCTION — `\s+` after FUNCTION won't match the `_` in
         //   FUNCTION_BLOCK, but keep the order explicit anyway.
         if (Regex.IsMatch(headerLine, @"^(VAR_GLOBAL|VAR_CONFIG)\b", RegexOptions.IgnoreCase))
-            return new CodeHeader("gvl", null);
+            return new CodeHeader(ItemKind.Kinds.Gvl, null);
 
-        if (NameAfter(headerLine, "FUNCTION_BLOCK") is { } fb) return new CodeHeader("function_block", fb);
-        if (NameAfter(headerLine, "PROGRAM") is { } prg) return new CodeHeader("program", prg);
-        if (NameAfter(headerLine, "INTERFACE") is { } iface) return new CodeHeader("interface", iface);
-        if (NameAfter(headerLine, "FUNCTION") is { } fc) return new CodeHeader("function", fc);
-        if (NameAfter(headerLine, "ACTION") is { } act) return new CodeHeader("action", act);
+        if (NameAfter(headerLine, "FUNCTION_BLOCK") is { } fb) return new CodeHeader(ItemKind.Kinds.FunctionBlock, fb);
+        if (NameAfter(headerLine, "PROGRAM") is { } prg) return new CodeHeader(ItemKind.Kinds.Program, prg);
+        if (NameAfter(headerLine, "INTERFACE") is { } iface) return new CodeHeader(ItemKind.Kinds.Interface, iface);
+        if (NameAfter(headerLine, "FUNCTION") is { } fc) return new CodeHeader(ItemKind.Kinds.Function, fc);
+        if (NameAfter(headerLine, "ACTION") is { } act) return new CodeHeader(ItemKind.Kinds.Action, act);
         // METHOD / PROPERTY may carry access modifiers (PUBLIC/PRIVATE/…) before the name.
-        if (MemberName(headerLine, "METHOD") is { } meth) return new CodeHeader("method", meth);
-        if (MemberName(headerLine, "PROPERTY") is { } prop) return new CodeHeader("property", prop);
+        if (MemberName(headerLine, "METHOD") is { } meth) return new CodeHeader(ItemKind.Kinds.Method, meth);
+        if (MemberName(headerLine, "PROPERTY") is { } prop) return new CodeHeader(ItemKind.Kinds.Property, prop);
 
         // A DUT is unambiguous — only a DUT begins with TYPE. Match just the name (EXTENDS/IMPLEMENTS/`:` may
         // wrap — the case that silently dropped pro2193's Fanuc_* structs). A DUT is ONE kind `dut`; struct/
         // enum/union/alias is not a Volt concept — it lives only in the declaration body, and the IDE derives
         // it from that text on both read and create. Volt never classifies the subtype.
         if (NameAfter(headerLine, "TYPE") is { } dut)
-            return new CodeHeader("dut", dut);
+            return new CodeHeader(ItemKind.Kinds.Dut, dut);
 
         throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
             $"Unrecognized code header: {(headerLine.Length > 80 ? headerLine.Substring(0, 80) + "..." : headerLine)}");

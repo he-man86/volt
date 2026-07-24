@@ -43,11 +43,11 @@ public sealed partial class CodesysDriver
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind) =>
         item.Native is LibRefNode lib ? lib.Manifest
-        : kind == "device" ? _om.DeviceDescriptor(item.Native)
+        : kind == ItemKind.Kinds.Device ? _om.DeviceDescriptor(item.Native)
         : kind == "project_info" ? _om.ProjectInfoDescriptor(item.Native)
         : kind == "trace" ? _om.TraceDescriptor(item.Native)
         : kind == "recipe" ? _om.RecipeDescriptor(item.Native)
         : kind == "symbol_config" ? _om.SymbolConfigDescriptor(item.Native)
-        : kind == "task" ? _om.TaskDescriptor(item.Native)
+        : kind == ItemKind.Kinds.Task ? _om.TaskDescriptor(item.Native)
         : $"{kind}\n";
 }

@@ -97,7 +97,7 @@ public static class FetchService
             fullVersions[fullName] = version;
             folders[fullName] = it.Folder ?? "";
 
-            if (kind == "library")
+            if (kind == ItemKind.Kinds.Library)
             {
                 // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
                 // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
@@ -117,7 +117,7 @@ public static class FetchService
                 // A `.library` ref is nested INTO its own library folder so `<lib>.library` sits beside the
                 // signatures it describes (`Library Manager/<lib>/<lib>.library`). Only the FOLDER changes; the
                 // item NAME (the protocol identity) is untouched, and library refs are read-only (no push impact).
-                Folder = kind == "library" ? LibraryFolder(it.Folder, it.Name) : it.Folder,
+                Folder = kind == ItemKind.Kinds.Library ? LibraryFolder(it.Folder, it.Name) : it.Folder,
                 Version = version,
                 SourceText = mat.Text,
             });
@@ -233,7 +233,7 @@ public static class FetchService
     /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
     // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
     // in the client's knownItems (only .library keys are relevant to the library-change decision).
-    private static readonly string LibraryExt = "." + ItemKind.ExtFor("library");
+    private static readonly string LibraryExt = "." + ItemKind.ExtFor(ItemKind.Kinds.Library);
 
     public static bool LibrariesUnchanged(IReadOnlyDictionary<string, string> liveLibVersions, IReadOnlyDictionary<string, string> knownItems)
     {

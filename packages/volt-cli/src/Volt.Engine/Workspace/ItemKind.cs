@@ -91,45 +91,88 @@ public static class ItemKind
     public const int Unknown = -2;          // classification failed / unrecognized
     public const int Skip = -1;             // transient / hidden
 
+    /// <summary>The vendor-neutral wire kind STRINGS, defined once. <see cref="Map"/>, the extension tables, and
+    /// every consumer that compares a kind reference these — so a kind name is spelled in exactly ONE place. The
+    /// VALUES are a cross-language wire contract (LSP / VS Code / control consume them, guarded by
+    /// <c>volt-scripts/check-wiring.ts</c>): name them freely, change them never.</summary>
+    public static class Kinds
+    {
+        public const string Folder = "folder";
+        public const string Program = "program";
+        public const string Function = "function";
+        public const string FunctionBlock = "function_block";
+        public const string Dut = "dut";
+        public const string Action = "action";
+        public const string Method = "method";
+        public const string InterfaceMethod = "interface_method";
+        public const string Property = "property";
+        public const string InterfaceProperty = "interface_property";
+        public const string PropertyGet = "property_get";
+        public const string PropertySet = "property_set";
+        public const string Gvl = "gvl";
+        public const string Transition = "transition";
+        public const string LibraryManager = "library_manager";
+        public const string Interface = "interface";
+        public const string Visualization = "visualization";
+        public const string VisualizationManager = "visualization_manager";
+        public const string Task = "task";
+        public const string TextList = "text_list";
+        public const string ImagePool = "image_pool";
+        public const string ParameterList = "parameter_list";
+        public const string ClassDiagram = "class_diagram";
+        public const string RecipeManager = "recipe_manager";
+        public const string TaskCallReference = "task_call_reference";
+        public const string ExternalTypes = "external_types";
+        public const string TmcFile = "tmc_file";
+        public const string InterfacePropertyGet = "interface_property_get";
+        public const string InterfacePropertySet = "interface_property_set";
+        public const string Library = "library";
+        public const string Device = "device";
+        public const string ProjectInfo = "project_info";
+        public const string Trace = "trace";
+        public const string Recipe = "recipe";
+        public const string SymbolConfig = "symbol_config";
+    }
+
     /// <summary>Code → vendor-neutral wire kind string. null = not emitted as a tracked item: the containers
     /// &amp; sentinels (0, 690-693, -1, -2) and any code we don't classify all fall through to the default.</summary>
     public static string? Map(int code) => code switch
     {
-        PlcFolder => "folder",
-        PlcPouProg => "program",
-        PlcPouFunc => "function",
-        PlcPouFb => "function_block",
-        PlcDut => "dut",
-        PlcAction => "action",
-        PlcMethod => "method",
-        PlcItfMeth => "interface_method",
-        PlcProp => "property",
-        PlcItfProp => "interface_property",
-        PlcPropGet => "property_get",
-        PlcPropSet => "property_set",
-        PlcGvl => "gvl",
-        PlcTrans => "transition",
-        PlcLibMan => "library_manager",
-        PlcItf => "interface",
-        PlcVisObj => "visualization",
-        PlcVisMan => "visualization_manager",
-        PlcTask => "task",
-        PlcTextList => "text_list",
-        PlcImagePool => "image_pool",
-        PlcParamList => "parameter_list",
-        PlcClassDiagram => "class_diagram",
-        PlcRecipeMan or PlcRecipes => "recipe_manager",
-        PlcProgRef => "task_call_reference",
-        PlcExtDataTypeCont => "external_types",
-        PlcTmcDescription => "tmc_file",
-        PlcItfPropGet => "interface_property_get",
-        PlcItfPropSet => "interface_property_set",
-        PlcLibRef => "library",
-        PlcDevice => "device",
-        PlcProjectInfo => "project_info",
-        PlcTrace => "trace",
-        PlcRecipe => "recipe",
-        PlcSymbolConfig => "symbol_config",
+        PlcFolder => Kinds.Folder,
+        PlcPouProg => Kinds.Program,
+        PlcPouFunc => Kinds.Function,
+        PlcPouFb => Kinds.FunctionBlock,
+        PlcDut => Kinds.Dut,
+        PlcAction => Kinds.Action,
+        PlcMethod => Kinds.Method,
+        PlcItfMeth => Kinds.InterfaceMethod,
+        PlcProp => Kinds.Property,
+        PlcItfProp => Kinds.InterfaceProperty,
+        PlcPropGet => Kinds.PropertyGet,
+        PlcPropSet => Kinds.PropertySet,
+        PlcGvl => Kinds.Gvl,
+        PlcTrans => Kinds.Transition,
+        PlcLibMan => Kinds.LibraryManager,
+        PlcItf => Kinds.Interface,
+        PlcVisObj => Kinds.Visualization,
+        PlcVisMan => Kinds.VisualizationManager,
+        PlcTask => Kinds.Task,
+        PlcTextList => Kinds.TextList,
+        PlcImagePool => Kinds.ImagePool,
+        PlcParamList => Kinds.ParameterList,
+        PlcClassDiagram => Kinds.ClassDiagram,
+        PlcRecipeMan or PlcRecipes => Kinds.RecipeManager,
+        PlcProgRef => Kinds.TaskCallReference,
+        PlcExtDataTypeCont => Kinds.ExternalTypes,
+        PlcTmcDescription => Kinds.TmcFile,
+        PlcItfPropGet => Kinds.InterfacePropertyGet,
+        PlcItfPropSet => Kinds.InterfacePropertySet,
+        PlcLibRef => Kinds.Library,
+        PlcDevice => Kinds.Device,
+        PlcProjectInfo => Kinds.ProjectInfo,
+        PlcTrace => Kinds.Trace,
+        PlcRecipe => Kinds.Recipe,
+        PlcSymbolConfig => Kinds.SymbolConfig,
         _ => null,
     };
 
@@ -169,19 +212,19 @@ public static class ItemKind
     /// <summary>Writable source kinds (assembled ST text), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> SourceKindExtensions = new (string, string)[]
     {
-        ("function_block", "fb"), ("program", "prg"), ("function", "fun"),
-        ("interface", "itf"), ("dut", "dut"), ("gvl", "gvl"),
+        (Kinds.FunctionBlock, "fb"), (Kinds.Program, "prg"), (Kinds.Function, "fun"),
+        (Kinds.Interface, "itf"), (Kinds.Dut, "dut"), (Kinds.Gvl, "gvl"),
     };
 
     /// <summary>Read-only reference kinds (opaque manifests / descriptors), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> ReferenceKindExtensions = new (string, string)[]
     {
-        ("library", "library"), ("device", "device"), ("project_info", "projectinfo"),
-        ("trace", "trace"), ("recipe", "recipe"), ("symbol_config", "symbols"), ("task", "task"),
-        ("image_pool", "image_pool"), ("parameter_list", "parameter_list"), ("text_list", "text_list"),
-        ("recipe_manager", "recipe_manager"), ("visualization_manager", "visualization_manager"),
-        ("visualization", "visualization"), ("library_manager", "library_manager"),
-        ("class_diagram", "class_diagram"), ("external_types", "external_types"), ("tmc_file", "tmc"),
+        (Kinds.Library, "library"), (Kinds.Device, "device"), (Kinds.ProjectInfo, "projectinfo"),
+        (Kinds.Trace, "trace"), (Kinds.Recipe, "recipe"), (Kinds.SymbolConfig, "symbols"), (Kinds.Task, "task"),
+        (Kinds.ImagePool, "image_pool"), (Kinds.ParameterList, "parameter_list"), (Kinds.TextList, "text_list"),
+        (Kinds.RecipeManager, "recipe_manager"), (Kinds.VisualizationManager, "visualization_manager"),
+        (Kinds.Visualization, "visualization"), (Kinds.LibraryManager, "library_manager"),
+        (Kinds.ClassDiagram, "class_diagram"), (Kinds.ExternalTypes, "external_types"), (Kinds.TmcFile, "tmc"),
     };
 
     private static readonly HashSet<string> SourceKinds =
@@ -200,7 +243,7 @@ public static class ItemKind
     /// <summary>Workspace file extension for a kind string (lowercase); a folder has no extension (""). No
     /// silent fallback — an unmapped kind throws so a new kind is caught, not dropped.</summary>
     public static string ExtFor(string kind) =>
-        kind == "folder" ? ""
+        kind == Kinds.Folder ? ""
         : ExtByKind.TryGetValue(kind, out var ext) ? ext
         : throw new ArgumentException(
             $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");

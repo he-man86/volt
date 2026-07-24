@@ -291,7 +291,7 @@ public static class PushService
         // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
         // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
-        var bodyImpl = split.PouKind is "program" or "function" or "function_block" ? impl : (string?)null;
+        var bodyImpl = split.PouKind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
 
         // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
@@ -388,15 +388,15 @@ public static class PushService
             var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, childKindCode, childVInfo);
             // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
             // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
-            var childDecl = child.Kind == "action" ? null : child.Declaration;
+            var childDecl = child.Kind == ItemKind.Kinds.Action ? null : child.Declaration;
             // Interface members are declaration-only, and a PROPERTY node has no body of its own (its GET/SET
             // accessors carry the impl, written below) — pass null so no ImplementationText is written to a
             // slot the COM object doesn't expose (crashes TC). Methods/actions have a body: pass it (possibly
             // "" to clear).
-            var childImpl = isInterface || child.Kind == "property" ? null : child.Implementation;
+            var childImpl = isInterface || child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
             ide.WriteText(childItem, childDecl, childImpl);
 
-            if (child.Kind == "property")
+            if (child.Kind == ItemKind.Kinds.Property)
             {
                 // TC interface property references are stale after CreateChild — re-find.
                 if (isInterface && existingChild is null)
@@ -529,8 +529,8 @@ public static class PushService
     // derives struct/enum/union/alias from the written declaration, so Volt never picks a subkind.
     private static int PouKindToCode(string kind) => kind switch
     {
-        "program" => ItemKind.PlcPouProg, "function" => ItemKind.PlcPouFunc, "function_block" => ItemKind.PlcPouFb,
-        "dut" => ItemKind.PlcDut, "gvl" => ItemKind.PlcGvl, "interface" => ItemKind.PlcItf,
+        ItemKind.Kinds.Program => ItemKind.PlcPouProg, ItemKind.Kinds.Function => ItemKind.PlcPouFunc, ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,
+        ItemKind.Kinds.Dut => ItemKind.PlcDut, ItemKind.Kinds.Gvl => ItemKind.PlcGvl, ItemKind.Kinds.Interface => ItemKind.PlcItf,
         // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
         _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown top-level kind '{kind}'"),
     };
@@ -540,9 +540,9 @@ public static class PushService
     // "interface_method"/"interface_property" arm. An unknown kind throws rather than defaulting to action.
     private static int ChildKindToCode(string kind, bool isInterface = false) => kind switch
     {
-        "method" => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
-        "action" => ItemKind.PlcAction,
-        "property" => isInterface ? ItemKind.PlcItfProp : ItemKind.PlcProp,
+        ItemKind.Kinds.Method => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
+        ItemKind.Kinds.Action => ItemKind.PlcAction,
+        ItemKind.Kinds.Property => isInterface ? ItemKind.PlcItfProp : ItemKind.PlcProp,
         _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown child kind '{kind}'"),
     };
 }

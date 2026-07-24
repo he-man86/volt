@@ -88,7 +88,7 @@ public static class StSplitter
 
 		// 2. Branch on kind: composite POUs have children, simple
 		// ones (gvl / dut) are single text blobs.
-		if (kind is "gvl" or "dut")
+		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
 		{
 			return new StSplitResult(kind, header.Name, sourceText.TrimEnd(), "", new List<StChild>());
 		}
@@ -165,10 +165,10 @@ public static class StSplitter
 
 	private static string OuterEndKeyword(string kind) => kind switch
 	{
-		"function_block" => "END_FUNCTION_BLOCK",
-		"program"        => "END_PROGRAM",
-		"function"       => "END_FUNCTION",
-		"interface"      => "END_INTERFACE",
+		ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
+		ItemKind.Kinds.Program        => "END_PROGRAM",
+		ItemKind.Kinds.Function       => "END_FUNCTION",
+		ItemKind.Kinds.Interface      => "END_INTERFACE",
 		_ => throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Unexpected composite POU kind: {kind}"),
 	};
 
@@ -328,8 +328,8 @@ public static class StSplitter
 				ctx.Update(after[i]);
 				if (!ctx.InsideTrivia)
 				{
-					if (LineStartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "method", "END_METHOD")); break; }
-					if (LineStartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "action", "END_ACTION")); break; }
+					if (LineStartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD")); break; }
+					if (LineStartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION")); break; }
 					if (LineStartsWithKeyword(after[i], "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"Expected METHOD/ACTION/PROPERTY at line {i + 1}, got: {Truncate(after[i], 80)}");
@@ -440,7 +440,7 @@ public static class StSplitter
 		}
 
 		return new StChild(
-			"property", name, propDecl, "",
+			ItemKind.Kinds.Property, name, propDecl, "",
 			Getter: getter, Setter: setter,
 			Folder: folder, AccessModifier: accessModifier, DataType: dataType);
 	}
@@ -536,7 +536,7 @@ public static class StSplitter
 	private static (string name, string? accessModifier, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
 	{
 		var clean = sig.TrimEnd();
-		if (kind == "method")
+		if (kind == ItemKind.Kinds.Method)
 		{
 			var m = Regex.Match(clean,
 				@"^METHOD\s+((?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*)(\w+)(?:\s*:\s*(.+?))?\s*;?\s*$",

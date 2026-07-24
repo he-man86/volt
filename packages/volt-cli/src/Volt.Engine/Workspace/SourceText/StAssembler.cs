@@ -44,7 +44,7 @@ public static class StAssembler
 		var childrenRaw = result.TryGetValue("children", out var c) ? c : null;
 
 		// Simple single-block kinds: just hand back the declaration as-is.
-		if (kind is "gvl" or "dut")
+		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
 			return declaration.TrimEnd() + "\n";
 
 		// Composite POUs.
@@ -69,7 +69,7 @@ public static class StAssembler
 		// An interface's members live INSIDE the INTERFACE…END_INTERFACE block (StSplitter parses them
 		// from there); an FB's methods are siblings AFTER END_FUNCTION_BLOCK. Emit accordingly, or the
 		// two disagree and interface members are dropped on the next split.
-		if (kind == "interface")
+		if (kind == ItemKind.Kinds.Interface)
 		{
 			AppendChildren();
 			sb.Append('\n').Append('\n').Append(EndKeyword(kind));
@@ -86,18 +86,18 @@ public static class StAssembler
 
 	private static string EndKeyword(string kind) => kind switch
 	{
-		"function_block" => "END_FUNCTION_BLOCK",
-		"program"        => "END_PROGRAM",
-		"function"       => "END_FUNCTION",
-		"interface"      => "END_INTERFACE",
+		ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
+		ItemKind.Kinds.Program        => "END_PROGRAM",
+		ItemKind.Kinds.Function       => "END_FUNCTION",
+		ItemKind.Kinds.Interface      => "END_INTERFACE",
 		_ => $"END_{kind.ToUpperInvariant()}",
 	};
 
 	private static int KindOrder(string kind) => kind switch
 	{
-		"method"   => 0,
-		"action"   => 1,
-		"property" => 2,
+		ItemKind.Kinds.Method   => 0,
+		ItemKind.Kinds.Action   => 1,
+		ItemKind.Kinds.Property => 2,
 		_          => 3,
 	};
 
@@ -140,7 +140,7 @@ public static class StAssembler
 				SetterCode: GetSn("setterCode"),
 				GetterDeclaration: GetSn("getterDeclaration"),
 				SetterDeclaration: GetSn("setterDeclaration"),
-				Folder: GetSn("folder")));
+				Folder: GetSn(ItemKind.Kinds.Folder)));
 		}
 		return list;
 	}
@@ -163,10 +163,10 @@ public static class StAssembler
 
 	private static string AssembleChild(ChildSnapshot child)
 	{
-		if (child.Kind == "property") return AssembleProperty(child);
+		if (child.Kind == ItemKind.Kinds.Property) return AssembleProperty(child);
 		var decl = child.Declaration.TrimEnd();
 		var impl = PrependFolderDirective(child.Folder, (child.Implementation ?? "").Trim());
-		var endKw = child.Kind == "method" ? "END_METHOD" : "END_ACTION";
+		var endKw = child.Kind == ItemKind.Kinds.Method ? "END_METHOD" : "END_ACTION";
 		return impl.Length == 0 ? $"{decl}\n{endKw}" : $"{decl}\n{impl}\n{endKw}";
 	}
 
