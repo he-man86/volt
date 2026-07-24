@@ -89,6 +89,10 @@ internal sealed class TcObjectModel
         var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
         var targetPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
         FindTwinCatProject(string.IsNullOrEmpty(targetProject) ? null : targetProject);
+        // FindTwinCatProject no longer throws (the connector's `select` path relies on the graceful not-connected
+        // handling). This startup path DOES want to fail loud → degraded, so assert the resolution here.
+        if (_sysManager == null)
+            throw new InvalidOperationException($"No TwinCAT project{(string.IsNullOrEmpty(targetProject) ? "" : $" named '{targetProject}'")} found in the running solution.");
         FindPlcProject(string.IsNullOrEmpty(targetPlc) ? null : targetPlc);
     }
 
@@ -101,34 +105,58 @@ internal sealed class TcObjectModel
     public void SelectProject(string? instance, string? project, string? plcProject)
     {
         VoltLog.Info($"select: instance='{instance}' project='{project}' plc='{plcProject}'");
+
+        // 1. Fast path — bind the requested ROT moniker if it's still valid. FindTwinCatProject (below) starts from a
+        //    clean slate, so no reset here — just retarget the DTE.
         if (!string.IsNullOrEmpty(instance))
         {
             var dte = RotInstances.Bind(instance!);
-            // The resolved-project fields are cleared by FindTwinCatProject below (it always starts clean), so no
-            // reset here — just retarget the DTE.
             if (dte != null) { _dte = dte; VoltLog.Info($"select: bound instance '{instance}'"); }
             else
-                // Multi-TcXaeShell diagnostic: Bind couldn't resolve the requested instance in the ROT. We fall
-                // through on the OLD dte and won't find `project` in it → not connected → Core refuses. Log what the
-                // ROT DOES list so a mismatch (or a vanished instance) is visible.
-                VoltLog.Warn($"select: Bind('{instance}') returned NULL — ROT lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
+                // The moniker suffix is EPHEMERAL — TcXaeShell re-registers its DTE with a fresh cookie, so a
+                // captured instanceId goes stale within a session. NOT fatal: we recover by project name (step 3).
+                VoltLog.Warn($"select: Bind('{instance}') returned NULL (stale moniker — TcXaeShell re-registered?); ROT now lists: [{string.Join(" | ", RotInstances.Enumerate().Select(x => x.InstanceId))}]");
         }
-        if (_dte == null)
+
+        // 2. Resolve the project on the bound DTE (if we have one).
+        if (_dte != null && !string.IsNullOrEmpty(project)) FindTwinCatProject(project);
+
+        // 3. Recovery by STABLE project name. The moniker was stale (step 1) or the requested project isn't on the
+        //    bound DTE (a select that crosses instances). The project name doesn't change across re-registration, so
+        //    scanning every running DTE for it is the reliable multi-XAE path — this is what fixes selecting a
+        //    project whose TcXaeShell has re-registered under a new moniker.
+        if (_sysManager == null && !string.IsNullOrEmpty(project))
+        {
+            var byProject = RotInstances.BindByProject(project!);
+            if (byProject != null)
+            {
+                _dte = byProject;
+                FindTwinCatProject(project);
+                if (_sysManager != null)
+                    VoltLog.Info($"select: recovered project '{project}' by name (moniker '{instance}' was stale/mismatched)");
+            }
+        }
+
+        // 4. No specific project requested (soft attach for the picker) — take the first running instance and list it.
+        if (_dte == null && string.IsNullOrEmpty(project))
         {
             var first = RotInstances.First();
             if (first != null) _dte = first.Value.Dte;
         }
         if (_dte == null) { VoltLog.Warn("select: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
-        FindTwinCatProject(string.IsNullOrEmpty(project) ? null : project);
+        if (string.IsNullOrEmpty(project)) FindTwinCatProject(null);   // soft attach: resolve first project so PLCs list
+
         if (_sysManager == null)
         {
-            // The requested project isn't on the bound instance (the multi-window trap). Leave the model not
-            // connected and let Core refuse loud — do NOT touch PLC lookup on a null sys-manager.
-            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (solution has: [{string.Join(", ", SolutionProjectNames())}])");
+            // The requested project is on NO running instance (closed, or never open). Leave the model not connected
+            // and let Core refuse LOUD with PLC_DISCONNECTED — do NOT touch PLC lookup on a null sys-manager. Dump
+            // every project the ROT currently sees so the mismatch is diagnosable from the log alone.
+            var seen = string.Join(" | ", RotInstances.Enumerate().Select(i => $"{i.InstanceId}: [{string.Join(", ", i.Projects.Select(p => p.Project))}]"));
+            VoltLog.Warn($"select: project '{project}' NOT found on ANY running instance — ROT sees: [{seen}]");
             return;
         }
         FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
-        VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}'");
+        VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
     }
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
@@ -155,6 +183,7 @@ internal sealed class TcObjectModel
         dynamic solution = _dte!.Solution;
         dynamic projects = solution.Projects;
         int count = projects.Count;
+        VoltLog.Debug($"FindTwinCatProject: want='{wantProject ?? "(first)"}' among {count} project(s) in the bound DTE");
         for (int i = 1; i <= count; i++)
         {
             try
@@ -195,9 +224,13 @@ internal sealed class TcObjectModel
                 }
                 if (_sysManager != null) break;
             }
-            catch { }
+            catch (Exception ex) { VoltLog.Debug($"FindTwinCatProject: project #{i} skipped ({ex.Message})"); }
         }
-        if (_sysManager == null) throw new InvalidOperationException("No TwinCAT project found in solution.");
+        // Do NOT throw here: SelectProject (the connector's `select`) checks _sysManager itself and recovers by
+        // project name / leaves the model not-connected for Core to refuse. The startup path (ResolveSelectedProject)
+        // asserts resolution on its own. Throwing would turn a clean PLC_DISCONNECTED into an opaque INTERNAL_ERROR.
+        if (_sysManager == null)
+            VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(first)"}' not resolved in the bound DTE (has: [{string.Join(", ", SolutionProjectNames())}])");
     }
 
     private void FindPlcProject(string? wantPlc)
