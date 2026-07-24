@@ -56,7 +56,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     {
         var name = _om.ProjectName;
         if (string.IsNullOrEmpty(name)) return new InstancesResult(new List<IdeInstance>());
-        var proj = new IdeProject(name!, _om.ProjectDirty, new List<string>());
+        var proj = new IdeProject(name!, _om.ProjectDirty);
         var instanceId = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
         return new InstancesResult(new List<IdeInstance>
         {

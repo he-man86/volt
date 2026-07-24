@@ -42,44 +42,26 @@ public class PipeProjectSourceTests
         Assert.Equal("MyMachine", p.DisplayName);
         Assert.Equal("codesys", p.Vendor);
         Assert.True(p.Dirty);
-        Assert.Equal(new ProjectRef("cds-1", "MyMachine", null), p.Attach);
+        Assert.Equal(new ProjectRef("cds-1", "MyMachine"), p.Attach);
     }
 
     [Fact]
-    public async Task Enumerate_flattens_twincat_plc_subprojects_into_one_entry_each()
+    public async Task Enumerate_yields_one_entry_per_project_identity_only()
     {
+        // Detection is identity-only: one entry per open project, never a breakdown of the PLC applications inside
+        // it — connecting doesn't reach into content.
         var wire = new FakeBridgeWire().On("instances",
             """
             { "instances": [ { "instanceId": "vs-1", "projects": [
-                { "project": "TwinCAT Project1", "subProjects": [ "PLC_A", "PLC_B" ] } ] } ] }
+                { "project": "TwinCAT Project13" }, { "project": "TwinCAT Project14" } ] } ] }
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
         var projects = await src.EnumerateAsync();
 
-        // Multiple PLC projects → qualify each by its sub-project so they're distinguishable.
-        Assert.Equal(new[] { "TwinCAT Project1 / PLC_A", "TwinCAT Project1 / PLC_B" }, projects.Select(p => p.DisplayName));
-        // Each carries the full attach coordinates (instance + TwinCAT project + PLC sub-project).
-        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_A"), projects[0].Attach);
-        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_B"), projects[1].Attach);
-    }
-
-    [Fact]
-    public async Task Enumerate_shows_the_ide_project_name_for_a_single_plc_subproject()
-    {
-        // The reported case: one PLC project left at TwinCAT's default name. The entry should read as the IDE
-        // project ("TwinCAT Project13"), NOT the default child ("Untitled1") — while still attaching the sub.
-        var wire = new FakeBridgeWire().On("instances",
-            """
-            { "instances": [ { "instanceId": "vs-1", "projects": [
-                { "project": "TwinCAT Project13", "subProjects": [ "Untitled1" ] } ] } ] }
-            """);
-        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
-
-        var p = Assert.Single(await src.EnumerateAsync());
-
-        Assert.Equal("TwinCAT Project13", p.DisplayName);
-        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project13", "Untitled1"), p.Attach);
+        Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.DisplayName));
+        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project13"), projects[0].Attach);
+        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project14"), projects[1].Attach);
     }
 
     [Fact]
@@ -87,7 +69,7 @@ public class PipeProjectSourceTests
     {
         var wire = new FakeBridgeWire();
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
-        var attach = new ProjectRef("vs-1", "TwinCAT Project1", "PLC_A");
+        var attach = new ProjectRef("vs-1", "TwinCAT Project1");
         var proj = new DetectedProject(DetectedProject.MakeId("twincat", attach), "PLC_A", "twincat", false, attach);
 
         await src.BindAsync(proj);
@@ -96,7 +78,6 @@ public class PipeProjectSourceTests
         Assert.Equal("select", op);
         Assert.Contains("\"instanceId\":\"vs-1\"", body);
         Assert.Contains("\"project\":\"TwinCAT Project1\"", body);
-        Assert.Contains("\"plcProject\":\"PLC_A\"", body);
     }
 
     // ── two open TcXaeShell windows (the multi-XAE case that shipped broken) ──────────────────────────────
@@ -110,8 +91,8 @@ public class PipeProjectSourceTests
         var wire = new FakeBridgeWire().On("instances",
             """
             { "instances": [
-                { "instanceId": "!TcXaeShell.DTE.15.0:22268", "projects": [ { "project": "TwinCAT Project13", "subProjects": [ "Untitled1" ] } ] },
-                { "instanceId": "!TcXaeShell.DTE.15.0:27288", "projects": [ { "project": "TwinCAT Project14", "subProjects": [ "Untitled2" ] } ] } ] }
+                { "instanceId": "!TcXaeShell.DTE.15.0:22268", "projects": [ { "project": "TwinCAT Project13" } ] },
+                { "instanceId": "!TcXaeShell.DTE.15.0:27288", "projects": [ { "project": "TwinCAT Project14" } ] } ] }
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
@@ -130,7 +111,7 @@ public class PipeProjectSourceTests
         var wire = new FakeBridgeWire();
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
         // The SECOND window's project — the one whose select was returning zero items.
-        var attach = new ProjectRef("!TcXaeShell.DTE.15.0:27288", "TwinCAT Project14", "Untitled2");
+        var attach = new ProjectRef("!TcXaeShell.DTE.15.0:27288", "TwinCAT Project14");
         var proj = new DetectedProject(DetectedProject.MakeId("twincat", attach), "TwinCAT Project14", "twincat", false, attach);
 
         await src.BindAsync(proj);
@@ -221,7 +202,7 @@ public class CodesysProjectSourceTests
         var healthy = new FakeBridgeWire().On("health", """{ "status": "healthy", "projectName": "MachineB" }""");
         var wires = new Dictionary<string, IBridgeWire> { ["volt.bridge.codesys.222"] = healthy };
         var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
-        var attach = new ProjectRef("222", "MachineB", null);
+        var attach = new ProjectRef("222", "MachineB");
         var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MachineB", "codesys", false, attach, "volt.bridge.codesys.222");
 
         var h = await src.ProbeAsync(selected);

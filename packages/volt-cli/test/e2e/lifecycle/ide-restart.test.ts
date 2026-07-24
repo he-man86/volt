@@ -20,7 +20,7 @@ import { bridge, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE
 const DISCONNECTED = "PLC_DISCONNECTED"
 const ENABLED = process.env.VOLT_E2E_IDE_CHAOS === "1" && VENDOR === "twincat"
 
-type Bound = { instanceId?: string | null; project?: string | null; plcProject?: string | null }
+type Bound = { instanceId?: string | null; project?: string | null }
 
 function ps(cmd: string): void {
 	spawnSync("powershell", ["-NoProfile", "-Command", cmd], { encoding: "utf8", timeout: 60_000 })
@@ -46,7 +46,7 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		const inst = await bridge.instances()
 		const i0 = inst.instances?.[0]
 		const p0 = i0?.projects?.[0]
-		bound = { instanceId: i0?.instanceId, project: p0?.project, plcProject: p0?.subProjects?.[0] ?? null }
+		bound = { instanceId: i0?.instanceId, project: p0?.project }
 		await bridge.select(bound)
 	})
 	afterAll(async () => { try { await bridge.select(bound) } catch {} })

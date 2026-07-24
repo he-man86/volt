@@ -60,7 +60,7 @@ export const bridge = {
 	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
 	instances: (): Promise<any> => get("/instances"),
-	select: (req: { instanceId?: string | null; project?: string | null; plcProject?: string | null } = {}): Promise<any> => post("/select", req),
+	select: (req: { instanceId?: string | null; project?: string | null } = {}): Promise<any> => post("/select", req),
 	deselect: (): Promise<any> => post("/deselect"),
 }
 

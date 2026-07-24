@@ -28,7 +28,7 @@ public class CodesysSourceLiveTests
         HealthProjectName = project,
         Instances = new InstancesResult(new List<IdeInstance>
         {
-            new IdeInstance(project, "CODESYS", "3.5", new List<IdeProject> { new IdeProject(project, false, new List<string>()) }),
+            new IdeInstance(project, "CODESYS", "3.5", new List<IdeProject> { new IdeProject(project, false) }),
         }),
     };
 

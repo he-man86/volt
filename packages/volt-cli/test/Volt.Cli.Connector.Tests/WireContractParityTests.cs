@@ -50,7 +50,7 @@ public class WireContractParityTests
     {
         var wire = new InstancesResult(new List<IdeInstance>
         {
-            new("inst-1", "XAE", "3.5.19", new List<IdeProject> { new("MyProj", true, new List<string> { "PLC1" }) }),
+            new("inst-1", "XAE", "3.5.19", new List<IdeProject> { new("MyProj", true) }),
         });
         var projects = WireProjects.Flatten(Serialize(wire), "codesys", "volt.bridge.codesys");
         var p = Assert.Single(projects);
@@ -58,7 +58,6 @@ public class WireContractParityTests
         Assert.True(p.Dirty);
         Assert.Equal("inst-1", p.Attach.Instance);
         Assert.Equal("MyProj", p.Attach.Project);
-        Assert.Equal("PLC1", p.Attach.SubProject);
         Assert.Equal("3.5.19", p.IdeVersion);
     }
 }

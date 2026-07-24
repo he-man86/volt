@@ -21,7 +21,7 @@ const DISCONNECTED = "PLC_DISCONNECTED"
 // resolves null/null/null by walking the solution and taking the FIRST match, so on a solution with more than one
 // project `resume()` would silently re-point the engineer's live bridge at a different one. Capture the identity
 // up front and always select it back by name.
-let bound: { instanceId?: string | null; project?: string | null; plcProject?: string | null } = {}
+let bound: { instanceId?: string | null; project?: string | null } = {}
 
 /** Put the bridge back in service, on the SAME project it started on. Idempotent: a `select` on an
  *  already-serving bridge is a no-op rebind. */
@@ -45,7 +45,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		const inst = await bridge.instances()
 		const i0 = inst.instances?.[0]
 		const p0 = i0?.projects?.[0]
-		bound = { instanceId: i0?.instanceId, project: p0?.project, plcProject: p0?.subProjects?.[0] ?? null }
+		bound = { instanceId: i0?.instanceId, project: p0?.project }
 
 		const code = await opErrorCode(() => bridge.deselect())
 		if (code !== null) throw new Error(`this bridge has no 'deselect' op (${code}) — rebuild it before running this suite`)

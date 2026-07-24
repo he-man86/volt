@@ -36,7 +36,6 @@ internal sealed class TcObjectModel
     // setup to the other project. Set only by an explicit project select; cleared by Disconnect.
     private string? _wantInstance;
     private string? _wantProject;
-    private string? _wantPlc;
 
     public bool IsAttached => _dte != null;
     // "Connected" = a project is BOUND: its DTE + TwinCAT project (system manager) are resolved. It deliberately
@@ -48,7 +47,7 @@ internal sealed class TcObjectModel
     public string? ProjectName => _projectName;
 
     /// <summary>Whether the user has explicitly picked a project (the connector's `select`). When true, recovery
-    /// re-establishes THAT project by its stable name; when false, the worker soft-attaches for the picker.</summary>
+    /// re-establishes THAT project by its stable name; when false, nothing is bound (health shows no project).</summary>
     public bool HasSelection => !string.IsNullOrEmpty(_wantProject);
     public string? WantProject => _wantProject;
 
@@ -65,34 +64,35 @@ internal sealed class TcObjectModel
         VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
     }
 
-    /// <summary>Bind a SPECIFIC instance/project/PLC project — the connector's `select`. Re-binds the DTE if a
+    /// <summary>Bind a SPECIFIC instance/project — the connector's `select`. Re-binds the DTE if a
     /// different running instance is named, then re-resolves the chosen project on that live DTE (no worker
     /// respawn, no IDE restart). Does NOT throw: it attaches what it can and leaves the model connected or not.
     /// The Core `select` handler (BridgePipeHost) enforces the post-condition uniformly — a select that leaves the
     /// bridge NOT connected is refused there with the shared PLC_DISCONNECTED, identically for both vendors. This
     /// method's job is only the vendor-specific attach + diagnostics; it must not decide the wire outcome.</summary>
-    public void SelectProject(string? instance, string? project, string? plcProject)
+    public void SelectProject(string? instance, string? project)
     {
-        VoltLog.Info($"select: instance='{instance}' project='{project}' plc='{plcProject}'");
+        VoltLog.Info($"select: instance='{instance}' project='{project}'");
         // Persist the DESIRED selection so recovery re-establishes exactly this (by stable name), never the
         // first-available. Only an explicit project pick updates it — a soft/empty select must not erase it.
-        if (!string.IsNullOrEmpty(project)) { _wantInstance = instance; _wantProject = project; _wantPlc = plcProject; }
+        if (!string.IsNullOrEmpty(project)) { _wantInstance = instance; _wantProject = project; }
         // An empty select while a selection stands = re-establish IT (idempotent reconnect), never silently
         // soft-attach to a DIFFERENT first-available project — that was the two-XAE flip. Soft-attach only when
         // nothing has been selected yet (the startup picker listing projects).
         if (string.IsNullOrEmpty(project) && !string.IsNullOrEmpty(_wantProject))
-            BindAndResolve(_wantInstance, _wantProject, _wantPlc, "select");
+            BindAndResolve(_wantInstance, _wantProject, "select");
         else
-            BindAndResolve(instance, project, plcProject, "select");
+            BindAndResolve(instance, project, "select");
     }
 
-    /// <summary>Bind a DTE for <paramref name="project"/> and resolve it + its PLC project — the ONE resolution path,
+    /// <summary>Bind a DTE for <paramref name="project"/> and resolve the project (its system manager) — the ONE
+    /// resolution path,
     /// shared by <see cref="SelectProject"/> and the recovery <see cref="ReattachProject"/>. Tries the requested ROT
     /// moniker first, then recovers by the STABLE project name (TcXaeShell re-registers its DTE with a fresh cookie,
     /// so a captured moniker goes stale and only the name is durable — this also re-acquires a LIVE DTE handle when
     /// the held one has gone stale, the source of the <c>0x800706BA</c> RPC drop). Leaves the model connected on
     /// success, not-connected on a miss (Core refuses). Never throws for a not-found project.</summary>
-    private void BindAndResolve(string? instance, string? project, string? plcProject, string tag)
+    private void BindAndResolve(string? instance, string? project, string tag)
     {
         // 1. Fast path — the requested ROT moniker, if it still resolves.
         if (!string.IsNullOrEmpty(instance))
@@ -136,7 +136,7 @@ internal sealed class TcObjectModel
             return;
         }
         // Bound. The PLC application is NOT resolved here — that's content, deferred to EnsurePlc on the first
-        // content op. _wantPlc (set from the select) is what that resolution will target.
+        // content op, which takes the first/default PLC project (connecting is identity-only, never a PLC pick).
         VoltLog.Info($"{tag}: bound '{_projectName}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
     }
 
@@ -206,9 +206,9 @@ internal sealed class TcObjectModel
             VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(first)"}' not resolved in the bound DTE (has: [{string.Join(", ", SolutionProjectNames())}])");
     }
 
-    private void FindPlcProject(string? wantPlc)
+    private void FindPlcProject()
     {
-        if (wantPlc == null && _plcProjectPath != null) { _plcNode = LookupTreeItemDynamic(_plcProjectPath); return; }
+        if (_plcProjectPath != null) { _plcNode = LookupTreeItemDynamic(_plcProjectPath); return; }
         try
         {
             dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
@@ -218,9 +218,7 @@ internal sealed class TcObjectModel
                 try
                 {
                     dynamic plc = tipc.Child[i];
-                    string name = plc.Name;
-                    if (wantPlc != null && name != wantPlc) continue;
-                    _plcNode = plc; _plcProjectPath = name; break;
+                    _plcNode = plc; _plcProjectPath = (string)plc.Name; break;
                 }
                 catch { }
             }
@@ -232,12 +230,12 @@ internal sealed class TcObjectModel
 
     /// <summary>Resolve the PLC application node the FIRST time a content op needs it. select/health NEVER call this,
     /// so the PLC tree is touched only when the user actually syncs (init/pull/push/build). Idempotent — a no-op once
-    /// resolved; DropProject clears it so a reconnect re-resolves. Targets the desired PLC project (<c>_wantPlc</c>).</summary>
+    /// resolved; DropProject clears it so a reconnect re-resolves. Resolves the first/default PLC project.</summary>
     private void EnsurePlc()
     {
         if (_plcNode != null) return;
         if (_sysManager == null) throw new InvalidOperationException("no TwinCAT project bound");
-        FindPlcProject(_wantPlc);
+        FindPlcProject();
     }
 
     private dynamic LookupTreeItemDynamic(string path) => _sysManager!.LookupTreeItem(path);
@@ -282,7 +280,7 @@ internal sealed class TcObjectModel
         // The current handle is why we're recovering — release it so BindAndResolve re-acquires a FRESH DTE for the
         // desired project by name, rather than resolving on a dead/stale reference.
         ReleaseDte();
-        BindAndResolve(_wantInstance, _wantProject, _wantPlc, "reattach");
+        BindAndResolve(_wantInstance, _wantProject, "reattach");
     }
 
     // ── health (TOP-LEVEL liveness only — no content) ────────────────

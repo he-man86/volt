@@ -2,11 +2,11 @@ namespace Volt.Cli.Connector
 {
     /// <summary>
     /// The opaque attach reference a <see cref="IProjectSource"/> needs to bind a project. Vendor-neutral fields
-    /// that cover both mechanisms without the model knowing either: TwinCAT uses (DTE instance, TwinCAT project,
-    /// PLC project); CODESYS uses just the project name (Instance/SubProject null). Only the owning source reads
-    /// these back — the UI never does.
+    /// that cover both mechanisms without the model knowing either: TwinCAT uses (DTE instance, TwinCAT project);
+    /// CODESYS uses just the project name (Instance null). Only the owning source reads these back — the UI never
+    /// does. Identity-only: no PLC-application coordinate — which PLC app to sync is a content concern, not connect.
     /// </summary>
-    public sealed record ProjectRef(string? Instance, string Project, string? SubProject = null);
+    public sealed record ProjectRef(string? Instance, string Project);
 
     /// <summary>
     /// A project the connector detected and can connect to — the ONE shape the UI knows about. The vendor is a
@@ -27,6 +27,6 @@ namespace Volt.Cli.Connector
         /// same id across refreshes (selection survives re-enumeration). CODESYS's instance is its pid, so two
         /// same-named projects in two processes get distinct ids.</summary>
         public static string MakeId(string vendor, ProjectRef a) =>
-            string.Join(":", vendor, a.Instance ?? "", a.Project, a.SubProject ?? "");
+            string.Join(":", vendor, a.Instance ?? "", a.Project);
     }
 }

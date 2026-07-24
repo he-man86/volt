@@ -114,13 +114,13 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         var list = new List<IdeInstance>();
         foreach (var inst in RotInstances.Enumerate())
             list.Add(new IdeInstance(inst.InstanceId, inst.IdeName, inst.IdeVersion,
-                inst.Projects.ConvertAll(p => new IdeProject(p.Project, false, p.PlcProjects))));
+                inst.Projects.ConvertAll(p => new IdeProject(p.Project, false))));
         return new InstancesResult(list);
     }
 
     public override void SelectProject(SelectRequest sel)
     {
-        _om.SelectProject(sel.InstanceId, sel.Project, sel.PlcProject);   // re-resolve on the live DTE, no respawn
+        _om.SelectProject(sel.InstanceId, sel.Project);   // re-resolve on the live DTE, no respawn
         if (_om.IsConnected) ClearDegraded();
     }
 

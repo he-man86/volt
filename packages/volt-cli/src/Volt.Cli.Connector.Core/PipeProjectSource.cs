@@ -38,7 +38,7 @@ namespace Volt.Cli.Connector
         public Task BindAsync(DetectedProject project)
         {
             var a = project.Attach;
-            return _wire.CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
+            return _wire.CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
@@ -67,10 +67,9 @@ namespace Volt.Cli.Connector
         }
     }
 
-    /// <summary>Shared parse of the <c>instances</c> wire response into flat <see cref="DetectedProject"/>s — a
-    /// project's sub-projects (TwinCAT PLC projects under a solution) each become a connectable entry; a project
-    /// with no sub-projects (CODESYS) is one entry. Stamps the serving <paramref name="pipe"/> + IDE version onto
-    /// each so the source, CLI and UI can target/label the instance.</summary>
+    /// <summary>Shared parse of the <c>instances</c> wire response into flat <see cref="DetectedProject"/>s — one
+    /// per open project (its identity only; detection never reaches into PLC applications). Stamps the serving
+    /// <paramref name="pipe"/> + IDE version onto each so the source, CLI and UI can target/label the instance.</summary>
     public static class WireProjects
     {
         private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
@@ -86,29 +85,20 @@ namespace Volt.Cli.Connector
             foreach (var proj in inst.Projects ?? Enumerable.Empty<WireProject>())
             {
                 if (proj.Project is null) continue;
-                var subs = proj.SubProjects;
-                if (subs is { Count: > 1 })
-                    // Multiple PLC projects under one IDE project — qualify each by its sub-project name to tell them apart.
-                    foreach (var sub in subs) list.Add(Make(vendor, pipe, inst, proj.Project, sub, proj.Dirty, $"{proj.Project} / {sub}"));
-                else if (subs is { Count: 1 })
-                    // The common case: one PLC project. Show the IDE PROJECT name (meaningful — "TwinCAT Project13"),
-                    // not the PLC child's often-default name ("Untitled1"); still attach the sub so select targets it.
-                    list.Add(Make(vendor, pipe, inst, proj.Project, subs[0], proj.Dirty, proj.Project));
-                else
-                    list.Add(Make(vendor, pipe, inst, proj.Project, null, proj.Dirty, proj.Project));
+                list.Add(Make(vendor, pipe, inst, proj.Project, proj.Dirty, proj.Project));
             }
             return list;
         }
 
-        private static DetectedProject Make(string vendor, string? pipe, WireInstance inst, string project, string? sub, bool dirty, string display)
+        private static DetectedProject Make(string vendor, string? pipe, WireInstance inst, string project, bool dirty, string display)
         {
-            var attach = new ProjectRef(inst.InstanceId, project, sub);
+            var attach = new ProjectRef(inst.InstanceId, project);
             return new DetectedProject(DetectedProject.MakeId(vendor, attach), display, vendor, dirty, attach, pipe, inst.Version);
         }
 
         // ── the connector's view of the `instances` wire response (the bridge produces matching JSON) ──
         private sealed record WireInstances(List<WireInstance>? Instances);
         private sealed record WireInstance(string? InstanceId, string? Name, string? Version, List<WireProject>? Projects);
-        private sealed record WireProject(string? Project, bool Dirty, List<string>? SubProjects);
+        private sealed record WireProject(string? Project, bool Dirty);
     }
 }

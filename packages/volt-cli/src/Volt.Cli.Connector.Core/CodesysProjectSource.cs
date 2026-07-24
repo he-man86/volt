@@ -54,7 +54,7 @@ namespace Volt.Cli.Connector
             // instance) — harmless, and keeps the wire uniform. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
             var a = project.Attach;
-            return _wireFor(project.Pipe!).CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project, plcProject = a.SubProject });
+            return _wireFor(project.Pipe!).CallAsync(Ops.Select, new { instanceId = a.Instance, project = a.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)

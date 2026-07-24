@@ -6,7 +6,7 @@ using System.Runtime.InteropServices.ComTypes;
 namespace Volt.Cli.Ide.Twincat;
 
 /// <summary>One PLC project inside a TwinCAT solution, with its PLC sub-projects.</summary>
-public sealed record TcProject(string Project, List<string> PlcProjects);
+public sealed record TcProject(string Project);
 
 /// <summary>One running TwinCAT XAE / VS instance and the projects it has open.</summary>
 public sealed record TcInstance(string InstanceId, string? IdeName, string? IdeVersion, string? Solution, List<TcProject> Projects);
@@ -136,7 +136,7 @@ internal static class RotInstances
                         // (observed: a just-loaded project closing on the first probe). The PLC sub-project is
                         // resolved on the explicit, infrequent `select` (FindPlcProject) instead — where a null means
                         // "the first/default PLC project", which is the single-PLC-project common case anyway.
-                        projects.Add(new TcProject((string)proj.Name, new List<string>()));
+                        projects.Add(new TcProject((string)proj.Name));
                     }
                     catch { }
                 }

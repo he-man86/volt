@@ -19,12 +19,12 @@ public class WireContractTests
     [Fact]
     public async Task Bridge_InstancesResult_deserializes_into_the_connectors_DetectedProjects()
     {
-        // What a TwinCAT bridge would return for one XAE with a solution project holding two PLC projects.
+        // What a TwinCAT bridge returns for one XAE with an open project (identity only — no PLC-app breakdown).
         var bridgeResult = new InstancesResult(new List<IdeInstance>
         {
             new IdeInstance("vs-1", "Visual Studio", "17.0", new List<IdeProject>
             {
-                new IdeProject("TwinCAT Project1", Dirty: false, new List<string> { "PLC_A", "PLC_B" }),
+                new IdeProject("TwinCAT Project1", Dirty: false),
             }),
         });
 
@@ -33,9 +33,9 @@ public class WireContractTests
 
         var projects = await src.EnumerateAsync();
 
-        // Two PLC projects under one IDE project → each is qualified by its sub-project name to disambiguate.
-        Assert.Equal(new[] { "TwinCAT Project1 / PLC_A", "TwinCAT Project1 / PLC_B" }, projects.Select(p => p.DisplayName));
-        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1", "PLC_A"), projects[0].Attach);
+        var p = Assert.Single(projects);
+        Assert.Equal("TwinCAT Project1", p.DisplayName);
+        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1"), p.Attach);
         Assert.All(projects, p => Assert.Equal("twincat", p.Vendor));
     }
 
@@ -46,7 +46,7 @@ public class WireContractTests
         {
             new IdeInstance("codesys", "CODESYS", "3.5", new List<IdeProject>
             {
-                new IdeProject("MyMachine", Dirty: true, new List<string>()),
+                new IdeProject("MyMachine", Dirty: true),
             }),
         });
 
@@ -56,19 +56,18 @@ public class WireContractTests
         var p = Assert.Single(await src.EnumerateAsync());
         Assert.Equal("MyMachine", p.DisplayName);
         Assert.True(p.Dirty);
-        Assert.Equal(new ProjectRef("codesys", "MyMachine", null), p.Attach);
+        Assert.Equal(new ProjectRef("codesys", "MyMachine"), p.Attach);
     }
 
     [Fact]
     public void Connector_select_payload_deserializes_into_the_bridges_SelectRequest()
     {
-        // The connector's BindAsync sends { instanceId, project, plcProject }; the bridge reads SelectRequest.
-        var connectorBody = JsonSerializer.Serialize(new { instanceId = "vs-1", project = "TwinCAT Project1", plcProject = "PLC_A" });
+        // The connector's BindAsync sends { instanceId, project }; the bridge reads SelectRequest (identity-only).
+        var connectorBody = JsonSerializer.Serialize(new { instanceId = "vs-1", project = "TwinCAT Project1" });
         var sel = JsonSerializer.Deserialize<SelectRequest>(connectorBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         Assert.NotNull(sel);
         Assert.Equal("vs-1", sel!.InstanceId);
         Assert.Equal("TwinCAT Project1", sel.Project);
-        Assert.Equal("PLC_A", sel.PlcProject);
     }
 }
