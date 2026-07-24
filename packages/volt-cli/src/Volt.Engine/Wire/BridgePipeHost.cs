@@ -47,19 +47,15 @@ public sealed class BridgePipeHost : IDisposable
     private static bool AllowedWhilePaused(string? op) =>
         op == "health" || op == "instances" || op == "select" || op == "deselect";
 
-    // Ops that touch the bound PLC project. They require a connected bridge — enforced ONCE below so every vendor
-    // refuses a not-connected bridge IDENTICALLY, instead of each driver faulting its own way (CODESYS: "no
-    // Application"; TwinCAT: an STA/COM error) into a generic INTERNAL_ERROR the client can't act on.
-    private static bool RequiresProject(string? op) =>
-        op == "refs" || op == "fetch" || op == "init" || op == "push" || op == "build";
-
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.PlcDisconnected();
-        // Uniform precondition (Core, both vendors): a project-touching op on a bridge with nothing bound is refused
-        // with the shared PLC_DISCONNECTED — the same code as the paused gate, and the same the CLI's own guard would
-        // report — rather than letting the op run into a vendor-specific fault. IsConnected is a plain read (no COM).
-        if (RequiresProject(req.Op) && !_ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // NOTE: the not-connected precondition for the project ops (refs/fetch/init/push/build) is NOT here — it is
+        // each handler's first act, on the marshalled STA thread: RefsService guards itself, and FetchService /
+        // PushService / BuildService go through OpGuard. That placement is deliberate (see OpGuard): checking INSIDE
+        // the op is atomic with the work, so a concurrent `select` can't slip between check and op — a pre-marshal
+        // check here structurally can't guarantee that. Both vendors refuse a not-connected bridge IDENTICALLY
+        // because those guards live in shared Core, keyed off the same IsConnected signal.
 
         switch (req.Op)
         {

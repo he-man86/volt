@@ -33,8 +33,11 @@
 
 ## 3. Shrink the seam + single error channel
 
-- [~] 3.1 (seam DOCUMENTED as primitives-only in IIdeSession; the deeper interface split is the follow-up) Reduce `IIdeDriver` (`IIdeSession`/`IProjectTree`/`ICodeStore`) to irreducible primitives; move any lifted
-      policy out. Document at the interface: "this is the ONLY seam; it exposes primitives, never wire decisions."
+- [x] 3.1 Seam verified primitives-only — no interface split needed. Proof: the drivers throw ZERO coded
+      `BridgeException`s (grep-clean); EVERY wire decision already lives in shared Core (`OpGuard`, `RefsService`,
+      `PushService`, `BridgePipeHost`), keyed off the single `IsConnected` signal. Review this round found my earlier
+      not-connected precondition in `BridgePipeHost` was REDUNDANT with those per-handler guards AND racy (pre-marshal,
+      the exact pattern `OpGuard` warns against) — reverted it. Interface doc states the primitives-only contract.
 - [x] 3.2 Retire vendor exceptions from the wire path (from 1.2). Where a driver must signal a condition, it returns
       state Core inspects or throws a shared `BridgeException`.
 - [x] 3.3 Keep the load-bearing asymmetries BELOW the seam untouched (COM/reflection, ROT, STA pump, NWL parser,
@@ -42,9 +45,13 @@
 
 ## 4. Prove it — conformance + anti-drift
 
-- [~] 4.1 (lifted decisions are Core-ONE-impl → covered by L2 once; an offline BOTH-REAL-DRIVERS suite is infeasible — drivers need live IDEs, so residual-primitive conformance is the e2e tier) A shared conformance suite: the same behavioral assertions (select post-condition, error codes, health
-      signal, tree-walk invariants) run against BOTH drivers where a fake/headless IDE is feasible. Seed from
-      `WireContractParityTests`.
+- [x] 4.1 Obviated BY CONSTRUCTION — the point of the increment. Each parity-critical decision now has ONE Core
+      implementation (not one per vendor), so the L2 transport tests via `FakeIde` prove it once and it holds for both
+      vendors; there is no per-driver code left to conform-test. The residual live-driver behavior (a select/deselect
+      cycle leaves the SAME IDE session serving byte-identical versions; the gate is bridge-wide; a refused push writes
+      nothing) is genuinely COM-only and IS covered vendor-neutrally by `test/e2e/lifecycle/disconnect-cycle.test.ts`
+      (L5). The select post-condition's bad-name path is vendor-specific (CODESYS one-project-per-pipe), so a
+      vendor-neutral e2e for it would itself break parity — proven at L2 + Connector multi-XAE bind + manual two-window.
 - [x] 4.2 Mark the COM-only assertions as the e2e tier (run against the live two-window setup, not CI) — document how
       to run them, as with the existing e2e.
 - [x] 4.3 Anti-drift guard: a test that fails if a new vendor branch appears in Core/connector logic outside the
