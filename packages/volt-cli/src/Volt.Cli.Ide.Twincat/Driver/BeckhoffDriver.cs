@@ -61,32 +61,16 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>
     {
+        // LIGHT BY CONTRACT. The connector polls health every tick, so it must NEVER touch project CONTENT — no PLC
+        // node, no LookupTreeItem, no tree walk. A user who isn't syncing must not have Volt slow or crash their IDE.
+        // All this reads is TOP-LEVEL liveness (is the bound IDE/solution still answering?) — the same thing the
+        // detection poll reads, nothing about the PLC application inside. Recovery — re-binding the desired project
+        // and resolving the PLC app after a close / re-registration / RPC drop — is DEFERRED to the content ops
+        // (init/pull/push/build, where RunRead re-acquires on a transient) or to a re-select. It NEVER happens here.
         var r = RunOnStaThread(() =>
         {
-            if (_om.HasSelection)
-            {
-                // A selection stands → keep serving THAT project. Re-establish it (a FRESH DTE re-acquired by the
-                // project's STABLE name) whenever the binding isn't live: a project close, a TcXaeShell
-                // re-registration (ephemeral moniker), or an 0x800706BA RPC drop all land here — and all recover to
-                // the SAME project, never flipping to another XAE window (the two-window bug). ProbeProjectAlive
-                // touches the live COM node, so it detects a dead handle that IsConnected (a field read) can't.
-                if (!_om.IsConnected || !_om.ProbeProjectAlive())
-                {
-                    try { _om.ReattachProject(); }
-                    catch (Exception ex) { MarkDegraded($"reattach '{_om.WantProject}' failed ({ex.Message})"); }
-                }
-                if (_om.IsConnected && IsDegraded) ClearDegraded();
-            }
-            else if (!_om.IsAttached)
-            {
-                // No project selected yet → soft-attach the DTE so the picker can list projects. Expected state
-                // until the user picks one (never a silent auto-attach to a project).
-                try { Connect(); }
-                catch (NoProjectSelectedException ex) { MarkDegraded(ex.Message); }
-                catch (Exception ex) { MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
-            }
-
-            bool ideAlive = _om.ProbeIdeAlive();
+            bool ideAlive = _om.ProbeIdeAlive(); // top-level: does the bound DTE/solution respond? (no content)
+            if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
             return (alive: ideAlive, project: _om.ProjectName, dirty: _om.ProjectDirty());
         });
         lock (_cacheLock)

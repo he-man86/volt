@@ -348,24 +348,6 @@ internal sealed class TcObjectModel
         catch { return false; }
     }
 
-    /// <summary>Whether the bound project is STILL the open project. Touches the PLC node — a closed/reloaded
-    /// project leaves a stale COM ref that throws here, which is how a close is detected (the DTE-level
-    /// <see cref="ProbeIdeAlive"/> stays true through a project close, so it can't). Must run on the STA thread.</summary>
-    public bool ProbeProjectAlive()
-    {
-        if (_plcNode == null) return false;
-        try { var _ = (string)_plcNode.Name; return true; }
-        catch (COMException com)
-        {
-            // A momentarily busy IDE (mid-build / modal / reload) is NOT a closed project — ComMessageFilter
-            // usually retries these before they surface, but if one leaks through, treat it as "still alive,
-            // just busy" so a build doesn't flap us to "no project". Anything else = the ref is gone (closed).
-            var hr = unchecked((uint)com.HResult);
-            return hr == 0x8001010Au   // RPC_E_SERVERCALL_RETRYLATER
-                || hr == 0x80010001u;  // RPC_E_CALL_REJECTED
-        }
-        catch { return false; }        // non-COM read failure → treat as gone and re-resolve (self-heals)
-    }
 
     /// <summary>Whether the solution has unsaved changes, or null if it can't be read.</summary>
     public bool? ProjectDirty()
