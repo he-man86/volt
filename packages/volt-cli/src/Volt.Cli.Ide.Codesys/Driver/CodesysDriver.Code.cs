@@ -25,19 +25,19 @@ public sealed partial class CodesysDriver
         return _om.ExportXmlWithChildren(item.Native);
     }
 
-    /// <summary>Import a full PLCopen POU in place: delete the existing object and re-import INTO the
-    /// original parent (PLCopenXML carries no folder membership, so a project-level import would relocate
-    /// the POU to the root). Capture the original first and restore it once on a failed import, then
-    /// rethrow — a bad edit can never lose or move the POU.</summary>
+    /// <summary>Import a full PLCopen POU in place: delete the existing object and re-import INTO the original parent
+    /// (PLCopenXML carries no folder membership, so a project-level import would relocate the POU to the root). The
+    /// capture/restore/rethrow data-safety policy lives once in <see cref="PlcOpenTransport.ReplaceByReimport"/>.</summary>
     public void WriteXml(ItemRef item, string xml)
     {
         var node = item.Native;
         var nm = _om.GetName(node);
         var par = _om.ParentOf(node);
-        var original = _om.ExportXmlString(node);            // restore copy
-        if (par != null) _om.DeleteChild(par, nm);
-        try { _om.ImportXmlString(xml, par); }
-        catch { _om.ImportXmlString(original, par); throw; } // single restore attempt, then rethrow loudly
+        PlcOpenTransport.ReplaceByReimport(
+            exportOriginal: () => _om.ExportXmlString(node),
+            delete: () => { if (par != null) _om.DeleteChild(par, nm); },
+            import: x => _om.ImportXmlString(x, par),
+            xml);
     }
 
     // ── non-source manifest ──

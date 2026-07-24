@@ -26,23 +26,18 @@ public sealed partial class BeckhoffDriver
 
     public string ReadXml(ItemRef item) => _om.ExportPouXml(item.Native);
 
-    /// <summary>Import a full PLCopen POU (same-name replace). Delete the existing POU first
-    /// (TC's PlcOpenImport does not replace in-place — it adds, and a name collision fails).
-    /// Capture the original XML before deletion so a failed import can restore it.</summary>
+    /// <summary>Import a full PLCopen POU (same-name replace). Delete the existing POU first (TC's PlcOpenImport does
+    /// not replace in-place — it adds, and a name collision fails). The capture/restore/rethrow data-safety policy
+    /// lives once in <see cref="Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport"/>.</summary>
     public void WriteXml(ItemRef item, string xml)
     {
-        var original = _om.ExportPouXml(item.Native);
         var parent = _om.Parent(item.Native);
         var name = _om.GetName(item.Native);
-        _om.DeleteChild(parent, name);
-        try { _om.ImportPlcOpenXml(xml); }
-        catch
-        {
-            // Restore: re-import the original POU. If this also fails, the POU is lost —
-            // a loud failure is correct.
-            _om.ImportPlcOpenXml(original);
-            throw;
-        }
+        Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport(
+            exportOriginal: () => _om.ExportPouXml(item.Native),
+            delete: () => _om.DeleteChild(parent, name),
+            import: _om.ImportPlcOpenXml,
+            xml);
     }
 
     // ── non-source manifest ──
