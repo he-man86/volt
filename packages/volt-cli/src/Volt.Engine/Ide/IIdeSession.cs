@@ -20,13 +20,8 @@ public interface IIdeSession
 
     // ── degraded state ──
     bool IsDegraded { get; }
-    string? DegradedReason { get; }
     void MarkDegraded(string reason);
     void ClearDegraded();
-    /// <summary>Kick a background, single-flight refresh of the health snapshot (liveness + the connectable-projects
-    /// list). Called by the `health` op so the snapshot refreshes OFF the request path — never marshalled inline, so a
-    /// poll behind a long fetch/push/build can't stall and read a busy IDE as a lost connection.</summary>
-    void TriggerAsyncProbe();
     /// <summary>The ambient poll response: the flat <see cref="HealthResponse.Projects"/> array (liveness + the
     /// connectable-projects list, per row) from the CACHED snapshot — NEVER a live walk on the request.</summary>
     HealthResponse BuildHealthResponse();

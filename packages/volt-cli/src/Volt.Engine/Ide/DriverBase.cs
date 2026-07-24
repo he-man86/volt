@@ -15,27 +15,25 @@ namespace Volt.Engine.Ide;
 public abstract class DriverBase : IIdeSession
 {
     private volatile bool _isDegraded;
-    private string? _degradedReason;
 
     // The one ambient-poll refresher. `health` (liveness + the instances list) is refreshed off the request path,
     // single-flight, so a poll never marshals onto the busy IDE thread and a busy IDE never reads as a lost connection.
     private readonly SingleFlight _healthProbe = new();
 
     public bool IsDegraded => _isDegraded;
-    public string? DegradedReason => _degradedReason;
 
+    // The reason is logged, not stored — the wire dropped the degradedReason field (nothing read it back), and
+    // RowStatus derives the row's degraded word from the _isDegraded bool alone.
     public void MarkDegraded(string reason)
     {
         if (!_isDegraded) { Console.Error.WriteLine($"[bridge] DEGRADED: {reason}"); VoltLog.Warn($"degraded: {reason}"); }
         _isDegraded = true;
-        _degradedReason = reason;
     }
 
     public void ClearDegraded()
     {
         if (_isDegraded) { Console.Error.WriteLine("[bridge] DEGRADED cleared"); VoltLog.Info("degraded cleared"); }
         _isDegraded = false;
-        _degradedReason = null;
     }
 
     // ── abstract — vendor must implement ──

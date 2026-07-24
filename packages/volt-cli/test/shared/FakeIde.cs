@@ -220,10 +220,8 @@ public sealed class FakeIde : IIdeDriver
     public void Connect() { }
     public void Disconnect() { }
     public bool IsDegraded => false;
-    public string? DegradedReason => null;
     public void MarkDegraded(string reason) { }
     public void ClearDegraded() { }
-    public void TriggerAsyncProbe() { }
     public HealthResponse BuildHealthResponse()
     {
         // Each configured row only actually `serving` while IsConnected — so a select that fails to attach, or
