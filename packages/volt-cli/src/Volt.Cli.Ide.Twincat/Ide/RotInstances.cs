@@ -129,7 +129,14 @@ internal static class RotInstances
                     try
                     {
                         dynamic proj = projs.Item(i);
-                        projects.Add(new TcProject((string)proj.Name, PlcProjectsFor(proj)));
+                        // DELIBERATELY light: just the project NAME, NOT the PLC-tree traversal. `instances` is
+                        // POLLED by the connector every few seconds, and deep-traversing a project's System-Manager
+                        // tree (LookupTreeItem("TIPC") + children) on every poll can FAULT a fragile / freshly-opened
+                        // TcXaeShell IN ITS OWN PROCESS — an out-of-process COM crash no try/catch here can stop
+                        // (observed: a just-loaded project closing on the first probe). The PLC sub-project is
+                        // resolved on the explicit, infrequent `select` (FindPlcProject) instead — where a null means
+                        // "the first/default PLC project", which is the single-PLC-project common case anyway.
+                        projects.Add(new TcProject((string)proj.Name, new List<string>()));
                     }
                     catch { }
                 }
@@ -138,28 +145,6 @@ internal static class RotInstances
             list.Add(new TcInstance(name, IdeName(name), ver, sln, projects));
         }
         return list;
-    }
-
-    private static List<string> PlcProjectsFor(dynamic proj)
-    {
-        var plcs = new List<string>();
-        dynamic? sysManager = null;
-        try
-        {
-            dynamic obj = proj.Object;
-            try { var _ = obj.LookupTreeItem("TIPC"); sysManager = obj; }  // TcXaeShell: obj IS the SystemManager
-            catch { try { sysManager = obj.SystemManager; } catch { } }     // full VS: obj.SystemManager
-        }
-        catch { }
-        if (sysManager == null) return plcs;
-        try
-        {
-            dynamic tipc = sysManager.LookupTreeItem("TIPC");
-            int n = tipc.ChildCount;
-            for (int i = 1; i <= n; i++) { try { plcs.Add((string)tipc.Child[i].Name); } catch { } }
-        }
-        catch { }
-        return plcs;
     }
 
     /// <summary>A coarse host-FAMILY name derived from a ProgID/moniker — "Visual Studio" / "TcXaeShell"
