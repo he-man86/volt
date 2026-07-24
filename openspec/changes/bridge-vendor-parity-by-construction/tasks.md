@@ -14,13 +14,22 @@
 
 ## 2. Lift parity-critical decisions into Core (one commit each)
 
-- [x] 2.1 `select` post-condition → `BridgePipeHost` (connected-or-PLC_DISCONNECTED, both vendors). *(shipped)*
+**Test matrix — EVERY lift gets coverage at each applicable layer (write the test with the change, not after):**
+- **L1 component** — the pure logic offline, via `FakeIde` (both connected + failing knobs).
+- **L2 transport** — the op over a real pipe (`BridgePipeHost` + `PipeClient`), asserting the wire result/error code.
+- **L3 CLI black-box** — where the CLI surfaces it (`BridgeClient`/`volt` command), asserting the user-visible outcome.
+- **L4 conformance** — the same assertion run against BOTH drivers (see §4), so parity is proven, not assumed.
+- **L5 e2e** — the COM-only slice against a live bridge, for what L1–L4 can't reach.
+- **Regression net**: `WireContractParityTests` must stay green after every lift (byte-identical responses).
+
+- [x] 2.1 `select` post-condition → `BridgePipeHost` (connected-or-PLC_DISCONNECTED, both vendors). *(shipped — L1+L2)*
+      Backfill: L4 conformance assertion; L5 e2e note (the live two-window select).
 - [ ] 2.2 Empty-result handling: the CLI's `GuardEmptyItems` (0 items + not connected → refuse) is client-side;
       decide whether the bridge should assert the same invariant server-side so a direct pipe client can't be misled
-      either. If so, lift to Core; keep the client guard as defense-in-depth.
-- [ ] 2.3 Any other decision the 1.1 audit surfaces — each its own commit + transport test, using 2.1 as the template.
+      either. If so, lift to Core; keep the client guard as defense-in-depth. Cover L1/L2/L3.
+- [ ] 2.3 Any other decision the 1.1 audit surfaces — each its own commit + the full applicable layer matrix above.
 - [ ] 2.4 Consider a distinct error code for "project not on this instance" vs the generic PLC_DISCONNECTED, IF the
-      audit shows the coarse code hurts the UX — add to `BridgeErrorCodes`, applied uniformly.
+      audit shows the coarse code hurts the UX — add to `BridgeErrorCodes`, applied uniformly (L2 asserts the code).
 
 ## 3. Shrink the seam + single error channel
 
