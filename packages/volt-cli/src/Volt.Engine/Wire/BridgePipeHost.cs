@@ -47,9 +47,19 @@ public sealed class BridgePipeHost : IDisposable
     private static bool AllowedWhilePaused(string? op) =>
         op == "health" || op == "instances" || op == "select" || op == "deselect";
 
+    // Ops that touch the bound PLC project. They require a connected bridge — enforced ONCE below so every vendor
+    // refuses a not-connected bridge IDENTICALLY, instead of each driver faulting its own way (CODESYS: "no
+    // Application"; TwinCAT: an STA/COM error) into a generic INTERNAL_ERROR the client can't act on.
+    private static bool RequiresProject(string? op) =>
+        op == "refs" || op == "fetch" || op == "init" || op == "push" || op == "build";
+
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.PlcDisconnected();
+        // Uniform precondition (Core, both vendors): a project-touching op on a bridge with nothing bound is refused
+        // with the shared PLC_DISCONNECTED — the same code as the paused gate, and the same the CLI's own guard would
+        // report — rather than letting the op run into a vendor-specific fault. IsConnected is a plain read (no COM).
+        if (RequiresProject(req.Op) && !_ide.IsConnected) throw BridgeException.PlcDisconnected();
 
         switch (req.Op)
         {
@@ -112,7 +122,9 @@ public sealed class BridgePipeHost : IDisposable
             case "build":
                 return Busy("build", () => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f)));
             default:
-                throw new InvalidOperationException($"unknown op '{req.Op}'");
+                // A coded error, not a raw InvalidOperationException — so the client sees BAD_REQUEST, not the
+                // catch-all INTERNAL_ERROR. Shared Core, so identical on both vendors.
+                throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown op '{req.Op}'");
         }
     }
 

@@ -135,6 +135,38 @@ public class PipeTransportTests
         Assert.True(r.GetProperty("ok").GetBoolean());
     }
 
+    /// <summary>Every project-touching op on a bridge with nothing bound is refused with the SHARED PLC_DISCONNECTED,
+    /// enforced once in Core — not each driver faulting its own way (CODESYS "no Application", TwinCAT a COM error)
+    /// into a generic INTERNAL_ERROR. Same guarantee on both vendors because the check is above the seam.</summary>
+    [Theory]
+    [InlineData("refs")]
+    [InlineData("fetch")]
+    [InlineData("init")]
+    [InlineData("push")]
+    [InlineData("build")]
+    public void A_project_op_on_a_not_connected_bridge_is_refused_with_PLC_DISCONNECTED(string op)
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(
+            new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthConnected = false }, pipe);
+        host.Start();
+
+        var ex = Assert.Throws<PipeCallException>(() =>
+            new PipeClient(pipe).Call(op, new { knownItems = new Dictionary<string, string>() }));
+        Assert.Equal("PLC_DISCONNECTED", ex.Code);
+    }
+
+    [Fact]
+    public void An_unknown_op_is_a_coded_BAD_REQUEST_not_a_bare_internal_error()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("bogus", new { }));
+        Assert.Equal("BAD_REQUEST", ex.Code);
+    }
+
     /// <summary>The tray's Disconnect, end to end over the wire. `deselect` must REFUSE sync without tearing the
     /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean
     /// anything. `health` + `instances` must keep answering while disconnected — they are how the UI shows the
