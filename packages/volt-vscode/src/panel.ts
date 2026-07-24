@@ -364,16 +364,17 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				},
 			]
 		case "choose-project":
-			// A plain header (NOT clickable — clicking it used to fire volt.init and pop the project-picker QuickPick,
-			// which reads like the command palette and confused users). The clickable targets are the project rows
-			// below: one per detected project, each says "click to set up" in its own description and sets ITSELF up.
+			// An INDENTED list: a plain header (not clickable — clicking it used to fire volt.init and pop the
+			// project-picker QuickPick, which read like the command palette and confused users) with the detected
+			// projects NESTED under it. Each child is a clickable row that says "click to set up" and sets ITSELF up.
 			return [
 				{
 					key: "bridge:pick",
-					label: detected.length === 1 ? "Detected project" : `${detected.length} detected projects`,
-					icon: new vscode.ThemeIcon("info"),
+					label: detected.length === 1 ? "Detected project" : "Detected projects",
+					icon: new vscode.ThemeIcon("list-tree"),
+					collapsed: vscode.TreeItemCollapsibleState.Expanded,
+					children: detected.map(detectedNode),
 				},
-				...detected.map(detectedNode),
 			]
 		case "no-project":
 			return [
