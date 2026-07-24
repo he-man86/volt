@@ -29,6 +29,11 @@ public interface IIdeSession
     /// <summary>Should this transport/RPC exception flip the session to degraded? (TwinCAT: dead-COM
     /// HRESULTs; CODESYS in-proc: never.)</summary>
     bool ShouldMarkDegraded(Exception ex);
+    /// <summary>SYNCHRONOUSLY re-establish the live binding after a transient failure — the op-level retry calls this
+    /// (on the marshalled thread) before retrying a read that hit a dead channel. TwinCAT re-acquires a fresh DTE for
+    /// the DESIRED project by its stable name; CODESYS is in-proc (no cross-process channel to drop), so it is a
+    /// no-op. Must not throw.</summary>
+    void Recover();
 
     // ── threading ──
     /// <summary>Run a unit of IDE work on the vendor's required (STA / primary) thread.</summary>

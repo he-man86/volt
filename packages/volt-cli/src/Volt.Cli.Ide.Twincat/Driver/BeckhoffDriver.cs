@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 
@@ -137,6 +138,15 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     {
         _om.SelectProject(sel.InstanceId, sel.Project, sel.PlcProject);   // re-resolve on the live DTE, no respawn
         if (_om.IsConnected) ClearDegraded();
+    }
+
+    // Op-level recovery (the retry wrapper calls this on the STA thread after a transient dead-channel error): drop
+    // the dead handle and re-acquire the DESIRED project by its stable name. No-op if nothing was selected. Never
+    // throws — a failed recovery just leaves the retry to fail cleanly.
+    public override void Recover()
+    {
+        try { if (_om.HasSelection) _om.ReattachProject(); }
+        catch (Exception ex) { VoltLog.Warn($"recover failed: {ex.Message}"); }
     }
 
     // ── build ───────────────────────────────────────────────────────

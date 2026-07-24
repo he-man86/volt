@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using Volt.Engine;
+using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
@@ -69,7 +70,7 @@ public sealed class BridgePipeHost : IDisposable
             case Ops.Instances:
                 // Read-only project discovery for the connector's selector — same STA marshalling as refs. Stays
                 // answerable while paused: that list is HOW the user reconnects.
-                return _ide.RunOnStaThread(() => (object)_ide.EnumerateInstances());
+                return RunRead(() => (object)_ide.EnumerateInstances());
             case Ops.Select:
                 // Bind the chosen project (retarget/rebind); a state change, so mark the bridge busy for it.
                 // Also the un-pause: connecting anything resumes service.
@@ -108,11 +109,11 @@ public sealed class BridgePipeHost : IDisposable
                 _paused = true;
                 return new { ok = true };
             case Ops.Refs:
-                return _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
+                return RunRead(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
             case Ops.Fetch:
-                return Busy(Ops.Fetch, () => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
+                return Busy(Ops.Fetch, () => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)), retry: true);
             case Ops.Init:
-                return Busy(Ops.Init, () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
+                return Busy(Ops.Init, () => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)), retry: true);
             case Ops.Push:
                 return Busy(Ops.Push, () => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
             case Ops.Build:
@@ -125,13 +126,31 @@ public sealed class BridgePipeHost : IDisposable
     }
 
     // A mutating op marks the bridge busy for its whole duration; publish the label BEFORE the depth becomes
-    // visible so any concurrent health read that sees depth>0 also sees the label.
-    private object Busy(string op, Func<object> run)
+    // visible so any concurrent health read that sees depth>0 also sees the label. retry=true routes through RunRead
+    // (reads only — fetch/init; a push/build must NOT auto-retry, it could double-apply).
+    private object Busy(string op, Func<object> run, bool retry = false)
     {
         _activeOpLabel = op;
         Interlocked.Increment(ref _activeOpDepth);
-        try { return _ide.RunOnStaThread(run); }
+        try { return retry ? RunRead(run) : _ide.RunOnStaThread(run); }
         finally { if (Interlocked.Decrement(ref _activeOpDepth) == 0) _activeOpLabel = null; }
+    }
+
+    // Run a READ op on the IDE thread, self-healing ONE transient failure. TwinCAT's out-of-process COM can drop a
+    // call mid-flight (0x800706BA "RPC server unavailable") when the IDE re-registers / goes momentarily busy; the
+    // driver classifies that via ShouldMarkDegraded. On such a failure we Recover() (re-acquire the desired project
+    // by stable name, on the IDE thread) and retry ONCE — so a transient drop is invisible instead of a failed pull.
+    // Reads only: a write routed through here could double-apply. CODESYS is in-proc and never classifies a transient,
+    // so this is a single plain call there (the `when` filter is false).
+    private object RunRead(Func<object> run)
+    {
+        try { return _ide.RunOnStaThread(run); }
+        catch (Exception ex) when (_ide.ShouldMarkDegraded(ex))
+        {
+            VoltLog.Warn($"transient IDE error ({ex.Message}) — re-acquiring the project and retrying once");
+            _ide.RunOnStaThread(() => { _ide.Recover(); return (object)0; });
+            return _ide.RunOnStaThread(run);   // one retry; a second failure propagates as a clean error
+        }
     }
 
     private static T Body<T>(PipeRequest req) where T : new()

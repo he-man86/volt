@@ -219,6 +219,7 @@ public sealed class FakeIde : IIdeDriver
         Status = IsConnected ? "healthy" : "unavailable",
     };
     public bool ShouldMarkDegraded(Exception ex) => false;
+    public void Recover() { }   // in-memory fake never drops a channel
     public T RunOnStaThread<T>(Func<T> fn) => fn();
 
     // ── instances / select knobs (the connector's discovery + selection ops) ──

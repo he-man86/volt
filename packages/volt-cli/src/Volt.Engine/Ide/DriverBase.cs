@@ -48,6 +48,9 @@ public abstract class DriverBase : IIdeSession
     public abstract void TriggerAsyncProbe();
     public abstract HealthResponse BuildHealthResponse();
     public abstract bool ShouldMarkDegraded(Exception ex);
+    /// <summary>Default no-op: an in-proc driver (CODESYS) has no cross-process channel to re-acquire. TwinCAT
+    /// overrides to re-establish the desired binding by stable name.</summary>
+    public virtual void Recover() { }
     public abstract T RunOnStaThread<T>(Func<T> fn);
     public abstract InstancesResult EnumerateInstances();
     public abstract void SelectProject(SelectRequest sel);

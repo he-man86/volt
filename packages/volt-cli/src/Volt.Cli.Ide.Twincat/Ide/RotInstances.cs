@@ -29,10 +29,26 @@ internal static class RotInstances
         name.IndexOf("VisualStudio.DTE", StringComparison.OrdinalIgnoreCase) >= 0 ||
         name.IndexOf("TcXaeShell.DTE", StringComparison.OrdinalIgnoreCase) >= 0;
 
+    // Enumerate the ROT once. RETRY on an EMPTY result: GetRunningObjectTable/EnumRunning is racy and can transiently
+    // return nothing while a TcXaeShell is genuinely running (mid-registration, or the ROT momentarily locked), which
+    // otherwise surfaces as a spurious "no instance to bind" at select/probe time. A few short retries close that
+    // window; a genuinely-empty ROT (no IDE open) just costs a few ms once. Runs on the STA thread — keep it brief.
     private static IEnumerable<(string Name, object Dte)> RunningDtes()
     {
-        if (GetRunningObjectTable(0, out var rot) != 0) yield break;
-        if (CreateBindCtx(0, out var ctx) != 0) yield break;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            var hits = EnumRunningDtesOnce();
+            if (hits.Count > 0 || attempt == 2) return hits;
+            System.Threading.Thread.Sleep(40);
+        }
+        return new List<(string, object)>();
+    }
+
+    private static List<(string Name, object Dte)> EnumRunningDtesOnce()
+    {
+        var result = new List<(string, object)>();
+        if (GetRunningObjectTable(0, out var rot) != 0) return result;
+        if (CreateBindCtx(0, out var ctx) != 0) return result;
         rot.EnumRunning(out var en);
         en.Reset();
         var arr = new IMoniker[1];
@@ -45,8 +61,9 @@ internal static class RotInstances
             object obj;
             try { if (rot.GetObject(arr[0], out obj) != 0 || obj == null) continue; }
             catch { continue; }
-            yield return (name, obj);
+            result.Add((name, obj));
         }
+        return result;
     }
 
     /// <summary>Bind the DTE object for a specific ROT display name, or null if gone.</summary>

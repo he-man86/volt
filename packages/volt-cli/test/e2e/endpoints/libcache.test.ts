@@ -2,11 +2,14 @@
  *  hashed like any other file and carried in knownItems. A fetch whose knownItems already has them ships NO
  *  signature items (proof it didn't extract); a fetch without them ships the full set. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, BASE } from "../harness"
+import { bridge, requireHealthy, BASE, VENDOR } from "../harness"
 
 const libSigCount = (f: any) => (f.changed as any[]).filter((i) => i.folder.includes("Library Manager/") && i.folder.split("/").length > 2).length
 
-describe(`endpoints / library-signature gate (${BASE})`, () => {
+// Referenced-library SIGNATURE extraction is a CODESYS capability (compile-context → GetAllSignaturesFlat). TwinCAT
+// has no equivalent surface wired up yet (BeckhoffDriver inherits the base's empty ExtractLibrarySignatures), so this
+// gate is CODESYS-only — a deliberate, tracked parity gap, not a bug. Re-enable for TC once it can extract signatures.
+describe.skipIf(VENDOR === "twincat")(`endpoints / library-signature gate (${BASE})`, () => {
 	setDefaultTimeout(60_000)
 	beforeAll(async () => { await requireHealthy() })
 

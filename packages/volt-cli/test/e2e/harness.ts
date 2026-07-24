@@ -10,7 +10,7 @@
 import { expect } from "bun:test"
 import { connect } from "node:net"
 
-const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
+export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
 // The named pipe of the bridge under test; VOLT_PIPE overrides.
 export const PIPE = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
 export const BASE = `pipe ${PIPE}` // a label for describe() titles (the wire is the pipe, not a URL)
