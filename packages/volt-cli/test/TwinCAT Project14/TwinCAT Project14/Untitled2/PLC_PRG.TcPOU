@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <POU Name="PLC_PRG" Id="{0aca174a-2840-418d-a531-aa18d71a65cf}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM PLC_PRG
+VAR
+    fbUnit          : FB_PackML_Unit;
+    
+    xAtEmergencyStop: BOOL;
+    xAtSafetyOk     : BOOL;
+    xAtPowerOn      : BOOL;
+    xAtRemoteMode   : BOOL;
+    xAtMachineRun   : BOOL;
+    
+    xHmiStart       : BOOL;
+    xHmiStop        : BOOL;
+    xHmiReset       : BOOL;
+    xHmiClear       : BOOL;
+    xHmiHold        : BOOL;
+    xHmiUnhold      : BOOL;
+    xHmiSuspend     : BOOL;
+    xHmiUnsuspend   : BOOL;
+
+    eState          : E_PackML_State;
+    eMode           : E_PackML_Mode;
+    xIdle           : BOOL;
+    xExecute        : BOOL;
+    xStopped        : BOOL;
+    xComplete       : BOOL;
+    xAborted        : BOOL;
+    xHeld           : BOOL;
+    xSuspended      : BOOL;
+    nStatusWord     : WORD;
+    nControlWord    : WORD;
+    udiGoodCount    : UDINT;
+    udiBadCount     : UDINT;
+    udiTotalCount   : UDINT;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// ---------------------------------------------------------------------------
+// Drive the PackML unit
+// ---------------------------------------------------------------------------
+fbUnit(
+    xEmergencyStop  := xAtEmergencyStop,
+    xSafetyOk       := xAtSafetyOk,
+    xPowerOn        := xAtPowerOn,
+    xRemoteMode     := xAtRemoteMode,
+    xMachineRunning := xAtMachineRun
+);
+
+// ---------------------------------------------------------------------------
+// Mirror outputs for HMI / SCADA
+// ---------------------------------------------------------------------------
+eState        := fbUnit.eState;
+eMode         := fbUnit.eMode;
+xIdle         := fbUnit.xIdle;
+xExecute      := fbUnit.xExecute;
+xStopped      := fbUnit.xStopped;
+xComplete     := fbUnit.xComplete;
+xAborted      := fbUnit.xAborted;
+xHeld         := fbUnit.xHeld;
+xSuspended    := fbUnit.xSuspended;
+nStatusWord   := fbUnit.nStatusWord;
+nControlWord  := fbUnit.nControlWord;
+udiGoodCount  := fbUnit.udiGoodCount;
+udiBadCount   := fbUnit.udiBadCount;
+udiTotalCount := fbUnit.udiTotalCount;
+
+// ---------------------------------------------------------------------------
+// HMI command mapping — feed control word bits to mode manager
+//   (to be wired via the control word or direct BOOL I/O)
+// ---------------------------------------------------------------------------
+// Example: reading HMI buttons
+// fbUnit.fbModeManager.xStart     := xHmiStart;
+// fbUnit.fbModeManager.xStop      := xHmiStop;
+// fbUnit.fbModeManager.xReset     := xHmiReset;
+// fbUnit.fbModeManager.xClear     := xHmiClear;
+// fbUnit.fbModeManager.xHold      := xHmiHold;
+// fbUnit.fbModeManager.xUnhold    := xHmiUnhold;
+// fbUnit.fbModeManager.xSuspend   := xHmiSuspend;
+// fbUnit.fbModeManager.xUnsuspend := xHmiUnsuspend;]]></ST>
+    </Implementation>
+    <LineIds Name="PLC_PRG">
+      <LineId Id="15445" Count="40" />
+      <LineId Id="4" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

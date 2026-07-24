@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <DUT Name="E_PackML_Mode" Id="{2c980a45-2dd1-409a-b419-4f08747842eb}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+TYPE E_PackML_Mode :
+(
+    ePRODUCTION     := 0,
+    eMAINTENANCE    := 1,
+    eMANUAL         := 2,
+    eIDLE           := 4
+) USINT;
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,13 @@
+# TwinCAT build artifacts — regenerated on open/build, so only the SOURCE of the fixture
+# solutions (TwinCAT Project13/14) is committed. Keeps ~140M of compile cache out of the repo.
+_CompileInfo/
+_Boot/
+_Config/
+_Libraries/
+*.tsproj.bak
+*.tsproj.tmp
+*.project.~u
+*.tmcRefac
+.vs/
+*.suo
+*.user

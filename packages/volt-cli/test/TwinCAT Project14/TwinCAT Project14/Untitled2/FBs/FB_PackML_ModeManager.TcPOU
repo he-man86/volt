@@ -1,0 +1,253 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <POU Name="FB_PackML_ModeManager" Id="{3441db7d-04af-46de-862a-0175e7d3d204}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PackML_ModeManager
+VAR_INPUT
+    xStart          : BOOL;
+    xStop           : BOOL;
+    xReset          : BOOL;
+    xClear          : BOOL;
+    xHold           : BOOL;
+    xUnhold         : BOOL;
+    xSuspend        : BOOL;
+    xUnsuspend      : BOOL;
+    xAbort          : BOOL;
+    xStateComplete  : BOOL;
+   
+    
+END_VAR
+VAR_OUTPUT
+    eState          : E_PackML_State;
+    ePrevState      : E_PackML_State;
+    xStateChanged   : BOOL;
+    xIdle           : BOOL;
+    xExecute        : BOOL;
+    xStopped        : BOOL;
+    xComplete       : BOOL;
+    xAborted        : BOOL;
+    xHeld           : BOOL;
+    xSuspended      : BOOL;
+END_VAR
+VAR
+    xAbortPending   : BOOL;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF xAbort THEN
+    xAbortPending := TRUE;
+END_IF
+
+CASE eState OF
+
+    E_PackML_State.eCLEARING:
+        IF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPED;
+            xAbortPending := FALSE;
+        END_IF
+
+    E_PackML_State.eSTOPPED:
+        IF xReset THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eRESETTING;
+        ELSIF xClear THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eCLEARING;
+        ELSIF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        END_IF
+
+    E_PackML_State.eSTARTING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eIDLE;
+        END_IF
+
+    E_PackML_State.eEXECUTE:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xHold THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eHOLDING;
+        ELSIF xSuspend THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSUSPENDING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eCOMPLETING;
+        END_IF
+
+    E_PackML_State.eCOMPLETING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eCOMPLETE;
+        END_IF
+
+    E_PackML_State.eCOMPLETE:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xReset THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eRESETTING;
+        END_IF
+
+    E_PackML_State.eHOLDING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eHELD;
+        END_IF
+
+    E_PackML_State.eHELD:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xUnhold THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eUNHOLDING;
+        END_IF
+
+    E_PackML_State.eUNHOLDING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eEXECUTE;
+        END_IF
+
+    E_PackML_State.eSUSPENDING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSUSPENDED;
+        END_IF
+
+    E_PackML_State.eSUSPENDED:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xUnsuspend THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eUNSUSPENDING;
+        END_IF
+
+    E_PackML_State.eUNSUSPENDING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eEXECUTE;
+        END_IF
+
+    E_PackML_State.eSTOPPING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPED;
+        END_IF
+
+    E_PackML_State.eABORTING:
+        IF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTED;
+            xAbortPending := FALSE;
+        END_IF
+
+    E_PackML_State.eABORTED:
+        IF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xClear THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eCLEARING;
+        ELSIF xAbortPending THEN
+            xAbortPending := FALSE;
+        END_IF
+
+    E_PackML_State.eRESETTING:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStateComplete THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eIDLE;
+        END_IF
+
+    E_PackML_State.eIDLE:
+        IF xAbortPending THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eABORTING;
+        ELSIF xStop THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTOPPING;
+        ELSIF xStart THEN
+            ePrevState := eState;
+            eState := E_PackML_State.eSTARTING;
+        END_IF
+
+END_CASE
+
+IF eState <> ePrevState THEN
+    xStateChanged := TRUE;
+    ePrevState := eState;
+ELSE
+    xStateChanged := FALSE;
+END_IF
+
+xIdle       := (eState = E_PackML_State.eIDLE);
+xExecute    := (eState = E_PackML_State.eEXECUTE);
+xStopped    := (eState = E_PackML_State.eSTOPPED);
+xComplete   := (eState = E_PackML_State.eCOMPLETE);
+xAborted    := (eState = E_PackML_State.eABORTED);
+xHeld       := (eState = E_PackML_State.eHELD);
+xSuspended  := (eState = E_PackML_State.eSUSPENDED);]]></ST>
+    </Implementation>
+    <LineIds Name="FB_PackML_ModeManager">
+      <LineId Id="515" Count="210" />
+      <LineId Id="8" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
