@@ -99,6 +99,48 @@ public class PipeProjectSourceTests
         Assert.Contains("\"plcProject\":\"PLC_A\"", body);
     }
 
+    // ── two open TcXaeShell windows (the multi-XAE case that shipped broken) ──────────────────────────────
+    // Unlike CODESYS (a pipe per instance), TwinCAT is ONE worker: two windows arrive as two instances in a SINGLE
+    // `instances` response, and the connector must keep them distinct so a select can target the right one. This
+    // whole path had no coverage, which is why selecting the second window's project slipped through untested.
+
+    [Fact]
+    public async Task Enumerate_two_twincat_windows_yields_two_projects_with_distinct_instance_ids()
+    {
+        var wire = new FakeBridgeWire().On("instances",
+            """
+            { "instances": [
+                { "instanceId": "!TcXaeShell.DTE.15.0:22268", "projects": [ { "project": "TwinCAT Project13", "subProjects": [ "Untitled1" ] } ] },
+                { "instanceId": "!TcXaeShell.DTE.15.0:27288", "projects": [ { "project": "TwinCAT Project14", "subProjects": [ "Untitled2" ] } ] } ] }
+            """);
+        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
+
+        var projects = (await src.EnumerateAsync()).ToList();
+
+        Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.DisplayName));
+        // Each carries its OWN instance moniker — this is what lets `select` reach the right window.
+        Assert.Equal("!TcXaeShell.DTE.15.0:22268", projects[0].Attach.Instance);
+        Assert.Equal("!TcXaeShell.DTE.15.0:27288", projects[1].Attach.Instance);
+        Assert.NotEqual(projects[0].Id, projects[1].Id);
+    }
+
+    [Fact]
+    public async Task Bind_the_second_window_sends_the_second_instances_moniker_not_the_first()
+    {
+        var wire = new FakeBridgeWire();
+        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
+        // The SECOND window's project — the one whose select was returning zero items.
+        var attach = new ProjectRef("!TcXaeShell.DTE.15.0:27288", "TwinCAT Project14", "Untitled2");
+        var proj = new DetectedProject(DetectedProject.MakeId("twincat", attach), "TwinCAT Project14", "twincat", false, attach);
+
+        await src.BindAsync(proj);
+
+        var (op, body) = Assert.Single(wire.Calls);
+        Assert.Equal("select", op);
+        Assert.Contains("\"instanceId\":\"!TcXaeShell.DTE.15.0:27288\"", body); // the second window, not the first
+        Assert.Contains("\"project\":\"TwinCAT Project14\"", body);
+    }
+
     [Fact]
     public async Task Probe_maps_the_health_wire_response()
     {

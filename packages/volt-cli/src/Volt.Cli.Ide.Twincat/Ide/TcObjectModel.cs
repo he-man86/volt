@@ -15,6 +15,7 @@ public sealed class NoProjectSelectedException : InvalidOperationException
 {
     public NoProjectSelectedException()
         : base("No project selected — pick a TwinCAT instance/project from the Volt tray (or set VOLT_TC_PROJECT).") { }
+    public NoProjectSelectedException(string message) : base(message) { }
 }
 
 /// <summary>
@@ -117,7 +118,17 @@ internal sealed class TcObjectModel
         FindTwinCatProject(string.IsNullOrEmpty(project) ? null : project);
         FindPlcProject(string.IsNullOrEmpty(plcProject) ? null : plcProject);
         if (_sysManager == null)
-            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (its solution has: [{string.Join(" | ", SolutionProjectNames())}]) — bridge will report Unavailable");
+        {
+            // A specific project was asked for and it isn't on the bound instance — FAIL LOUD. Returning here
+            // silently left the bridge not-connected, so the eventual fetch came back with zero items and the CLI
+            // reported a misleading "is the project open?" instead of "that project isn't in this IDE instance".
+            // This is the multi-XAE trap: selecting a project that lives in a DIFFERENT instance than the one bound.
+            var open = string.Join(", ", SolutionProjectNames());
+            VoltLog.Warn($"select: project '{project}' NOT found on the bound instance (solution has: [{open}])");
+            if (!string.IsNullOrEmpty(project))
+                throw new NoProjectSelectedException(
+                    $"'{project}' is not open in the selected TwinCAT instance (it has: {(string.IsNullOrEmpty(open) ? "no projects" : open)}).");
+        }
         else
             VoltLog.Info($"select: resolved '{_projectName}' plc='{_plcProjectPath}'");
     }

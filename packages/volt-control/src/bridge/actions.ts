@@ -177,7 +177,19 @@ export async function initFromProject(
   targetRoot: string,
   opts: { force?: boolean } & ProgressOpt = {},
 ): Promise<CliResult> {
-  await connectProject(project.id)
+  // The connect (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
+  // couldn't attach the project (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on)
+  // used to slip through: init then fetched an unselected bridge, got zero items, and the CLI reported a
+  // misleading "is the project open?". Fail here, clearly, instead of racing the fetch against a half-done select.
+  const connected = await connectProject(project.id)
+  if (!connected) {
+    const ide = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+    return {
+      stdout: "",
+      code: 1,
+      stderr: `Couldn't attach “${project.displayName}” on the ${ide} bridge. It may have been closed, or — if you have more than one ${ide} window open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
+    }
+  }
   return init(targetRoot, project.vendor, { ...opts, pipe: project.pipe })
 }
 
