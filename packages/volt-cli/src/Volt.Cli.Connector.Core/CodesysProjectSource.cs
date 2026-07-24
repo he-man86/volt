@@ -15,8 +15,8 @@ namespace Volt.Cli.Connector
     /// </summary>
     public sealed class CodesysProjectSource : IProjectSource
     {
-        public string Vendor => "codesys";
-        public string DisplayName => "CODESYS";
+        public string Vendor => Vendors.Codesys;
+        public string DisplayName => Vendors.CodesysDisplay;
 
         // Overridable for tests (scripted pipes + wires); production discovers real pipes and opens real ones.
         private readonly Func<IReadOnlyList<string>> _livePipes;

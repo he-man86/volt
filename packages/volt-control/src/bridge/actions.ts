@@ -9,7 +9,7 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, readBoundProject, type HealthState, type Vendor } from "./health.js"
+import { isBridgeOnline, bridgeActiveOp, readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
 import { boundStatus, connectProject, detectedProjects, type DetectedProject } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
@@ -183,7 +183,7 @@ export async function initFromProject(
   // misleading "is the project open?". Fail here, clearly, instead of racing the fetch against a half-done select.
   const connected = await connectProject(project.id)
   if (!connected) {
-    const ide = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+    const ide = vendorLabel(project.vendor)
     return {
       stdout: "",
       code: 1,
@@ -200,7 +200,7 @@ export async function initFromProject(
 export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boolean; message?: string }> {
   const bound = readBoundProject(workspaceRoot)
   if (bound === undefined) return { ok: false, message: "This folder isn't a Volt workspace — initialize it first." }
-  const ideName = bound.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+  const ideName = vendorLabel(bound.vendor)
   const ofVendor = (await detectedProjects()).filter((p) => p.vendor === bound.vendor)
   // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
   // the PLC sub-project. Fall back to displayName (older connector / CODESYS) then to the sole project of the vendor.

@@ -62,7 +62,7 @@ public static class PipeHost
                 ? PipeNames.CodesysInstance(Process.GetCurrentProcess().Id)
                 : overridePipe!;
 
-            VoltLog.Init("codesys");
+            VoltLog.Init(Vendors.Codesys);
             VoltLog.Debug($"in-proc bridge starting on pipe {_pipeName}");
 
             _driver = new CodesysDriver(projects);

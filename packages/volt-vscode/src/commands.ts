@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects, readBridgeVendor,
-	mergeContinue, mergeAbort, mergeResolve,
+	mergeContinue, mergeAbort, mergeResolve, vendorLabel,
 	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
 } from "@volt/control"
@@ -214,7 +214,7 @@ function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: st
  *  on a SINGLE CLICK — so a row that reads like a status line was one stray click away from initializing a folder,
  *  and with exactly one project detected (the common case) nothing asked first. This is that missing question. */
 async function confirmInit(workspaceRoot: string, project: DetectedProject): Promise<boolean> {
-	const platform = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+	const platform = vendorLabel(project.vendor)
 	const pick = await vscode.window.showInformationMessage(
 		`Set up this folder to sync with “${project.displayName}” (${platform})?`,
 		{
@@ -249,7 +249,7 @@ async function doReinit(ensureWorkspace: (folder: string) => void, workspaceRoot
  *  the one-project case (the common one) bind silently to something the user never saw named. */
 async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
 	const items = projects.map((p) => ({
-		label: `${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${p.displayName}${p.dirty ? " *" : ""}`,
+		label: `${vendorLabel(p.vendor)} · ${p.displayName}${p.dirty ? " *" : ""}`,
 		description: p.ideVersion ?? undefined,
 		project: p,
 	}))

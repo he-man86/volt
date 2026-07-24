@@ -4,6 +4,8 @@ using System.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Cli.Ide.Codesys;
 
 /// <summary>
@@ -33,7 +35,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // collection (HasProjects) — otherwise a closed project still reports "connected" with a null project name.
     // A reopen recovers on its own: the live PrimaryProject lookup makes the next probe flip _hasProject back.
     public override bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
-    public override string? IdeName => "CODESYS";
+    public override string? IdeName => Vendors.CodesysDisplay;
     public override string? IdeVersion => "3.5";
 
     /// <summary>Snapshot the project name/dirty/open flags on the primary thread (we are on it at startup).</summary>
@@ -58,7 +60,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         var instanceId = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
         return new InstancesResult(new List<IdeInstance>
         {
-            new IdeInstance(instanceId, "CODESYS", IdeVersion, new List<IdeProject> { proj }),
+            new IdeInstance(instanceId, Vendors.CodesysDisplay, IdeVersion, new List<IdeProject> { proj }),
         });
     }
 
@@ -79,7 +81,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         string? name; bool dirty;
         lock (_cacheLock) { name = _projectName; dirty = _projectDirty; }
         TriggerAsyncProbe();
-        return BuildHealth("codesys", IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, dirty);
+        return BuildHealth(Vendors.Codesys, IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, dirty);
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>

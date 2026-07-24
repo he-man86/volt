@@ -8,7 +8,7 @@ using Volt.Cli.Transport;
 // Standalone headless worker (the connector spawns it at login, before any IDE). ExternalAttach: don't crash if
 // TwinCAT isn't open yet — start DEGRADED and let the driver attach when the XAE appears, so the supervisor keeps
 // one stable worker across IDE restarts. Pipe replacement for the backup's Program.cs + BridgeHttpServer.RunStandalone.
-VoltLog.Init("twincat");
+VoltLog.Init(Vendors.Twincat);
 
 var driver = new BeckhoffDriver();
 var cts = new CancellationTokenSource();

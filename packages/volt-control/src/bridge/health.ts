@@ -50,6 +50,12 @@ export type Vendor = "codesys" | "twincat"
 /** The two vendors, for iterating. */
 export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 
+/** The user-facing IDE name for a bound vendor — what the UI shows instead of the internal pipe/port selector.
+ *  Lives here beside the Vendor type so the type, its values, and its label are one module. */
+export function vendorLabel(vendor: Vendor): string {
+  return vendor === "twincat" ? "TwinCAT" : "CODESYS"
+}
+
 /** The vendor a workspace is bound to, from `.git/volt/config.json` (`bridge.vendor`); undefined ⇒ unbound (not an
  *  initialized Volt workspace). */
 export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {

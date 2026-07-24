@@ -17,7 +17,7 @@ public static class BridgeResolver
     public static BridgeClient Resolve(string root, string vendor, string? pipeOverride, bool isInit)
     {
         if (!string.IsNullOrEmpty(pipeOverride)) return new BridgeClient(pipeOverride!);
-        if (vendor != "codesys") return BridgeClient.ForVendor(vendor); // TwinCAT: the one worker pipe
+        if (vendor != Vendors.Codesys) return BridgeClient.ForVendor(vendor); // TwinCAT: the one worker pipe
 
         // `init` has no binding yet (bound name is null → the >1 case demands VOLT_PIPE / a single open IDE).
         var bound = isInit ? null : Config.LoadConfig(root).Project.ProjectName;

@@ -21,14 +21,14 @@ namespace Volt.Cli.Connector
         {
             // TwinCAT: one supervised worker on one pipe, ROT-multiplexed. CODESYS: one in-proc host per running
             // IDE, each on its own volt.bridge.codesys.<pid> pipe — discovered + fanned out (multiple live at once).
-            new PipeProjectSource("twincat", "TwinCAT", new PipeBridgeWire(PipeNames.Twincat), PipeNames.Twincat),
+            new PipeProjectSource(Vendors.Twincat, Vendors.TwincatDisplay, new PipeBridgeWire(PipeNames.Twincat), PipeNames.Twincat),
             new CodesysProjectSource(),
         };
 
         /// <summary>The workers to spawn + supervise (ExternalAttach only). CODESYS is absent by design.</summary>
         public static IReadOnlyList<WorkerSpec> Workers() => new[]
         {
-            new WorkerSpec("twincat", "TwinCAT",
+            new WorkerSpec(Vendors.Twincat, Vendors.TwincatDisplay,
                 ResolveWorker("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe",
                     Path.Combine("..", "volt-cli", "src", "Volt.Cli.Ide.Twincat"))),
         };

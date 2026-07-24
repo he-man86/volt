@@ -5,6 +5,8 @@ using System.Threading;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Cli.Ide.Twincat;
 
 /// <summary>
@@ -53,7 +55,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
             ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
         }
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        return BuildHealth("twincat", IsConnected, ideAlive, IdeName, IdeVersion, projectName, projectDirty ?? false);
+        return BuildHealth(Vendors.Twincat, IsConnected, ideAlive, IdeName, IdeVersion, projectName, projectDirty ?? false);
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>

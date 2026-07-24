@@ -15,7 +15,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { SOURCE_EXTENSIONS } from "./source-extensions.js";
 
-export type DetectedVendor = "codesys" | "twincat";
+import type { Vendor } from "./analysis/config.js"
+export type DetectedVendor = Vendor // one source: the Vendor union in analysis/config.ts
 
 export interface DetectVendorOptions {
 	/** Maximum directory depth to scan. Default 3 — enough for typical project layouts. */
