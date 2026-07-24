@@ -32,7 +32,7 @@ public class WireContractTests
         var wire = new FakeBridgeWire().On("health", Wire(health));
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
-        var projects = await src.EnumerateAsync();
+        var projects = (await src.ScanAsync()).Projects;
 
         var p = Assert.Single(projects);
         Assert.Equal("TwinCAT Project1", p.DisplayName);
@@ -54,7 +54,7 @@ public class WireContractTests
         var wire = new FakeBridgeWire().On("health", Wire(health));
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
-        var p = Assert.Single(await src.EnumerateAsync());
+        var p = Assert.Single((await src.ScanAsync()).Projects);
         Assert.Equal("MyMachine", p.DisplayName);
         Assert.True(p.Dirty);
         Assert.Equal(new ProjectRef("codesys", "MyMachine"), p.Attach);

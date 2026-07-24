@@ -29,12 +29,13 @@ namespace Volt.Cli.Connector
             _pipe = pipe;
         }
 
-        public async Task<IReadOnlyList<DetectedProject>> EnumerateAsync()
+        public async Task<SourceScan> ScanAsync()
         {
-            // Discovery rides on `health` now (the projects list is a field on it) — one cache-served poll, never
-            // marshalled onto the STA thread.
-            try { return WireProjects.Flatten(await _wire.CallAsync(Ops.Health), Vendor, _pipe); }
-            catch { return Array.Empty<DetectedProject>(); } // unreachable / not loaded → nothing to offer
+            // One cache-served `health` poll, never marshalled onto the STA thread: the rows ARE the projects (each
+            // self-describing — serving/status/dirty), and the call succeeding is the reachability bit. A worker up
+            // with no project open answers with zero rows but Reachable: true (the tray's "up, waiting for a pick").
+            try { return new SourceScan(WireProjects.Flatten(await _wire.CallAsync(Ops.Health), Vendor, _pipe), Reachable: true); }
+            catch { return new SourceScan(Array.Empty<DetectedProject>(), Reachable: false); } // worker gone
         }
 
         public Task BindAsync(DetectedProject project)
@@ -51,29 +52,13 @@ namespace Volt.Cli.Connector
             // Nothing answered at all — the worker is gone, so there is nothing left to gate.
             catch { return UnbindResult.Unreachable; }
         }
-
-        public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
-        {
-            BridgeHealth health;
-            try { health = HealthProbe.FromWire(await _wire.CallAsync(Ops.Health)); }
-            catch { return new BridgeHealth { Status = BridgeStatus.Unreachable }; }
-
-            // "Connected" must mean a project is CONNECTED, not merely that the worker attached to an open IDE.
-            // This source ignored `selected` and reported the worker's raw health, so the tray went green as soon
-            // as TwinCAT was running with a project open — before the user had connected anything. (CODESYS never
-            // had the bug: its per-instance probe already keys off the selection.) Downgrade to "up, waiting for a
-            // pick", which is exactly what Unavailable means and what the tray paints amber.
-            if (selected == null && (health.Status == BridgeStatus.Connected || health.Status == BridgeStatus.Degraded))
-                return new BridgeHealth { Status = BridgeStatus.Unavailable, ProjectName = health.ProjectName, ProjectDirty = health.ProjectDirty };
-            return health;
-        }
     }
 
     /// <summary>Shared parse of the FLAT <c>health.projects</c> array into <see cref="DetectedProject"/>s — one per
     /// open project (its identity only; detection never reaches into PLC applications). Stamps the serving
-    /// <paramref name="pipe"/> + IDE version onto each so the source, CLI and UI can target/label the row. The
-    /// per-row serving/status are read by <see cref="HealthProbe"/> for the connection state; enumeration only needs
-    /// identity + dirty + version.</summary>
+    /// <paramref name="pipe"/> + IDE version onto each so the source, CLI and UI can target/label the row. Each row
+    /// is self-describing: serving/status/dirty ride straight through onto the <see cref="DetectedProject"/>, so the
+    /// connection state is read off the row (no second health probe).</summary>
     public static class WireProjects
     {
         private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
@@ -95,8 +80,9 @@ namespace Volt.Cli.Connector
         }
 
         // ── the connector's view of the flat `health.projects` array (matching JSON) ──
+        // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here.
         private sealed record WireHealth(List<WireProjectRow>? Projects);
         private sealed record WireProjectRow(
-            string? Vendor, string? InstanceId, string? Version, string? Project, string? Status, bool Serving, bool Dirty);
+            string? InstanceId, string? Version, string? Project, string? Status, bool Serving, bool Dirty);
     }
 }

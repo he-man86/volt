@@ -31,23 +31,19 @@ namespace Volt.Cli.Connector
             _wireFor = wireFor;
         }
 
-        // The live-pipe count from the last enumeration, so ProbeAsync(null) doesn't re-walk the pipe namespace
-        // every tick (EnumerateAsync already walked it). Approximate by one tick — fine for a tray colour.
-        private volatile int _lastLiveCount = -1;
-
-        public async Task<IReadOnlyList<DetectedProject>> EnumerateAsync()
+        public async Task<SourceScan> ScanAsync()
         {
+            // Fan out over every live pipe — one `health` poll each, cache-served, never marshalled onto the IDE
+            // thread. Each row is self-describing (serving/status/dirty ride through onto the DetectedProject), so
+            // there is no second probe: a live pipe existing IS the reachability bit ("up, waiting for a pick").
             var pipes = _livePipes();
-            _lastLiveCount = pipes.Count;
             var all = new List<DetectedProject>();
             foreach (var pipe in pipes)
             {
-                // Discovery rides on `health` now (the projects list is a field on it) — one cache-served poll, never
-                // marshalled onto the IDE thread.
                 try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe)); }
-                catch { /* that host went away mid-enumeration — skip it */ }
+                catch { /* that host went away mid-scan — skip it */ }
             }
-            return all;
+            return new SourceScan(all, Reachable: pipes.Count > 0);
         }
 
         public Task BindAsync(DetectedProject project)
@@ -67,22 +63,6 @@ namespace Volt.Cli.Connector
             catch (PipeCallException) { return UnbindResult.Unsupported; }
             // Nothing answered — that IDE closed. Already disconnected; nothing to warn about.
             catch { return UnbindResult.Unreachable; }
-        }
-
-        public async Task<BridgeHealth> ProbeAsync(DetectedProject? selected)
-        {
-            // Health of the CONNECTED instance's pipe when one is selected; otherwise "any CODESYS reachable" so the
-            // tray still shows the platform is up and waiting for a pick.
-            if (selected?.Pipe is { Length: > 0 } pipe)
-            {
-                try { return HealthProbe.FromWire(await _wireFor(pipe).CallAsync(Ops.Health)); }
-                catch { return new BridgeHealth { Status = BridgeStatus.Unreachable }; }
-            }
-            // Reuse the last enumeration's count (walk only if we've never enumerated yet).
-            var liveCount = _lastLiveCount >= 0 ? _lastLiveCount : _livePipes().Count;
-            return liveCount > 0
-                ? new BridgeHealth { Status = BridgeStatus.Unavailable } // up, no project selected yet
-                : new BridgeHealth { Status = BridgeStatus.Unreachable };
         }
     }
 }

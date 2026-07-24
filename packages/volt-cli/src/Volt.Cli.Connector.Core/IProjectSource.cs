@@ -24,6 +24,12 @@ namespace Volt.Cli.Connector
         Unreachable,
     }
 
+    /// <summary>One scan of a source: the projects it can connect to right now, plus whether its bridge was
+    /// reachable at all. Reachability is the ONE bit the flat rows can't express — a bridge that is up with no
+    /// project open yields zero rows, exactly like a bridge that is down — so it rides alongside the rows instead
+    /// of a second `health` round-trip. Everything else (serving, degraded, dirty) is already ON each row.</summary>
+    public sealed record SourceScan(IReadOnlyList<DetectedProject> Projects, bool Reachable);
+
     public interface IProjectSource
     {
         /// <summary>Vendor id: "codesys" | "twincat" — matches <see cref="DetectedProject.Vendor"/> + the pipe name.</summary>
@@ -32,9 +38,10 @@ namespace Volt.Cli.Connector
         /// <summary>Human platform name for the prefix/logo ("CODESYS" | "TwinCAT").</summary>
         string DisplayName { get; }
 
-        /// <summary>The projects this source can currently connect to — empty if its bridge isn't reachable or
-        /// nothing is open. Never throws for "not reachable"; that is an empty list.</summary>
-        Task<IReadOnlyList<DetectedProject>> EnumerateAsync();
+        /// <summary>One `health` poll: the projects this source can currently connect to (each row self-describing —
+        /// serving/status/dirty) plus whether the bridge was reachable. Empty + unreachable if its bridge isn't up or
+        /// nothing is open. Never throws for "not reachable"; that is <c>(empty, Reachable: false)</c>.</summary>
+        Task<SourceScan> ScanAsync();
 
         /// <summary>Bind the given project so its bridge serves it (retarget the worker / rebind the in-proc host).
         /// The project's <see cref="DetectedProject.Attach"/> is this source's own payload.</summary>
@@ -48,10 +55,5 @@ namespace Volt.Cli.Connector
         /// gone and there is nothing to warn about. Reporting "out of date, still syncing" for a closed IDE sends
         /// people hunting a problem that doesn't exist.</para></summary>
         Task<UnbindResult> UnbindAsync(DetectedProject project);
-
-        /// <summary>Health of the given project's bridge (the tray colour + status text). <paramref name="selected"/>
-        /// is the currently-connected project of this vendor (or null) — a vendor with per-instance bridges
-        /// (CODESYS) probes that instance's pipe; a single-bridge vendor (TwinCAT) ignores it.</summary>
-        Task<BridgeHealth> ProbeAsync(DetectedProject? selected);
     }
 }

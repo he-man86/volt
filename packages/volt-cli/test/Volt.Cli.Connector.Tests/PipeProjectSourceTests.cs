@@ -36,7 +36,7 @@ public class PipeProjectSourceTests
             """{ "projects": [ { "instanceId": "cds-1", "project": "MyMachine", "dirty": true } ] }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
-        var projects = await src.EnumerateAsync();
+        var projects = (await src.ScanAsync()).Projects;
 
         var p = Assert.Single(projects);
         Assert.Equal("MyMachine", p.DisplayName);
@@ -58,7 +58,7 @@ public class PipeProjectSourceTests
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
-        var projects = await src.EnumerateAsync();
+        var projects = (await src.ScanAsync()).Projects;
 
         Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.DisplayName));
         Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project13"), projects[0].Attach);
@@ -97,7 +97,7 @@ public class PipeProjectSourceTests
             """);
         var src = new PipeProjectSource("twincat", "TwinCAT", wire);
 
-        var projects = (await src.EnumerateAsync()).ToList();
+        var projects = (await src.ScanAsync()).Projects.ToList();
 
         Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.DisplayName));
         // Each carries its OWN instance moniker — this is what lets `select` reach the right window.
@@ -123,48 +123,35 @@ public class PipeProjectSourceTests
         Assert.Contains("\"project\":\"TwinCAT Project14\"", body);
     }
 
+    /// <summary>The connection state is a per-row fact now — serving/status/dirty ride straight through onto each
+    /// <see cref="DetectedProject"/>. No second probe: the scan reads them off the wire row. (The "up but nothing
+    /// selected is not green" rule moved to <c>ConnectionManager.Aggregate</c>, which owns selection.)</summary>
     [Fact]
-    public async Task Probe_maps_the_health_wire_response()
+    public async Task Scan_carries_serving_status_and_dirty_off_the_wire_row()
     {
         var wire = new FakeBridgeWire().On("health",
             """{ "projects": [ { "instanceId": "i", "project": "MyMachine", "status": "healthy", "serving": true, "dirty": true } ] }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
-        var attach = new ProjectRef(null, "MyMachine");
-        var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MyMachine", "codesys", true, attach);
 
-        var h = await src.ProbeAsync(selected);
+        var scan = await src.ScanAsync();
 
-        Assert.Equal(BridgeStatus.Connected, h.Status);
-        Assert.Equal("MyMachine", h.ProjectName);
-        Assert.True(h.ProjectDirty);
-    }
-
-    /// <summary>A healthy worker with NOTHING selected is "up, waiting for a pick" — not Connected. This test
-    /// used to assert the opposite, which is why the tray went green as soon as TwinCAT was open with a project,
-    /// before the user had connected anything. The project details still ride along for the status text.</summary>
-    [Fact]
-    public async Task Probe_with_nothing_selected_is_Unavailable_not_Connected()
-    {
-        var wire = new FakeBridgeWire().On("health",
-            """{ "projects": [ { "instanceId": "i", "project": "MyMachine", "status": "healthy", "serving": true, "dirty": true } ] }""");
-        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
-
-        var h = await src.ProbeAsync(null);
-
-        Assert.Equal(BridgeStatus.Unavailable, h.Status);
-        Assert.Equal("MyMachine", h.ProjectName);
-        Assert.True(h.ProjectDirty);
+        Assert.True(scan.Reachable);
+        var p = Assert.Single(scan.Projects);
+        Assert.True(p.Serving);
+        Assert.Equal("healthy", p.Status);
+        Assert.True(p.Dirty);
     }
 
     [Fact]
-    public async Task An_unreachable_bridge_enumerates_to_empty_and_probes_Unreachable()
+    public async Task An_unreachable_bridge_scans_to_empty_and_not_reachable()
     {
         var wire = new FakeBridgeWire();
-        wire.Throw.Add("health"); // discovery + probe both ride on health now
+        wire.Throw.Add("health"); // discovery rides on health
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
-        Assert.Empty(await src.EnumerateAsync());
-        Assert.Equal(BridgeStatus.Unreachable, (await src.ProbeAsync(null)).Status);
+        var scan = await src.ScanAsync();
+        Assert.Empty(scan.Projects);
+        Assert.False(scan.Reachable);
     }
 }
 
@@ -187,7 +174,7 @@ public class CodesysProjectSourceTests
             () => wires.Keys.ToList(),
             pipe => wires[pipe]);
 
-        var projects = (await src.EnumerateAsync()).OrderBy(p => p.DisplayName).ToList();
+        var projects = (await src.ScanAsync()).Projects.OrderBy(p => p.DisplayName).ToList();
 
         Assert.Equal(new[] { "MachineA", "MachineB" }, projects.Select(p => p.DisplayName));
         Assert.Equal("volt.bridge.codesys.111", projects[0].Pipe);
@@ -197,27 +184,28 @@ public class CodesysProjectSourceTests
     }
 
     [Fact]
-    public async Task Probe_targets_the_selected_projects_pipe()
+    public async Task Scan_carries_the_serving_row_off_the_selected_projects_pipe()
     {
         var healthy = new FakeBridgeWire().On("health", """{ "projects": [ { "instanceId": "222", "project": "MachineB", "status": "healthy", "serving": true } ] }""");
         var wires = new Dictionary<string, IBridgeWire> { ["volt.bridge.codesys.222"] = healthy };
         var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
-        var attach = new ProjectRef("222", "MachineB");
-        var selected = new DetectedProject(DetectedProject.MakeId("codesys", attach), "MachineB", "codesys", false, attach, "volt.bridge.codesys.222");
 
-        var h = await src.ProbeAsync(selected);
+        var scan = await src.ScanAsync();
 
-        Assert.Equal(BridgeStatus.Connected, h.Status);
-        Assert.Equal("MachineB", h.ProjectName);
+        Assert.True(scan.Reachable);
+        var p = Assert.Single(scan.Projects);
+        Assert.Equal("MachineB", p.DisplayName);
+        Assert.True(p.Serving);
     }
 
     [Fact]
-    public async Task No_pipes_probes_Unreachable_some_pipes_but_none_selected_is_Unavailable()
+    public async Task No_pipes_is_not_reachable_but_a_live_pipe_is()
     {
         var none = new CodesysProjectSource(() => new List<string>(), _ => throw new InvalidOperationException());
-        Assert.Equal(BridgeStatus.Unreachable, (await none.ProbeAsync(null)).Status);
+        Assert.False((await none.ScanAsync()).Reachable);
 
+        // A live pipe existing IS the reachability bit, even if that host answers with no project rows.
         var some = new CodesysProjectSource(() => new List<string> { "volt.bridge.codesys.9" }, _ => new FakeBridgeWire());
-        Assert.Equal(BridgeStatus.Unavailable, (await some.ProbeAsync(null)).Status);
+        Assert.True((await some.ScanAsync()).Reachable);
     }
 }

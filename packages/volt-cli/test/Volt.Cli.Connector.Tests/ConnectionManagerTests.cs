@@ -4,42 +4,43 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Volt.Cli.Connector;
+using Volt.Cli.Transport;
 using Xunit;
 
 namespace Volt.Cli.Connector.Tests;
 
 /// <summary>A fake source so the ConnectionManager can be exercised with no pipe/IDE: it returns a scripted
-/// project list + health, records binds, and can be told to throw on enumerate (an unreachable bridge).</summary>
+/// project list, reports reachability, records binds, and can be told to throw on scan (an unreachable bridge).</summary>
 internal sealed class FakeProjectSource : IProjectSource
 {
     public string Vendor { get; }
     public string DisplayName { get; }
     public List<DetectedProject> Projects { get; } = new();
-    public BridgeHealth Health { get; set; } = new() { Status = BridgeStatus.Unknown };
+    /// <summary>Whether the bridge answered this tick — the one bit the rows can't express (up-but-empty vs down).</summary>
+    public bool Reachable { get; set; } = true;
     public bool ThrowOnEnumerate { get; set; }
     public List<DetectedProject> Bound { get; } = new();
     public List<DetectedProject> Unbound { get; } = new();
 
     public FakeProjectSource(string vendor, string display) { Vendor = vendor; DisplayName = display; }
 
-    public DetectedProject Add(string name, bool dirty = false)
+    public DetectedProject Add(string name, bool dirty = false, bool serving = false, string status = HealthStatus.Healthy)
     {
         var attach = new ProjectRef(null, name);
-        var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach);
+        var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach, Serving: serving, Status: status);
         Projects.Add(p);
         return p;
     }
 
-    public Task<IReadOnlyList<DetectedProject>> EnumerateAsync() =>
+    public Task<SourceScan> ScanAsync() =>
         ThrowOnEnumerate ? throw new InvalidOperationException("unreachable")
-                         : Task.FromResult<IReadOnlyList<DetectedProject>>(Projects.ToList());
+                         : Task.FromResult(new SourceScan(Projects.ToList(), Reachable));
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
     /// <summary>What the fake bridge does on unbind — Unsupported plays an OUT-OF-DATE bridge (keeps serving the
     /// CLI), Unreachable plays one whose IDE has closed.</summary>
     public UnbindResult UnbindOutcome { get; set; } = UnbindResult.Gated;
     public Task<UnbindResult> UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.FromResult(UnbindOutcome); }
-    public Task<BridgeHealth> ProbeAsync(DetectedProject? selected) => Task.FromResult(Health);
 }
 
 public class ConnectionManagerTests
@@ -95,20 +96,19 @@ public class ConnectionManagerTests
     }
 
     [Theory]
-    // With NOTHING connected, the tray never goes green — a live channel only means "up, waiting for a pick"
-    // (that is why the first row expects Unavailable, not Connected: a healthy bridge with no active connection
-    // used to paint the tray green merely because an IDE was open). Below that: Degraded, then Unavailable, then
-    // Unknown. Green requires an active connection that is actually being served — see the Aggregate tests in
-    // DisconnectLifecycleTests, which drive a real bridge.
-    [InlineData(BridgeStatus.Connected, BridgeStatus.Unreachable, BridgeStatus.Unavailable)]
-    [InlineData(BridgeStatus.Degraded, BridgeStatus.Unavailable, BridgeStatus.Degraded)]
-    [InlineData(BridgeStatus.Unavailable, BridgeStatus.Unreachable, BridgeStatus.Unavailable)]
-    [InlineData(BridgeStatus.Unreachable, BridgeStatus.Unknown, BridgeStatus.Unknown)]
-    public async Task Aggregate_status_follows_the_informative_alive_precedence(
-        BridgeStatus a, BridgeStatus b, BridgeStatus expected)
+    // With NOTHING connected, the tray never goes green: a reachable channel only means "up, waiting for a pick"
+    // (Unavailable/amber — a healthy bridge with no active connection used to paint the tray green merely because an
+    // IDE was open); if no channel is reachable there is nothing there (Unknown). Green — and the degraded
+    // distinction — require an active connection that is actually being served, which is a property of a serving
+    // ROW; see the Aggregate tests in DisconnectLifecycleTests, which drive a real bridge.
+    [InlineData(true, false, BridgeStatus.Unavailable)]  // one channel up
+    [InlineData(true, true, BridgeStatus.Unavailable)]   // both up
+    [InlineData(false, false, BridgeStatus.Unknown)]     // nothing reachable
+    public async Task Aggregate_with_nothing_connected_is_Unavailable_iff_any_channel_is_reachable(
+        bool aReachable, bool bReachable, BridgeStatus expected)
     {
-        var s1 = new FakeProjectSource("codesys", "CODESYS") { Health = new BridgeHealth { Status = a } };
-        var s2 = new FakeProjectSource("twincat", "TwinCAT") { Health = new BridgeHealth { Status = b } };
+        var s1 = new FakeProjectSource("codesys", "CODESYS") { Reachable = aReachable };
+        var s2 = new FakeProjectSource("twincat", "TwinCAT") { Reachable = bReachable };
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();
         Assert.Equal(expected, mgr.Aggregate());
@@ -233,13 +233,13 @@ public class ConnectionManagerTests
     }
 
     /// <summary>Readers must never observe a half-built or mixed generation while refreshes churn underneath.
-    /// The model publishes ONE immutable State per generation; before that it held four separate maps, and both a
+    /// The model publishes ONE immutable State per generation; before that it held separate maps, and both a
     /// torn-collection crash ("collection was modified") and a mixed-generation answer were possible — Aggregate
-    /// combines selection + serving + health, so three independent reads could straddle a tick.</summary>
+    /// combines selection + serving + reachability, so independent reads could straddle a tick.</summary>
     [Fact]
     public async Task Readers_never_see_a_torn_or_mixed_generation_while_refreshes_churn()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS") { Health = new BridgeHealth { Status = BridgeStatus.Connected } };
+        var cds = new FakeProjectSource("codesys", "CODESYS");
         cds.Add("MachineA");
         cds.Add("MachineB");
         var mgr = Mgr(cds);
@@ -257,7 +257,6 @@ public class ConnectionManagerTests
                 _ = mgr.Projects.Count;
                 _ = mgr.ActiveConnection;
                 foreach (var p in mgr.Projects) mgr.IsServingProject(p.Id);
-                mgr.HealthOf("codesys");
                 mgr.SelectedOf("codesys");
             }
         });

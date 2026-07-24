@@ -25,9 +25,10 @@ public class WireContractParityTests
     private static JsonElement Serialize<T>(T value) => JsonDocument.Parse(JsonSerializer.Serialize(value, Wire)).RootElement;
 
     [Fact]
-    public void The_serving_row_round_trips_into_the_connector_reader()
+    public void The_serving_and_status_bits_round_trip_onto_each_connector_row()
     {
-        // The connector reads the ONE serving row for the bridge's connection state.
+        // The connector reads serving/status/dirty PER ROW now (no separate probe): the served row must arrive
+        // serving=true with its degraded status, and a listed-but-not-served row serving=false.
         var wire = new HealthResponse
         {
             Projects =
@@ -36,28 +37,23 @@ public class WireContractParityTests
                 new ProjectEntry("codesys", "i", "3.5", "MyProj", "degraded", true, true),  // the served one
             },
         };
-        var h = HealthProbe.FromWire(Serialize(wire));
-        Assert.Equal(BridgeStatus.Degraded, h.Status);
-        Assert.Equal("MyProj", h.ProjectName);
-        Assert.True(h.ProjectDirty);
+        var rows = WireProjects.Flatten(Serialize(wire), "codesys", "volt.bridge.codesys");
+        var other = Assert.Single(rows, r => r.DisplayName == "Other");
+        Assert.False(other.Serving);
+        var served = Assert.Single(rows, r => r.DisplayName == "MyProj");
+        Assert.True(served.Serving);
+        Assert.Equal("degraded", served.Status);
+        Assert.True(served.Dirty);
     }
 
     [Theory]
-    [InlineData("healthy", BridgeStatus.Connected)]
-    [InlineData("degraded", BridgeStatus.Degraded)]
-    [InlineData("something-new", BridgeStatus.Connected)] // a serving row = connected; only "degraded" downgrades
-    public void A_serving_rows_status_maps_to_the_bridge_status(string rowStatus, BridgeStatus expected)
+    [InlineData("healthy")]
+    [InlineData("degraded")]
+    [InlineData("something-new")] // the raw status rides through verbatim; Aggregate maps it to the tray colour
+    public void A_rows_status_string_rides_through_verbatim(string rowStatus)
     {
         var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "P", rowStatus, true, false) } };
-        Assert.Equal(expected, HealthProbe.FromWire(Serialize(wire)).Status);
-    }
-
-    [Fact]
-    public void No_serving_row_is_Unavailable()
-    {
-        // Projects listed but none served = the bridge is up, nothing connected.
-        var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "i", "3.5", "P", "healthy", false, false) } };
-        Assert.Equal(BridgeStatus.Unavailable, HealthProbe.FromWire(Serialize(wire)).Status);
+        Assert.Equal(rowStatus, Assert.Single(WireProjects.Flatten(Serialize(wire), "codesys", null)).Status);
     }
 
     [Fact]

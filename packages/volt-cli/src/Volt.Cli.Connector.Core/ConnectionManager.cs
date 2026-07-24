@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -32,15 +33,16 @@ namespace Volt.Cli.Connector
         /// change any of it is to publish a whole new instance.</summary>
         private sealed record State(
             IReadOnlyList<DetectedProject> Projects,
-            /// <summary>Per-VENDOR channel health. Ambiguous the moment two CODESYS instances run — which is why
-            /// connection state comes from <see cref="Serving"/>, not from this.</summary>
-            IReadOnlyDictionary<string, BridgeHealth> Health,
             /// <summary>Per-PROJECT ground truth, keyed by <see cref="DetectedProject.Id"/>: is this project's own
             /// bridge serving it right now. Every user-facing "connected" derives from this.</summary>
             IReadOnlyDictionary<string, bool> Serving,
             /// <summary>The tray HIGHLIGHT per vendor — which project the user last picked. Says nothing about
             /// whether sync works; keep it out of any "am I connected" answer.</summary>
-            IReadOnlyDictionary<string, DetectedProject?> Selected);
+            IReadOnlyDictionary<string, DetectedProject?> Selected,
+            /// <summary>Did ANY source's bridge answer this tick — the one bit the flat rows can't express (a bridge
+            /// up with no project open yields zero rows, same as a bridge that is down). Drives the "up, waiting for
+            /// a pick" vs "nothing there" tray colour when nothing is connected.</summary>
+            bool AnyReachable);
 
         private readonly IReadOnlyList<IProjectSource> _sources;
         private readonly Dictionary<string, IProjectSource> _byVendor;
@@ -57,9 +59,9 @@ namespace Volt.Cli.Connector
             _byVendor = sources.ToDictionary(s => s.Vendor);
             _state = new State(
                 Array.Empty<DetectedProject>(),
-                sources.ToDictionary(s => s.Vendor, _ => new BridgeHealth { Status = BridgeStatus.Unknown }),
                 new Dictionary<string, bool>(),
-                sources.ToDictionary(s => s.Vendor, _ => (DetectedProject?)null));
+                sources.ToDictionary(s => s.Vendor, _ => (DetectedProject?)null),
+                AnyReachable: false);
         }
 
         /// <summary>A connect succeeded — carry the project so the UI can toast "Connected to X (vendor)".</summary>
@@ -69,9 +71,6 @@ namespace Volt.Cli.Connector
         public IReadOnlyList<DetectedProject> Projects => _state.Projects;
 
         public IReadOnlyList<IProjectSource> Sources => _sources;
-
-        public BridgeHealth HealthOf(string vendor) =>
-            _state.Health.TryGetValue(vendor, out var h) ? h : new BridgeHealth { Status = BridgeStatus.Unknown };
 
         public DetectedProject? SelectedOf(string vendor) =>
             _state.Selected.TryGetValue(vendor, out var p) ? p : null;
@@ -88,8 +87,8 @@ namespace Volt.Cli.Connector
         public string DisplayNameOf(string vendor) =>
             _byVendor.TryGetValue(vendor, out var s) ? s.DisplayName : vendor;
 
-        /// <summary>Re-probe every source's health and re-enumerate its projects; rebuild the merged list. A
-        /// source that is unreachable simply contributes nothing (never throws the whole refresh).</summary>
+        /// <summary>Re-scan every source (one `health` poll each) and rebuild the merged list. A source that is
+        /// unreachable simply contributes nothing (never throws the whole refresh).</summary>
         public async Task RefreshAsync()
         {
             await _refreshGate.WaitAsync().ConfigureAwait(false);
@@ -120,23 +119,19 @@ namespace Volt.Cli.Connector
             var prior = _state;
 
             var merged = new List<DetectedProject>();
-            var health = new Dictionary<string, BridgeHealth>();
+            var anyReachable = false;
             foreach (var s in _sources)
             {
-                // Health of the connected instance's bridge (CODESYS probes the selected pipe; TwinCAT ignores it).
-                var selected = prior.Selected.TryGetValue(s.Vendor, out var sel) ? sel : null;
-                try { health[s.Vendor] = await s.ProbeAsync(selected); }
-                catch { health[s.Vendor] = new BridgeHealth { Status = BridgeStatus.Unreachable }; }
-
-                try { merged.AddRange(await s.EnumerateAsync()); }
-                catch { /* unreachable / mid-load → contributes no projects this tick */ }
+                // ONE poll per source: the rows ARE the projects (each self-describing), and the scan reports whether
+                // the bridge answered at all. No second health probe — the old per-source ProbeAsync re-fetched the
+                // same cache-served health to recompute serving/status the rows already carry.
+                try { var scan = await s.ScanAsync(); merged.AddRange(scan.Projects); anyReachable |= scan.Reachable; }
+                catch { /* unreachable / mid-load → contributes nothing, not reachable */ }
             }
 
             // "Is this project's bridge serving it right now" — the one question the UI needs (a project can be
-            // detected but gated, which is what Disconnect does). It is now a per-row fact ON the wire: the bridge
-            // stamps exactly one serving row and the host clears it while paused, carried straight through
-            // EnumerateAsync. So read it off each row instead of re-probing every project's bridge (which re-fetched
-            // the same cache-served health once per project per tick).
+            // detected but gated, which is what Disconnect does). It is a per-row fact ON the wire: the bridge stamps
+            // exactly one serving row and the host clears it while paused, carried straight through the scan.
             var serving = merged.ToDictionary(p => p.Id, p => p.Serving);
 
             // Drop a stale selection whose project is no longer detected (its IDE/host closed).
@@ -144,7 +139,7 @@ namespace Volt.Cli.Connector
                 kv => kv.Key,
                 kv => kv.Value is { } sel && merged.All(p => p.Id != sel.Id) ? null : kv.Value);
 
-            _state = new State(merged, health, serving, selectedNext);
+            _state = new State(merged, serving, selectedNext, anyReachable);
             _lastRefreshUtc = DateTime.UtcNow;
         }
 
@@ -208,8 +203,8 @@ namespace Volt.Cli.Connector
         /// colour just because a vendor isn't in use.</summary>
         public BridgeStatus Aggregate()
         {
-            // ONE generation for the whole answer — this combines selection, serving and health, and reading them
-            // as three independent fields could straddle a refresh and answer from two different ticks.
+            // ONE generation for the whole answer — this combines selection, serving and reachability, and reading
+            // them as independent fields could straddle a refresh and answer from two different ticks.
             var s = _state;
 
             // Green = the project the user CONNECTED is being served. Both halves are required, and they are
@@ -219,22 +214,19 @@ namespace Volt.Cli.Connector
             //   • selection alone is not enough — that is a highlight; the bridge may be gated or gone.
             // (Per-WORKSPACE status is the other question and must NOT use selection: a workspace bound to a
             // non-selected project really does sync, which is why IsServingProject is what the frontends read.)
-            // A DEGRADED channel still serves, so it must not be flattened to green — that is the only signal the
-            // user gets that the channel is impaired.
+            // A DEGRADED channel still serves, so it must not be flattened to green — read the degraded distinction
+            // straight off the active project's own (fresh) row, not a stored copy.
             var active = s.Selected.Values.FirstOrDefault(p => p != null);
             if (active != null && s.Serving.TryGetValue(active.Id, out var isServing) && isServing)
             {
-                var activeHealth = s.Health.TryGetValue(active.Vendor, out var h) ? h.Status : BridgeStatus.Unknown;
-                return activeHealth == BridgeStatus.Degraded ? BridgeStatus.Degraded : BridgeStatus.Connected;
+                var row = s.Projects.FirstOrDefault(p => p.Id == active.Id);
+                return row?.Status == HealthStatus.Degraded ? BridgeStatus.Degraded : BridgeStatus.Connected;
             }
 
-            // Nothing connected. Degraded is still checked BEFORE a merely-live channel, or a degraded vendor
-            // hides behind an unconnected healthy one and is reported as "up, waiting for a pick".
-            var statuses = s.Health.Values.Select(h => h.Status).ToList();
-            if (statuses.Contains(BridgeStatus.Degraded)) return BridgeStatus.Degraded;
-            if (statuses.Contains(BridgeStatus.Connected)) return BridgeStatus.Unavailable; // live channel, nothing connected
-            if (statuses.Contains(BridgeStatus.Unavailable)) return BridgeStatus.Unavailable;
-            return BridgeStatus.Unknown;
+            // Nothing connected: a reachable channel is "up, waiting for a pick" (amber); otherwise there is nothing
+            // there. (Degraded never surfaces here — it is a property of a SERVING row, and a served-and-selected
+            // project is the green/degraded branch above.)
+            return s.AnyReachable ? BridgeStatus.Unavailable : BridgeStatus.Unknown;
         }
     }
 }
