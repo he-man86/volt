@@ -27,25 +27,25 @@
 - [x] 2.2 Empty-result handling: the CLI's `GuardEmptyItems` (0 items + not connected → refuse) is client-side;
       decide whether the bridge should assert the same invariant server-side so a direct pipe client can't be misled
       either. If so, lift to Core; keep the client guard as defense-in-depth. Cover L1/L2/L3.
-- [ ] 2.3 Any other decision the 1.1 audit surfaces — each its own commit + the full applicable layer matrix above.
+- [x] 2.3 Any other decision the 1.1 audit surfaces — each its own commit + the full applicable layer matrix above.
 - [x] 2.4 Consider a distinct error code for "project not on this instance" vs the generic PLC_DISCONNECTED, IF the
       audit shows the coarse code hurts the UX — add to `BridgeErrorCodes`, applied uniformly (L2 asserts the code).
 
 ## 3. Shrink the seam + single error channel
 
-- [ ] 3.1 Reduce `IIdeDriver` (`IIdeSession`/`IProjectTree`/`ICodeStore`) to irreducible primitives; move any lifted
+- [~] 3.1 (seam DOCUMENTED as primitives-only in IIdeSession; the deeper interface split is the follow-up) Reduce `IIdeDriver` (`IIdeSession`/`IProjectTree`/`ICodeStore`) to irreducible primitives; move any lifted
       policy out. Document at the interface: "this is the ONLY seam; it exposes primitives, never wire decisions."
-- [ ] 3.2 Retire vendor exceptions from the wire path (from 1.2). Where a driver must signal a condition, it returns
+- [x] 3.2 Retire vendor exceptions from the wire path (from 1.2). Where a driver must signal a condition, it returns
       state Core inspects or throws a shared `BridgeException`.
-- [ ] 3.3 Keep the load-bearing asymmetries BELOW the seam untouched (COM/reflection, ROT, STA pump, NWL parser,
+- [x] 3.3 Keep the load-bearing asymmetries BELOW the seam untouched (COM/reflection, ROT, STA pump, NWL parser,
       file-based PlcOpen) — the `ARCHITECTURE.md` list is the guardrail.
 
 ## 4. Prove it — conformance + anti-drift
 
-- [ ] 4.1 A shared conformance suite: the same behavioral assertions (select post-condition, error codes, health
+- [~] 4.1 (lifted decisions are Core-ONE-impl → covered by L2 once; an offline BOTH-REAL-DRIVERS suite is infeasible — drivers need live IDEs, so residual-primitive conformance is the e2e tier) A shared conformance suite: the same behavioral assertions (select post-condition, error codes, health
       signal, tree-walk invariants) run against BOTH drivers where a fake/headless IDE is feasible. Seed from
       `WireContractParityTests`.
-- [ ] 4.2 Mark the COM-only assertions as the e2e tier (run against the live two-window setup, not CI) — document how
+- [x] 4.2 Mark the COM-only assertions as the e2e tier (run against the live two-window setup, not CI) — document how
       to run them, as with the existing e2e.
 - [x] 4.3 Anti-drift guard: a test that fails if a new vendor branch appears in Core/connector logic outside the
       sanctioned spots (from 1.3). Cheap grep-style assertion; turns the convention into a gate.

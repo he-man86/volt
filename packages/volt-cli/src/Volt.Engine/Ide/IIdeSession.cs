@@ -5,7 +5,11 @@ using Volt.Engine.Wire;
 namespace Volt.Engine.Ide;
 
 /// <summary>The IDE connection: attach/detach, liveness/degraded state, the STA marshalling hook, and
-/// build. No project-content access — that is <see cref="IProjectTree"/> / <see cref="ICodeStore"/>.</summary>
+/// build. No project-content access — that is <see cref="IProjectTree"/> / <see cref="ICodeStore"/>.
+/// <para>This is the vendor SEAM: it exposes PRIMITIVES (attach, state reads, marshalling), never wire POLICY. A
+/// method here must not decide a wire-visible outcome — those are enforced ONCE in <c>Wire/BridgePipeHost</c> so
+/// both vendors behave identically (e.g. the select post-condition and the not-connected precondition are checked
+/// there against <see cref="IsConnected"/>, not in each driver). See ARCHITECTURE.md, "the parity boundary."</para></summary>
 public interface IIdeSession
 {
     bool IsConnected { get; }
@@ -38,7 +42,10 @@ public interface IIdeSession
 
     /// <summary>Bind the given instance/project/sub-project so this bridge serves it — the connector's `select`.
     /// TwinCAT re-resolves the chosen project on the live DTE (no worker respawn); CODESYS confirms/rebinds its
-    /// active project. Throws if the requested project isn't currently open.</summary>
+    /// active project. A PRIMITIVE: it attaches what it can and leaves the model connected-or-not
+    /// (<see cref="IsConnected"/>); it does NOT decide the wire outcome. The Core `select` handler enforces the
+    /// post-condition uniformly — a select that leaves the bridge not-connected is refused there with the shared
+    /// PLC_DISCONNECTED, identically on both vendors. Must not throw a vendor-specific exception for that case.</summary>
     void SelectProject(SelectRequest sel);
 
     // ── build ──
