@@ -32,9 +32,13 @@ namespace Volt.Cli.Connector
                 return;
             }
 
-            // Self-configure on startup (idempotent, best-effort): set OPENCODE_CONFIG_DIR + PATH, create the
-            // Start Menu shortcut, and register the login item so the tray survives reboots. Runs right after the
-            // installer launches us, and every login — which is why the .iss itself sets no env and no [Icons].
+            // Prune superseded version directories now, while nothing holds them (the installer can't — at install
+            // time the old version's processes are still running). Best-effort; a locked one waits for a later start.
+            Pruner.PruneOldVersions();
+
+            // Self-configure on startup (idempotent, best-effort): create the Start Menu shortcut and register the
+            // login item so the tray survives reboots. Runs right after the installer launches us, and every login.
+            // (Env — OPENCODE_CONFIG_DIR/PATH — is written by the installer, not here; see VoltEnv.)
             VoltEnv.Install();
 
             Application.EnableVisualStyles();
