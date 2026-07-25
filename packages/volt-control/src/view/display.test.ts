@@ -49,16 +49,6 @@ test("worst-state-wins: merge beats offline beats drift", () => {
   expect(aggregate([offline]).action).toBe("status") // bridge control is the connector's job, not the frontend's
 })
 
-test("mismatch retargets to acceptRename", () => {
-  const ws: WorkspaceState = {
-    status: status({ projectMismatch: { configuredAs: { platform: "", projectName: "" }, bridgeReports: { platform: "", projectName: "" }, diffFields: [] } }),
-    health: connected,
-  }
-  const d = aggregate([ws])
-  expect(d.severity).toBe("mismatch")
-  expect(d.action).toBe("acceptRename")
-})
-
 test("probing (unknown health) never reads as insync/connected", () => {
   // The bug: aggregate started conn="ok" and ignored `unknown`, so the pre-probe window reported "insync".
   const probing: WorkspaceState = { status: status(), health: { kind: "unknown" } }

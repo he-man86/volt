@@ -45,10 +45,9 @@ test("projectWorkspace: no vendor ⇒ not initialized", () => {
   expect(v.vendor).toBeUndefined()
 })
 
-test("projectWorkspace: merging wins over mismatch and hides drift items", () => {
+test("projectWorkspace: a merge pauses and hides drift items", () => {
   const status = statusWith({
     merging: { projectVersion: "v", conflicts: [{ path: "A.fb", kind: "text", reason: "both" }] },
-    projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] },
     incoming: { added: ["X.fb"], removed: [], modified: [] },
   })
   const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" })
@@ -56,15 +55,17 @@ test("projectWorkspace: merging wins over mismatch and hides drift items", () =>
   expect(v.incoming).toEqual([]) // items hidden while paused
 })
 
-test("projectWorkspace: a project mismatch alone reports the mismatch reason", () => {
+// A project rename (IDE name ≠ binding) is no longer a paused state — it's just an offline workspace whose project
+// reappears in the reconnect list under a new name (pick it to rebind). So a mismatch on the wire is ignored here.
+test("projectWorkspace: a renamed project (mismatch on the wire) is not paused — just offline/ready", () => {
   const status = statusWith({
     projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] },
   })
-  expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" }).paused).toBe("mismatch")
+  expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" }).paused).toBeNull()
 })
 
 // ── syncMode: the state machine both shells render from ──────────────────────
-test("projectWorkspace.mode: the offline/ready/merging/mismatch/uninitialized state machine", () => {
+test("projectWorkspace.mode: the offline/ready/merging/uninitialized state machine", () => {
   const unreachable: HealthState = { kind: "unreachable", reason: "x" }
   const mk = (over: Partial<StatusJson>, health: HealthState, vendor?: "codesys") =>
     projectWorkspace({ workspaceRoot: "/ws", status: statusWith(over), health, vendor }).mode
@@ -73,11 +74,8 @@ test("projectWorkspace.mode: the offline/ready/merging/mismatch/uninitialized st
   expect(mk({}, unreachable, "codesys")).toBe("offline") // initialized but bridge down
   expect(mk({}, { kind: "unknown" }, "codesys")).toBe("offline") // probing counts as not-ready
   expect(mk({}, connected)).toBe("uninitialized") // no vendor ⇒ onboarding
-  // merge/mismatch outrank offline — resolvable with the bridge down.
+  // a merge outranks offline — resolvable with the bridge down.
   expect(mk({ merging: { projectVersion: "v", conflicts: [] } }, unreachable, "codesys")).toBe("merging")
-  expect(
-    mk({ projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] } }, unreachable, "codesys"),
-  ).toBe("mismatch")
 })
 
 // ── onboardingMode: how an UNBOUND folder gets connected ─────────────────────
@@ -91,23 +89,12 @@ test("onboardingMode: connector-down outranks the (necessarily empty) project li
   expect(onboardingMode(true, 1)).toBe("choose-project")
 })
 
-// ── connectionAffordance: the ONE bound-connection action, decided once for both shells ───────────────────────
-// The gap this closes: the connect/disconnect/accept-rename decision was hand-copied into the VS Code panel and the
-// desktop shell, and they DRIFTED — one stacked accept-rename beside connect/disconnect, the other made it outrank.
-// Unified here: a mismatch OUTRANKS (offering connect/disconnect while sync is paused answers a question nobody asked).
-const aff = (online: boolean, paused: "mismatch" | "merging" | null, vendor?: "codesys") =>
-  connectionAffordance({ health: { online, label: "", tone: online ? "ok" : "warn" }, paused, vendor })
+// ── connectionAffordance: the header's one state-word + action, decided once for both shells ───────────────────
+const aff = (online: boolean) => connectionAffordance({ health: { online, label: "", tone: online ? "ok" : "warn" } })
 
-test("connectionAffordance: mismatch outranks online/offline — only Accept-Rename", () => {
-  expect(aff(false, "mismatch", "codesys")).toEqual({ caption: "not connected", action: "accept-rename", showVendorRow: false })
-  expect(aff(true, "mismatch", "codesys")).toEqual({ caption: "connected", action: "accept-rename", showVendorRow: false })
-})
-
-test("connectionAffordance: offline → connect (+ vendor row when bound); online → disconnect", () => {
-  expect(aff(false, null, "codesys")).toEqual({ caption: "not connected", action: "connect", showVendorRow: true })
-  expect(aff(false, null, undefined)).toEqual({ caption: "not connected", action: "connect", showVendorRow: false })
-  expect(aff(true, null, "codesys")).toEqual({ caption: "connected", action: "disconnect", showVendorRow: false })
-  expect(aff(true, "merging", "codesys")).toEqual({ caption: "connected", action: "disconnect", showVendorRow: false }) // merging is a git concern, not a connection one
+test("connectionAffordance: offline → connect; online → disconnect", () => {
+  expect(aff(false)).toEqual({ caption: "not connected", action: "connect" })
+  expect(aff(true)).toEqual({ caption: "connected", action: "disconnect" })
 })
 
 // ── outcome descriptors ──────────────────────────────────────────────────────

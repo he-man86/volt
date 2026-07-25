@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { boundStatus, connectorStatus, connectProject, detectedProjects, type ConnectorView } from "./connector.js"
+import { boundStatus, connectOptions, connectorStatus, connectProject, detectedProjects, type ConnectorView } from "./connector.js"
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -42,6 +42,17 @@ function boundWorkspace(vendor: string, projectName: string): string {
 // these fixtures describe live projects unless a test is specifically about a bridge that isn't serving, i.e. "idle").
 const proj = (vendor: string, name: string, connected: boolean, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, status, projectName: projectName ?? name })
 const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
+
+// The connection picker's per-project action — replaces the old accept-rename flow: a renamed project is just a
+// `rebind` row. Unbound ⇒ every row is a first-time `init`; matched ⇒ `connect`; anything else ⇒ `rebind`.
+test("connectOptions tags each detected project: init (unbound) / connect (match) / rebind (else)", () => {
+  const mine = proj("codesys", "MyMachine", true)
+  const renamed = proj("codesys", "MyMachine_v2", true)
+  const other = proj("codesys", "OtherRig", false)
+  expect(connectOptions([mine, renamed, other] as never, undefined).map((o) => o.action)).toEqual(["init", "init", "init"])
+  const bound = { vendor: "codesys" as const, projectName: "MyMachine" }
+  expect(connectOptions([mine, renamed, other] as never, bound).map((o) => o.action)).toEqual(["connect", "rebind", "rebind"])
+})
 
 describe("connector client (the UI's single source of connection status)", () => {
   test("connectorStatus parses the aggregated view", async () => {

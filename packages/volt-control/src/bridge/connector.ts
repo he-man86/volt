@@ -11,7 +11,7 @@
  * (`volt status` git drift included — it needs the local repo the connector knows nothing about). Never throws:
  * the connector being down resolves to an empty/unreachable state the UI renders as "start Volt".
  */
-import { readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
+import { readBridgeVendor, readBoundProject, vendorLabel, type BoundProject, type HealthState, type Vendor } from "./health.js"
 
 // The connector's control plane. Fixed at :8550 in production (the one port every client knows); an e2e can point
 // the real client at a test harness on another port via VOLT_CONTROL_BASE. Read lazily so the override can be set
@@ -49,6 +49,34 @@ export interface DetectedProject {
  *  predicate every surface uses; `serving` folded into `status`, so a missing/idle status reads as not serving. */
 export function isServing(p: DetectedProject | undefined): boolean {
   return p?.status === "healthy" || p?.status === "degraded"
+}
+
+/** Does this detected project satisfy a workspace's binding — same vendor AND the name the binding matches on
+ *  (projectName, falling back to displayName for CODESYS / older connectors)? The ONE "is this MY project"
+ *  predicate, shared by reconnect, boundProjectId, boundStatus, and connectOptions. */
+export function matchesBinding(p: DetectedProject, bound: BoundProject): boolean {
+  return p.vendor === bound.vendor && (p.projectName ?? p.displayName) === bound.projectName
+}
+
+/** What clicking a detected project in the connection surface does:
+ *  - `init`    — the folder is unbound: first-time set up (git init + pull).
+ *  - `connect` — it matches this workspace's binding: a plain reconnect.
+ *  - `rebind`  — a DIFFERENT project (typically the bound one, renamed in the IDE): re-point the binding to it
+ *                (confirm first). This REPLACES the old project-mismatch "accept rename" flow — a rename is just a
+ *                project in the list under a new name. */
+export type ConnectAction = "init" | "connect" | "rebind"
+export interface ConnectOption {
+  project: DetectedProject
+  action: ConnectAction
+}
+
+/** Tag every detected project with what picking it does for a given binding (undefined ⇒ unbound folder, so every
+ *  option is a first-time `init`). Shared so both shells render the SAME picker rather than each re-deciding. */
+export function connectOptions(projects: DetectedProject[], bound: BoundProject | undefined): ConnectOption[] {
+  return projects.map((project) => ({
+    project,
+    action: bound === undefined ? "init" : matchesBinding(project, bound) ? "connect" : "rebind",
+  }))
 }
 
 /** The connector's status snapshot (mirrors C# `ConnectorView`, camelCased): nothing but the ONE unified,
@@ -135,7 +163,7 @@ export async function boundProjectId(workspaceRoot: string): Promise<string | un
   const bound = readBoundProject(workspaceRoot)
   if (bound === undefined) return undefined
   const projects = await detectedProjects()
-  return projects.find((p) => p.vendor === bound.vendor && (p.projectName ?? p.displayName) === bound.projectName)?.id
+  return projects.find((p) => matchesBinding(p, bound))?.id
 }
 
 /** The bound workspace's live connection status (use case A). PER-WORKSPACE: it reflects whether THIS workspace's
@@ -155,7 +183,7 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   // displayName (older connector without projectName / CODESYS, where they're equal). An old binding with no project
   // name at all falls back to the vendor's serving row.
   const proj = bound
-    ? view.projects.find((p) => p.vendor === vendor && (p.projectName ?? p.displayName) === bound.projectName)
+    ? view.projects.find((p) => matchesBinding(p, bound))
     : view.projects.find((p) => p.vendor === vendor && isServing(p)) ?? view.projects.find((p) => p.vendor === vendor)
 
   return healthStateOf(proj, vendor, bound?.projectName)

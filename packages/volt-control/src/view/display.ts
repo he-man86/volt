@@ -52,7 +52,6 @@ export function healthDisplay(state: HealthState): HealthDisplay {
 export type VoltSeverity =
   | "uninitialized"
   | "merging"
-  | "mismatch"
   | "offline"
   | "noproject"
   | "degraded"
@@ -69,15 +68,15 @@ export interface VoltDisplay {
   label: string
   tooltip: string
   /** Where the surface's status affordance should point when clicked. Bridge *control* is the connector's
-   *  job (tray), never a frontend's — so there is no "start bridge" action here, only view/rebind. */
-  action?: "status" | "acceptRename"
+   *  job (tray), never a frontend's — so there is no "start bridge" action here, only view. */
+  action?: "status"
   incoming: number
   outgoing: number
 }
 
 /**
  * Reduce every bound workspace to one display model, worst-state-wins:
- * merge > mismatch > offline > no-project > degraded > drift > in-sync.
+ * merge > offline > no-project > degraded > drift > in-sync.
  * (`uninitialized` when nothing is bound — the surface hides its indicator.)
  */
 export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
@@ -86,7 +85,6 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
   }
 
   let merging = false
-  let mismatch = false
   let incoming = 0
   let outgoing = 0
   let conn: "ok" | "offline" | "noproject" | "degraded" = "ok"
@@ -95,7 +93,6 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
     const c = w.status
     if (c !== undefined) {
       if (c.merging !== null) merging = true
-      if (c.projectMismatch !== null) mismatch = true
       incoming += changeCount(c.incoming)
       outgoing += changeCount(c.outgoing)
     }
@@ -123,15 +120,6 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
       label: "Volt: merge",
       tooltip: "Merge in progress — resolve conflicts with your editor's Git tools, then Pull again",
       action: "status",
-      incoming,
-      outgoing,
-    }
-  if (mismatch)
-    return {
-      severity: "mismatch",
-      label: "Volt: project mismatch",
-      tooltip: "The IDE's project differs from the binding (likely a rename) — accept it and re-bind",
-      action: "acceptRename",
       incoming,
       outgoing,
     }

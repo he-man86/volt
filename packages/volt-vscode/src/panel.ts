@@ -1,11 +1,11 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, onboardingMode, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, vendorLabel, onboardingMode, connectOptions, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
-	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot), ideChanged: s.ideChanged })
+	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot), boundProjectName: readBoundProject(s.workspaceRoot)?.projectName, ideChanged: s.ideChanged })
 }
 
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
@@ -143,7 +143,6 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	const incoming: VoltNode[] = []
 	const outgoing: VoltNode[] = []
 	const merges: VoltNode[] = []
-	let mismatchPaused = false
 	let ideChanged = false // any ready workspace was edited in the IDE since the last full refresh
 	let anythingToShow = false // stays false only when EVERY bound workspace is offline → yield to the Connect welcome
 	// One switch on the shared `mode` (the desktop switches on the same field) so the two frontends can't drift.
@@ -151,10 +150,6 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 		switch (v.mode) {
 			case "merging": // actionable IN the tree — resolve each file, then Finish
 				merges.push(mergeNode(v.workspaceRoot, v.conflicts))
-				anythingToShow = true
-				break
-			case "mismatch":
-				mismatchPaused = true
 				anythingToShow = true
 				break
 			case "offline": // stay silent so the "Disconnected — Connect" welcome renders (Bridge view carries health)
@@ -186,11 +181,7 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	if (incoming.length > 0 || outgoing.length > 0) {
 		roots.push(group("incoming", "Incoming (IDE → pull)", incoming), group("outgoing", "Outgoing (push → IDE)", outgoing))
 	} else if (merges.length === 0) {
-		roots.push(
-			mismatchPaused
-				? { key: "sync:paused", label: "IDE sync paused — resolve in the Bridge view", icon: new vscode.ThemeIcon("warning") }
-				: { key: "sync:insync", label: "In sync with the IDE", icon: new vscode.ThemeIcon("check") },
-		)
+		roots.push({ key: "sync:insync", label: "In sync with the IDE", icon: new vscode.ThemeIcon("check") })
 	}
 	return roots
 }
@@ -313,39 +304,21 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 	for (const v of views) {
 		const hd = v.health
 		const aff = v.affordance
-		// Row 1 answers the only question that matters at a glance — connected, and to WHAT. The label already
-		// reads "<IDE> — <project>" when live, so state goes in the description rather than repeating the name.
+		// Row 1 answers the only question that matters at a glance — connected, and to WHAT. `connectionLabel` (from
+		// @volt/control) reads "<IDE> — <project>" live and the binding's "<VENDOR> — <project>" offline, so it names
+		// the project even when the bridge is down — no separate vendor row, and no vendor branching here.
 		nodes.push({
 			key: `bridge:${v.workspaceRoot}`,
-			label: hd.label,
+			label: v.connectionLabel,
 			description: aff.caption,
 			icon: new vscode.ThemeIcon(hd.tone === "ok" ? "pass-filled" : hd.tone === "error" ? "error" : "warning"),
 			tooltip: `${hd.online ? "Syncing with this IDE project." : "Not syncing — pull and push are unavailable."}\n${v.workspaceRoot}`,
 		})
 
-		// The vendor row only earns its place when the health label CAN'T name the IDE (offline, where the label is
-		// an error string). Connected, a second row reading just "CODESYS" said the same word twice.
-		if (aff.showVendorRow && v.vendor !== undefined)
-			nodes.push({
-				key: `vendor:${v.workspaceRoot}`,
-				label: vendorLabel(v.vendor),
-				description: "bound platform",
-				icon: new vscode.ThemeIcon("plug"),
-			})
-
-		// Exactly ONE action — Connect, Disconnect, or Accept-Rename, never stacked. `affordance` decides which (a
-		// mismatch OUTRANKS connect/disconnect: sync is paused until it's accepted, so offering them there answers a
-		// question the user didn't ask — the shared decision both shells now render identically).
-		if (aff.action === "connect")
-			nodes.push({
-				key: `reconnect:${v.workspaceRoot}`,
-				label: "Connect to the IDE",
-				description: "resume syncing",
-				tooltip: "Re-point the bridge at this workspace's project and resume syncing. Needs the project open in its IDE.",
-				icon: new vscode.ThemeIcon("plug"),
-				command: { command: "volt.connect", title: "Connect" },
-			})
-		else if (aff.action === "disconnect")
+		// Online → the one Disconnect action. Offline → the detected-project list IS the reconnect surface: the
+		// matching project reconnects, a differently-named one rebinds (a rename — the confirm lives in the command).
+		// No accept-rename node; a rename is just a project in the list under a new name (shared with the desktop).
+		if (aff.action === "disconnect")
 			nodes.push({
 				key: `disconnect:${v.workspaceRoot}`,
 				label: "Disconnect from the IDE",
@@ -354,15 +327,20 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				icon: new vscode.ThemeIcon("debug-disconnect"),
 				command: { command: "volt.disconnect", title: "Disconnect" },
 			})
-		else
-			nodes.push({
-				key: `rename:${v.workspaceRoot}`,
-				label: "Accept project rename",
-				description: "sync paused",
-				tooltip: "The IDE's project name no longer matches this workspace's binding. Accept it to resume syncing.",
-				icon: new vscode.ThemeIcon("warning"),
-				command: { command: "volt.acceptProjectRename", title: "Accept Rename" },
-			})
+		else {
+			// Match against the binding carried on the view (vendor + name) — no fs read here, so the builder stays pure.
+			const bound = v.vendor !== undefined && v.boundProjectName !== undefined ? { vendor: v.vendor, projectName: v.boundProjectName } : undefined
+			const opts = connectOptions(detected, bound)
+			if (opts.length === 0)
+				nodes.push({
+					key: `reconnect-none:${v.workspaceRoot}`,
+					label: "Open your project to reconnect",
+					description: "not detected",
+					tooltip: "This workspace's project isn't detected. Open it in its IDE (or start the Volt Connector) and it appears here to reconnect.",
+					icon: new vscode.ThemeIcon("circle-slash"),
+				})
+			else for (const o of opts) nodes.push(reconnectNode(o))
+		}
 	}
 	if (nodes.length > 0) return nodes
 
@@ -403,6 +381,30 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					icon: new vscode.ThemeIcon("circle-slash"),
 				},
 			]
+	}
+}
+
+// A row in the offline reconnect list. `connect` (matches the binding) → a plain reconnect; `rebind` (a different
+// project — a rename, or the wrong bind) → re-point the binding, with the confirm in the command. (`init` never
+// reaches here — that's the unbound onboarding path.)
+function reconnectNode(o: ConnectOption): VoltNode {
+	const platform = vendorLabel(o.project.vendor)
+	if (o.action === "connect")
+		return {
+			key: `reconnect:${o.project.id}`,
+			label: `Reconnect to ${o.project.displayName}`,
+			description: platform,
+			tooltip: "Re-point the bridge at this workspace's project and resume syncing.",
+			icon: new vscode.ThemeIcon("plug"),
+			command: { command: "volt.connect", title: "Connect" },
+		}
+	return {
+		key: `rebind:${o.project.id}`,
+		label: o.project.displayName,
+		description: `${platform} · rebind`,
+		tooltip: `Bind this workspace to "${o.project.displayName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.`,
+		icon: new vscode.ThemeIcon("plug"),
+		command: { command: "volt.rebindProject", title: "Rebind", arguments: [o.project] },
 	}
 }
 

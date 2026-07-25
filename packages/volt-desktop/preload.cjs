@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld("volt", {
   build: () => ipcRenderer.invoke("volt:build"),
   connect: () => ipcRenderer.invoke("volt:connect"),
   disconnect: () => ipcRenderer.invoke("volt:disconnect"),
-  acceptRename: () => ipcRenderer.invoke("volt:acceptRename"),
+  rebind: (projectId) => ipcRenderer.invoke("volt:rebind", projectId),
   forcePull: () => ipcRenderer.invoke("volt:forcePull"),
   forcePush: () => ipcRenderer.invoke("volt:forcePush"),
   finishMerge: () => ipcRenderer.invoke("volt:finishMerge"),

@@ -5,12 +5,16 @@ import {
   VoltStatus,
   projectWorkspace,
   readBridgeVendor,
+  readBoundProject,
+  vendorLabel,
+  connectOptions,
   connectorStatus,
   collectDiagnostics,
   onboardingMode,
   type DriftItem,
   type WorkspaceView,
   type DetectedProject,
+  type ConnectAction,
   type OnboardingMode,
 } from "@volt/control"
 import type { Shell } from "./context.js"
@@ -21,17 +25,27 @@ import type { Shell } from "./context.js"
 // on both so the connection surface (pick a project) renders the same regardless of bound state. `onboarding` is
 // the SHARED decision (@volt/control) for how an unbound folder gets connected — the renderer switches on it
 // instead of re-deriving it, which is how it and the VS Code view previously drifted apart.
-type Snap = { projects: DetectedProject[]; connectorUp: boolean; onboarding: OnboardingMode } & (
+// The renderer is vendor-blind: it prints `platformLabel` and never maps "codesys"→"CODESYS" itself (that map is
+// vendorLabel, in @volt/control — the one place it lives). Each project also carries its connect `action` (init /
+// connect / rebind) so the picker knows what clicking it does without re-deriving the binding match.
+type LabeledProject = DetectedProject & { platformLabel: string; action: ConnectAction }
+type Snap = { projects: LabeledProject[]; connectorUp: boolean; onboarding: OnboardingMode } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
 
 // Exported for the panel smoke test — the shell → shared view-model projection is pure (no electron).
 export function snapshot(shell: Shell): Snap {
-  const projects = shell.projects
+  const vs = shell.status
+  const bound = vs ? readBoundProject(vs.workspaceRoot) : undefined
+  // Tag every detected project with what picking it does (init/connect/rebind) against this workspace's binding.
+  const projects: LabeledProject[] = connectOptions(shell.projects, bound).map(({ project, action }) => ({
+    ...project,
+    platformLabel: vendorLabel(project.vendor),
+    action,
+  }))
   const connectorUp = shell.connectorUp
   const onboarding = onboardingMode(connectorUp, projects.length)
-  const vs = shell.status
   if (!vs) return { bound: false, incoming: [], outgoing: [], projects, connectorUp, onboarding }
   return {
     bound: true,
@@ -44,6 +58,7 @@ export function snapshot(shell: Shell): Snap {
       health: vs.health,
       statusError: vs.statusError,
       vendor: readBridgeVendor(vs.workspaceRoot),
+      boundProjectName: bound?.projectName,
       ideChanged: vs.ideChanged,
     }),
   }

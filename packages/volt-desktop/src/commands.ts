@@ -8,8 +8,7 @@ import {
   push,
   build,
   initFromProject,
-  init as voltInit,
-  readBridgeVendor,
+  vendorLabel,
   reconnectBound,
   disconnect,
   boundProjectId,
@@ -194,20 +193,20 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       notify(view.tone === "error" ? "error" : "info", view.message)
     }),
   )
-  // Accept a project rename — re-init the BOUND workspace with its existing vendor. Sync pauses when the IDE's
-  // project name stops matching the binding; without this the desktop could only STATE the problem while the VS
-  // Code extension could fix it, so a desktop-only user was stuck with sync paused and no way forward.
-  ipcMain.handle("volt:acceptRename", () =>
+  // Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the
+  // IDE, or binding the wrong project). initFromProject re-points the binding (force, the repo already exists) and
+  // reconnects. The renderer confirms first. This replaces the old project-mismatch "accept rename" flow.
+  ipcMain.handle("volt:rebind", (_e, projectId: string) =>
     runGuarded(async () => {
       const st = shell.status
       if (!st) return
-      const vendor = readBridgeVendor(st.workspaceRoot)
-      if (vendor === undefined) return notify("error", "This folder isn't a Volt workspace.")
-      const r = await voltInit(st.workspaceRoot, vendor, { force: true, onProgress: report })
+      const project = shell.projects.find((p) => p.id === projectId)
+      if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
+      const out = await initFromProject(project, st.workspaceRoot, { force: true, onProgress: report })
       clearProgress()
       await st.refresh(true)
-      if (r.code === 0) notify("info", "Accepted the project rename — syncing again.")
-      else notify("error", `Couldn't accept the rename: ${firstLine(r.stderr) || `exit ${r.code}`}`)
+      if (out.code === 0) notify("info", `Bound to “${project.displayName}” — syncing again.`)
+      else notify("error", `Couldn't bind: ${firstLine(out.stderr) || `exit ${out.code}`}`)
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
@@ -223,7 +222,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // with no project open it's the launch/home dir, which silently git-init'd the wrong folder. The native dir
       // picker + "Set Up Workspace" button IS the confirmation (init makes the folder a git repo and pulls the
       // project in), so there's no separate confirm dialog; defaultPath seeds opencode's folder for the common case.
-      const platform = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
+      const platform = vendorLabel(project.vendor)
       const picked = await dialog.showOpenDialog(shell.win, {
         title: `Set up a Volt workspace for “${project.displayName}” (${platform})`,
         defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,

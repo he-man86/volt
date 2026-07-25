@@ -210,6 +210,20 @@
     : icoBtn("i-refresh", title, "doRefresh()")
   const section = (key, title, acts, body) => `<div class="sect" id="sect-${key}"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
 
+  // A detected-project button in the connection picker. Its `action` (from @volt/control's connectOptions) decides
+  // the click + hint: init = first-time set up · connect = reconnect the matching project · rebind = re-point the
+  // binding at a DIFFERENT project (a rename), confirmed first. Inline call args are esc-safe (esc escapes quotes).
+  const projectBtn = (p) => {
+    const label = `${esc(p.platformLabel)} · ${esc(p.displayName)}${p.dirty ? " *" : ""}`
+    const click = p.action === "connect" ? "doConnect()" : p.action === "rebind" ? `doRebind('${esc(p.id)}','${esc(p.displayName)}')` : `doInit('${esc(p.id)}')`
+    const title = p.action === "connect"
+      ? "Reconnect this workspace to the IDE."
+      : p.action === "rebind"
+        ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
+        : "Creates the git workspace and pulls the project's code — the IDE is not modified."
+    return `<button class="btn" title="${title}" onclick="${click}"><svg class="bolt"><use href="#bolt"/></svg>${label}</button>`
+  }
+
   function renderRail() {
     // Sync tab — count of pending changes (incoming + outgoing).
     const n = snap.incoming.length + snap.outgoing.length
@@ -258,36 +272,30 @@
       // button per project, its platform a badge. No vendor buttons.
       const projects = s.projects || []
       bridgeBody = busy
-        ? busyNote
+        ? ""
         : s.onboarding === "choose-project"
           ? `<div class="note">This folder isn't syncing with an IDE yet — pick the project to set it up from:</div>
-        <div class="init-row">` +
-            projects.map((p) => `<button class="btn ${p.vendor === "codesys" ? "primary" : ""}" onclick="doInit('${esc(p.id)}')"><svg class="bolt"><use href="#bolt"/></svg>${p.vendor === "twincat" ? "TwinCAT" : "CODESYS"} · ${esc(p.displayName)}${p.dirty ? " *" : ""}</button>`).join("") +
-            `</div><div class="note">Creates the git workspace and pulls the project's code — the IDE is not modified.</div>`
+        <div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
           : s.onboarding === "no-project"
             ? `<div class="note">No PLC project detected. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — it then appears here to set up.</div>`
             : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector finds your open PLC projects and serves the bridge; they then appear here to set up.</div>`
     } else {
-      // Bound: state first (connected, and to WHAT), then exactly ONE action — Connect or Disconnect, never both,
-      // never neither. That symmetry is what keeps the tray optional.
+      // Bound: state first (connected, and to WHAT), then the action. Online → the ONE Disconnect button. Offline →
+      // the detected-project list IS the reconnect surface: the matching project reconnects, a differently-named one
+      // rebinds (a rename — confirmed first). No mismatch/accept-rename state; a rename is just a row with a new name.
       const h = s.health || { label: "…", tone: "warn", online: false }
-      // The bound-connection affordance is decided ONCE in @volt/control (connectionAffordance) and carried on the
-      // view — this renderer only maps the enum to DOM. A rename OUTRANKS online/offline: sync is PAUSED until it's
-      // accepted, so offering Connect/Disconnect there answers a question the user didn't ask.
-      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect", showVendorRow: false }
-      bridgeBody =
-        busyNote +
-        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span><span class="n">${esc(a.caption)}</span></div>` +
-        (a.action === "accept-rename"
-          ? `<div class="note">Sync is paused — the IDE's project name no longer matches this workspace's binding.</div>
-             <div class="init-row"><button class="btn primary" onclick="doAcceptRename()"><svg class="bolt"><use href="#bolt"/></svg>Accept the project rename</button></div>
-             <div class="note">Re-binds this workspace to the IDE's current project name. Your code is untouched.</div>`
-          : a.action === "connect"
-          ? (a.showVendorRow && s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
-            `<div class="note">Not syncing — the IDE window may be closed, or the Volt Connector isn't running.</div>
-             <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
-          : `<div class="init-row"><button class="btn" onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>
-             <div class="note">Stops syncing. The IDE stays open — Connect again to resume.</div>`)
+      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
+      // `connectionLabel` is decided in @volt/control (IDE-reported name when online, the binding's VENDOR — project
+      // when offline), so this row never branches on vendor.
+      const identity = `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(s.connectionLabel)}</span><span class="n">${esc(a.caption)}</span></div>`
+      if (a.action === "disconnect") {
+        bridgeBody = identity + `<div class="init-row"><button class="btn" title="Stops syncing. The IDE stays open — reconnect to resume." onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>`
+      } else {
+        const projects = s.projects || []
+        bridgeBody = identity + (projects.length
+          ? `<div class="note">Not syncing — pick your project below to reconnect (a different name rebinds this workspace to it):</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
+          : `<div class="note">${esc(h.label)} — open your project in the IDE (or start the Volt Connector) and it appears here to reconnect.</div>`)
+      }
     }
     // No refresh here — the IDE Sync section's refresh re-probes the WHOLE status (health included), so a second
     // button in this section was redundant (VS Code's Bridge view has none either).
@@ -315,7 +323,6 @@
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
     else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
-    else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — accept the project rename in IDE Connection above.</div>`
     else if (s.mode === "merging") {
       // Per-file conflict resolution: click the name to diff, or take a whole side. Reads the shared `conflicts`
       // list (same one the VS Code merge subtree renders). Buttons/rows go through the delegated panel listener.
@@ -328,8 +335,7 @@
       syncBody = busyNote +
         `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve each conflict (open the diff, take a side), then finish.</div>` +
         clist +
-        `<div class="init-row"><button class="btn primary" onclick="doFinishMerge()">Finish merge</button><button class="btn" onclick="doAbortMerge()">Abort merge</button></div>
-         <div class="note">Finish stages your resolutions and advances the IDE baseline. Abort restores the workspace to before the pull.</div>`
+        `<div class="init-row"><button class="btn primary" title="Stages your resolutions and advances the IDE baseline." onclick="doFinishMerge()">Finish merge</button><button class="btn" title="Restores the workspace to before the pull." onclick="doAbortMerge()">Abort merge</button></div>`
     }
     // The IDE was edited but not yet walked (that walk freezes the IDE, so it's on-demand) — hint a Refresh. The
     // section's Refresh button (syncActs, above) is the action; a full refresh clears this. Shown above the possibly-
@@ -353,8 +359,8 @@
     else if ((diag.errors + diag.warnings) === 0) diagBody = `<div class="note">✓ No problems.</div>`
     else
       diagBody =
-        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div>` +
-        diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("")
+        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll">` +
+        diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
 
     const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
 
@@ -387,7 +393,10 @@
   async function doBuild() { begin("Building…"); await volt.build() }
   async function doConnect() { begin("Connecting…"); await volt.connect() }
   async function doDisconnect() { begin("Disconnecting…"); await volt.disconnect() }
-  async function doAcceptRename() { begin("Accepting rename…"); await volt.acceptRename() }
+  async function doRebind(projectId, name) {
+    if (!confirm(`Bind this workspace to “${name}”?\n\nYour local code is untouched — future sync points at “${name}” instead of the project you were bound to.`)) return
+    begin("Re-binding…"); await volt.rebind(projectId)
+  }
   async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.\n\nThis cannot be undone.")) return; begin("Force pulling…"); await volt.forcePull() }
   async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.\n\nThis cannot be undone.")) return; begin("Force pushing…"); await volt.forcePush() }
   async function doFinishMerge() { begin("Finishing merge…"); await volt.finishMerge() }

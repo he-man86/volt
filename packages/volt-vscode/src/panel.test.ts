@@ -17,9 +17,8 @@ const { bridgeRoots, syncRoots } = await import("./panel.js")
 
 // Minimal WorkspaceView fixtures — only the fields the builders read. `affordance` is what connectionAffordance()
 // yields for each (it's carried on the view now; the panel renders it rather than re-deciding).
-const offlineView = { workspaceRoot: "/w", health: { label: "Disconnected", tone: "error", online: false }, vendor: "codesys", paused: null, mode: "offline", affordance: { caption: "not connected", action: "connect", showVendorRow: true }, incoming: [], outgoing: [], conflicts: [] }
-const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true }, mode: "ready", affordance: { caption: "connected", action: "disconnect", showVendorRow: false } }
-const mismatchView = { ...offlineView, paused: "mismatch", mode: "mismatch", affordance: { caption: "not connected", action: "accept-rename", showVendorRow: false } }
+const offlineView = { workspaceRoot: "/w", connectionLabel: "CODESYS — MyMachine", boundProjectName: "MyMachine", health: { label: "Disconnected", tone: "error", online: false }, vendor: "codesys", paused: null, mode: "offline", affordance: { caption: "not connected", action: "connect" }, incoming: [], outgoing: [], conflicts: [] }
+const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true }, mode: "ready", affordance: { caption: "connected", action: "disconnect" } }
 
 const proj = (over: Record<string, unknown> = {}) => ({
   id: "codesys::MyMachine:",
@@ -87,10 +86,24 @@ test("bound + ready + ideChanged → a 'Refresh to check' hint (no auto-walk)", 
   expect(String(hint?.label)).toContain("IDE changed")
 })
 
-test("bound + offline → Bridge view offers a one-click Reconnect (volt.connect), not a tray pointer", () => {
-  const roots = bridgeRoots([offlineView as never], [])
+// Offline, the reconnect surface IS the detected-project list: the matching project is a plain Reconnect
+// (volt.connect); a different-named one is a Rebind (the rename path); nothing detected → a hint, no action.
+test("bound + offline → the matching detected project is a Reconnect row (volt.connect)", () => {
+  const roots = bridgeRoots([offlineView as never], [proj()])
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(false) // already disconnected
+})
+
+test("bound + offline + a DIFFERENT-named project → a Rebind row (volt.rebindProject with that project)", () => {
+  const roots = bridgeRoots([offlineView as never], [proj({ displayName: "MyMachine_v2" })])
+  const rebind = roots.find((n) => n.command?.command === "volt.rebindProject")
+  expect(rebind?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine_v2" })
+})
+
+test("bound + offline + nothing detected → an 'open your project' hint, no connect/rebind action", () => {
+  const roots = bridgeRoots([offlineView as never], [])
+  expect(roots.some((n) => n.command?.command === "volt.connect" || n.command?.command === "volt.rebindProject")).toBe(false)
+  expect(roots.some((n) => String(n.label).includes("Open your project"))).toBe(true)
 })
 
 // Disconnect is a REAL disconnect now (the bridge refuses sync until you reconnect), so it earns a button —
@@ -99,14 +112,6 @@ test("bound + online → Bridge view offers Disconnect (volt.disconnect)", () =>
   const roots = bridgeRoots([onlineView as never], [])
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(false)
-})
-
-// A mismatch OUTRANKS connect/disconnect (unified with the desktop): sync is paused until the rename is accepted,
-// so offering connect/disconnect there answers a question the user didn't ask. Accept-Rename is the ONLY action.
-test("bound + mismatch → only Accept-Rename, never connect/disconnect stacked beside it", () => {
-  const roots = bridgeRoots([mismatchView as never], [])
-  expect(roots.some((n) => n.command?.command === "volt.acceptProjectRename")).toBe(true)
-  expect(roots.some((n) => n.command?.command === "volt.connect" || n.command?.command === "volt.disconnect")).toBe(false)
 })
 
 // The bug this guards: incoming used to diff VOLTIDE ↔ BRIDGE, but VOLTIDE (refs/remotes/volt/ide) IS the IDE

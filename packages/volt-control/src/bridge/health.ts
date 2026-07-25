@@ -57,9 +57,15 @@ export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {
   return undefined
 }
 
+/** The identity a workspace is bound to — vendor + the name the binding matches the IDE's project on. */
+export interface BoundProject {
+  vendor: Vendor
+  projectName: string
+}
+
 /** The project a workspace is bound to (`.git/volt/config.json`: vendor + projectName), for re-pointing the
  *  bridge at it. undefined ⇒ unbound / malformed. */
-export function readBoundProject(workspaceRoot: string): { vendor: Vendor; projectName: string } | undefined {
+export function readBoundProject(workspaceRoot: string): BoundProject | undefined {
   const vendor = readBridgeVendor(workspaceRoot)
   if (vendor === undefined) return undefined
   try {

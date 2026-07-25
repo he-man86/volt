@@ -2,10 +2,10 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, init as voltInit, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects, readBridgeVendor,
+	pull, push, build, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve, vendorLabel,
 	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
-	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type Vendor, type DetectedProject,
+	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -235,11 +235,20 @@ async function doInitFromProject(ensureWorkspace: (folder: string) => void, work
 	finishInit(ensureWorkspace, workspaceRoot, r)
 }
 
-/** Re-init the BOUND workspace with its existing vendor (accept-project-rename / force) — not the picker path. */
-async function doReinit(ensureWorkspace: (folder: string) => void, workspaceRoot: string, vendor: Vendor): Promise<void> {
+/** Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" (a rename in the IDE, or a
+ *  wrong bind). Confirms modally, then initFromProject(force) re-points the binding and reconnects. Replaces the old
+ *  accept-project-rename flow. */
+async function doRebindProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
+	const platform = vendorLabel(project.vendor)
+	const pick = await vscode.window.showWarningMessage(
+		`Bind this workspace to “${project.displayName}” (${platform})?`,
+		{ modal: true, detail: `${workspaceRoot}\n\nYour local code is untouched — future sync points at “${project.displayName}” instead of the project you were bound to.` },
+		"Rebind",
+	)
+	if (pick !== "Rebind") return
 	const r = await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
-		(progress) => voltInit(workspaceRoot, vendor, { force: true, onProgress: progressBridge(progress) }),
+		{ location: vscode.ProgressLocation.Notification, title: "volt rebind" },
+		(progress) => initFromProject(project, workspaceRoot, { force: true, onProgress: progressBridge(progress) }),
 	)
 	finishInit(ensureWorkspace, workspaceRoot, r)
 }
@@ -305,7 +314,8 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			const w = await initTarget()
 			if (w) await doInitFromProject(ensureWorkspace, w, project)
 		}),
-		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doReinit(ensureWorkspace, w, readBridgeVendor(w) ?? "twincat") }),
+		// Rebind to a DIFFERENT detected project — fired by a reconnect-list "rebind" row (a rename, or wrong bind).
+		reg("volt.rebindProject", async (project?: DetectedProject) => { const w = ws(); if (w && project) await doRebindProject(ensureWorkspace, w, project) }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),

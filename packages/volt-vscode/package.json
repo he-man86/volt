@@ -564,11 +564,6 @@
         "category": "Volt"
       },
       {
-        "command": "volt.acceptProjectRename",
-        "title": "Volt: Accept Project Rename",
-        "category": "Volt"
-      },
-      {
         "command": "volt.pull",
         "title": "Volt: Pull (bridge → workspace)",
         "category": "Volt",
@@ -692,10 +687,6 @@
         }
       ],
       "commandPalette": [
-        {
-          "command": "volt.acceptProjectRename",
-          "when": "false"
-        },
         {
           "command": "volt.takeIdeVersion",
           "when": "false"
