@@ -135,10 +135,12 @@ public class PerPipeProjectSourceTests
     [Fact]
     public async Task Fans_out_over_pipes_concurrently_so_a_slow_ide_does_not_serialize_the_others()
     {
-        // Three running IDEs, each ~300ms to answer health: sequential would be ~900ms, concurrent ~300ms. One
-        // slow/hung IDE must not stall discovery of the others.
+        // TEN running IDEs, each ~300ms to answer health. Serialized that's ~3000ms; concurrent it's ~300ms. The
+        // threshold sits at 2000ms — a WIDE gap on both sides (concurrent + CI-load jitter stays well under it;
+        // serialized 3000ms is well over), so this proves "concurrent, not serialized" without flaking on a loaded
+        // runner the way a tight 3×300ms/<700ms budget did. One slow/hung IDE must not stall discovery of the others.
         var wires = new Dictionary<string, IBridgeWire>();
-        for (int i = 1; i <= 3; i++)
+        for (int i = 1; i <= 10; i++)
             wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { DelayMs = 300 }
                 .On("health", $$"""{ "projects": [ { "project": "M{{i}}" } ] }""");
         var src = new PerPipeProjectSource("codesys", "CODESYS", () => wires.Keys.ToList(), pipe => wires[pipe]);
@@ -147,8 +149,8 @@ public class PerPipeProjectSourceTests
         var scan = await src.ScanAsync();
         sw.Stop();
 
-        Assert.Equal(3, scan.Projects.Count);
-        Assert.True(sw.ElapsedMilliseconds < 700, $"pipe fan-out was serialized ({sw.ElapsedMilliseconds}ms for 3×300ms)");
+        Assert.Equal(10, scan.Projects.Count);
+        Assert.True(sw.ElapsedMilliseconds < 2000, $"pipe fan-out was serialized ({sw.ElapsedMilliseconds}ms for 10×300ms — concurrent should be ~300ms)");
     }
 
     [Fact]

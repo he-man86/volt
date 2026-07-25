@@ -63,7 +63,8 @@ suite("volt-control ↔ real ControlServer", () => {
 			await Bun.sleep(200)
 		}
 		expect(await connectorStatus()).toBeDefined() // the harness is really serving
-	})
+	}, 90_000) // EXPLICIT hook timeout: the spawn + readiness poll can take > bun's 5s default on a cold CI runner
+	// (the .NET runtime cold-start + HttpListener bind). Without this the hook is killed at 5s and every test "fails".
 
 	afterAll(() => {
 		try { proc?.stdin?.end() } catch {}
@@ -71,7 +72,7 @@ suite("volt-control ↔ real ControlServer", () => {
 		delete process.env.VOLT_CONTROL_BASE
 	})
 
-	beforeEach(async () => { await disconnect() }) // clear any active selection between tests
+	beforeEach(async () => { await disconnect() }, 15_000) // clear any active selection; generous vs bun's 5s default
 
 	// ── single instance ──────────────────────────────────────────────────────────────
 	test("single IDE: the client parses the view and a connect round-trips into status", async () => {
