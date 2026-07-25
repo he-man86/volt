@@ -181,10 +181,14 @@ public static class Git
     public static string ResolveGitDir(string root) =>
         Run(new[] { "-C", root, "rev-parse", "--absolute-git-dir" }).StdOut.Trim();
 
-    public static bool IsInsideRepo(string root)
+    /// <summary>True only when <paramref name="root"/> is ITSELF a repo root (<c>.git</c> lives directly in it) —
+    /// NOT when it merely sits under an ancestor repo. Volt state lives at <c>&lt;root&gt;/.git/volt</c>, so init must
+    /// never attach to a parent's <c>.git</c> (that made every folder under an ancestor repo read "already
+    /// initialized"). <c>.git</c> is a dir for a normal repo, a file for a worktree/submodule.</summary>
+    public static bool IsRepoRoot(string root)
     {
-        var r = Run(new[] { "-C", root, "rev-parse", "--is-inside-work-tree" }, allowFail: true);
-        return r.Code == 0 && r.StdOut.Trim() == "true";
+        var dotGit = Path.Combine(root, ".git");
+        return Directory.Exists(dotGit) || File.Exists(dotGit);
     }
 
     public static void GitInit(string root) =>

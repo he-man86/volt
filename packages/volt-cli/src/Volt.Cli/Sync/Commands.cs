@@ -28,7 +28,7 @@ public static class Commands
         if (string.IsNullOrEmpty(health.ProjectName))
             return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
 
-        var gitCreated = !Git.IsInsideRepo(root);
+        var gitCreated = !Git.IsRepoRoot(root);
         if (gitCreated) Git.GitInit(root);
         Files.EnsureGitattributes(root);
 

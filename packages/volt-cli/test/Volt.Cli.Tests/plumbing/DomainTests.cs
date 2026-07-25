@@ -76,6 +76,28 @@ public class DomainTests
     }
 
     [Fact]
+    public void ConfigExists_is_folder_local_not_ancestor_walk()
+    {
+        // Regression: an empty subfolder under an initialized repo used to report "already initialized"
+        // because ResolveGitDir walks up and found the ancestor's .git/volt/config.json.
+        var root = TestUtil.NewRepo();
+        try
+        {
+            Config.SaveConfig(root, new WorkspaceConfig
+            {
+                Bridge = new() { Vendor = "codesys" },
+                Project = new() { Platform = "codesys", ProjectName = "Demo" },
+                LinkedAt = "2026-07-25T00:00:00Z",
+            });
+            Assert.True(Config.ConfigExists(root));
+
+            var sub = Directory.CreateDirectory(Path.Combine(root, "empty-sub")).FullName;
+            Assert.False(Config.ConfigExists(sub)); // not its own repo root → not initialized here
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    [Fact]
     public void Sidecar_roundtrips()
     {
         var root = TestUtil.NewRepo();

@@ -40,6 +40,9 @@ public static class Config
 
     public static bool ConfigExists(string root)
     {
+        // Folder-local: root must be its OWN repo root, else an ancestor repo's .git/volt would count (the
+        // "already initialized" footgun in an empty subfolder). Paths() then resolves to <root>/.git.
+        if (!Git.IsRepoRoot(root)) return false;
         try { return File.Exists(Paths(root).ConfigPath); }
         catch { return false; } // not a git repo yet → not an initialized Volt workspace
     }
