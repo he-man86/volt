@@ -136,6 +136,64 @@ public class ControlServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Concurrent_connects_to_different_projects_all_reach_the_model()
+    {
+        var reached = new System.Collections.Concurrent.ConcurrentBag<string>();
+        Start(id => { reached.Add(id); return Task.FromResult(true); }, _ => Task.FromResult(UnbindResult.Gated));
+
+        await Task.WhenAll(Enumerable.Range(0, 6).Select(i => Post("connect", $"{{\"projectId\":\"p{i}\"}}")));
+
+        Assert.Equal(6, reached.Distinct().Count()); // every concurrent connect landed, distinct
+    }
+
+    [Fact]
+    public async Task Disconnect_with_a_projectId_targets_that_project()
+    {
+        // A frontend disconnects the project ITS workspace is bound to — the id must reach the model, not be dropped
+        // for the tray's active one.
+        string? got = "unset";
+        Start(_ => Task.FromResult(true), id => { got = id; return Task.FromResult(UnbindResult.Gated); });
+
+        await Post("disconnect", "{\"projectId\":\"twincat:Line1\"}");
+
+        Assert.Equal("twincat:Line1", got);
+    }
+
+    [Fact]
+    public async Task A_malformed_connect_body_is_rejected_and_never_reaches_the_model()
+    {
+        var reached = false;
+        Start(_ => { reached = true; return Task.FromResult(true); }, _ => Task.FromResult(UnbindResult.Gated));
+
+        var r = await Post("connect", "{ not json");
+
+        Assert.Equal(400, (int)r.StatusCode);
+        Assert.False(reached);
+    }
+
+    [Fact]
+    public async Task An_unknown_route_is_404()
+    {
+        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated));
+        Assert.Equal(404, (int)(await Post("nope/route")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_worker_restart_route_calls_restart_with_the_id()
+    {
+        string? restarted = null;
+        var view = new ConnectorView(Array.Empty<ProjectView>());
+        _server = new ControlServer(() => Task.FromResult(view), _ => Task.FromResult(true),
+            _ => Task.FromResult(UnbindResult.Gated), id => restarted = id, _port);
+        _server.Start();
+
+        var r = await Post("workers/twincat/restart");
+
+        Assert.Equal(200, (int)r.StatusCode);
+        Assert.Equal("twincat", restarted);
+    }
+
+    [Fact]
     public async Task Cross_origin_browser_requests_are_refused()
     {
         // The CSRF guard: a page in the user's browser must not be able to disconnect their IDE. First-party

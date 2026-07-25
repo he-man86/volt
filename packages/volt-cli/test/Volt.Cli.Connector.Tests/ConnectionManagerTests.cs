@@ -122,6 +122,116 @@ public class ConnectionManagerTests
     }
 
     [Fact]
+    public async Task Same_name_across_different_vendors_stays_distinct()
+    {
+        // vendor+name is the identity, so "Shared" on CODESYS and "Shared" on TwinCAT are TWO rows — connecting one
+        // must not select or disturb the other.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var pA = cds.Add("Shared");
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        tc.Add("Shared");
+        var mgr = Mgr(cds, tc);
+        await mgr.RefreshAsync();
+
+        Assert.Equal(2, mgr.Projects.Count);
+        Assert.Equal(2, mgr.Projects.Select(p => p.Id).Distinct().Count());
+
+        await mgr.ConnectAsync(pA);
+        Assert.Equal(pA, mgr.SelectedOf("codesys"));
+        Assert.Null(mgr.SelectedOf("twincat")); // the same-named TwinCAT project is untouched
+    }
+
+    [Fact]
+    public async Task IsServingProject_is_independent_per_row_across_all_IDEs()
+    {
+        // Four IDEs, two serving: each row's serving is its OWN bridge's fact, so one connected IDE never flips
+        // another's connection state.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("A", serving: true); cds.Add("B", serving: false);
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        tc.Add("C", serving: true); tc.Add("D", serving: false);
+        var mgr = Mgr(cds, tc);
+        await mgr.RefreshAsync();
+
+        string Id(string v, string n) => $"{v}:{n}";
+        Assert.True(mgr.IsServingProject(Id("codesys", "A")));
+        Assert.False(mgr.IsServingProject(Id("codesys", "B")));
+        Assert.True(mgr.IsServingProject(Id("twincat", "C")));
+        Assert.False(mgr.IsServingProject(Id("twincat", "D")));
+    }
+
+    [Theory]
+    // Green requires the ACTIVE connection's OWN row to be serving — a selection alone (bridge gated, or bind not yet
+    // confirmed) is a highlight, not a connection. So connecting an idle row is NOT green; a serving one is.
+    [InlineData(false, BridgeStatus.Unavailable)]
+    [InlineData(true, BridgeStatus.Connected)]
+    public async Task Aggregate_is_green_only_when_the_active_connections_own_row_serves(bool serving, BridgeStatus expected)
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var p = cds.Add("A", serving: serving);
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(p);
+
+        Assert.Equal(expected, mgr.Aggregate());
+    }
+
+    [Fact]
+    public async Task A_selected_projects_source_going_unreachable_drops_that_selection_only()
+    {
+        // Connect a CODESYS project, then its bridge dies (source throws). The project vanishes and its selection
+        // drops — but the OTHER vendor's still-detected project is unaffected.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var pA = cds.Add("A");
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        tc.Add("B");
+        var mgr = Mgr(cds, tc);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(pA);
+        Assert.Equal(pA, mgr.SelectedOf("codesys"));
+
+        cds.ThrowOnEnumerate = true; // the CODESYS bridge went away
+        await mgr.RefreshAsync();
+
+        Assert.Null(mgr.SelectedOf("codesys"));                                  // selection dropped
+        Assert.Equal(new[] { "B" }, mgr.Projects.Select(p => p.DisplayName));    // TwinCAT project still listed
+    }
+
+    [Fact]
+    public async Task Disconnecting_a_project_on_one_vendor_leaves_the_other_vendors_active_connection()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var pA = cds.Add("A");
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var pB = tc.Add("B");
+        var mgr = Mgr(cds, tc);
+        await mgr.RefreshAsync();
+        await mgr.ConnectAsync(pB); // TwinCAT is the active connection
+
+        Assert.Equal(UnbindResult.Gated, await mgr.DisconnectAsync(pA.Id)); // disconnect the CODESYS project
+
+        Assert.Equal(new[] { pA }, cds.Unbound);      // CODESYS bridge was gated
+        Assert.Empty(tc.Unbound);                     // TwinCAT bridge untouched
+        Assert.Equal(pB, mgr.SelectedOf("twincat"));  // its active connection stands
+    }
+
+    [Fact]
+    public async Task Same_name_same_vendor_collapse_keeps_the_SERVING_instance()
+    {
+        // Two CODESYS on an identically-named project collapse to one row (vendor+name identity). If the enumeration
+        // lists the IDLE one first, the SERVING instance must still win — else the UI would show/connect the wrong one.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("MachineA", serving: false); // idle instance enumerated FIRST
+        cds.Add("MachineA", serving: true);  // the connected instance, second
+        var mgr = Mgr(cds);
+
+        await mgr.RefreshAsync();
+
+        var row = Assert.Single(mgr.Projects);
+        Assert.True(mgr.IsServingProject(row.Id)); // the serving instance won the collapse
+    }
+
+    [Fact]
     public async Task Two_projects_with_the_same_name_collapse_to_one_row()
     {
         // Identity is vendor+name, so two simultaneously-open identically-named projects share an id and collapse

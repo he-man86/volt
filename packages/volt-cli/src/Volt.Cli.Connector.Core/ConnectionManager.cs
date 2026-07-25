@@ -130,12 +130,21 @@ namespace Volt.Cli.Connector
             var scanned = scans.SelectMany(x => x.Projects);
             var anyReachable = Array.Exists(scans, x => x.Reachable);
 
-            // Identity is vendor+name, so two projects opened under the same name at once collapse to ONE row (first
-            // wins, stable order). Unsupported anyway — the CLI refuses it (AMBIGUOUS_BRIDGE) — and this keeps the id
-            // the primary key of everything downstream (the serving map, the picker, selection).
-            var seenIds = new HashSet<string>();
+            // Identity is vendor+name, so two projects opened under the same name at once collapse to ONE row (stable
+            // order). Unsupported anyway — the CLI refuses it (AMBIGUOUS_BRIDGE) — and this keeps the id the primary
+            // key of everything downstream (the serving map, the picker, selection). Among a same-name pair, PREFER
+            // the SERVING instance: if the enumeration happened to list an idle one first, the connected one must
+            // still be the row the UI shows and a connect reaches.
+            var indexById = new Dictionary<string, int>();
             var merged = new List<DetectedProject>();
-            foreach (var p in scanned) if (seenIds.Add(p.Id)) merged.Add(p);
+            foreach (var p in scanned)
+            {
+                if (indexById.TryGetValue(p.Id, out var idx))
+                {
+                    if (p.Serving && !merged[idx].Serving) merged[idx] = p;
+                }
+                else { indexById[p.Id] = merged.Count; merged.Add(p); }
+            }
 
             // "Is this project's bridge serving it right now" — the one question the UI needs (a project can be
             // detected but gated, which is what Disconnect does). It is a per-row fact ON the wire: the bridge stamps
