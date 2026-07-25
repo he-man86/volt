@@ -118,16 +118,17 @@ namespace Volt.Cli.Connector
         {
             var prior = _state;
 
-            var scanned = new List<DetectedProject>();
-            var anyReachable = false;
-            foreach (var s in _sources)
+            // Scan every source CONCURRENTLY: the bridges are independent processes (2 CODESYS in-proc hosts + the
+            // TwinCAT worker), so a slow/hung one must not stall the others' health — total refresh time is the
+            // SLOWEST single bridge, not the sum. Each scan is bounded (a 2s pipe connect timeout) and self-isolating
+            // (a throw → empty + not reachable). Task.WhenAll preserves source order, so the dedup below stays stable.
+            var scans = await Task.WhenAll(_sources.Select(async s =>
             {
-                // ONE poll per source: the rows ARE the projects (each self-describing), and the scan reports whether
-                // the bridge answered at all. No second health probe — the old per-source ProbeAsync re-fetched the
-                // same cache-served health to recompute serving/status the rows already carry.
-                try { var scan = await s.ScanAsync(); scanned.AddRange(scan.Projects); anyReachable |= scan.Reachable; }
-                catch { /* unreachable / mid-load → contributes nothing, not reachable */ }
-            }
+                try { return await s.ScanAsync(); }
+                catch { return new SourceScan(Array.Empty<DetectedProject>(), Reachable: false); }
+            }));
+            var scanned = scans.SelectMany(x => x.Projects);
+            var anyReachable = Array.Exists(scans, x => x.Reachable);
 
             // Identity is vendor+name, so two projects opened under the same name at once collapse to ONE row (first
             // wins, stable order). Unsupported anyway — the CLI refuses it (AMBIGUOUS_BRIDGE) — and this keeps the id

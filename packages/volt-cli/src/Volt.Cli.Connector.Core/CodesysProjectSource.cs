@@ -33,17 +33,18 @@ namespace Volt.Cli.Connector
 
         public async Task<SourceScan> ScanAsync()
         {
-            // Fan out over every live pipe — one `health` poll each, cache-served, never marshalled onto the IDE
-            // thread. Each row is self-describing (serving/status/dirty ride through onto the DetectedProject), so
-            // there is no second probe: a live pipe existing IS the reachability bit ("up, waiting for a pick").
+            // Fan out over every live pipe CONCURRENTLY — one `health` poll each, cache-served, never marshalled onto
+            // the IDE thread. Each CODESYS is its own process/pipe, so a hung one must not stall the others: total time
+            // is the slowest single pipe, not the sum. Each call is bounded (2s connect) + self-isolating (a throw →
+            // no rows for that pipe). Each row is self-describing (serving/status/dirty ride through onto the
+            // DetectedProject), so there is no second probe: a live pipe existing IS the reachability bit.
             var pipes = _livePipes();
-            var all = new List<DetectedProject>();
-            foreach (var pipe in pipes)
+            var perPipe = await Task.WhenAll(pipes.Select(async pipe =>
             {
-                try { all.AddRange(WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe)); }
-                catch { /* that host went away mid-scan — skip it */ }
-            }
-            return new SourceScan(all, Reachable: pipes.Count > 0);
+                try { return WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe); }
+                catch { return new List<DetectedProject>(); } // that host went away mid-scan — skip it
+            }));
+            return new SourceScan(perPipe.SelectMany(x => x).ToList(), Reachable: pipes.Count > 0);
         }
 
         public Task BindAsync(DetectedProject project)

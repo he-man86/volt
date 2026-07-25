@@ -19,6 +19,9 @@ internal sealed class FakeProjectSource : IProjectSource
     /// <summary>Whether the bridge answered this tick — the one bit the rows can't express (up-but-empty vs down).</summary>
     public bool Reachable { get; set; } = true;
     public bool ThrowOnEnumerate { get; set; }
+    /// <summary>Delay this source's scan (models a slow/hung bridge) — used to prove sources are scanned CONCURRENTLY,
+    /// so one slow bridge doesn't stall the others.</summary>
+    public int ScanDelayMs { get; set; }
     public List<DetectedProject> Bound { get; } = new();
     public List<DetectedProject> Unbound { get; } = new();
 
@@ -33,9 +36,12 @@ internal sealed class FakeProjectSource : IProjectSource
         return p;
     }
 
-    public Task<SourceScan> ScanAsync() =>
-        ThrowOnEnumerate ? throw new InvalidOperationException("unreachable")
-                         : Task.FromResult(new SourceScan(Projects.ToList(), Reachable));
+    public async Task<SourceScan> ScanAsync()
+    {
+        if (ThrowOnEnumerate) throw new InvalidOperationException("unreachable");
+        if (ScanDelayMs > 0) await Task.Delay(ScanDelayMs);
+        return new SourceScan(Projects.ToList(), Reachable);
+    }
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
     /// <summary>What the fake bridge does on unbind — Unsupported plays an OUT-OF-DATE bridge (keeps serving the
@@ -130,6 +136,45 @@ public class ConnectionManagerTests
 
         Assert.Single(mgr.Projects);
         Assert.Equal("MachineA", mgr.Projects[0].DisplayName);
+    }
+
+    [Fact]
+    public async Task Merges_four_projects_across_multiple_sources_into_one_list()
+    {
+        // The multi-IDE topology: the CODESYS source fans out over 2 running IDEs, the TwinCAT worker multiplexes 2
+        // XAE windows — 2 sources, 4 projects, ONE unified list the UI shows across vendors.
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("MachineA"); cds.Add("MachineB");
+        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        tc.Add("Line1"); tc.Add("Line2");
+        var mgr = Mgr(cds, tc);
+
+        await mgr.RefreshAsync();
+
+        Assert.Equal(new[] { "Line1", "Line2", "MachineA", "MachineB" }, mgr.Projects.Select(p => p.DisplayName).OrderBy(x => x));
+        Assert.Equal(4, mgr.Projects.Select(p => p.Id).Distinct().Count()); // four distinct identities
+        Assert.Equal(2, mgr.Projects.Count(p => p.Vendor == "codesys"));
+        Assert.Equal(2, mgr.Projects.Count(p => p.Vendor == "twincat"));
+    }
+
+    [Fact]
+    public async Task Sources_are_scanned_concurrently_so_a_slow_vendor_does_not_stall_the_other()
+    {
+        // One source PER VENDOR (CODESYS fans out over its pipes internally). If a vendor's bridge is slow (~300ms),
+        // the connector must still scan the other vendor concurrently — sequential would be ~600ms, concurrent ~300ms.
+        // A slow/hung TwinCAT worker must not delay CODESYS health (and vice versa).
+        var cds = new FakeProjectSource("codesys", "CODESYS") { ScanDelayMs = 300 };
+        cds.Add("MachineA");
+        var tc = new FakeProjectSource("twincat", "TwinCAT") { ScanDelayMs = 300 };
+        tc.Add("Line1");
+        var mgr = Mgr(cds, tc);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await mgr.RefreshAsync();
+        sw.Stop();
+
+        Assert.Equal(2, mgr.Projects.Count);
+        Assert.True(sw.ElapsedMilliseconds < 480, $"the two vendors' scans were serialized ({sw.ElapsedMilliseconds}ms for 2×300ms)");
     }
 
     [Fact]

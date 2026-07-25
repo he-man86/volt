@@ -15,15 +15,18 @@ internal sealed class FakeBridgeWire : IBridgeWire
     private readonly Dictionary<string, string> _responses = new();
     public List<(string Op, string Body)> Calls { get; } = new();
     public HashSet<string> Throw { get; } = new();
+    /// <summary>Delay each call (models a slow/hung CODESYS) — used to prove the pipe fan-out is CONCURRENT.</summary>
+    public int DelayMs { get; set; }
 
     public FakeBridgeWire On(string op, string json) { _responses[op] = json; return this; }
 
-    public Task<JsonElement> CallAsync(string op, object? body = null)
+    public async Task<JsonElement> CallAsync(string op, object? body = null)
     {
         Calls.Add((op, body is null ? "" : JsonSerializer.Serialize(body)));
         if (Throw.Contains(op)) throw new InvalidOperationException("unreachable");
+        if (DelayMs > 0) await Task.Delay(DelayMs);
         var json = _responses.TryGetValue(op, out var j) ? j : "{}";
-        return Task.FromResult(JsonSerializer.Deserialize<JsonElement>(json));
+        return JsonSerializer.Deserialize<JsonElement>(json);
     }
 }
 
@@ -190,6 +193,25 @@ public class CodesysProjectSourceTests
         var p = Assert.Single(scan.Projects);
         Assert.Equal("MachineB", p.DisplayName);
         Assert.True(p.Serving);
+    }
+
+    [Fact]
+    public async Task Fans_out_over_pipes_concurrently_so_a_slow_codesys_does_not_serialize_the_others()
+    {
+        // Three running CODESYS, each ~300ms to answer health: sequential would be ~900ms, concurrent ~300ms. One
+        // slow/hung IDE must not stall discovery of the others.
+        var wires = new Dictionary<string, IBridgeWire>();
+        for (int i = 1; i <= 3; i++)
+            wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { DelayMs = 300 }
+                .On("health", $$"""{ "projects": [ { "project": "M{{i}}" } ] }""");
+        var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var scan = await src.ScanAsync();
+        sw.Stop();
+
+        Assert.Equal(3, scan.Projects.Count);
+        Assert.True(sw.ElapsedMilliseconds < 700, $"pipe fan-out was serialized ({sw.ElapsedMilliseconds}ms for 3×300ms)");
     }
 
     [Fact]
