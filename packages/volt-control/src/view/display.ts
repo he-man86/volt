@@ -24,7 +24,9 @@ export function healthLabel(state: HealthState): string {
     case "connected":
       return `${state.health.ideName ?? "IDE"} — ${state.health.projectName ?? "(no project)"}`
     case "degraded":
-      return `Degraded: ${state.health.degradedReason ?? "previous call failed"}`
+      // The bridge no longer carries a per-degrade reason on the wire (dropped with the C# degradedReason field), so
+      // this is a static description — matching `aggregate()`'s degraded tooltip.
+      return "Degraded: the IDE channel had recent errors"
     case "disconnected":
       return "No project loaded"
     case "unreachable":

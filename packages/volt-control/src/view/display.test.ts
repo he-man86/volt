@@ -69,7 +69,7 @@ test("probing (unknown health) never reads as insync/connected", () => {
 
 test("healthDisplay maps each kind", () => {
   expect(healthDisplay(connected)).toMatchObject({ online: true, tone: "ok" })
-  expect(healthDisplay({ kind: "degraded", health: { status: "degraded", connected: true } })).toMatchObject({ online: true, tone: "warn" })
+  expect(healthDisplay({ kind: "degraded", health: { connected: true } })).toMatchObject({ online: true, tone: "warn" })
   expect(healthDisplay(unreachable)).toMatchObject({ online: false, tone: "error" })
-  expect(healthDisplay({ kind: "disconnected", health: { status: "unavailable", connected: false } }).online).toBe(false)
+  expect(healthDisplay({ kind: "disconnected", health: { connected: false } }).online).toBe(false)
 })

@@ -161,13 +161,12 @@ function healthStateOf(proj: DetectedProject | undefined, vendor: Vendor, boundN
   if (proj?.serving !== true)
     return {
       kind: "disconnected",
-      health: { status: "unavailable", connected: false, ideName, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
+      health: { connected: false, ideName, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
     }
   const degraded = proj.status === "degraded"
   return {
     kind: degraded ? "degraded" : "connected",
     health: {
-      status: degraded ? "degraded" : "healthy",
       connected: true,
       ideName,
       projectName: proj.projectName ?? proj.displayName,

@@ -7,13 +7,13 @@ import { join } from "node:path"
  * the old `probeHealth`/`probeVendors` pipe probes are gone. These types are still the shape callers render;
  * `connector.ts` produces a `HealthState` from the connector's per-vendor view.
  */
+// The UI-facing health fields, DERIVED from a `/status` row by `connector.ts:healthStateOf`. Deliberately only the
+// fields a renderer reads: the connected/degraded/unavailable distinction is the `HealthState.kind` tag (below), so
+// it is NOT re-encoded here. (The old `status`/`degraded`/`degradedReason`/`ideVersion` fields were removed with the
+// C# `degradedReason` wire field — they were unset or unread; the live IDE version is `DetectedProject.ideVersion`.)
 export interface BridgeHealth {
-  status: "healthy" | "degraded" | "unavailable"
   connected: boolean
-  degraded?: boolean
-  degradedReason?: string | null
   ideName?: string | null
-  ideVersion?: string | null
   projectName?: string | null
   projectDirty?: boolean
 }
