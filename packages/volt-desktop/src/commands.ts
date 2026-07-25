@@ -19,8 +19,6 @@ import {
   describePush,
   describeMerge,
   describeDisconnect,
-  confirmInitMessage,
-  confirmInitDetail,
   presentOutcome,
   settleOutcome,
   formatProgress,
@@ -198,32 +196,33 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.on("volt:refreshDiagnostics", () => void runDiagnostics(shell))
   ipcMain.handle("volt:init", (_e, projectId: string) =>
     runGuarded(async () => {
-      // Init the project opencode is on — no folder picker (like the extension initing its open workspace). The
-      // user picked a DETECTED PROJECT (not a vendor); resolve it and derive the vendor from it.
-      const root = shell.boundRoot
-      if (root === undefined || !existsSync(root)) return notify("error", "No project open in opencode.")
+      // The user picked a DETECTED PROJECT (not a vendor); resolve it and derive the vendor from it.
+      if (!shell.win) return
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
 
-      // CONFIRM first, with the same copy VS Code uses. Init is not a preview: it makes the folder a git repo and
-      // pulls the whole project in. VS Code asked; the desktop just did it, so the same click meant different
-      // things depending on which app you were in — and a stray click on a project row bound a folder for good.
-      if (!shell.win) return
+      // Pick the folder EXPLICITLY. opencode's reported cwd (shell.boundRoot) is only a DEFAULT, not the truth —
+      // with no project open it's the launch/home dir, which silently git-init'd the wrong folder. The native dir
+      // picker + "Set Up Workspace" button IS the confirmation (init makes the folder a git repo and pulls the
+      // project in), so there's no separate confirm dialog; defaultPath seeds opencode's folder for the common case.
       const platform = project.vendor === "twincat" ? "TwinCAT" : "CODESYS"
-      const { response } = await dialog.showMessageBox(shell.win, {
-        type: "question",
-        message: confirmInitMessage(project.displayName, platform),
-        detail: confirmInitDetail(root),
-        buttons: ["Set Up Workspace", "Cancel"],
-        defaultId: 0,
-        cancelId: 1,
+      const picked = await dialog.showOpenDialog(shell.win, {
+        title: `Set up a Volt workspace for “${project.displayName}” (${platform})`,
+        defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
+        properties: ["openDirectory"],
+        buttonLabel: "Set Up Workspace",
       })
-      if (response !== 0) return
+      if (picked.canceled || picked.filePaths.length === 0) return
+      const root = picked.filePaths[0]
 
       const out = await initFromProject(project, root, { onProgress: report })
       clearProgress()
-      if (out.code === 0) await bindWorkspace(shell, root)
-      else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
+      if (out.code === 0) {
+        await bindWorkspace(shell, root)
+        notify("info", `Workspace initialized — “${project.displayName}” is syncing.`)
+      } else {
+        notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
+      }
     }),
   )
 }
