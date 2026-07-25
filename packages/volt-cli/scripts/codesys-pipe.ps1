@@ -21,7 +21,9 @@ param(
     # -Ui launches CODESYS WITH its GUI (drops --noUI) — closer to production, where a user runs the same in-proc
     # host inside the real IDE via "Activate in CODESYS". The runscript still opens the fixture + serves the pipe;
     # the primary-thread pump keeps the UI responsive. Headless (default) stays the fast CI/dev loop.
-    [switch]$Ui
+    [switch]$Ui,
+    # -NoBuild skips the pre-launch bridge rebuild (fast re-launch when you KNOW the DLL is current).
+    [switch]$NoBuild
 )
 $ErrorActionPreference = "Stop"
 
@@ -62,8 +64,18 @@ switch ($Action) {
     }
     "up" {
         if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
-        if (-not (Test-Path $dll))     { throw "Pipe DLL missing (build Volt.Cli.Ide.Codesys): $dll" }
         if (-not (Test-Path $Project)) { throw "Fixture project not found: $Project" }
+
+        # Rebuild the bridge DLL FIRST so the headless host never loads a STALE build (a stale Release DLL silently
+        # serves the OLD wire shape — the "stale bridge" trap; re-record/verify against a freshly-built bridge). Safe
+        # here: CODESYS isn't running yet on `up`, so the DLL isn't locked. Skip with -NoBuild for a fast re-launch.
+        if (-not $NoBuild) {
+            Write-Host "building Volt.Cli.Ide.Codesys (Release) so the bridge isn't stale..."
+            $proj = Join-Path $PSScriptRoot "..\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj"
+            & "C:\Program Files\dotnet\dotnet.exe" build $proj -c Release --nologo -v quiet
+            if ($LASTEXITCODE -ne 0) { throw "bridge build failed (exit $LASTEXITCODE) - fix it before launching a stale DLL" }
+        }
+        if (-not (Test-Path $dll))     { throw "Pipe DLL missing (build Volt.Cli.Ide.Codesys): $dll" }
         Remove-Item $stopFlag -Force -ErrorAction SilentlyContinue
 
         $env:VOLT_BRIDGE_DLL      = (Resolve-Path $dll).Path
