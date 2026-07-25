@@ -12,9 +12,9 @@ deferred: this audit was scoped to the CLI package.
 - [x] 2. `Volt.Cli.Connector*` — connector core, ControlServer, TrayContext, the two `IProjectSource`s
 - [x] 3. `Volt.Engine` — `Wire/` (host, DTOs), `Ide/` (driver contract), `Sync/` (op services)
 - [x] 4. `Volt.Cli.Ide.Codesys` + `Volt.Cli.Ide.Twincat` — the drivers (asymmetry-aware; file `keep?` when unsure)
-- [ ] 5. `volt-control/src` — health/status/actions/connector (class B/F most likely) — DEFERRED (out of CLI scope)
-- [ ] 6. `volt-vscode/src` + `volt-desktop/src` — the frontends — DEFERRED (out of CLI scope)
-- [ ] 7. `volt-lsp-iec/src` — the LSP — DEFERRED (out of CLI scope)
+- [x] 5. `volt-control/src` — health/status/actions/connector (2nd pass — see "Frontend sweep" ledger below)
+- [x] 6. `volt-vscode/src` + `volt-desktop/src` — the frontends (2nd pass — see below)
+- [ ] 7. `volt-lsp-iec/src` — the LSP — DEFERRED (still out of scope)
 
 ## Phase 2 — synthesize + triage
 - [x] Synthesis merged all findings, deduped cross-subsystem ones, and filled the ledger below, ranked
@@ -52,6 +52,18 @@ green (Engine 307 · Cli 110 · Connector 50).** K4 `skip`; K1/K2/K5 `keep` (rec
 **Out of CLI scope, found in passing:** the Engine agent flagged `volt-control/src/bridge/connector.test.ts:83`
 (`h.health.ideName`) as a stale test — **FALSE ALARM on inspection**: that `ideName` is a live control-plane field
 derived from the vendor (`connector.ts:172` = `vendorLabel(vendor)`), NOT the wire field removed in 787. No change.
+
+### Frontend sweep ledger (2nd pass — volt-control + the two frontends, 2 agents)
+Triggered by "make sure they are 100% in line" after the CLI collapse. Both frontends were already row-first (no
+class-F re-derivation); the defects were a dead mirror left by the C# `degradedReason` removal + one drifted
+duplicated decision.
+
+| # | Class | Location | Finding | Sev | Action | Verdict |
+|---|-------|----------|---------|-----|--------|---------|
+| F1 | C | `volt-control/bridge/health.ts` `BridgeHealth` + `view/display.ts:27` | `degradedReason` READ but never set → both UIs showed a constant "Degraded: previous call failed"; `degraded`/`ideVersion`/`status` also unset-or-unread (dead mirror of the removed C# field) | high | trim `BridgeHealth` to `{connected, ideName?, projectName?, projectDirty?}`; static degraded label | ✅ done |
+| F2 | G/F | `volt-vscode/panel.ts:294-348` + `volt-desktop/shell.html:222-240` | the bound-connection affordance (connect/disconnect/accept-rename) hand-copied into both shells and **drifted** — vscode stacked accept-rename, desktop made it outrank | med | extract `connectionAffordance()` in `@volt/control`, carried on `WorkspaceView`; both shells render the enum. **Unified to desktop's behavior (user pick): mismatch outranks.** | ✅ done |
+| F3 | — | `volt-control/bridge/connector.ts` `DetectedProject` vs C# `ProjectView` | verified: ZERO drift, all 10 fields mirror exactly; no consumer reads a field the connector no longer sends | — | no action | 🔒 in line |
+| F4 | — | `volt-control/src/bridge/connector.test.ts:83` (`ideName`) | the CLI-pass "stale test" re-checked: `ideName` is a live derived vendor label, NOT the removed wire field | — | no action (false alarm, again confirmed) | 🔒 keep |
 
 ### Commit map (Phase 3)
 - `refactor(connector): collapse the per-source health re-probe into the scan` — #1 + #1b
