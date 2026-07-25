@@ -13,7 +13,12 @@
  */
 import { readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
 
-const CONTROL_BASE = "http://127.0.0.1:8550"
+// The connector's control plane. Fixed at :8550 in production (the one port every client knows); an e2e can point
+// the real client at a test harness on another port via VOLT_CONTROL_BASE. Read lazily so the override can be set
+// after this module is imported.
+function controlBase(): string {
+  return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
+}
 
 /** One detected project — the vendor-agnostic unit the UI's init/connect surface lists (use case B). */
 export interface DetectedProject {
@@ -57,7 +62,7 @@ export interface ConnectorView {
  *  resolves to `undefined`, which callers render as "no projects / start Volt". */
 export async function connectorStatus(timeoutMs = 2_000): Promise<ConnectorView | undefined> {
   try {
-    const res = await fetch(`${CONTROL_BASE}/status`, { signal: AbortSignal.timeout(timeoutMs) })
+    const res = await fetch(`${controlBase()}/status`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return undefined
     return (await res.json()) as ConnectorView
   } catch {
@@ -74,7 +79,7 @@ export async function detectedProjects(): Promise<DetectedProject[]> {
 /** Bind the bridge to a detected project (POST /connect). Returns whether the connector accepted it. */
 export async function connectProject(projectId: string, timeoutMs = 4_000): Promise<boolean> {
   try {
-    const res = await fetch(`${CONTROL_BASE}/connect`, {
+    const res = await fetch(`${controlBase()}/connect`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ projectId }),
@@ -108,7 +113,7 @@ export async function disconnect(projectId?: string, timeoutMs = 4_000): Promise
     // Name the project. A frontend disconnects the project ITS workspace is bound to, which is frequently not the
     // tray's active connection — without this, clicking Disconnect in one window gated a DIFFERENT project and
     // silently stopped another workspace's sync while the row that was clicked stayed connected.
-    const res = await fetch(`${CONTROL_BASE}/disconnect`, {
+    const res = await fetch(`${controlBase()}/disconnect`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(projectId !== undefined ? { projectId } : {}),

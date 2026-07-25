@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Cli.Connector.Core", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Cli.Connector.Tests", "test\Volt.Cli.Connector.Tests\Volt.Cli.Connector.Tests.csproj", "{748420A0-F98C-4530-9BA6-8993B839DCE7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Cli.Connector.ControlHarness", "test\Volt.Cli.Connector.ControlHarness\Volt.Cli.Connector.ControlHarness.csproj", "{A8872D29-777E-473B-93BF-4B46F676FDA0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -76,6 +78,10 @@ Global
 		{748420A0-F98C-4530-9BA6-8993B839DCE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{748420A0-F98C-4530-9BA6-8993B839DCE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{748420A0-F98C-4530-9BA6-8993B839DCE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8872D29-777E-473B-93BF-4B46F676FDA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8872D29-777E-473B-93BF-4B46F676FDA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8872D29-777E-473B-93BF-4B46F676FDA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8872D29-777E-473B-93BF-4B46F676FDA0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{666B00BB-8034-4C08-812B-2446EA3B4AA1} = {9890F01D-3779-448E-8658-8712E33F1BF8}
@@ -88,5 +94,6 @@ Global
 		{9AB96CCC-5CF7-463D-9ABE-DA91DEC061E6} = {F37F11CB-8B0C-479F-A505-1DA0B7F2C490}
 		{9549450E-FA8B-4764-9CCE-46659FF11751} = {9890F01D-3779-448E-8658-8712E33F1BF8}
 		{748420A0-F98C-4530-9BA6-8993B839DCE7} = {F37F11CB-8B0C-479F-A505-1DA0B7F2C490}
+		{A8872D29-777E-473B-93BF-4B46F676FDA0} = {F37F11CB-8B0C-479F-A505-1DA0B7F2C490}
 	EndGlobalSection
 EndGlobal

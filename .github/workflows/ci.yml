@@ -145,6 +145,23 @@ jobs:
       - name: Boot smoke (headless)
         run: xvfb-run -a bun run --cwd packages/volt-desktop test:e2e
 
+  # volt-control ↔ real connector: drive the TS control-plane CLIENT against the ACTUAL C# ControlServer (a scripted
+  # harness), proving the cross-language wire agrees for a single IDE and for MULTIPLE instances across vendors — the
+  # drift a mocked unit test can't see. Needs both bun (the client) and .NET (the harness), so it can't ride `test`.
+  control-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: bun install --frozen-lockfile
+      - name: Control-plane e2e (real ControlServer, single + multi-instance)
+        run: bun run --cwd packages/volt-control test:e2e
+
   # Validate the proposals in openspec/changes. NOT path-filtered: it's a required check, and a path-filtered
   # required check blocks PRs that don't touch openspec/ (GitHub waits forever for a check that never reports).
   # It's cheap, so it runs on every PR.

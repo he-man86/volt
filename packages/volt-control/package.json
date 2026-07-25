@@ -11,7 +11,8 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "test": "bun test"
+    "test": "bun test src",
+    "test:e2e": "bun test test/e2e"
   },
   "dependencies": {
     "vscode-jsonrpc": "^8.2.0",
