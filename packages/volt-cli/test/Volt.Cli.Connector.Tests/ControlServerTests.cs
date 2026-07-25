@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -119,20 +120,25 @@ public class ControlServerTests : IDisposable
     public async Task Concurrent_status_polls_from_multiple_clients_are_served_in_parallel()
     {
         // Both frontends (VS Code + desktop) poll /status independently and concurrently. Each request is handled on
-        // its own async path — the server re-arms BeginGetContext before running the handler — so N polls where each
-        // snapshot takes ~200ms complete in ~200ms, not 200ms×N. One client's slow refresh must not stall another's.
+        // its own async path — the server re-arms BeginGetContext before running the handler — so one client's slow
+        // refresh must not stall another's. Proven by ORDERING, not a stopwatch: each handler signals on entry and
+        // awaits release, so all N can only be observed entered if they ran in parallel (serialized, the first would
+        // block the accept loop). The 30s wait is a deadlock detector, not a latency budget (a tight 8×200ms/<1200ms
+        // budget flaked when a loaded CI runner slowed even the parallel path).
+        const int n = 8;
+        var entered = new CountdownEvent(n);
+        var release = new TaskCompletionSource();
         var view = new ConnectorView(Array.Empty<ProjectView>());
-        _server = new ControlServer(async () => { await Task.Delay(200); return view; },
+        _server = new ControlServer(async () => { entered.Signal(); await release.Task; return view; },
             _ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated), _ => { }, _port);
         _server.Start();
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var responses = await Task.WhenAll(Enumerable.Range(0, 8)
-            .Select(_ => _http.GetAsync($"http://127.0.0.1:{_port}/status")));
-        sw.Stop();
+        var polls = Enumerable.Range(0, n).Select(_ => _http.GetAsync($"http://127.0.0.1:{_port}/status")).ToArray();
+        Assert.True(entered.Wait(30_000), "status polls were serialized — one client blocked another");
+        release.SetResult();
+        var responses = await Task.WhenAll(polls);
 
         Assert.All(responses, r => Assert.Equal(200, (int)r.StatusCode));
-        Assert.True(sw.ElapsedMilliseconds < 1200, $"status polls were serialized ({sw.ElapsedMilliseconds}ms for 8×200ms)");
     }
 
     [Fact]

@@ -19,9 +19,14 @@ internal sealed class FakeProjectSource : IProjectSource
     /// <summary>Whether the bridge answered this tick — the one bit the rows can't express (up-but-empty vs down).</summary>
     public bool Reachable { get; set; } = true;
     public bool ThrowOnEnumerate { get; set; }
-    /// <summary>Delay this source's scan (models a slow/hung bridge) — used to prove sources are scanned CONCURRENTLY,
-    /// so one slow bridge doesn't stall the others.</summary>
+    /// <summary>Delay this source's scan (models a slow/hung bridge).</summary>
     public int ScanDelayMs { get; set; }
+    /// <summary>Latch to prove CONCURRENT scanning by ORDERING (not a wall-clock budget, which flakes when a loaded CI
+    /// runner slows even the concurrent path): the scan signals <see cref="ScanEntered"/> then awaits <see cref="ScanRelease"/>.
+    /// A test starts the scan, waits until EVERY source has entered — only possible if they ran concurrently, since a
+    /// serialized scan blocks in the first and never reaches the second — then releases them.</summary>
+    public CountdownEvent? ScanEntered { get; set; }
+    public Task? ScanRelease { get; set; }
     public List<DetectedProject> Bound { get; } = new();
     public List<DetectedProject> Unbound { get; } = new();
 
@@ -39,7 +44,9 @@ internal sealed class FakeProjectSource : IProjectSource
     public async Task<SourceScan> ScanAsync()
     {
         if (ThrowOnEnumerate) throw new InvalidOperationException("unreachable");
-        if (ScanDelayMs > 0) await Task.Delay(ScanDelayMs);
+        ScanEntered?.Signal();
+        if (ScanRelease != null) await ScanRelease;
+        else if (ScanDelayMs > 0) await Task.Delay(ScanDelayMs);
         return new SourceScan(Projects.ToList(), Reachable);
     }
 
@@ -270,21 +277,25 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Sources_are_scanned_concurrently_so_a_slow_vendor_does_not_stall_the_other()
     {
-        // One source PER VENDOR (CODESYS fans out over its pipes internally). If a vendor's bridge is slow (~300ms),
-        // the connector must still scan the other vendor concurrently — sequential would be ~600ms, concurrent ~300ms.
-        // A slow/hung TwinCAT worker must not delay CODESYS health (and vice versa).
-        var cds = new FakeProjectSource("codesys", "CODESYS") { ScanDelayMs = 300 };
+        // One source PER VENDOR (CODESYS fans out over its pipes internally). A slow/hung TwinCAT worker must not
+        // delay CODESYS health, and vice versa. Proven by ORDERING, not a stopwatch: both sources signal on entry and
+        // await release — the test can only see BOTH entered if they ran concurrently (a serialized scan blocks in the
+        // first and never reaches the second). The 30s wait is a deadlock detector — both enter ~instantly when
+        // concurrent — NOT a latency budget (a tight 2×300ms/<480ms budget flaked on a loaded CI runner).
+        var entered = new CountdownEvent(2);
+        var release = new TaskCompletionSource();
+        var cds = new FakeProjectSource("codesys", "CODESYS") { ScanEntered = entered, ScanRelease = release.Task };
         cds.Add("MachineA");
-        var tc = new FakeProjectSource("twincat", "TwinCAT") { ScanDelayMs = 300 };
+        var tc = new FakeProjectSource("twincat", "TwinCAT") { ScanEntered = entered, ScanRelease = release.Task };
         tc.Add("Line1");
         var mgr = Mgr(cds, tc);
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        await mgr.RefreshAsync();
-        sw.Stop();
+        var refresh = mgr.RefreshAsync();
+        Assert.True(entered.Wait(30_000), "the two vendors' scans were serialized — one blocked the other");
+        release.SetResult();
+        await refresh;
 
         Assert.Equal(2, mgr.Projects.Count);
-        Assert.True(sw.ElapsedMilliseconds < 480, $"the two vendors' scans were serialized ({sw.ElapsedMilliseconds}ms for 2×300ms)");
     }
 
     [Fact]

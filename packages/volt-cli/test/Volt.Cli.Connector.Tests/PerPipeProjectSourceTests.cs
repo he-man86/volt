@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,13 @@ internal sealed class FakeBridgeWire : IBridgeWire
     private readonly Dictionary<string, string> _responses = new();
     public List<(string Op, string Body)> Calls { get; } = new();
     public HashSet<string> Throw { get; } = new();
-    /// <summary>Delay each call (models a slow/hung IDE) — used to prove the pipe fan-out is CONCURRENT.</summary>
+    /// <summary>Delay each call (models a slow/hung IDE).</summary>
     public int DelayMs { get; set; }
+    /// <summary>Latch to prove the pipe fan-out is CONCURRENT by ORDERING (not a wall-clock budget, which flakes on a
+    /// loaded CI runner): each call signals <see cref="Entered"/> then awaits <see cref="Release"/>. A test can only
+    /// observe every pipe entered if the fan-out ran them concurrently — a serialized scan blocks in the first pipe.</summary>
+    public CountdownEvent? Entered { get; set; }
+    public Task? Release { get; set; }
 
     public FakeBridgeWire On(string op, string json) { _responses[op] = json; return this; }
 
@@ -24,7 +30,9 @@ internal sealed class FakeBridgeWire : IBridgeWire
     {
         Calls.Add((op, body is null ? "" : JsonSerializer.Serialize(body)));
         if (Throw.Contains(op)) throw new InvalidOperationException("unreachable");
-        if (DelayMs > 0) await Task.Delay(DelayMs);
+        Entered?.Signal();
+        if (Release != null) await Release;
+        else if (DelayMs > 0) await Task.Delay(DelayMs);
         var json = _responses.TryGetValue(op, out var j) ? j : "{}";
         return JsonSerializer.Deserialize<JsonElement>(json);
     }
@@ -135,22 +143,26 @@ public class PerPipeProjectSourceTests
     [Fact]
     public async Task Fans_out_over_pipes_concurrently_so_a_slow_ide_does_not_serialize_the_others()
     {
-        // TEN running IDEs, each ~300ms to answer health. Serialized that's ~3000ms; concurrent it's ~300ms. The
-        // threshold sits at 2000ms — a WIDE gap on both sides (concurrent + CI-load jitter stays well under it;
-        // serialized 3000ms is well over), so this proves "concurrent, not serialized" without flaking on a loaded
-        // runner the way a tight 3×300ms/<700ms budget did. One slow/hung IDE must not stall discovery of the others.
+        // Five running IDEs. One slow/hung IDE must not stall discovery of the others. Proven by ORDERING, not a
+        // stopwatch: each pipe's health call signals on entry and awaits release — all five can only be observed
+        // entered if the fan-out ran them concurrently (a serialized scan blocks in the first pipe). The 30s wait is a
+        // deadlock detector, not a latency budget (a tight wall-clock budget flaked when a loaded CI runner slowed
+        // even the concurrent path).
+        const int n = 5;
+        var entered = new CountdownEvent(n);
+        var release = new TaskCompletionSource();
         var wires = new Dictionary<string, IBridgeWire>();
-        for (int i = 1; i <= 10; i++)
-            wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { DelayMs = 300 }
+        for (int i = 1; i <= n; i++)
+            wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { Entered = entered, Release = release.Task }
                 .On("health", $$"""{ "projects": [ { "project": "M{{i}}" } ] }""");
         var src = new PerPipeProjectSource("codesys", "CODESYS", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var scan = await src.ScanAsync();
-        sw.Stop();
+        var scanTask = src.ScanAsync();
+        Assert.True(entered.Wait(30_000), "pipe fan-out was serialized — one pipe blocked the others");
+        release.SetResult();
+        var scan = await scanTask;
 
-        Assert.Equal(10, scan.Projects.Count);
-        Assert.True(sw.ElapsedMilliseconds < 2000, $"pipe fan-out was serialized ({sw.ElapsedMilliseconds}ms for 10×300ms — concurrent should be ~300ms)");
+        Assert.Equal(n, scan.Projects.Count);
     }
 
     [Fact]
