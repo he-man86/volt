@@ -10,6 +10,14 @@ using Volt.Cli.Transport;
 // one stable worker across IDE restarts. Pipe replacement for the backup's Program.cs + BridgeHttpServer.RunStandalone.
 VoltLog.Init(Vendors.Twincat);
 
+// `--xae-pid <pid>`: per-XAE worker — own the ONE XAE window with that process id and serve
+// `volt.bridge.twincat.<pid>` (the connector spawns one per XAE, CODESYS-symmetric). Absent → the legacy single
+// worker on `volt.bridge.twincat` that multiplexes every XAE by project name.
+int xaePid = 0;
+for (int i = 0; i + 1 < args.Length; i++)
+    if (args[i] == "--xae-pid" && int.TryParse(args[i + 1], out var p)) xaePid = p;
+var pipe = xaePid != 0 ? PipeNames.TwincatInstance(xaePid) : PipeNames.Twincat;
+
 var driver = new BeckhoffDriver();
 var cts = new CancellationTokenSource();
 
@@ -18,7 +26,7 @@ var sta = new Thread(() =>
     ComMessageFilter.Register(); // must run on the STA thread that makes the COM calls
     // Bind a DTE for the version if an IDE is already open; if not, stay degraded — the connector attaches via a
     // `select` once one appears. No project is auto-bound (the user picks one).
-    try { driver.Connect(); }
+    try { if (xaePid != 0) driver.Connect(xaePid); else driver.Connect(); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
     driver.RunStaMessageLoop(cts.Token);
 })
@@ -26,9 +34,9 @@ var sta = new Thread(() =>
 sta.SetApartmentState(ApartmentState.STA);
 sta.Start();
 
-using var host = new BridgePipeHost(driver, PipeNames.Twincat);
+using var host = new BridgePipeHost(driver, pipe);
 host.Start();
-VoltLog.Info($"twincat bridge serving on pipe {PipeNames.Twincat}");
+VoltLog.Info($"twincat bridge serving on pipe {pipe}{(xaePid != 0 ? $" (xae pid {xaePid})" : "")}");
 
 // Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.
 var done = new ManualResetEventSlim(false);

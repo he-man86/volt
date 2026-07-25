@@ -29,6 +29,12 @@ internal sealed class TcObjectModel
     private string? _plcProjectPath;
     private string? _ideVersion;
 
+    // 0 = legacy multiplexing worker (attach by project NAME across every running XAE). >0 = per-XAE worker: it OWNS
+    // the ONE window with this process id — selection and recovery re-acquire THIS pid (stable across a DTE
+    // re-registration), never search other windows. Set once at startup by ConnectToPid; never changes.
+    private int _xaePid;
+    public int OwnedPid => _xaePid;
+
     // The DESIRED selection — the project name the user last explicitly picked (the connector's `select`). Recovery
     // (ReattachProject, after a project close / re-registration / RPC drop) re-establishes THIS, by its stable
     // NAME, instead of resolving the first-available. Without it, any hiccup silently flipped a two-XAE setup to the
@@ -58,6 +64,18 @@ internal sealed class TcObjectModel
         VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
     }
 
+    /// <summary>Per-XAE attach: OWN the one XAE window with process id <paramref name="pid"/> and bind its DTE. The
+    /// worker serves only this window; <see cref="SelectProject"/>/<see cref="ReattachProject"/> re-acquire THIS pid
+    /// (stable) instead of searching windows by name. Throws if that XAE isn't running (the connector spawned us for
+    /// a pid it saw; a race where it closed first surfaces here and the connector reaps us).</summary>
+    public void ConnectToPid(int pid)
+    {
+        _xaePid = pid;
+        var dte = RotInstances.BindByPid(pid) ?? throw new InvalidOperationException($"No running TwinCAT XAE with pid {pid}.");
+        SwapDte(dte);
+        VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} (xae pid {pid}) — no project selected");
+    }
+
     /// <summary>Bind a project by NAME — the connector's `select`. Re-acquires a fresh DTE for whichever running
     /// window has that project open and resolves it (no worker respawn, no IDE restart). Does NOT throw: it attaches
     /// what it can and leaves the model connected or not. The Core `select` handler (BridgePipeHost) enforces the
@@ -81,17 +99,19 @@ internal sealed class TcObjectModel
     /// Never throws for a not-found project.</summary>
     private void BindAndResolve(string? project, string tag)
     {
-        // Resolve by name: re-acquire a fresh DTE for the window holding the project, then resolve it there.
+        // Re-acquire the DTE, then resolve the project inside it. Per-XAE (_xaePid>0): OUR window by stable pid —
+        // it re-registers with a fresh cookie/moniker but keeps its pid, so this survives what name-search also does
+        // AND never drifts to another window. Legacy: whichever running window holds the project name.
         if (!string.IsNullOrEmpty(project))
         {
-            var dte = RotInstances.BindByProject(project!);
+            var dte = _xaePid != 0 ? RotInstances.BindByPid(_xaePid) : RotInstances.BindByProject(project!);
             if (dte != null) { SwapDte(dte); FindTwinCatProject(project); }
         }
 
-        // No specific project requested (soft attach for the picker) — first running instance, list-only.
+        // No specific project requested (soft attach for the picker) — our own window (per-XAE) / first instance.
         if (_dte == null && string.IsNullOrEmpty(project))
         {
-            var first = RotInstances.First();
+            var first = _xaePid != 0 ? RotInstances.BindByPid(_xaePid) : RotInstances.First();
             if (first != null) SwapDte(first);
         }
         if (_dte == null) { VoltLog.Warn($"{tag}: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
@@ -120,6 +140,11 @@ internal sealed class TcObjectModel
         _dte = newDte;
         try { _ideVersion = (string?)_dte.Version; } catch { /* version is cosmetic */ }
     }
+
+    /// <summary>The OWNED XAE window's (version, project names) — the per-XAE worker's health list, ITS window only
+    /// (not every running XAE the way the legacy worker's <c>RotInstances.Enumerate</c> does). Name-only, same
+    /// lightness as the ROT walk — never touches the PLC tree. Runs on the STA thread.</summary>
+    public (string? Version, List<string> Projects) OwnSolution() => (_ideVersion, SolutionProjectNames().ToList());
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
     private IEnumerable<string> SolutionProjectNames()

@@ -32,6 +32,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override string? IdeVersion => _om.IdeVersion;
 
     public override void Connect() { _om.Connect(); SnapshotHealth(); }
+    /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).</summary>
+    public void Connect(int xaePid) { _om.ConnectToPid(xaePid); SnapshotHealth(); }
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
     // ── STA thread ──────────────────────────────────────────────────
@@ -117,9 +119,21 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         bool connected = _om.IsConnected;
         bool? servedDirty = connected ? _om.ProjectDirty() : null;
 
-        var rows = RotInstances.Enumerate()
-            .SelectMany(inst => inst.Projects.Select(p => (inst.IdeVersion, p.Project)))
-            .ToList();
+        // Per-XAE worker: ONLY its own window's projects (it owns one XAE). Legacy multiplexing worker: every
+        // running XAE. The connector merges the per-XAE workers' single-window rows into the same flat list the
+        // legacy worker produced alone, so the wire shape is identical either way.
+        List<(string? IdeVersion, string Project)> rows;
+        if (_om.OwnedPid != 0)
+        {
+            var own = _om.OwnSolution();
+            rows = own.Projects.Select(p => (own.Version, p)).ToList();
+        }
+        else
+        {
+            rows = RotInstances.Enumerate()
+                .SelectMany(inst => inst.Projects.Select(p => (inst.IdeVersion, p.Project)))
+                .ToList();
+        }
 
         int servingIdx = connected && !string.IsNullOrEmpty(served) ? rows.FindIndex(r => r.Project == served) : -1;
 
