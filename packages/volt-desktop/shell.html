@@ -222,18 +222,19 @@
       // Bound: state first (connected, and to WHAT), then exactly ONE action — Connect or Disconnect, never both,
       // never neither. That symmetry is what keeps the tray optional.
       const h = s.health || { label: "…", tone: "warn", online: false }
+      // The bound-connection affordance is decided ONCE in @volt/control (connectionAffordance) and carried on the
+      // view — this renderer only maps the enum to DOM. A rename OUTRANKS online/offline: sync is PAUSED until it's
+      // accepted, so offering Connect/Disconnect there answers a question the user didn't ask.
+      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect", showVendorRow: false }
       bridgeBody =
         busyNote +
-        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span><span class="n">${h.online ? "connected" : "not connected"}</span></div>` +
-        // A rename outranks online/offline: sync is PAUSED until it's accepted, so offering Connect/Disconnect
-        // here would be answering a question the user didn't ask. (Used to say "resolve in the Bridge section"
-        // and then offer nothing — a dead end the VS Code view never had.)
-        (s.paused === "mismatch"
+        `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(h.label)}</span><span class="n">${esc(a.caption)}</span></div>` +
+        (a.action === "accept-rename"
           ? `<div class="note">Sync is paused — the IDE's project name no longer matches this workspace's binding.</div>
              <div class="init-row"><button class="btn primary" onclick="doAcceptRename()"><svg class="bolt"><use href="#bolt"/></svg>Accept the project rename</button></div>
              <div class="note">Re-binds this workspace to the IDE's current project name. Your code is untouched.</div>`
-          : !h.online
-          ? (s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
+          : a.action === "connect"
+          ? (a.showVendorRow && s.vendor ? `<div class="row"><span class="stat">·</span><span class="path">${s.vendor === "twincat" ? "TwinCAT" : "CODESYS"}</span></div>` : "") +
             `<div class="note">Not syncing — the IDE window may be closed, or the Volt Connector isn't running.</div>
              <div class="init-row"><button class="btn primary" onclick="doConnect()"><svg class="ico"><use href="#i-connect"/></svg>Connect to the IDE</button></div>`
           : `<div class="init-row"><button class="btn" onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>

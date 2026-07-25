@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { projectWorkspace, onboardingMode } from "./workspace.js"
+import { projectWorkspace, onboardingMode, connectionAffordance } from "./workspace.js"
 import { describePull, describePush, describeMerge, describeDisconnect } from "./outcomes.js"
 import type { StatusJson } from "./types.js"
 import type { HealthState } from "../bridge/health.js"
@@ -89,6 +89,25 @@ test("onboardingMode: connector-down outranks the (necessarily empty) project li
   expect(onboardingMode(false, 3)).toBe("no-connector") // stale list from before it died — still 'start Volt'
   expect(onboardingMode(true, 0)).toBe("no-project")
   expect(onboardingMode(true, 1)).toBe("choose-project")
+})
+
+// ── connectionAffordance: the ONE bound-connection action, decided once for both shells ───────────────────────
+// The gap this closes: the connect/disconnect/accept-rename decision was hand-copied into the VS Code panel and the
+// desktop shell, and they DRIFTED — one stacked accept-rename beside connect/disconnect, the other made it outrank.
+// Unified here: a mismatch OUTRANKS (offering connect/disconnect while sync is paused answers a question nobody asked).
+const aff = (online: boolean, paused: "mismatch" | "merging" | null, vendor?: "codesys") =>
+  connectionAffordance({ health: { online, label: "", tone: online ? "ok" : "warn" }, paused, vendor })
+
+test("connectionAffordance: mismatch outranks online/offline — only Accept-Rename", () => {
+  expect(aff(false, "mismatch", "codesys")).toEqual({ caption: "not connected", action: "accept-rename", showVendorRow: false })
+  expect(aff(true, "mismatch", "codesys")).toEqual({ caption: "connected", action: "accept-rename", showVendorRow: false })
+})
+
+test("connectionAffordance: offline → connect (+ vendor row when bound); online → disconnect", () => {
+  expect(aff(false, null, "codesys")).toEqual({ caption: "not connected", action: "connect", showVendorRow: true })
+  expect(aff(false, null, undefined)).toEqual({ caption: "not connected", action: "connect", showVendorRow: false })
+  expect(aff(true, null, "codesys")).toEqual({ caption: "connected", action: "disconnect", showVendorRow: false })
+  expect(aff(true, "merging", "codesys")).toEqual({ caption: "connected", action: "disconnect", showVendorRow: false }) // merging is a git concern, not a connection one
 })
 
 // ── outcome descriptors ──────────────────────────────────────────────────────

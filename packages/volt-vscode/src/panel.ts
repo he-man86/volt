@@ -295,19 +295,20 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 	const nodes: VoltNode[] = []
 	for (const v of views) {
 		const hd = v.health
+		const aff = v.affordance
 		// Row 1 answers the only question that matters at a glance — connected, and to WHAT. The label already
 		// reads "<IDE> — <project>" when live, so state goes in the description rather than repeating the name.
 		nodes.push({
 			key: `bridge:${v.workspaceRoot}`,
 			label: hd.label,
-			description: hd.online ? "connected" : "not connected",
+			description: aff.caption,
 			icon: new vscode.ThemeIcon(hd.tone === "ok" ? "pass-filled" : hd.tone === "error" ? "error" : "warning"),
 			tooltip: `${hd.online ? "Syncing with this IDE project." : "Not syncing — pull and push are unavailable."}\n${v.workspaceRoot}`,
 		})
 
 		// The vendor row only earns its place when the health label CAN'T name the IDE (offline, where the label is
 		// an error string). Connected, a second row reading just "CODESYS" said the same word twice.
-		if (v.vendor !== undefined && !hd.online)
+		if (aff.showVendorRow && v.vendor !== undefined)
 			nodes.push({
 				key: `vendor:${v.workspaceRoot}`,
 				label: vendorLabel(v.vendor),
@@ -315,11 +316,10 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				icon: new vscode.ThemeIcon("plug"),
 			})
 
-		// The one action, and it's always exactly one — Connect or Disconnect, never both, never neither. That
-		// symmetry is the point: the tray is never required, and the view always has something to DO.
-		// Reconnect re-points the bridge at the bound project (the same connect init does) and reports precisely
-		// when it can't. Disconnect is real (the bridge refuses sync) but tears nothing down — the IDE stays open.
-		if (!hd.online)
+		// Exactly ONE action — Connect, Disconnect, or Accept-Rename, never stacked. `affordance` decides which (a
+		// mismatch OUTRANKS connect/disconnect: sync is paused until it's accepted, so offering them there answers a
+		// question the user didn't ask — the shared decision both shells now render identically).
+		if (aff.action === "connect")
 			nodes.push({
 				key: `reconnect:${v.workspaceRoot}`,
 				label: "Connect to the IDE",
@@ -328,7 +328,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				icon: new vscode.ThemeIcon("plug"),
 				command: { command: "volt.connect", title: "Connect" },
 			})
-		else
+		else if (aff.action === "disconnect")
 			nodes.push({
 				key: `disconnect:${v.workspaceRoot}`,
 				label: "Disconnect from the IDE",
@@ -337,7 +337,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				icon: new vscode.ThemeIcon("debug-disconnect"),
 				command: { command: "volt.disconnect", title: "Disconnect" },
 			})
-		if (v.paused === "mismatch")
+		else
 			nodes.push({
 				key: `rename:${v.workspaceRoot}`,
 				label: "Accept project rename",

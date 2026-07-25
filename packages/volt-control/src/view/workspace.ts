@@ -47,6 +47,31 @@ export function syncMode(initialized: boolean, paused: WorkspaceView["paused"], 
   return "ready"
 }
 
+/** The ONE bound-connection action a shell offers — never two, never none. Accept-rename OUTRANKS connect/disconnect:
+ *  a mismatch PAUSES sync, so offering connect/disconnect there answers a question the user didn't ask (the desktop
+ *  learned this; the VS Code view used to stack them). */
+export type ConnectionAction = "connect" | "disconnect" | "accept-rename"
+
+/** The bound-connection affordance, decided ONCE here so both shells render an identical decision (they diverged
+ *  before — one stacked accept-rename on connect/disconnect, the other made it outrank). Each shell maps the enum
+ *  to its own widget (VS Code TreeNode / desktop DOM); only the DECISION lives here. */
+export interface ConnectionAffordance {
+  /** Row-1 status word — whether THIS workspace's bridge is serving it. */
+  caption: "connected" | "not connected"
+  /** The one primary action to offer. */
+  action: ConnectionAction
+  /** Show the bound-platform ("· CODESYS") row — only alongside `connect` (offline), where the health label is an
+   *  error string that can't name the IDE. Connected, the label already reads "&lt;IDE&gt; — &lt;project&gt;". */
+  showVendorRow: boolean
+}
+
+export function connectionAffordance(view: Pick<WorkspaceView, "health" | "paused" | "vendor">): ConnectionAffordance {
+  const caption = view.health.online ? "connected" : "not connected"
+  if (view.paused === "mismatch") return { caption, action: "accept-rename", showVendorRow: false }
+  if (!view.health.online) return { caption, action: "connect", showVendorRow: view.vendor !== undefined }
+  return { caption, action: "disconnect", showVendorRow: false }
+}
+
 /** How an UNBOUND folder gets connected — the three states of the onboarding ladder, which the connection
  *  surface (VS Code's "IDE Connection" view / the desktop's section) renders one row-set per. */
 export type OnboardingMode =
@@ -75,6 +100,9 @@ export interface WorkspaceView {
   paused: "mismatch" | "merging" | null
   /** The single state both shells render from — gates the action row, the Connect affordance, and the drift list. */
   mode: SyncMode
+  /** The bound-connection affordance (caption + the ONE action + whether to show the vendor row) — carried on the
+   *  view so neither shell re-derives it (see {@link connectionAffordance}). */
+  affordance: ConnectionAffordance
   incoming: DriftItem[]
   outgoing: DriftItem[]
   /** Conflicted files while `paused === "merging"` (empty otherwise) — drives per-file take-a-side rows. */
@@ -105,6 +133,7 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
     health,
     paused,
     mode: syncMode(initialized, paused, health.online),
+    affordance: connectionAffordance({ health, paused, vendor: input.vendor }),
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],
     outgoing: st !== undefined && paused === null ? driftItems(st, "outgoing") : [],
     conflicts:
