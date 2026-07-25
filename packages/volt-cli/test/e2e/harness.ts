@@ -60,7 +60,8 @@ export const bridge = {
 	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
 	// Discovery folded into `health` — no separate `instances` op. Returns the FLAT connectable-projects array
-	// (`health.projects`), each row self-describing: { vendor, version, project, status, serving, dirty }.
+	// (`health.projects`), each row self-describing: { vendor, version, project, status, dirty }. "Serving" is folded
+	// into `status`: "idle" (detected, not served) | "healthy" | "degraded" (served).
 	instances: (): Promise<any[]> => get("/health").then((h) => h.projects ?? []),
 	connect: (req: { project?: string | null } = {}): Promise<any> => post("/connect", req),
 	disconnect: (): Promise<any> => post("/disconnect"),
@@ -72,14 +73,14 @@ export async function opErrorCode(run: () => Promise<unknown>): Promise<string |
 	try { await run(); return null } catch (e) { return String((e as Error).message).split(":")[0] }
 }
 
-/** The bridge's connection state, derived from the flat `health.projects` array the SAME way the connector does
- *  (C# `HealthProbe.FromWire`): the ONE serving row is the connection. No serving row → "unavailable". There is no
- *  root `status`/`connected`/`platform` on the wire — they are C#-only computed helpers off the serving row, so e2e
- *  must derive them here too. */
+/** The bridge's connection state, derived from the flat `health.projects` array the SAME way the connector does:
+ *  serving is a NON-IDLE row (status folds serving in). No served row → "unavailable". There is no root
+ *  `status`/`connected`/`platform` on the wire — those are C#-only computed helpers off the served row, so e2e
+ *  derives them here too. */
 export function healthStatus(h: any): "healthy" | "degraded" | "unavailable" {
-	const serving = (h?.projects ?? []).find((p: any) => p.serving)
-	if (!serving) return "unavailable"
-	return serving.status === "degraded" ? "degraded" : "healthy"
+	const served = (h?.projects ?? []).find((p: any) => p.status && p.status !== "idle")
+	if (!served) return "unavailable"
+	return served.status === "degraded" ? "degraded" : "healthy"
 }
 
 export async function requireHealthy(): Promise<void> {

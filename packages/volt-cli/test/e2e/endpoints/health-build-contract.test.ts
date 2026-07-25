@@ -10,8 +10,8 @@ describe(`endpoints / health+build (${BASE})`, () => {
 		it("is a flat projects array; the served row carries the stable identifiers", async () => {
 			const h = await bridge.health()
 			expect(Array.isArray(h.projects)).toBe(true) // discovery folded into health — no root fields
-			expect(healthStatus(h)).toBe("healthy")       // derived from the one serving row
-			const served = h.projects.find((p: any) => p.serving)
+			expect(healthStatus(h)).toBe("healthy")       // derived from the one served (non-idle) row
+			const served = h.projects.find((p: any) => p.status && p.status !== "idle")
 			expect(typeof served.vendor).toBe("string")   // vendor is per-row now, not a root `platform`
 			expect(typeof served.project).toBe("string")
 		})
