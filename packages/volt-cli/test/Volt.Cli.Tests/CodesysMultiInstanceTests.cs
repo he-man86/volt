@@ -45,6 +45,13 @@ public class CodesysMultiInstanceTests
         catch { return null; }
     }
 
+    // What the resolver actually probes now — the pipe's full open-project list (a real health round-trip).
+    private static IReadOnlyList<string> ProjectsOf(string pipe)
+    {
+        try { return new BridgeClient(pipe).GetHealth().Projects.Select(p => p.Project).ToList(); }
+        catch { return Array.Empty<string>(); }
+    }
+
     private static void WaitUntil(Func<bool> cond)
     {
         for (int i = 0; i < 150 && !cond(); i++) Thread.Sleep(20);
@@ -67,14 +74,14 @@ public class CodesysMultiInstanceTests
             Assert.Equal("MachineB", NameOf(pb));
 
             // The resolver picks the bound project's pipe (by the real probe above).
-            Assert.Equal(pb, BridgeResolver.ChooseCodesysPipe(PipeDiscovery.List(_prefix), "MachineB", false, NameOf));
+            Assert.Equal(pb, BridgeResolver.ChooseBridgePipe(PipeDiscovery.List(_prefix), "MachineB", false, ProjectsOf, "CODESYS"));
 
             // CLOSE MachineA: its pipe vanishes and discovery drops it (the pipe dies with Stop()).
             a.Stop();
             WaitUntil(() => !File.Exists(@"\\.\pipe\" + pa));
             Assert.Equal(new[] { pb }, PipeDiscovery.List(_prefix).ToArray());
             // One left → used unambiguously (a wrong-name mismatch is caught downstream by VerifyBinding).
-            Assert.Equal(pb, BridgeResolver.ChooseCodesysPipe(PipeDiscovery.List(_prefix), "MachineB", false, NameOf));
+            Assert.Equal(pb, BridgeResolver.ChooseBridgePipe(PipeDiscovery.List(_prefix), "MachineB", false, ProjectsOf, "CODESYS"));
         }
         finally { a.Dispose(); b.Dispose(); }
     }
@@ -90,7 +97,7 @@ public class CodesysMultiInstanceTests
         {
             var live = PipeDiscovery.List(_prefix);
             Assert.Equal(2, live.Count);
-            var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseCodesysPipe(live, "SameName", false, NameOf));
+            var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(live, "SameName", false, ProjectsOf, "CODESYS"));
             Assert.Equal("AMBIGUOUS_BRIDGE", ex.Code); // never guesses which of the two same-named IDEs
         }
         finally { a.Dispose(); b.Dispose(); }
@@ -100,7 +107,7 @@ public class CodesysMultiInstanceTests
     public void No_live_host_refuses_loudly()
     {
         Assert.Empty(PipeDiscovery.List(_prefix));
-        var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseCodesysPipe(PipeDiscovery.List(_prefix), "Anything", false, NameOf));
+        var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(PipeDiscovery.List(_prefix), "Anything", false, ProjectsOf, "CODESYS"));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
 }

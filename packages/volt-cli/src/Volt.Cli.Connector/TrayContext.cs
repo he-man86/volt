@@ -149,9 +149,10 @@ namespace Volt.Cli.Connector
             if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
             if (_reconcileTick++ % 3 != 0) return;                         // ~every 3rd tick: XAE churn isn't sub-10s-sensitive
             var pids = await Task.Run(() => TwincatXaeProbe.ListPids(_twincatExe, TimeSpan.FromSeconds(6)));
+            if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
             var (_, reap) = _twincatSupervisor.Reconcile(pids);
             foreach (var pid in pids)
-                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), Vendors.TwincatDisplay, _twincatExe, $"--xae-pid {pid}"));
+                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), _twincatExe, $"--xae-pid {pid}"));
             foreach (var pid in reap)
                 _supervisor.StopWorker(TwincatWorkerId(pid));
         }

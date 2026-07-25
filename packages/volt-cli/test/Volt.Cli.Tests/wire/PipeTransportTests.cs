@@ -106,6 +106,56 @@ public class PipeTransportTests
     }
 
     [Fact]
+    public void Health_polls_across_two_bridges_stay_responsive_while_one_IDE_is_busy_with_a_long_op()
+    {
+        // The PARALLEL-health guarantee for the multi-IDE topology (two live pipes). With ONE IDE thread HELD in a
+        // long op — the >8s refs/fetch/push a large real project takes — a health poll on THAT bridge AND on a second,
+        // idle bridge must both answer well under the connector's ~4s tick, concurrently, from cache; neither may
+        // serialize behind the busy thread. If either did, a busy IDE would read as a lost connection across the
+        // fleet. Both drivers model the real single IDE thread (serializeSta), so the block is a genuine held thread.
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var busy = new FakeIde(serializeSta: true,
+            FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            ExtractEntered = entered,
+            ExtractBlock = release,
+            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "0", "BigProject", "healthy", false) },
+        };
+        var idle = new FakeIde(serializeSta: true,
+            FakeIde.Item.TextualPou("Q", "PROGRAM Q\nVAR\nEND_VAR", "y := 2;"))
+        {
+            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "0", "SmallProject", "healthy", false) },
+        };
+
+        var pBusy = Pipe();
+        var pIdle = Pipe();
+        using var hBusy = new BridgePipeHost(busy, pBusy);
+        using var hIdle = new BridgePipeHost(idle, pIdle);
+        hBusy.Start();
+        hIdle.Start();
+
+        // Hold the BUSY bridge's one IDE thread inside a running op.
+        var op = Task.Run(() => new PipeClient(pBusy).Call("init"));
+        Assert.True(entered.Wait(5000), "the long op never reached the held step");
+
+        // BOTH health polls — the busy bridge and the idle one — must answer concurrently, well under the ~4s tick.
+        var hb = Task.Run(() => new PipeClient(pBusy).Call("health"));
+        var hi = Task.Run(() => new PipeClient(pIdle).Call("health"));
+        Assert.True(Task.WaitAll(new[] { hb, hi }, 2000),
+            "a health poll stalled behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
+
+        // Each carries ITS OWN project; the busy bridge is still serving (an in-flight op is a live link, not a drop).
+        Assert.Equal("BigProject", hb.Result.GetProperty("projects")[0].GetProperty("project").GetString());
+        Assert.Equal("SmallProject", hi.Result.GetProperty("projects")[0].GetProperty("project").GetString());
+        Assert.NotEqual("idle", hb.Result.GetProperty("projects")[0].GetProperty("status").GetString());
+        Assert.NotEqual("idle", hi.Result.GetProperty("projects")[0].GetProperty("status").GetString());
+
+        release.Set();
+        Assert.True(op.Wait(5000), "the long op did not complete after release");
+    }
+
+    [Fact]
     public void A_coded_bridge_error_reaches_the_client_as_its_real_code_not_INTERNAL_ERROR()
     {
         var pipe = Pipe();

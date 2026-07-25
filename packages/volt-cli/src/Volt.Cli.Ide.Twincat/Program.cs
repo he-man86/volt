@@ -12,20 +12,22 @@ VoltLog.Init(Vendors.Twincat);
 
 // `--list-xae-pids`: one-shot XAE discovery for the connector's supervisor — print each running XAE window's
 // process id (one per line) and exit. The COM ROT walk runs in THIS short-lived process so a hang dies with it and
-// the always-on tray never holds a COM apartment (the isolation the supervisor design requires). Exit 0 always
-// (an empty ROT is "no XAE open", not an error); stderr-only diagnostics.
+// the always-on tray never holds a COM apartment (the isolation the supervisor design requires). Exit 0 = the
+// enumeration RAN (empty output = "no XAE open"); exit 1 = it FAILED, so the connector can tell a real "no XAE"
+// (reap workers) from a probe failure (leave the fleet alone) — see TwincatXaeProbe.
 foreach (var a in args)
     if (a == "--list-xae-pids")
     {
+        int rc = 0;
         var probe = new Thread(() =>
         {
-            try { ComMessageFilter.Register(); foreach (var (id, _) in RotInstances.EnumerateWithPids()) Console.WriteLine(id); }
-            catch (Exception ex) { Console.Error.WriteLine($"list-xae-pids: {ex.Message}"); }
+            try { ComMessageFilter.Register(); foreach (var id in RotInstances.EnumeratePids()) Console.WriteLine(id); }
+            catch (Exception ex) { Console.Error.WriteLine($"list-xae-pids: {ex.Message}"); rc = 1; }
         });
         probe.SetApartmentState(ApartmentState.STA);
         probe.Start();
         probe.Join();
-        return 0;
+        return rc;
     }
 
 // `--xae-pid <pid>`: the ONE XAE window this worker owns. REQUIRED — the worker serves `volt.bridge.twincat.<pid>`

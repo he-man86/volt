@@ -21,8 +21,7 @@ public static class PipeNames
     /// <summary>The pipe a specific TwinCAT per-XAE worker serves, keyed by the XAE window's process id.</summary>
     public static string TwincatInstance(int pid) => TwincatPrefix + pid;
 
-    /// <summary>The per-instance pipe discovery prefix for a vendor.</summary>
+    /// <summary>The per-instance pipe discovery prefix for a vendor (both vendors serve one pipe per IDE, keyed by
+    /// pid). Clients discover live pipes with this prefix — there is no bare per-vendor pipe to connect to.</summary>
     public static string PrefixForVendor(string vendor) => "volt.bridge." + vendor.ToLowerInvariant() + ".";
-
-    public static string ForVendor(string vendor) => "volt.bridge." + vendor.ToLowerInvariant();
 }

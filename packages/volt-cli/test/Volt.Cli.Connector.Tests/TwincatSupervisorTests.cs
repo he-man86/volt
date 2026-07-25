@@ -83,4 +83,18 @@ public class TwincatSupervisorTests
         var (spawn, _) = s.Reconcile(Pids(100));
         Assert.Equal(new[] { 100 }, spawn); // returning XAE → spawn anew
     }
+
+    [Fact]
+    public void Forget_makes_a_still_present_xae_respawn_next_reconcile()
+    {
+        // The RestartWorker mechanism: the tray kills the worker and Forget()s the pid, so even though the XAE is
+        // STILL present, the next reconcile treats it as new and spawns a fresh worker (without Forget it would be
+        // seen as already-spawned and NOT respawned).
+        var s = new TwincatSupervisor();
+        Assert.Equal(new[] { 100 }, s.Reconcile(Pids(100)).Spawn);
+        Assert.Empty(s.Reconcile(Pids(100)).Spawn); // still present → not respawned...
+
+        s.Forget(100);                              // ...until we forget it (worker was killed for a restart)
+        Assert.Equal(new[] { 100 }, s.Reconcile(Pids(100)).Spawn);
+    }
 }

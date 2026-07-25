@@ -63,8 +63,22 @@ internal sealed class TcObjectModel
         VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} (xae pid {pid}) — no project selected");
     }
 
-    /// <summary>Bind a project by NAME — the connector's `select`. Re-acquires a fresh DTE for whichever running
-    /// window has that project open and resolves it (no worker respawn, no IDE restart). Does NOT throw: it attaches
+    /// <summary>Ambient re-attach for the health poll: if our held DTE is gone or dead, re-acquire OUR window by its
+    /// stable pid so the owned-window project list SURVIVES a DTE re-registration (the durability the pid model
+    /// exists for) WITHOUT waiting for a `select`. A BARE bind only — it never resolves a project (no `_sysManager`,
+    /// no PLC walk), so the health poll's "no resolution" invariant holds. When a project IS already selected the
+    /// full recovery is left to content-op <see cref="ReattachProject"/> (which re-resolves), so this no-ops then.
+    /// Runs on the STA thread (SnapshotHealth calls it).</summary>
+    public void EnsureAttached()
+    {
+        if (HasSelection) return;                       // a selected project recovers fully on the next content op
+        if (_dte != null && ProbeIdeAlive()) return;    // held DTE still answers — nothing to do
+        var dte = RotInstances.BindByPid(_xaePid);      // dead/gone → re-acquire our window by pid (bare, no resolve)
+        if (dte != null) SwapDte(dte);
+    }
+
+    /// <summary>Bind a project by NAME within OUR XAE window — the connector's `select`. Re-acquires our window (by
+    /// pid) and resolves the named project inside it (no worker respawn, no IDE restart). Does NOT throw: it attaches
     /// what it can and leaves the model connected or not. The Core `select` handler (BridgePipeHost) enforces the
     /// post-condition uniformly — a select that leaves the bridge NOT connected is refused there with the shared
     /// PLC_DISCONNECTED, identically for both vendors. This method's job is only the vendor-specific attach +

@@ -44,10 +44,16 @@ public class BridgeClientTests
     }
 
     [Fact]
-    public void ForVendor_maps_the_vendor_id_to_its_pipe()
+    public void PrefixForVendor_is_the_per_instance_discovery_prefix_for_both_vendors()
     {
-        Assert.Equal(PipeNames.Twincat, PipeNames.ForVendor("twincat"));
-        Assert.Equal(PipeNames.Codesys, PipeNames.ForVendor("codesys"));
+        // Both vendors are discovered per-pid now; the resolver lists pipes under this prefix. A regression here
+        // (e.g. the old bare `volt.bridge.twincat`) would send the CLI to a pipe nothing serves.
+        Assert.Equal("volt.bridge.twincat.", PipeNames.PrefixForVendor("twincat"));
+        Assert.Equal("volt.bridge.codesys.", PipeNames.PrefixForVendor("codesys"));
+        Assert.Equal(PipeNames.TwincatPrefix, PipeNames.PrefixForVendor("twincat"));
+        Assert.Equal(PipeNames.CodesysPrefix, PipeNames.PrefixForVendor("codesys"));
+        // A worker's actual served pipe is the prefix + its pid — never the bare base.
+        Assert.Equal("volt.bridge.twincat.17844", PipeNames.TwincatInstance(17844));
     }
 
     // ── push + refs over the pipe (fetch/init/health were covered; the push/refs framing was not) ──

@@ -23,7 +23,6 @@ public sealed class BridgeClient
     private readonly PipeClient _pipe;
 
     public BridgeClient(string pipeName) => _pipe = new PipeClient(pipeName);
-    public static BridgeClient ForVendor(string vendor) => new(PipeNames.ForVendor(vendor));
 
     private static T De<T>(JsonElement e) => JsonSerializer.Deserialize<T>(e.GetRawText(), Json)!;
 

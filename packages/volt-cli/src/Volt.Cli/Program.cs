@@ -47,9 +47,9 @@ internal static class Program
 
         var a = ParseArgs(args);
         var root = Path.GetFullPath(a.Workspace);
-        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests). Otherwise TwinCAT is the one worker
-        // pipe and CODESYS is discovered per-instance + matched to the bound project (BridgeResolver). Resolved
-        // LAZILY so bridge-free verbs (merge/help) never probe — and so a resolution refusal surfaces in the catch.
+        // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests). Otherwise BOTH vendors are discovered
+        // per-instance and matched to the bound project (BridgeResolver — no per-vendor branch). Resolved LAZILY so
+        // bridge-free verbs (merge/help) never probe — and so a resolution refusal surfaces in the catch.
         var pipeOverride = a.Value("--pipe") ?? Environment.GetEnvironmentVariable("VOLT_PIPE");
         var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? Vendors.Codesys;
         BridgeClient Bridge() => BridgeResolver.Resolve(root, vendor, pipeOverride, isInit: a.Verb == "init");

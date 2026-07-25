@@ -251,8 +251,8 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Merges_four_projects_across_multiple_sources_into_one_list()
     {
-        // The multi-IDE topology: the CODESYS source fans out over 2 running IDEs, the TwinCAT worker multiplexes 2
-        // XAE windows — 2 sources, 4 projects, ONE unified list the UI shows across vendors.
+        // The multi-IDE topology: each source fans out over its running IDEs (CODESYS 2 IDEs, TwinCAT 2 per-XAE
+        // workers) — 2 sources, 4 projects, ONE unified list the UI shows across vendors.
         var cds = new FakeProjectSource("codesys", "CODESYS");
         cds.Add("MachineA"); cds.Add("MachineB");
         var tc = new FakeProjectSource("twincat", "TwinCAT");

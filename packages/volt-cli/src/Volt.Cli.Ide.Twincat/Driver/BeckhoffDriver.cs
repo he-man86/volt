@@ -67,15 +67,16 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// the async probe calls it via <see cref="RunOnStaThread{T}"/>; <see cref="Connect"/> / <see cref="SelectProject"/>
     /// call it directly (they already run on the STA thread), so a new binding shows in health AT ONCE — not 5s later
     /// on the next probe. Matches the CODESYS driver, which refreshes its cache on select the same way.
-    /// <para>NO PLC-APP TOUCH: it reads only top-level state — the bound DTE/solution liveness, the project name/dirty,
-    /// and the ROT enumeration of every running XAE + its projects (the connectable-projects list that rides in the
-    /// health response). Never the PLC application (no node, no LookupTreeItem, no tree walk). The ROT walk is the one
-    /// non-trivial cost, throttled to ~5s by <see cref="BuildHealthResponse"/> and single-flight, so a user who isn't
-    /// syncing never has Volt slow or crash their IDE. Recovery — re-binding the desired project + resolving the PLC
+    /// <para>NO PLC-APP TOUCH: it reads only top-level state — the bound DTE/solution liveness and, for THIS worker's
+    /// own XAE window, its project names/dirty (<c>OwnSolution</c>, the rows that ride in the health response). No ROT
+    /// walk (that moved to the connector's <c>--list-xae-pids</c> probe) and never the PLC application (no node, no
+    /// LookupTreeItem, no tree walk), throttled to ~5s by <see cref="BuildHealthResponse"/> and single-flight, so a
+    /// user who isn't syncing never has Volt slow or crash their IDE. Recovery — re-binding the desired project + resolving the PLC
     /// app after a close / re-registration / RPC drop — is DEFERRED to the content ops (where RunRead re-acquires on a
     /// transient) or a re-select; it NEVER happens on this poll.</para></summary>
     private void SnapshotHealth()
     {
+        _om.EnsureAttached();   // re-acquire our XAE by pid if the held DTE died (bare — keeps the project list live)
         bool ideAlive = _om.ProbeIdeAlive();
         if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
         var projects = BuildProjects();

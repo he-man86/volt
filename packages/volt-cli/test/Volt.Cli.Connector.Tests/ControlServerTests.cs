@@ -179,7 +179,7 @@ public class ControlServerTests : IDisposable
     }
 
     [Fact]
-    public async Task A_worker_restart_route_calls_restart_with_the_id()
+    public async Task A_worker_restart_route_calls_restart_with_the_per_xae_id()
     {
         string? restarted = null;
         var view = new ConnectorView(Array.Empty<ProjectView>());
@@ -187,10 +187,12 @@ public class ControlServerTests : IDisposable
             _ => Task.FromResult(UnbindResult.Gated), id => restarted = id, _port);
         _server.Start();
 
-        var r = await Post("workers/twincat/restart");
+        // Per-XAE worker ids are "twincat.<pid>" — the DOT must survive the route parse (which splits on '/'), or a
+        // UI restart of one XAE would target the wrong/no worker.
+        var r = await Post("workers/twincat.17844/restart");
 
         Assert.Equal(200, (int)r.StatusCode);
-        Assert.Equal("twincat", restarted);
+        Assert.Equal("twincat.17844", restarted);
     }
 
     [Fact]

@@ -13,12 +13,14 @@ namespace Volt.Cli.Connector
     /// </summary>
     public static class TwincatXaeProbe
     {
-        /// <summary>Run <c>--list-xae-pids</c> with a hard timeout and return the XAE window pids. A timeout/failure
-        /// returns an EMPTY list — "couldn't see any this tick", which the supervisor's N-miss reap debounce absorbs
-        /// so a single hung probe never tears down a healthy worker. stderr inherits (tiny diagnostics, no drain).</summary>
-        public static IReadOnlyList<int> ListPids(string? workerExe, TimeSpan timeout)
+        /// <summary>Run <c>--list-xae-pids</c> with a hard timeout and return the XAE window pids, or <c>null</c> if the
+        /// probe FAILED (exe missing, spawn failed, timed out, or the worker exited non-zero = COM enumeration threw).
+        /// A failure must NOT be read as "no XAE open": the caller leaves the fleet untouched on null and only reaps on
+        /// a SUCCESSFUL empty result — otherwise a persistently-failing probe would reap every healthy worker. An empty
+        /// list therefore means "the enumeration ran and saw no XAE". stderr inherits (tiny diagnostics, no drain).</summary>
+        public static IReadOnlyList<int>? ListPids(string? workerExe, TimeSpan timeout)
         {
-            if (string.IsNullOrEmpty(workerExe) || !File.Exists(workerExe)) return Array.Empty<int>();
+            if (string.IsNullOrEmpty(workerExe) || !File.Exists(workerExe)) return null;
             try
             {
                 var psi = new ProcessStartInfo
@@ -30,16 +32,17 @@ namespace Volt.Cli.Connector
                     RedirectStandardOutput = true,
                 };
                 using var proc = Process.Start(psi);
-                if (proc == null) return Array.Empty<int>();
+                if (proc == null) return null;
                 var stdout = proc.StandardOutput.ReadToEndAsync(); // drain async so a big write can't deadlock WaitForExit
                 if (!proc.WaitForExit((int)timeout.TotalMilliseconds))
                 {
                     try { proc.Kill(entireProcessTree: true); } catch { /* already gone */ }
-                    return Array.Empty<int>();
+                    return null; // timed out / hung — a failure, not "no XAE"
                 }
+                if (proc.ExitCode != 0) return null; // the worker signalled the enumeration itself failed
                 return Parse(stdout.GetAwaiter().GetResult());
             }
-            catch { return Array.Empty<int>(); }
+            catch { return null; }
         }
 
         /// <summary>Parse the one-pid-per-line stdout into distinct positive pids (ignores blanks / non-numeric lines).</summary>

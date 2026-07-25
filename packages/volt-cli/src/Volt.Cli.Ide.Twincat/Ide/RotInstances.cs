@@ -5,20 +5,15 @@ using System.Runtime.InteropServices.ComTypes;
 
 namespace Volt.Cli.Ide.Twincat;
 
-/// <summary>One PLC project inside a TwinCAT solution, with its PLC sub-projects.</summary>
-public sealed record TcProject(string Project);
-
-/// <summary>One running TwinCAT XAE / VS instance and the projects it has open.</summary>
-public sealed record TcInstance(string? IdeVersion, List<TcProject> Projects);
-
 /// <summary>
-/// Enumerates the COM Running Object Table for every running DTE instance
-/// (TcXaeShell / Visual Studio) so the user can pick WHICH instance + project the
-/// bridge attaches to. <c>GetActiveObject</c> only ever returns one instance per
-/// ProgID; the ROT exposes them all.
+/// Reaches running DTE instances (TcXaeShell / Visual Studio) through the COM Running Object Table. Two callers:
+/// the connector's <c>--list-xae-pids</c> probe (<see cref="EnumeratePids"/> → the XAE window pids to supervise),
+/// and a per-XAE worker binding its ONE window (<see cref="BindByPid"/>). Identity is the window PROCESS id
+/// (<see cref="PidOf"/>) — stable for the process lifetime, unlike the ephemeral ROT moniker TcXaeShell re-registers.
 ///
-/// MUST run on the bridge's STA thread — foreign DTE objects are apartment-bound,
-/// and the registered <see cref="ComMessageFilter"/> handles "server busy" retries.
+/// MUST run on an STA thread — foreign DTE objects are apartment-bound, and the registered
+/// <see cref="ComMessageFilter"/> handles "server busy" retries. Every DTE proxy this hands back but the caller does
+/// not keep is released here (cross-process RCWs), so a multi-XAE machine doesn't leak proxies to the other windows.
 /// </summary>
 internal static class RotInstances
 {
@@ -42,39 +37,35 @@ internal static class RotInstances
     }
 
     /// <summary>The DTE whose window process id is <paramref name="pid"/>, or null. A per-XAE worker owns ONE window
-    /// and attaches to it by this stable pid — re-acquiring the same pid across a DTE re-registration, no moniker.</summary>
+    /// and attaches to it by this stable pid — re-acquiring the same pid across a DTE re-registration, no moniker.
+    /// Releases every OTHER window's DTE proxy (the caller keeps only the returned one, via SwapDte).</summary>
     public static object? BindByPid(int pid)
     {
-        foreach (var (_, dte) in RunningDtes())
-            if (PidOf(dte) == pid) return dte;
-        return null;
+        object? match = null;
+        foreach (var dte in RunningDtes())
+        {
+            if (match == null && PidOf(dte) == pid) match = dte;   // keep the first match; caller owns it
+            else Release(dte);                                     // drop every non-matched window's cross-process proxy
+        }
+        return match;
     }
 
-    /// <summary>Every running XAE as (windowPid, projects) — the LIGHT enumeration the connector's supervisor uses to
-    /// decide which per-XAE workers to spawn/reap. Project NAMES only, never a PLC-tree walk (that can fault a fragile
-    /// XAE in its own process). MUST run on an STA thread.</summary>
-    public static List<(int Pid, TcInstance Instance)> EnumerateWithPids()
+    /// <summary>The window pids of every running XAE — the LIGHT enumeration the connector's supervisor uses to decide
+    /// which per-XAE workers to spawn/reap. Pids ONLY: it never walks a project's PLC tree (that can fault a fragile
+    /// XAE in its own process) and holds no DTE (each proxy is released immediately). MUST run on an STA thread.</summary>
+    public static List<int> EnumeratePids()
     {
-        var list = new List<(int, TcInstance)>();
-        foreach (var (_, dte) in RunningDtes())
+        var pids = new List<int>();
+        foreach (var dte in RunningDtes())
         {
             var pid = PidOf(dte);
-            if (pid == 0) continue;
-            string? ver = null;
-            var projects = new List<TcProject>();
-            try { ver = (string?)((dynamic)dte).Version; } catch { }
-            try
-            {
-                dynamic projs = ((dynamic)dte).Solution.Projects;
-                int count = projs.Count;
-                for (int i = 1; i <= count; i++)
-                    try { projects.Add(new TcProject((string)projs.Item(i).Name)); } catch { }
-            }
-            catch { }
-            list.Add((pid, new TcInstance(ver, projects)));
+            if (pid != 0 && !pids.Contains(pid)) pids.Add(pid);
+            Release(dte); // pids only — never hold a DTE
         }
-        return list;
+        return pids;
     }
+
+    private static void Release(object comObj) { try { Marshal.ReleaseComObject(comObj); } catch { /* already gone */ } }
 
     private static bool IsDteMoniker(string name) =>
         name.IndexOf("VisualStudio.DTE", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -84,7 +75,7 @@ internal static class RotInstances
     // return nothing while a TcXaeShell is genuinely running (mid-registration, or the ROT momentarily locked), which
     // otherwise surfaces as a spurious "no instance to bind" at select/probe time. A few short retries close that
     // window; a genuinely-empty ROT (no IDE open) just costs a few ms once. Runs on the STA thread — keep it brief.
-    private static IEnumerable<(string Name, object Dte)> RunningDtes()
+    private static List<object> RunningDtes()
     {
         for (int attempt = 0; attempt < 3; attempt++)
         {
@@ -92,29 +83,34 @@ internal static class RotInstances
             if (hits.Count > 0 || attempt == 2) return hits;
             System.Threading.Thread.Sleep(40);
         }
-        return new List<(string, object)>();
+        return new List<object>();
     }
 
-    private static List<(string Name, object Dte)> EnumRunningDtesOnce()
+    private static List<object> EnumRunningDtesOnce()
     {
-        var result = new List<(string, object)>();
+        var result = new List<object>();
         if (GetRunningObjectTable(0, out var rot) != 0) return result;
-        if (CreateBindCtx(0, out var ctx) != 0) return result;
+        if (CreateBindCtx(0, out var ctx) != 0) { Release(rot); return result; }
         rot.EnumRunning(out var en);
         en.Reset();
         var arr = new IMoniker[1];
         while (en.Next(1, arr, IntPtr.Zero) == 0)
         {
-            string name;
-            try { arr[0].GetDisplayName(ctx, null, out name); }
-            catch { continue; }
-            if (string.IsNullOrEmpty(name) || !IsDteMoniker(name)) continue;
-            object obj;
-            try { if (rot.GetObject(arr[0], out obj) != 0 || obj == null) continue; }
-            catch { continue; }
-            result.Add((name, obj));
+            var moniker = arr[0];
+            try
+            {
+                string name;
+                try { moniker.GetDisplayName(ctx, null, out name); }
+                catch { continue; }
+                if (string.IsNullOrEmpty(name) || !IsDteMoniker(name)) continue;
+                object obj;
+                try { if (rot.GetObject(moniker, out obj) != 0 || obj == null) continue; }
+                catch { continue; }
+                result.Add(obj);
+            }
+            finally { Release(moniker); } // the moniker is spent once we've read its name + object
         }
+        Release(en); Release(ctx); Release(rot);
         return result;
     }
-
 }
