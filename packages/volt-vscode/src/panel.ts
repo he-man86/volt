@@ -99,6 +99,9 @@ export class VoltViews implements vscode.Disposable {
 			}),
 			// LSP diagnostics change independently of sync status — refresh the summary on their own event.
 			vscode.languages.onDidChangeDiagnostics(() => this.refreshDiagnostics()),
+			// Manual re-read of the LSP's current diagnostics (the view auto-refreshes on change; this is the
+			// explicit button, matching the desktop's Diagnostics refresh).
+			vscode.commands.registerCommand("volt.refreshDiagnostics", () => this.refreshDiagnostics()),
 		)
 		this.reference.setRoots(referenceNodes())
 		this.refreshDiagnostics()

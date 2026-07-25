@@ -541,6 +541,12 @@
         "icon": "$(list-flat)"
       },
       {
+        "command": "volt.refreshDiagnostics",
+        "title": "Volt: Refresh Diagnostics",
+        "category": "Volt",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "volt.openAgent",
         "title": "Volt: Open Agent",
         "category": "Volt",
@@ -751,6 +757,11 @@
           "command": "volt.openProblems",
           "when": "view == volt.views.diagnostics",
           "group": "navigation@1"
+        },
+        {
+          "command": "volt.refreshDiagnostics",
+          "when": "view == volt.views.diagnostics",
+          "group": "navigation@2"
         }
       ],
       "volt.more": [
