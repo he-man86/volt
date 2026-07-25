@@ -21,7 +21,7 @@
  *   bun run test:install [path\to\Volt-win-Setup.exe]
  */
 import { spawnSync } from "node:child_process"
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
 import { resolve, join } from "node:path"
 import { installDir, currentDir, uninstaller, uninstallKey, runKey, appId, reg, pathHasEntry } from "./install-layout.js"
 
@@ -160,7 +160,18 @@ if (!existsSync(uninstaller)) {
 spawnSync(uninstaller, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
 
 console.log("• verifying cleanup:")
-check("install dir removed", await waitFor(() => !existsSync(installDir), 60))
+// A clean uninstall leaves no CONTENTS — but Inno may leave the empty {app} dir SHELL: it removes the files, yet
+// the directory itself can linger (especially right after the async usPostUninstall unlinks the `current` junction
+// and takes the version dirs). Gone OR empty is clean; leftover ENTRIES are a real failure. Same tolerance the
+// lifecycle gate applies (assertClean) — the shared semantics, not just the shared paths.
+let leftover: string[] = []
+const dirClean = await waitFor(() => {
+  if (!existsSync(installDir)) return true
+  leftover = readdirSync(installDir)
+  return leftover.length === 0
+}, 60)
+check("install dir removed (no leftover contents)", dirClean)
+if (!dirClean) console.log(`    leftover in ${installDir}: ${leftover.slice(0, 8).join(", ")}`)
 // The env revert is ASYNC: the uninstaller returns immediately and reverts env in its FINAL phase (usPostUninstall),
 // AFTER the files go — so the file-removal above does NOT imply the env is reverted yet. Wait for it, symmetric with
 // the install-side wait for the env to appear. A never-reverted var still fails (the wait just exhausts) — this
