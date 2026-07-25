@@ -21,13 +21,15 @@ internal static class Program
 
     /// <summary>volt.exe's OWN stamped FileVersion — the fact, not a sidecar file's claim. build-cli.ps1 stamps
     /// every binary from VOLT_VERSION, so this is the shipped version and cannot drift from the binary the way a
-    /// version.txt beside it could. "(dev)" when run from a build tree that carries no stamp.</summary>
+    /// version.txt beside it could. "(dev)" when run from a build tree that carries no stamp — that is BOTH .NET's
+    /// unset default "1.0.0.0" (an unstamped local/dev build — same sentinel Updater.cs treats as dev) and the rare
+    /// "0.0.0.0". A real release is always a stamped X.Y.Z.count, so no genuine version collides with these.</summary>
     private static string ShippedVersion()
     {
         try
         {
             var v = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Environment.ProcessPath!).FileVersion?.Trim();
-            if (!string.IsNullOrEmpty(v) && v != "0.0.0.0") return v!;
+            if (!string.IsNullOrEmpty(v) && v != "0.0.0.0" && v != "1.0.0.0") return v!;
         }
         catch { }
         return "(dev)";

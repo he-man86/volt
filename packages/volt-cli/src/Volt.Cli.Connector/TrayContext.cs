@@ -85,9 +85,11 @@ namespace Volt.Cli.Connector
             _icon.Text = Truncate(tip, 63);
             if (agg != _prevAggregate) { OnAggregateChanged(_prevAggregate, agg); _prevAggregate = agg; }
 
-            _headerItem.Text = pending != null
-                ? $"Volt Connector  ·  {Updater.CurrentVersion} → {pending}"
-                : $"Volt Connector  ·  {Updater.CurrentVersion}";
+            _headerItem.Text = Updater.IsDev
+                ? "Volt Connector  ·  development build (not installed via Setup)"
+                : pending != null
+                    ? $"Volt Connector  ·  {Updater.CurrentVersion} → {pending}"
+                    : $"Volt Connector  ·  {Updater.CurrentVersion}";
             RebuildProjectItems();
             ShowUpdateIfReady();
         }

@@ -79,6 +79,11 @@ namespace Volt.Cli.Connector
         /// <summary>The installed version, shown in the tray ("(dev)" when not installed via the Setup).</summary>
         public static string CurrentVersion { get; private set; } = "(dev)";
 
+        /// <summary>True when this is a dev/unstamped build — the version isn't a real X.Y.Z.count (it's "(dev)", or a
+        /// binary built without VOLT_VERSION whose FileVersion is .NET's default 1.0.0.0). The UI says "development
+        /// build" plainly instead of a version-shaped string that looks like a release.</summary>
+        public static bool IsDev => !Version.TryParse(CurrentVersion, out _);
+
         /// <summary>A newer version available to apply, or null. Polled by the tray (UI thread).</summary>
         public static string? PendingVersion => _pending;
 
