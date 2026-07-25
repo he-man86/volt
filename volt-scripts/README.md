@@ -26,9 +26,16 @@ build-payload.ts        →  dist/volt/     binaries + docs + .vsix + opencode-c
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
 test-install.ts            install/uninstall smoke gate — CI runs this BETWEEN build and publish
+test-install-lifecycle.ts  install/update/uninstall ×N gate — runs right after, same stage
       ↓
 build-installer.ts --upload-only    publishes the GitHub release (= the connector's update feed)
 ```
+
+Both install gates read the installer's on-disk contract (install dir, the `{app}\current` junction, the uninstall
+key, the reg reader) from **`install-layout.ts`** — ONE source of truth, so the smoke gate can't drift from the
+lifecycle gate the way it once did (it hardcoded the pre-junction flat layout and rotted unnoticed, because the
+install gates run only on a stable release and none had been cut — the first stable cut then failed on months-old
+wrong paths). `test-install.ts` adds BEHAVIOUR on top: it runs the installed CLIs (`--version`), not just file checks.
 
 `release.ts` sits *outside* that flow: it only tags `dev` and pushes. CI (`release.yml`) runs the pipeline above,
 so cutting a release needs no local .NET or Inno Setup.

@@ -35,6 +35,9 @@
 import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { resolve, join } from "node:path"
+// The installer's on-disk contract (install dir, the `current` junction, uninstaller, Add/Remove key, reg reader) —
+// ONE definition shared with the smoke gate (test-install.ts), so the two can never drift apart again.
+import { installDir, currentDir, uninstaller, uninstallKey, reg } from "./install-layout.js"
 
 if (process.platform !== "win32") {
   console.error("test:install:lifecycle is Windows-only.")
@@ -54,11 +57,6 @@ for (const [label, path] of [["installer", setup], ...(olderSetup ? [["older ins
   }
 }
 
-const installDir = join(process.env.LOCALAPPDATA!, "Programs", "Volt")
-const uninstaller = join(installDir, "unins000.exe")
-const appId = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8").match(/AppId=\{\{([0-9A-Fa-f-]+)\}/)?.[1]
-const uninstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{${appId}}_is1`
-
 // Captured ONCE, before anything is installed. `hadExtension` is the immutable original baseline — used only to
 // restore the machine at the end. `expectExt` is the EXPECTED-present state as it evolves through the run: it
 // starts equal to the baseline and every uninstall turns it off, because the gate's own uninstall strips the
@@ -77,17 +75,6 @@ let failures = 0
 const fail = (step: string, msg: string): void => { failures++; console.error(`  ✗ [${step}] ${msg}`) }
 const ok = (msg: string): void => console.log(`  ✓ ${msg}`)
 
-// Returns the VALUE when one is named, not `reg query`'s raw stdout. Returning the blob was survivable for the
-// old `includes("volt")` checks but silently broke the moment a check needed the value itself — an assertion that
-// resolves a path cannot be handed a multi-line "HKEY_CURRENT_USER\Environment / Path REG_EXPAND_SZ C:\..." dump.
-// Value lines are "<indent><name><spaces><TYPE><spaces><data>", and data may itself contain spaces.
-const reg = (key: string, value?: string): string | null => {
-  const r = spawnSync("reg", ["query", key, ...(value ? ["/v", value] : [])], { encoding: "utf8" })
-  if (r.status !== 0) return null
-  if (!value) return r.stdout
-  const line = (r.stdout ?? "").split("\n").find((l) => new RegExp(`^\\s+${value}\\s+REG_`, "i").test(l))
-  return line ? line.replace(new RegExp(`^\\s+${value}\\s+REG_\\w+\\s+`, "i"), "").trim() : null
-}
 /** The binary's OWN stamped version — the fact, as opposed to version.txt's claim. build-cli.ps1 stamps
  *  FileVersion from VOLT_VERSION, so this is directly comparable to the release number. */
 const fileVersion = (exe: string): string | null => {
@@ -166,7 +153,7 @@ function assertInstalled(step: string): void {
   // install is inspected THROUGH the junction — which is also how PATH, OPENCODE_CONFIG_DIR and the shortcut
   // reach it. Checking the version directory directly would pass even if `current` were missing or stale, and a
   // broken junction is the one failure that makes an otherwise perfect install unreachable.
-  const current = join(installDir, "current")
+  const current = currentDir // the `{app}\current` junction — the shared source of truth (install-layout.ts)
   if (!existsSync(current)) return fail(step, "{app}\current is missing — nothing resolves the install")
   const versions = existsSync(installDir)
     ? readdirSync(installDir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith("app-")).map((d) => d.name)
