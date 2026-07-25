@@ -10,10 +10,10 @@
 
 ## Phase 1 — the per-XAE worker (attach by pid)
 - [x] `VoltBridgeTwincat --xae-pid <pid>`: attach to the ONE XAE whose window process is `<pid>` (DTE.MainWindow.HWnd
-      → GetWindowThreadProcessId), serve `volt.bridge.twincat.<pid>`.
-- [x] `TcObjectModel`: pid-targeted attach + re-attach (`_xaePid` → `BindByPid`; recovery re-acquires by pid). NOTE:
-      the name-based `BindByProject` is KEPT for the legacy no-arg fallback — delete after the live smoke test.
-- [x] `BeckhoffDriver.BuildProjects`: single-XAE (this worker's window via `OwnSolution`) when `_xaePid != 0`.
+      → GetWindowThreadProcessId), serve `volt.bridge.twincat.<pid>`. `--xae-pid` is now REQUIRED (no all-XAE mode).
+- [x] `TcObjectModel`: pid-targeted attach + re-attach (`_xaePid` → `BindByPid`; recovery re-acquires by pid). The
+      name-based `BindByProject` / no-arg `Connect` / `First` / `Enumerate` are DELETED (Phase 5).
+- [x] `BeckhoffDriver.BuildProjects`: single-XAE — always this worker's own window via `OwnSolution`.
 - [ ] Worker self-exits when its XAE pid is gone (deferred — the connector's N-miss reap covers cleanup for now).
 
 ## Phase 2 — the connector supervisor
@@ -25,31 +25,33 @@
 ## Phase 3 — unify IProjectSource (the payoff)
 - [x] Collapse `CodesysProjectSource` + `PipeProjectSource` into ONE `PerPipeProjectSource(vendor, display, prefix)`;
       both vendors discover per-pipe.
-- [ ] Delete `RotInstances.Enumerate`-all multiplexing + `BindByProject` — DEFERRED to the cleanup pass (kept as the
-      legacy no-arg worker fallback until the live smoke test passes).
+- [x] Delete `RotInstances.Enumerate`-all multiplexing + `BindByProject` + `First` (Phase 5 — live-validated first).
 - [x] `ARCHITECTURE.md`: pipe topology is now symmetric; the remaining asymmetry is lifecycle — documented as such.
 
 ## Phase 4 — lifecycle + parallel-ops tests
 - [x] Supervisor reconcile unit test (6 tests: spawn-once, per-XAE, brief-absence, sustained-reap, flicker-reset,
       returns-respawn) + `TwincatXaeProbe.Parse` tests. All green.
-- [ ] Ops-parallelism test: two per-pid workers each run a slow op → both complete in ~one op's duration (needs a
-      live bridge — part of the smoke test).
+- [x] Ops-parallelism: two per-pid workers answered health CONCURRENTLY over their two pipes (~620ms for both) —
+      genuinely parallel (two processes), not serialized on one STA thread. Verified live below.
 - [x] The wire/health/connect contract tests stay green unchanged (no wire change) — verified (496 offline green).
-- [ ] e2e multi-XAE (local tier): two XAE, two workers, parallel refs/push; disconnect one leaves the other serving
-      (needs live XAE — the smoke test).
+- [x] Live multi-XAE (local tier): two XAE (Project13/14) → `--list-xae-pids` saw both; two workers each served
+      `volt.bridge.twincat.<pid>` reporting ONLY its own window; closed one → the other kept serving; survivor's
+      pid alone in `--list-xae-pids`.
 
-## Phase 5 — parity + cleanup (after the live smoke test)
-- [ ] Confirm CODESYS is untouched and both vendors serve byte-identical health per pipe (live).
-- [ ] Once one-XAE → two-XAE is validated live: delete the legacy no-arg worker mode + `Enumerate`-all +
-      `BindByProject`, and run the redundant-layers lens over the diff.
+## Phase 5 — parity + cleanup ✅ DONE (live-validated)
+- [x] CODESYS untouched; both vendors serve the same flat per-pipe health rows.
+- [x] Deleted the legacy no-arg worker mode + `RotInstances.{First,Enumerate,BindByProject}` + `TcObjectModel.Connect`;
+      `--xae-pid` is required, `BeckhoffDriver.Connect()` (the DriverBase contract CODESYS uses) throws for TwinCAT.
+
+## Live smoke test — PASSED (2026-07-25, real TcXaeShell + the two committed fixtures)
+- ONE XAE (pid 17844): `--list-xae-pids` → 17844; worker `--xae-pid 17844` served `volt.bridge.twincat.17844`;
+  health → only `TwinCAT Project13` (v15.0). `connect` → `{ok:true}`; health flipped `idle`→`healthy` (the pid-based
+  `BindByPid`→resolve path). No-arg worker rejected with exit 2.
+- TWO XAE (+pid 33512, Project14): both pids discovered; two pipes, each reporting ONLY its own window (13 vs 14);
+  both answered health in parallel (~620ms); closing XAE 14 left XAE 13 serving cleanly.
 
 ## Notes
-- Built incrementally: (1) the per-XAE worker serving-half DORMANT (legacy no-arg path unchanged), then (2) the
-  connector cutover. The legacy path is kept ONE commit as a git-revert fallback (no runtime flag) — deleted in
-  Phase 5 once the live smoke test passes.
-- **Live-validation gap (open):** the pid-attach + supervisor-driven fleet cannot be validated headless (TcXaeShell
-  instability). Ships proven-in-unit, unproven-live. Smoke test: open ONE XAE → confirm a worker attaches + serves
-  `volt.bridge.twincat.<pid>` + `volt status` sees it; then TWO XAE → two workers, parallel ops, close one, the
-  other keeps serving.
-- Bail-out: if the fleet proves racy beyond its value, `git revert` the connector-cutover commit — the dormant
-  serving-half stays (harmless) and the connector falls back to the single worker.
+- Built incrementally: (1) per-XAE worker serving-half DORMANT, (2) connector cutover (legacy kept one commit as a
+  git-revert fallback), (3) after the live smoke test passed, Phase 5 deleted the legacy path. No runtime flag.
+- **Only remaining deferral:** the worker doesn't self-exit when its XAE pid vanishes — the connector's N-miss reap
+  handles cleanup. Add self-exit if orphan workers ever show up in practice.

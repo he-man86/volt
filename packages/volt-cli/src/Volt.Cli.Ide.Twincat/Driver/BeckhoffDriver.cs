@@ -31,7 +31,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override string? IdeVersion => _om.IdeVersion;
 
-    public override void Connect() { _om.Connect(); SnapshotHealth(); }
+    // The parameterless Connect() is the shared DriverBase contract (CODESYS's in-proc startup attach). TwinCAT is
+    // per-XAE: the worker is spawned with --xae-pid and MUST attach to that one window, so it uses Connect(int) — the
+    // no-arg form has no meaning here (there is no "the IDE" to pick) and is never called in the per-XAE worker.
+    public override void Connect() => throw new NotSupportedException("TwinCAT worker attaches by XAE pid — use Connect(int).");
     /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).</summary>
     public void Connect(int xaePid) { _om.ConnectToPid(xaePid); SnapshotHealth(); }
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
@@ -109,31 +112,19 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     }
 
     // ── project discovery + selection (the connector's `connect`; discovery rides on the health response) ──
-    // Runs on the STA thread (SnapshotHealth calls it) — RotInstances binds foreign, apartment-bound DTEs. One flat
-    // row per open project across every running XAE. EXACTLY ONE row is marked `serving` (the invariant the wire
-    // relies on): the first row whose project NAME matches the bound project. (Two windows open on an identically-
-    // named project share one wire identity — the accepted limit of name-based identity.)
+    // Runs on the STA thread (SnapshotHealth calls it). This worker OWNS ONE XAE window (per-XAE model), so it lists
+    // ONLY that window's projects — the connector merges every worker's single-window rows into the flat vendor list.
+    // EXACTLY ONE row is marked `serving` (the invariant the wire relies on): the row whose project NAME matches the
+    // bound project. (Two windows on an identically-named project are two workers/pipes; the connector collapses them
+    // to one row by identity — the accepted limit of name-based identity.)
     private List<ProjectEntry> BuildProjects()
     {
         var served = _om.ProjectName;
         bool connected = _om.IsConnected;
         bool? servedDirty = connected ? _om.ProjectDirty() : null;
 
-        // Per-XAE worker: ONLY its own window's projects (it owns one XAE). Legacy multiplexing worker: every
-        // running XAE. The connector merges the per-XAE workers' single-window rows into the same flat list the
-        // legacy worker produced alone, so the wire shape is identical either way.
-        List<(string? IdeVersion, string Project)> rows;
-        if (_om.OwnedPid != 0)
-        {
-            var own = _om.OwnSolution();
-            rows = own.Projects.Select(p => (own.Version, p)).ToList();
-        }
-        else
-        {
-            rows = RotInstances.Enumerate()
-                .SelectMany(inst => inst.Projects.Select(p => (inst.IdeVersion, p.Project)))
-                .ToList();
-        }
+        var own = _om.OwnSolution();
+        var rows = own.Projects.Select(p => (IdeVersion: own.Version, Project: p)).ToList();
 
         int servingIdx = connected && !string.IsNullOrEmpty(served) ? rows.FindIndex(r => r.Project == served) : -1;
 
