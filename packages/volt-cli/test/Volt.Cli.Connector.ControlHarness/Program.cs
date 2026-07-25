@@ -19,25 +19,37 @@ var json = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.C
 string? connectedId = null;
 var gate = new object();
 
+List<ProjectView> Raw() => JsonSerializer.Deserialize<List<ProjectView>>(File.ReadAllText(viewPath), json) ?? new();
+
 ConnectorView Snapshot()
 {
-    List<ProjectView> rows;
     lock (gate)
     {
-        rows = JsonSerializer.Deserialize<List<ProjectView>>(File.ReadAllText(viewPath), json) ?? new();
         var active = connectedId;
-        rows = rows.ConvertAll(p =>
-            // Connecting a project makes it the highlight AND makes its bridge serve (idle → healthy); the rest are
-            // detected-but-idle. Mirrors what the live connector's ConnectorView reports after a select.
+        // Connecting a project makes it the highlight AND makes its bridge serve (idle → healthy); the rest are
+        // detected-but-idle. Mirrors what the live connector's ConnectorView reports after a select.
+        var rows = Raw().ConvertAll(p =>
             p.Id == active ? p with { Connected = true, Status = "healthy" }
                            : p with { Connected = false, Status = p.Status == "idle" ? "idle" : p.Status });
+        return new ConnectorView(rows);
     }
-    return new ConnectorView(rows);
 }
 
 using var server = new ControlServer(
     snapshot: () => Task.FromResult(Snapshot()),
-    connect: id => { lock (gate) connectedId = id; return Task.FromResult(true); },
+    // Mirror the real ConnectionManager.ConnectByIdAsync: an UNKNOWN project id is rejected (false) and changes
+    // nothing — the connect only lands when the id is actually present. Connecting an already-connected id is a no-op.
+    connect: id =>
+    {
+        lock (gate)
+        {
+            if (!Raw().Exists(p => p.Id == id)) return Task.FromResult(false);
+            connectedId = id;
+            return Task.FromResult(true);
+        }
+    },
+    // Disconnect the named project (or the active one when null). Disconnecting a project that isn't the active one
+    // leaves the active selection untouched. Always answers Gated (the highlight cleared regardless).
     disconnect: id => { lock (gate) { if (id == null || id == connectedId) connectedId = null; } return Task.FromResult(UnbindResult.Gated); },
     restart: _ => { },
     port: port);

@@ -140,4 +140,75 @@ suite("volt-control ↔ real ControlServer", () => {
 		expect(await detectedProjects()).toEqual([])
 		expect(await connectorStatus()).toEqual({ projects: [] }) // a real empty ConnectorView, distinct from undefined (down)
 	})
+
+	// ── edge cases + stability under interaction (inherits the harness + per-test disconnect above) ──
+	describe("edge cases + stability under churn", () => {
+		test("connecting an unknown project id is rejected and changes nothing", async () => {
+			writeView([cs("MachineA", 1001)])
+			expect(await connectProject("codesys:::Ghost:")).toBe(false) // real connector rejects an id it can't find
+			expect((await detectedProjects()).some(p => p.connected)).toBe(false)
+		})
+
+		test("disconnect with nothing connected is a clean no-op", async () => {
+			writeView([cs("MachineA", 1001)])
+			const r = await disconnect()
+			expect(r.ok).toBe(true)
+			expect((await detectedProjects()).some(p => p.connected)).toBe(false)
+		})
+
+		test("connecting the same project twice is idempotent — exactly one stays connected", async () => {
+			writeView([cs("MachineA", 1001), cs("MachineB", 1002)])
+			expect(await connectProject("codesys:::MachineA:")).toBe(true)
+			expect(await connectProject("codesys:::MachineA:")).toBe(true)
+			expect((await detectedProjects()).filter(p => p.connected).map(p => p.id)).toEqual(["codesys:::MachineA:"])
+		})
+
+		test("disconnecting a project that isn't the active one leaves the active one connected", async () => {
+			writeView([cs("MachineA", 1001), cs("MachineB", 1002)])
+			await connectProject("codesys:::MachineA:")
+			await disconnect("codesys:::MachineB:") // not the active selection
+			expect((await detectedProjects()).filter(p => p.connected).map(p => p.id)).toEqual(["codesys:::MachineA:"])
+		})
+
+		test("status stays coherent under a burst of concurrent polls + connect/disconnect churn", async () => {
+			const rows = [cs("MachineA", 1001), cs("MachineB", 1002, "healthy"), tc("Line1", 2001), tc("Line2", 2002)]
+			writeView(rows)
+			const ids = rows.map(r => r.id)
+			// Hammer the control plane: 40 concurrent /status polls interleaved with connect/disconnect actions.
+			const actions: Promise<unknown>[] = []
+			for (let i = 0; i < 40; i++) {
+				actions.push(connectorStatus(3000))
+				if (i % 5 === 0) actions.push(connectProject(ids[i % ids.length]!))
+				if (i % 7 === 0) actions.push(disconnect())
+			}
+			const results = await Promise.all(actions)
+			const views = results.filter((r): r is { projects: any[] } => !!r && typeof r === "object" && "projects" in (r as object))
+			expect(views.length).toBeGreaterThan(0)
+			for (const v of views) {
+				// Every snapshot is WELL-FORMED under load: the full row set, valid statuses, and NEVER two active
+				// selections at once (the invariant a torn read would violate).
+				expect(v.projects.length).toBe(4)
+				expect(v.projects.map((p: any) => p.id).sort()).toEqual([...ids].sort())
+				expect(v.projects.filter((p: any) => p.connected).length).toBeLessThanOrEqual(1)
+				for (const p of v.projects) expect(["idle", "healthy", "degraded"]).toContain(p.status)
+			}
+		})
+
+		test("repeated status polls with no change are stable — no flicker", async () => {
+			writeView([cs("MachineA", 1001), cs("MachineB", 1002, "healthy")])
+			await connectProject("codesys:::MachineA:")
+			const snaps = await Promise.all(Array.from({ length: 10 }, () => connectorStatus()))
+			expect(new Set(snaps.map(s => JSON.stringify(s))).size).toBe(1) // all 10 byte-identical
+		})
+
+		test("a connected project that vanishes from the view never stays falsely connected", async () => {
+			writeView([cs("MachineA", 1001), cs("MachineB", 1002)])
+			await connectProject("codesys:::MachineA:")
+			expect((await detectedProjects()).some(p => p.connected)).toBe(true)
+			writeView([cs("MachineB", 1002)]) // MachineA's IDE closed — its row is gone
+			const now = await detectedProjects()
+			expect(now.length).toBe(1)
+			expect(now.some(p => p.connected)).toBe(false) // the stale selection never resurrects a vanished project
+		})
+	})
 })
