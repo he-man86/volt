@@ -51,6 +51,26 @@ failure mode we hit.
 - The `IProjectSource` asymmetry — `CodesysProjectSource` (fan-out) + `PipeProjectSource` (single) → one per-pipe
   source parameterised by vendor/prefix. `ARCHITECTURE.md`'s "per-pipe vs one-worker" asymmetry note is retired.
 
+## Gaps surfaced in review (must be handled)
+- **Pid-attach does NOT fix `0x800706BA`.** It attaches by a stable pid instead of an ephemeral moniker, but it still
+  reaches the DTE via the ROT — so during a busy window (the DTE unavailable under load) the pid-match can still find
+  nothing, exactly like name-match. This change fixes *moniker staleness* and *cross-window confusion*, NOT
+  *DTE-busy-under-load* (that stays the IDE's COM fragility, handled by honest-health + the op-level retry). Do not
+  sell it as the crash fix.
+- **The connector now runs COM.** The light ROT enumerator executes in the always-on tray process (today: zero COM).
+  It MUST run on a dedicated STA helper thread with a hard per-enumeration timeout, isolated from the UI thread, so a
+  COM hang can never stall the tray.
+- **Detect TwinCAT in full VS (`devenv.exe`), not only TcXaeShell.** Process-name detection would miss it — the
+  enumeration is ROT-based (any DTE holding a TC project) precisely for this. Keep it ROT-based.
+- **Orphan cleanup is mandatory.** On connector exit/crash, every spawned worker must die; a worker whose XAE pid is
+  gone must self-exit. Both sides reap, or worker processes leak.
+- **Spawn cost + churn.** A fresh worker is a few seconds of COM attach; rapid open/close needs the N-miss reap
+  debounce AND a per-pid spawn cooldown so a flickering XAE can't thrash the fleet.
+- **Live-validation gap.** The supervisor reconcile + worker structure are unit-tested (fake enumerator); the live
+  pid-attach cannot be validated headless (TcXaeShell instability), so it ships proven-in-unit, unproven-live — a
+  one-XAE smoke test is required before relying on it. Build incrementally (new path beside old, delete old last —
+  build-order safety, no runtime flag).
+
 ## Risks / what could make this NOT worth it
 - **Supervisor races** — an XAE flicker (opens, a transient ROT gap, "closes") could thrash spawn/kill. Mitigate with
   a debounce / require N consecutive misses before reaping (the same shape as `RotInstances`' empty-ROT retry).
