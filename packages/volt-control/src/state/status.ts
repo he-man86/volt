@@ -1,8 +1,13 @@
 /**
  * VoltStatus — the reactive IDE-changes state for ONE workspace: bridge health + `volt status --json` drift,
- * refreshed by a single cheap `/health` poll (drives the health indicator AND detects IDE-side edits) plus a
- * state-file mtime poll. Pure over volt-control (no `vscode`), so the VS Code extension and the desktop shell
- * share ONE tracker and each renders `onDidChange` in its own UI.
+ * refreshed by a single cheap `/health` poll (drives the health indicator) plus a state-file mtime poll. Pure over
+ * volt-control (no `vscode`), so the VS Code extension and the desktop shell share ONE tracker and each renders
+ * `onDidChange` in its own UI.
+ *
+ * An IDE-side edit (the project going dirty, or a rebind) is detected from the cheap health poll and raises the
+ * {@link VoltStatus.ideChanged} HINT — it does NOT auto-run `volt status`/`/refs`, which walks the whole project on
+ * the IDE's single thread and freezes it (measured ~9s on a 10 MB CODESYS project). The UI surfaces the hint and the
+ * user refreshes when they choose to; a full refresh recomputes incoming and clears the hint.
  */
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
@@ -49,6 +54,10 @@ export class VoltStatus {
 	health: HealthState = { kind: "unknown" };
 	statusError: string | undefined;
 	isRefreshing = false;
+	/** The IDE was edited (project went dirty, or a rebind) since the last full refresh — a HINT for the UI to
+	 *  prompt "Refresh to check for incoming". Set from the cheap health poll; NEVER auto-runs the IDE-freezing
+	 *  `/refs` walk. Cleared when a full (non-local) refresh recomputes incoming. */
+	ideChanged = false;
 
 	/** Fires whenever health / drift / error changes. Shaped like `vscode.EventEmitter` (`.event` / `.fire`). */
 	readonly onDidChange = new Emitter<void>();
@@ -123,6 +132,7 @@ export class VoltStatus {
 	adopt(status: StatusJson): void {
 		this.cached = status;
 		this.statusError = undefined;
+		this.ideChanged = false; // a pull/push settled with fresh incoming/outgoing — the hint is resolved
 		this.lastMtime = readStateMtime(this.workspaceRoot);
 		this.onDidChange.fire();
 	}
@@ -163,6 +173,9 @@ export class VoltStatus {
 						? { ...res.status, incoming: this.cached.incoming, pathByName: { ...this.cached.pathByName, ...res.status.pathByName } }
 						: res.status;
 				this.statusError = undefined;
+				// A full refresh (not --local) walked the IDE and recomputed incoming, so the "IDE changed" hint is
+				// resolved — the user has now seen what changed. A local refresh only touched outgoing; leave it.
+				if (!local) this.ideChanged = false;
 			} else {
 				this.statusError = res.error;
 			}
@@ -192,7 +205,8 @@ export class VoltStatus {
 		this.health = await boundStatus(this.workspaceRoot);
 
 		// Detect an IDE-side edit from the cheap health payload: a projectDirty false→true edge, or a project
-		// switch. Either fires exactly one refresh (its own debounce collapses bursts). No /refs scan.
+		// switch. Raise the HINT rather than auto-running `/refs` — that walk freezes the IDE (~9s on a big project);
+		// the user refreshes when they choose to, and a full refresh clears the hint by recomputing incoming.
 		const h = healthOf(this.health);
 		const dirty = h?.projectDirty ?? false;
 		const name = h?.projectName ?? undefined;
@@ -200,9 +214,9 @@ export class VoltStatus {
 		this.lastDirty = dirty;
 		this.lastProjectName = name;
 		this.seenHealth = true;
+		if (edge) this.ideChanged = true;
 
 		this.onDidChange.fire();
-		if (edge) void this.refresh();
 	}
 
 	private pollMtime(): void {

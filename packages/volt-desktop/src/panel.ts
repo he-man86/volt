@@ -44,6 +44,7 @@ export function snapshot(shell: Shell): Snap {
       health: vs.health,
       statusError: vs.statusError,
       vendor: readBridgeVendor(vs.workspaceRoot),
+      ideChanged: vs.ideChanged,
     }),
   }
 }

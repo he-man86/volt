@@ -265,8 +265,16 @@
       `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files in your editor, then finish.</div>
        <div class="init-row"><button class="btn primary" onclick="doFinishMerge()">Finish merge</button><button class="btn" onclick="doAbortMerge()">Abort merge</button></div>
        <div class="note">Finish stages your resolutions and advances the IDE baseline. Abort restores the workspace to before the pull.</div>`
-    else if (n === 0) syncBody = busyNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
-    else syncBody = busyNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
+    // The IDE was edited but not yet walked (that walk freezes the IDE, so it's on-demand) — hint a Refresh. The
+    // section's Refresh button (syncActs, above) is the action; a full refresh clears this. Shown above the possibly-
+    // stale incoming/in-sync rows so they read as "as of the last check".
+    else {
+      const changedNote = s.ideChanged
+        ? `<div class="note"><svg class="ico"><use href="#i-refresh"/></svg>The IDE project was edited — Refresh (above) to check for incoming updates.</div>`
+        : ""
+      if (n === 0) syncBody = busyNote + changedNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
+      else syncBody = busyNote + changedNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
+    }
 
     // 3. Diagnostics
     const diagActs = s.bound ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""

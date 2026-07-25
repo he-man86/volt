@@ -76,6 +76,15 @@ test("bound + offline → syncRoots yields nothing (so the 'Connect' welcome ren
 test("bound + online + no drift → 'In sync' (unchanged)", () => {
   const roots = syncRoots([onlineView as never])
   expect(roots.some((n) => n.label.includes("In sync"))).toBe(true)
+  expect(roots.some((n) => n.command?.command === "volt.refresh")).toBe(false) // no hint when the IDE hasn't changed
+})
+
+// An IDE-side edit is detected cheaply and surfaced as a HINT — never an auto-/refs walk (which freezes the IDE).
+test("bound + ready + ideChanged → a 'Refresh to check' hint (no auto-walk)", () => {
+  const roots = syncRoots([{ ...onlineView, ideChanged: true } as never])
+  const hint = roots.find((n) => n.command?.command === "volt.refresh")
+  expect(hint).toBeDefined()
+  expect(String(hint?.label)).toContain("IDE changed")
 })
 
 test("bound + offline → Bridge view offers a one-click Reconnect (volt.connect), not a tray pointer", () => {

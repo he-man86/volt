@@ -30,6 +30,9 @@ export interface WorkspaceInput {
   statusError?: string
   /** From readBridgeVendor in the caller's Node context; defined ⇒ this folder is an initialized Volt workspace. */
   vendor?: Vendor
+  /** The IDE was edited since the last full refresh (VoltStatus.ideChanged) — surfaced as a "Refresh to check" hint,
+   *  never an auto-walk. */
+  ideChanged?: boolean
 }
 
 /** The one state machine both frontends switch on to decide what the IDE-Sync surface shows. Derived once here
@@ -103,6 +106,9 @@ export interface WorkspaceView {
   /** The bound-connection affordance (caption + the ONE action + whether to show the vendor row) — carried on the
    *  view so neither shell re-derives it (see {@link connectionAffordance}). */
   affordance: ConnectionAffordance
+  /** The IDE was edited since the last full refresh — a HINT for the shell to prompt "Refresh to check for incoming"
+   *  (detecting it is cheap; computing the incoming list is the IDE-freezing walk, so it runs only on that refresh). */
+  ideChanged: boolean
   incoming: DriftItem[]
   outgoing: DriftItem[]
   /** Conflicted files while `paused === "merging"` (empty otherwise) — drives per-file take-a-side rows. */
@@ -134,6 +140,7 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
     paused,
     mode: syncMode(initialized, paused, health.online),
     affordance: connectionAffordance({ health, paused, vendor: input.vendor }),
+    ideChanged: input.ideChanged === true && paused === null, // only meaningful while actively syncing (not mid-merge/mismatch)
     incoming: st !== undefined && paused === null ? driftItems(st, "incoming") : [],
     outgoing: st !== undefined && paused === null ? driftItems(st, "outgoing") : [],
     conflicts:

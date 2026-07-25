@@ -5,7 +5,7 @@ import { projectWorkspace, isPouFile, readBridgeVendor, vendorLabel, onboardingM
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
-	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot) })
+	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot), ideChanged: s.ideChanged })
 }
 
 // The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
@@ -141,6 +141,7 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 	const outgoing: VoltNode[] = []
 	const merges: VoltNode[] = []
 	let mismatchPaused = false
+	let ideChanged = false // any ready workspace was edited in the IDE since the last full refresh
 	let anythingToShow = false // stays false only when EVERY bound workspace is offline → yield to the Connect welcome
 	// One switch on the shared `mode` (the desktop switches on the same field) so the two frontends can't drift.
 	for (const v of views) {
@@ -158,14 +159,27 @@ export function syncRoots(views: WorkspaceView[]): VoltNode[] {
 				break
 			case "ready":
 				anythingToShow = true
+				if (v.ideChanged) ideChanged = true
 				incoming.push(...v.incoming.map((it) => itemNode(it, v.workspaceRoot, "incoming")))
 				outgoing.push(...v.outgoing.map((it) => itemNode(it, v.workspaceRoot, "outgoing")))
 				break
 		}
 	}
 	if (!anythingToShow) return [] // all bound workspaces offline → viewsWelcome shows the Connect button
+	// The IDE was edited but we have NOT walked it (that walk freezes the IDE, so it's on-demand): prompt a refresh.
+	// Sits at the top so the possibly-stale incoming/in-sync rows below it read as "as of the last check".
+	const hint: VoltNode[] = ideChanged
+		? [{
+				key: "sync:ide-changed",
+				label: "IDE changed — Refresh to check",
+				description: "edited in the IDE",
+				tooltip: "The IDE project was edited. Refresh to scan it for incoming updates — this reads the whole project, so it runs only when you ask.",
+				icon: new vscode.ThemeIcon("refresh"),
+				command: { command: "volt.refresh", title: "Refresh" },
+			}]
+		: []
 	// Merge subtree(s) render ALONGSIDE other workspaces' drift — a merge in one folder must not hide another's.
-	const roots: VoltNode[] = [...merges]
+	const roots: VoltNode[] = [...hint, ...merges]
 	if (incoming.length > 0 || outgoing.length > 0) {
 		roots.push(group("incoming", "Incoming (IDE → pull)", incoming), group("outgoing", "Outgoing (push → IDE)", outgoing))
 	} else if (merges.length === 0) {
