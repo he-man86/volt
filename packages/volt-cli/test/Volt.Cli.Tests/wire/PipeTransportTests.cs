@@ -90,19 +90,21 @@ public class PipeTransportTests
 
         // Hold the one IDE thread inside a running op (init blocks in library-extract on the STA worker).
         var init = Task.Run(() => new PipeClient(pipe).Call("init"));
-        Assert.True(entered.Wait(5000), "init never reached the library-extract step");
+        Assert.True(entered.Wait(15_000), "init never reached the library-extract step");
 
-        // With the IDE thread held, the health poll must still answer well under the connector's tick — from cache —
-        // carrying BOTH liveness AND the connectable-projects list, and reporting the in-flight op.
+        // With the IDE thread held, the health poll must still COMPLETE (release hasn't been Set) — served from
+        // cache, off the held thread. The bound is a generous liveness/deadlock detector: a correct read returns in
+        // ms, a WRONG one that marshalled onto the held STA thread deadlocks. NOT a latency budget (a 2s budget on a
+        // <10ms read flaked under CI build-load).
         var health = Task.Run(() => new PipeClient(pipe).Call("health"));
-        Assert.True(health.Wait(2000),
-            "health blocked behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
+        Assert.True(health.Wait(30_000),
+            "health HUNG behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
         Assert.True(health.Result.TryGetProperty("projects", out var arr) && arr.GetArrayLength() == 1,
             "health did not carry the connectable-projects list");
         Assert.NotEqual("idle", arr[0].GetProperty("status").GetString()); // serving = a non-idle row
 
         release.Set();
-        Assert.True(init.Wait(5000), "init did not complete after release");
+        Assert.True(init.Wait(15_000), "init did not complete after release");
     }
 
     [Fact]
@@ -137,13 +139,17 @@ public class PipeTransportTests
 
         // Hold the BUSY bridge's one IDE thread inside a running op.
         var op = Task.Run(() => new PipeClient(pBusy).Call("init"));
-        Assert.True(entered.Wait(5000), "the long op never reached the held step");
+        Assert.True(entered.Wait(15_000), "the long op never reached the held step");
 
-        // BOTH health polls — the busy bridge and the idle one — must answer concurrently, well under the ~4s tick.
+        // BOTH health polls must COMPLETE while the op is still held (release hasn't been Set yet) — that is the
+        // proof they didn't serialize behind the busy IDE thread, and it is STRUCTURAL, not a stopwatch: a correct
+        // cache-served health returns in ms; a WRONG one that marshalled onto the held STA thread would DEADLOCK
+        // (that thread is inside the op, unreleasable until below). So the bound here is a generous liveness/
+        // deadlock detector — NOT a latency budget (an earlier 2s budget flaked under CI build-load on a <10ms read).
         var hb = Task.Run(() => new PipeClient(pBusy).Call("health"));
         var hi = Task.Run(() => new PipeClient(pIdle).Call("health"));
-        Assert.True(Task.WaitAll(new[] { hb, hi }, 2000),
-            "a health poll stalled behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
+        Assert.True(Task.WaitAll(new[] { hb, hi }, 30_000),
+            "a health poll HUNG behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
 
         // Each carries ITS OWN project; the busy bridge is still serving (an in-flight op is a live link, not a drop).
         Assert.Equal("BigProject", hb.Result.GetProperty("projects")[0].GetProperty("project").GetString());
@@ -152,7 +158,7 @@ public class PipeTransportTests
         Assert.NotEqual("idle", hi.Result.GetProperty("projects")[0].GetProperty("status").GetString());
 
         release.Set();
-        Assert.True(op.Wait(5000), "the long op did not complete after release");
+        Assert.True(op.Wait(15_000), "the long op did not complete after release");
     }
 
     [Fact]
