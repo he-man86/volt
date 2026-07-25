@@ -24,6 +24,7 @@ export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, Volt
 export * from "./view/workspace.js" // projectWorkspace, syncMode, onboardingMode, WorkspaceView, WorkspaceInput, DriftItem
 export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
+export * from "./view/diff.js" // loadDiff, lineDiff, FileDiff, DiffLine, DiffDirection — shared change-diff logic
 
 // headless LSP-diagnostics collector (desktop's Diagnostics section)
 export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics
