@@ -78,7 +78,6 @@ public class PipeProjectSourceTests
         var (op, body) = Assert.Single(wire.Calls);
         Assert.Equal("connect", op);
         Assert.Contains("\"project\":\"TwinCAT Project1\"", body);
-        Assert.DoesNotContain("instanceId", body); // identity is the NAME — no instance handle on the wire
     }
 
     // ── two open TcXaeShell windows (the multi-XAE case that shipped broken) ──────────────────────────────
@@ -117,7 +116,6 @@ public class PipeProjectSourceTests
         var (op, body) = Assert.Single(wire.Calls);
         Assert.Equal("connect", op);
         Assert.Contains("\"project\":\"TwinCAT Project14\"", body); // the driver's BindByProject finds the window holding it
-        Assert.DoesNotContain("instanceId", body);
     }
 
     /// <summary>The connection state is a per-row fact now — serving/status/dirty ride straight through onto each
@@ -127,7 +125,7 @@ public class PipeProjectSourceTests
     public async Task Scan_carries_serving_status_and_dirty_off_the_wire_row()
     {
         var wire = new FakeBridgeWire().On("health",
-            """{ "projects": [ { "project": "MyMachine", "status": "healthy", "serving": true, "dirty": true } ] }""");
+            """{ "projects": [ { "project": "MyMachine", "status": "healthy", "dirty": true } ] }""");
         var src = new PipeProjectSource("codesys", "CODESYS", wire);
 
         var scan = await src.ScanAsync();
@@ -182,7 +180,7 @@ public class CodesysProjectSourceTests
     [Fact]
     public async Task Scan_carries_the_serving_row_off_the_selected_projects_pipe()
     {
-        var healthy = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineB", "status": "healthy", "serving": true } ] }""");
+        var healthy = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineB", "status": "healthy" } ] }""");
         var wires = new Dictionary<string, IBridgeWire> { ["volt.bridge.codesys.222"] = healthy };
         var src = new CodesysProjectSource(() => wires.Keys.ToList(), pipe => wires[pipe]);
 

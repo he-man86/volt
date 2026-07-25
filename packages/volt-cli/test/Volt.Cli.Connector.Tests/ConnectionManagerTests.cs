@@ -27,7 +27,8 @@ internal sealed class FakeProjectSource : IProjectSource
     public DetectedProject Add(string name, bool dirty = false, bool serving = false, string status = HealthStatus.Healthy)
     {
         var attach = new ProjectRef(name);
-        var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach, Serving: serving, Status: status);
+        // serving folds into status: a not-serving row is "idle"; a serving one carries its channel status.
+        var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach, Status: serving ? status : HealthStatus.Idle);
         Projects.Add(p);
         return p;
     }

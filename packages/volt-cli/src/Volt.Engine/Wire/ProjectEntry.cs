@@ -15,10 +15,10 @@ namespace Volt.Engine.Wire;
 ///   pipe; TwinCAT: the running window whose solution holds that project). No instance handle: two projects opened
 ///   under the same name at once are indistinguishable — the same limit the workspace binding already has.</item>
 ///   <item><see cref="Version"/> — the IDE version, shown in the row's label.</item>
-///   <item><see cref="Status"/> — the IDE's channel health: "healthy" | "degraded" (CODESYS is in-proc → always
-///   healthy; only a TwinCAT attach can degrade).</item>
-///   <item><see cref="Serving"/> — this bridge is attached to & serving THIS project right now (pull/push work).
-///   At most one row per bridge is serving; none while the bridge is paused/disconnected.</item>
+///   <item><see cref="Status"/> — the row's full connection state, the ONE self-describing field: "idle" (detected,
+///   not served), "healthy" (served, channel OK), "degraded" (served, recent channel errors). "Is it serving"
+///   derives from this (<c>status != "idle"</c>) — there is no separate serving flag. At most one row per bridge is
+///   non-idle; all rows are "idle" while the bridge is paused/disconnected. (CODESYS is in-proc → never degrades.)</item>
 ///   <item><see cref="Dirty"/> — the project has unsaved changes in the IDE.</item>
 /// </list>
 /// Detection is identity-only: the top-level project, never the PLC applications inside it (a content concern the
@@ -28,7 +28,6 @@ public sealed record ProjectEntry(
     string? Version,
     string Project,
     string Status,
-    bool Serving,
     bool Dirty);
 
 /// <summary>The <c>connect</c> request: which project the connector picked, by NAME. May be null (a soft/refresh

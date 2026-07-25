@@ -81,7 +81,7 @@ public class PipeTransportTests
             ExtractBlock = release,
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("codesys", "0", "Proj", "healthy", true, false),
+                new ProjectEntry("codesys", "0", "Proj", "healthy", false),
             },
         };
         var pipe = Pipe();
@@ -99,7 +99,7 @@ public class PipeTransportTests
             "health blocked behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
         Assert.True(health.Result.TryGetProperty("projects", out var arr) && arr.GetArrayLength() == 1,
             "health did not carry the connectable-projects list");
-        Assert.True(arr[0].GetProperty("serving").GetBoolean());
+        Assert.NotEqual("idle", arr[0].GetProperty("status").GetString()); // serving = a non-idle row
 
         release.Set();
         Assert.True(init.Wait(5000), "init did not complete after release");
@@ -206,10 +206,10 @@ public class PipeTransportTests
             Assert.Equal("PLC_DISCONNECTED", ex.Code);
         }
 
-        // Nothing was torn down: the host still answers, but with NO serving row (disconnected), and health STILL
+        // Nothing was torn down: the host still answers, but every row is `idle` (disconnected), and health STILL
         // lists the project — otherwise there'd be no way back other than restarting the IDE.
         var health = new PipeClient(pipe).Call("health");
-        Assert.False(health.GetProperty("projects").EnumerateArray().Any(p => p.GetProperty("serving").GetBoolean()));
+        Assert.All(health.GetProperty("projects").EnumerateArray(), p => Assert.Equal("idle", p.GetProperty("status").GetString()));
         Assert.True(health.GetProperty("projects").GetArrayLength() > 0); // still listed to reconnect
 
         new PipeClient(pipe).Call("connect", new { });
@@ -217,7 +217,8 @@ public class PipeTransportTests
         Assert.True(AnyServing(pipe));
     }
 
+    // Serving = a non-idle row (status folds serving in; there is no separate `serving` field on the wire).
     private static bool AnyServing(string pipe) =>
         new PipeClient(pipe).Call("health").GetProperty("projects").EnumerateArray()
-            .Any(p => p.TryGetProperty("serving", out var s) && s.ValueKind == JsonValueKind.True);
+            .Any(p => p.TryGetProperty("status", out var s) && s.GetString() != "idle");
 }

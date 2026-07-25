@@ -25,7 +25,7 @@ public class WireContractTests
         {
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("twincat", "17.0", "TwinCAT Project1", "healthy", false, false),
+                new ProjectEntry("twincat", "17.0", "TwinCAT Project1", "idle", false),
             },
         };
 
@@ -47,7 +47,7 @@ public class WireContractTests
         {
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("codesys", "3.5", "MyMachine", "healthy", true, true),
+                new ProjectEntry("codesys", "3.5", "MyMachine", "healthy", true),
             },
         };
 

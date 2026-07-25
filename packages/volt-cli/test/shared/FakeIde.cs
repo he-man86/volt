@@ -224,13 +224,13 @@ public sealed class FakeIde : IIdeDriver
     public void ClearDegraded() { }
     public HealthResponse BuildHealthResponse()
     {
-        // Each configured row only actually `serving` while IsConnected — so a select that fails to attach, or
-        // HealthConnected=false, shows nothing serving, like a real driver. When no rows are configured, model the
-        // default connected bridge: while IsConnected, synthesize the one served row (name from the knob, or a
-        // placeholder) so a bare `new FakeIde(...)` reports connected+serving exactly as the old fake did.
-        var rows = Projects.Select(p => p with { Serving = p.Serving && IsConnected }).ToList();
+        // Each configured row only actually serves (non-idle status) while IsConnected — so a select that fails to
+        // attach, or HealthConnected=false, forces every row to `idle`, like a real driver. When no rows are
+        // configured, model the default connected bridge: while IsConnected, synthesize the one served row (name from
+        // the knob, or a placeholder) so a bare `new FakeIde(...)` reports connected+serving exactly as before.
+        var rows = Projects.Select(p => p with { Status = IsConnected ? p.Status : HealthStatus.Idle }).ToList();
         if (rows.Count == 0 && IsConnected && !string.IsNullOrEmpty(HealthProjectName))
-            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthProjectName!, HealthStatus.Healthy, true, false));
+            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthProjectName!, HealthStatus.Healthy, false));
         return new HealthResponse { Projects = rows };
     }
     public bool ShouldMarkDegraded(Exception ex) => false;

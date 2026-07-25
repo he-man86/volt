@@ -66,9 +66,9 @@ public sealed class BridgePipeHost : IDisposable
                 // as a LOST CONNECTION. BuildHealthResponse kicks the off-request single-flight refresh itself.
                 var h = _ide.BuildHealthResponse();
                 // One host-owned fact stamped onto the rows: while paused (disconnect) the bridge serves nothing, so
-                // clear `serving` on every row — the list stays (it is how the user reconnects), and
-                // Status/Connected derive to "not serving".
-                if (_paused) h.Projects = h.Projects.Select(p => p with { Serving = false }).ToList();
+                // force every row to `idle` — the list stays (it is how the user reconnects), and serving/Connected
+                // derive to "not serving".
+                if (_paused) h.Projects = h.Projects.Select(p => p with { Status = HealthStatus.Idle }).ToList();
                 return h;
             }
             case Ops.Connect:

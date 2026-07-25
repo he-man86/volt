@@ -71,7 +71,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         if (string.IsNullOrEmpty(name)) return new List<ProjectEntry>();
         return new List<ProjectEntry>
         {
-            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, RowStatus(serving), serving, _om.ProjectDirty),
+            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, RowStatus(serving), _om.ProjectDirty),
         };
     }
 

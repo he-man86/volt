@@ -73,7 +73,7 @@ namespace Volt.Cli.Connector
             {
                 if (p.Project is null) continue;
                 var attach = new ProjectRef(p.Project);
-                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Serving, p.Status ?? HealthStatus.Healthy));
+                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Status ?? HealthStatus.Idle));
             }
             return list;
         }
@@ -82,6 +82,6 @@ namespace Volt.Cli.Connector
         // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here.
         private sealed record WireHealth(List<WireProjectRow>? Projects);
         private sealed record WireProjectRow(
-            string? Version, string? Project, string? Status, bool Serving, bool Dirty);
+            string? Version, string? Project, string? Status, bool Dirty);
     }
 }

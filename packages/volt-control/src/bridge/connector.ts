@@ -22,13 +22,8 @@ export interface DetectedProject {
   vendor: Vendor
   dirty: boolean
   /** The tray HIGHLIGHT — the project the user last picked. A UI nicety; it says nothing about whether sync
-   *  works. Never derive connection state from it (see {@link DetectedProject.serving}). */
+   *  works. Never derive connection state from it (use {@link isServing}). */
   connected: boolean
-  /** GROUND TRUTH: this project's own bridge is serving it right now, so pull/push work. The ONE signal every
-   *  surface renders connection state from. Absent on an older connector → treated as not serving, never as
-   *  connected: guessing "connected" is the failure mode this field exists to end (a disconnected bridge stays
-   *  listed, because that list is how you reconnect, so "detected" never meant "connected"). */
-  serving?: boolean
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
   /** IDE version, shown in the label when a vendor has more than one live instance. */
@@ -37,9 +32,18 @@ export interface DetectedProject {
    *  CODESYS, but for TwinCAT it's the TwinCAT project while `displayName` is the PLC sub-project — so binding
    *  lookups must use this, not `displayName`. */
   projectName?: string | null
-  /** The bridge channel health for this row — only meaningful while {@link DetectedProject.serving}. Carries the
-   *  degraded distinction so a bound workspace reads its full state off its own row, with no separate bridge view. */
-  status?: "healthy" | "degraded"
+  /** GROUND TRUTH: the row's full connection state — "idle" (detected, not the served one), "healthy" (served,
+   *  channel OK), "degraded" (served, recent errors). Connection state is read from THIS ({@link isServing}), never
+   *  from {@link DetectedProject.connected} and never from the project merely appearing in the list (a disconnected
+   *  bridge stays listed — that list is how you reconnect, so "detected" never meant "connected"). Absent → not
+   *  serving, never connected. */
+  status?: "idle" | "healthy" | "degraded"
+}
+
+/** Is this project's bridge serving it right now (pull/push work) — a non-idle row. The ONE connection-state
+ *  predicate every surface uses; `serving` folded into `status`, so a missing/idle status reads as not serving. */
+export function isServing(p: DetectedProject | undefined): boolean {
+  return p?.status === "healthy" || p?.status === "degraded"
 }
 
 /** The connector's status snapshot (mirrors C# `ConnectorView`, camelCased): nothing but the ONE unified,
@@ -147,18 +151,20 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   // name at all falls back to the vendor's serving row.
   const proj = bound
     ? view.projects.find((p) => p.vendor === vendor && (p.projectName ?? p.displayName) === bound.projectName)
-    : view.projects.find((p) => p.vendor === vendor && p.serving) ?? view.projects.find((p) => p.vendor === vendor)
+    : view.projects.find((p) => p.vendor === vendor && isServing(p)) ?? view.projects.find((p) => p.vendor === vendor)
 
   return healthStateOf(proj, vendor, bound?.projectName)
 }
 
-/** Derive the workspace's HealthState from its project row (or its absence). Connection state comes ONLY from
- *  `serving`: a detected-but-not-serving project is a gated bridge (disconnected), never connected — treating
- *  "detected" as "connected" is what let the UI claim a connection against a gated bridge. Degraded comes off the
- *  row's own `status`, so there is no separate per-vendor bridge view. */
+/** Derive the workspace's HealthState from its project row (or its absence). Connection state comes ONLY from the
+ *  row's `status` (via {@link isServing}): a detected-but-idle project is a gated bridge (disconnected), never
+ *  connected — treating "detected" as "connected" is what let the UI claim a connection against a gated bridge.
+ *  Degraded comes off the same `status`, so there is no separate per-vendor bridge view. */
 function healthStateOf(proj: DetectedProject | undefined, vendor: Vendor, boundName?: string): HealthState {
   const ideName = vendorLabel(vendor)
-  if (proj?.serving !== true)
+  // Not serving = undefined row, or a row whose status is idle/absent (the explicit undefined check narrows `proj`
+  // to a defined row below, where its status is necessarily "healthy" | "degraded").
+  if (proj === undefined || (proj.status !== "healthy" && proj.status !== "degraded"))
     return {
       kind: "disconnected",
       health: { connected: false, ideName, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },

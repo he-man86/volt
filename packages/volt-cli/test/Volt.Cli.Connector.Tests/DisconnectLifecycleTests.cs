@@ -33,7 +33,7 @@ public class DisconnectLifecycleTests
         HealthProjectName = project,
         Projects = new List<ProjectEntry>
         {
-            new ProjectEntry("codesys", "3.5", project, "healthy", true, false),
+            new ProjectEntry("codesys", "3.5", project, "healthy", false),
         },
     };
 
@@ -54,9 +54,10 @@ public class DisconnectLifecycleTests
         catch (PipeCallException e) when (e.Code == "PLC_DISCONNECTED") { return false; }
     }
 
+    // Serving = a non-idle row (status folds serving in; there is no separate `serving` field on the wire).
     private static bool CliSeesConnected(string pipe) =>
         new PipeClient(pipe).Call("health").GetProperty("projects").EnumerateArray()
-            .Any(p => p.TryGetProperty("serving", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.True);
+            .Any(p => p.TryGetProperty("status", out var s) && s.GetString() != "idle");
 
     /// <summary>The core round trip, asserted from BOTH sides after every transition. This is the test that would
     /// have caught the original bug: before the bridge-side gate, `CliCanSync` stayed true after Disconnect.</summary>

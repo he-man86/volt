@@ -121,8 +121,7 @@ namespace Volt.Cli.Connector
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
                 Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id,
-                Serving: _conn.IsServingProject(p.Id),
-                Status: p.Status,
+                Status: p.Status, // serving derives from status (!= "idle") on the client
                 p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
 
         // Awaited (not fire-and-forget): the connect ends in a `select` on the bridge, which is also what resumes

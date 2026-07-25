@@ -18,7 +18,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 }
 
 const VIEW: ConnectorView = {
-  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true, serving: true, status: "healthy", projectName: "MyMachine" }],
+  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true, status: "healthy", projectName: "MyMachine" }],
 }
 
 function tempWorkspace(vendor?: string): string {
@@ -38,9 +38,9 @@ function boundWorkspace(vendor: string, projectName: string): string {
   writeFileSync(join(dir, ".git", "volt", "config.json"), JSON.stringify({ bridge: { vendor }, project: { platform: vendor, projectName } }))
   return dir
 }
-// `connected` is only the tray highlight; `serving` is what decides connection state (default true — these
-// fixtures describe live projects unless a test is specifically about a bridge that isn't serving).
-const proj = (vendor: string, name: string, connected: boolean, projectName?: string, serving = true) => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, serving, projectName: projectName ?? name })
+// `connected` is only the tray highlight; the row's `status` decides connection state (default "healthy"/serving —
+// these fixtures describe live projects unless a test is specifically about a bridge that isn't serving, i.e. "idle").
+const proj = (vendor: string, name: string, connected: boolean, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, status, projectName: projectName ?? name })
 const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
 
 describe("connector client (the UI's single source of connection status)", () => {
@@ -135,11 +135,11 @@ describe("connector client (the UI's single source of connection status)", () =>
   // THE bug this refactor exists for. A gated bridge (the tray's Disconnect) stays LISTED — that list is how you
   // reconnect — so "detected" never meant "connected". boundStatus used to reason "detected → its host is live →
   // this workspace is connected" and reported healthy while every sync op was being refused with
-  // PLC_DISCONNECTED. Connection state now comes from `serving` and nothing else.
-  test("boundStatus is disconnected when the project is detected but its bridge is NOT serving it", async () => {
+  // PLC_DISCONNECTED. Connection state now comes from the row's `status` (serving = non-idle) and nothing else.
+  test("boundStatus is disconnected when the project is detected but its bridge is idle (not serving it)", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineB", false, undefined, false)]) }))
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineB", false, undefined, "idle")]) }))
       const h = await boundStatus(dir)
       expect(h.kind).toBe("disconnected")
       if (h.kind === "disconnected") expect(h.health.connected).toBe(false)
@@ -148,9 +148,9 @@ describe("connector client (the UI's single source of connection status)", () =>
     }
   })
 
-  // An older connector doesn't send `serving` at all. Absent must read as NOT serving: guessing "connected" is
-  // exactly the failure this field ends, and a stale connector can't have gated its bridge either.
-  test("boundStatus treats a missing `serving` as not connected, never as connected", async () => {
+  // A row with no `status` at all (or "idle") must read as NOT serving: guessing "connected" is exactly the failure
+  // this field ends — a detected-but-not-served project is a gated bridge.
+  test("boundStatus treats a missing/idle `status` as not connected, never as connected", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
       const legacy = { id: "codesys::MachineB:", displayName: "MachineB", vendor: "codesys", dirty: false, connected: true, projectName: "MachineB" }

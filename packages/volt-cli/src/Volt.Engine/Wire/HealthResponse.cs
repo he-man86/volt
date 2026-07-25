@@ -23,9 +23,10 @@ public class HealthResponse
     [JsonPropertyName("projects")]
     public List<ProjectEntry> Projects { get; set; } = new();
 
-    /// <summary>The one project this bridge is serving right now, or null (paused / nothing attached).</summary>
+    /// <summary>The one project this bridge is serving right now, or null (paused / nothing attached). "Serving" is a
+    /// non-idle row — the status field carries it (there is no separate serving flag).</summary>
     [JsonIgnore]
-    public ProjectEntry? ServingProject => Projects.FirstOrDefault(p => p.Serving);
+    public ProjectEntry? ServingProject => Projects.FirstOrDefault(p => p.Status != HealthStatus.Idle);
 
     /// <summary>Is this bridge serving a project (pull/push work).</summary>
     [JsonIgnore]

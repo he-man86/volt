@@ -126,7 +126,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         {
             bool serving = i == servingIdx;
             list.Add(new ProjectEntry(Vendors.Twincat, rows[i].IdeVersion, rows[i].Project,
-                RowStatus(serving), serving, serving && (servedDirty ?? false)));
+                RowStatus(serving), serving && (servedDirty ?? false)));
         }
         return list;
     }

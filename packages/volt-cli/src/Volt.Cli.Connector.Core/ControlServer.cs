@@ -15,13 +15,12 @@ namespace Volt.Cli.Connector
     /// the CODESYS project) — NOT <c>DisplayName</c>, which for TwinCAT is the PLC sub-project.</summary>
     /// <param name="Connected">The tray HIGHLIGHT — this is the one project the user last picked. A UI nicety; it
     /// says nothing about whether sync works.</param>
-    /// <param name="Serving">GROUND TRUTH: this project's own bridge is serving it right now, so pull/push work.
-    /// Clients must render connection state from THIS, never from <paramref name="Connected"/> and never from the
-    /// project merely appearing in the list — a disconnected bridge stays listed (that is how you reconnect), and
-    /// treating "detected" as "connected" is what let the UI claim a connection against a gated bridge.</param>
-    /// <param name="Status">The bridge channel health for this row — "healthy" | "degraded", only meaningful when
-    /// <paramref name="Serving"/>. Carries the degraded distinction so the row is fully self-describing.</param>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, bool Serving, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
+    /// <param name="Status">GROUND TRUTH: the row's full connection state — "idle" (detected, not served) | "healthy"
+    /// (served, channel OK) | "degraded" (served, recent errors). Clients render connection state from THIS (serving =
+    /// <c>status != "idle"</c>), never from <paramref name="Connected"/> and never from the project merely appearing in
+    /// the list — a disconnected bridge stays listed (that is how you reconnect), and treating "detected" as
+    /// "connected" is what let the UI claim a connection against a gated bridge.</param>
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;

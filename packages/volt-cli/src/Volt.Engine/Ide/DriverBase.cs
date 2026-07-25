@@ -100,5 +100,8 @@ public abstract class DriverBase : IIdeSession
     /// <summary>The per-row <c>status</c> for a project row: the SERVING row reflects the driver's degraded state; a
     /// listed-but-not-served row is just alive (healthy). Degraded only ever attaches to the one project this bridge
     /// is actually talking to.</summary>
-    protected string RowStatus(bool serving) => serving && _isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy;
+    // The row's full connection state in one word: not-served → idle; served → degraded (if the channel is impaired)
+    // else healthy. "Is it serving" is derived from this at the edge (status != idle), so there is no serving flag.
+    protected string RowStatus(bool serving) =>
+        !serving ? HealthStatus.Idle : _isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy;
 }

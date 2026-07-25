@@ -33,8 +33,8 @@ public class WireContractParityTests
         {
             Projects =
             {
-                new ProjectEntry("codesys", "3.5", "Other", "healthy", false, false),   // listed, not served
-                new ProjectEntry("codesys", "3.5", "MyProj", "degraded", true, true),  // the served one
+                new ProjectEntry("codesys", "3.5", "Other", "idle", false),       // listed, not served
+                new ProjectEntry("codesys", "3.5", "MyProj", "degraded", true),  // the served one
             },
         };
         var rows = WireProjects.Flatten(Serialize(wire), "codesys", "volt.bridge.codesys");
@@ -52,7 +52,7 @@ public class WireContractParityTests
     [InlineData("something-new")] // the raw status rides through verbatim; Aggregate maps it to the tray colour
     public void A_rows_status_string_rides_through_verbatim(string rowStatus)
     {
-        var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "3.5", "P", rowStatus, true, false) } };
+        var wire = new HealthResponse { Projects = { new ProjectEntry("codesys", "3.5", "P", rowStatus, false) } };
         Assert.Equal(rowStatus, Assert.Single(WireProjects.Flatten(Serialize(wire), "codesys", null)).Status);
     }
 
@@ -61,7 +61,7 @@ public class WireContractParityTests
     {
         var wire = new HealthResponse
         {
-            Projects = { new ProjectEntry("codesys", "3.5.19", "MyProj", "healthy", true, true) },
+            Projects = { new ProjectEntry("codesys", "3.5.19", "MyProj", "healthy", true) },
         };
         var projects = WireProjects.Flatten(Serialize(wire), "codesys", "volt.bridge.codesys");
         var p = Assert.Single(projects);
