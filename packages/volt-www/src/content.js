@@ -115,10 +115,11 @@ export const PRICING = [
     period: "/ month",
     note: "Hosted AI, no key required",
     features: ["Everything in Free", "Hosted models — nothing to configure", "Priority language-server updates", "Email support"],
-    cta: "Coming soon",
-    kind: "auth",
+    cta: "Join the public beta",
+    kind: "auth", // → the console's /auth (sign up); no checkout yet — accounts are free during the beta
     featured: true,
-    comingSoon: true, // soft-launch: hosted AI is onboarding gradually — show a badge, no live checkout yet
+    beta: true, // PUBLIC BETA: sign up now, free while it lasts — no card, no charge yet
+    betaNote: "Free while in public beta — no card required.",
   },
 ]
 
@@ -127,7 +128,7 @@ export const FAQ = [
   { q: "Does my code leave my machine?", a: "No. The language server analyzes your project locally, and you bring your own AI provider key — so prompts go to the provider you choose, not to us." },
   { q: "Is this a fork of my IDE?", a: "No. Volt sits alongside your live CODESYS or TwinCAT IDE and syncs your project into git as text. The IDE stays the source of truth for build and codegen." },
   { q: "What platforms does the installer run on?", a: "Windows — Volt's PLC tooling (the bridges, CODESYS integration) is Windows-native." },
-  { q: "Do I need a separate AI subscription?", a: "On the Free plan you bring your own model provider key. Pro (€24/month) includes hosted models — nothing to configure." },
+  { q: "Do I need a separate AI subscription?", a: "On the Free plan you bring your own model provider key. Pro includes hosted models — nothing to configure. Pro is in public beta right now: you can sign up free, no card required (it'll be €24/month once billing opens)." },
 ]
 
 export const CHANGELOG = [

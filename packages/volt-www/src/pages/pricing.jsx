@@ -21,7 +21,7 @@ function Plan({ p, i }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <div className="h3">{p.name}</div>
-            {p.comingSoon && (
+            {p.beta && (
               <span
                 style={{
                   fontSize: "var(--text-small-size)",
@@ -35,7 +35,7 @@ function Plan({ p, i }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                Coming soon
+                Public beta
               </span>
             )}
           </div>
@@ -55,27 +55,16 @@ function Plan({ p, i }) {
             </li>
           ))}
         </ul>
-        {p.comingSoon ? (
-          <div
-            aria-disabled="true"
-            style={{
-              textAlign: "center",
-              padding: "var(--space-2) var(--space-3)",
-              border: "1px dashed var(--color-accent)",
-              borderRadius: "var(--radius, 10px)",
-              color: "var(--color-accent)",
-              fontWeight: 600,
-              fontSize: "var(--text-small-size)",
-              opacity: 0.8,
-            }}
-          >
-            {p.cta}
-          </div>
-        ) : (
+        <div style={{ display: "grid", gap: "var(--space-2)" }}>
           <Button kind={p.kind} variant={p.featured ? "primary" : "secondary"} href={p.kind === "contact" ? ctaHref("contact") : undefined}>
             {p.cta}
           </Button>
-        )}
+          {p.betaNote && (
+            <div className="muted" style={{ fontSize: "var(--text-small-size)", textAlign: "center" }}>
+              {p.betaNote}
+            </div>
+          )}
+        </div>
       </div>
     </Reveal>
   )
@@ -83,7 +72,7 @@ function Plan({ p, i }) {
 
 renderPage(
   <>
-    <PageHeader eyebrow="Pricing" title="Start free. Bring your own AI." lead="The tooling is free with your own model provider. Upgrade to Pro for hosted AI — nothing to configure." />
+    <PageHeader eyebrow="Pricing" title="Start free. Bring your own AI." lead="The tooling is free with your own model provider. Pro adds hosted AI — and it's in public beta right now: sign up free, no card required." />
     <section className="section container" style={{ maxWidth: 720 }}>
       <div className="pricing-grid">
         {PRICING.map((p, i) => (
