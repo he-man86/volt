@@ -63,13 +63,15 @@ that by construction. Guarded by `PipeTransportTests.Health_poll_answers_from_ca
 
 > **`health` is a FLAT array of self-describing project rows and nothing else** — no nesting, no root fields
 > (`HealthResponse.Projects: ProjectEntry[]`). Each row = one connectable project (a leaf; CODESYS/TwinCAT projects
-> have no children): `{ vendor, instanceId, version, project, status, serving, dirty }`. Everything is per-row because
+> have no children): `{ vendor, version, project, status, serving, dirty }`. Everything is per-row because
 > the connector concatenates *every* bridge's array into the ONE cross-vendor list it shows (`ConnectorView.Projects`)
 > — so the wire row and the UI row are the same shape, and the connector just concatenates (no transform). `serving`
 > marks the one row the bridge is attached to (host clears all while paused); `status` (`healthy`/`degraded`) is the
-> IDE's channel health. The reverse direction is `connect { instanceId, project }` — the row's *address*, two fields
-> already on it. C#-only computed helpers (`ProjectName`/`Platform`/`Connected` off the serving row) keep CLI
-> call-sites terse; they are `[JsonIgnore]`, never on the wire. See `Instances.cs` / `HealthResponse.cs`.
+> IDE's channel health. The reverse direction is `connect { project }` — the row's *address is its NAME*: a project is
+> identified by vendor+name, and `select` re-resolves it on whichever live instance has it open (no instance handle —
+> two same-named projects open at once collapse, the accepted limit the workspace binding already has). C#-only
+> computed helpers (`ProjectName`/`Platform`/`Connected` off the serving row) keep CLI call-sites terse; they are
+> `[JsonIgnore]`, never on the wire. See `ProjectEntry.cs` / `HealthResponse.cs`.
 
 ## Core — the shared engine (`src/Volt.Engine`)
 

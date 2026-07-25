@@ -9,7 +9,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout
 import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE, VENDOR } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
-type Bound = { instanceId?: string | null; project?: string | null }
+type Bound = { project?: string | null }
 
 let bound: Bound = {}
 let projects: Bound[] = []
@@ -37,7 +37,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 
 	beforeAll(async () => {
 		await requireHealthy()
-		const pairs: Bound[] = (await bridge.instances()).map((p: any) => ({ instanceId: p.instanceId, project: p.project }))
+		const pairs: Bound[] = (await bridge.instances()).map((p: any) => ({ project: p.project }))
 		// Keep only the projects that actually SERVE right now: a window can be in the ROT but crashed / not yet
 		// built, so instances[0] isn't necessarily usable. The bridge-level cases run against a live one; the
 		// multi-instance cases need >= 2 LIVE projects (else they no-op).

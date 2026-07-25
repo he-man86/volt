@@ -51,8 +51,7 @@ namespace Volt.Cli.Connector
             // CODESYS `select` is a refresh/confirm of the one project the pipe already serves (the pipe IS the
             // instance) — harmless, and keeps the wire uniform. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
-            var a = project.Attach;
-            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { instanceId = a.Instance, project = a.Project });
+            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { project = project.Attach.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)

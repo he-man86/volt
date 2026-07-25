@@ -118,16 +118,23 @@ namespace Volt.Cli.Connector
         {
             var prior = _state;
 
-            var merged = new List<DetectedProject>();
+            var scanned = new List<DetectedProject>();
             var anyReachable = false;
             foreach (var s in _sources)
             {
                 // ONE poll per source: the rows ARE the projects (each self-describing), and the scan reports whether
                 // the bridge answered at all. No second health probe — the old per-source ProbeAsync re-fetched the
                 // same cache-served health to recompute serving/status the rows already carry.
-                try { var scan = await s.ScanAsync(); merged.AddRange(scan.Projects); anyReachable |= scan.Reachable; }
+                try { var scan = await s.ScanAsync(); scanned.AddRange(scan.Projects); anyReachable |= scan.Reachable; }
                 catch { /* unreachable / mid-load → contributes nothing, not reachable */ }
             }
+
+            // Identity is vendor+name, so two projects opened under the same name at once collapse to ONE row (first
+            // wins, stable order). Unsupported anyway — the CLI refuses it (AMBIGUOUS_BRIDGE) — and this keeps the id
+            // the primary key of everything downstream (the serving map, the picker, selection).
+            var seenIds = new HashSet<string>();
+            var merged = new List<DetectedProject>();
+            foreach (var p in scanned) if (seenIds.Add(p.Id)) merged.Add(p);
 
             // "Is this project's bridge serving it right now" — the one question the UI needs (a project can be
             // detected but gated, which is what Disconnect does). It is a per-row fact ON the wire: the bridge stamps

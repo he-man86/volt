@@ -61,17 +61,17 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
 
     /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single project row (CODESYS has
     /// no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's multi-instance ROT
-    /// enumeration — the connector concatenates both into the same unified list. The instance id is this process's
-    /// pid, so two running CODESYS (even with the same project name) stay distinguishable end-to-end. The one project
-    /// is always `serving` when connected (the in-proc host is bound to it); CODESYS never degrades (in-proc).</summary>
+    /// enumeration — the connector concatenates both into the same unified list. A project is identified by its NAME;
+    /// two running CODESYS on the same-named project reach the same wire identity (the per-pid PIPE, not a row field,
+    /// is what still routes each). The one project is always `serving` when connected (the in-proc host is bound to
+    /// it); CODESYS never degrades (in-proc).</summary>
     private List<ProjectEntry> BuildProjects(bool serving)
     {
         var name = _om.ProjectName;
         if (string.IsNullOrEmpty(name)) return new List<ProjectEntry>();
-        var instanceId = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
         return new List<ProjectEntry>
         {
-            new ProjectEntry(Vendors.Codesys, instanceId, IdeVersion, name!, RowStatus(serving), serving, _om.ProjectDirty),
+            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, RowStatus(serving), serving, _om.ProjectDirty),
         };
     }
 

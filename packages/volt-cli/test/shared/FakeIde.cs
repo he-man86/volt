@@ -230,7 +230,7 @@ public sealed class FakeIde : IIdeDriver
         // placeholder) so a bare `new FakeIde(...)` reports connected+serving exactly as the old fake did.
         var rows = Projects.Select(p => p with { Serving = p.Serving && IsConnected }).ToList();
         if (rows.Count == 0 && IsConnected && !string.IsNullOrEmpty(HealthProjectName))
-            rows.Add(new ProjectEntry(HealthPlatform, "fake", "0", HealthProjectName!, HealthStatus.Healthy, true, false));
+            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthProjectName!, HealthStatus.Healthy, true, false));
         return new HealthResponse { Projects = rows };
     }
     public bool ShouldMarkDegraded(Exception ex) => false;

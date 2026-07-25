@@ -107,32 +107,25 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // ── project discovery + selection (the connector's `connect`; discovery rides on the health response) ──
     // Runs on the STA thread (SnapshotHealth calls it) — RotInstances binds foreign, apartment-bound DTEs. One flat
     // row per open project across every running XAE. EXACTLY ONE row is marked `serving` (the invariant the wire
-    // relies on): the served project on the requested XAE window (WantInstance) if it's still there, else the first
-    // window with that project name — so two windows that happen to share a project name never both read as serving.
+    // relies on): the first row whose project NAME matches the bound project. (Two windows open on an identically-
+    // named project share one wire identity — the accepted limit of name-based identity.)
     private List<ProjectEntry> BuildProjects()
     {
         var served = _om.ProjectName;
-        var wantInstance = _om.WantInstance;
         bool connected = _om.IsConnected;
         bool? servedDirty = connected ? _om.ProjectDirty() : null;
 
         var rows = RotInstances.Enumerate()
-            .SelectMany(inst => inst.Projects.Select(p => (inst.InstanceId, inst.IdeVersion, p.Project)))
+            .SelectMany(inst => inst.Projects.Select(p => (inst.IdeVersion, p.Project)))
             .ToList();
 
-        // Pick the ONE serving row: prefer the exact requested instance, else the first name-match.
-        int servingIdx = -1;
-        if (connected && !string.IsNullOrEmpty(served))
-        {
-            servingIdx = rows.FindIndex(r => r.Project == served && r.InstanceId == wantInstance);
-            if (servingIdx < 0) servingIdx = rows.FindIndex(r => r.Project == served);
-        }
+        int servingIdx = connected && !string.IsNullOrEmpty(served) ? rows.FindIndex(r => r.Project == served) : -1;
 
         var list = new List<ProjectEntry>(rows.Count);
         for (int i = 0; i < rows.Count; i++)
         {
             bool serving = i == servingIdx;
-            list.Add(new ProjectEntry(Vendors.Twincat, rows[i].InstanceId, rows[i].IdeVersion, rows[i].Project,
+            list.Add(new ProjectEntry(Vendors.Twincat, rows[i].IdeVersion, rows[i].Project,
                 RowStatus(serving), serving, serving && (servedDirty ?? false)));
         }
         return list;
@@ -140,8 +133,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override void SelectProject(ConnectRequest sel)
     {
-        _om.SelectProject(sel.InstanceId, sel.Project);   // re-resolve on the live DTE, no respawn (runs on the STA thread)
-        SnapshotHealth();                                 // reflect the new binding in health at once (parity with CODESYS)
+        _om.SelectProject(sel.Project);   // re-resolve by name on a live DTE, no respawn (runs on the STA thread)
+        SnapshotHealth();                 // reflect the new binding in health at once (parity with CODESYS)
     }
 
     // Op-level recovery (the retry wrapper calls this on the STA thread after a transient dead-channel error): drop

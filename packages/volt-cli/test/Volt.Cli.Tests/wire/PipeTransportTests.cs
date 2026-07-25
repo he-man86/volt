@@ -81,7 +81,7 @@ public class PipeTransportTests
             ExtractBlock = release,
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("codesys", "pid-1", "0", "Proj", "healthy", true, false),
+                new ProjectEntry("codesys", "0", "Proj", "healthy", true, false),
             },
         };
         var pipe = Pipe();
@@ -132,7 +132,7 @@ public class PipeTransportTests
         host.Start();
 
         var ex = Assert.Throws<PipeCallException>(() =>
-            new PipeClient(pipe).Call("connect", new { instanceId = "xae-2", project = "NotOpenHere" }));
+            new PipeClient(pipe).Call("connect", new { project = "NotOpenHere" }));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
 
@@ -143,7 +143,7 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
         host.Start();
 
-        var r = new PipeClient(pipe).Call("connect", new { instanceId = "xae-1", project = "P" });
+        var r = new PipeClient(pipe).Call("connect", new { project = "P" });
         Assert.True(r.GetProperty("ok").GetBoolean());
     }
 

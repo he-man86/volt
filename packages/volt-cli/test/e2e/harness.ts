@@ -60,9 +60,9 @@ export const bridge = {
 	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
 	// Discovery folded into `health` — no separate `instances` op. Returns the FLAT connectable-projects array
-	// (`health.projects`), each row self-describing: { vendor, instanceId, version, project, status, serving, dirty }.
+	// (`health.projects`), each row self-describing: { vendor, version, project, status, serving, dirty }.
 	instances: (): Promise<any[]> => get("/health").then((h) => h.projects ?? []),
-	connect: (req: { instanceId?: string | null; project?: string | null } = {}): Promise<any> => post("/connect", req),
+	connect: (req: { project?: string | null } = {}): Promise<any> => post("/connect", req),
 	disconnect: (): Promise<any> => post("/disconnect"),
 }
 

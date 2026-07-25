@@ -26,7 +26,7 @@ internal sealed class FakeProjectSource : IProjectSource
 
     public DetectedProject Add(string name, bool dirty = false, bool serving = false, string status = HealthStatus.Healthy)
     {
-        var attach = new ProjectRef(null, name);
+        var attach = new ProjectRef(name);
         var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach, Serving: serving, Status: status);
         Projects.Add(p);
         return p;
@@ -112,6 +112,23 @@ public class ConnectionManagerTests
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();
         Assert.Equal(expected, mgr.Aggregate());
+    }
+
+    [Fact]
+    public async Task Two_projects_with_the_same_name_collapse_to_one_row()
+    {
+        // Identity is vendor+name, so two simultaneously-open identically-named projects share an id and collapse
+        // (first wins, stable order) — the accepted name-identity limit; the CLI refuses this too (AMBIGUOUS_BRIDGE).
+        // Guards the dedup that keeps the id the primary key (without it the serving map's ToDictionary would throw).
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        cds.Add("MachineA");
+        cds.Add("MachineA"); // a second window/process on the same-named project
+        var mgr = Mgr(cds);
+
+        await mgr.RefreshAsync();
+
+        Assert.Single(mgr.Projects);
+        Assert.Equal("MachineA", mgr.Projects[0].DisplayName);
     }
 
     [Fact]

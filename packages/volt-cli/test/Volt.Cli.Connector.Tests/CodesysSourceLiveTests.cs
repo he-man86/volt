@@ -28,7 +28,7 @@ public class CodesysSourceLiveTests
         HealthProjectName = project,
         Projects = new List<ProjectEntry>
         {
-            new ProjectEntry("codesys", project, "3.5", project, "healthy", true, false),
+            new ProjectEntry("codesys", "3.5", project, "healthy", true, false),
         },
     };
 

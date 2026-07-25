@@ -40,8 +40,7 @@ namespace Volt.Cli.Connector
 
         public Task BindAsync(DetectedProject project)
         {
-            var a = project.Attach;
-            return _wire.CallAsync(Ops.Connect, new { instanceId = a.Instance, project = a.Project });
+            return _wire.CallAsync(Ops.Connect, new { project = project.Attach.Project });
         }
 
         public async Task<UnbindResult> UnbindAsync(DetectedProject project)
@@ -73,7 +72,7 @@ namespace Volt.Cli.Connector
             foreach (var p in parsed?.Projects ?? Enumerable.Empty<WireProjectRow>())
             {
                 if (p.Project is null) continue;
-                var attach = new ProjectRef(p.InstanceId, p.Project);
+                var attach = new ProjectRef(p.Project);
                 list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Serving, p.Status ?? HealthStatus.Healthy));
             }
             return list;
@@ -83,6 +82,6 @@ namespace Volt.Cli.Connector
         // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here.
         private sealed record WireHealth(List<WireProjectRow>? Projects);
         private sealed record WireProjectRow(
-            string? InstanceId, string? Version, string? Project, string? Status, bool Serving, bool Dirty);
+            string? Version, string? Project, string? Status, bool Serving, bool Dirty);
     }
 }

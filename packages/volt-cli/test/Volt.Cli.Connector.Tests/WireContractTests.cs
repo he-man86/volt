@@ -25,7 +25,7 @@ public class WireContractTests
         {
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("twincat", "vs-1", "17.0", "TwinCAT Project1", "healthy", false, false),
+                new ProjectEntry("twincat", "17.0", "TwinCAT Project1", "healthy", false, false),
             },
         };
 
@@ -36,7 +36,7 @@ public class WireContractTests
 
         var p = Assert.Single(projects);
         Assert.Equal("TwinCAT Project1", p.DisplayName);
-        Assert.Equal(new ProjectRef("vs-1", "TwinCAT Project1"), p.Attach);
+        Assert.Equal(new ProjectRef("TwinCAT Project1"), p.Attach);
         Assert.All(projects, p => Assert.Equal("twincat", p.Vendor));
     }
 
@@ -47,7 +47,7 @@ public class WireContractTests
         {
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("codesys", "codesys", "3.5", "MyMachine", "healthy", true, true),
+                new ProjectEntry("codesys", "3.5", "MyMachine", "healthy", true, true),
             },
         };
 
@@ -57,18 +57,17 @@ public class WireContractTests
         var p = Assert.Single((await src.ScanAsync()).Projects);
         Assert.Equal("MyMachine", p.DisplayName);
         Assert.True(p.Dirty);
-        Assert.Equal(new ProjectRef("codesys", "MyMachine"), p.Attach);
+        Assert.Equal(new ProjectRef("MyMachine"), p.Attach);
     }
 
     [Fact]
     public void Connector_connect_payload_deserializes_into_the_bridges_ConnectRequest()
     {
-        // The connector's BindAsync sends { instanceId, project }; the bridge reads ConnectRequest (identity-only).
-        var connectorBody = JsonSerializer.Serialize(new { instanceId = "vs-1", project = "TwinCAT Project1" });
+        // The connector's BindAsync sends { project } (identity is the name); the bridge reads ConnectRequest.
+        var connectorBody = JsonSerializer.Serialize(new { project = "TwinCAT Project1" });
         var sel = JsonSerializer.Deserialize<ConnectRequest>(connectorBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         Assert.NotNull(sel);
-        Assert.Equal("vs-1", sel!.InstanceId);
-        Assert.Equal("TwinCAT Project1", sel.Project);
+        Assert.Equal("TwinCAT Project1", sel!.Project);
     }
 }

@@ -9,7 +9,7 @@ namespace Volt.Cli.Ide.Twincat;
 public sealed record TcProject(string Project);
 
 /// <summary>One running TwinCAT XAE / VS instance and the projects it has open.</summary>
-public sealed record TcInstance(string InstanceId, string? IdeVersion, List<TcProject> Projects);
+public sealed record TcInstance(string? IdeVersion, List<TcProject> Projects);
 
 /// <summary>
 /// Enumerates the COM Running Object Table for every running DTE instance
@@ -66,19 +66,10 @@ internal static class RotInstances
         return result;
     }
 
-    /// <summary>Bind the DTE object for a specific ROT display name, or null if gone.</summary>
-    public static object? Bind(string instanceId)
-    {
-        foreach (var (name, dte) in RunningDtes())
-            if (string.Equals(name, instanceId, StringComparison.OrdinalIgnoreCase)) return dte;
-        return null;
-    }
-
     /// <summary>Find the running DTE whose solution contains a project named <paramref name="project"/>, or null.
-    /// The ROT moniker suffix is EPHEMERAL — TcXaeShell re-registers its DTE with a fresh cookie
-    /// (<c>…:24008</c> → <c>…:24816</c>), so a captured <c>instanceId</c> goes stale within a session and
-    /// <see cref="Bind"/> stops resolving it. The PROJECT NAME is the stable identity, so <c>select</c> resolves by
-    /// it when the moniker no longer binds — this is what makes multi-XAE selection reliable across re-registration.</summary>
+    /// The PROJECT NAME is the stable identity Volt binds by (the ROT moniker is ephemeral — TcXaeShell re-registers
+    /// its DTE with a fresh cookie <c>…:24008</c> → <c>…:24816</c> mid-session — so it is never a durable key). This
+    /// is what makes selection reliable across re-registration and dead handles.</summary>
     public static object? BindByProject(string project)
     {
         foreach (var (name, dte) in RunningDtes())
@@ -99,13 +90,11 @@ internal static class RotInstances
         return null;
     }
 
-    /// <summary>The first running DTE instance as (rotDisplayName, dteObject), or null if none are
-    /// running. Version-agnostic — whatever the ROT lists (any Visual Studio / TcXaeShell), so the
-    /// no-target auto-attach future-proofs the same way the instance picker already does. The display
-    /// name is the instance id understood by <see cref="Bind"/>.</summary>
-    public static (string InstanceId, object Dte)? First()
+    /// <summary>The first running DTE object, or null if none are running. Version-agnostic — whatever the ROT lists
+    /// (any Visual Studio / TcXaeShell), so the no-target soft-attach future-proofs the same way the picker does.</summary>
+    public static object? First()
     {
-        foreach (var hit in RunningDtes()) return hit;
+        foreach (var (_, dte) in RunningDtes()) return dte;
         return null;
     }
 
@@ -113,7 +102,7 @@ internal static class RotInstances
     public static List<TcInstance> Enumerate()
     {
         var list = new List<TcInstance>();
-        foreach (var (name, dte) in RunningDtes())
+        foreach (var (_, dte) in RunningDtes())
         {
             string? ver = null;
             var projects = new List<TcProject>();
@@ -141,7 +130,7 @@ internal static class RotInstances
                 }
             }
             catch { }
-            list.Add(new TcInstance(name, ver, projects));
+            list.Add(new TcInstance(ver, projects));
         }
         return list;
     }
