@@ -60,7 +60,7 @@ namespace Volt.Cli.Connector
                 // that reads like a real release — the confusion an unstamped 1.0.0.0 caused. The second line
                 // explains it; kept inside this one label so the fixed-index row layout below is undisturbed.
                 Text = Updater.IsDev
-                    ? "Volt Connector — development build\nBuilt locally without VOLT_VERSION — not an installed release; updates are off."
+                    ? "Volt Connector — development build\nUnstamped local build — run the published Volt Setup to install a real release and turn on updates."
                     : $"Volt Connector    v{Updater.CurrentVersion}",
                 AutoSize = true, Font = new Font("Segoe UI Semibold", 13.5f), Margin = new Padding(0, 0, 0, 14),
                 ForeColor = Updater.IsDev ? Color.FromArgb(0xB0, 0x6A, 0x00) : SystemColors.ControlText,
