@@ -18,9 +18,11 @@ contextBridge.exposeInMainWorld("volt", {
   forcePush: () => ipcRenderer.invoke("volt:forcePush"),
   finishMerge: () => ipcRenderer.invoke("volt:finishMerge"),
   abortMerge: () => ipcRenderer.invoke("volt:abortMerge"),
+  mergeResolve: (path, side) => ipcRenderer.invoke("volt:mergeResolve", path, side),
   refresh: () => ipcRenderer.send("volt:refresh"),
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),
   initWorkspace: (projectId) => ipcRenderer.invoke("volt:init", projectId),
+  diff: (workspaceRoot, relPath, name, direction) => ipcRenderer.invoke("volt:diff", workspaceRoot, relPath, name, direction),
   onProgress: (cb) => ipcRenderer.on("volt:progress", (_e, p) => cb(p)),
 })

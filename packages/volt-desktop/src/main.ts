@@ -6,10 +6,11 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
-import { setBundledCli, setLspServer } from "@volt/control"
+import { setBundledCli, setLspServer, loadDiff, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
 import { registerCommands } from "./commands.js"
+import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -100,6 +101,28 @@ async function startWorkspace() {
 }
 
 registerCommands(ipcMain, dialog, shell)
+
+// Click a change row → a diff POPUP. The diff (which refs, the line diff) is @volt/control's loadDiff; here we
+// only open a child window and load the rendered HTML. A child BrowserWindow (not a DOM overlay) sidesteps the
+// opencode WebContentsView, which is layered above the shell DOM and would cover any in-page modal.
+let diffWin: InstanceType<typeof BrowserWindow> | null = null
+ipcMain.handle("volt:diff", async (_e, workspaceRoot: string, relPath: string, name: string, direction: DiffDirection) => {
+  // A failed `volt show` (bridge down, unreadable ref) renders as an error page in the popup rather than throwing
+  // back an unhandled rejection to the renderer.
+  let html: string
+  try {
+    html = diffHtml(await loadDiff(workspaceRoot, relPath, name, direction))
+  } catch (err) {
+    html = `<body style="font:14px system-ui;padding:32px;color:#e8675c;background:#16120e">Couldn't load the diff: ${err instanceof Error ? err.message : String(err)}</body>`
+  }
+  if (diffWin === null || diffWin.isDestroyed()) {
+    diffWin = new BrowserWindow({ width: 900, height: 720, parent: shell.win ?? undefined, backgroundColor: "#16120e", autoHideMenuBar: true })
+    diffWin.on("closed", () => (diffWin = null))
+  }
+  await diffWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html))
+  diffWin.setTitle(`${name} — diff`)
+  diffWin.focus()
+})
 
 // window controls + IDE-panel toggle (window/layout concerns stay here; the volt: actions live in commands.ts)
 ipcMain.on("win:minimize", () => shell.win?.minimize())

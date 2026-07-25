@@ -15,6 +15,7 @@ import {
   boundProjectId,
   mergeContinue,
   mergeAbort,
+  mergeResolve,
   describePull,
   describePush,
   describeMerge,
@@ -118,6 +119,22 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     await settleOutcome(st, out)
     await presentOutcome(describeMerge(out), presenter, () => Promise.resolve(), DESKTOP_CAPS)
   }
+  // Take a whole side for ONE conflicted file (mine = workspace, ide = IDE), then re-present so a now-fully-resolved
+  // merge surfaces its Finish action. The per-file resolution the desktop was missing — the CLI/control already
+  // had it (mergeResolve); this just wires the two buttons, like VS Code's take-a-side.
+  async function runMergeResolve(path: string, side: "mine" | "ide"): Promise<void> {
+    const st = shell.status
+    if (!st) return
+    const out = await mergeResolve(st.workspaceRoot, path, side)
+    clearProgress()
+    await settleOutcome(st, out)
+    await presentOutcome(
+      describeMerge(out),
+      presenter,
+      (tag) => (tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve()),
+      DESKTOP_CAPS,
+    )
+  }
   async function runPush(force = false): Promise<void> {
     const st = shell.status
     if (!st) return
@@ -141,6 +158,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.handle("volt:forcePush", () => runGuarded(() => runPush(true)))
   ipcMain.handle("volt:finishMerge", () => runGuarded(() => runFinishMerge()))
   ipcMain.handle("volt:abortMerge", () => runGuarded(() => runAbortMerge()))
+  ipcMain.handle("volt:mergeResolve", (_e, path: string, side: "mine" | "ide") => runGuarded(() => runMergeResolve(path, side)))
   ipcMain.handle("volt:build", () =>
     runGuarded(async () => {
       const st = shell.status

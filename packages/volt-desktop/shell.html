@@ -90,12 +90,36 @@
     display: grid; place-items: center; cursor: default; transition: background 140ms ease, color 140ms ease; }
   .ico-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   .ico-btn:disabled { opacity: .3; }
+  /* Overflow "⋯" menu — the destructive force actions live here, out of the primary row (matches VS Code's More
+     Actions submenu). Anchored to its button; `moreOpen` state toggles .open, an outside click closes it. */
+  .more-btn { font-size: 15px; line-height: 1; }
+  .more { position: relative; display: flex; }
+  .menu { position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 20; min-width: 230px; padding: 4px;
+    background: var(--chrome); border: 1px solid var(--border); border-radius: var(--r-md);
+    box-shadow: 0 8px 24px rgba(0,0,0,.35); display: none; flex-direction: column; }
+  .menu.open { display: flex; }
+  .menu button { -webkit-app-region: no-drag; text-align: left; border: 0; background: transparent; color: var(--text);
+    font: inherit; font-size: 12px; padding: 7px 9px; border-radius: var(--r-sm); cursor: default; white-space: nowrap; }
+  .menu button:hover { background: var(--hover); }
+  /* The change list gets its OWN scroll box so a long incoming/outgoing list scrolls within the section instead of
+     growing the whole panel (matches VS Code's per-view scrolling). */
+  .scroll { max-height: 46vh; overflow-y: auto; }
+  .scroll::-webkit-scrollbar { width: 9px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 
   .grp { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 600; padding: 8px 14px 3px; }
   .grp .n { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 500; }
   .row { display: flex; align-items: center; gap: 8px; padding: 3px 14px; font-size: 12.5px; }
   .row .stat { font-family: ui-monospace, "JetBrains Mono", monospace; font-weight: 700; width: 12px; text-align: center; flex: none; }
   .stat.A { color: var(--green); } .stat.M { color: var(--amber); } .stat.D { color: var(--red); }
+  .row.click { cursor: default; border-radius: var(--r-sm); }
+  .row.click:hover { background: var(--hover); }
+  /* Merge conflict rows: the name opens the diff, the mini buttons take a whole side (IDE / Mine). */
+  .row .path.click { cursor: default; }
+  .row .path.click:hover { text-decoration: underline; }
+  .mini { -webkit-app-region: no-drag; border: 1px solid var(--border); background: transparent; color: var(--muted);
+    font: inherit; font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: var(--r-sm); cursor: default; white-space: nowrap; }
+  .mini:hover { background: var(--hover); color: var(--text); }
   .row .path { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row .n { margin-left: auto; color: var(--muted); font-size: 11.5px; white-space: nowrap; padding-left: 8px; font-variant-numeric: tabular-nums; }
   .note { color: var(--muted); padding: 5px 14px 7px; font-size: 12.5px; line-height: 1.5; display: flex; gap: 7px; align-items: flex-start; }
@@ -166,6 +190,7 @@
   let activeTab = "bridge"
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let busyPct = null // determinate % for the titlebar bar (null = indeterminate — just spin the icon)
+  let moreOpen = false // the sync section's "⋯" overflow menu (force pull/push)
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
 
   // Escapes ' as well as the usual four: project names come from the IDE and land inside a single-quoted JS
@@ -174,8 +199,10 @@
   // markup on top of that.
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
-  const rows = (items) => items.map((f) => `<div class="row"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
-  const grp = (label, items) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${rows(items)}` : ""
+  // Change rows are clickable → open a diff popup. Data rides on data-* attrs (esc-safe) and a single delegated
+  // listener on #panel reads them, so no user text lands in an onclick and the handler survives re-renders.
+  const changeRows = (items, dir, root) => items.map((f) => `<div class="row click" data-root="${esc(root)}" data-path="${esc(f.relPath)}" data-name="${esc(f.name)}" data-dir="${dir}" title="Open diff"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
+  const changeGrp = (label, items, dir, root) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${changeRows(items, dir, root)}` : ""
   const icoBtn = (icon, title, onclick, off) => `<button class="ico-btn" title="${title}" ${off ? "disabled" : ""} onclick="${onclick}"><svg class="ico"><use href="#${icon}"/></svg></button>`
   // The refresh action, spinning + disabled while a refresh is in flight (both the Sync and Bridge sections use it).
   const refreshBtn = (title) => refreshing
@@ -262,31 +289,48 @@
           : `<div class="init-row"><button class="btn" onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>
              <div class="note">Stops syncing. The IDE stays open — Connect again to resume.</div>`)
     }
-    const bridgeActs = s.initialized ? refreshBtn("Refresh") : ""
+    // No refresh here — the IDE Sync section's refresh re-probes the WHOLE status (health included), so a second
+    // button in this section was redundant (VS Code's Bridge view has none either).
+    const bridgeActs = ""
 
     // 2. IDE Sync — driven by the shared `mode` (the same field the VS Code extension switches on). pull/push/build
     // appear ONLY in `ready`; refresh is always available (it re-probes, never mutates). No connect/init here — the
     // states that would need them defer to IDE Connection above.
+    // The destructive force actions live in an overflow "⋯" menu (moreMenu), not the primary row — same as VS Code.
+    // They still confirm before running (doForcePull/doForcePush).
+    const moreMenu =
+      `<span class="more"><button class="ico-btn more-btn" title="More actions" onclick="toggleMore(event)">⋯</button>` +
+      `<div class="menu${moreOpen ? " open" : ""}">` +
+      `<button onclick="closeMoreThen(doForcePull)">Force pull — discard local edits, take the IDE's state</button>` +
+      `<button onclick="closeMoreThen(doForcePush)">Force push — overwrite the IDE with your workspace</button>` +
+      `</div></span>`
     const syncActs = s.initialized
       ? (s.mode === "ready"
           ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") +
             icoBtn("i-push", "Push · workspace → IDE", "doPush()") +
-            icoBtn("i-build", "Build", "doBuild()") +
-            // Force variants confirm before running (see doForcePull/doForcePush) — they were previously reachable
-            // only as buttons in the dialog AFTER a refusal, so there was no way to force deliberately.
-            icoBtn("i-alert", "Force pull · DISCARD local edits, take the IDE's state", "doForcePull()") +
-            icoBtn("i-connect", "Force push · OVERWRITE the IDE with your workspace", "doForcePush()")
-          : "") + refreshBtn("Refresh")
+            icoBtn("i-build", "Build", "doBuild()")
+          : "") + refreshBtn("Refresh") + (s.mode === "ready" ? moreMenu : "")
       : ""
     let syncBody
     if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
     else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
     else if (s.mode === "mismatch") syncBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Sync paused — accept the project rename in IDE Connection above.</div>`
-    else if (s.mode === "merging") syncBody = busyNote +
-      `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve the conflicted files in your editor, then finish.</div>
-       <div class="init-row"><button class="btn primary" onclick="doFinishMerge()">Finish merge</button><button class="btn" onclick="doAbortMerge()">Abort merge</button></div>
-       <div class="note">Finish stages your resolutions and advances the IDE baseline. Abort restores the workspace to before the pull.</div>`
+    else if (s.mode === "merging") {
+      // Per-file conflict resolution: click the name to diff, or take a whole side. Reads the shared `conflicts`
+      // list (same one the VS Code merge subtree renders). Buttons/rows go through the delegated panel listener.
+      const cf = s.conflicts || []
+      const clist = cf.length
+        ? `<div class="grp">Conflicts<span class="n">${cf.length}</span></div><div class="scroll">` +
+          cf.map((c) => `<div class="row conflict"><span class="stat D">!</span><span class="path click" data-root="${esc(s.workspaceRoot)}" data-path="${esc(c.relPath)}" data-name="${esc(c.name)}" data-dir="incoming" title="Open diff">${esc(c.name)}</span><span class="s-acts"><button class="mini take" data-path="${esc(c.relPath)}" data-side="ide" title="Take the IDE's version">IDE</button><button class="mini take" data-path="${esc(c.relPath)}" data-side="mine" title="Take your version">Mine</button></span></div>`).join("") +
+          `</div>`
+        : ""
+      syncBody = busyNote +
+        `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve each conflict (open the diff, take a side), then finish.</div>` +
+        clist +
+        `<div class="init-row"><button class="btn primary" onclick="doFinishMerge()">Finish merge</button><button class="btn" onclick="doAbortMerge()">Abort merge</button></div>
+         <div class="note">Finish stages your resolutions and advances the IDE baseline. Abort restores the workspace to before the pull.</div>`
+    }
     // The IDE was edited but not yet walked (that walk freezes the IDE, so it's on-demand) — hint a Refresh. The
     // section's Refresh button (syncActs, above) is the action; a full refresh clears this. Shown above the possibly-
     // stale incoming/in-sync rows so they read as "as of the last check".
@@ -295,7 +339,9 @@
         ? `<div class="note"><svg class="ico"><use href="#i-refresh"/></svg>The IDE project was edited — Refresh (above) to check for incoming updates.</div>`
         : ""
       if (n === 0) syncBody = busyNote + changedNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
-      else syncBody = busyNote + changedNote + grp("Incoming · IDE → pull", s.incoming) + grp("Outgoing · push → IDE", s.outgoing)
+      else syncBody = busyNote + changedNote + `<div class="scroll">` +
+        changeGrp("Incoming · IDE → pull", s.incoming, "incoming", s.workspaceRoot) +
+        changeGrp("Outgoing · push → IDE", s.outgoing, "outgoing", s.workspaceRoot) + `</div>`
     }
 
     // 3. Diagnostics
@@ -349,6 +395,21 @@
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { begin("Initializing…"); await volt.initWorkspace(projectId) }
+  function doDiff(root, path, name, dir) { volt.diff(root, path, name, dir) }
+  function doTakeSide(path, side) { volt.mergeResolve(path, side) }
+
+  // The "⋯" overflow menu: toggle stops propagation so opening doesn't immediately hit the outside-click closer;
+  // any other click closes it. A menu item closes first, then runs its (confirming) force action.
+  function toggleMore(e) { e.stopPropagation(); moreOpen = !moreOpen; render() }
+  function closeMoreThen(fn) { moreOpen = false; render(); fn() }
+  document.addEventListener("click", () => { if (moreOpen) { moreOpen = false; render() } })
+  // One delegated listener on the panel (which persists across re-renders) opens a diff for any clicked change row.
+  document.getElementById("panel").addEventListener("click", (e) => {
+    const take = e.target.closest(".take")
+    if (take) return doTakeSide(take.dataset.path, take.dataset.side)
+    const row = e.target.closest("[data-dir]") // a change row or a conflict name → open its diff
+    if (row) doDiff(row.dataset.root, row.dataset.path, row.dataset.name, row.dataset.dir)
+  })
 
   // Live progress from any action (main sends formatProgress's {pct,message}); null clears it. The TEXT is the file
   // counter ("1234/8000 · Writing") — preferred over a bare %; busyPct drives the silent titlebar bar for the visual.
