@@ -48,7 +48,8 @@ public abstract class DriverBase : IIdeSession
     public abstract bool IsConnected { get; }
     /// <summary>The IDE version, shown in the connector's project label (per instance). Not on the wire top-level.</summary>
     public abstract string? IdeVersion { get; }
-    public abstract void Connect();
+    // No abstract Connect(): startup attach is vendor-shaped (CODESYS Connect() vs TwinCAT Connect(int xaePid)), each
+    // driver declares its own and its own host calls it — Core never connects. See IIdeSession.
     public abstract void Disconnect();
     public abstract void TriggerAsyncProbe();
     public abstract HealthResponse BuildHealthResponse();

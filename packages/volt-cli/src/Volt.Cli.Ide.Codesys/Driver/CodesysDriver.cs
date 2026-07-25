@@ -36,7 +36,8 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
     public override string? IdeVersion => "3.5";
 
-    public override void Connect() => SnapshotHealth();   // on the primary thread at startup
+    /// <summary>CODESYS startup attach: snapshot health on the primary thread (called by its own PipeHost, not Core).</summary>
+    public void Connect() => SnapshotHealth();
     public override void Disconnect() { ClearDegraded(); }
 
     /// <summary>Refresh the cached health snapshot from the in-proc object model's TOP-LEVEL state (project

@@ -217,7 +217,6 @@ public sealed class FakeIde : IIdeDriver
     // Mirror a real driver: IsConnected and BuildHealthResponse().Connected (derived from Status) are the SAME signal.
     public bool IsConnected => HealthConnected && _attached;
     public string? IdeVersion => "0";
-    public void Connect() { }
     public void Disconnect() { }
     public bool IsDegraded => false;
     public void MarkDegraded(string reason) { }

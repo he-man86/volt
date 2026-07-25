@@ -15,7 +15,9 @@ public interface IIdeSession
     bool IsConnected { get; }
     /// <summary>The IDE version, shown per-instance in the connector's project label. Not a wire top-level field.</summary>
     string? IdeVersion { get; }
-    void Connect();
+    // NB: there is deliberately NO Connect() here. The startup attach is vendor-shaped (CODESYS: an in-proc snapshot
+    // on its primary thread; TwinCAT: attach to a specific XAE by pid, `Connect(int)`), so each driver exposes its own
+    // and its own host calls it. Core never connects — `Ops.Connect` maps to SelectProject; nothing here is Core's.
     void Disconnect();
 
     // ── degraded state ──

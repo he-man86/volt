@@ -31,11 +31,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override string? IdeVersion => _om.IdeVersion;
 
-    // The parameterless Connect() is the shared DriverBase contract (CODESYS's in-proc startup attach). TwinCAT is
-    // per-XAE: the worker is spawned with --xae-pid and MUST attach to that one window, so it uses Connect(int) — the
-    // no-arg form has no meaning here (there is no "the IDE" to pick) and is never called in the per-XAE worker.
-    public override void Connect() => throw new NotSupportedException("TwinCAT worker attaches by XAE pid — use Connect(int).");
-    /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).</summary>
+    /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).
+    /// TwinCAT has NO parameterless Connect() — a worker attaches to a specific XAE by pid, never "the IDE".</summary>
     public void Connect(int xaePid) { _om.ConnectToPid(xaePid); SnapshotHealth(); }
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
