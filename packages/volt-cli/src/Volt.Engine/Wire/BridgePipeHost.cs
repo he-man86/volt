@@ -125,24 +125,34 @@ public sealed class BridgePipeHost : IDisposable
     }
 
     // Run a mutating op on the IDE thread. retry=true routes through RunRead (reads only — fetch/init; a push/build
-    // must NOT auto-retry, it could double-apply).
-    private object RunOp(Func<object> run, bool retry = false) =>
-        retry ? RunRead(run) : _ide.RunOnStaThread(run);
+    // must NOT auto-retry, it could double-apply). A clean completion CONFIRMS the channel, so it clears any degraded
+    // flag — the counterpart to RunRead marking it on a transient, which together keep /health honest.
+    private object RunOp(Func<object> run, bool retry = false)
+    {
+        if (retry) return RunRead(run);
+        var r = _ide.RunOnStaThread(run);
+        _ide.ClearDegraded();
+        return r;
+    }
 
     // Run a READ op on the IDE thread, self-healing ONE transient failure. TwinCAT's out-of-process COM can drop a
     // call mid-flight (0x800706BA "RPC server unavailable") when the IDE re-registers / goes momentarily busy; the
-    // driver classifies that via ShouldMarkDegraded. On such a failure we Recover() (re-acquire the desired project
-    // by stable name, on the IDE thread) and retry ONCE — so a transient drop is invisible instead of a failed pull.
-    // Reads only: a write routed through here could double-apply. CODESYS is in-proc and never classifies a transient,
-    // so this is a single plain call there (the `when` filter is false).
+    // driver classifies that via ShouldMarkDegraded. On such a failure we MARK DEGRADED (so /health reflects the
+    // impaired channel instead of a stale "healthy"), Recover() (re-acquire the desired project by stable name, on
+    // the IDE thread), and retry ONCE — a transient drop is invisible to the CALLER but visible in health. A clean
+    // return clears degraded. Reads only: a write routed through here could double-apply. CODESYS is in-proc and never
+    // classifies a transient, so this is a single plain call there (the `when` filter is false).
     private object RunRead(Func<object> run)
     {
-        try { return _ide.RunOnStaThread(run); }
+        try { var r = _ide.RunOnStaThread(run); _ide.ClearDegraded(); return r; }
         catch (Exception ex) when (_ide.ShouldMarkDegraded(ex))
         {
+            _ide.MarkDegraded($"transient IDE error: {ex.Message}");
             VoltLog.Warn($"transient IDE error ({ex.Message}) — re-acquiring the project and retrying once");
             _ide.RunOnStaThread(() => { _ide.Recover(); return (object)0; });
-            return _ide.RunOnStaThread(run);   // one retry; a second failure propagates as a clean error
+            var r = _ide.RunOnStaThread(run);   // one retry; a second failure propagates as a clean error
+            _ide.ClearDegraded();               // retry succeeded → recovered
+            return r;
         }
     }
 

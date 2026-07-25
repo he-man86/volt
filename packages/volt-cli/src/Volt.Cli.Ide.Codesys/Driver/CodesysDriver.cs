@@ -57,7 +57,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         if (has && IsDegraded) ClearDegraded();
     }
 
-    public override T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
+    protected override T MarshalToIdeThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 
     /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single project row (CODESYS has
     /// no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's multi-instance ROT
@@ -88,7 +88,9 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         List<ProjectEntry> projects;
         lock (_cacheLock) { projects = _projects; }
         TriggerAsyncProbe();
-        return new HealthResponse { Projects = projects };
+        // Cached list, live verdict: CODESYS never marks degraded (in-proc), but a hung/closed IDE stops responding
+        // to the probe, so staleness demotes it from a frozen "healthy" — see OverlayLiveHealth.
+        return new HealthResponse { Projects = OverlayLiveHealth(projects) };
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));

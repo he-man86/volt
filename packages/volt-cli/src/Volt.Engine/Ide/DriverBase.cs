@@ -16,6 +16,14 @@ public abstract class DriverBase : IIdeSession
 {
     private volatile bool _isDegraded;
 
+    // ── honest-health signals (all lock-free reads; no IDE thread needed to answer /health) ──
+    // The health VERDICT is derived from these LIVE at read time, never from a frozen snapshot — so the cache can
+    // carry the (slow-changing) project LIST, but can never report "healthy" over a channel that has since dropped.
+    private int _lastOkTick;         // Environment.TickCount of the last IDE call that RESPONDED. Staleness demotes.
+    private volatile bool _everOk;   // has any IDE call ever responded (distinguishes "never" from a tick of 0).
+    private int _opInFlight;         // >0 while a real op holds the IDE thread — that IS a live link (busy, not a false drop).
+    private const long StaleMs = 12_000; // ~3 poll intervals with no confirmed IDE response ⇒ the link is suspect.
+
     // The one ambient-poll refresher. `health` (liveness + the instances list) is refreshed off the request path,
     // single-flight, so a poll never marshals onto the busy IDE thread and a busy IDE never reads as a lost connection.
     private readonly SingleFlight _healthProbe = new();
@@ -48,7 +56,27 @@ public abstract class DriverBase : IIdeSession
     /// <summary>Default no-op: an in-proc driver (CODESYS) has no cross-process channel to re-acquire. TwinCAT
     /// overrides to re-establish the desired binding by stable name.</summary>
     public virtual void Recover() { }
-    public abstract T RunOnStaThread<T>(Func<T> fn);
+
+    /// <summary>Marshal <paramref name="fn"/> onto the IDE's one work thread — bracketed so a concurrent /health poll
+    /// reads "busy" (a live link) not a false drop, and STAMPING freshness on success so a silent channel drop (no op,
+    /// no response) shows up as stale. The actual per-vendor marshalling is <see cref="MarshalToIdeThread"/>.</summary>
+    public T RunOnStaThread<T>(Func<T> fn)
+    {
+        Interlocked.Increment(ref _opInFlight);
+        try
+        {
+            var r = MarshalToIdeThread(fn);
+            _lastOkTick = Environment.TickCount; // the IDE responded ⇒ the link is confirmed live at this instant
+            _everOk = true;
+            return r;
+        }
+        finally { Interlocked.Decrement(ref _opInFlight); }
+    }
+
+    /// <summary>Per-vendor thread marshalling (CODESYS primary thread / TwinCAT STA). Called only through
+    /// <see cref="RunOnStaThread{T}"/>, which owns the busy/freshness bracketing.</summary>
+    protected abstract T MarshalToIdeThread<T>(Func<T> fn);
+
     public abstract void SelectProject(ConnectRequest sel);
     public abstract void FlushPendingWrites();
     public abstract bool Build();
@@ -94,14 +122,33 @@ public abstract class DriverBase : IIdeSession
         }
     }
 
-    /// <summary>Build the uniform health response; the vendor supplies its cached snapshot values. Liveness collapses
-    /// into the single <c>status</c> word (degraded is folded in), and the connectable-projects list rides along so
-    /// the connector's one ambient poll gets both.</summary>
-    /// <summary>The per-row <c>status</c> for a project row: the SERVING row reflects the driver's degraded state; a
-    /// listed-but-not-served row is just alive (healthy). Degraded only ever attaches to the one project this bridge
-    /// is actually talking to.</summary>
-    // The row's full connection state in one word: not-served → idle; served → degraded (if the channel is impaired)
-    // else healthy. "Is it serving" is derived from this at the edge (status != idle), so there is no serving flag.
-    protected string RowStatus(bool serving) =>
-        !serving ? HealthStatus.Idle : _isDegraded ? HealthStatus.Degraded : HealthStatus.Healthy;
+    /// <summary>Marks a project row as served (non-idle) or idle. The actual served-row verdict (healthy vs degraded)
+    /// is NOT frozen here — it is overlaid LIVE by <see cref="OverlayLiveHealth"/> at /health time, so a cached row
+    /// can never report "healthy" over a channel that dropped after the snapshot. "Is it serving" derives from the
+    /// wire status at the edge (status != idle), so there is no separate serving flag.</summary>
+    protected string RowStatus(bool serving) => serving ? HealthStatus.Healthy : HealthStatus.Idle;
+
+    /// <summary>The LIVE verdict for the one served row, derived from the current link signals — the pure decision,
+    /// unit-tested without an IDE. An op holding the thread is a live link (busy → healthy); a recent transient is
+    /// <c>degraded</c>; no IDE response within the staleness window (and no op in flight) is a suspect/dropped link
+    /// (→ degraded), never a stale "healthy".</summary>
+    public static string DeriveServedStatus(bool degraded, bool opInFlight, long lastOkAgeMs)
+    {
+        if (opInFlight) return HealthStatus.Healthy;
+        if (degraded) return HealthStatus.Degraded;
+        if (lastOkAgeMs > StaleMs) return HealthStatus.Degraded;
+        return HealthStatus.Healthy;
+    }
+
+    /// <summary>Overlay the live served-row verdict onto a cached project list: the served (non-idle) row gets the
+    /// current status from <see cref="DeriveServedStatus"/>; idle rows stay idle. The vendor caches only the slow
+    /// project LIST (identity/version/dirty) + which one is served; the health VERDICT is always live.</summary>
+    protected List<ProjectEntry> OverlayLiveHealth(List<ProjectEntry> cached)
+    {
+        var ageMs = _everOk ? (long)unchecked(Environment.TickCount - _lastOkTick) : long.MaxValue;
+        var live = DeriveServedStatus(_isDegraded, Volatile.Read(ref _opInFlight) > 0, ageMs);
+        var result = new List<ProjectEntry>(cached.Count);
+        foreach (var p in cached) result.Add(p.Status == HealthStatus.Idle ? p : p with { Status = live });
+        return result;
+    }
 }

@@ -38,7 +38,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// <summary>The STA message loop the bridge's dedicated thread runs (started from <c>Program.cs</c>).</summary>
     public void RunStaMessageLoop(CancellationToken cancel) => _dispatcher.RunMessageLoop(cancel);
 
-    public override T RunOnStaThread<T>(Func<T> func) => _dispatcher.Run(func);
+    protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(func);
 
     // ── health ──────────────────────────────────────────────────────
     public override HealthResponse BuildHealthResponse()
@@ -51,7 +51,9 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         }
         // Throttle the (heavier) STA refresh to ~5s: a burst of polls answers from cache and only one probe runs.
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        return new HealthResponse { Projects = projects };
+        // The cache carries the project LIST; the served row's status is overlaid LIVE so a channel that dropped
+        // since the snapshot never reports a stale "healthy".
+        return new HealthResponse { Projects = OverlayLiveHealth(projects) };
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
