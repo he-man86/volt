@@ -37,12 +37,12 @@ const desktopDir = resolve(repo, "packages/volt-desktop")
 const icon = resolve(desktopDir, "assets/volt-icon.ico")
 const skipDist = process.argv.includes("--skip-dist")
 const upload = process.argv.includes("--upload")
-// --upload-only: skip the whole build, just publish the already-built dist/release installer. Lets CI run the
-// install/uninstall smoke test (bun run test:install) BETWEEN build and publish, gating the release on it.
+// --upload-only: skip the whole build, just publish the already-built dist/release installer.
 const uploadOnly = process.argv.includes("--upload-only")
-// --prerelease: publish as a GitHub prerelease (the dev channel) — the connector's stable updater ignores these,
-// only `VOLT_UPDATE_CHANNEL=dev` picks them up. Omitted → a stable (latest) release.
-const prerelease = process.argv.includes("--prerelease")
+// This publish is ALWAYS a PRERELEASE (the dev channel) — the connector's stable updater ignores prereleases, only
+// `VOLT_UPDATE_CHANNEL=dev` picks them up. There is no path to publish stable here: a RELEASE promotes an existing
+// dev build via promote.yml (which gates it, then flips prerelease -> latest), so stable is ALWAYS a gated flip,
+// never a fresh direct publish. (release.yml still passes `--prerelease`; it's now a documented no-op.)
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
@@ -53,14 +53,14 @@ function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   }
 }
 
-// Publish the release `version` with the installer attached. Creates the tag at the checked-out commit
-// (--target), so a dev/prerelease build needs no pre-pushed tag; on a stable tag build the tag already exists and
-// --target is a no-op. If the release already exists (re-run), fall back to clobbering the asset + fixing the
-// prerelease flag. gh reads GH_TOKEN/GITHUB_TOKEN from env.
+// Publish the build `version` (the 4-part build number) as a PRERELEASE, installer attached, creating the tag at the
+// checked-out commit (--target). Always a prerelease — a release later PROMOTES this exact build (promote.yml flips
+// it to --latest); this never publishes stable. On a re-run the tag/release already exists → fall back to clobbering
+// the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.
 function publish(setupExe: string): void {
   const sha = process.env.GITHUB_SHA || spawnSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).stdout?.trim() || ""
-  const kind = prerelease ? "--prerelease" : "--latest"
-  console.log(`• gh release ${prerelease ? "(prerelease) " : ""}→ he-man86/volt ${version}`)
+  const kind = "--prerelease"
+  console.log(`• gh release (prerelease) → he-man86/volt ${version}`)
   // No --title (its space would need quoting under shell:true; gh defaults the title to the tag).
   const created = spawnSync(
     "gh",

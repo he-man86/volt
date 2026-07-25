@@ -13,32 +13,44 @@ existing at all.
 |---|---|---|
 | `bun run build:installer` | `build-installer.ts` | **the product** → `dist/release/Volt-win-Setup.exe` |
 | `bun run test:install` | `test-install.ts` | install → verify → uninstall → verify clean |
-| `bun run release` | `release.ts` | tag `dev` + push → CI builds & publishes |
+| `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (triggers `promote.yml`) |
 | `bun run compat` | (chains the 2 checkers below) | does Volt still load in the installed opencode? |
 
 That's the whole surface. Everything else here is a **step** of one of those, or infra.
 
 ## Build → release, end to end
 
+DEV BUILD — every push to `dev` (`release.yml`):
 ```
 build-payload.ts        →  dist/volt/     binaries + docs + .vsix + opencode-config + connector
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
-test-install.ts            install/uninstall smoke gate — CI runs this BETWEEN build and publish
-test-install-lifecycle.ts  install/update/uninstall ×N gate — runs right after, same stage
+build-installer.ts --upload-only --prerelease   publishes a PRERELEASE 0.0.1.<count> (the dev channel)
+```
+
+RELEASE — promote one of those builds to prod (`release.ts` → `promote.yml`):
+```
+release.ts             triggers promote.yml for a chosen 0.0.1.<count> (via `gh`; nothing installs locally)
+      ↓ (in CI, on a clean Windows runner)
+verify                 the build is a published prerelease AND its commit's ci.yml is green
       ↓
-build-installer.ts --upload-only    publishes the GitHub release (= the connector's update feed)
+gh release download    that build's OWN Volt-win-Setup.exe
+      ↓
+test-install.ts            install/uninstall smoke gate  ┐ gate the EXACT build being released, so
+test-install-lifecycle.ts  install/update/uninstall ×N   ┘ what ships to stable is what was tested
+      ↓
+gh release edit --prerelease=false --latest     flips it to the stable channel
 ```
 
 Both install gates read the installer's on-disk contract (install dir, the `{app}\current` junction, the uninstall
 key, the reg reader) from **`install-layout.ts`** — ONE source of truth, so the smoke gate can't drift from the
 lifecycle gate the way it once did (it hardcoded the pre-junction flat layout and rotted unnoticed, because the
-install gates run only on a stable release and none had been cut — the first stable cut then failed on months-old
-wrong paths). `test-install.ts` adds BEHAVIOUR on top: it runs the installed CLIs (`--version`), not just file checks.
+install gates ran only at release and none had been cut — the first cut then failed on months-old wrong paths).
+`test-install.ts` adds BEHAVIOUR on top: it runs the installed CLIs (`--version`), not just file checks.
 
-`release.ts` sits *outside* that flow: it only tags `dev` and pushes. CI (`release.yml`) runs the pipeline above,
-so cutting a release needs no local .NET or Inno Setup.
+`release.ts` is only a TRIGGER — it points a build at `promote.yml` (or you Run the workflow from the Actions tab).
+The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup, and never installs on your box.
 
 **`build-payload.ts` deliberately has no `bun run`.** It's a stage, not a destination — "the payload" is just
 everything the installer will contain. You want `build:installer`. Run it directly (`bun

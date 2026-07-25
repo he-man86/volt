@@ -1,26 +1,24 @@
-# Volt's ONE publish pipeline (opencode-style: one parameterized workflow, not a stable/dev copy-paste).
+# Volt's BUILD pipeline: every push to dev publishes a testable installer as a PRERELEASE, versioned
+# X.Y.Z.<commit-count> and tagged, for the DEV channel. The connector's stable updater ignores prereleases; only
+# VOLT_UPDATE_CHANNEL=dev picks them up, so dev builds never reach stable users.
 #
-#   push to dev  → a PRERELEASE, versioned X.Y.Z.<commit-count> (the DEV channel). Every dev push ships a testable
-#                  installer. The connector's stable updater ignores prereleases; only VOLT_UPDATE_CHANNEL=dev picks
-#                  them up — so dev builds never reach stable users.
-#   push a tag   → a STABLE release, versioned as the tag X.Y.Z (the latest release the stable updater tracks).
+# There is NO stable build here and no branches. A RELEASE promotes one of these dev builds to prod — see
+# .github/workflows/promote.yml (`bun run release [version]`): it gates that exact build's installer and flips its
+# GitHub release prerelease -> latest. Same 4-part version, no rebuild, no downgrade.
 #
 # The ONE version is computed from git (volt-scripts/version.ts) and INJECTED — stamped into every package.json +
 # passed as VOLT_VERSION — so no version is hand-maintained across files (sst/opencode#36232 is the bug that
 # happens when an artifact reads its own stored version instead of the injected one).
 #
-# Cut a stable release: `bun run release` (tags the current volt-desktop version on dev + pushes the tag).
 # Signing: intentionally PARKED — the installer ships unsigned (opencode signs via Azure Trusted Signing).
 name: release
 
 on:
   push:
     branches: [dev]
-    tags: ["[0-9]+.[0-9]+.[0-9]+"] # bare semver X.Y.Z — a 4-part dev tag never matches, so it can't re-trigger
-  workflow_dispatch: {} # manual stable re-run of the current volt-desktop version
+  workflow_dispatch: {} # manual rebuild of the current dev tip's prerelease
 
-# Supersede an in-flight DEV build when a newer commit lands (ref = refs/heads/dev). A stable build's ref is the
-# unique tag, so its group is unique and it is never cancelled.
+# Supersede an in-flight build when a newer commit lands on dev.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
@@ -74,29 +72,13 @@ jobs:
           VOLT_VERSION: ${{ steps.v.outputs.version }}
         run: bun volt-scripts/build-installer.ts
 
-      # Install → verify → uninstall → verify-clean. Stable only (it really installs on the runner) — dev builds
-      # skip it to stay fast, since every dev push runs this workflow.
-      - name: Smoke-test install / uninstall
-        if: steps.v.outputs.prerelease == 'false'
-        run: bun run test:install
-
-      # The LIFECYCLE gate: install → uninstall → install → update → update → uninstall → install → uninstall,
-      # asserting every binary's stamped version, no rollback in the setup log, and zero leftovers after each
-      # uninstall. test:install above cannot catch what actually shipped, because those failures need an install
-      # OVER an existing one — a locked file made Inno abort and roll back silently, leaving bin/volt.exe releases
-      # behind the connector. Stable only, same reason as above.
-      # NOTE: a CI runner has no editor holding volt-lsp-iec.exe, so this does NOT reproduce the original lock.
-      # It gates the layout and the leftovers; the lock case is the LOCAL run (`bun run test:install:lifecycle`
-      # with an editor open), which is how that bug was found and must stay part of pre-release checks.
-      - name: Install lifecycle (install/uninstall/update x2, version + leftover checks)
-        if: steps.v.outputs.prerelease == 'false'
-        run: bun run test:install:lifecycle
-
-      - name: Publish
+      # No install gates here — every dev push builds, and the gates really install on the runner. They run at RELEASE
+      # time instead (promote.yml), against the exact build being promoted, so what ships to stable is what was gated.
+      - name: Publish (prerelease — the dev channel)
         env:
           GH_TOKEN: ${{ github.token }}
           VOLT_VERSION: ${{ steps.v.outputs.version }}
-        run: bun volt-scripts/build-installer.ts --upload-only ${{ steps.v.outputs.prerelease == 'true' && '--prerelease' || '' }}
+        run: bun volt-scripts/build-installer.ts --upload-only --prerelease
 
       - name: Verify the installer was published
         shell: bash
