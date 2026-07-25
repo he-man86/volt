@@ -9,7 +9,7 @@ using Xunit;
 namespace Volt.Cli.Connector.Tests;
 
 /// <summary>Proves the two halves of the connection wire agree: the bridge PRODUCES the connectable-projects list on
-/// its <see cref="HealthResponse"/> (<c>health.projects</c>), and the connector's <see cref="PipeProjectSource"/>
+/// its <see cref="HealthResponse"/> (<c>health.projects</c>), and the connector's <see cref="PerPipeProjectSource"/>
 /// CONSUMES that exact serialized shape into <see cref="DetectedProject"/>s. If either side's field names drift, this
 /// fails. (Discovery folded into <c>health</c> — there is no separate <c>instances</c> op.)</summary>
 public class WireContractTests
@@ -30,7 +30,7 @@ public class WireContractTests
         };
 
         var wire = new FakeBridgeWire().On("health", Wire(health));
-        var src = new PipeProjectSource("twincat", "TwinCAT", wire);
+        var src = new PerPipeProjectSource("twincat", "TwinCAT", () => new[] { "volt.bridge.twincat.1" }, _ => wire);
 
         var projects = (await src.ScanAsync()).Projects;
 
@@ -52,7 +52,7 @@ public class WireContractTests
         };
 
         var wire = new FakeBridgeWire().On("health", Wire(health));
-        var src = new PipeProjectSource("codesys", "CODESYS", wire);
+        var src = new PerPipeProjectSource("codesys", "CODESYS", () => new[] { "volt.bridge.codesys.1" }, _ => wire);
 
         var p = Assert.Single((await src.ScanAsync()).Projects);
         Assert.Equal("MyMachine", p.DisplayName);

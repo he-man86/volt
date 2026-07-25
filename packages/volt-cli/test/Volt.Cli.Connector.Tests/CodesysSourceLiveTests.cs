@@ -41,7 +41,7 @@ public class CodesysSourceLiveTests
     }
 
     // The real discovery-backed source, filtered to this test's prefix so it ignores any real bridge.
-    private CodesysProjectSource Source() => new(() => PipeDiscovery.List(_prefix), pipe => new PipeBridgeWire(pipe));
+    private PerPipeProjectSource Source() => new(Vendors.Codesys, Vendors.CodesysDisplay, () => PipeDiscovery.List(_prefix), pipe => new PipeBridgeWire(pipe));
 
     [Fact]
     public async Task Lists_every_live_host_connect_keeps_one_active_and_closing_a_host_drops_and_deselects_it()

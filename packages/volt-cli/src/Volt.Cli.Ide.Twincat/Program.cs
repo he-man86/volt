@@ -10,6 +10,24 @@ using Volt.Cli.Transport;
 // one stable worker across IDE restarts. Pipe replacement for the backup's Program.cs + BridgeHttpServer.RunStandalone.
 VoltLog.Init(Vendors.Twincat);
 
+// `--list-xae-pids`: one-shot XAE discovery for the connector's supervisor — print each running XAE window's
+// process id (one per line) and exit. The COM ROT walk runs in THIS short-lived process so a hang dies with it and
+// the always-on tray never holds a COM apartment (the isolation the supervisor design requires). Exit 0 always
+// (an empty ROT is "no XAE open", not an error); stderr-only diagnostics.
+foreach (var a in args)
+    if (a == "--list-xae-pids")
+    {
+        var probe = new Thread(() =>
+        {
+            try { ComMessageFilter.Register(); foreach (var (id, _) in RotInstances.EnumerateWithPids()) Console.WriteLine(id); }
+            catch (Exception ex) { Console.Error.WriteLine($"list-xae-pids: {ex.Message}"); }
+        });
+        probe.SetApartmentState(ApartmentState.STA);
+        probe.Start();
+        probe.Join();
+        return 0;
+    }
+
 // `--xae-pid <pid>`: per-XAE worker — own the ONE XAE window with that process id and serve
 // `volt.bridge.twincat.<pid>` (the connector spawns one per XAE, CODESYS-symmetric). Absent → the legacy single
 // worker on `volt.bridge.twincat` that multiplexes every XAE by project name.
@@ -44,3 +62,4 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; done.Set(); };
 AppDomain.CurrentDomain.ProcessExit += (_, _) => done.Set();
 done.Wait();
 cts.Cancel();
+return 0;

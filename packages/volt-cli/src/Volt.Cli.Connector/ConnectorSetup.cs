@@ -11,27 +11,26 @@ namespace Volt.Cli.Connector
     public sealed record WorkerSpec(string Id, string DisplayName, string? Exe, string Args = "");
 
     /// <summary>Wires the connector's two halves in one place: the pipe-backed project SOURCES (the connection
-    /// model the tray/window/control-plane view) and the worker SPECS (what to spawn on startup). Adding a vendor
-    /// is a source here + — for an ExternalAttach vendor — a worker spec; nothing else.</summary>
+    /// model the tray/window/control-plane view) and the worker exe (spawned per-XAE by the supervisor). Adding a
+    /// vendor is a source here + — for an ExternalAttach vendor — its worker exe; nothing else.</summary>
     public static class ConnectorSetup
     {
-        /// <summary>One <see cref="PipeProjectSource"/> per vendor. Both speak the same instances/select/health
+        /// <summary>One <see cref="PerPipeProjectSource"/> per vendor — BOTH now discover a pipe per running IDE
+        /// (<c>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</c>) and fan out. They speak the same instances/select/health
         /// wire, so the connector never branches on vendor — the vendor difference is entirely behind the pipe.</summary>
         public static IReadOnlyList<IProjectSource> Sources() => new IProjectSource[]
         {
-            // TwinCAT: one supervised worker on one pipe, ROT-multiplexed. CODESYS: one in-proc host per running
-            // IDE, each on its own volt.bridge.codesys.<pid> pipe — discovered + fanned out (multiple live at once).
-            new PipeProjectSource(Vendors.Twincat, Vendors.TwincatDisplay, new PipeBridgeWire(PipeNames.Twincat), PipeNames.Twincat),
-            new CodesysProjectSource(),
+            // CODESYS: one in-proc host per running IDE. TwinCAT: one per-XAE worker the supervisor spawns per XAE
+            // window (see TrayContext.ReconcileTwincatWorkers) — from here, identical per-pipe discovery + fan-out.
+            new PerPipeProjectSource(Vendors.Twincat, Vendors.TwincatDisplay, PipeNames.TwincatPrefix),
+            new PerPipeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay, PipeNames.CodesysPrefix),
         };
 
-        /// <summary>The workers to spawn + supervise (ExternalAttach only). CODESYS is absent by design.</summary>
-        public static IReadOnlyList<WorkerSpec> Workers() => new[]
-        {
-            new WorkerSpec(Vendors.Twincat, Vendors.TwincatDisplay,
-                ResolveWorker("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe",
-                    Path.Combine("..", "volt-cli", "src", "Volt.Cli.Ide.Twincat"))),
-        };
+        /// <summary>The TwinCAT worker exe the supervisor spawns one of per XAE window (<c>--xae-pid &lt;pid&gt;</c>),
+        /// and probes for live XAE pids (<c>--list-xae-pids</c>). Null when it can't be found (dev without a build).</summary>
+        public static string? TwincatExe() =>
+            ResolveWorker("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe",
+                Path.Combine("..", "volt-cli", "src", "Volt.Cli.Ide.Twincat"));
 
         /// <summary>Resolve a worker exe: env override → next to the connector (shipped) → the dev build output.</summary>
         private static string? ResolveWorker(string envVar, string exeName, string projectDir)

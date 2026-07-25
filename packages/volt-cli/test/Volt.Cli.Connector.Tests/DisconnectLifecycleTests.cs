@@ -45,7 +45,7 @@ public class DisconnectLifecycleTests
         return h;
     }
 
-    private CodesysProjectSource Source() => new(() => PipeDiscovery.List(_prefix), pipe => new PipeBridgeWire(pipe));
+    private PerPipeProjectSource Source() => new(Vendors.Codesys, Vendors.CodesysDisplay, () => PipeDiscovery.List(_prefix), pipe => new PipeBridgeWire(pipe));
 
     // ── the CLI's side of the wire — exactly what `volt push` / `volt status` do ──
     private static bool CliCanSync(string pipe)
@@ -149,8 +149,8 @@ public class DisconnectLifecycleTests
     {
         var pipe = _prefix + "1";
         var host = StartHost(pipe, "MachineA");
-        // A single-worker (TwinCAT-shaped) source over this live host: healthy, project open, nothing selected.
-        var src = new PipeProjectSource("twincat", "TwinCAT", new PipeBridgeWire(pipe), pipe);
+        // A per-pipe TwinCAT source over this one live host: healthy, project open, nothing selected.
+        var src = new PerPipeProjectSource("twincat", "TwinCAT", () => new[] { pipe }, p => new PipeBridgeWire(p));
         var mgr = new ConnectionManager(new IProjectSource[] { src });
         try
         {

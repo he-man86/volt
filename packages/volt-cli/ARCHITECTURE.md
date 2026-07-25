@@ -161,17 +161,24 @@ These are irreducible differences between how the two IDEs are reached, **not** 
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
 
-Pipes — a load-bearing asymmetry that mirrors InIdeLoad vs ExternalAttach, **do not unify**:
-- **TwinCAT = one worker, one pipe `volt.bridge.twincat`.** The supervised worker enumerates every running project
-  via the COM ROT and `select`s one — multiple TwinCAT projects, one pipe, multiplexed.
-- **CODESYS = one in-proc host per running IDE, one pipe EACH: `volt.bridge.codesys.<pid>`.** There is no single
-  CODESYS bridge — every activated IDE serves its own pipe so multiple coexist without colliding. Clients find them
-  all by enumerating the pipe namespace (`PipeDiscovery` → `Volt.Cli.Transport`). The connector fans out over the
-  discovered pipes (`CodesysProjectSource`); the CLI resolves the one serving the **bound project** by name
+Pipes — the topology is now SYMMETRIC (one pipe per running IDE, keyed by pid); the remaining asymmetry is
+LIFECYCLE (who owns the host), and mirrors InIdeLoad vs ExternalAttach — **do not unify the lifecycle**:
+- **Both vendors = one host per running IDE, one pipe EACH: `volt.bridge.<vendor>.<pid>`.** No single bridge for
+  either — every IDE serves its own pipe so multiple coexist without colliding. Clients find them all by enumerating
+  the pipe namespace (`PipeDiscovery` → `Volt.Cli.Transport`). The connector fans out over the discovered pipes with
+  ONE `PerPipeProjectSource` per vendor; the CLI resolves the one serving the **bound project** by name
   (`BridgeResolver`) and REFUSES on 0/ambiguous rather than target the wrong IDE.
+- **CODESYS host = in-proc, dies with the IDE (no supervision).** Loaded into each IDE by user activation.
+- **TwinCAT host = an external per-XAE worker the connector spawns/reaps.** TwinCAT automation is out-of-process COM,
+  so a worker owns ONE XAE window, attaches by its stable **process id** (`--xae-pid`, not the ephemeral ROT
+  moniker), and serves `volt.bridge.twincat.<pid>`. The connector's `TwincatSupervisor` keeps exactly one worker per
+  live XAE — it discovers XAE pids by running the worker's `--list-xae-pids` one-shot (COM in a short-lived child, so
+  the always-on tray never holds a COM apartment), spawns/reaps on the diff, and debounces a transient probe miss.
+  This lifecycle cost — spawn/reap a separate process — is the whole price of TwinCAT being ExternalAttach; CODESYS
+  gets it for free because its host is in-proc.
 
 Above the connector everything is vendor-neutral: ONE active connection, a flat project list, click to switch. The
-per-instance-pipe machinery lives entirely below `IProjectSource`.
+per-instance-pipe machinery + the TwinCAT supervisor live entirely below `IProjectSource`.
 
 **The rule that separates the two — and it is now enforced, not just intended:** *any per-vendor difference that
 Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries above are strictly about how each IDE
@@ -196,7 +203,7 @@ sync op with `PLC_DISCONNECTED` (only `health`/`connect`/`disconnect` keep answe
 list too, so it is how the UI shows the state and finds the way back); the next `connect` resumes it. The gate must
 live here, not in the connector, because the CLI opens the pipe directly and never consults the connector — so the
 connector's selection can never gate `volt push`. One flag on the host, so the whole bridge is gated: on TwinCAT that
-means the one worker, which already serves one selected project at a time. In-memory by design — a host or connector
+means that XAE's per-pipe worker, which serves its one selected project. In-memory by design — a host or connector
 restart resets it to serving. `VOLT_PIPE` overrides the pipe directly (dev,
 tests, and `volt init` — which has no binding yet — via the shell). The workspace binding stores the vendor +
 project name; `pull`/`push` resolve the live pipe at op-time.

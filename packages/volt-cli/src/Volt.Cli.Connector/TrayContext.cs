@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -22,7 +23,9 @@ namespace Volt.Cli.Connector
         private readonly NotifyIcon _icon;
         private readonly System.Windows.Forms.Timer _timer;
         private readonly BridgeSupervisor _supervisor = new();
-        private readonly IReadOnlyList<WorkerSpec> _workers = ConnectorSetup.Workers();
+        private readonly TwincatSupervisor _twincatSupervisor = new(); // decides which per-XAE TwinCAT workers to run
+        private readonly string? _twincatExe = ConnectorSetup.TwincatExe();
+        private int _reconcileTick; // throttles the (subprocess) XAE probe to ~every 3rd tick
         private readonly ConnectionManager _conn = new(ConnectorSetup.Sources());
         private readonly ControlServer _control;
 
@@ -41,8 +44,8 @@ namespace Volt.Cli.Connector
         {
             _conn.Connected += OnConnected;
 
-            // Spawn the ExternalAttach workers (TwinCAT). CODESYS is user-activated in-proc — never launched.
-            foreach (var w in _workers) _supervisor.EnsureWorker(w);
+            // TwinCAT workers are spawned per-XAE by the first TickAsync (via ReconcileTwincatWorkers) — no fixed
+            // startup spawn. CODESYS is user-activated in-proc, never launched.
 
             _icon = new NotifyIcon
             {
@@ -69,7 +72,7 @@ namespace Volt.Cli.Connector
         // ── tick: refresh the model, then repaint the views ────────────────
         private async Task TickAsync()
         {
-            foreach (var w in _workers) _supervisor.EnsureWorker(w); // respawn a crashed worker
+            await ReconcileTwincatWorkers(); // spawn/reap one TwinCAT worker per XAE (and respawn a crashed one)
             await _conn.RefreshAsync();
 
             // Deliberately NOT adopting an already-serving project as the active connection here. It would turn
@@ -137,10 +140,30 @@ namespace Volt.Cli.Connector
             catch (Exception ex) { Log.Warn($"connect to {p.DisplayName} failed: {ex.Message}"); return false; }
         }
 
+        // TwinCAT is per-XAE: probe the live XAE window pids (a COM-isolated subprocess, off the UI thread), then keep
+        // exactly one worker per XAE — spawn/respawn one for each live pid (EnsureWorker is idempotent AND respawns a
+        // crashed one, so this also covers a worker that died while its XAE lived), and reap workers whose XAE has been
+        // gone long enough (the supervisor debounces a transient probe miss). CODESYS is in-proc — never spawned.
+        private async Task ReconcileTwincatWorkers()
+        {
+            if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
+            if (_reconcileTick++ % 3 != 0) return;                         // ~every 3rd tick: XAE churn isn't sub-10s-sensitive
+            var pids = await Task.Run(() => TwincatXaeProbe.ListPids(_twincatExe, TimeSpan.FromSeconds(6)));
+            var (_, reap) = _twincatSupervisor.Reconcile(pids);
+            foreach (var pid in pids)
+                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), Vendors.TwincatDisplay, _twincatExe, $"--xae-pid {pid}"));
+            foreach (var pid in reap)
+                _supervisor.StopWorker(TwincatWorkerId(pid));
+        }
+
+        private static string TwincatWorkerId(int pid) => $"{Vendors.Twincat}.{pid}";
+
         private void RestartWorker(string id)
         {
-            var w = _workers.FirstOrDefault(x => x.Id == id);
-            if (w != null) { _supervisor.StopWorker(id); _supervisor.EnsureWorker(w); }
+            // Per-XAE id is "twincat.<pid>": kill it and forget the pid so the next reconcile respawns a fresh worker.
+            _supervisor.StopWorker(id);
+            var dot = id.LastIndexOf('.');
+            if (dot >= 0 && int.TryParse(id.Substring(dot + 1), out var pid)) _twincatSupervisor.Forget(pid);
         }
 
         // ── notifications ──────────────────────────────────────────────────
