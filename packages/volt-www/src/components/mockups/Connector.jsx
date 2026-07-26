@@ -10,7 +10,7 @@ import "./connector.css"
 // Detected projects as the tray lists them (platform · name); one is the active connection.
 const PROJECTS = [
   { vendor: "CODESYS", name: "MyMachine" },
-  { vendor: "CODESYS", name: "Pro2193-94-95-96" },
+  { vendor: "CODESYS", name: "BottlingLine" },
   { vendor: "TwinCAT", name: "TestRig" },
 ]
 
