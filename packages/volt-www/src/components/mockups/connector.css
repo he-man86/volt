@@ -211,33 +211,37 @@
 }
 
 /* ── Status / Logs dialogs (opened from the tray menu) ─────────────────────── */
+/* No backdrop — the Status/Logs windows float at the TOP-LEFT beside the tray (which sits bottom-right), like the
+   separate WinForms windows they are. pointer-events:none lets the tray behind stay interactive; the dialog itself
+   re-enables them. Closed with its × (no click-outside). */
 .tray-overlay {
   position: absolute;
   inset: 0;
   z-index: 10;
-  display: grid;
-  place-items: center;
-  padding: 12px;
-  background: rgba(31, 41, 55, 0.32);
-  border-radius: inherit;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 6px;
+  pointer-events: none;
 }
 .cx-dialog {
   width: 100%;
-  max-height: 100%;
+  max-height: calc(100% - 12px);
+  pointer-events: auto;
   background: #ffffff;
   border: 1px solid rgba(38, 37, 30, 0.16);
-  border-radius: 11px;
-  box-shadow: 0 24px 60px rgba(31, 41, 55, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 18px 44px rgba(31, 41, 55, 0.26);
   color: #262626;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .cx-dialog--status {
-  max-width: 380px;
+  max-width: 288px;
 }
 .cx-dialog--logs {
-  max-width: 460px;
+  max-width: 340px;
 }
 .cx-dlg-head {
   display: flex;
@@ -268,7 +272,7 @@
   color: inherit;
 }
 .cx-dlg-body {
-  padding: 14px;
+  padding: 12px;
   overflow-y: auto;
 }
 .cx-mono {
@@ -430,9 +434,9 @@
 }
 .cx-log-row {
   display: grid;
-  grid-template-columns: 62px 96px 44px 1fr;
-  gap: 8px;
-  padding: 4px 12px;
+  grid-template-columns: 50px 74px 34px 1fr;
+  gap: 7px;
+  padding: 4px 11px;
   align-items: center;
 }
 .cx-log-row + .cx-log-row {
