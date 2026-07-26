@@ -1,7 +1,7 @@
 // The pull/push/build/init actions — the desktop counterpart of the extension's commands.ts. The FLOW (adopt
 // vs refresh, outcome filtering + destructive-confirm, progress formatting) lives in @volt/control; this file
 // only supplies Electron's native primitives (dialogs + IPC) and wires them to the shared functions.
-import { existsSync, mkdirSync, readdirSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { Dialog, IpcMain } from "electron"
 import {
@@ -220,10 +220,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
 
-      // Pick a PARENT location; Volt CREATES a folder named after the IDE project inside it (like `git clone`
-      // creating <repo>/). opencode's own UI can only ADD an existing project — it can't create a folder — so the
-      // user would otherwise have to hand-make an empty "New folder (2)" first. Naming it after the project also
-      // makes the workspace self-describing. The picker + button IS the confirmation (no separate dialog).
+      // Pick a PARENT location; `volt init` CREATES a folder named after the IDE project inside it (git-clone
+      // semantics) and reports the path back. opencode's own UI can only ADD an existing project — it can't create
+      // a folder — so the user would otherwise hand-make an empty "New folder (2)" first. The picker + button IS
+      // the confirmation (no separate dialog).
       const platform = vendorLabel(project.vendor)
       const picked = await dialog.showOpenDialog(shell.win, {
         title: `Create a Volt workspace for “${project.displayName}” (${platform})`,
@@ -232,16 +232,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
         buttonLabel: "Create here",
       })
       if (picked.canceled || picked.filePaths.length === 0) return
-      // Project name → a safe folder name (strip chars illegal on Windows/POSIX; collapse whitespace).
-      const folder = project.displayName.replace(/[<>:"/\\|?*\x00-\x1f]+/g, "_").replace(/\s+/g, " ").trim() || "volt-workspace"
-      const root = join(picked.filePaths[0], folder)
-      if (existsSync(root) && readdirSync(root).length > 0)
-        return notify("error", `“${folder}” already exists here and isn't empty — pick another location or open that folder in opencode instead.`)
-      mkdirSync(root, { recursive: true })
 
-      const out = await initFromProject(project, root, { onProgress: report })
+      const out = await initFromProject(project, picked.filePaths[0], { onProgress: report })
       clearProgress()
-      if (out.code === 0) await bindWorkspace(shell, root) // the panel flips to the synced view — no success popup
+      if (out.code === 0 && out.workspace) await bindWorkspace(shell, out.workspace) // bind the folder init made — the panel flips to the synced view
       else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )

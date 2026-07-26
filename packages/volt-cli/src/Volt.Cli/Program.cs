@@ -85,9 +85,10 @@ internal static class Program
 
     private static int CmdInit(BridgeClient bridge, Args a)
     {
-        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, Reporter.Create());
+        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, a.Has("--force"), Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
         if (r.Kind == ResultKinds.Error) { Console.Error.WriteLine(r.Reason); return 1; }
+        Console.WriteLine($"created workspace at {r.Workspace}");
         Console.WriteLine($"bound to {r.Project}");
         if (r.GitCreated) Console.WriteLine("initialized a git repo for version control");
         if (r.Scaffold > 0) Console.WriteLine($"scaffolded {r.Scaffold} project file(s)");

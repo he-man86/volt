@@ -182,31 +182,27 @@ async function openConflicts(workspaceRoot: string, paths: readonly string[]): P
 // ── init / build (still simple shell-outs) ──────────────────────────────
 /** The folder to initialize. A not-yet-Volt workspace is absent from `statuses`,
  *  so resolve it from the open workspace folders (prompt if there are several). */
+/** Pick WHERE to create the workspace — a PARENT folder; `volt init` makes <parent>/<project name>/ inside it
+ *  (git-clone semantics, identical to the desktop). No open folder required. */
 async function initTarget(): Promise<string | undefined> {
-	const folders = vscode.workspace.workspaceFolders ?? []
-	if (folders.length === 0) {
-		vscode.window.showErrorMessage("Open a folder first, then initialize a Volt workspace.")
-		return undefined
-	}
-	if (folders.length === 1) return folders[0].uri.fsPath
-	const pick = await vscode.window.showWorkspaceFolderPick({ placeHolder: "Select the folder to initialize as a Volt workspace" })
-	return pick?.uri.fsPath
+	const picked = await vscode.window.showOpenDialog({
+		canSelectFolders: true,
+		canSelectFiles: false,
+		canSelectMany: false,
+		openLabel: "Create workspace here",
+		title: "Choose where to create the Volt workspace",
+	})
+	return picked?.[0]?.fsPath
 }
 
-function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: string, r: { code: number; stderr: string }): void {
-	if (r.code !== 0) {
-		// init needs a reachable bridge with a project loaded. Bridge lifecycle is the connector's job (tray),
-		// not the editor's — so we report and point there rather than starting bridges from here.
-		vscode.window.showErrorMessage(
-			`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`,
-		)
-		return
-	}
-	// No success toast — the IDE Sync view + status bar coming alive (below) is the confirmation.
-	// The folder now has .git/volt/config.json — register it so the IDE Sync view, status bar and
-	// decorations come alive without a reload. ensureWorkspace refreshes the tracker itself (mirrors the
-	// desktop's single-refresh bind), so no extra refresh here.
-	ensureWorkspace(workspaceRoot)
+/** Reports a failed init and returns true (so the caller bails). init needs a reachable bridge with a project
+ *  loaded; bridge lifecycle is the connector's job (tray), so we point there rather than starting bridges here. */
+function initFailed(r: { code: number; stderr: string }): boolean {
+	if (r.code === 0) return false
+	vscode.window.showErrorMessage(
+		`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`,
+	)
+	return true
 }
 
 /** Init from a DETECTED PROJECT the user picked — the vendor is derived from it, never chosen.
@@ -215,26 +211,29 @@ function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: st
  *  whole PLC project into it. The Bridge view's detected-project rows are `TreeItem.command`s, which VS Code fires
  *  on a SINGLE CLICK — so a row that reads like a status line was one stray click away from initializing a folder,
  *  and with exactly one project detected (the common case) nothing asked first. This is that missing question. */
-async function confirmInit(workspaceRoot: string, project: DetectedProject): Promise<boolean> {
+async function confirmInit(parent: string, project: DetectedProject): Promise<boolean> {
 	const platform = vendorLabel(project.vendor)
 	const pick = await vscode.window.showInformationMessage(
-		`Set up this folder to sync with “${project.displayName}” (${platform})?`,
+		`Create a Volt workspace for “${project.displayName}” (${platform})?`,
 		{
 			modal: true,
-			detail: `${workspaceRoot}\n\nThis makes the folder a git repository and pulls the PLC project's code into it. Your IDE project is not modified.`,
+			detail: `A folder named after the project is created in:\n${parent}\n\nVolt makes it a git repository and pulls the PLC project's code into it, then opens it. Your IDE project is not modified.`,
 		},
-		"Set Up Workspace",
+		"Create Workspace",
 	)
-	return pick === "Set Up Workspace"
+	return pick === "Create Workspace"
 }
 
-async function doInitFromProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
-	if (!(await confirmInit(workspaceRoot, project))) return
+async function doInitFromProject(parent: string, project: DetectedProject): Promise<void> {
+	if (!(await confirmInit(parent, project))) return
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
-		(progress) => initFromProject(project, workspaceRoot, { onProgress: progressBridge(progress) }),
+		(progress) => initFromProject(project, parent, { onProgress: progressBridge(progress) }),
 	)
-	finishInit(ensureWorkspace, workspaceRoot, r)
+	if (initFailed(r) || !r.workspace) return
+	// volt init created <parent>/<project name>/ — open it (reloads into the new workspace, like Git: Clone → Open).
+	// The reactivation in that folder brings the IDE Sync view + status bar online; no ensureWorkspace needed here.
+	await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(r.workspace), { forceReuseWindow: true })
 }
 
 /** Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" (a rename in the IDE, or a
@@ -252,7 +251,8 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
 		{ location: vscode.ProgressLocation.Notification, title: "volt rebind" },
 		(progress) => initFromProject(project, workspaceRoot, { force: true, onProgress: progressBridge(progress) }),
 	)
-	finishInit(ensureWorkspace, workspaceRoot, r)
+	if (initFailed(r)) return
+	ensureWorkspace(workspaceRoot) // in place (--force) — same folder, no reload
 }
 
 /** Pick a detected project from the connector's list. ALWAYS shown, even for a single project: init binds this
@@ -306,7 +306,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 				return
 			}
 			const project = await pickProject(projects)
-			if (project) await doInitFromProject(ensureWorkspace, w, project)
+			if (project) await doInitFromProject(w, project)
 		}),
 		// Set up a SPECIFIC detected project — fired by its Bridge-view row, which passes the project. No
 		// project-picker QuickPick (the click already chose it); just resolve the folder and confirm. This is what
@@ -314,7 +314,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 		reg("volt.initProject", async (project?: DetectedProject) => {
 			if (!project) return
 			const w = await initTarget()
-			if (w) await doInitFromProject(ensureWorkspace, w, project)
+			if (w) await doInitFromProject(w, project)
 		}),
 		// Rebind to a DIFFERENT detected project — fired by a reconnect-list "rebind" row (a rename, or wrong bind).
 		reg("volt.rebindProject", async (project?: DetectedProject) => { const w = ws(); if (w && project) await doRebindProject(ensureWorkspace, w, project) }),

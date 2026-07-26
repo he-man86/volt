@@ -112,6 +112,7 @@ public sealed class InitResult
 {
     public string Kind { get; set; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Project { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Workspace { get; set; } // the folder init created/used (git-clone target)
     public bool GitCreated { get; set; }
     public int Pulled { get; set; }
     public int Scaffold { get; set; }
@@ -119,8 +120,8 @@ public sealed class InitResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Note { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
 
-    public static InitResult Ok(string project, bool gitCreated, int pulled, int scaffold, int corpus, string? note = null) =>
-        new() { Kind = ResultKinds.Ok, Project = project, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus, Note = note };
+    public static InitResult Ok(string project, string workspace, bool gitCreated, int pulled, int scaffold, int corpus, string? note = null) =>
+        new() { Kind = ResultKinds.Ok, Project = project, Workspace = workspace, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus, Note = note };
     public static InitResult Error(string reason) => new() { Kind = ResultKinds.Error, Reason = reason };
 }
 

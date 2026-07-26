@@ -16,17 +16,29 @@ public static class Commands
     /// <summary>volt init — bind to the bridge, git-init the project, scaffold the workspace (README + VS Code
     /// settings), do the first (init) fetch and seed <c>src/</c>. NOTE: the ST language-reference corpus is not
     /// yet bundled with volt-cli — the workspace is fully functional without it; corpus stays 0 until then.</summary>
-    public static InitResult Init(string workspace, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
+    public static InitResult Init(string parent, BridgeClient bridge, bool force = false, Action<ProgressFrame>? onProgress = null)
     {
-        var root = System.IO.Path.GetFullPath(workspace);
-        Directory.CreateDirectory(root);
-
-        if (Config.ConfigExists(root))
-            return InitResult.Error("this workspace is already initialized — run `volt pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)");
-
         var health = bridge.GetHealth();
         if (string.IsNullOrEmpty(health.ProjectName))
             return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
+
+        // git-clone semantics: create <parent>/<project name>/ as the workspace. The user picks WHERE (a parent
+        // location) and Volt makes the named folder — so nobody hand-makes an empty "New folder" (opencode's UI
+        // can't create one either) and the workspace is self-describing. --force re-inits an EXISTING workspace dir
+        // in place (rebind to a different project / repair), so it uses `parent` directly instead of nesting.
+        string root;
+        if (force)
+        {
+            root = System.IO.Path.GetFullPath(parent);
+        }
+        else
+        {
+            var folder = SafeFolderName(health.ProjectName!);
+            root = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), folder);
+            if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any())
+                return InitResult.Error($"“{folder}” already exists here and isn't empty — choose a different location, or open that folder to sync it");
+            Directory.CreateDirectory(root);
+        }
 
         var gitCreated = !Git.IsRepoRoot(root);
         if (gitCreated) Git.GitInit(root);
@@ -67,7 +79,16 @@ public static class Commands
         Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
 
         Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders });
-        return InitResult.Ok(project, gitCreated, ideFiles.Count, scaffold.Created.Count, corpus);
+        return InitResult.Ok(project, root, gitCreated, ideFiles.Count, scaffold.Created.Count, corpus);
+    }
+
+    /// <summary>An IDE project name → a safe folder name (Windows/POSIX-illegal chars stripped, whitespace
+    /// collapsed, no trailing dot/space). IEC names are normally clean; this is the belt-and-braces path.</summary>
+    private static string SafeFolderName(string name)
+    {
+        var s = System.Text.RegularExpressions.Regex.Replace(name, @"[<>:""/\\|?*\x00-\x1f]+", "_");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim().TrimEnd('.', ' ');
+        return s.Length == 0 ? "volt-workspace" : s;
     }
 
     /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared

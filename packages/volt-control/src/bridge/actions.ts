@@ -149,20 +149,31 @@ export function mergeResolve(workspaceRoot: string, path: string, side: "mine" |
   })
 }
 
-/** `volt init --vendor <codesys|twincat> [--force]`. Takes the mutation gate; streams progress when `onProgress`
- *  is set (parity with pull/push/build — the first pull inside init is the slow part on a large project). */
-export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: boolean; pipe?: string | null } & ProgressOpt = {}): Promise<CliResult> {
+/** A CLI init result plus the workspace folder the CLI created — `volt init` makes <parent>/<project name>/ (git
+ *  clone semantics), so the shells must bind/open the RETURNED path, not the parent they passed in. */
+export interface InitResult extends CliResult {
+  workspace?: string
+}
+
+/** `volt init --vendor <codesys|twincat> [--force]`. `parent` is WHERE to create the workspace: init makes
+ *  <parent>/<project name>/ and returns it (git clone semantics); --force re-inits `parent` itself in place
+ *  (rebind). Takes the mutation gate; streams progress (the first pull inside init is the slow part). */
+export function init(parent: string, vendor: Vendor, opts: { force?: boolean; pipe?: string | null } & ProgressOpt = {}): Promise<InitResult> {
   // init has no binding yet, so with several CODESYS live the CLI can't resolve by project name — name the picked
   // instance's pipe via VOLT_PIPE (the connector gave us the project's pipe).
   const env = opts.pipe ? { VOLT_PIPE: opts.pipe } : undefined
-  return withGate(workspaceRoot, () =>
-    runCli(
-      workspaceRoot,
-      ["init", "--vendor", vendor, ...(opts.force ? ["--force"] : []), "--workspace", workspaceRoot],
+  return withGate(parent, async () => {
+    const r = await runCli(
+      parent,
+      ["init", "--vendor", vendor, ...(opts.force ? ["--force"] : []), "--json", "--workspace", parent],
       opts.onProgress,
       env,
-    ),
-  )
+    )
+    // With --json the CLI reports {workspace} on success and {reason} on failure (stderr stays empty), so lift the
+    // reason into stderr where both shells already read it via firstLine().
+    const j = parseJson<{ workspace?: string; reason?: string }>(r.stdout)
+    return { ...r, workspace: j?.workspace, stderr: r.stderr || j?.reason || "" }
+  })
 }
 
 /** Project-centric init: the user picked a DETECTED PROJECT (not a vendor). Bind the bridge to it (best-effort —
@@ -170,9 +181,9 @@ export function init(workspaceRoot: string, vendor: Vendor, opts: { force?: bool
  *  that project. The one init entry point the shells call — no vendor is ever passed by the UI. */
 export async function initFromProject(
   project: DetectedProject,
-  targetRoot: string,
+  parent: string,
   opts: { force?: boolean } & ProgressOpt = {},
-): Promise<CliResult> {
+): Promise<InitResult> {
   // The connect (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
   // couldn't attach the project (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on)
   // used to slip through: init then fetched an unselected bridge, got zero items, and the CLI reported a
@@ -186,7 +197,7 @@ export async function initFromProject(
       stderr: `Couldn't attach “${project.displayName}” on the ${ide} bridge. It may have been closed, or — if you have more than one ${ide} window open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
     }
   }
-  return init(targetRoot, project.vendor, { ...opts, pipe: project.pipe })
+  return init(parent, project.vendor, { ...opts, pipe: project.pipe })
 }
 
 /** Re-point the bridge at this workspace's ALREADY-bound project (the "Reconnect" action). Reopening a bound

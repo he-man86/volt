@@ -26,40 +26,43 @@ public class InitCommandTests
     }
 
     [Fact]
-    public void Init_binds_scaffolds_and_seeds_a_fresh_directory()
+    public void Init_creates_a_project_named_folder_and_seeds_it()
     {
         var (host, client) = HostFor(ConnectedTwoItem(), out _);
-        var root = Directory.CreateTempSubdirectory("volt-init-").FullName; // a PLAIN dir → full git-init flow
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName; // WHERE the workspace is created
         try
         {
-            var r = Commands.Init(root, client);
+            var r = Commands.Init(parent, client);
             Assert.Equal("ok", r.Kind);
+            Assert.Equal(Path.Combine(parent, "Demo"), r.Workspace); // git-clone semantics: <parent>/<project name>/
+            var ws = r.Workspace!;
             Assert.True(r.GitCreated);
             Assert.Equal("codesys/Demo", r.Project);
             Assert.True(r.Scaffold >= 2); // README.md + .vscode/settings.json
             Assert.True(r.Pulled >= 2);
 
-            Assert.True(Config.ConfigExists(root));
-            Assert.True(File.Exists(Path.Combine(root, "src", "PLC_PRG.prg")));
-            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Motor.fb")));
-            Assert.True(File.Exists(Path.Combine(root, "README.md")));
-            Assert.True(File.Exists(Path.Combine(root, ".gitattributes")));
+            Assert.True(Config.ConfigExists(ws));
+            Assert.True(File.Exists(Path.Combine(ws, "src", "PLC_PRG.prg")));
+            Assert.True(File.Exists(Path.Combine(ws, "src", "POUs", "FB_Motor.fb")));
+            Assert.True(File.Exists(Path.Combine(ws, "README.md")));
+            Assert.True(File.Exists(Path.Combine(ws, ".gitattributes")));
 
-            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
-            Assert.Equal("error", Commands.Init(root, client).Kind); // second init refuses
+            Assert.Equal("in sync with the IDE", Commands.Status(ws, client).Summary);
+            Assert.Equal("error", Commands.Init(parent, client).Kind); // second init refuses — Demo/ exists, non-empty
         }
-        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+        finally { host.Dispose(); TestUtil.ForceDelete(parent); }
     }
 
     [Fact]
-    public void Init_reuses_an_existing_git_repo()
+    public void Init_force_reuses_an_existing_repo_in_place()
     {
         var (host, client) = HostFor(ConnectedTwoItem(), out _);
         var root = TestUtil.NewRepo(); // ALREADY a git repo, but unbound
         try
         {
-            var r = Commands.Init(root, client);
+            var r = Commands.Init(root, client, force: true); // --force = init the dir itself, no nested folder
             Assert.Equal("ok", r.Kind);
+            Assert.Equal(root, r.Workspace);
             Assert.False(r.GitCreated); // did not re-init git
             Assert.True(Config.ConfigExists(root));
         }
