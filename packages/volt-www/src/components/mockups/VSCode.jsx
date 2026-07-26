@@ -103,13 +103,7 @@ const VOLT_SECTIONS = [
       { badge: "", label: "FB_Motor.fb", desc: "2⚠", file: "FB_Motor.fb", indent: true },
     ],
   },
-  {
-    id: "bridge", title: "Bridge",
-    rows: [
-      { badge: "●", cls: "ok", label: "CODESYS — MyMachine", desc: "connected" },
-      { badge: "⏻", cls: "muted", label: "Disconnect from the IDE", desc: "pause syncing" },
-    ],
-  },
+  // NOTE: the "Bridge" view is built dynamically in the component (interactive connect ⇄ disconnect), inserted here.
   {
     id: "ref", title: "Agent & Settings",
     rows: [
@@ -142,6 +136,10 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   const [active, setActive] = useState("FB_Conveyor.fb")
   const [cmpOpen, setCmpOpen] = useState(false)
   const [inserted, setInserted] = useState("")
+  // Bridge view: the real connect ⇄ disconnect cycle. VS Code has no in-button spinner (tree rows), so the
+  // transient state is a spinning row — the extension itself shows a withProgress notification while it runs.
+  const [bridge, setBridge] = useState("connected")
+  const bxTimer = useRef(null)
   const [changes, setChanges] = useState([
     { name: "FB_Conveyor.fb", stat: "M" },
     { name: "GVL_Global.gvl", stat: "M" },
@@ -160,6 +158,36 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   useEffect(() => {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight
   }, [term])
+  useEffect(() => () => clearTimeout(bxTimer.current), [])
+
+  const disconnect = () => {
+    if (bridge !== "connected") return
+    setBridge("disconnecting")
+    bxTimer.current = setTimeout(() => setBridge("offline"), 900)
+  }
+  const reconnect = () => {
+    if (bridge !== "offline") return
+    setBridge("connecting")
+    bxTimer.current = setTimeout(() => setBridge("connected"), 900)
+  }
+  const bridgeLive = bridge === "connected" || bridge === "disconnecting"
+  // The dynamic Bridge view, mirroring panel.ts bridgeRoots: a status row, then the ONE action — Disconnect when
+  // live, or the reconnect list (the matching project → volt.connect) when offline; a spinner row mid-transition.
+  const bridgeSection = {
+    id: "bridge",
+    title: "Bridge",
+    rows: [
+      { badge: bridgeLive ? "●" : "○", cls: bridgeLive ? "ok" : "warn", label: "CODESYS — MyMachine", desc: bridgeLive ? "connected" : "not connected" },
+      bridge === "connected"
+        ? { badge: "⏻", cls: "muted", label: "Disconnect from the IDE", desc: "pause syncing", onClick: disconnect }
+        : bridge === "disconnecting"
+          ? { spin: true, cls: "muted", label: "Disconnecting…" }
+          : bridge === "offline"
+            ? { badge: "⟳", cls: "muted", label: "Reconnect to MyMachine", desc: "CODESYS", onClick: reconnect }
+            : { spin: true, cls: "muted", label: "Connecting…" },
+    ],
+  }
+  const voltSections = [...VOLT_SECTIONS.slice(0, 2), bridgeSection, ...VOLT_SECTIONS.slice(2)]
 
   const toggle = (id) =>
     setCollapsed((p) => {
@@ -191,6 +219,8 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
       () => setView("scm"),
       () => openFile("GVL_Global.gvl"),
       () => setView("volt"),
+      () => disconnect(), // Bridge view: → spinner row → offline (Reconnect)
+      () => reconnect(), // → spinner row → connected
       () => setActive("FB_Conveyor.fb"),
       () => setCmpOpen(true),
       () => (setInserted("Run();"), setCmpOpen(false)),
@@ -293,7 +323,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
           )}
 
           {view === "volt" &&
-            VOLT_SECTIONS.map((s) => {
+            voltSections.map((s) => {
               const open = !collapsed.has(s.id)
               return (
                 <div key={s.id} className="vsc-sect">
@@ -311,10 +341,10 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
                       ) : (
                         <div
                           key={i}
-                          className={"vsc-side-row" + (r.indent ? " indent" : "") + (r.file ? " clickable" : "") + (r.file === active ? " is-active" : "")}
-                          onClick={() => r.file && openFile(r.file)}
+                          className={"vsc-side-row" + (r.indent ? " indent" : "") + (r.file || r.onClick ? " clickable" : "") + (r.file === active ? " is-active" : "")}
+                          onClick={() => (r.onClick ? r.onClick() : r.file && openFile(r.file))}
                         >
-                          <span className={"vsc-badge " + (r.cls || "")}>{r.badge}</span>
+                          {r.spin ? <span className="vsc-spin" /> : <span className={"vsc-badge " + (r.cls || "")}>{r.badge}</span>}
                           <span className="vsc-side-label">{r.label}</span>
                           {r.desc && <span className="vsc-side-desc">{r.desc}</span>}
                         </div>
@@ -399,7 +429,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
         <span className="vsc-st-l">
           <span>⎇ dev</span>
           <span>1↑ 1↓</span>
-          <span>CODESYS ●</span>
+          <span>CODESYS {bridgeLive ? "●" : "○"}</span>
         </span>
         <span className="vsc-st-r">
           <span>Structured Text</span>

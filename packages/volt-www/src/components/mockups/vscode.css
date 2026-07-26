@@ -346,6 +346,28 @@
 .vsc-badge.out {
   color: var(--vsc-out);
 }
+/* Transient connect/disconnect row — a spinning ring where the badge sits (the extension shows a withProgress
+   notification while the action runs; the tree row spins to match). */
+.vsc-spin {
+  width: 11px;
+  height: 11px;
+  margin: 0 1.5px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--vsc-muted);
+  border-top-color: transparent;
+  animation: vsc-spin 0.7s linear infinite;
+}
+@keyframes vsc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vsc-spin {
+    animation: none;
+  }
+}
 .vsc-side-label {
   overflow: hidden;
   text-overflow: ellipsis;
