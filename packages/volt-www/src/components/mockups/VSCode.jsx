@@ -103,7 +103,8 @@ const VOLT_SECTIONS = [
       { badge: "", label: "FB_Motor.fb", desc: "2⚠", file: "FB_Motor.fb", indent: true },
     ],
   },
-  // NOTE: the "Bridge" view is built dynamically in the component (interactive connect ⇄ disconnect), inserted here.
+  // NOTE: the "IDE Connection" view leads the container (built dynamically in the component — interactive
+  // connect ⇄ disconnect) and is prepended to these in `voltSections`.
   {
     id: "ref", title: "Agent & Settings",
     rows: [
@@ -175,7 +176,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   // live, or the reconnect list (the matching project → volt.connect) when offline; a spinner row mid-transition.
   const bridgeSection = {
     id: "bridge",
-    title: "Bridge",
+    title: "IDE Connection",
     rows: [
       { badge: bridgeLive ? "●" : "○", cls: bridgeLive ? "ok" : "warn", label: "CODESYS — MyMachine", desc: bridgeLive ? "connected" : "not connected" },
       bridge === "connected"
@@ -187,7 +188,8 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
             : { spin: true, cls: "muted", label: "Connecting…" },
     ],
   }
-  const voltSections = [...VOLT_SECTIONS.slice(0, 2), bridgeSection, ...VOLT_SECTIONS.slice(2)]
+  // IDE Connection leads — same order as the real extension (package.json: bridge, sync, diagnostics, reference).
+  const voltSections = [bridgeSection, ...VOLT_SECTIONS]
 
   const toggle = (id) =>
     setCollapsed((p) => {
