@@ -445,7 +445,7 @@
   async function doConnect() { begin("Connecting…", "connect"); await volt.connect() }
   async function doDisconnect() { begin("Disconnecting…", "disconnect"); await volt.disconnect() }
   async function doRebind(projectId, name) {
-    if (!confirm(`Bind this workspace to “${name}”?\n\nYour local code is untouched — future sync points at “${name}” instead of the project you were bound to.`)) return
+    if (!confirm(`Re-point this workspace to “${name}”?\n\nOnly the binding changes — your files, git history and the folder name are untouched. Pull afterward to bring in “${name}”'s code.`)) return
     begin("Re-binding…", "rebind:" + projectId); await volt.rebind(projectId)
   }
   async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.\n\nThis cannot be undone.")) return; begin("Force pulling…", "pull"); await volt.forcePull() }

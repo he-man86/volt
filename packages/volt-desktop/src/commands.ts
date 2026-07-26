@@ -9,6 +9,7 @@ import {
   push,
   build,
   initFromProject,
+  rebind,
   vendorLabel,
   reconnectBound,
   disconnect,
@@ -196,19 +197,18 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       if (view.tone !== "info") notify(view.tone === "error" ? "error" : "info", view.message)
     }),
   )
-  // Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the
-  // IDE, or binding the wrong project). initFromProject re-points the binding (force, the repo already exists) and
-  // reconnects. The renderer confirms first. This replaces the old project-mismatch "accept rename" flow.
+  // Re-point the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the
+  // IDE, or binding the wrong project). Config-only: reconnects the bridge + rewrites the binding, no re-seed and no
+  // folder rename (the user pulls afterward). The renderer confirms first. runGuarded's finally clears the spinner.
   ipcMain.handle("volt:rebind", (_e, projectId: string) =>
     runGuarded(async () => {
       const st = shell.status
       if (!st) return
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
-      const out = await initFromProject(project, st.workspaceRoot, { force: true, onProgress: report })
-      clearProgress()
+      const r = await rebind(st.workspaceRoot, project)
       await st.refresh(true)
-      if (out.code !== 0) notify("error", `Couldn't bind: ${firstLine(out.stderr) || `exit ${out.code}`}`) // success shows in the panel
+      if (!r.ok) notify("error", `Couldn't rebind: ${r.message ?? "unknown error"}`) // success shows in the panel
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
@@ -236,7 +236,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const out = await initFromProject(project, picked.filePaths[0], { onProgress: report })
       clearProgress()
       if (out.code === 0 && out.workspace) await bindWorkspace(shell, out.workspace) // bind the folder init made — the panel flips to the synced view
-      else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
+      else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
 }

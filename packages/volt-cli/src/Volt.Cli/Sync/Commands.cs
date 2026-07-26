@@ -16,7 +16,7 @@ public static class Commands
     /// <summary>volt init — bind to the bridge, git-init the project, scaffold the workspace (README + VS Code
     /// settings), do the first (init) fetch and seed <c>src/</c>. NOTE: the ST language-reference corpus is not
     /// yet bundled with volt-cli — the workspace is fully functional without it; corpus stays 0 until then.</summary>
-    public static InitResult Init(string parent, BridgeClient bridge, bool force = false, Action<ProgressFrame>? onProgress = null)
+    public static InitResult Init(string parent, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
         var health = bridge.GetHealth();
         if (string.IsNullOrEmpty(health.ProjectName))
@@ -24,21 +24,12 @@ public static class Commands
 
         // git-clone semantics: create <parent>/<project name>/ as the workspace. The user picks WHERE (a parent
         // location) and Volt makes the named folder — so nobody hand-makes an empty "New folder" (opencode's UI
-        // can't create one either) and the workspace is self-describing. --force re-inits an EXISTING workspace dir
-        // in place (rebind to a different project / repair), so it uses `parent` directly instead of nesting.
-        string root;
-        if (force)
-        {
-            root = System.IO.Path.GetFullPath(parent);
-        }
-        else
-        {
-            var folder = SafeFolderName(health.ProjectName!);
-            root = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), folder);
-            if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any())
-                return InitResult.Error($"“{folder}” already exists here and isn't empty — choose a different location, or open that folder to sync it");
-            Directory.CreateDirectory(root);
-        }
+        // can't create one either) and the workspace is self-describing.
+        var folder = SafeFolderName(health.ProjectName!);
+        var root = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), folder);
+        if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any())
+            return InitResult.Error($"“{folder}” already exists here and isn't empty — choose a different location, or open that folder to sync it");
+        Directory.CreateDirectory(root);
 
         var gitCreated = !Git.IsRepoRoot(root);
         if (gitCreated) Git.GitInit(root);
@@ -82,13 +73,33 @@ public static class Commands
         return InitResult.Ok(project, root, gitCreated, ideFiles.Count, scaffold.Created.Count, corpus);
     }
 
-    /// <summary>An IDE project name → a safe folder name (Windows/POSIX-illegal chars stripped, whitespace
-    /// collapsed, no trailing dot/space). IEC names are normally clean; this is the belt-and-braces path.</summary>
+    /// <summary>volt rebind — re-point an EXISTING workspace's binding to a different/renamed project. Rewrites
+    /// only <c>.git/volt/config.json</c> (vendor + project name); the folder, <c>src/</c> and git history are all
+    /// untouched. The bridge is reselected by the caller (connector); the user runs <c>volt pull</c> afterward to
+    /// bring in the newly-bound project's code through the normal safe merge.</summary>
+    public static string? Rebind(string root, string vendor, string projectName)
+    {
+        if (string.IsNullOrEmpty(projectName)) return "rebind needs --project-name";
+        if (!Config.ConfigExists(root)) return "not a Volt workspace — run `volt init` first";
+        var cfg = Config.LoadConfig(root);
+        cfg.Bridge.Vendor = vendor;
+        cfg.Project.Platform = vendor;
+        cfg.Project.ProjectName = projectName;
+        Config.SaveConfig(root, cfg);
+        return null;
+    }
+
+    /// <summary>An IDE project name → a safe folder name (illegal chars stripped, whitespace collapsed, no
+    /// leading/trailing dot, Windows reserved device names escaped). IEC names are normally clean; belt-and-braces.</summary>
     private static string SafeFolderName(string name)
     {
         var s = System.Text.RegularExpressions.Regex.Replace(name, @"[<>:""/\\|?*\x00-\x1f]+", "_");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim().TrimEnd('.', ' ');
-        return s.Length == 0 ? "volt-workspace" : s;
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim().Trim('.', ' ');
+        if (s.Length == 0) return "volt-workspace";
+        // Reserved device names (CON, NUL, COM1…) can't be a folder on Windows even with an extension — escape them.
+        if (System.Text.RegularExpressions.Regex.IsMatch(s, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            s = "_" + s;
+        return s;
     }
 
     /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared

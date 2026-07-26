@@ -58,6 +58,7 @@ internal static class Program
             return a.Verb switch
             {
                 "init" => CmdInit(Bridge(), a),
+                "rebind" => CmdRebind(root, a),
                 "pull" => CmdPull(root, Bridge(), a),
                 "push" => CmdPush(root, Bridge(), a),
                 "status" => CmdStatus(root, Bridge(), a),
@@ -85,7 +86,7 @@ internal static class Program
 
     private static int CmdInit(BridgeClient bridge, Args a)
     {
-        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, a.Has("--force"), Reporter.Create());
+        var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
         if (r.Kind == ResultKinds.Error) { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine($"created workspace at {r.Workspace}");
@@ -94,6 +95,16 @@ internal static class Program
         if (r.Scaffold > 0) Console.WriteLine($"scaffolded {r.Scaffold} project file(s)");
         if (r.Corpus > 0) Console.WriteLine($"installed {r.Corpus} language-reference file(s)");
         Console.WriteLine(r.Note ?? $"pulled {r.Pulled} file(s) — workspace ready");
+        return 0;
+    }
+
+    // volt rebind — re-point an existing workspace's binding (config only, no bridge, no content change).
+    private static int CmdRebind(string root, Args a)
+    {
+        var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? Vendors.Codesys;
+        var err = Commands.Rebind(root, vendor, a.Value("--project-name") ?? "");
+        if (err != null) { Console.Error.WriteLine(err); return 1; }
+        Console.WriteLine("rebound");
         return 0;
     }
 
@@ -235,6 +246,7 @@ internal static class Program
     private const string Usage =
         "volt <command> [args] — git-native Volt CLI (C#, over named pipe)\n\n" +
         "  init     bind to the bridge, git-init the project, first pull\n" +
+        "  rebind   re-point a workspace to a different/renamed project (config only)   --project-name <name>\n" +
         "  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run]\n" +
         "  push     workspace → IDE → fast-forward volt/ide          [--force] [--dry-run] [--force-with-lease=<v>]\n" +
         "  status   incoming / outgoing / merge state                [--json] [--porcelain]\n" +

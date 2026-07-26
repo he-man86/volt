@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, initFromProject, reconnectBound, disconnect, boundProjectId, detectedProjects,
+	pull, push, build, initFromProject, rebind, reconnectBound, disconnect, boundProjectId, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve, vendorLabel,
 	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
@@ -230,7 +230,11 @@ async function doInitFromProject(parent: string, project: DetectedProject): Prom
 		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
 		(progress) => initFromProject(project, parent, { onProgress: progressBridge(progress) }),
 	)
-	if (initFailed(r) || !r.workspace) return
+	if (initFailed(r)) return
+	if (!r.workspace) {
+		vscode.window.showErrorMessage("volt init succeeded but reported no workspace path — please retry.")
+		return
+	}
 	// volt init created <parent>/<project name>/ — open it (reloads into the new workspace, like Git: Clone → Open).
 	// The reactivation in that folder brings the IDE Sync view + status bar online; no ensureWorkspace needed here.
 	await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(r.workspace), { forceReuseWindow: true })
@@ -242,17 +246,14 @@ async function doInitFromProject(parent: string, project: DetectedProject): Prom
 async function doRebindProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
 	const platform = vendorLabel(project.vendor)
 	const pick = await vscode.window.showWarningMessage(
-		`Bind this workspace to “${project.displayName}” (${platform})?`,
-		{ modal: true, detail: `${workspaceRoot}\n\nYour local code is untouched — future sync points at “${project.displayName}” instead of the project you were bound to.` },
+		`Re-point this workspace to “${project.displayName}” (${platform})?`,
+		{ modal: true, detail: `${workspaceRoot}\n\nOnly the binding changes — your files, git history and the folder name are untouched. Run Pull afterward to bring in “${project.displayName}”'s code.` },
 		"Rebind",
 	)
 	if (pick !== "Rebind") return
-	const r = await vscode.window.withProgress(
-		{ location: vscode.ProgressLocation.Notification, title: "volt rebind" },
-		(progress) => initFromProject(project, workspaceRoot, { force: true, onProgress: progressBridge(progress) }),
-	)
-	if (initFailed(r)) return
-	ensureWorkspace(workspaceRoot) // in place (--force) — same folder, no reload
+	const r = await rebind(workspaceRoot, project) // config-only re-point — instant, no progress
+	if (!r.ok) { vscode.window.showErrorMessage(`Rebind failed: ${r.message ?? "unknown error"}.`); return }
+	ensureWorkspace(workspaceRoot) // same folder — refresh the views in place
 }
 
 /** Pick a detected project from the connector's list. ALWAYS shown, even for a single project: init binds this

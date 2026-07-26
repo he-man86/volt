@@ -54,19 +54,30 @@ public class InitCommandTests
     }
 
     [Fact]
-    public void Init_force_reuses_an_existing_repo_in_place()
+    public void Rebind_repoints_the_binding_without_touching_content()
     {
         var (host, client) = HostFor(ConnectedTwoItem(), out _);
-        var root = TestUtil.NewRepo(); // ALREADY a git repo, but unbound
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
         try
         {
-            var r = Commands.Init(root, client, force: true); // --force = init the dir itself, no nested folder
-            Assert.Equal("ok", r.Kind);
-            Assert.Equal(root, r.Workspace);
-            Assert.False(r.GitCreated); // did not re-init git
-            Assert.True(Config.ConfigExists(root));
+            var ws = Commands.Init(parent, client).Workspace!; // a real bound workspace on "Demo"
+            var prg = Path.Combine(ws, "src", "PLC_PRG.prg");
+            var before = File.ReadAllText(prg);
+
+            var err = Commands.Rebind(ws, "codesys", "Renamed"); // re-point to a different name
+            Assert.Null(err);
+            Assert.Equal("codesys/Renamed", $"{Config.LoadConfig(ws).Project.Platform}/{Config.LoadConfig(ws).Project.ProjectName}");
+            Assert.Equal(before, File.ReadAllText(prg)); // src/ untouched — no re-seed
         }
-        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+        finally { host.Dispose(); TestUtil.ForceDelete(parent); }
+    }
+
+    [Fact]
+    public void Rebind_refuses_a_non_workspace()
+    {
+        var dir = Directory.CreateTempSubdirectory("volt-rebind-").FullName; // not a Volt workspace
+        try { Assert.NotNull(Commands.Rebind(dir, "codesys", "X")); }
+        finally { TestUtil.ForceDelete(dir); }
     }
 
     [Fact]

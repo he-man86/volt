@@ -155,17 +155,17 @@ export interface InitResult extends CliResult {
   workspace?: string
 }
 
-/** `volt init --vendor <codesys|twincat> [--force]`. `parent` is WHERE to create the workspace: init makes
- *  <parent>/<project name>/ and returns it (git clone semantics); --force re-inits `parent` itself in place
- *  (rebind). Takes the mutation gate; streams progress (the first pull inside init is the slow part). */
-export function init(parent: string, vendor: Vendor, opts: { force?: boolean; pipe?: string | null } & ProgressOpt = {}): Promise<InitResult> {
+/** `volt init --vendor <codesys|twincat>`. `parent` is WHERE to create the workspace: init makes
+ *  <parent>/<project name>/ and returns it (git clone semantics). Takes the mutation gate; streams progress (the
+ *  first pull inside init is the slow part). To re-point an existing workspace to another project, see {@link rebind}. */
+export function init(parent: string, vendor: Vendor, opts: { pipe?: string | null } & ProgressOpt = {}): Promise<InitResult> {
   // init has no binding yet, so with several CODESYS live the CLI can't resolve by project name — name the picked
   // instance's pipe via VOLT_PIPE (the connector gave us the project's pipe).
   const env = opts.pipe ? { VOLT_PIPE: opts.pipe } : undefined
   return withGate(parent, async () => {
     const r = await runCli(
       parent,
-      ["init", "--vendor", vendor, ...(opts.force ? ["--force"] : []), "--json", "--workspace", parent],
+      ["init", "--vendor", vendor, "--json", "--workspace", parent],
       opts.onProgress,
       env,
     )
@@ -182,7 +182,7 @@ export function init(parent: string, vendor: Vendor, opts: { force?: boolean; pi
 export async function initFromProject(
   project: DetectedProject,
   parent: string,
-  opts: { force?: boolean } & ProgressOpt = {},
+  opts: ProgressOpt = {},
 ): Promise<InitResult> {
   // The connect (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
   // couldn't attach the project (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on)
@@ -198,6 +198,23 @@ export async function initFromProject(
     }
   }
   return init(parent, project.vendor, { ...opts, pipe: project.pipe })
+}
+
+/** Re-point the workspace's binding to a DIFFERENT/renamed project — the reconnect list's "rebind". Reconnects the
+ *  bridge to the picked project, then rewrites ONLY the config (vendor + project name). No content change, no folder
+ *  rename, no re-seed — the folder, src/ and git history are untouched; the user pulls afterward to bring in the
+ *  newly-bound project through the normal safe merge. */
+export async function rebind(workspaceRoot: string, project: DetectedProject): Promise<{ ok: boolean; message?: string }> {
+  return withGate(workspaceRoot, async () => {
+    const connected = await connectProject(project.id)
+    if (!connected) {
+      const ide = vendorLabel(project.vendor)
+      return { ok: false, message: `Couldn't attach “${project.displayName}” on the ${ide} bridge — make sure it's open, then try again.` }
+    }
+    const name = project.projectName ?? project.displayName
+    const r = await runCli(workspaceRoot, ["rebind", "--vendor", project.vendor, "--project-name", name, "--workspace", workspaceRoot])
+    return r.code === 0 ? { ok: true } : { ok: false, message: firstLine(r.stderr) ?? `exit ${r.code}` }
+  })
 }
 
 /** Re-point the bridge at this workspace's ALREADY-bound project (the "Reconnect" action). Reopening a bound
