@@ -58,8 +58,14 @@ namespace Volt.Cli.Connector
             // Clicking the "update available" toast starts the update directly — no hunting for the tray menu.
             _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
-            // Control plane (:8550) — the extension / desktop app see + drive the connection over the model.
-            _control = new ControlServer(FreshSnapshotAsync, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker);
+            // Control plane (:8550) — the extension / desktop app see + drive the connection over the model. The
+            // session handlers are the primary surface (clients declare interests); connect/disconnect stay as the
+            // legacy shim for an un-updated frontend.
+            _control = new ControlServer(
+                FreshSnapshotAsync, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker,
+                openSession: () => _conn.OpenSessionAsync(),
+                sync: SessionSyncAsync,
+                closeSession: id => _conn.CloseSessionAsync(id));
             _control.Start();
             Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
@@ -128,6 +134,15 @@ namespace Volt.Cli.Connector
                 Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id,
                 Status: p.Status, // serving derives from status (!= "idle") on the client
                 p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
+
+        // A session declares its FULL interest set; the manager reconciles the bridges and re-scans, so the snapshot
+        // we return already reflects what those bridges now serve — the client reads its own row from it in one call.
+        private async Task<ConnectorView> SessionSyncAsync(string sessionId, IReadOnlyCollection<Interest> interests)
+        {
+            await _conn.SyncAsync(sessionId, interests);
+            await OnUiThread(() => _ = TickAsync()); // repaint the tray now, not up to a poll later
+            return Snapshot();
+        }
 
         // Awaited (not fire-and-forget): the connect ends in a `select` on the bridge, which is also what resumes
         // a disconnected bridge — a client that refreshed right after the response would otherwise still see it

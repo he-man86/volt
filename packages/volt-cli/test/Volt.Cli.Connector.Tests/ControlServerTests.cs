@@ -1,8 +1,10 @@
 using System.Threading;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -215,5 +217,83 @@ public class ControlServerTests : IDisposable
 
         Assert.Equal(403, (int)r.StatusCode);
         Assert.False(disconnected);
+    }
+
+    // ── the session API (the primary surface) ──
+
+    /// <summary>Start a server wired only for the session routes (connect/disconnect/restart are inert stubs).</summary>
+    private ControlServer StartSessions(
+        Func<Task<(string, double)>>? openSession = null,
+        Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? sync = null,
+        Func<string, Task>? closeSession = null,
+        Func<Task<ConnectorView>>? snapshot = null)
+    {
+        var view = new ConnectorView(Array.Empty<ProjectView>());
+        _server = new ControlServer(
+            snapshot ?? (() => Task.FromResult(view)),
+            _ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated), _ => { },
+            _port, openSession, sync, closeSession);
+        _server.Start();
+        return _server;
+    }
+
+    [Fact]
+    public async Task Open_session_returns_the_id_and_lease_seconds()
+    {
+        StartSessions(openSession: () => Task.FromResult(("abc", 15.0)));
+        var root = JsonDocument.Parse(await (await Post("session")).Content.ReadAsStringAsync()).RootElement;
+
+        Assert.Equal("abc", root.GetProperty("sessionId").GetString());
+        Assert.Equal(15.0, root.GetProperty("leaseSeconds").GetDouble());
+    }
+
+    [Fact]
+    public async Task Sync_passes_the_declared_interests_and_returns_the_reconciled_view()
+    {
+        IReadOnlyCollection<Interest>? received = null;
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, false, "healthy") });
+        StartSessions(sync: (id, interests) => { received = interests; return Task.FromResult(view); });
+
+        var r = await Post("session/sess1/sync", "{\"interests\":[{\"vendor\":\"codesys\",\"projectName\":\"A\"}]}");
+
+        Assert.Equal(200, (int)r.StatusCode);
+        var i = Assert.Single(received!);
+        Assert.Equal("codesys", i.Vendor);
+        Assert.Equal("A", i.ProjectName);
+        var root = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("A", root.GetProperty("projects")[0].GetProperty("displayName").GetString());
+    }
+
+    [Fact]
+    public async Task Sync_with_an_empty_set_declares_no_interests()
+    {
+        IReadOnlyCollection<Interest>? received = null;
+        StartSessions(sync: (id, interests) => { received = interests; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
+
+        await Post("session/sess1/sync", "{\"interests\":[]}");
+
+        Assert.Empty(received!);
+    }
+
+    [Fact]
+    public async Task Close_session_returns_204_and_names_the_session()
+    {
+        string? closed = null;
+        StartSessions(closeSession: id => { closed = id; return Task.CompletedTask; });
+
+        var r = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"http://127.0.0.1:{_port}/session/sess1"));
+
+        Assert.Equal(204, (int)r.StatusCode);
+        Assert.Equal("sess1", closed);
+    }
+
+    [Fact]
+    public async Task Session_routes_404_when_the_connector_predates_them()
+    {
+        // No session handlers → an OLD connector. This 404 is exactly what makes a new client's legacy fallback fire.
+        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated));
+
+        Assert.Equal(404, (int)(await Post("session")).StatusCode);
+        Assert.Equal(404, (int)(await Post("session/x/sync", "{\"interests\":[]}")).StatusCode);
     }
 }

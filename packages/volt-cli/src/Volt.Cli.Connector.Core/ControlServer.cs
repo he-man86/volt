@@ -31,13 +31,23 @@ namespace Volt.Cli.Connector
 
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension (and the desktop app) can
-    /// see the connection state and act on it — connect to a detected project, restart a worker — without the
-    /// user touching the tray. The data plane is the per-vendor named pipe (`volt.bridge.&lt;vendor&gt;`, where PLC
-    /// code flows); this control API is purely orchestration. Localhost only.
+    /// see the connection state and act on it, without the user touching the tray. The data plane is the per-vendor
+    /// named pipe (`volt.bridge.&lt;vendor&gt;`, where PLC code flows); this control API is purely orchestration.
+    /// Localhost only.
     ///
+    /// <para>The primary surface is the <b>session</b> API — a client declares the projects it is using and the
+    /// connector reconciles the bridges to match (see <see cref="ConnectionManager"/>):</para>
+    ///   POST   /session                       → { sessionId, leaseSeconds }    — open a session
+    ///   POST   /session/{id}/sync             → ConnectorView                  — declare interests + renew + read, one call
+    ///   DELETE /session/{id}                  → 204                            — clean shutdown
+    ///
+    /// <para>The <b>legacy</b> routes remain so an OLD frontend keeps working against a new connector (they drive the
+    /// implicit legacy session inside the manager). A NEW client prefers the session API and falls back to these only
+    /// when <c>POST /session</c> 404s (an old connector — which is exactly what leaving the session handlers null
+    /// produces here):</para>
     ///   GET  /status                 → ConnectorView (the unified, self-describing project list)
-    ///   POST /connect                → body { projectId } — make a detected project the active connection
-    ///   POST /disconnect             → disconnect the active connection (the bridge refuses sync; hosts stay live)
+    ///   POST /connect                → body { projectId } — connect a detected project (legacy single-owner)
+    ///   POST /disconnect             → disconnect a project (the bridge refuses sync; hosts stay live)
     ///   POST /workers/{id}/restart   → respawn a worker
     /// </summary>
     public sealed class ControlServer : IDisposable
@@ -53,19 +63,35 @@ namespace Volt.Cli.Connector
         private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
         private readonly Func<string?, Task<UnbindResult>> _disconnect; // projectId (null = the active one)
         private readonly Action<string> _restart;             // worker id
+        // The session API (null on a connector that predates it → those routes 404, so a new client falls back).
+        private readonly Func<Task<(string SessionId, double LeaseSeconds)>>? _openSession;
+        private readonly Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? _sync; // declare + renew + read
+        private readonly Func<string, Task>? _closeSession;
         private readonly int _port;
         private volatile bool _running;
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
+        /// <param name="openSession">Session API — leave null to emulate a pre-session connector (the routes 404).</param>
         /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
         /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
-        public ControlServer(Func<Task<ConnectorView>> snapshot, Func<string, Task<bool>> connect, Func<string?, Task<UnbindResult>> disconnect, Action<string> restart, int port = ControlPort)
+        public ControlServer(
+            Func<Task<ConnectorView>> snapshot,
+            Func<string, Task<bool>> connect,
+            Func<string?, Task<UnbindResult>> disconnect,
+            Action<string> restart,
+            int port = ControlPort,
+            Func<Task<(string SessionId, double LeaseSeconds)>>? openSession = null,
+            Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? sync = null,
+            Func<string, Task>? closeSession = null)
         {
             _snapshot = snapshot;
             _connect = connect;
             _disconnect = disconnect;
             _restart = restart;
+            _openSession = openSession;
+            _sync = sync;
+            _closeSession = closeSession;
             _port = port;
         }
 
@@ -113,6 +139,39 @@ namespace Volt.Cli.Connector
 
             var path = ctx.Request.Url!.AbsolutePath.Trim('/');
             var method = ctx.Request.HttpMethod;
+            var parts = path.Split('/');
+
+            // ── the session API (the primary surface) ──
+            if (method == "POST" && path == "session")
+            {
+                if (_openSession is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
+                var (sid, lease) = await _openSession().ConfigureAwait(false);
+                WriteJson(ctx, 200, new { sessionId = sid, leaseSeconds = lease });
+                return;
+            }
+            if (parts.Length >= 2 && parts[0] == "session")
+            {
+                var sid = parts[1];
+                if (method == "POST" && parts.Length == 3 && parts[2] == "sync")
+                {
+                    if (_sync is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
+                    var body = ReadBody<SyncBody>(ctx);
+                    var interests = (body?.Interests ?? new List<InterestDto>())
+                        .Where(i => !string.IsNullOrEmpty(i.Vendor) && !string.IsNullOrEmpty(i.ProjectName))
+                        .Select(i => new Interest(i.Vendor!, i.ProjectName!))
+                        .ToList();
+                    WriteJson(ctx, 200, await _sync(sid, interests).ConfigureAwait(false));
+                    return;
+                }
+                if (method == "DELETE" && parts.Length == 2)
+                {
+                    if (_closeSession is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
+                    await _closeSession(sid).ConfigureAwait(false);
+                    ctx.Response.StatusCode = 204;
+                    ctx.Response.Close();
+                    return;
+                }
+            }
 
             if (method == "GET" && path == "status") { WriteJson(ctx, 200, await _snapshot().ConfigureAwait(false)); return; }
 
@@ -138,7 +197,6 @@ namespace Volt.Cli.Connector
             }
 
             // POST workers/{id}/restart
-            var parts = path.Split('/');
             if (method == "POST" && parts.Length == 3 && parts[0] == "workers" && parts[2] == "restart")
             {
                 _restart(parts[1]);
@@ -150,6 +208,8 @@ namespace Volt.Cli.Connector
         }
 
         private sealed record ConnectBody(string? ProjectId);
+        private sealed record InterestDto(string? Vendor, string? ProjectName);
+        private sealed record SyncBody(List<InterestDto>? Interests);
 
         private static T? ReadBody<T>(HttpListenerContext ctx) where T : class
         {

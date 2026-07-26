@@ -13,9 +13,9 @@
 
 ## 3. Control plane API + legacy shim
 
-- [ ] 3.1 `ControlServer`: `POST /session`, `POST /session/{id}/sync` (→ `ConnectorView`), `DELETE /session/{id}`.
-- [ ] 3.2 Legacy shim: keep `GET /status`, `POST /connect`, `POST /disconnect` mapped onto one implicit never-expiring "legacy session" so an OLD frontend keeps working against the new connector (§8).
-- [ ] 3.3 Tray Disconnect → set/clear `forceOff` for the project id (supervisor override), not a mutation of interests.
+- [x] 3.1 `ControlServer` gained `POST /session` (→ `{sessionId, leaseSeconds}`), `POST /session/{id}/sync` (declare interests + renew + read → `ConnectorView`), `DELETE /session/{id}` (→ 204). Session handlers are OPTIONAL: null → those routes 404, which is exactly a pre-session connector and makes the task-4 client fallback testable. Wired in `TrayContext` to `OpenSessionAsync`/`SyncAsync`/`CloseSessionAsync`. 5 new `ControlServerTests`.
+- [x] 3.2 Legacy shim: `GET /status`, `POST /connect`, `POST /disconnect`, `POST /workers/{id}/restart` all kept, unchanged, now driving the manager's implicit legacy session (§8) — so an OLD frontend keeps working. All prior `ControlServerTests` still green.
+- [ ] 3.3 Tray Disconnect → `SetForceOffAsync` (supervisor override). **DEFERRED to land with the frontends (task 5).** The mechanism exists and is tested (`SetForceOffAsync`, `ConnectionManagerSessionTests.Force_off_*`); but the tray UI would target the highlight, which is null until a frontend drives a session — so wiring the (untested WinForms) tray menu to it now is premature. Doing it alongside task 5 lets the supervisor override be designed + verified against real session-driven connections.
 
 ## 4. @volt/control → session client
 
