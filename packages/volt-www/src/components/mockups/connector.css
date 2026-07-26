@@ -237,9 +237,8 @@
   display: flex;
   flex-direction: column;
 }
-.cx-dialog--status {
-  max-width: 288px;
-}
+/* Status + Logs share the same size + top-left placement (both float beside the tray). */
+.cx-dialog--status,
 .cx-dialog--logs {
   max-width: 340px;
 }
