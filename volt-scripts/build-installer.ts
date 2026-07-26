@@ -18,10 +18,10 @@ import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
 // The release version. CI passes it in VOLT_VERSION (computed once by version.ts). For a LOCAL build we compute the
-// SAME way — run version.ts and take its `version=` line — so a local install is the git-derived 4-part
-// <base>.<count> (e.g. 0.0.1.15722), NOT a bare base 0.0.1. That matters: the connector's updater compares with
-// System.Version, and a bare 0.0.1 reads as OLDER than the dev channel's 0.0.1.<count>, so a fresh local install
-// would falsely show "update available" on the dev channel. Never recompute here — version.ts is the one source.
+// SAME way — run version.ts and take its `version=` line — so a local install is the git-derived 3-part
+// <maj>.<min>.<count> (e.g. 0.1.15940), NOT a bare 0.1.0. That matters: the connector's updater compares with
+// System.Version, and a low bare base reads as OLDER than the dev channel's <maj>.<min>.<count>, so a fresh local
+// install would falsely show "update available" on the dev channel. Never recompute here — version.ts is the source.
 const version =
   process.env.VOLT_VERSION ||
   (spawnSync("bun", [resolve(repo, "volt-scripts/version.ts")], { cwd: repo, encoding: "utf8" }).stdout ?? "")
@@ -53,7 +53,7 @@ function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   }
 }
 
-// Publish the build `version` (the 4-part build number) as a PRERELEASE, installer attached, creating the tag at the
+// Publish the build `version` (the 3-part build number) as a PRERELEASE, installer attached, creating the tag at the
 // checked-out commit (--target). Always a prerelease — a release later PROMOTES this exact build (promote.yml flips
 // it to --latest); this never publishes stable. On a re-run the tag/release already exists → fall back to clobbering
 // the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.

@@ -5,14 +5,14 @@
  * runs in CI (.github/workflows/promote.yml on a clean Windows runner). Nothing installs on your machine.
  *
  *   bun run release            # promote the NEWEST dev prerelease to stable
- *   bun run release 0.0.1.842  # promote that specific build
+ *   bun run release 0.1.842    # promote that specific build (maj.min.count)
  *
  * You can also trigger it with no command at all: GitHub → Actions → "promote" → Run workflow → type the version.
  *
- * Every push to dev already publishes a testable installer as a PRERELEASE, versioned 0.0.1.<commit-count> and
+ * Every push to dev already publishes a testable installer as a PRERELEASE, versioned <maj>.<min>.<commit-count> and
  * tagged, for the dev channel. Promotion re-verifies that build (published prerelease + its commit's CI green),
  * downloads ITS installer, runs the install/uninstall/lifecycle gates, then flips prerelease -> latest. The stable
- * release is the exact build you pointed at — same 4-part version the dev channel used (monotonic; no downgrade).
+ * release is the exact build you pointed at — same 3-part version the dev channel used (monotonic; no downgrade).
  *
  * Needs the `gh` CLI, authenticated.
  */
@@ -25,20 +25,20 @@ function gh(args: string[], capture = true): { ok: boolean; out: string } {
   return { ok: r.status === 0, out: (r.stdout ?? "").trim() }
 }
 
-// Compare two 4-part versions numerically (System.Version-style) — NOT lexically (0.0.1.90 must beat 0.0.1.842's
-// sibling 0.0.1.9). Returns a<b:-, a==b:0, a>b:+.
+// Compare versions numerically (System.Version-style) — NOT lexically (0.1.90 must beat its sibling 0.1.9).
+// Loops 4 components so a legacy 4-part tag from before the 3-part switch still sorts correctly. a<b:-, a==b:0, a>b:+.
 const cmpVersion = (a: string, b: string): number => {
   const pa = a.split(".").map(Number), pb = b.split(".").map(Number)
   for (let i = 0; i < 4; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0)
   return 0
 }
 
-// The newest published dev PRERELEASE (highest 4-part version), or null.
+// The newest published dev PRERELEASE (highest 3-part maj.min.count version), or null.
 function newestPrerelease(): string | null {
   const r = gh(["release", "list", "--repo", REPO, "--limit", "60", "--json", "tagName,isPrerelease"])
   if (!r.ok) return null
   return (JSON.parse(r.out) as { tagName: string; isPrerelease: boolean }[])
-    .filter((x) => x.isPrerelease && /^\d+\.\d+\.\d+\.\d+$/.test(x.tagName))
+    .filter((x) => x.isPrerelease && /^\d+\.\d+\.\d+$/.test(x.tagName))
     .map((x) => x.tagName)
     .sort(cmpVersion)
     .at(-1) ?? null
@@ -51,11 +51,11 @@ if (!gh(["auth", "status"]).ok) {
 
 const version = process.argv[2] ?? newestPrerelease()
 if (!version) {
-  console.error("✗ no dev prerelease found to promote (and none given). Push to dev first, or pass one: bun run release 0.0.1.842")
+  console.error("✗ no dev prerelease found to promote (and none given). Push to dev first, or pass one: bun run release 0.1.842")
   process.exit(1)
 }
-if (!/^\d+\.\d+\.\d+\.\d+$/.test(version)) {
-  console.error(`✗ '${version}' is not a 4-part build version (X.Y.Z.count). A release promotes a specific dev build.`)
+if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  console.error(`✗ '${version}' is not a 3-part build version (maj.min.count). A release promotes a specific dev build.`)
   process.exit(1)
 }
 

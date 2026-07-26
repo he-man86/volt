@@ -1,5 +1,5 @@
 # Promote a dev build to the STABLE channel — the "release" side of Volt's publish pipeline. There are NO branches
-# and NO separate stable version: a release is an already-built, already-tested DEV build (0.0.1.<count>, published
+# and NO separate stable version: a release is an already-built, already-tested DEV build (maj.min.<count>, published
 # as a prerelease) pointed at prod. This workflow RE-VERIFIES that build (it's a published prerelease AND its
 # commit's ci.yml is green), GATES it (downloads ITS OWN installer and runs the install/uninstall/lifecycle checks
 # against it), then flips its GitHub release prerelease -> latest. The stable channel updater then serves it.
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "the dev build to promote (X.Y.Z.<count>, e.g. 0.0.1.842). Blank args are rejected."
+        description: "the dev build to promote (maj.min.count, e.g. 0.1.842). Blank args are rejected."
         required: true
 
 # Never promote the same build twice at once; don't cancel a promotion mid-gate.
@@ -51,7 +51,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v='${{ inputs.version }}'
-          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$v' is not a 4-part build version (X.Y.Z.count)"; exit 1; }
+          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$v' is not a 3-part build version (maj.min.count)"; exit 1; }
           ispre=$(gh release view "$v" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)
           [ "$ispre" = "true" ] || { echo "::error::$v is not a published prerelease (already stable, a draft, or missing)"; exit 1; }
           sha=$(git rev-list -n 1 "$v")   # the commit the build's tag points at
