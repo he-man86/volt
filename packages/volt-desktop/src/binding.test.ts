@@ -1,5 +1,30 @@
 import { expect, test } from "bun:test"
-import { bindingAction } from "./binding.js"
+import { bindingAction, classifySignal } from "./binding.js"
+
+const exists = () => true // opencode always sends real, existing project paths in these cases
+
+test("classifySignal: opencode's /global/ path prefix is the home/no-project release signal", () => {
+  expect(classifySignal("/global/event", undefined, exists)).toEqual({ kind: "none" })
+  expect(classifySignal("/global/config", undefined, exists)).toEqual({ kind: "none" })
+})
+
+test("classifySignal: a real ?directory= path binds (this is how opencode scopes a project — not the header)", () => {
+  expect(classifySignal("/session", "C:\\Users\\me\\MyMachine", exists)).toEqual({ kind: "dir", dir: "C:\\Users\\me\\MyMachine" })
+})
+
+test("classifySignal: a directory that is a filesystem root is opencode's global worktree → none", () => {
+  expect(classifySignal("/config", "/", exists)).toEqual({ kind: "none" })
+  expect(classifySignal("/config", "C:\\", exists)).toEqual({ kind: "none" })
+})
+
+test("classifySignal: no directory and no /global/ prefix tells us nothing (registry endpoints, assets)", () => {
+  expect(classifySignal("/project", undefined, exists)).toBeUndefined()
+  expect(classifySignal("/provider", undefined, exists)).toBeUndefined()
+})
+
+test("classifySignal: a directory that doesn't exist is ignored, not bound", () => {
+  expect(classifySignal("/session", "C:\\nope", () => false)).toBeUndefined()
+})
 
 // Exact compare — the canonical (resolve + case-fold) compare is the caller's; here we test the decision logic.
 const same = (a?: string, b?: string): boolean => a === b

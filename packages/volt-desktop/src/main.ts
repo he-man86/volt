@@ -9,7 +9,7 @@ import { dirname, join, resolve } from "node:path"
 import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
-import { bindingAction, type ActiveProject } from "./binding.js"
+import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
@@ -81,20 +81,25 @@ function configureTools() {
   }
 }
 
-/** The project opencode's GUI is on — announced to its server via the x-opencode-directory header or
- *  ?directory= query (the installed opencode server reads it). This is the desktop's "open folder". */
-function activeDirFromRequest(details: { url: string; requestHeaders: Record<string, string> }): string | undefined {
+/** Parse one request into the two things the binding cares about: its `pathname` (opencode's home scope is a
+ *  `/global/` path prefix) and the opencode-scoped `directory`. The GUI announces the directory as a `?directory=`
+ *  query — it DELETES the `x-opencode-directory` header and re-emits it as this query (verified against the live
+ *  client) — but we still honor the header first for older clients. Parses the URL ONCE, so the hot
+ *  `onBeforeSendHeaders` path (and the debug log) don't re-parse it. */
+function parseRequest(details: { url: string; requestHeaders: Record<string, string> }): { pathname: string; dir: string | undefined } {
+  let pathname = ""
+  let queryDir: string | undefined
+  try {
+    const u = new URL(details.url)
+    pathname = u.pathname
+    queryDir = u.searchParams.get("directory") ?? undefined // searchParams already decodes
+  } catch { /* not a URL */ }
   for (const [k, v] of Object.entries(details.requestHeaders)) {
-    // The GUI sends `x-opencode-directory: encodeURIComponent(dir)` — decode back to a real path.
     if (k.toLowerCase() === "x-opencode-directory" && typeof v === "string" && v.length > 0) {
-      try { return decodeURIComponent(v) } catch { return v }
+      try { return { pathname, dir: decodeURIComponent(v) } } catch { return { pathname, dir: v } }
     }
   }
-  try {
-    const dir = new URL(details.url).searchParams.get("directory") // searchParams already decodes
-    if (dir) return dir
-  } catch { /* not a URL */ }
-  return undefined
+  return { pathname, dir: queryDir }
 }
 
 // Canonical form for comparing the active-project dir against the bound one. opencode's chat traffic reports the
@@ -105,20 +110,6 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   if (a === undefined || b === undefined) return a === b
   const norm = (d: string): string => (process.platform === "win32" ? resolve(d).toLowerCase() : resolve(d))
   return norm(a) === norm(b)
-}
-
-// Classify one request's active directory into an opencode active-project signal. Most requests carry no directory
-// (static assets, etc.) → undefined = "tells us nothing", never a signal. A directory that resolves to a filesystem
-// ROOT is opencode's `global` worktree — its home / no-project state — reported as `none`. A real project dir → `dir`.
-// ponytail: `none` assumes opencode stamps the global root on its home-screen requests. If openspec task 1.1 shows
-// the home screen goes quiet (no dir-bearing requests) instead, add an idle-based release here — that's the only
-// case this misses, and it only affects un-bind (eager bind is already covered by the `dir` path).
-function classifyActiveProject(dir: string | undefined): ActiveProject | undefined {
-  if (dir === undefined) return undefined
-  const r = resolve(dir)
-  if (dirname(r) === r) return { kind: "none" } // filesystem root == opencode's global (no project selected)
-  if (!existsSync(r)) return undefined // bogus path — ignore rather than bind to nothing
-  return { kind: "dir", dir }
 }
 
 // Feed a signal through the pure reducer and act. `dir` binds eagerly (any project-scoped request, not just chat —
@@ -143,15 +134,14 @@ function onActiveSignal(sig: ActiveProject): void {
   if (wasAwaiting) pushStatus(shell)
 }
 
+// Every opencode GUI request reveals its active project. The pure classifier (binding.ts::classifySignal) turns the
+// request's pathname + directory into a bind/release/hold signal (a real project rides as `?directory=<path>`; the
+// home screen is a `/global/` path prefix). See the openspec observations for the verified wire facts.
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-    const dir = activeDirFromRequest(details)
-    const sig = classifyActiveProject(dir)
-    if (BIND_DEBUG) {
-      let path = details.url
-      try { path = new URL(details.url).pathname } catch { /* not a URL */ }
-      console.log(`[bind] ${details.method} ${path} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
-    }
+    const { pathname, dir } = parseRequest(details)
+    const sig = classifySignal(pathname, dir, existsSync)
+    if (BIND_DEBUG) console.log(`[bind] ${details.method} ${pathname || details.url} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
     if (sig !== undefined) onActiveSignal(sig)
     cb({ requestHeaders: details.requestHeaders })
   })
