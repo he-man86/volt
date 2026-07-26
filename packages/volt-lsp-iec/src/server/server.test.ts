@@ -739,6 +739,26 @@ test("server: workspace/diagnostic reports errors in unopened files (eager index
   rmSync(dir, { recursive: true, force: true })
 })
 
+test("server: diagnostics are GATED until the workspace is indexed (no startup false-error flicker)", async () => {
+  // PLC_PRG references E_Mode, defined in a SIBLING file — resolvable ONLY after the cross-file crawl. Before the
+  // crawl the store holds just the open buffer, so E_Mode reads as "not defined": exactly the false error the gate
+  // must suppress. (Removing the gate makes the first pull below report that error and this test fails.)
+  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const client = connect()
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: pathToFileURL(dir).href, capabilities: {} })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  const pull = async () =>
+    ((await client.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: prgUri } })) as { items: unknown[] }).items
+  expect(await pull()).toEqual([]) // pre-crawl: gated → EMPTY, not a false "E_Mode not defined"
+  await client.sendNotification(InitializedNotification.type, {}) // runs the eager crawl → indexed
+  expect(await pull()).toEqual([]) // post-crawl: E_Mode resolves across files → PLC_PRG is clean
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
 test("server: workspaceSymbol finds a DUT in an unopened file and narrows by query", async () => {
   const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
   const client = connect()

@@ -137,6 +137,11 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   const store = new WorkspaceStore(resolveConfig({ vendor }))
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
+  // False until the first workspace crawl has seeded the disk layer. Diagnostics resolve cross-file symbols from the
+  // WHOLE-project table, so computing them before the crawl reports every other-file reference as "unresolved" — a
+  // burst of false errors that only clears once indexing finishes. Gate all diagnostics on this; publish nothing
+  // (not wrong things) until the project is indexed, then refresh.
+  let indexed = false
   let clientWatchDynReg = false
   let clientConfigPull = false
   let clientProgress = false
@@ -163,6 +168,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     store.workspaceRefs = scan.refs
     store.taskRoots = scan.taskRoots
     store.seedDisk(scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source })))
+    indexed = true // the disk layer is fully seeded — diagnostics can now resolve cross-file symbols
     for (const uri of store.openUris()) pushDiagnostics(uri)
     // A re-index can change tokens/hints/lenses in already-open files; ask the client to re-request them
     // (diagnostics we pushed above; these have no push channel, so a refresh is the only way to un-stale them).
@@ -174,6 +180,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   function pushDiagnostics(uri: string): void {
     if (clientSupportsPull) return // pull-mode client: it calls textDocument/diagnostic; pushing too would double up
+    if (!indexed) return // pre-index: don't publish false cross-file errors — the crawl re-pushes once seeded
     const d = doc(uri)
     if (d === undefined) return
     void conn.sendNotification(PublishDiagnosticsNotification.type, {
@@ -197,18 +204,22 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   }
 
   let progressSeq = 0
-  /** Run the eager crawl, bracketed by a work-done progress token when the client supports it. */
-  async function crawlWithProgress(): Promise<void> {
-    if (root === undefined || !clientProgress) return reindex()
-    const token = `volt-index-${++progressSeq}`
-    try {
-      await conn.sendRequest(WorkDoneProgressCreateRequest.type, { token })
-    } catch {
-      return reindex() // client couldn't create the token — index without progress
+  /** The eager crawl at startup. CRUCIAL: the crawl is synchronous and runs before any `await` — a didOpen/pull the
+   *  client already queued behind `initialized` must not be answered against a half-seeded project (that's the
+   *  false-errors-then-recover flicker). The progress create/begin round-trip is therefore fire-and-forget so it
+   *  can never defer the crawl; since the crawl blocks the loop, the bar brackets it rather than animating. */
+  function crawlWithProgress(): void {
+    if (root === undefined) return
+    let token: string | undefined
+    if (clientProgress) {
+      token = `volt-index-${++progressSeq}`
+      void conn
+        .sendRequest(WorkDoneProgressCreateRequest.type, { token })
+        .then(() => conn.sendProgress(WorkDoneProgress.type, token!, { kind: "begin", title: "Indexing workspace" }))
+        .catch(() => {})
     }
-    void conn.sendProgress(WorkDoneProgress.type, token, { kind: "begin", title: "Indexing workspace" })
-    reindex()
-    void conn.sendProgress(WorkDoneProgress.type, token, { kind: "end" })
+    reindex() // synchronous — completes (indexed = true) before this returns, i.e. before the loop handles anything else
+    if (token !== undefined) void conn.sendProgress(WorkDoneProgress.type, token, { kind: "end" })
   }
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
@@ -217,6 +228,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.diagnostics !== undefined))
       store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode, diagnostics: opts.diagnostics })
     root = workspaceRoot(params.rootUri, params.rootPath)
+    // No workspace root ⇒ no crawl to wait for (single-file / bare client): the open buffer IS the project, so let
+    // diagnostics flow at once. WITH a root, stay gated until the `initialized` crawl seeds the disk layer.
+    indexed = root === undefined
     const ws = params.capabilities.workspace
     clientWatchDynReg = ws?.didChangeWatchedFiles?.dynamicRegistration === true
     clientRefresh.semanticTokens = ws?.semanticTokens?.refreshSupport === true
@@ -264,10 +278,11 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     }
   })
 
-  // `initialized` follows the handshake — do the heavy eager crawl here so the InitializeResult stays
-  // instant, then register the file watcher so `volt pull` changes re-index without a restart.
-  conn.onNotification(InitializedNotification.type, async () => {
-    await crawlWithProgress()
+  // `initialized` follows the handshake — do the heavy eager crawl here (synchronously, so nothing is diagnosed
+  // against a half-seeded project) so the InitializeResult stays instant, then register the file watcher so
+  // `volt pull` changes re-index without a restart.
+  conn.onNotification(InitializedNotification.type, () => {
+    crawlWithProgress()
     if (root !== undefined && clientWatchDynReg) {
       const exts = [...SOURCE_EXTENSIONS, ".library", ".device", ".task"]
       conn
@@ -328,20 +343,24 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // ─── pull diagnostics (same compute as the push transport) ─────────────────
   conn.onRequest(DocumentDiagnosticRequest.type, (p): DocumentDiagnosticReport => {
     const d = doc(p.textDocument.uri)
+    // Pre-index: report NO diagnostics (not false ones). The `initialized` refresh makes the client re-pull once
+    // the crawl seeds the project, so the real diagnostics land a moment later instead of flickering wrong first.
     return {
       kind: DocumentDiagnosticReportKind.Full,
-      items: d !== undefined ? documentDiagnostics(store, messages, d) : [],
+      items: indexed && d !== undefined ? documentDiagnostics(store, messages, d) : [],
     }
   })
   conn.onRequest(
     WorkspaceDiagnosticRequest.type,
     (): WorkspaceDiagnosticReport => ({
-      items: store.workspace().map((d) => ({
-        kind: DocumentDiagnosticReportKind.Full,
-        uri: d.uri,
-        version: null,
-        items: documentDiagnostics(store, messages, d),
-      })),
+      items: indexed
+        ? store.workspace().map((d) => ({
+            kind: DocumentDiagnosticReportKind.Full,
+            uri: d.uri,
+            version: null,
+            items: documentDiagnostics(store, messages, d),
+          }))
+        : [],
     }),
   )
 
