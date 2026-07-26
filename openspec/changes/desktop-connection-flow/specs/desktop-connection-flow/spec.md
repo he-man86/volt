@@ -16,7 +16,7 @@ The desktop SHALL bind its workspace as soon as opencode's active project direct
 
 ### Requirement: The desktop releases the binding when opencode has no active project
 
-The desktop SHALL clear its binding when opencode's GUI leaves the project — observed as requests that carry no `x-opencode-directory` or resolve to opencode's fallback `global` project (`worktree:"/"`), which is what the home / project-list view produces. A released binding MUST push a `bound:false` snapshot so the panel stops showing a previous project's live sync context. The transition MUST be debounced so a single transient directory-less request does not flap the panel.
+The desktop SHALL clear its binding when opencode's GUI leaves the project. The positive signal (VERIFIED against the live client, see observations.md) is opencode's **`/global/` request path prefix** — its home/no-project scope — since home requests carry no `?directory=` at all. A directory that resolves to a filesystem root (the `global` worktree) is also a release signal. A released binding MUST push a `bound:false` snapshot so the panel stops showing a previous project's live sync context, and the transition MUST be debounced so a single transient home request during a project switch does not flap the panel.
 
 #### Scenario: User navigates opencode back to its home screen
 
@@ -27,6 +27,20 @@ The desktop SHALL clear its binding when opencode's GUI leaves the project — o
 
 - **WHEN** a single directory-less request occurs while the user is still on a project (e.g. a background call)
 - **THEN** the binding is NOT released, because the no-project transition is debounced and requires a sustained no-project signal
+
+### Requirement: A workspace can be created from the home/unbound state, and init routes through opencode
+
+The desktop SHALL offer the "create a Volt workspace from a detected IDE project" surface in the unbound/home state (when IDE projects are detected), not only when opencode already has an uninitialized folder open — so the user never has to open a throwaway folder first. After `volt init` creates the workspace, the desktop MUST open it in opencode (register it via a scoped request, then navigate the embedded GUI to it) rather than binding the workspace directly, so opencode remains the single source of the active project and the follow-binding picks it up. If opencode is not running, the workspace is still created and the user is told where it is.
+
+#### Scenario: Creating from home
+
+- **WHEN** opencode is on its home screen (no project) and a live IDE project is detected
+- **THEN** the panel offers to create a Volt workspace from it, and after creation opencode opens the new folder and the panel binds it — without the user first opening any other folder
+
+#### Scenario: opencode unavailable during create
+
+- **WHEN** `volt init` succeeds but opencode is not running
+- **THEN** the workspace folder is still created and the user is told its path so they can open it later — the desktop does not leave a dangling direct binding that its follow-driver would immediately release
 
 ### Requirement: Onboarding distinguishes creating a workspace from reconnecting one
 

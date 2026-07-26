@@ -1,7 +1,7 @@
-## 1. Observe opencode — mostly DONE (see observations.md)
+## 1. Observe opencode — DONE (see observations.md)
 
-- [x] 1.0 Confirmed: server is per-request directory-scoped, no global active-project state; the `x-opencode-directory` header (on every client request) is the sanctioned signal. Case A (query/subscribe the server) ruled out. Recorded in `observations.md`.
-- [ ] 1.1 The one residual check — drive the **real GUI** (not curl): navigate opencode *to* its home/project-list and read the instrumented sniff log. Does it emit directory-less/`global` requests (a positive release signal) or go quiet? This decides only the release path; append the answer to `observations.md`.
+- [x] 1.0 Confirmed: server is per-request directory-scoped, no global active-project state.
+- [x] 1.1 CLOSED via the live GUI. The signal is the **`?directory=` query** (the client DELETES the header and re-emits it as this query, GET/HEAD only) — so binding already works and isn't chat-gated. Home is a **`/global/` PATH PREFIX** with no directory → that prefix is the release signal. Opening a folder auto-registers (`GET /project/current?directory=`) but registering alone is invisible in opencode's home, so opening must NAVIGATE the view.
 
 ## 2. Binding lifecycle (the load-bearing change) — DONE
 
@@ -12,6 +12,24 @@
 - [x] 2.5 `binding.test.ts` — unknown/dir/none decisions + delegated equality (4 tests, green).
 
 > `VOLT_BIND_DEBUG=1` logs every request's `dir → classification`, which is exactly the instrument task 1.1 needs.
+
+- [x] 2.6 Release-signal fix (post-1.1): `binding.ts::classifySignal` (tested) keys `none` off the `/global/` path prefix — the actual home signal — in addition to a root `?directory=`. `main.ts::signalFromRequest` parses the request and calls it. This is what makes release actually fire (the earlier root-only check never matched home).
+
+## 7. Create-from-home + open-in-opencode (the mirror model) — DONE
+
+Follow-up that fell out of the design discussion: opencode is the single source of "which project is active", so `volt init` must route THROUGH opencode instead of binding directly.
+
+- [x] 7.1 `agent.ts::openInOpencode(baseUrl, view, dir)`: `GET /project/current?directory=<dir>` to auto-register + get the id, then `view.loadURL(baseUrl/<id>)` to open it. `launchAgent` now returns the opencode base URL; `main.ts` stores it on `shell.opencodeUrl`.
+- [x] 7.2 `commands.ts` `volt:init`: after a successful init, `openInOpencode` the new folder (the follow-binding then binds it) instead of `bindWorkspace` (which fought the follow-driver). Falls back to an "open it in opencode" note when opencode isn't running.
+- [x] 7.3 `shell.html`: the **create surface now shows in the unbound/home state** (offer to create from a detected IDE project with no throwaway folder first), not only when bound to an uninitialized folder.
+
+## 8. Fragility safeguards for the undocumented opencode wire — DONE
+
+The follow-binding + create-from-home read opencode's GUI↔server wire directly (undocumented) — it can break SILENTLY on an opencode release. Two guards:
+
+- [x] 8.1 Observability canary (`main.ts` + `context.ts` `bindStale` + `panel.ts`/`shell.html`): opencode loads but no active-project signal in ~20s → panel shows a visible warning (replaces the endless "Connecting…") + a console line. Purely observational; cleared the moment a signal arrives. Never touches opencode/binding.
+- [x] 8.2 Compat wire check (`verify-opencode.ts` check 3, `verifyWire`): a live `opencode serve` must still print a parseable URL, list `/project`, auto-register + return an id for `?directory=`, route `/<id>`, and carry `x-opencode-directory` in the client bundle. Read-only + one temp-dir register; server always killed. Passes today (verified: `✓ wire`).
+- [x] 8.3 Safer-integration check: reviewed opencode's plugin/event surface — the sniff is the most COMPLETE signal (a plugin/`/event` approach is activity-gated → less complete). Keep the guarded sniff; plugin/sniff hybrid noted as a future option. Recorded in observations.md.
 
 ## 3. Onboarding: create vs open — DONE
 
