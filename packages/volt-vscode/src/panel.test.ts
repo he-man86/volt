@@ -39,7 +39,8 @@ test("unbound + a detected project → indented under a header, a named row that
   expect(node?.label).toBe("MyMachine")
   // "click to set up" lives on the row (after the name), not on the header — and the row sets up THIS project
   // directly (volt.initProject with the project as its arg), so no project-picker QuickPick re-asks which one.
-  expect(node?.description).toBe("— click to set up · CODESYS") // vendorLabel(codesys)
+  // Vendor-blind: the row names the project only — no "· CODESYS" vendor suffix.
+  expect(node?.description).toBe("— click to set up")
   expect(node?.command?.command).toBe("volt.initProject")
   expect(node?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine", vendor: "codesys" })
 })
@@ -48,11 +49,6 @@ test("two detected projects → both nested under the header as a list", () => {
   const [header] = bridgeRoots([], [proj({ displayName: "P13" }), proj({ displayName: "P14" })])
   expect(header?.label).toBe("Detected projects")
   expect(header?.children?.map((c) => c.label)).toEqual(["P13", "P14"])
-})
-
-test("ideVersion disambiguates the platform label when a vendor has >1 live instance", () => {
-  const [header] = bridgeRoots([], [proj({ ideVersion: "CODESYS 3.5.19" })])
-  expect(header?.children?.[0]?.description).toBe("— click to set up · CODESYS · CODESYS 3.5.19")
 })
 
 test("unbound + nothing detected → says so, and what to do about it", () => {

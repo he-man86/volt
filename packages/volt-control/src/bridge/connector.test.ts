@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { boundStatus, connectOptions, connectorStatus, connectProject, detectedProjects, type ConnectorView } from "./connector.js"
+import { boundStatus, connectOptions, connectSurface, connectorStatus, connectProject, detectedProjects, type ConnectorView } from "./connector.js"
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -54,6 +54,26 @@ test("connectOptions tags each detected project: init (unbound) / connect (match
   expect(connectOptions([mine, renamed, other] as never, bound).map((o) => o.action)).toEqual(["connect", "rebind", "rebind"])
 })
 
+// The surface partition both shells frame from: create (unbound) vs reconnect (bound), matching project primary.
+test("connectSurface splits create vs reconnect and puts the matching project first", () => {
+  const mine = proj("codesys", "MyMachine", true)
+  const renamed = proj("codesys", "MyMachine_v2", true)
+  const other = proj("codesys", "OtherRig", false)
+
+  // Unbound → a create surface: every option is a first-time init, no reconnect groups.
+  const create = connectSurface(connectOptions([mine, other] as never, undefined))
+  expect(create.kind).toBe("create")
+  expect(create.create.map((o) => o.project.displayName)).toEqual(["MyMachine", "OtherRig"])
+  expect(create.primary.length + create.alternates.length).toBe(0)
+
+  // Bound → a reconnect surface: the matching project is primary even when detected AFTER a rebind alternate.
+  const reconnect = connectSurface(connectOptions([renamed, mine, other] as never, { vendor: "codesys", projectName: "MyMachine" }))
+  expect(reconnect.kind).toBe("reconnect")
+  expect(reconnect.primary.map((o) => o.project.displayName)).toEqual(["MyMachine"])
+  expect(reconnect.alternates.map((o) => o.project.displayName)).toEqual(["MyMachine_v2", "OtherRig"])
+  expect(reconnect.create.length).toBe(0)
+})
+
 describe("connector client (the UI's single source of connection status)", () => {
   test("connectorStatus parses the aggregated view", async () => {
     mockFetch(() => ({ ok: true, json: VIEW }))
@@ -91,7 +111,6 @@ describe("connector client (the UI's single source of connection status)", () =>
       if (h.kind === "connected") {
         expect(h.health.projectName).toBe("MyMachine")
         expect(h.health.projectDirty).toBe(true)
-        expect(h.health.ideName).toBe("CODESYS")
       }
     } finally {
       rmSync(dir, { recursive: true, force: true })

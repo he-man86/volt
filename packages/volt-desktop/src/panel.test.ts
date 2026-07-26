@@ -26,12 +26,13 @@ const proj = {
   connected: true,
 }
 
-// The parity point behind the vscode fix: the desktop init surface shows the detected project NAME. That works
-// because the unbound snapshot carries `projects` through to the renderer — assert it doesn't get dropped.
-test("unbound snapshot carries the detected projects (so the init surface can name them)", () => {
+// The parity point behind the vscode fix: the desktop init surface shows the detected project NAME. The unbound
+// snapshot carries the picker as `surface` (partitioned by @volt/control) — an unbound folder is a `create` surface.
+test("unbound snapshot carries the detected projects as a create surface (so the init surface can name them)", () => {
   const snap = snapshot({ projects: [proj], status: undefined, connectorUp: true } as never)
   expect(snap.bound).toBe(false)
-  expect(snap.projects.map((p) => p.displayName)).toEqual(["MyMachine"])
+  expect(snap.surface.kind).toBe("create")
+  expect(snap.surface.create.map((p) => p.displayName)).toEqual(["MyMachine"])
 })
 
 // The onboarding gap: connector-down vs no-project must be distinguishable — snapshot carries connectorUp so the

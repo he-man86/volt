@@ -4,7 +4,7 @@
  * host / desktop main — both Node) supplies `vendor` (read via readBridgeVendor in their context); this stays
  * pure so it's unit-testable without a filesystem and both frontends render the same model.
  */
-import { vendorLabel, type HealthState, type Vendor } from "../bridge/health.js"
+import { type HealthState, type Vendor } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { healthDisplay, type HealthDisplay } from "./display.js"
 
@@ -136,12 +136,9 @@ export function projectWorkspace(input: WorkspaceInput): WorkspaceView {
   const paused: WorkspaceView["paused"] = st?.merging != null ? "merging" : null
   const initialized = input.vendor !== undefined
   const health = healthDisplay(input.health)
-  // Online, the health label already names the IDE + project. Offline it can't (it reads "No project loaded" /
-  // "Bridge unreachable"), so fall back to the binding's own identity so the row still says WHICH project.
-  const connectionLabel =
-    health.online || input.vendor === undefined
-      ? health.label
-      : vendorLabel(input.vendor) + (input.boundProjectName ? ` — ${input.boundProjectName}` : "")
+  // Vendor-blind: a workspace is identified by its PROJECT NAME (from the binding), never the vendor. Prefer the
+  // bound name; fall back to the IDE-derived health label only when the binding has no project name (older binding).
+  const connectionLabel = input.boundProjectName ?? health.label
   return {
     initialized,
     workspaceRoot: input.workspaceRoot,

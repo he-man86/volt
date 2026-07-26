@@ -11,7 +11,7 @@
  * (`volt status` git drift included — it needs the local repo the connector knows nothing about). Never throws:
  * the connector being down resolves to an empty/unreachable state the UI renders as "start Volt".
  */
-import { readBridgeVendor, readBoundProject, vendorLabel, type BoundProject, type HealthState, type Vendor } from "./health.js"
+import { readBridgeVendor, readBoundProject, type BoundProject, type HealthState, type Vendor } from "./health.js"
 
 // The connector's control plane. Fixed at :8550 in production (the one port every client knows); an e2e can point
 // the real client at a test harness on another port via VOLT_CONTROL_BASE. Read lazily so the override can be set
@@ -77,6 +77,33 @@ export function connectOptions(projects: DetectedProject[], bound: BoundProject 
     project,
     action: bound === undefined ? "init" : matchesBinding(project, bound) ? "connect" : "rebind",
   }))
+}
+
+/** The connection surface, partitioned so both shells frame + emphasize it identically instead of each re-deciding
+ *  (they diverged before — the desktop rendered every reconnect option with equal weight and neither put the
+ *  matching project first). A surface is homogeneous by construction: `connectOptions` tags every option `init` for
+ *  an unbound folder (⇒ `create`) or connect/rebind for a bound one (⇒ `reconnect`). */
+export interface ConnectSurface {
+  /** `create` — an unbound folder being set up from a live IDE project (all options `init`). `reconnect` — a bound,
+   *  offline workspace being re-attached (its matching project + any others to rebind to instead). */
+  kind: "create" | "reconnect"
+  /** create only: the IDE projects a new workspace can be created from. */
+  create: ConnectOption[]
+  /** reconnect only: the option(s) matching this workspace's binding — a plain reconnect, shown FIRST and primary. */
+  primary: ConnectOption[]
+  /** reconnect only: other detected projects, offered as "bind to a different one instead" (rebind) — demoted. */
+  alternates: ConnectOption[]
+}
+
+export function connectSurface(options: ConnectOption[]): ConnectSurface {
+  const create = options.filter((o) => o.action === "init")
+  if (create.length > 0) return { kind: "create", create, primary: [], alternates: [] }
+  return {
+    kind: "reconnect",
+    create: [],
+    primary: options.filter((o) => o.action === "connect"),
+    alternates: options.filter((o) => o.action === "rebind"),
+  }
 }
 
 /** The connector's status snapshot (mirrors C# `ConnectorView`, camelCased): nothing but the ONE unified,
@@ -186,28 +213,26 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
     ? view.projects.find((p) => matchesBinding(p, bound))
     : view.projects.find((p) => p.vendor === vendor && isServing(p)) ?? view.projects.find((p) => p.vendor === vendor)
 
-  return healthStateOf(proj, vendor, bound?.projectName)
+  return healthStateOf(proj, bound?.projectName)
 }
 
 /** Derive the workspace's HealthState from its project row (or its absence). Connection state comes ONLY from the
  *  row's `status` (via {@link isServing}): a detected-but-idle project is a gated bridge (disconnected), never
  *  connected — treating "detected" as "connected" is what let the UI claim a connection against a gated bridge.
  *  Degraded comes off the same `status`, so there is no separate per-vendor bridge view. */
-function healthStateOf(proj: DetectedProject | undefined, vendor: Vendor, boundName?: string): HealthState {
-  const ideName = vendorLabel(vendor)
+function healthStateOf(proj: DetectedProject | undefined, boundName?: string): HealthState {
   // Not serving = undefined row, or a row whose status is idle/absent (the explicit undefined check narrows `proj`
   // to a defined row below, where its status is necessarily "healthy" | "degraded").
   if (proj === undefined || (proj.status !== "healthy" && proj.status !== "degraded"))
     return {
       kind: "disconnected",
-      health: { connected: false, ideName, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
+      health: { connected: false, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
     }
   const degraded = proj.status === "degraded"
   return {
     kind: degraded ? "degraded" : "connected",
     health: {
       connected: true,
-      ideName,
       projectName: proj.projectName ?? proj.displayName,
       projectDirty: proj.dirty,
     },

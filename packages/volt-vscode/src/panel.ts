@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, vendorLabel, onboardingMode, connectOptions, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -339,7 +339,12 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					tooltip: "This workspace's project isn't detected. Open it in its IDE (or start the Volt Connector) and it appears here to reconnect.",
 					icon: new vscode.ThemeIcon("circle-slash"),
 				})
-			else for (const o of opts) nodes.push(reconnectNode(o))
+			// Matching project(s) first (primary), then the rebind alternates — the shared partition, so the matching
+			// project never sits below a renamed one (connectSurface is the same decision the desktop frames from).
+			else {
+				const surface = connectSurface(opts)
+				for (const o of [...surface.primary, ...surface.alternates]) nodes.push(reconnectNode(o))
+			}
 		}
 	}
 	if (nodes.length > 0) return nodes
@@ -377,7 +382,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					key: "bridge:none",
 					label: "No PLC project detected",
 					description: "open one in your IDE",
-					tooltip: "Open a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray) — it then appears here to set up.",
+					tooltip: "Open a PLC project in your IDE, or start it from the Volt Connector (tray) — it then appears here to set up.",
 					icon: new vscode.ThemeIcon("circle-slash"),
 				},
 			]
@@ -388,12 +393,11 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 // project — a rename, or the wrong bind) → re-point the binding, with the confirm in the command. (`init` never
 // reaches here — that's the unbound onboarding path.)
 function reconnectNode(o: ConnectOption): VoltNode {
-	const platform = vendorLabel(o.project.vendor)
+	// Vendor-blind: a project is identified by its name (the vendor is a wire/binding detail, never a label here).
 	if (o.action === "connect")
 		return {
 			key: `reconnect:${o.project.id}`,
 			label: `Reconnect to ${o.project.displayName}`,
-			description: platform,
 			tooltip: "Re-point the bridge at this workspace's project and resume syncing.",
 			icon: new vscode.ThemeIcon("plug"),
 			command: { command: "volt.connect", title: "Connect" },
@@ -401,7 +405,7 @@ function reconnectNode(o: ConnectOption): VoltNode {
 	return {
 		key: `rebind:${o.project.id}`,
 		label: o.project.displayName,
-		description: `${platform} · rebind`,
+		description: "rebind",
 		tooltip: `Bind this workspace to "${o.project.displayName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.rebindProject", title: "Rebind", arguments: [o.project] },
@@ -409,14 +413,13 @@ function reconnectNode(o: ConnectOption): VoltNode {
 }
 
 function detectedNode(p: DetectedProject): VoltNode {
-	const platform = p.ideVersion != null && p.ideVersion !== "" ? `${vendorLabel(p.vendor)} · ${p.ideVersion}` : vendorLabel(p.vendor)
 	return {
 		key: `detected:${p.id}`,
 		label: p.displayName,
 		// "click to set up" sits right after the name, on the row that actually does it. Fires volt.initProject with
 		// THIS project, so clicking sets up exactly what you clicked — no project-picker QuickPick to re-choose it.
-		description: `— click to set up · ${platform}`,
-		tooltip: `Set this folder up to sync with "${p.displayName}" (${platform}).\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
+		description: "— click to set up",
+		tooltip: `Set this folder up to sync with "${p.displayName}".\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.initProject", title: "Set up this folder", arguments: [p] },
 	}

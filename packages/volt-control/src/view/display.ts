@@ -7,7 +7,6 @@ import type { HealthState } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 import { changeCount } from "./types.js"
 
-// vendorLabel now lives beside the Vendor type in ../bridge/health.js (re-exported by the package index).
 
 // ── per-workspace health → dot/label ─────────────────────────────────────────
 export interface HealthDisplay {
@@ -22,7 +21,8 @@ export function healthLabel(state: HealthState): string {
     case "unknown":
       return "Probing IDE..."
     case "connected":
-      return `${state.health.ideName ?? "IDE"} — ${state.health.projectName ?? "(no project)"}`
+      // Vendor-blind: name the PROJECT, not the IDE/vendor (a project is identified by its name everywhere in the UI).
+      return state.health.projectName ?? "(no project)"
     case "degraded":
       // The bridge no longer carries a per-degrade reason on the wire (dropped with the C# degradedReason field), so
       // this is a static description — matching `aggregate()`'s degraded tooltip.

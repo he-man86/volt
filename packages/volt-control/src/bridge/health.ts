@@ -13,7 +13,6 @@ import { join } from "node:path"
 // C# `degradedReason` wire field — they were unset or unread; the live IDE version is `DetectedProject.ideVersion`.)
 export interface BridgeHealth {
   connected: boolean
-  ideName?: string | null
   projectName?: string | null
   projectDirty?: boolean
 }
@@ -40,11 +39,9 @@ export type Vendor = "codesys" | "twincat"
 /** The two vendors, for iterating. */
 export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 
-/** The user-facing IDE name for a bound vendor — what the UI shows instead of the internal pipe/port selector.
- *  Lives here beside the Vendor type so the type, its values, and its label are one module. */
-export function vendorLabel(vendor: Vendor): string {
-  return vendor === "twincat" ? "TwinCAT" : "CODESYS"
-}
+// No vendor→label helper here on purpose: the UI is vendor-blind — a project is identified by its NAME, never its
+// vendor. `vendor` survives only as routing/identity below the wire (which pipe `volt.bridge.<vendor>`, which LSP
+// `--codesys/--twincat`, which detected project matches a saved binding), never as anything a renderer shows.
 
 /** The vendor a workspace is bound to, from `.git/volt/config.json` (`bridge.vendor`); undefined ⇒ unbound (not an
  *  initialized Volt workspace). */

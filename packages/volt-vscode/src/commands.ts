@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, initFromProject, rebind, reconnectBound, disconnect, boundProjectId, detectedProjects,
-	mergeContinue, mergeAbort, mergeResolve, vendorLabel,
+	mergeContinue, mergeAbort, mergeResolve,
 	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
@@ -212,9 +212,8 @@ function initFailed(r: { code: number; stderr: string }): boolean {
  *  on a SINGLE CLICK — so a row that reads like a status line was one stray click away from initializing a folder,
  *  and with exactly one project detected (the common case) nothing asked first. This is that missing question. */
 async function confirmInit(parent: string, project: DetectedProject): Promise<boolean> {
-	const platform = vendorLabel(project.vendor)
 	const pick = await vscode.window.showInformationMessage(
-		`Create a Volt workspace for “${project.displayName}” (${platform})?`,
+		`Create a Volt workspace for “${project.displayName}”?`,
 		{
 			modal: true,
 			detail: `A folder named after the project is created in:\n${parent}\n\nVolt makes it a git repository and pulls the PLC project's code into it, then opens it. Your IDE project is not modified.`,
@@ -244,9 +243,8 @@ async function doInitFromProject(parent: string, project: DetectedProject): Prom
  *  wrong bind). Confirms modally, then initFromProject(force) re-points the binding and reconnects. Replaces the old
  *  accept-project-rename flow. */
 async function doRebindProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
-	const platform = vendorLabel(project.vendor)
 	const pick = await vscode.window.showWarningMessage(
-		`Re-point this workspace to “${project.displayName}” (${platform})?`,
+		`Re-point this workspace to “${project.displayName}”?`,
 		{ modal: true, detail: `${workspaceRoot}\n\nOnly the binding changes — your files, git history and the folder name are untouched. Run Pull afterward to bring in “${project.displayName}”'s code.` },
 		"Rebind",
 	)
@@ -261,7 +259,7 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
  *  the one-project case (the common one) bind silently to something the user never saw named. */
 async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
 	const items = projects.map((p) => ({
-		label: `${vendorLabel(p.vendor)} · ${p.displayName}${p.dirty ? " *" : ""}`,
+		label: `${p.displayName}${p.dirty ? " *" : ""}`,
 		description: p.ideVersion ?? undefined,
 		project: p,
 	}))
@@ -308,7 +306,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			if (!w) return
 			const projects = await detectedProjects()
 			if (projects.length === 0) {
-				vscode.window.showErrorMessage("No PLC project detected. Open a project in TwinCAT, or activate Volt in CODESYS from the Volt Connector (tray), then try again.")
+				vscode.window.showErrorMessage("No PLC project detected. Open a PLC project in your IDE, or start it from the Volt Connector (tray), then try again.")
 				return
 			}
 			const project = await pickProject(projects)

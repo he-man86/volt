@@ -9,7 +9,7 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { isBridgeOnline, readBridgeVendor, readBoundProject, vendorLabel, type HealthState, type Vendor } from "./health.js"
+import { isBridgeOnline, readBridgeVendor, readBoundProject, type HealthState, type Vendor } from "./health.js"
 import { boundStatus, connectProject, detectedProjects, type DetectedProject } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
@@ -190,11 +190,10 @@ export async function initFromProject(
   // misleading "is the project open?". Fail here, clearly, instead of racing the fetch against a half-done select.
   const connected = await connectProject(project.id)
   if (!connected) {
-    const ide = vendorLabel(project.vendor)
     return {
       stdout: "",
       code: 1,
-      stderr: `Couldn't attach “${project.displayName}” on the ${ide} bridge. It may have been closed, or — if you have more than one ${ide} window open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
+      stderr: `Couldn't attach “${project.displayName}”. It may have been closed, or — if more than one IDE window is open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
     }
   }
   return init(parent, project.vendor, { ...opts, pipe: project.pipe })
@@ -208,8 +207,7 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
   return withGate(workspaceRoot, async () => {
     const connected = await connectProject(project.id)
     if (!connected) {
-      const ide = vendorLabel(project.vendor)
-      return { ok: false, message: `Couldn't attach “${project.displayName}” on the ${ide} bridge — make sure it's open, then try again.` }
+      return { ok: false, message: `Couldn't attach “${project.displayName}” — make sure it's open in your IDE, then try again.` }
     }
     const name = project.projectName ?? project.displayName
     const r = await runCli(workspaceRoot, ["rebind", "--vendor", project.vendor, "--project-name", name, "--workspace", workspaceRoot])
@@ -224,7 +222,6 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
 export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boolean; message?: string }> {
   const bound = readBoundProject(workspaceRoot)
   if (bound === undefined) return { ok: false, message: "This folder isn't a Volt workspace — initialize it first." }
-  const ideName = vendorLabel(bound.vendor)
   const ofVendor = (await detectedProjects()).filter((p) => p.vendor === bound.vendor)
   // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
   // the PLC sub-project. Fall back to displayName (older connector / CODESYS) then to the sole project of the vendor.
@@ -232,7 +229,7 @@ export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boole
     ofVendor.find((p) => (p.projectName ?? p.displayName) === bound.projectName) ??
     (ofVendor.length === 1 ? ofVendor[0] : undefined)
   if (match === undefined)
-    return { ok: false, message: `“${bound.projectName}” isn't detected — open it in ${ideName} and start its bridge, then Reconnect.` }
+    return { ok: false, message: `“${bound.projectName}” isn't detected — open it in your IDE and start its bridge, then Reconnect.` }
   return (await connectProject(match.id))
     ? { ok: true }
     : { ok: false, message: "The Volt Connector refused the connection — is it running?" }

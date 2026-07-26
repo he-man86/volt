@@ -189,7 +189,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, initialized: false, paused: null, incoming: [], outgoing: [], projects: [] }
+  let snap = { bound: false, awaiting: true, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
   // Which rail tab is lit + scrolled to while the panel is open. Defaults to the connection: it's the first thing
@@ -240,7 +240,9 @@
   // binding at a DIFFERENT project (a rename), confirmed first. Inline call args are esc-safe (esc escapes quotes).
   const projectBtn = (p) => {
     const key = p.action === "connect" ? "connect" : `${p.action}:${p.id}` // "connect" | "rebind:<id>" | "init:<id>"
-    const label = `${esc(p.platformLabel)} · ${esc(p.displayName)}${p.dirty ? " *" : ""}`
+    // The project NAME is the identity — the UI is vendor-blind, so no "CODESYS · " prefix or badge (the vendor is a
+    // wire/binding detail, never a way to label a project here).
+    const label = `${esc(p.displayName)}${p.dirty ? " *" : ""}`
     const click = p.action === "connect" ? "doConnect()" : p.action === "rebind" ? `doRebind('${esc(p.id)}','${esc(p.displayName)}')` : `doInit('${esc(p.id)}')`
     const title = p.action === "connect"
       ? "Reconnect this workspace to the IDE."
@@ -248,6 +250,24 @@
         ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
         : "Creates the git workspace and pulls the project's code — the IDE is not modified."
     return btn(key, "btn", click, `<svg class="bolt"><use href="#bolt"/></svg>`, label, title)
+  }
+  const projectList = (projects) => `<div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
+  // The two connection surfaces. The GROUPING is @volt/control's (snapshot passes s.surface already partitioned +
+  // ordered — create vs reconnect, matching project first); the shell only draws it + supplies copy, never re-decides
+  // which project is primary. CREATE (unbound folder): the outcome is named up front so "pick a project" reads as
+  // "make a new workspace". RECONNECT (bound, offline): the matching project first, others demoted to rebind.
+  const createSurface = (surface) =>
+    `<div class="grp">Create a Volt workspace</div>` +
+    `<div class="note">Pick the open IDE project to create a new synced folder + git repo from — your IDE isn't modified.</div>` +
+    projectList(surface.create)
+  const reconnectSurface = (surface) => {
+    if (!surface.primary.length)
+      // This workspace's own project isn't open — only others are, offered as rebind targets.
+      return `<div class="grp">Bind to a different project</div>` +
+        `<div class="note">This workspace's project isn't detected. Open it in the IDE to reconnect, or bind to one of these instead.</div>` +
+        projectList(surface.alternates)
+    return `<div class="grp">Reconnect</div>` + projectList(surface.primary) +
+      (surface.alternates.length ? `<div class="grp">Bind to a different project instead</div>` + projectList(surface.alternates) : "")
   }
 
   function renderRail() {
@@ -293,43 +313,50 @@
     // 1. IDE Connection — the WHOLE connection lifecycle: which project, set up, connect, disconnect. It leads the
     // panel because it's the first thing a new user must do and the first thing to check when sync stops. IDE Sync
     // below is only "what changed" — it never owns connecting (that split is mirrored in the VS Code extension).
+    // Unbound copy splits on `awaiting`: cold start (opencode's project not yet learned) reads "Connecting…" and
+    // resolves the moment the first signal lands; a known no-project state (home, or after leaving a project) reads
+    // the onboarding prompt. Reused across the three sections so they say the same thing.
+    const unboundNote = s.awaiting
+      ? `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Connecting to opencode…</div>`
+      : `<div class="note">Open a PLC project in opencode to begin.</div>`
     let bridgeBody
-    if (!s.bound) bridgeBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
-    else {
-      // Repo header — the ACTUAL workspace folder Volt is working in (full path in the tooltip). Read-only: the
-      // project is chosen in opencode's own UI ("Add project"); the desktop follows it. Leads the section so
-      // "which repo is this" is answered first.
-      const repoRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span></div>`
-      if (!s.initialized) {
-        // A folder is open but it isn't a Volt workspace yet — the detected IDE projects to set it up from.
-        const projects = s.projects || []
-        const body =
-          s.onboarding === "choose-project"
-            ? `<div class="grp">Detected projects</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
-            : s.onboarding === "no-project"
-              ? `<div class="note">No PLC project detected — open it in the IDE, or activate Volt in CODESYS from the Connector (tray).</div>`
-              : `<div class="note">The Volt Connector isn't running — start Volt so it can find your open projects.</div>`
-        bridgeBody = repoRow + (busy ? "" : body)
+    if (!s.bound) bridgeBody = unboundNote
+    else if (!s.initialized) {
+      // A folder is open but it isn't a Volt workspace yet — show the folder name (the only identity we have) and the
+      // detected IDE projects to create a workspace from.
+      const folderRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span></div>`
+      const body =
+        s.onboarding === "choose-project"
+          ? createSurface(s.surface)
+          : s.onboarding === "no-project"
+            ? `<div class="note">No PLC project detected — open it in the IDE, or activate Volt in the Connector (tray).</div>`
+            : `<div class="note">The Volt Connector isn't running — start Volt so it can find your open projects.</div>`
+      bridgeBody = folderRow + (busy ? "" : body)
+    } else {
+      // Bound Volt workspace — ONE identity: the project name (canonical, what the IDE shows), a health dot, and the
+      // connection caption; the workspace folder path lives in the tooltip. A reconcile hint shows ONLY if the folder
+      // name diverged from the project (a rename + rebind) — otherwise one name (init names the folder after the project).
+      const h = s.health || { label: "…", tone: "warn", online: false }
+      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
+      // A connect/disconnect/rebind is fast; surface its label in the PERSISTENT status row so the feedback is
+      // visible even after the button flips away on completion (the min-visible-duration in onProgress holds it).
+      const cxBusy = busyAction === "connect" || busyAction === "disconnect" || (busyAction || "").startsWith("rebind:")
+      const folder = base(s.workspaceRoot || "")
+      const name = s.boundProjectName || folder || "—"
+      const idRow = `<div class="row"><span class="dot ${h.tone}"></span><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(name)}</span><span class="n">${cxBusy ? esc(busy) : esc(a.caption)}</span></div>`
+      const reconcile = (s.boundProjectName && folder && s.boundProjectName !== folder)
+        ? `<div class="note"><svg class="ico ico--muted"><use href="#i-folder"/></svg>Folder “${esc(folder)}” · IDE project “${esc(s.boundProjectName)}” — the binding already matches them; rename the folder to match if you like.</div>`
+        : ""
+      let actions
+      if (a.action === "disconnect") {
+        actions = `<div class="init-row">` + btn("disconnect", "btn", "doDisconnect()", `<svg class="ico"><use href="#i-disconnect"/></svg>`, "Disconnect from the IDE", "Stops syncing. The IDE stays open — reconnect to resume.") + `</div>`
       } else {
-        // Bound Volt workspace: the project it syncs with + live status (name only — no vendor prefix), then the ONE
-        // action (Disconnect) or the detected-project picker to reconnect/rebind.
-        const h = s.health || { label: "…", tone: "warn", online: false }
-        const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
-        // A connect/disconnect/rebind is fast; surface its label in the PERSISTENT status row so the feedback is
-        // visible even after the button flips away on completion (the min-visible-duration in onProgress holds it).
-        const cxBusy = busyAction === "connect" || busyAction === "disconnect" || (busyAction || "").startsWith("rebind:")
-        const projRow = `<div class="row"><span class="dot ${h.tone}"></span><span class="path" style="flex:1">${esc(s.boundProjectName || base(s.workspaceRoot || "") || "—")}</span><span class="n">${cxBusy ? esc(busy) : esc(a.caption)}</span></div>`
-        let actions
-        if (a.action === "disconnect") {
-          actions = `<div class="init-row">` + btn("disconnect", "btn", "doDisconnect()", `<svg class="ico"><use href="#i-disconnect"/></svg>`, "Disconnect from the IDE", "Stops syncing. The IDE stays open — reconnect to resume.") + `</div>`
-        } else {
-          const projects = s.projects || []
-          actions = projects.length
-            ? `<div class="grp">Detected projects</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
-            : `<div class="note">No project detected — open it in the IDE (or start the Volt Connector) to reconnect.</div>`
-        }
-        bridgeBody = repoRow + projRow + actions
+        const hasProjects = s.surface.primary.length + s.surface.alternates.length > 0
+        actions = hasProjects
+          ? reconnectSurface(s.surface)
+          : `<div class="note">No project detected — open it in the IDE (or start the Volt Connector) to reconnect.</div>`
       }
+      bridgeBody = idRow + reconcile + actions
     }
     // No refresh here — the IDE Sync section's refresh re-probes the WHOLE status (health included), so a second
     // button in this section was redundant (VS Code's Bridge view has none either).
@@ -354,7 +381,7 @@
           : "") + refreshBtn("Refresh") + (s.mode === "ready" ? moreMenu : "")
       : ""
     let syncBody
-    if (!s.bound) syncBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
+    if (!s.bound) syncBody = unboundNote
     else if (!s.initialized) syncBody = `<div class="note">This folder isn't syncing with an IDE yet — set it up in IDE Connection above.</div>`
     else if (s.mode === "offline") syncBody = `<div class="note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>`
     else if (s.mode === "merging") {
@@ -391,7 +418,7 @@
     // PREVIOUS project's result (runDiagnostics returns without a new frame), so it must not render here.
     const diagActs = s.initialized ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
     let diagBody
-    if (!s.bound) diagBody = `<div class="note">No project open.</div>`
+    if (!s.bound) diagBody = s.awaiting ? `<div class="note">Connecting to opencode…</div>` : `<div class="note">No project open.</div>`
     else if (!s.initialized) diagBody = `<div class="note">This folder isn't a Volt workspace yet — set it up in IDE Connection above.</div>`
     else if (!diag || diag.loading) diagBody = `<div class="note">Analyzing Structured Text…</div>`
     else if (diag.error) diagBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(diag.error)}</div>`

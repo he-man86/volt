@@ -10,7 +10,6 @@ import {
   build,
   initFromProject,
   rebind,
-  vendorLabel,
   reconnectBound,
   disconnect,
   boundProjectId,
@@ -227,9 +226,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // semantics) and reports the path back. opencode's own UI can only ADD an existing project — it can't create
       // a folder — so the user would otherwise hand-make an empty "New folder (2)" first. The picker + button IS
       // the confirmation (no separate dialog).
-      const platform = vendorLabel(project.vendor)
       const picked = await dialog.showOpenDialog(shell.win, {
-        title: `Create a Volt workspace for “${project.displayName}” (${platform})`,
+        title: `Create a Volt workspace for “${project.displayName}”`,
         defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? join(shell.boundRoot, "..") : undefined,
         properties: ["openDirectory", "createDirectory"],
         buttonLabel: "Create here",

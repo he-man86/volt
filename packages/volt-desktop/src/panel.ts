@@ -6,8 +6,8 @@ import {
   projectWorkspace,
   readBridgeVendor,
   readBoundProject,
-  vendorLabel,
   connectOptions,
+  connectSurface,
   connectorStatus,
   collectDiagnostics,
   onboardingMode,
@@ -15,21 +15,23 @@ import {
   type WorkspaceView,
   type DetectedProject,
   type ConnectAction,
+  type ConnectOption,
   type OnboardingMode,
 } from "@volt/control"
 import type { Shell } from "./context.js"
 
-// The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and the detected `projects`.
-// The bound case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to
-// update here; the unbound case only carries the empty arrays renderRail reads unconditionally. `projects` rides
-// on both so the connection surface (pick a project) renders the same regardless of bound state. `onboarding` is
-// the SHARED decision (@volt/control) for how an unbound folder gets connected — the renderer switches on it
-// instead of re-deriving it, which is how it and the VS Code view previously drifted apart.
-// The renderer is vendor-blind: it prints `platformLabel` and never maps "codesys"→"CODESYS" itself (that map is
-// vendorLabel, in @volt/control — the one place it lives). Each project also carries its connect `action` (init /
-// connect / rebind) so the picker knows what clicking it does without re-deriving the binding match.
-type LabeledProject = DetectedProject & { platformLabel: string; action: ConnectAction }
-type Snap = { projects: LabeledProject[]; connectorUp: boolean; onboarding: OnboardingMode } & (
+// The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and the `surface`. The bound
+// case spreads WorkspaceView, so a new field on the view-model reaches the renderer with nothing to update here; the
+// unbound case only carries the empty arrays renderRail reads unconditionally. `surface` is the connection picker
+// ALREADY partitioned + ordered by @volt/control (create vs reconnect; matching project first) — the renderer draws
+// the groups, it never re-decides "which is primary". `onboarding` is the SHARED empty-state decision.
+// The UI is vendor-blind: a project is identified by its NAME only — no vendor label rides to the renderer. Each
+// project carries its connect `action` (init / connect / rebind) so the picker knows what clicking it does.
+type LabeledProject = DetectedProject & { action: ConnectAction }
+type Surface = { kind: "create" | "reconnect"; create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
+// `awaiting` splits the unbound state: true = cold start, opencode's project not yet learned ("Connecting…");
+// false = a known no-project state ("Open a PLC project…"). Rides both bound/unbound so the renderer reads it flat.
+type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -38,18 +40,19 @@ type Snap = { projects: LabeledProject[]; connectorUp: boolean; onboarding: Onbo
 export function snapshot(shell: Shell): Snap {
   const vs = shell.status
   const bound = vs ? readBoundProject(vs.workspaceRoot) : undefined
-  // Tag every detected project with what picking it does (init/connect/rebind) against this workspace's binding.
-  const projects: LabeledProject[] = connectOptions(shell.projects, bound).map(({ project, action }) => ({
-    ...project,
-    platformLabel: vendorLabel(project.vendor),
-    action,
-  }))
+  // The connection picker, partitioned + ordered by @volt/control (create vs reconnect; matching project first).
+  // Name-only — the UI is vendor-blind. Both shells render THIS decision; neither re-derives the grouping.
+  const label = (o: ConnectOption): LabeledProject => ({ ...o.project, action: o.action })
+  const s = connectSurface(connectOptions(shell.projects, bound))
+  const surface: Surface = { kind: s.kind, create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
   const connectorUp = shell.connectorUp
-  const onboarding = onboardingMode(connectorUp, projects.length)
-  if (!vs) return { bound: false, incoming: [], outgoing: [], projects, connectorUp, onboarding }
+  const onboarding = onboardingMode(connectorUp, shell.projects.length)
+  const awaiting = shell.awaitingOpencode
+  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, connectorUp, onboarding }
   return {
     bound: true,
-    projects,
+    awaiting,
+    surface,
     connectorUp,
     onboarding,
     ...projectWorkspace({
@@ -116,10 +119,23 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
 
 export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   shell.boundRoot = root // set synchronously so the header watcher won't re-bind the same dir mid-flight
+  shell.awaitingOpencode = false // opencode's state is now known
   shell.status?.dispose()
   shell.status = new VoltStatus(root)
   shell.status.onDidChange.event(() => pushStatus(shell))
   await shell.status.start()
   pushStatus(shell)
   void runDiagnostics(shell)
+}
+
+/** Release the binding when opencode leaves the project (its home/global root). The missing half of the lifecycle:
+ *  without it the panel kept a closed project's live sync context shown forever. Tears down the status feed and
+ *  pushes a `{bound:false}` snapshot; the IDE/bridge stay untouched (this only stops the desktop from *watching*). */
+export function unbindWorkspace(shell: Shell): void {
+  if (shell.boundRoot === undefined) return
+  shell.boundRoot = undefined
+  shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
+  shell.status?.dispose()
+  shell.status = null
+  pushStatus(shell)
 }

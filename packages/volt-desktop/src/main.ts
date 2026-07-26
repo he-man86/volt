@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
-import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
+import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
+import { bindingAction, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
@@ -50,7 +51,11 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [], connectorUp: false }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, awaitingOpencode: true, panelOpen: false, projects: [], connectorUp: false }
+
+// Log every request's directory + classification so opencode's real timeline is observable (openspec task 1.1:
+// what does the home/project-list screen actually emit?). Off unless VOLT_BIND_DEBUG is set.
+const BIND_DEBUG = !!process.env.VOLT_BIND_DEBUG
 
 function layoutView() {
   if (!shell.win || !shell.view) return
@@ -102,11 +107,52 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return norm(a) === norm(b)
 }
 
+// Classify one request's active directory into an opencode active-project signal. Most requests carry no directory
+// (static assets, etc.) → undefined = "tells us nothing", never a signal. A directory that resolves to a filesystem
+// ROOT is opencode's `global` worktree — its home / no-project state — reported as `none`. A real project dir → `dir`.
+// ponytail: `none` assumes opencode stamps the global root on its home-screen requests. If openspec task 1.1 shows
+// the home screen goes quiet (no dir-bearing requests) instead, add an idle-based release here — that's the only
+// case this misses, and it only affects un-bind (eager bind is already covered by the `dir` path).
+function classifyActiveProject(dir: string | undefined): ActiveProject | undefined {
+  if (dir === undefined) return undefined
+  const r = resolve(dir)
+  if (dirname(r) === r) return { kind: "none" } // filesystem root == opencode's global (no project selected)
+  if (!existsSync(r)) return undefined // bogus path — ignore rather than bind to nothing
+  return { kind: "dir", dir }
+}
+
+// Feed a signal through the pure reducer and act. `dir` binds eagerly (any project-scoped request, not just chat —
+// that was the late-bind). `none` releases, but DEBOUNCED: the home view emits it repeatedly, and a lone stray
+// no-project request mustn't flap the panel — only a `none` that persists ~1.5s without a `dir` releases.
+let noneTimer: ReturnType<typeof setTimeout> | null = null
+function onActiveSignal(sig: ActiveProject): void {
+  const wasAwaiting = shell.awaitingOpencode
+  shell.awaitingOpencode = false // any signal means opencode's state is now known (clears the cold-start "Connecting…")
+  if (sig.kind === "dir") {
+    if (noneTimer) { clearTimeout(noneTimer); noneTimer = null } // a real project cancels a pending release
+    if (bindingAction(shell.boundRoot, sig, sameDir).kind === "bind") return void bindWorkspace(shell, sig.dir) // pushes
+  } else if (shell.boundRoot !== undefined && noneTimer === null) {
+    noneTimer = setTimeout(() => {
+      noneTimer = null
+      if (bindingAction(shell.boundRoot, { kind: "none" }, sameDir).kind === "unbind") unbindWorkspace(shell) // pushes
+    }, 1500)
+    return // the release (or its cancellation) will push; nothing to show yet
+  }
+  // No (re)bind and no release scheduled — but if this signal just cleared the cold-start state, the renderer still
+  // needs to hear it so "Connecting…" flips to the real bound/no-project view (bind/unbind push on their own).
+  if (wasAwaiting) pushStatus(shell)
+}
+
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const dir = activeDirFromRequest(details)
-    // Follow whatever project opencode's GUI is on — the user selects it there ("Add project"), we bind to it.
-    if (dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
+    const sig = classifyActiveProject(dir)
+    if (BIND_DEBUG) {
+      let path = details.url
+      try { path = new URL(details.url).pathname } catch { /* not a URL */ }
+      console.log(`[bind] ${details.method} ${path} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
+    }
+    if (sig !== undefined) onActiveSignal(sig)
     cb({ requestHeaders: details.requestHeaders })
   })
 }
