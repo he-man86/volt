@@ -9,9 +9,9 @@ import type { VoltStatus, DetectedProject } from "@volt/control"
 export interface Shell {
   win: BrowserWindow | null
   view: WebContentsView | null
-  // The spawned opencode server's base URL (from launchAgent), or undefined when opencode isn't available. Lets the
-  // shell DRIVE opencode — after `volt init` creates a workspace, open it in opencode so the follow-binding picks it
-  // up (the alternative, registering it silently, is invisible in opencode's home — verified).
+  // The spawned opencode server's base URL (from launchAgent), or undefined when opencode isn't available — the
+  // shell's "did opencode actually launch?" signal (the startup binding canary arms only when it's set, so a missing
+  // opencode showing the install banner doesn't false-fire).
   opencodeUrl: string | undefined
   status: VoltStatus | null
   boundRoot: string | undefined // the project currently bound (from opencode's active dir / VOLT_WORKSPACE)

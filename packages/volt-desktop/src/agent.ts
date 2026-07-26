@@ -73,26 +73,6 @@ export function killServer(): void {
   }
 }
 
-/** Open a folder in the embedded opencode GUI — the automated equivalent of opencode's "Add project": one scoped
- *  request auto-registers the folder + returns its id (opencode does NOT scan the filesystem and has no directory
- *  route, so both the register and the id are required — verified live), then we navigate the view to `/<id>`.
- *  BEST-EFFORT only: create-from-home binds the created folder DIRECTLY (Volt owns it), so this merely lands the
- *  user in the project ready to chat. A false return (opencode down / the wire changed) just means the user opens
- *  it themselves via Add project — the workspace is created and already bound either way. */
-export async function openInOpencode(baseUrl: string | undefined, view: WebContentsView | null, dir: string): Promise<boolean> {
-  if (baseUrl === undefined || view === null) return false
-  try {
-    const res = await fetch(`${baseUrl}/project/current?directory=${encodeURIComponent(dir)}`, { signal: AbortSignal.timeout(4000) })
-    if (!res.ok) return false
-    const id = (await res.json() as { id?: string }).id
-    if (id === undefined || id === "") return false
-    await view.webContents.loadURL(`${baseUrl}/${id}`)
-    return true
-  } catch {
-    return false // opencode down / unreachable — the workspace is still created + bound; the caller guides the user
-  }
-}
-
 /** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. Returns the
  *  server's base URL (so the shell can drive opencode — e.g. open a freshly-created workspace in it), or undefined
  *  when opencode isn't available. */

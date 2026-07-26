@@ -134,11 +134,13 @@ session-less project**:
    rule (the earlier `/global/` release) unbinds the panel every time you open a draft. **Decision: STICKY binding —
    bind on the first project directory, rebind on a different one, never release.** `global` only clears the
    cold-start "Connecting…" so the create surface can show. (User's call: "start simple and stable, see if enough.")
-3. **create-from-home binds DIRECTLY + opens opencode best-effort.** Volt *creates* the folder, so it owns the exact
-   path and `bindWorkspace(folder)`s it directly — the panel is synced instantly, and under sticky binding it stays
-   bound with **zero dependency on opencode**. Then best-effort `openInOpencode` (register + navigate to `/<id>` =
-   the automated "Add project") lands the user in the project to chat; if it fails, create-from-home still worked.
-   (Register-only was a dead end — see the registry findings below.)
+3. **create-from-home binds DIRECTLY; opencode is not driven.** Volt *creates* the folder, so it owns the exact path
+   and `bindWorkspace(folder)`s it directly — the panel is synced instantly, and under sticky binding it stays bound
+   with **zero dependency on opencode**. To chat about it, the user opens it in opencode via "Add project" (opencode
+   auto-registers then). We deliberately do NOT drive opencode: an earlier `openInOpencode` (register + navigate to
+   `/<id>`) reloaded the GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience —
+   dropped as risky-for-little-reward (it re-created the "opened a session somewhere" behavior and added undocumented
+   API surface). So the ONLY opencode interactions left are: spawn `serve`, and the follow-binding sniff.
 
 ### What opencode actually needs to open a project (minimal-map, verified live)
 

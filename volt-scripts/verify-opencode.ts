@@ -8,9 +8,9 @@
  *
  *   1. lsp   — a planted-error `.fb` must come back flagged by `volt-lsp-iec`
  *   2. tool  — `opencode debug agent volt` must report `tools.volt = true`   (needs a configured provider)
- *   3. wire  — the desktop's UNDOCUMENTED integration (follow-binding + create-from-home) still holds against a live
- *              `opencode serve`: it reads opencode's GUI↔server wire directly, so an opencode release can change it
- *              and break the desktop SILENTLY — no OPENCODE_CONFIG_DIR contract covers it. (No provider needed.)
+ *   3. wire  — the desktop's UNDOCUMENTED follow-binding still holds against a live `opencode serve`: it reads
+ *              opencode's GUI↔server wire directly, so an opencode release can change it and break binding SILENTLY —
+ *              no OPENCODE_CONFIG_DIR contract covers it. (No provider needed.)
  *
  * Run on an opencode version bump: `bun run compat` (which also runs check-wiring.ts first), or this
  * file alone. All checks always run — a failure in one shouldn't hide the others' result.
@@ -121,22 +121,18 @@ function verifyTool(): boolean {
   )
 }
 
-// ── 3. the desktop wire (follow-binding + create-from-home) ───────────────────
-// These do NOT go through OPENCODE_CONFIG_DIR — they read opencode's GUI↔server wire directly (undocumented), so an
-// opencode release can change it and break the desktop SILENTLY. Assert the exact facts they depend on against a live
-// `opencode serve`. Read-only over HTTP, plus ONE harmless auto-register of a throwaway temp git dir; the server is
-// always killed in `finally`. Verified facts (see openspec/changes/desktop-connection-flow/observations.md):
-//   (a) `serve` prints a parseable "listening on <url>" line       — the desktop's agent-launch parse (agent.ts)
-//   (b) GET /project returns the project registry (array)          — create-from-home reads it
-//   (c) GET /project/current?directory=<dir> auto-registers + returns an id — the create-from-home recipe
-//   (d) GET /<id> routes (opens that project)                      — the view the desktop navigates to
-//   (e) the served client bundle still references `x-opencode-directory` — the follow-binding's scope mechanism
+// ── 3. the desktop binding wire ───────────────────────────────────────────────
+// The follow-binding reads opencode's GUI↔server wire directly (undocumented), so an opencode release can change it
+// and break binding SILENTLY — no OPENCODE_CONFIG_DIR contract covers it. Assert the two facts it depends on against
+// a live `opencode serve` (see openspec/changes/desktop-connection-flow/observations.md):
+//   (a) `serve` prints a parseable "listening on <url>" line + serves the GUI — the desktop's agent-launch (agent.ts)
+//   (b) the served client bundle still stamps its directory scope via `x-opencode-directory` — what the sniff reads
+// Read-only; the server is always killed in `finally`. (create-from-home no longer touches opencode — Volt binds the
+// folder it creates directly — so there's nothing else to assert here.)
 const READY = /listening on (https?:\/\/\S+)/i
 
 async function verifyWire(): Promise<boolean> {
   const port = process.env.VOLT_COMPAT_PORT ?? "8623"
-  const projDir = mkdtempSync(join(tmpdir(), "volt-verify-wire-"))
-  spawnSync("git", ["init", "-q", projDir], { encoding: "utf8" }) // opencode models a project as a git worktree
   const child = spawn("opencode", ["serve", "--port", port], { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" })
   const kill = (): void => {
     if (child.pid === undefined) return
@@ -144,7 +140,6 @@ async function verifyWire(): Promise<boolean> {
     else child.kill()
   }
   try {
-    // (a) wait for the "listening on <url>" line — also proves the desktop's agent-launch stdout parse still matches.
     const base = await new Promise<string | undefined>((res) => {
       const timer = setTimeout(() => res(undefined), 25_000)
       const onData = (b: Buffer): void => {
@@ -167,29 +162,22 @@ async function verifyWire(): Promise<boolean> {
       }
     }
 
-    const proj = await get("/project")
-    const cur = await get(`/project/current?directory=${encodeURIComponent(projDir)}`)
-    let id: string | undefined
-    try { id = (JSON.parse(cur.text) as { id?: string }).id } catch { /* not JSON */ }
-    const route = id !== undefined && id !== "" ? await get(`/${id}`) : { ok: false, text: "no id" }
-    const scriptSrc = (await get("/")).text.match(/src="(\/assets\/[^"]+\.js)"/)?.[1]
+    const root = await get("/")
+    const scriptSrc = root.text.match(/src="(\/assets\/[^"]+\.js)"/)?.[1]
     const bundle = scriptSrc !== undefined ? (await get(scriptSrc)).text : ""
 
-    const okB = proj.ok && proj.text.trim().startsWith("[")
-    const okC = id !== undefined && id !== ""
-    const okD = route.ok
-    const okE = bundle.includes("x-opencode-directory")
-    const ok = okB && okC && okD && okE
+    const okServer = root.ok // the GUI HTML is served
+    const okScope = bundle.includes("x-opencode-directory") // the client still scopes requests by directory
+    const ok = okServer && okScope
     return report(
       "wire",
       ok,
-      "the desktop wire holds: /project lists · ?directory= auto-registers + returns an id · /<id> routes · the client still scopes by x-opencode-directory",
-      `desktop wire DRIFT — /project:${okB} register+id:${okC} /<id>:${okD} client-scope:${okE}. The desktop follow-binding + create-from-home read opencode's GUI wire directly; a failure here means an opencode release moved it — update packages/volt-desktop (main.ts/agent.ts) + observations.md.`,
-      ok ? "" : `id=${id ?? "-"} route.ok=${route.ok} bundleLen=${bundle.length}`,
+      "the desktop binding wire holds: `opencode serve` prints a parseable URL + serves the GUI, and the client still scopes requests by x-opencode-directory",
+      `desktop binding wire DRIFT — server:${okServer} client-scope:${okScope}. The follow-binding reads opencode's GUI wire directly; a failure means an opencode release moved it — update packages/volt-desktop (main.ts) + observations.md.`,
+      ok ? "" : `bundleLen=${bundle.length}`,
     )
   } finally {
     kill()
-    rmSync(projDir, { recursive: true, force: true })
   }
 }
 

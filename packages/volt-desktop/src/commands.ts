@@ -30,7 +30,6 @@ import {
 } from "@volt/control"
 import type { Shell } from "./context.js"
 import { bindWorkspace, runDiagnostics } from "./panel.js"
-import { openInOpencode } from "./agent.js"
 
 // The desktop has no merge EDITOR (so no per-file `open-conflicts` / take-a-side — that's vscode's job), but
 // finishing/aborting a merge needs no editor, so those are actionable here. presentOutcome filters to this set.
@@ -239,13 +238,12 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       clearProgress()
       if (out.code === 0 && out.workspace) {
         // Volt OWNS the folder it just created, so bind it DIRECTLY — the panel is synced instantly and, under sticky
-        // binding, it stays bound with zero dependency on opencode (opencode is session-scoped and wouldn't reveal the
-        // project until a chat). Then BEST-EFFORT open it in opencode (register + navigate = "Add project"), so the
-        // user lands in the project ready to chat. If that fails, create-from-home still worked — only the auto-open
-        // degrades, and the user opens it via Add project.
+        // binding, stays bound with ZERO dependency on opencode. To chat about it, the user opens it in opencode via
+        // Add project (opencode auto-registers then). We deliberately do NOT drive opencode ourselves: navigating it
+        // reloaded its GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience — not
+        // worth the extra undocumented-API surface. See openspec/changes/desktop-connection-flow/observations.md.
         await bindWorkspace(shell, out.workspace)
-        const opened = await openInOpencode(shell.opencodeUrl, shell.view, out.workspace)
-        if (!opened) notify("info", `Created and synced the Volt workspace at ${out.workspace}. Open it in opencode (Add project → pick this folder) to start a session.`)
+        notify("info", `Created and synced the Volt workspace at ${out.workspace}. To use it with the AI agent, open it in opencode (Add project → pick this folder).`)
       } else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
