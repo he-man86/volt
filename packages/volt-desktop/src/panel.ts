@@ -31,7 +31,7 @@ type LabeledProject = DetectedProject & { action: ConnectAction }
 type Surface = { kind: "create" | "reconnect"; create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
 // `awaiting` splits the unbound state: true = cold start, opencode's project not yet learned ("Connecting…");
 // false = a known no-project state ("Open a PLC project…"). Rides both bound/unbound so the renderer reads it flat.
-type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean } & (
+type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean; bindStale: boolean } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -48,10 +48,12 @@ export function snapshot(shell: Shell): Snap {
   const connectorUp = shell.connectorUp
   const onboarding = onboardingMode(connectorUp, shell.projects.length)
   const awaiting = shell.awaitingOpencode
-  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, connectorUp, onboarding }
+  const bindStale = shell.bindStale
+  if (!vs) return { bound: false, awaiting, bindStale, incoming: [], outgoing: [], surface, connectorUp, onboarding }
   return {
     bound: true,
     awaiting,
+    bindStale,
     surface,
     connectorUp,
     onboarding,

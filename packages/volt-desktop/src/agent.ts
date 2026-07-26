@@ -73,12 +73,36 @@ export function killServer(): void {
   }
 }
 
-/** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. */
-export async function launchAgent(view: WebContentsView): Promise<void> {
+/** Open a folder in the embedded opencode GUI: one scoped request auto-registers it as an opencode project and
+ *  returns its id (verified), then we navigate the view to it so opencode SCOPES to that folder — and the shell's
+ *  follow-binding (watchActiveProject) picks it up. This is how a freshly `volt init`'d workspace becomes active
+ *  without a direct bindWorkspace (which would fight the follow-driver). Returns false (caller tells the user to
+ *  open it manually) when opencode isn't running or the folder can't be registered. */
+export async function openInOpencode(baseUrl: string | undefined, view: WebContentsView | null, dir: string): Promise<boolean> {
+  if (baseUrl === undefined || view === null) return false
   try {
-    await view.webContents.loadURL(await startServer())
+    const res = await fetch(`${baseUrl}/project/current?directory=${encodeURIComponent(dir)}`, { signal: AbortSignal.timeout(4000) })
+    if (!res.ok) return false
+    const id = (await res.json() as { id?: string }).id
+    if (id === undefined || id === "") return false
+    await view.webContents.loadURL(`${baseUrl}/${id}`)
+    return true
+  } catch {
+    return false // opencode down / unreachable — the workspace is still created, the caller guides the user
+  }
+}
+
+/** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. Returns the
+ *  server's base URL (so the shell can drive opencode — e.g. open a freshly-created workspace in it), or undefined
+ *  when opencode isn't available. */
+export async function launchAgent(view: WebContentsView): Promise<string | undefined> {
+  try {
+    const url = await startServer()
+    await view.webContents.loadURL(url)
+    return url
   } catch (err) {
     await agentBanner(view, { error: (err as Error).message })
+    return undefined
   }
 }
 

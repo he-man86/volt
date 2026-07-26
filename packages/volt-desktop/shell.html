@@ -189,7 +189,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, awaiting: true, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
+  let snap = { bound: false, awaiting: true, bindStale: false, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   let open = false
   // Which rail tab is lit + scrolled to while the panel is open. Defaults to the connection: it's the first thing
@@ -316,22 +316,28 @@
     // Unbound copy splits on `awaiting`: cold start (opencode's project not yet learned) reads "Connecting…" and
     // resolves the moment the first signal lands; a known no-project state (home, or after leaving a project) reads
     // the onboarding prompt. Reused across the three sections so they say the same thing.
-    const unboundNote = s.awaiting
-      ? `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Connecting to opencode…</div>`
-      : `<div class="note">Open a PLC project in opencode to begin.</div>`
+    const connectingNote = `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Connecting to opencode…</div>`
+    // The startup canary fired: opencode loaded but Volt never read an active project — most likely the binding is out
+    // of date with this opencode version. Make the otherwise-silent failure visible (replaces the endless spinner).
+    const staleNote = `<div class="note"><svg class="ico"><use href="#i-alert"/></svg>Couldn't read opencode's active project — the binding may be out of date with your opencode version. Sync still works once a project is detected; run Volt with <code>VOLT_BIND_DEBUG=1</code> to inspect, or report it.</div>`
+    const awaitingNote = s.bindStale ? staleNote : connectingNote
+    const unboundNote = s.awaiting ? awaitingNote : `<div class="note">Open a PLC project in opencode to begin.</div>`
+    // The "no active Volt workspace" body — offer to CREATE one from a detected IDE project, else guide based on WHY
+    // nothing's detected. ONE decision, shared by the unbound (home) state and the bound-but-uninitialized state (the
+    // latter also shows a folder row). This is the primary onboarding: create from home, no throwaway folder first;
+    // after creating, the desktop opens the new folder in opencode and the follow-binding picks it up.
+    const emptyStateBody = () =>
+      s.awaiting ? awaitingNote
+      : s.onboarding === "choose-project" ? createSurface(s.surface)
+      : s.onboarding === "no-connector" ? `<div class="note">The Volt Connector isn't running — start Volt so it can find your open PLC projects.</div>`
+      : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`
     let bridgeBody
-    if (!s.bound) bridgeBody = unboundNote
+    if (!s.bound) bridgeBody = emptyStateBody()
     else if (!s.initialized) {
-      // A folder is open but it isn't a Volt workspace yet — show the folder name (the only identity we have) and the
-      // detected IDE projects to create a workspace from.
+      // A folder is open but it isn't a Volt workspace yet — show the folder name (the only identity we have) above the
+      // same create/onboarding body as the unbound state.
       const folderRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span></div>`
-      const body =
-        s.onboarding === "choose-project"
-          ? createSurface(s.surface)
-          : s.onboarding === "no-project"
-            ? `<div class="note">No PLC project detected — open it in the IDE, or activate Volt in the Connector (tray).</div>`
-            : `<div class="note">The Volt Connector isn't running — start Volt so it can find your open projects.</div>`
-      bridgeBody = folderRow + (busy ? "" : body)
+      bridgeBody = folderRow + (busy ? "" : emptyStateBody())
     } else {
       // Bound Volt workspace — ONE identity: the project name (canonical, what the IDE shows), a health dot, and the
       // connection caption; the workspace folder path lives in the tooltip. A reconcile hint shows ONLY if the folder

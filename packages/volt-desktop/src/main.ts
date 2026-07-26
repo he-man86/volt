@@ -51,11 +51,17 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, awaitingOpencode: true, panelOpen: false, projects: [], connectorUp: false }
+const shell: Shell = { win: null, view: null, opencodeUrl: undefined, status: null, boundRoot: undefined, awaitingOpencode: true, bindStale: false, panelOpen: false, projects: [], connectorUp: false }
 
 // Log every request's directory + classification so opencode's real timeline is observable (openspec task 1.1:
 // what does the home/project-list screen actually emit?). Off unless VOLT_BIND_DEBUG is set.
 const BIND_DEBUG = !!process.env.VOLT_BIND_DEBUG
+
+// Startup canary grace period. opencode's GUI makes scoped requests immediately on load (its home screen alone emits
+// several `/global/*` calls within ~1s), so if we've classified NOTHING after this long while opencode IS loaded, our
+// request-sniff has almost certainly broken — opencode changed its GUI↔server wire on a release. We surface that
+// instead of sitting silently on "Connecting…". Purely observational: it reads our own flag, never opencode.
+const BIND_CANARY_MS = 20_000
 
 function layoutView() {
   if (!shell.win || !shell.view) return
@@ -119,6 +125,7 @@ let noneTimer: ReturnType<typeof setTimeout> | null = null
 function onActiveSignal(sig: ActiveProject): void {
   const wasAwaiting = shell.awaitingOpencode
   shell.awaitingOpencode = false // any signal means opencode's state is now known (clears the cold-start "Connecting…")
+  shell.bindStale = false // a signal arrived → the sniff works; retract any canary warning
   if (sig.kind === "dir") {
     if (noneTimer) { clearTimeout(noneTimer); noneTimer = null } // a real project cancels a pending release
     if (bindingAction(shell.boundRoot, sig, sameDir).kind === "bind") return void bindWorkspace(shell, sig.dir) // pushes
@@ -231,7 +238,21 @@ app.whenReady().then(async () => {
   void refreshDetectedProjects(shell)
   setInterval(() => void refreshDetectedProjects(shell), 10_000)
 
-  await launchAgent(shell.view)
+  shell.opencodeUrl = await launchAgent(shell.view)
+
+  // Arm the binding canary only when opencode actually launched (a missing opencode legitimately never signals — the
+  // install banner is showing, not a broken sniff). If we still haven't classified any signal after the grace period,
+  // make the silent failure visible in the panel + logs. This never affects binding; it only reports.
+  if (shell.opencodeUrl !== undefined) {
+    setTimeout(() => {
+      if (!shell.awaitingOpencode) return // a signal arrived — the sniff works
+      shell.bindStale = true
+      console.warn(
+        `[volt] opencode loaded but no active-project signal was seen in ${BIND_CANARY_MS / 1000}s — the binding may be out of date with this opencode version. Run with VOLT_BIND_DEBUG=1 to inspect.`,
+      )
+      pushStatus(shell)
+    }, BIND_CANARY_MS)
+  }
 })
 
 app.on("window-all-closed", () => app.quit())

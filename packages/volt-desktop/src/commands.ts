@@ -29,7 +29,8 @@ import {
   type ProgressUpdate,
 } from "@volt/control"
 import type { Shell } from "./context.js"
-import { bindWorkspace, runDiagnostics } from "./panel.js"
+import { runDiagnostics } from "./panel.js"
+import { openInOpencode } from "./agent.js"
 
 // The desktop has no merge EDITOR (so no per-file `open-conflicts` / take-a-side — that's vscode's job), but
 // finishing/aborting a merge needs no editor, so those are actionable here. presentOutcome filters to this set.
@@ -236,8 +237,14 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
 
       const out = await initFromProject(project, picked.filePaths[0], { onProgress: report })
       clearProgress()
-      if (out.code === 0 && out.workspace) await bindWorkspace(shell, out.workspace) // bind the folder init made — the panel flips to the synced view
-      else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
+      if (out.code === 0 && out.workspace) {
+        // OPEN the new workspace in opencode → its follow-binding picks it up (mirror model). We do NOT bindWorkspace
+        // directly: opencode is the single source of "which project is active", so a direct bind would fight the
+        // follow-driver and get released the moment opencode is elsewhere. If opencode isn't running, the folder is
+        // still created — tell the user where it is so they can open it.
+        const opened = await openInOpencode(shell.opencodeUrl, shell.view, out.workspace)
+        if (!opened) notify("info", `Created the Volt workspace at ${out.workspace}. Open it in opencode to start syncing.`)
+      } else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
 }
