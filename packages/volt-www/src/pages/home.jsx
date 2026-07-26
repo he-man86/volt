@@ -24,7 +24,7 @@ renderPage(
         "The fastest way to put Volt on your PLC project",
       ]}
     >
-      <DesktopApp panel="sync" theme="light" explorer={false} autoplay />
+      <DesktopApp panel="sync" theme="light" autoplay />
     </FeatureShowcase>
 
     <FeatureShowcase

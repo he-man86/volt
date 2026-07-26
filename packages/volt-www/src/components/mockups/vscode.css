@@ -162,13 +162,21 @@
 .vsc-fico.gvl {
   background: #b06cae;
 }
-.vsc-tree-mod {
+.vsc-tree-drift {
   margin-left: auto;
   padding-left: 8px;
-  color: var(--vsc-out);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 11px;
+}
+.vsc-tree-drift.out {
+  color: var(--vsc-out);
+}
+.vsc-tree-drift.in {
+  color: var(--vsc-in);
+}
+.vsc-tree-drift.conflict {
+  color: #cf2d56;
 }
 
 /* Source Control */
@@ -270,6 +278,24 @@
   align-items: center;
   padding: 5px 12px 2px 22px;
   font-size: 10px;
+  color: var(--vsc-muted);
+}
+.vsc-group-n {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.vsc-side-row.indent {
+  padding-left: 34px;
+}
+.vsc-side-desc {
+  margin-left: 6px;
+  color: var(--vsc-muted);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vsc-badge.muted {
   color: var(--vsc-muted);
 }
 .vsc-side-row {

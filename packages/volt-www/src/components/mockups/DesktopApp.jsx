@@ -1,7 +1,6 @@
 // Reusable, reactive, interactive mockup of the Volt desktop app (packages/volt-desktop/shell.html): the Electron
-// shell wrapping opencode's chat, plus Volt's file explorer + icon rail + IDE panel. Interactions: expand/collapse
-// the explorer, click a file to open it (updates the editor header), click a rail icon to open/close/switch the
-// IDE panel (Sync ↔ Diagnostics). Drag from the titlebar (data-drag-handle).
+// shell wrapping opencode's chat, plus Volt's icon rail + IDE panel. Interactions: click a rail icon to
+// open/close/switch the IDE panel (Connection ↔ Sync ↔ Diagnostics). Drag from the titlebar (data-drag-handle).
 import { useEffect, useRef, useState } from "react"
 import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./desktop-app.css"
@@ -23,24 +22,24 @@ function Bolt({ cls = "vda-bolt" }) {
   )
 }
 
-// File explorer tree (nested): folders expand/collapse, leaves (file) select into the editor.
-const TREE = [
-  {
-    id: "root", label: "MyMachine", folder: true,
-    children: [
-      {
-        id: "app", label: "Application", folder: true,
-        children: [
-          { id: "PLC_PRG", label: "PLC_PRG", ext: "PRG", ico: "pou" },
-          { id: "FB_Conveyor", label: "FB_Conveyor", ext: "FB", ico: "pou", mod: "M" },
-          { id: "FB_Motor", label: "FB_Motor", ext: "FB", ico: "pou" },
-          { id: "GVL_Global", label: "GVL_Global", ext: "GVL", ico: "var" },
-        ],
-      },
-      { id: "device", label: "Device", folder: true, children: [{ id: "ctrl", label: "CODESYS Control", ico: "pou" }] },
-    ],
-  },
-]
+// Stroke icons lifted from packages/volt-desktop/shell.html — the real panel's action + rail glyphs.
+const P = {
+  pull: "M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 3v11m0 0 4-4m-4 4-4-4",
+  push: "M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 15V4m0 0 4 4m-4-4-4 4",
+  build: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+  refresh: "M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5",
+  disconnect: "M9 7H7a5 5 0 0 0 0 10h2M15 17h2a5 5 0 0 0 0-10h-2M2 2l20 20",
+  bridge: "M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8",
+  alert: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01",
+}
+function Ico({ d, cls = "vda-ico" }) {
+  return (
+    <svg className={cls} viewBox="0 0 24 24" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  )
+}
+
 const DIFF = [
   { n: 3, sign: " ", text: "VAR" },
   { n: 4, sign: "+", text: "    running : BOOL;" },
@@ -48,18 +47,20 @@ const DIFF = [
   { n: 6, sign: " ", text: "" },
   { n: 7, sign: "+", text: "running := speed > 0.0;" },
 ]
-const DEFAULT_DRIFT = [
+// The Volt IDE panel's live data, matching the real shell.html: Connection (health + one action), Sync
+// (incoming/outgoing drift), Diagnostics (LSP counts). `sub` is the git status letter (A/M/D).
+const INCOMING = [{ sub: "M", name: "FB_Motor" }]
+const OUTGOING = [
   { sub: "M", name: "FB_Conveyor" },
-  { sub: "M", name: "PLC_PRG" },
   { sub: "A", name: "GVL_Global" },
 ]
+const DIAGS = { errors: 0, warnings: 2, files: [{ name: "FB_Motor", warnings: 2 }] }
 
-export function DesktopApp({ panel = "sync", theme = "light", explorer = true, autoplay = false, drift = DEFAULT_DRIFT, diagnostics }) {
+export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, zoom = 1 }) {
   const [ref, inView] = useInView()
   const [panelState, setPanelState] = useState(panel)
-  const [collapsed, setCollapsed] = useState(() => new Set())
   const [selected, setSelected] = useState("FB_Conveyor")
-  const diags = diagnostics ?? { errors: 0, warnings: 2, files: [{ name: "FB_Motor", warnings: 2 }] }
+  const driftN = INCOMING.length + OUTGOING.length
 
   // Chat: type + send appends your message; a short typing indicator resolves to a reply. Auto-scrolls.
   const [draft, setDraft] = useState("")
@@ -87,54 +88,30 @@ export function DesktopApp({ panel = "sync", theme = "light", explorer = true, a
     }, 1100)
   }
 
-  const toggle = (id) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
   // click a rail icon: open that panel, or close it if already showing
   const showPanel = (which) => setPanelState((p) => (p === which ? "off" : which))
 
   const auto = useAutoplay(
     [
-      () => showPanel("diagnostics"),
+      () => showPanel("bridge"),
       () => setSelected("PLC_PRG"),
       () => setModelOpen(true),
       () => (setModel("claude-sonnet-5"), setModelOpen(false)),
       () => showPanel("sync"),
       () => setSelected("FB_Conveyor"),
+      () => showPanel("diag"),
       () => setModelOpen(true),
       () => (setModel("claude-opus-4-8"), setModelOpen(false)),
     ],
     autoplay && inView,
   )
 
-  const renderNodes = (nodes, depth) =>
-    nodes.flatMap((n) => {
-      const open = !collapsed.has(n.id)
-      const row = (
-        <div
-          key={n.id}
-          className={"vda-exp-row" + (!n.folder && n.id === selected ? " is-active" : "")}
-          style={{ paddingLeft: 8 + depth * 12 }}
-          onClick={() => (n.folder ? toggle(n.id) : setSelected(n.id))}
-        >
-          {n.folder ? <span className={"vda-chev" + (open ? " open" : "")} /> : <span className="vda-chev-sp" />}
-          <span className={"vda-exp-ico " + (n.ico || "")} />
-          <span className="vda-exp-name">{n.label}</span>
-          {n.ext && <span className="vda-exp-ext">{n.ext}</span>}
-          {n.mod && <span className="vda-exp-mod">{n.mod}</span>}
-        </div>
-      )
-      return n.folder && open ? [row, ...renderNodes(n.children, depth + 1)] : [row]
-    })
-
   return (
     <div
       ref={ref}
       {...auto}
-      className={"vda" + (theme === "light" ? " vda--light" : "") + (explorer ? " vda--exp" : "") + (inView ? " is-live" : "")}
+      style={{ zoom }}
+      className={"vda" + (theme === "light" ? " vda--light" : "") + (inView ? " is-live" : "")}
     >
       <div className="vda-titlebar" data-drag-handle>
         <span className="vda-brand">
@@ -280,80 +257,88 @@ export function DesktopApp({ panel = "sync", theme = "light", explorer = true, a
           </div>
         </div>
 
-        {/* File explorer (optional) */}
-        {explorer && (
-          <div className="vda-explorer">
-            <div className="vda-exp-head">Explorer</div>
-            {renderNodes(TREE, 0)}
-          </div>
-        )}
-
-        {/* Volt IDE panel */}
+        {/* Volt IDE panel — the real app stacks all three views (shell.html); the rail just lights the active one.
+            IDE Connection leads (the first thing to set up, the first thing to check when sync stops). */}
         {panelState !== "off" && (
           <div className="vda-panel">
-            {panelState === "sync" ? (
-              <>
-                <div className="vda-sect">
-                  <span className="vda-s-title">IDE Sync</span>
-                  <span className="vda-s-acts">
-                    <i title="Pull" /> <i title="Push" /> <i title="Build" />
-                  </span>
-                </div>
-                <div className="vda-grp">
-                  Incoming · IDE → pull<span className="vda-n">{drift.length}</span>
-                </div>
-                {drift.map((f, i) => (
-                  <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
-                    <span className={"vda-stat " + f.sub}>{f.sub}</span>
-                    <span className="vda-rowpath">{f.name}</span>
-                  </div>
-                ))}
-                <div className="vda-sect vda-sect--top">
-                  <span className="vda-s-title">Bridge</span>
-                </div>
-                <div className="vda-row">
-                  <span className="vda-dot-sm ok" />
-                  <span className="vda-rowpath">CODESYS · online</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="vda-sect">
-                  <span className="vda-s-title">Diagnostics</span>
-                </div>
-                <div className="vda-grp">
-                  {diags.errors} errors, {diags.warnings} warnings
-                </div>
-                {diags.files.map((f, i) => (
-                  <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
-                    <span className="vda-rowpath">{f.name}</span>
-                    <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
-                  </div>
-                ))}
-              </>
-            )}
+            {/* 1. IDE Connection — health + the ONE action (Disconnect when live) */}
+            <div className="vda-sect">
+              <span className="vda-s-title">IDE Connection</span>
+            </div>
+            <div className="vda-row">
+              <span className="vda-dot-sm ok" />
+              <span className="vda-rowpath">CODESYS — MyMachine</span>
+              <span className="vda-n">connected</span>
+            </div>
+            <div className="vda-conn-act">
+              <button className="vda-connbtn">
+                <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />
+                Disconnect from the IDE
+              </button>
+            </div>
+
+            {/* 2. IDE Sync — pull/push/build/refresh + incoming/outgoing drift */}
+            <div className="vda-sect vda-sect--top">
+              <span className="vda-s-title">IDE Sync</span>
+              <span className="vda-s-acts">
+                <button className="vda-act" title="Pull · IDE → workspace"><Ico d={P.pull} cls="vda-ico vda-ico--sm" /></button>
+                <button className="vda-act" title="Push · workspace → IDE"><Ico d={P.push} cls="vda-ico vda-ico--sm" /></button>
+                <button className="vda-act" title="Build"><Ico d={P.build} cls="vda-ico vda-ico--sm" /></button>
+                <button className="vda-act" title="Refresh"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
+              </span>
+            </div>
+            <div className="vda-grp">
+              Incoming · IDE → pull<span className="vda-n">{INCOMING.length}</span>
+            </div>
+            {INCOMING.map((f, i) => (
+              <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
+                <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                <span className="vda-rowpath">{f.name}</span>
+              </div>
+            ))}
+            <div className="vda-grp">
+              Outgoing · push → IDE<span className="vda-n">{OUTGOING.length}</span>
+            </div>
+            {OUTGOING.map((f, i) => (
+              <div key={f.name} className="vda-row step" style={{ "--i": i + 3 }}>
+                <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                <span className="vda-rowpath">{f.name}</span>
+              </div>
+            ))}
+
+            {/* 3. Diagnostics */}
+            <div className="vda-sect vda-sect--top">
+              <span className="vda-s-title">Diagnostics</span>
+              <span className="vda-s-acts">
+                <button className="vda-act" title="Re-analyze"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
+              </span>
+            </div>
+            <div className="vda-grp">
+              {DIAGS.errors} errors, {DIAGS.warnings} warnings
+            </div>
+            {DIAGS.files.map((f, i) => (
+              <div key={f.name} className="vda-row step" style={{ "--i": i + 4 }}>
+                <span className="vda-rowpath">{f.name}</span>
+                <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Volt icon rail */}
+        {/* Volt icon rail — Connection, Sync, Diagnostics (top→bottom, matching shell.html) */}
         <div className="vda-rail">
+          <button className={"vda-rail-btn" + (panelState === "bridge" ? " on" : "")} title="IDE Connection" onClick={() => showPanel("bridge")}>
+            <Ico d={P.bridge} cls="vda-ico vda-ico--rail" />
+            <span className="vda-rail-status ok" />
+          </button>
           <button className={"vda-rail-btn" + (panelState === "sync" ? " on" : "")} title="IDE changes" onClick={() => showPanel("sync")}>
             <Bolt cls="vda-bolt vda-bolt--rail" />
-            <span className="vda-badge">{drift.length}</span>
+            <span className="vda-badge">{driftN}</span>
           </button>
-          <button
-            className={"vda-rail-btn" + (panelState === "diagnostics" ? " on" : "")}
-            title="Diagnostics"
-            onClick={() => showPanel("diagnostics")}
-          >
-            <svg className="vda-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-              <path d="M12 9v4" />
-              <path d="M12 17h.01" />
-            </svg>
-            {diags.warnings > 0 && <span className="vda-badge warn">{diags.warnings}</span>}
+          <button className={"vda-rail-btn" + (panelState === "diag" ? " on" : "")} title="Diagnostics" onClick={() => showPanel("diag")}>
+            <Ico d={P.alert} cls="vda-ico vda-ico--rail" />
+            {DIAGS.warnings > 0 && <span className="vda-badge warn">{DIAGS.warnings}</span>}
           </button>
-          <span className="vda-rail-dot ok" title="Bridge online" />
         </div>
       </div>
     </div>

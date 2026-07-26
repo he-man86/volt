@@ -59,6 +59,15 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.vda-ico--rail {
+  width: 19px;
+  height: 19px;
+}
+.vda-ico--sm {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.75;
+}
 
 /* Titlebar */
 .vda-titlebar {
@@ -88,14 +97,11 @@
   background: var(--border);
 }
 
-/* Body: chat | (file explorer) | Volt IDE panel | rail. Explorer column only when .vda--exp. */
+/* Body: chat | Volt IDE panel | rail. */
 .vda-body {
   display: grid;
   grid-template-columns: 1fr 216px 46px;
   min-height: 380px;
-}
-.vda--exp .vda-body {
-  grid-template-columns: 1fr 184px 216px 46px;
 }
 .vda-dot-sm {
   width: 7px;
@@ -106,88 +112,6 @@
 }
 .vda-dot-sm.ok {
   background: var(--green);
-}
-
-/* File explorer (right sidebar) — a real tree: chevrons for folders, file icons, ext tags, M indicator */
-.vda-explorer {
-  background: var(--chrome);
-  border-left: 1px solid var(--border);
-  padding: 8px 0;
-  overflow: hidden;
-  font-size: 12px;
-}
-.vda-exp-head {
-  padding: 4px 12px 8px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.vda-exp-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 0;
-  color: var(--text);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.vda-exp-row:hover {
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-}
-.vda-exp-row.is-active,
-.vda-exp-row.is-active:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  box-shadow: inset 2px 0 var(--accent);
-}
-.vda-chev-sp {
-  width: 8px;
-  flex: none;
-}
-.vda-chev {
-  width: 0;
-  height: 0;
-  flex: none;
-  border-left: 4px solid var(--muted);
-  border-top: 3px solid transparent;
-  border-bottom: 3px solid transparent;
-  transition: transform 150ms ease;
-}
-.vda-chev.open {
-  transform: rotate(90deg);
-}
-.vda-exp-ico {
-  width: 10px;
-  height: 12px;
-  border-radius: 1px;
-  flex: none;
-  background: var(--muted);
-}
-.vda-exp-ico.pou {
-  background: var(--accent);
-}
-.vda-exp-ico.var {
-  background: var(--green);
-}
-.vda-exp-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.vda-exp-ext {
-  font-size: 9px;
-  font-family: var(--font-mono);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0 3px;
-}
-.vda-exp-mod {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 11px;
-  color: var(--amber);
 }
 
 /* opencode agent GUI */
@@ -557,7 +481,7 @@ button.vda-chip {
 .vda-panel {
   background: var(--surface);
   border-left: 1px solid var(--border);
-  overflow: hidden;
+  overflow-y: auto;
 }
 .vda-sect {
   display: flex;
@@ -579,13 +503,52 @@ button.vda-chip {
 .vda-s-acts {
   margin-left: auto;
   display: flex;
-  gap: 5px;
+  gap: 2px;
 }
-.vda-s-acts i {
-  width: 13px;
-  height: 13px;
-  border-radius: 3px;
-  background: var(--border);
+.vda-act {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.vda-act:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+
+/* IDE Connection — the one action (Disconnect when live), a quiet native button */
+.vda-conn-act {
+  padding: 8px 12px 4px;
+}
+.vda-connbtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.vda-connbtn:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.vda-connbtn .vda-ico {
+  color: var(--muted);
 }
 .vda-grp {
   display: flex;
@@ -681,15 +644,25 @@ button.vda-chip {
 .vda-badge.warn {
   background: var(--amber);
 }
-.vda-rail-dot {
-  margin-top: auto;
+/* Bridge tab: a corner status dot (health tone) instead of a count — matches shell.html's .rail-status. */
+.vda-rail-status {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--border);
+  background: var(--muted);
+  box-shadow: 0 0 0 2px var(--chrome);
 }
-.vda-rail-dot.ok {
+.vda-rail-status.ok {
   background: var(--green);
+}
+.vda-rail-status.warn {
+  background: var(--amber);
+}
+.vda-rail-status.error {
+  background: var(--red);
 }
 
 /* Reactive staging — content settles in when scrolled into view */
@@ -712,18 +685,9 @@ button.vda-chip {
     transform: none;
   }
 }
-/* Narrower: drop the file explorer, then the Volt IDE panel */
-@media (max-width: 1080px) {
-  .vda--exp .vda-body {
-    grid-template-columns: 1fr 216px 46px;
-  }
-  .vda-explorer {
-    display: none;
-  }
-}
+/* Narrower: drop the Volt IDE panel, leaving chat + rail */
 @media (max-width: 620px) {
-  .vda-body,
-  .vda--exp .vda-body {
+  .vda-body {
     grid-template-columns: 1fr 46px;
   }
   .vda-panel {

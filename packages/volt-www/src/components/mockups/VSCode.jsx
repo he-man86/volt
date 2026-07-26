@@ -1,6 +1,8 @@
 // Interactive VS Code mockup for the volt-vscode extension. The activity bar switches the sidebar between
-// Explorer (file tree), Source Control (git changes + commit), and Volt (IDE Sync / Diagnostics / Bridge). The
-// editor has drift coloring + a live IntelliSense completion; the bottom panel is a typeable agent CLI.
+// Explorer (file tree), Source Control (git changes + commit), and Volt. The Volt container mirrors the real
+// extension's four tree views — IDE Sync, Diagnostics, Bridge, Agent & Settings (packages/volt-vscode/src/panel.ts).
+// The editor has drift coloring + a live IntelliSense completion; the bottom panel is a typeable agent CLI.
+// `zoom` scales the whole widget (CSS zoom → real reflow) so the landing page and the docs can size it differently.
 import { useEffect, useRef, useState } from "react"
 import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./vscode.css"
@@ -71,8 +73,9 @@ const EXPLORER = [
       {
         id: "app", label: "Application", folder: true,
         children: [
-          { id: "FB_Conveyor.fb", label: "FB_Conveyor.fb", ico: "fb", mod: "M" },
-          { id: "FB_Motor.fb", label: "FB_Motor.fb", ico: "fb" },
+          // Explorer drift decorations: the real extension paints an `o`/`i`/`C` badge on files the IDE changed.
+          { id: "FB_Conveyor.fb", label: "FB_Conveyor.fb", ico: "fb", drift: "o" },
+          { id: "FB_Motor.fb", label: "FB_Motor.fb", ico: "fb", drift: "i" },
           { id: "PLC_PRG.prg", label: "PLC_PRG.prg", ico: "prg" },
           { id: "GVL_Global.gvl", label: "GVL_Global.gvl", ico: "gvl" },
         ],
@@ -81,26 +84,40 @@ const EXPLORER = [
   },
 ]
 
-// Volt views
+// Volt views — the four native tree views the extension registers in the Volt activity-bar container, rendered
+// here as collapsible sections (which is how VS Code stacks views in one container). Labels/rows match panel.ts.
 const VOLT_SECTIONS = [
   {
     id: "sync", title: "IDE Sync",
     rows: [
-      { badge: "●", cls: "ok", label: "Connected · CODESYS" },
-      { group: "Incoming · IDE → pull" },
-      { badge: "i", cls: "in", label: "FB_Motor.fb", file: "FB_Motor.fb" },
-      { group: "Outgoing · push → IDE" },
-      { badge: "o", cls: "out", label: "FB_Conveyor.fb", file: "FB_Conveyor.fb" },
+      { group: "Incoming (IDE → pull)", n: 1 },
+      { badge: "i", cls: "in", label: "FB_Motor", desc: "FB", file: "FB_Motor.fb" },
+      { group: "Outgoing (push → IDE)", n: 1 },
+      { badge: "o", cls: "out", label: "FB_Conveyor", desc: "FB", file: "FB_Conveyor.fb" },
     ],
   },
   {
     id: "diag", title: "Diagnostics",
     rows: [
-      { badge: "!", cls: "warn", label: "FB_Motor.fb · 2 warnings", file: "FB_Motor.fb" },
-      { badge: "✓", cls: "ok", label: "No errors" },
+      { badge: "!", cls: "warn", label: "0 errors, 2 warnings" },
+      { badge: "", label: "FB_Motor.fb", desc: "2⚠", file: "FB_Motor.fb", indent: true },
     ],
   },
-  { id: "bridge", title: "Bridge", rows: [{ badge: "●", cls: "ok", label: "CODESYS · online" }] },
+  {
+    id: "bridge", title: "Bridge",
+    rows: [
+      { badge: "●", cls: "ok", label: "CODESYS — MyMachine", desc: "connected" },
+      { badge: "⏻", cls: "muted", label: "Disconnect from the IDE", desc: "pause syncing" },
+    ],
+  },
+  {
+    id: "ref", title: "Agent & Settings",
+    rows: [
+      { badge: "◆", cls: "muted", label: "Open Agent" },
+      { badge: "⚙", cls: "muted", label: "Open Settings" },
+      { badge: "⚙", cls: "muted", label: "Open Workspace Config" },
+    ],
+  },
 ]
 
 const runCmd = (raw) => {
@@ -117,7 +134,7 @@ const ICON = {
   explorer: "M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9zM13 3v6h6",
 }
 
-export function VSCode({ autoplay = false }) {
+export function VSCode({ autoplay = false, zoom = 1 }) {
   const [ref, inView] = useInView()
   const [view, setView] = useState("volt")
   const [collapsed, setCollapsed] = useState(() => new Set())
@@ -195,7 +212,7 @@ export function VSCode({ autoplay = false }) {
           {n.folder ? <span className={"vsc-chev" + (open ? " open" : "")} /> : <span className="vsc-chev-sp" />}
           <span className={"vsc-fico " + (n.ico || "folder")} />
           <span className="vsc-side-label">{n.label}</span>
-          {n.mod && <span className="vsc-tree-mod">{n.mod}</span>}
+          {n.drift && <span className={"vsc-tree-drift " + (n.drift === "i" ? "in" : n.drift === "C" ? "conflict" : "out")}>{n.drift}</span>}
         </div>
       )
       return n.folder && open ? [row, ...renderTree(n.children, depth + 1)] : [row]
@@ -205,7 +222,7 @@ export function VSCode({ autoplay = false }) {
   const sidebarTitle = { explorer: "Explorer", scm: "Source Control", volt: "Volt" }[view]
 
   return (
-    <div ref={ref} {...play} className={"vsc" + (inView ? " is-live" : "")}>
+    <div ref={ref} {...play} style={{ zoom }} className={"vsc" + (inView ? " is-live" : "")}>
       <div className="vsc-title" data-drag-handle>
         <span className="vsc-title-name">{active} — MyMachine — Volt</span>
         <span className="vsc-winctl">
@@ -287,15 +304,19 @@ export function VSCode({ autoplay = false }) {
                   {open &&
                     s.rows.map((r, i) =>
                       r.group ? (
-                        <div key={i} className="vsc-group">{r.group}</div>
+                        <div key={i} className="vsc-group">
+                          <span>{r.group}</span>
+                          {r.n != null && <span className="vsc-group-n">{r.n}</span>}
+                        </div>
                       ) : (
                         <div
                           key={i}
-                          className={"vsc-side-row" + (r.file ? " clickable" : "") + (r.file === active ? " is-active" : "")}
+                          className={"vsc-side-row" + (r.indent ? " indent" : "") + (r.file ? " clickable" : "") + (r.file === active ? " is-active" : "")}
                           onClick={() => r.file && openFile(r.file)}
                         >
-                          <span className={"vsc-badge " + r.cls}>{r.badge}</span>
+                          <span className={"vsc-badge " + (r.cls || "")}>{r.badge}</span>
                           <span className="vsc-side-label">{r.label}</span>
+                          {r.desc && <span className="vsc-side-desc">{r.desc}</span>}
                         </div>
                       ),
                     )}
