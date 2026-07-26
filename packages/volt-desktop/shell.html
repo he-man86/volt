@@ -139,9 +139,7 @@
   .btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 640; }
   .btn.primary:hover { background: var(--accent-hi); }
   .btn.primary .bolt { color: var(--on-accent); }
-  .btn:disabled { opacity: .38; pointer-events: none; } /* no live IDE for this vendor — visible but inert */
-  .warn-box { display: flex; gap: 8px; margin: 8px 14px; padding: 9px 11px; border-radius: var(--r-md); font-size: 12px; line-height: 1.45;
-    background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); color: var(--text); }
+  .btn:disabled { opacity: .38; pointer-events: none; } /* in-flight (spinner) or no live IDE — visible but inert */
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -189,6 +187,7 @@
   // to set up, and the first thing to check when sync stops.
   let activeTab = "bridge"
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
+  let busyAction = null // WHICH action is in flight ("pull"/"connect"/"rebind:<id>"/…) — spins THAT button until done
   let busyPct = null // determinate % for the titlebar bar (null = indeterminate — just spin the icon)
   let moreOpen = false // the sync section's "⋯" overflow menu (force pull/push)
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
@@ -203,7 +202,18 @@
   // listener on #panel reads them, so no user text lands in an onclick and the handler survives re-renders.
   const changeRows = (items, dir, root) => items.map((f) => `<div class="row click" data-root="${esc(root)}" data-path="${esc(f.relPath)}" data-name="${esc(f.name)}" data-dir="${dir}" title="Open diff"><span class="stat ${f.sub}">${f.sub}</span><span class="path">${esc(f.name)}</span></div>`).join("")
   const changeGrp = (label, items, dir, root) => items.length ? `<div class="grp">${label}<span class="n">${items.length}</span></div>${changeRows(items, dir, root)}` : ""
-  const icoBtn = (icon, title, onclick, off) => `<button class="ico-btn" title="${title}" ${off ? "disabled" : ""} onclick="${onclick}"><svg class="ico"><use href="#${icon}"/></svg></button>`
+  // In-button feedback: the acting button shows a spinner + goes inert until its action finishes (busyAction clears).
+  // This — not a popup — is how every action reports "working…". `key` names the action (matches begin()'s key).
+  const spinIco = `<svg class="ico spin"><use href="#i-refresh"/></svg>`
+  const icoBtn = (icon, title, onclick, key) => {
+    const p = key != null && busyAction === key
+    return `<button class="ico-btn" title="${p ? "Working…" : title}" ${p ? "disabled" : ""} onclick="${p ? "" : onclick}">${p ? spinIco : `<svg class="ico"><use href="#${icon}"/></svg>`}</button>`
+  }
+  // A text/label button (Connect, Disconnect, Finish/Abort merge, a project row) with the same in-button spinner.
+  const btn = (key, cls, onclick, iconHtml, label, title) => {
+    const p = busyAction === key
+    return `<button class="${cls}" title="${title}" ${p ? "disabled" : ""} onclick="${p ? "" : onclick}">${p ? spinIco : iconHtml}${label}</button>`
+  }
   // The refresh action, spinning + disabled while a refresh is in flight (both the Sync and Bridge sections use it).
   const refreshBtn = (title) => refreshing
     ? `<button class="ico-btn" title="Refreshing…" disabled><svg class="ico spin"><use href="#i-refresh"/></svg></button>`
@@ -214,6 +224,7 @@
   // the click + hint: init = first-time set up · connect = reconnect the matching project · rebind = re-point the
   // binding at a DIFFERENT project (a rename), confirmed first. Inline call args are esc-safe (esc escapes quotes).
   const projectBtn = (p) => {
+    const key = p.action === "connect" ? "connect" : `${p.action}:${p.id}` // "connect" | "rebind:<id>" | "init:<id>"
     const label = `${esc(p.platformLabel)} · ${esc(p.displayName)}${p.dirty ? " *" : ""}`
     const click = p.action === "connect" ? "doConnect()" : p.action === "rebind" ? `doRebind('${esc(p.id)}','${esc(p.displayName)}')` : `doInit('${esc(p.id)}')`
     const title = p.action === "connect"
@@ -221,17 +232,20 @@
       : p.action === "rebind"
         ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
         : "Creates the git workspace and pulls the project's code — the IDE is not modified."
-    return `<button class="btn" title="${title}" onclick="${click}"><svg class="bolt"><use href="#bolt"/></svg>${label}</button>`
+    return btn(key, "btn", click, `<svg class="bolt"><use href="#bolt"/></svg>`, label, title)
   }
 
   function renderRail() {
-    // Sync tab — count of pending changes (incoming + outgoing).
-    const n = snap.incoming.length + snap.outgoing.length
+    // Sync tab — count of pending changes, but ONLY while actually syncing (`ready`). Offline, incoming/outgoing
+    // are last-known/stale (we can't compare against a bridge that's down) and the Sync body says "not connected",
+    // so a live-looking count on the rail contradicted it.
+    const n = snap.mode === "ready" ? snap.incoming.length + snap.outgoing.length : 0
     const drift = document.getElementById("driftBadge")
     drift.textContent = n
     drift.classList.toggle("hide", n === 0)
-    // Diagnostics tab — red count of errors, else amber count of warnings, else nothing.
-    const d = diag && !diag.loading && !diag.error ? diag : null
+    // Diagnostics tab — red count of errors, else amber count of warnings, else nothing. Gate on `initialized`:
+    // `diag` lingers from a previous project after switching to a non-Volt folder, so don't badge it there.
+    const d = snap.initialized && diag && !diag.loading && !diag.error ? diag : null
     const db = document.getElementById("diagBadge")
     if (d && d.errors > 0) db.className = "rail-badge err", (db.textContent = d.errors)
     else if (d && d.warnings > 0) db.className = "rail-badge warn", (db.textContent = d.warnings)
@@ -289,7 +303,7 @@
       // when offline), so this row never branches on vendor.
       const identity = `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(s.connectionLabel)}</span><span class="n">${esc(a.caption)}</span></div>`
       if (a.action === "disconnect") {
-        bridgeBody = identity + `<div class="init-row"><button class="btn" title="Stops syncing. The IDE stays open — reconnect to resume." onclick="doDisconnect()"><svg class="ico"><use href="#i-disconnect"/></svg>Disconnect from the IDE</button></div>`
+        bridgeBody = identity + `<div class="init-row">` + btn("disconnect", "btn", "doDisconnect()", `<svg class="ico"><use href="#i-disconnect"/></svg>`, "Disconnect from the IDE", "Stops syncing. The IDE stays open — reconnect to resume.") + `</div>`
       } else {
         const projects = s.projects || []
         bridgeBody = identity + (projects.length
@@ -314,9 +328,9 @@
       `</div></span>`
     const syncActs = s.initialized
       ? (s.mode === "ready"
-          ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()") +
-            icoBtn("i-push", "Push · workspace → IDE", "doPush()") +
-            icoBtn("i-build", "Build", "doBuild()")
+          ? icoBtn("i-pull", "Pull · IDE → workspace", "doPull()", "pull") +
+            icoBtn("i-push", "Push · workspace → IDE", "doPush()", "push") +
+            icoBtn("i-build", "Build", "doBuild()", "build")
           : "") + refreshBtn("Refresh") + (s.mode === "ready" ? moreMenu : "")
       : ""
     let syncBody
@@ -335,7 +349,10 @@
       syncBody = busyNote +
         `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>Merge in progress — resolve each conflict (open the diff, take a side), then finish.</div>` +
         clist +
-        `<div class="init-row"><button class="btn primary" title="Stages your resolutions and advances the IDE baseline." onclick="doFinishMerge()">Finish merge</button><button class="btn" title="Restores the workspace to before the pull." onclick="doAbortMerge()">Abort merge</button></div>`
+        `<div class="init-row">` +
+        btn("finishMerge", "btn primary", "doFinishMerge()", "", "Finish merge", "Stages your resolutions and advances the IDE baseline.") +
+        btn("abortMerge", "btn", "doAbortMerge()", "", "Abort merge", "Restores the workspace to before the pull.") +
+        `</div>`
     }
     // The IDE was edited but not yet walked (that walk freezes the IDE, so it's on-demand) — hint a Refresh. The
     // section's Refresh button (syncActs, above) is the action; a full refresh clears this. Shown above the possibly-
@@ -350,10 +367,12 @@
         changeGrp("Outgoing · push → IDE", s.outgoing, "outgoing", s.workspaceRoot) + `</div>`
     }
 
-    // 3. Diagnostics
-    const diagActs = s.bound ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
+    // 3. Diagnostics — gated on `initialized`: a non-Volt folder has nothing to analyze, and `diag` still holds the
+    // PREVIOUS project's result (runDiagnostics returns without a new frame), so it must not render here.
+    const diagActs = s.initialized ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
     let diagBody
     if (!s.bound) diagBody = `<div class="note">No project open.</div>`
+    else if (!s.initialized) diagBody = `<div class="note">This folder isn't a Volt workspace yet — set it up in IDE Connection above.</div>`
     else if (!diag || diag.loading) diagBody = `<div class="note">Analyzing Structured Text…</div>`
     else if (diag.error) diagBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(diag.error)}</div>`
     else if ((diag.errors + diag.warnings) === 0) diagBody = `<div class="note">✓ No problems.</div>`
@@ -362,11 +381,9 @@
         `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll">` +
         diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
 
-    const warn = s.error ? `<div class="warn-box">${esc(s.error)}</div>` : ""
-
     document.getElementById("panel").innerHTML =
       section("bridge", "IDE Connection", bridgeActs, bridgeBody) +
-      section("sync", "IDE Sync", syncActs, syncBody + warn) +
+      section("sync", "IDE Sync", syncActs, syncBody) +
       section("diag", "Diagnostics", diagActs, diagBody)
   }
 
@@ -387,23 +404,23 @@
 
   // Start an action: set its label and CLEAR any leftover % so the titlebar bar doesn't flash the prior run's fill
   // before the first progress frame arrives. The main process surfaces errors + clears progress itself (runGuarded).
-  function begin(label) { busy = label; busyPct = null; render() }
-  async function doPull() { begin("Pulling…"); await volt.pull() }
-  async function doPush() { begin("Pushing…"); await volt.push() }
-  async function doBuild() { begin("Building…"); await volt.build() }
-  async function doConnect() { begin("Connecting…"); await volt.connect() }
-  async function doDisconnect() { begin("Disconnecting…"); await volt.disconnect() }
+  function begin(label, key) { busy = label; busyAction = key ?? null; busyPct = null; render() }
+  async function doPull() { begin("Pulling…", "pull"); await volt.pull() }
+  async function doPush() { begin("Pushing…", "push"); await volt.push() }
+  async function doBuild() { begin("Building…", "build"); await volt.build() }
+  async function doConnect() { begin("Connecting…", "connect"); await volt.connect() }
+  async function doDisconnect() { begin("Disconnecting…", "disconnect"); await volt.disconnect() }
   async function doRebind(projectId, name) {
     if (!confirm(`Bind this workspace to “${name}”?\n\nYour local code is untouched — future sync points at “${name}” instead of the project you were bound to.`)) return
-    begin("Re-binding…"); await volt.rebind(projectId)
+    begin("Re-binding…", "rebind:" + projectId); await volt.rebind(projectId)
   }
-  async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.\n\nThis cannot be undone.")) return; begin("Force pulling…"); await volt.forcePull() }
-  async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.\n\nThis cannot be undone.")) return; begin("Force pushing…"); await volt.forcePush() }
-  async function doFinishMerge() { begin("Finishing merge…"); await volt.finishMerge() }
-  async function doAbortMerge() { if (!confirm("Abort discards this merge and restores your workspace to before the pull.\n\nYour in-merge edits are lost. This cannot be undone.")) return; begin("Aborting merge…"); await volt.abortMerge() }
+  async function doForcePull() { if (!confirm("Force pull discards your local workspace edits and overwrites them with the IDE's state.\n\nThis cannot be undone.")) return; begin("Force pulling…", "pull"); await volt.forcePull() }
+  async function doForcePush() { if (!confirm("Force push overwrites the IDE with your workspace, ignoring changes made since your last pull.\n\nThis cannot be undone.")) return; begin("Force pushing…", "push"); await volt.forcePush() }
+  async function doFinishMerge() { begin("Finishing merge…", "finishMerge"); await volt.finishMerge() }
+  async function doAbortMerge() { if (!confirm("Abort discards this merge and restores your workspace to before the pull.\n\nYour in-merge edits are lost. This cannot be undone.")) return; begin("Aborting merge…", "abortMerge"); await volt.abortMerge() }
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
-  async function doInit(projectId) { begin("Initializing…"); await volt.initWorkspace(projectId) }
+  async function doInit(projectId) { begin("Initializing…", "init:" + projectId); await volt.initWorkspace(projectId) }
   function doDiff(root, path, name, dir) { volt.diff(root, path, name, dir) }
   function doTakeSide(path, side) { volt.mergeResolve(path, side) }
 
@@ -425,6 +442,7 @@
   volt.onProgress((p) => {
     busy = p ? (p.message ?? "Working…") : null
     busyPct = p && p.pct != null ? p.pct : null
+    if (!p) busyAction = null // action finished (runGuarded's null frame) → stop spinning its button
     render()
   })
   volt.onStatus((s) => { snap = s; refreshing = false; render() })

@@ -63,7 +63,9 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       if (!shell.win) return undefined
       const type = view.tone === "error" ? "error" : view.tone === "warn" ? "warning" : "info"
       if (view.actions.length === 0) {
-        await dialog.showMessageBox(shell.win, { type, message: view.message })
+        // Nothing to decide → no modal for a plain success (the panel already reflects the result; the acting
+        // button's spinner was the in-progress feedback). Only errors/warnings still interrupt.
+        if (view.tone !== "info") await dialog.showMessageBox(shell.win, { type, message: view.message })
         return undefined
       }
       const buttons = [...view.actions.map((a) => a.label), "Cancel"]
@@ -175,9 +177,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       if (!st) return
       const r = await reconnectBound(st.workspaceRoot)
       clearProgress()
-      await st.refresh(true) // reflect the new bridge selection in status
-      if (r.ok) notify("info", "Reconnected to the IDE.")
-      else notify("error", r.message ?? "Reconnect failed.")
+      await st.refresh(true) // reflect the new bridge selection in status — the panel flips to the connected row
+      if (!r.ok) notify("error", r.message ?? "Reconnect failed.") // success needs no popup; the UI shows it
     }),
   )
   ipcMain.handle("volt:disconnect", () =>
@@ -189,8 +190,9 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       await shell.status?.refresh(true)
       // Described ONCE in @volt/control so this and the VS Code command can't word it differently — they already
       // did (this reported an out-of-date bridge as an "error", VS Code as a "warning", for the same event).
+      // Only surface a problem (error, or the out-of-date-bridge warning) — a clean disconnect needs no popup.
       const view = describeDisconnect(r)
-      notify(view.tone === "error" ? "error" : "info", view.message)
+      if (view.tone !== "info") notify(view.tone === "error" ? "error" : "info", view.message)
     }),
   )
   // Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the
@@ -205,8 +207,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const out = await initFromProject(project, st.workspaceRoot, { force: true, onProgress: report })
       clearProgress()
       await st.refresh(true)
-      if (out.code === 0) notify("info", `Bound to “${project.displayName}” — syncing again.`)
-      else notify("error", `Couldn't bind: ${firstLine(out.stderr) || `exit ${out.code}`}`)
+      if (out.code !== 0) notify("error", `Couldn't bind: ${firstLine(out.stderr) || `exit ${out.code}`}`) // success shows in the panel
     }),
   )
   ipcMain.on("volt:refresh", () => void shell.status?.refresh(true))
@@ -234,12 +235,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
 
       const out = await initFromProject(project, root, { onProgress: report })
       clearProgress()
-      if (out.code === 0) {
-        await bindWorkspace(shell, root)
-        notify("info", `Workspace initialized — “${project.displayName}” is syncing.`)
-      } else {
-        notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
-      }
+      if (out.code === 0) await bindWorkspace(shell, root) // the panel flips to the synced view — no success popup
+      else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
 }

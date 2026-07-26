@@ -44,6 +44,12 @@ const { app, BrowserWindow, WebContentsView, ipcMain, shell: electronShell, dial
 // selection isn't server-side here. VERIFIED: launching with --lang=en-US rendered the GUI in English.
 app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 
+// Windows taskbar identity. Without an explicit AppUserModelID the running app inherits Electron's, so the taskbar
+// shows the generic Electron icon (most visible in dev) and a pinned shortcut never merges with the live window.
+// Match electron-builder.yml's `appId` so the packaged app's window + shortcut share one taskbar button and icon.
+// (No-op off Windows; Volt is Windows-only anyway.)
+app.setAppUserModelId("dev.volt.desktop")
+
 const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [], connectorUp: false }
 
 function layoutView() {

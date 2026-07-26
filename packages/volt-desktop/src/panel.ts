@@ -68,13 +68,12 @@ export function pushStatus(shell: Shell): void {
   shell.win?.webContents.send("volt:status", snapshot(shell))
 }
 
-/** Refresh the detected-project list from the connector — the init surface. Pushes to the renderer only when the
- *  list changes, so the 10s poll is otherwise silent. Skipped once a Volt workspace is bound (the sync actions
- *  show instead of the init picker). */
+/** Refresh the detected-project list from the connector. Pushes to the renderer only when the list changes, so the
+ *  10s poll is otherwise silent. Runs even when BOUND: the list also feeds the offline connection surface (pick your
+ *  project to reconnect, or a renamed one to rebind) — not only the unbound init picker. */
 export async function refreshDetectedProjects(shell: Shell): Promise<void> {
-  if (shell.status && readBridgeVendor(shell.status.workspaceRoot) !== undefined) return
   // One connector probe drives BOTH the detected-project list AND whether the connector is even running, so the
-  // init surface can tell "connector not running" apart from "connector up, no IDE project open".
+  // surface can tell "connector not running" apart from "connector up, no IDE project open".
   const view = await connectorStatus()
   const next = view?.projects ?? []
   const up = view !== undefined

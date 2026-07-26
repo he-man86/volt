@@ -38,14 +38,17 @@ export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutco
 	else if (out.kind !== "ok") await st.refresh(true); // merge outcomes carry no status → always re-fetch
 }
 
-/** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a project
- *  switch. `seen` gates the very first read (start()'s explicit refresh covers the initial state). Pure so
- *  the branching is unit-tested without a live bridge. */
+/** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a switch between
+ *  two DIFFERENT live projects. The name check requires BOTH names defined — an `undefined ↔ name` transition is a
+ *  disconnect/reconnect (the bridge dropping and coming back), NOT an edit, and flagging it "IDE changed — Refresh"
+ *  on every reconnect was a false positive. `seen` gates the very first read (start()'s explicit refresh covers the
+ *  initial state). Pure so the branching is unit-tested without a live bridge. */
 export function isIdeChangeEdge(
 	prev: { seen: boolean; dirty: boolean; name: string | undefined },
 	next: { dirty: boolean; name: string | undefined },
 ): boolean {
-	return prev.seen && ((next.dirty && !prev.dirty) || next.name !== prev.name);
+	const switched = prev.name !== undefined && next.name !== undefined && next.name !== prev.name;
+	return prev.seen && ((next.dirty && !prev.dirty) || switched);
 }
 
 export class VoltStatus {

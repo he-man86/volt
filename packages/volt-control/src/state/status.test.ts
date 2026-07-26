@@ -28,6 +28,13 @@ test("isIdeChangeEdge: fires on a project switch (rebind)", () => {
 	expect(isIdeChangeEdge({ seen: true, dirty: false, name: "P" }, { dirty: false, name: "P" })).toBe(false);
 });
 
+// A disconnect/reconnect moves the name undefined↔defined — that's the bridge dropping and coming back, NOT an
+// IDE edit, so it must not raise the "IDE changed — Refresh" hint (it did on every reconnect before).
+test("isIdeChangeEdge: a reconnect (name undefined↔defined) is not an edit edge", () => {
+	expect(isIdeChangeEdge({ seen: true, dirty: false, name: undefined }, { dirty: false, name: "P" })).toBe(false); // reconnect
+	expect(isIdeChangeEdge({ seen: true, dirty: false, name: "P" }, { dirty: false, name: undefined })).toBe(false); // disconnect
+});
+
 test("refresh on an unbound workspace clears state and fires onDidChange (no bridge needed)", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "volt-st-"));
 	try {

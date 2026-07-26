@@ -73,8 +73,10 @@ function progressBridge(progress: VsProgress): (p: ProgressUpdate) => void {
 const vscodePresenter: OutcomePresenter = {
 	async choose(view) {
 		if (view.actions.length === 0) {
+			// Nothing to decide → surface only problems. A plain success needs no toast (the views update; the
+			// in-progress feedback was the notification spinner). Errors and warnings still show.
 			if (view.tone === "error") void vscode.window.showErrorMessage(view.message)
-			else void vscode.window.showInformationMessage(view.message)
+			else if (view.tone === "warn") void vscode.window.showWarningMessage(view.message)
 			return undefined
 		}
 		const labels = view.actions.map((a) => a.label)
@@ -200,7 +202,7 @@ function finishInit(ensureWorkspace: (folder: string) => void, workspaceRoot: st
 		)
 		return
 	}
-	vscode.window.showInformationMessage("Workspace initialized.")
+	// No success toast — the IDE Sync view + status bar coming alive (below) is the confirmation.
 	// The folder now has .git/volt/config.json — register it so the IDE Sync view, status bar and
 	// decorations come alive without a reload. ensureWorkspace refreshes the tracker itself (mirrors the
 	// desktop's single-refresh bind), so no extra refresh here.
@@ -274,8 +276,8 @@ async function doReconnect(statuses: Map<string, VoltStatus>, workspaceRoot: str
 		() => reconnectBound(workspaceRoot),
 	)
 	await statuses.get(workspaceRoot)?.refresh(true) // reflect the new bridge selection
-	if (r.ok) vscode.window.showInformationMessage("Reconnected to the IDE.")
-	else vscode.window.showErrorMessage(r.message ?? "Reconnect failed.")
+	// Success needs no toast — the Bridge view flips to Disconnect. Only report a failure.
+	if (!r.ok) vscode.window.showErrorMessage(r.message ?? "Reconnect failed.")
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {

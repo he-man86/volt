@@ -86,17 +86,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	// disconnect); the Sync view's welcomes only point there. No vendor buttons: the user picks a project, vendor
 	// is derived. Skipped once a folder is bound.
 	const refreshBridgeLive = async (): Promise<void> => {
-		const unbound = statuses.size === 0 && workspaceFolders().length > 0
 		// One connector probe drives BOTH onboarding signals: whether the connector is even running (so the Bridge
 		// view can tell "connector not running" apart from "no IDE project open" — they used to look identical) AND
-		// the detected-project list. Only probed while unbound; a bound folder's live health comes from VoltStatus.
-		const view = unbound ? await connectorStatus() : undefined
+		// the detected-project list. Probed regardless of bound state: the list ALSO feeds the Bridge view's offline
+		// reconnect surface (pick your project to reconnect, or a renamed one to rebind), not just unbound onboarding.
+		const view = await connectorStatus()
 		const projects = view?.projects ?? []
 		// NOTE: no `volt.hasProjects` context key any more. It used to gate `volt.init`'s `enablement`, which made
 		// the detected-project ROWS dead on click whenever the key was stale or false — VS Code silently does
 		// nothing when a TreeItem's command is disabled, so "click to set up" did exactly that: nothing. The
 		// command reports "No PLC project detected…" itself, which beats a button that ignores you.
-		views?.setDetected(projects, !unbound || view !== undefined)
+		views?.setDetected(projects, view !== undefined)
 	}
 	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
 
@@ -129,6 +129,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			for (const folder of e.added) { if (hasVoltConfig(folder)) addWorkspace(folder, decorations) }
 			for (const folder of e.removed) {
 				statuses.get(folder.uri.fsPath)?.dispose(); statuses.delete(folder.uri.fsPath)
+				decorations.remove(folder.uri.fsPath)
 			}
 			views?.update(statuses)
 			updateContextKeys()
@@ -175,7 +176,7 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 
 	s.onDidChange.event(() => {
 		views?.update(statuses)
-		if (s.cached !== undefined) decorations.refresh(s.cached)
+		if (s.cached !== undefined) decorations.refresh(s.workspaceRoot, s.cached)
 		updateContextKeys()
 	})
 	statuses.set(folder.uri.fsPath, s)
