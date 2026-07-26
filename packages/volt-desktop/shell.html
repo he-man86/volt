@@ -85,6 +85,13 @@
   .sect { display: flex; align-items: center; gap: 7px; padding: 14px 10px 5px 14px; scroll-margin-top: 4px; }
   .sect .s-title { font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); }
   .sect + .sect { border-top: 1px solid var(--border); margin-top: 7px; }
+  /* Collapsible section header — the chevron + title toggle the body; the action row stays a sibling. */
+  .s-head { -webkit-app-region: no-drag; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0;
+    background: transparent; padding: 0; margin: 0; cursor: default; text-align: left; }
+  .s-head:hover .s-title { color: var(--text); }
+  .chev { width: 11px; height: 11px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2.5; stroke-linecap: round;
+    stroke-linejoin: round; transition: transform 140ms ease; }
+  .chev.open { transform: rotate(90deg); }
   .s-acts { margin-left: auto; display: flex; gap: 2px; }
   .ico-btn { width: 26px; height: 24px; border: 0; background: transparent; color: var(--muted); border-radius: var(--r-sm);
     display: grid; place-items: center; cursor: default; transition: background 140ms ease, color 140ms ease; }
@@ -191,6 +198,7 @@
   let busyPct = null // determinate % for the titlebar bar (null = indeterminate — just spin the icon)
   let moreOpen = false // the sync section's "⋯" overflow menu (force pull/push)
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
+  const collapsed = new Set() // section keys the user collapsed (click a header to fold its body away, VS Code-style)
 
   // Escapes ' as well as the usual four: project names come from the IDE and land inside a single-quoted JS
   // string in an onclick (doInit('<id>')), so a project called "Bob's Machine" would otherwise close the literal
@@ -218,7 +226,12 @@
   const refreshBtn = (title) => refreshing
     ? `<button class="ico-btn" title="Refreshing…" disabled><svg class="ico spin"><use href="#i-refresh"/></svg></button>`
     : icoBtn("i-refresh", title, "doRefresh()")
-  const section = (key, title, acts, body) => `<div class="sect" id="sect-${key}"><span class="s-title">${title}</span><span class="s-acts">${acts}</span></div>${body}`
+  // A collapsible section: click the header (chevron + title) to fold its body away; the action buttons live in a
+  // sibling `.s-acts` so they still work while the header toggles. Collapsed → the body isn't rendered at all.
+  const section = (key, title, acts, body) => {
+    const open = !collapsed.has(key)
+    return `<div class="sect" id="sect-${key}"><button class="s-head" title="${open ? "Collapse" : "Expand"}" onclick="toggleSect('${key}')"><svg class="chev${open ? " open" : ""}" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="s-title">${title}</span></button><span class="s-acts">${acts}</span></div>${open ? body : ""}`
+  }
 
   // A detected-project button in the connection picker. Its `action` (from @volt/control's connectOptions) decides
   // the click + hint: init = first-time set up · connect = reconnect the matching project · rebind = re-point the
@@ -391,9 +404,13 @@
   function tab(name) {
     if (open && activeTab === name) return setOpen(false)
     activeTab = name
+    collapsed.delete(name) // jumping to a section always expands it — you clicked it to see it
     setOpen(true)
     document.getElementById("sect-" + name)?.scrollIntoView({ block: "start", behavior: "smooth" })
   }
+
+  // Fold/unfold a section's body. Keyed by the section id ("bridge"/"sync"/"diag"); persists across re-renders.
+  function toggleSect(key) { collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key); render() }
 
   function setOpen(v) {
     open = v
