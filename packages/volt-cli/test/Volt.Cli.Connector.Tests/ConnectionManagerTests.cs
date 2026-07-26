@@ -101,6 +101,45 @@ public class ConnectionManagerTests
         Assert.Null(mgr.SelectedOf("twincat"));
     }
 
+    // A connect is a MUTATING action: the select changes what the bridge serves, so the cached status is stale. Without
+    // cache invalidation, GET /status's RefreshIfStaleAsync(1s) would skip the re-scan (the prior scan is <1s old) and
+    // return the pre-connect "idle" — the exact lag that made the desktop flash "connecting → disconnected → connected".
+    [Fact]
+    public async Task Connect_invalidates_the_status_cache_so_a_read_within_1s_still_re_scans()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var p = cds.Add("MachineA"); // idle
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync(); // scans; _lastRefresh = now, so a 1s-stale read would normally skip
+        Assert.Equal(HealthStatus.Idle, mgr.Projects.Single().Status);
+
+        cds.Projects.Clear();
+        cds.Add("MachineA", serving: true); // the select makes the bridge SERVE it — a fresh scan would show healthy
+
+        await mgr.ConnectAsync(p);
+        await mgr.RefreshIfStaleAsync(TimeSpan.FromSeconds(1)); // must re-scan despite the <1s-old prior scan
+
+        Assert.Equal(HealthStatus.Healthy, mgr.Projects.Single().Status); // serving now — not the stale "idle"
+    }
+
+    [Fact]
+    public async Task Disconnect_invalidates_the_status_cache_so_a_read_within_1s_still_re_scans()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var p = cds.Add("MachineA", serving: true); // serving
+        var mgr = Mgr(cds);
+        await mgr.RefreshAsync();
+        Assert.Equal(HealthStatus.Healthy, mgr.Projects.Single().Status);
+
+        cds.Projects.Clear();
+        cds.Add("MachineA"); // gated → idle on the next scan
+
+        await mgr.DisconnectAsync(p.Id);
+        await mgr.RefreshIfStaleAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(HealthStatus.Idle, mgr.Projects.Single().Status); // disconnected now — not the stale "healthy"
+    }
+
     [Fact]
     public void DisplayName_lookup_backs_the_platform_prefix_and_notification()
     {

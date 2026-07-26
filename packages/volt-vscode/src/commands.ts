@@ -274,9 +274,14 @@ async function pickProject(projects: DetectedProject[]): Promise<DetectedProject
 async function doReconnect(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "Reconnecting to the IDE…" },
-		() => reconnectBound(workspaceRoot),
+		async () => {
+			const res = await reconnectBound(workspaceRoot)
+			// Refresh INSIDE the progress: the connect invalidated the connector's status cache, so this re-scans and
+			// reflects the project SERVING before the toast closes — the Bridge view flips straight to connected, no flash.
+			await statuses.get(workspaceRoot)?.refresh(true)
+			return res
+		},
 	)
-	await statuses.get(workspaceRoot)?.refresh(true) // reflect the new bridge selection
 	// Success needs no toast — the Bridge view flips to Disconnect. Only report a failure.
 	if (!r.ok) vscode.window.showErrorMessage(r.message ?? "Reconnect failed.")
 }

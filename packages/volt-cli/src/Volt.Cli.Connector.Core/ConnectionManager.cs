@@ -174,6 +174,10 @@ namespace Volt.Cli.Connector
             {
                 Selected = prior.Selected.ToDictionary(kv => kv.Key, kv => kv.Key == project.Vendor ? project : null),
             };
+            // The select just changed the bridge's serving state; the cached Status (serving/idle) is now stale. Force
+            // the NEXT status read to re-scan instead of returning a ≤1s-old "idle" snapshot — so a client that
+            // refreshes right after this connect sees the project SERVING, matching the select it just got back.
+            _lastRefreshUtc = DateTime.MinValue;
             Connected?.Invoke(project);
         }
 
@@ -212,6 +216,7 @@ namespace Volt.Cli.Connector
                 {
                     Selected = current.Selected.ToDictionary(kv => kv.Key, kv => kv.Value?.Id == target.Id ? null : kv.Value),
                 };
+                _lastRefreshUtc = DateTime.MinValue; // serving state changed — next status read must re-scan (see ConnectAsync)
             }
             return result;
         }

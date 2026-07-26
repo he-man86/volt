@@ -178,8 +178,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const st = shell.status
       if (!st) return
       const r = await reconnectBound(st.workspaceRoot)
-      clearProgress()
-      await st.refresh(true) // reflect the new bridge selection in status — the panel flips to the connected row
+      // Refresh status BEFORE the spinner clears — the connect invalidated the connector's cache, so this re-scans and
+      // shows the project SERVING. The spinner is cleared by runGuarded's finally AFTER this, so it never flips onto a
+      // stale "disconnected" (the flash). The select's own response (r.ok) is what gates success, not a timer.
+      await st.refresh(true)
       if (!r.ok) notify("error", r.message ?? "Reconnect failed.") // success needs no popup; the UI shows it
     }),
   )
@@ -188,7 +190,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
       // This workspace's project, not the tray's active connection (see the VS Code command).
       const r = await disconnect(await boundProjectId(shell.status?.workspaceRoot ?? ""))
-      clearProgress()
+      // Refresh BEFORE the spinner clears (runGuarded's finally) — disconnect invalidated the cache, so status re-scans
+      // to "disconnected" now instead of the spinner flipping onto a stale "connected".
       await shell.status?.refresh(true)
       // Described ONCE in @volt/control so this and the VS Code command can't word it differently — they already
       // did (this reported an out-of-date bridge as an "error", VS Code as a "warning", for the same event).
