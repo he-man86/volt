@@ -296,9 +296,10 @@
     let bridgeBody
     if (!s.bound) bridgeBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
     else {
-      // Repo header — the ACTUAL workspace folder Volt is working in (full path in the tooltip) + a Change… button
-      // to point it at a different folder. Leads the section so "which repo is this" is answered first.
-      const repoRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span><button class="mini" onclick="doPickFolder()" title="Work in a different folder">Change…</button></div>`
+      // Repo header — the ACTUAL workspace folder Volt is working in (full path in the tooltip). Read-only: the
+      // project is chosen in opencode's own UI ("Add project"); the desktop follows it. Leads the section so
+      // "which repo is this" is answered first.
+      const repoRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span></div>`
       if (!s.initialized) {
         // A folder is open but it isn't a Volt workspace yet — the detected IDE projects to set it up from.
         const projects = s.projects || []
@@ -454,7 +455,6 @@
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { begin("Initializing…", "init:" + projectId); await volt.initWorkspace(projectId) }
-  function doPickFolder() { volt.pickFolder() } // native folder picker → bind Volt to the chosen folder (main.ts)
   function doDiff(root, path, name, dir) { volt.diff(root, path, name, dir) }
   function doTakeSide(path, side) { volt.mergeResolve(path, side) }
 

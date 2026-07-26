@@ -23,7 +23,6 @@ contextBridge.exposeInMainWorld("volt", {
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),
   initWorkspace: (projectId) => ipcRenderer.invoke("volt:init", projectId),
-  pickFolder: () => ipcRenderer.invoke("volt:pickFolder"),
   diff: (workspaceRoot, relPath, name, direction) => ipcRenderer.invoke("volt:diff", workspaceRoot, relPath, name, direction),
   openFile: (path) => ipcRenderer.invoke("volt:openFile", path),
   onProgress: (cb) => ipcRenderer.on("volt:progress", (_e, p) => cb(p)),

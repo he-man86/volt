@@ -50,7 +50,7 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, manualRoot: false, panelOpen: false, projects: [], connectorUp: false }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [], connectorUp: false }
 
 function layoutView() {
   if (!shell.win || !shell.view) return
@@ -105,8 +105,8 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const dir = activeDirFromRequest(details)
-    // Skip once the user picked a folder by hand — a deliberate Change… must not be re-bound away on the next request.
-    if (!shell.manualRoot && dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
+    // Follow whatever project opencode's GUI is on — the user selects it there ("Add project"), we bind to it.
+    if (dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
     cb({ requestHeaders: details.requestHeaders })
   })
 }

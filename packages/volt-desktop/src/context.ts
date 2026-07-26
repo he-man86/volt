@@ -11,9 +11,6 @@ export interface Shell {
   view: WebContentsView | null
   status: VoltStatus | null
   boundRoot: string | undefined // the project currently bound (from opencode's active dir / VOLT_WORKSPACE)
-  // Set once the user picks a folder by hand (Change… in the panel): the opencode-header watcher then stops
-  // auto-following opencode's active project, so a deliberate choice isn't re-bound on the next chat request.
-  manualRoot: boolean
   panelOpen: boolean
   // The detected projects across all IDEs (from the connector) — the init surface. The user picks one; there is
   // no vendor button. Vendor rides along on each project as a badge.

@@ -1,7 +1,8 @@
 // The pull/push/build/init actions — the desktop counterpart of the extension's commands.ts. The FLOW (adopt
 // vs refresh, outcome filtering + destructive-confirm, progress formatting) lives in @volt/control; this file
 // only supplies Electron's native primitives (dialogs + IPC) and wires them to the shared functions.
-import { existsSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync } from "node:fs"
+import { join } from "node:path"
 import type { Dialog, IpcMain } from "electron"
 import {
   pull,
@@ -219,19 +220,24 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
 
-      // Pick the folder EXPLICITLY. opencode's reported cwd (shell.boundRoot) is only a DEFAULT, not the truth —
-      // with no project open it's the launch/home dir, which silently git-init'd the wrong folder. The native dir
-      // picker + "Set Up Workspace" button IS the confirmation (init makes the folder a git repo and pulls the
-      // project in), so there's no separate confirm dialog; defaultPath seeds opencode's folder for the common case.
+      // Pick a PARENT location; Volt CREATES a folder named after the IDE project inside it (like `git clone`
+      // creating <repo>/). opencode's own UI can only ADD an existing project — it can't create a folder — so the
+      // user would otherwise have to hand-make an empty "New folder (2)" first. Naming it after the project also
+      // makes the workspace self-describing. The picker + button IS the confirmation (no separate dialog).
       const platform = vendorLabel(project.vendor)
       const picked = await dialog.showOpenDialog(shell.win, {
-        title: `Set up a Volt workspace for “${project.displayName}” (${platform})`,
-        defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
-        properties: ["openDirectory"],
-        buttonLabel: "Set Up Workspace",
+        title: `Create a Volt workspace for “${project.displayName}” (${platform})`,
+        defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? join(shell.boundRoot, "..") : undefined,
+        properties: ["openDirectory", "createDirectory"],
+        buttonLabel: "Create here",
       })
       if (picked.canceled || picked.filePaths.length === 0) return
-      const root = picked.filePaths[0]
+      // Project name → a safe folder name (strip chars illegal on Windows/POSIX; collapse whitespace).
+      const folder = project.displayName.replace(/[<>:"/\\|?*\x00-\x1f]+/g, "_").replace(/\s+/g, " ").trim() || "volt-workspace"
+      const root = join(picked.filePaths[0], folder)
+      if (existsSync(root) && readdirSync(root).length > 0)
+        return notify("error", `“${folder}” already exists here and isn't empty — pick another location or open that folder in opencode instead.`)
+      mkdirSync(root, { recursive: true })
 
       const out = await initFromProject(project, root, { onProgress: report })
       clearProgress()
@@ -239,19 +245,4 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
-
-  // "Change…" in the IDE Connection panel — pick a different folder to work in. Marks the choice MANUAL so the
-  // opencode-header watcher (main.ts) stops auto-following opencode's active project and re-binding away from it.
-  ipcMain.handle("volt:pickFolder", async () => {
-    if (!shell.win) return
-    const picked = await dialog.showOpenDialog(shell.win, {
-      title: "Work in a different folder",
-      defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
-      properties: ["openDirectory"],
-      buttonLabel: "Use this folder",
-    })
-    if (picked.canceled || picked.filePaths.length === 0) return
-    shell.manualRoot = true
-    await bindWorkspace(shell, picked.filePaths[0])
-  })
 }
