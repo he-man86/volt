@@ -355,7 +355,7 @@
       // list (same one the VS Code merge subtree renders). Buttons/rows go through the delegated panel listener.
       const cf = s.conflicts || []
       const clist = cf.length
-        ? `<div class="grp">Conflicts<span class="n">${cf.length}</span></div><div class="scroll">` +
+        ? `<div class="grp">Conflicts<span class="n">${cf.length}</span></div><div class="scroll" data-scroll="merge">` +
           cf.map((c) => `<div class="row conflict"><span class="stat D">!</span><span class="path click" data-root="${esc(s.workspaceRoot)}" data-path="${esc(c.relPath)}" data-name="${esc(c.name)}" data-dir="incoming" title="Open diff">${esc(c.name)}</span><span class="s-acts"><button class="mini take" data-path="${esc(c.relPath)}" data-side="ide" title="Take the IDE's version">IDE</button><button class="mini take" data-path="${esc(c.relPath)}" data-side="mine" title="Take your version">Mine</button></span></div>`).join("") +
           `</div>`
         : ""
@@ -375,7 +375,7 @@
         ? `<div class="note"><svg class="ico"><use href="#i-refresh"/></svg>The IDE project was edited — Refresh (above) to check for incoming updates.</div>`
         : ""
       if (n === 0) syncBody = busyNote + changedNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
-      else syncBody = busyNote + changedNote + `<div class="scroll">` +
+      else syncBody = busyNote + changedNote + `<div class="scroll" data-scroll="sync">` +
         changeGrp("Incoming · IDE → pull", s.incoming, "incoming", s.workspaceRoot) +
         changeGrp("Outgoing · push → IDE", s.outgoing, "outgoing", s.workspaceRoot) + `</div>`
     }
@@ -391,13 +391,22 @@
     else if ((diag.errors + diag.warnings) === 0) diagBody = `<div class="note">✓ No problems.</div>`
     else
       diagBody =
-        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll">` +
+        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll" data-scroll="diag">` +
         diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
 
-    document.getElementById("panel").innerHTML =
+    // Rebuilding innerHTML resets every scroll container to top. render() runs on each status poll (~4s), so
+    // without this the list snaps back to top mid-scroll — and a click that lands after the snap opens the WRONG
+    // row's diff. Capture each scroll offset by key, rebuild, then restore (panel itself + the per-section boxes).
+    const panel = document.getElementById("panel")
+    const panelY = panel.scrollTop
+    const scrollY = {}
+    panel.querySelectorAll("[data-scroll]").forEach((el) => (scrollY[el.dataset.scroll] = el.scrollTop))
+    panel.innerHTML =
       section("bridge", "IDE Connection", bridgeActs, bridgeBody) +
       section("sync", "IDE Sync", syncActs, syncBody) +
       section("diag", "Diagnostics", diagActs, diagBody)
+    panel.scrollTop = panelY
+    panel.querySelectorAll("[data-scroll]").forEach((el) => { const y = scrollY[el.dataset.scroll]; if (y) el.scrollTop = y })
   }
 
   // A rail tab: open the panel and jump to its section; clicking the already-open tab collapses (VS Code style).
@@ -462,7 +471,15 @@
     if (!p) busyAction = null // action finished (runGuarded's null frame) → stop spinning its button
     render()
   })
-  volt.onStatus((s) => { snap = s; refreshing = false; render() })
+  // Skip the re-render when a poll brings nothing new — the 4s health poll fires onStatus every time, and each
+  // render rebuilds the panel (a scroll-resetting churn the user never asked for). Re-render only on a real change
+  // (or when a refresh just completed, to un-spin its button).
+  volt.onStatus((s) => {
+    const changed = refreshing || JSON.stringify(s) !== JSON.stringify(snap)
+    snap = s
+    refreshing = false
+    if (changed) render()
+  })
   volt.onDiagnostics((d) => { diag = d; render() })
   render()
 </script>
