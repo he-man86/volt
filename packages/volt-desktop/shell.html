@@ -33,6 +33,7 @@
   .bolt { width: 15px; height: 15px; color: var(--accent); flex: none; }
   .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   .ico.spin { animation: spin .8s linear infinite; transform-origin: center; }
+  .ico--muted { color: var(--muted); }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .titlebar { position: relative; height: 40px; display: flex; align-items: center; justify-content: space-between;
@@ -159,6 +160,7 @@
   <symbol id="i-disconnect" viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 17h2a5 5 0 0 0 0-10h-2M2 2l20 20"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
   <symbol id="i-bridge" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h3.6a1 1 0 0 1 .7.3L11 7h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
 </svg>
 
 <div class="titlebar">
@@ -293,35 +295,39 @@
     // below is only "what changed" — it never owns connecting (that split is mirrored in the VS Code extension).
     let bridgeBody
     if (!s.bound) bridgeBody = `<div class="note">Open a PLC project in opencode to begin.</div>`
-    else if (!s.initialized) {
-      // The onboarding STATE is decided in @volt/control (onboardingMode, on the snapshot) so this and the VS Code
-      // view can't drift; only the markup is ours. Pick a DETECTED PROJECT to set this workspace up from — one
-      // button per project, its platform a badge. No vendor buttons.
-      const projects = s.projects || []
-      bridgeBody = busy
-        ? ""
-        : s.onboarding === "choose-project"
-          ? `<div class="note">This folder isn't syncing with an IDE yet — pick the project to set it up from:</div>
-        <div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
-          : s.onboarding === "no-project"
-            ? `<div class="note">No PLC project detected. Open your project in TwinCAT, or activate Volt in CODESYS from the Connector (tray) — it then appears here to set up.</div>`
-            : `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>The Volt Connector isn't running. Start Volt — its tray connector finds your open PLC projects and serves the bridge; they then appear here to set up.</div>`
-    } else {
-      // Bound: state first (connected, and to WHAT), then the action. Online → the ONE Disconnect button. Offline →
-      // the detected-project list IS the reconnect surface: the matching project reconnects, a differently-named one
-      // rebinds (a rename — confirmed first). No mismatch/accept-rename state; a rename is just a row with a new name.
-      const h = s.health || { label: "…", tone: "warn", online: false }
-      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
-      // `connectionLabel` is decided in @volt/control (IDE-reported name when online, the binding's VENDOR — project
-      // when offline), so this row never branches on vendor.
-      const identity = `<div class="row"><span class="dot ${h.tone}"></span><span class="path">${esc(s.connectionLabel)}</span><span class="n">${esc(a.caption)}</span></div>`
-      if (a.action === "disconnect") {
-        bridgeBody = identity + `<div class="init-row">` + btn("disconnect", "btn", "doDisconnect()", `<svg class="ico"><use href="#i-disconnect"/></svg>`, "Disconnect from the IDE", "Stops syncing. The IDE stays open — reconnect to resume.") + `</div>`
-      } else {
+    else {
+      // Repo header — the ACTUAL workspace folder Volt is working in (full path in the tooltip) + a Change… button
+      // to point it at a different folder. Leads the section so "which repo is this" is answered first.
+      const repoRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span><button class="mini" onclick="doPickFolder()" title="Work in a different folder">Change…</button></div>`
+      if (!s.initialized) {
+        // A folder is open but it isn't a Volt workspace yet — the detected IDE projects to set it up from.
         const projects = s.projects || []
-        bridgeBody = identity + (projects.length
-          ? `<div class="note">Not syncing — pick your project below to reconnect (a different name rebinds this workspace to it):</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
-          : `<div class="note">${esc(h.label)} — open your project in the IDE (or start the Volt Connector) and it appears here to reconnect.</div>`)
+        const body =
+          s.onboarding === "choose-project"
+            ? `<div class="grp">Detected projects</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
+            : s.onboarding === "no-project"
+              ? `<div class="note">No PLC project detected — open it in the IDE, or activate Volt in CODESYS from the Connector (tray).</div>`
+              : `<div class="note">The Volt Connector isn't running — start Volt so it can find your open projects.</div>`
+        bridgeBody = repoRow + (busy ? "" : body)
+      } else {
+        // Bound Volt workspace: the project it syncs with + live status (name only — no vendor prefix), then the ONE
+        // action (Disconnect) or the detected-project picker to reconnect/rebind.
+        const h = s.health || { label: "…", tone: "warn", online: false }
+        const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
+        // A connect/disconnect/rebind is fast; surface its label in the PERSISTENT status row so the feedback is
+        // visible even after the button flips away on completion (the min-visible-duration in onProgress holds it).
+        const cxBusy = busyAction === "connect" || busyAction === "disconnect" || (busyAction || "").startsWith("rebind:")
+        const projRow = `<div class="row"><span class="dot ${h.tone}"></span><span class="path" style="flex:1">${esc(s.boundProjectName || base(s.workspaceRoot || "") || "—")}</span><span class="n">${cxBusy ? esc(busy) : esc(a.caption)}</span></div>`
+        let actions
+        if (a.action === "disconnect") {
+          actions = `<div class="init-row">` + btn("disconnect", "btn", "doDisconnect()", `<svg class="ico"><use href="#i-disconnect"/></svg>`, "Disconnect from the IDE", "Stops syncing. The IDE stays open — reconnect to resume.") + `</div>`
+        } else {
+          const projects = s.projects || []
+          actions = projects.length
+            ? `<div class="grp">Detected projects</div><div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
+            : `<div class="note">No project detected — open it in the IDE (or start the Volt Connector) to reconnect.</div>`
+        }
+        bridgeBody = repoRow + projRow + actions
       }
     }
     // No refresh here — the IDE Sync section's refresh re-probes the WHOLE status (health included), so a second
@@ -430,7 +436,8 @@
 
   // Start an action: set its label and CLEAR any leftover % so the titlebar bar doesn't flash the prior run's fill
   // before the first progress frame arrives. The main process surfaces errors + clears progress itself (runGuarded).
-  function begin(label, key) { busy = label; busyAction = key ?? null; busyPct = null; render() }
+  let busyStart = 0
+  function begin(label, key) { busy = label; busyAction = key ?? null; busyPct = null; busyStart = Date.now(); render() }
   async function doPull() { begin("Pulling…", "pull"); await volt.pull() }
   async function doPush() { begin("Pushing…", "push"); await volt.push() }
   async function doBuild() { begin("Building…", "build"); await volt.build() }
@@ -447,6 +454,7 @@
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { begin("Initializing…", "init:" + projectId); await volt.initWorkspace(projectId) }
+  function doPickFolder() { volt.pickFolder() } // native folder picker → bind Volt to the chosen folder (main.ts)
   function doDiff(root, path, name, dir) { volt.diff(root, path, name, dir) }
   function doTakeSide(path, side) { volt.mergeResolve(path, side) }
 
@@ -468,9 +476,19 @@
   // Live progress from any action (main sends formatProgress's {pct,message}); null clears it. The TEXT is the file
   // counter ("1234/8000 · Writing") — preferred over a bare %; busyPct drives the silent titlebar bar for the visual.
   volt.onProgress((p) => {
-    busy = p ? (p.message ?? "Working…") : null
-    busyPct = p && p.pct != null ? p.pct : null
-    if (!p) busyAction = null // action finished (runGuarded's null frame) → stop spinning its button
+    if (!p) {
+      // Action finished. Hold the busy state for a MINIMUM ~500ms so a fast action (connect/disconnect) still shows
+      // visible feedback instead of a sub-frame flash. Guard on busyStart so a NEW action isn't cleared by a stale
+      // delayed clear.
+      const start = busyStart
+      setTimeout(() => {
+        if (busyStart !== start) return
+        busy = null; busyAction = null; busyPct = null; render()
+      }, Math.max(0, 500 - (Date.now() - start)))
+      return
+    }
+    busy = p.message ?? "Working…"
+    busyPct = p.pct != null ? p.pct : null
     render()
   })
   // Skip the re-render when a poll brings nothing new — the 4s health poll fires onStatus every time, and each

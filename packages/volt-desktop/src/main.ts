@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
-import { setBundledCli, setLspServer, loadDiff, type DiffDirection } from "@volt/control"
+import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
 import { registerCommands } from "./commands.js"
@@ -50,7 +50,7 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, panelOpen: false, projects: [], connectorUp: false }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, manualRoot: false, panelOpen: false, projects: [], connectorUp: false }
 
 function layoutView() {
   if (!shell.win || !shell.view) return
@@ -105,7 +105,8 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const dir = activeDirFromRequest(details)
-    if (dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
+    // Skip once the user picked a folder by hand — a deliberate Change… must not be re-bound away on the next request.
+    if (!shell.manualRoot && dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
     cb({ requestHeaders: details.requestHeaders })
   })
 }
@@ -198,6 +199,26 @@ app.whenReady().then(async () => {
 })
 
 app.on("window-all-closed", () => app.quit())
+
+// Close the bridge connection when the app closes — the bridge stops serving sync until the next connect (the IDE
+// stays open). Deferred via before-quit: disconnect (a connector round-trip) before really quitting, but bounded so
+// a slow/absent connector can't hold the app open more than ~1.5s.
+let disconnectedOnQuit = false
+app.on("before-quit", (e) => {
+  const root = shell.status?.workspaceRoot
+  if (disconnectedOnQuit || root === undefined) return
+  disconnectedOnQuit = true
+  e.preventDefault()
+  void Promise.race([
+    (async () => {
+      try {
+        const id = await boundProjectId(root) // THIS workspace's project, not the tray's active one
+        if (id !== undefined) await disconnect(id)
+      } catch { /* connector down / already gone */ }
+    })(),
+    new Promise((r) => setTimeout(r, 1500)),
+  ]).then(() => app.quit())
+})
 app.on("quit", () => {
   shell.status?.dispose()
   killServer()

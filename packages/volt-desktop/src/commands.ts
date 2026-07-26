@@ -239,4 +239,19 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       else notify("error", `Initialize failed: ${firstLine(out.stderr) || `exit ${out.code}`}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
+
+  // "Change…" in the IDE Connection panel — pick a different folder to work in. Marks the choice MANUAL so the
+  // opencode-header watcher (main.ts) stops auto-following opencode's active project and re-binding away from it.
+  ipcMain.handle("volt:pickFolder", async () => {
+    if (!shell.win) return
+    const picked = await dialog.showOpenDialog(shell.win, {
+      title: "Work in a different folder",
+      defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
+      properties: ["openDirectory"],
+      buttonLabel: "Use this folder",
+    })
+    if (picked.canceled || picked.filePaths.length === 0) return
+    shell.manualRoot = true
+    await bindWorkspace(shell, picked.filePaths[0])
+  })
 }
