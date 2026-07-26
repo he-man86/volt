@@ -1,0 +1,120 @@
+## ADDED Requirements
+
+### Requirement: A project serves iff a live client declares interest in it
+
+The connector SHALL bind a project's bridge (serving) if and only if at least one non-expired session declares
+interest in that project and it is not force-off — `desired = ⋃ interests over live sessions \ forceOff`. Serving is
+DERIVED by reconciling the bridges toward `desired`; it is not set imperatively by connect/disconnect calls.
+
+#### Scenario: Two clients on the same project; one leaves
+
+- **WHEN** two sessions both declare interest in project X, and one of them stops declaring X (navigated away / closed)
+- **THEN** X remains served, because the other session still declares interest in it
+
+#### Scenario: Last client on a project leaves
+
+- **WHEN** the only session declaring interest in X stops declaring it
+- **THEN** the connector unbinds X's bridge (X stops serving)
+
+#### Scenario: Different projects in different clients
+
+- **WHEN** one session declares interest in X and another in Y (different hosts)
+- **THEN** both X and Y are served, independently
+
+### Requirement: Interest is the workspace binding identity, resolved connector-side
+
+Interest SHALL be expressed as the workspace's `{vendor, projectName}` binding identity, and the connector MUST
+resolve it to the currently-detected project every reconcile. It does NOT disambiguate same-name projects — that
+collapse is inherited from the existing identity model and is out of scope.
+
+#### Scenario: Interest declared before the IDE is open
+
+- **WHEN** a session declares interest in `{codesys, MyMachine}` while CODESYS is not yet running
+- **THEN** the connector binds MyMachine the moment it is detected, without the client needing to re-resolve or
+  re-declare
+
+#### Scenario: The IDE restarts under an active interest
+
+- **WHEN** a session holds interest in `{codesys, MyMachine}` and the IDE is restarted
+- **THEN** the reconciler re-resolves the interest to the re-detected project and re-binds its bridge, with no action
+  required from the client beyond its normal sync
+
+### Requirement: Presence via leases — going away is self-cleaning
+
+Each session SHALL hold a lease renewed on every sync, with a TTL of a small multiple of the poll interval. A session
+whose lease lapses MUST have its interests dropped from `desired`. No explicit disconnect is required for correctness.
+
+#### Scenario: A client crashes
+
+- **WHEN** a session stops renewing its lease (the client crashed) without sending `DELETE /session`
+- **THEN** after the TTL its interests drop out and the connector unbinds any project no other session still wants
+
+#### Scenario: Clean shutdown is immediate
+
+- **WHEN** a client sends `DELETE /session/{id}` on shutdown
+- **THEN** its interests drop immediately rather than after the TTL
+
+### Requirement: Declaration is idempotent; the sync poll carries it
+
+The connector's client-facing API SHALL be declarative: a session declares its FULL current interest set on each
+`POST /session/{id}/sync`, which also renews the lease and returns the live `ConnectorView` in one round-trip.
+Re-declaring the same set MUST be a no-op. There MUST be no add/remove delta, count, or ordering the client has to
+maintain.
+
+#### Scenario: Re-declaring the same interests
+
+- **WHEN** a session sends the same `interests` set on consecutive syncs
+- **THEN** nothing changes except the renewed lease
+
+### Requirement: Reconciliation respects the one-project-per-host bridge limit and does not flap on startup
+
+The reconciler MUST NOT attempt to make one host serve two projects at once (a bridge limit): for a host that can
+serve only one project (e.g. a TwinCAT XAE worker), it serves the most-recently-declared wanted project and reports
+the others as detected-but-idle. On connector startup it MUST NOT unbind serving projects until a short stabilization
+window has passed, so live clients can re-declare their interests without a serve interruption. Binds are never
+delayed by the window.
+
+#### Scenario: Connector restarts while projects are serving
+
+- **WHEN** the connector restarts and the IDE hosts are still serving their projects, before any client has re-synced
+- **THEN** the connector does not unbind those projects during the startup window; once clients re-sync within it, the
+  still-wanted projects keep serving and only genuinely-unwanted ones are unbound after the window
+
+#### Scenario: Two projects contend for one worker
+
+- **WHEN** two projects that share one TwinCAT worker are both in `desired`
+- **THEN** the worker serves the most-recently-declared one and the other is reported `idle`, without error
+
+### Requirement: Manual controls fit the multi-client model
+
+A frontend's Disconnect SHALL drop that project from its OWN interests (un-serving it only if no other live session
+wants it), not force the bridge off for everyone. The tray's Disconnect SHALL set a connector-held force-off for a
+project that keeps it unbound regardless of interests until cleared — the supervisor override.
+
+#### Scenario: One window disconnects a shared project
+
+- **WHEN** a VS Code window clicks Disconnect on a project the desktop is also using
+- **THEN** the window stops seeing it as connected but the project keeps serving (the desktop still wants it)
+
+#### Scenario: The tray force-disconnects a stuck bridge
+
+- **WHEN** the tray Disconnect is used on a project
+- **THEN** the connector keeps that project unbound regardless of any session's interest until the force-off is cleared
+
+### Requirement: The transition survives a version-skewed update
+
+The new connector SHALL keep the legacy `GET /status` / `POST /connect` / `POST /disconnect` endpoints working (mapped
+onto one implicit legacy session) so an OLD frontend still functions against it. A new `@volt/control` MUST fall back
+to the legacy endpoints when `POST /session` is not available (an OLD connector). Neither skew direction may silently
+stop sync.
+
+#### Scenario: Old frontend, new connector
+
+- **WHEN** an updated connector is running and a not-yet-updated frontend calls `POST /connect` / `POST /disconnect`
+- **THEN** those calls drive the implicit legacy session's interests and sync works with the legacy single-owner
+  behaviour
+
+#### Scenario: New frontend, old connector
+
+- **WHEN** an updated frontend starts and `POST /session` returns 404 (the connector hasn't updated yet)
+- **THEN** the frontend falls back to `POST /connect` / `GET /status` and sync works
