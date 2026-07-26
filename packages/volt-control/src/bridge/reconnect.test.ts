@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { reconnectBound } from "./actions.js"
+import { reconnectBound, enterWorkspace, leaveWorkspace } from "./actions.js"
 import type { ConnectorView } from "./connector.js"
 
 const realFetch = globalThis.fetch
@@ -10,16 +10,22 @@ afterEach(() => {
   globalThis.fetch = realFetch
 })
 
-// Records the last /connect body so a test can assert which project got selected.
+// Records the last /connect and /disconnect bodies so a test can assert which project got selected/dropped.
 let lastConnect: unknown
+let lastDisconnect: unknown
 function mockConnector(view: ConnectorView | undefined): void {
   lastConnect = undefined
+  lastDisconnect = undefined
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
     const u = String(url)
     if (u.endsWith("/status")) return { ok: view !== undefined, json: async () => view } as Response
     if (u.endsWith("/connect")) {
       lastConnect = JSON.parse(String(init?.body))
       return { ok: true, json: async () => ({ ok: true }) } as Response
+    }
+    if (u.endsWith("/disconnect")) {
+      lastDisconnect = JSON.parse(String(init?.body))
+      return { ok: true, json: async () => ({ gated: true }) } as Response
     }
     throw new Error(`unexpected ${u}`)
   }) as typeof fetch
@@ -102,6 +108,57 @@ describe("reconnectBound — re-point the bridge at the ALREADY-bound project", 
       const r = await reconnectBound(dir)
       expect(r.ok).toBe(false)
       expect(r.message).toContain("isn't a Volt workspace")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("enter/leaveWorkspace — the shared connection lifecycle both shells drive", () => {
+  test("enterWorkspace connects the bound project (delegates to reconnectBound)", async () => {
+    const dir = boundWorkspace("codesys", "MyMachine")
+    try {
+      mockConnector(view([proj("codesys", "MyMachine")]))
+      const r = await enterWorkspace(dir)
+      expect(r.ok).toBe(true)
+      expect(lastConnect).toEqual({ projectId: "codesys:::MyMachine:" }) // connected THIS workspace's project
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("leaveWorkspace disconnects THIS workspace's project by its detected id", async () => {
+    const dir = boundWorkspace("codesys", "MyMachine")
+    try {
+      mockConnector(view([proj("twincat", "Other"), proj("codesys", "MyMachine")]))
+      const r = await leaveWorkspace(dir)
+      expect(r.ok).toBe(true)
+      expect(lastDisconnect).toEqual({ projectId: "codesys:::MyMachine:" }) // named its own project, not a bare disconnect
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("leaveWorkspace on an unbound folder disconnects NOTHING (no bare disconnect of the active connection)", async () => {
+    const dir = join(tmpdir(), `volt-leave-unbound-${Date.now()}`)
+    mkdirSync(dir, { recursive: true })
+    try {
+      mockConnector(view([proj("codesys", "MyMachine")]))
+      const r = await leaveWorkspace(dir)
+      expect(r.ok).toBe(false)
+      expect(lastDisconnect).toBeUndefined() // never POSTed /disconnect
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("leaveWorkspace when the bound project isn't detected disconnects nothing", async () => {
+    const dir = boundWorkspace("codesys", "MyMachine")
+    try {
+      mockConnector(view([proj("twincat", "SomethingElse")])) // MyMachine not present
+      const r = await leaveWorkspace(dir)
+      expect(r.ok).toBe(false)
+      expect(lastDisconnect).toBeUndefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

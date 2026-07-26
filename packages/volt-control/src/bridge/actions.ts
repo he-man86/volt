@@ -10,7 +10,7 @@
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { isBridgeOnline, readBridgeVendor, readBoundProject, type HealthState, type Vendor } from "./health.js"
-import { boundStatus, connectProject, detectedProjects, type DetectedProject } from "./connector.js"
+import { boundStatus, connectProject, detectedProjects, disconnect, boundProjectId, type DetectedProject, type DisconnectResult } from "./connector.js"
 import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
@@ -233,5 +233,23 @@ export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boole
   return (await connectProject(match.id))
     ? { ok: true }
     : { ok: false, message: "The Volt Connector refused the connection — is it running?" }
+}
+
+/** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project): a frontend
+ *  calls `enterWorkspace` when a project becomes the one it's showing, and `leaveWorkspace` when it stops. Both
+ *  shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop bind/unbind,
+ *  VS Code activate/deactivate). Thin wrappers over the existing connect/disconnect primitives. */
+export async function enterWorkspace(root: string): Promise<{ ok: boolean; message?: string }> {
+  return reconnectBound(root) // connect the bridge to THIS workspace's bound project
+}
+
+/** Disconnect THIS workspace's bound project (not the tray's active one). Dedupes the `boundProjectId` + `disconnect`
+ *  combo both shells inlined. Safe: an unbound / undetected workspace has no bound project id, so it disconnects
+ *  NOTHING — we must NOT fall through to a bare `disconnect(undefined)`, which drops the tray's active connection
+ *  instead. Never throws (a down connector resolves to `{ok:false}`). */
+export async function leaveWorkspace(root: string): Promise<DisconnectResult> {
+  const id = await boundProjectId(root)
+  if (id === undefined) return { ok: false, gated: false } // nothing bound/detected here → disconnect nothing
+  return disconnect(id)
 }
 

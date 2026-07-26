@@ -8,7 +8,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, setBundledCli } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, setBundledCli, enterWorkspace, leaveWorkspace } from "@volt/control"
 
 // Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
 // launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
@@ -128,6 +128,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidChangeWorkspaceFolders((e) => {
 			for (const folder of e.added) { if (hasVoltConfig(folder)) addWorkspace(folder, decorations) }
 			for (const folder of e.removed) {
+				void leaveWorkspace(folder.uri.fsPath) // left this project → disconnect the bridge (shared lifecycle)
 				statuses.get(folder.uri.fsPath)?.dispose(); statuses.delete(folder.uri.fsPath)
 				decorations.remove(folder.uri.fsPath)
 			}
@@ -181,6 +182,9 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 	})
 	statuses.set(folder.uri.fsPath, s)
 	void s.start()
+	// The active project view owns the connection: opening a Volt workspace connects its bridge (shared with the
+	// desktop). Fire-and-forget + refresh so the view reflects "connected" without blocking activation.
+	void enterWorkspace(folder.uri.fsPath).then(() => { if (statuses.get(folder.uri.fsPath) === s) void s.refresh(true) })
 }
 
 /** Drive the menu when-clause context keys off the shared `aggregate()` display model (worst-state-wins). No
@@ -200,9 +204,16 @@ function updateContextKeys(): void {
 }
 
 export function deactivate(): Thenable<void> {
+	// Disconnect each bound workspace's bridge — the window is closing, so we're leaving every project (the active
+	// project view owns the connection; shared with the desktop). Bounded to ~1.5s so a slow/absent connector can't
+	// hold VS Code open. Folded into the returned thenable alongside the LSP shutdown so the editor WAITS for both.
+	const disconnected = Promise.race([
+		Promise.allSettled([...statuses.keys()].map((root) => leaveWorkspace(root))),
+		new Promise((resolve) => setTimeout(resolve, 1500)),
+	])
 	for (const [, s] of statuses) s.dispose()
-	// Return the LSP shutdown PROMISE (not an array — VS Code only awaits a thenable return value, so the old
-	// `return []` was never awaited) so the editor WAITS for the stdio server to exit before killing the
-	// extension host. Fire-and-forget disposal let the server orphan on an extension update → the zombie LSP.
-	return stopLsp()
+	// Return a thenable (not an array — VS Code only awaits a thenable return value, so the old `return []` was never
+	// awaited) so the editor waits for the stdio LSP to exit + the bridges to disconnect before killing the extension
+	// host. Fire-and-forget disposal let the server orphan on an extension update → the zombie LSP.
+	return Promise.all([stopLsp(), disconnected]).then(() => undefined)
 }

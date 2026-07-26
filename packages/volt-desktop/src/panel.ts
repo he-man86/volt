@@ -11,6 +11,8 @@ import {
   connectorStatus,
   collectDiagnostics,
   onboardingMode,
+  enterWorkspace,
+  leaveWorkspace,
   type DriftItem,
   type WorkspaceView,
   type DetectedProject,
@@ -128,6 +130,10 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   await shell.status.start()
   pushStatus(shell)
   void runDiagnostics(shell)
+  // The active project view owns the connection: connect the bridge on bind. Fire-and-forget so the panel shows the
+  // project immediately, then refresh once connected — but only if this workspace is still the bound one (a fast
+  // rebind must not refresh the wrong status).
+  void enterWorkspace(root).then(() => { if (shell.boundRoot === root) void shell.status?.refresh(true) })
 }
 
 /** Release the binding when opencode is on its genuine HOME screen (not a project). Sticky binding never releases on
@@ -136,10 +142,12 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
  *  route. Tears down the status feed and pushes a `{bound:false}` snapshot; the IDE/bridge stay untouched. */
 export function unbindWorkspace(shell: Shell): void {
   if (shell.boundRoot === undefined) return
+  const root = shell.boundRoot
   shell.boundRoot = undefined
   shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
   shell.status?.dispose()
   shell.status = null
+  void leaveWorkspace(root) // the active project view owns the connection: we left it → disconnect the bridge
   pushStatus(shell)
 }
 

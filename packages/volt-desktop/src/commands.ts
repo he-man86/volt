@@ -10,9 +10,8 @@ import {
   build,
   initFromProject,
   rebind,
-  reconnectBound,
-  disconnect,
-  boundProjectId,
+  enterWorkspace,
+  leaveWorkspace,
   mergeContinue,
   mergeAbort,
   mergeResolve,
@@ -176,7 +175,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     runGuarded(async () => {
       const st = shell.status
       if (!st) return
-      const r = await reconnectBound(st.workspaceRoot)
+      const r = await enterWorkspace(st.workspaceRoot) // the manual Connect override — same lifecycle as auto-connect
       // Refresh status BEFORE the spinner clears — the connect invalidated the connector's cache, so this re-scans and
       // shows the project SERVING. The spinner is cleared by runGuarded's finally AFTER this, so it never flips onto a
       // stale "disconnected" (the flash). The select's own response (r.ok) is what gates success, not a timer.
@@ -187,8 +186,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
       // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
-      // This workspace's project, not the tray's active connection (see the VS Code command).
-      const r = await disconnect(await boundProjectId(shell.status?.workspaceRoot ?? ""))
+      // The manual Disconnect override — THIS workspace's project, not the tray's active connection (shared lifecycle).
+      const r = await leaveWorkspace(shell.status?.workspaceRoot ?? "")
       // Refresh BEFORE the spinner clears (runGuarded's finally) — disconnect invalidated the cache, so status re-scans
       // to "disconnected" now instead of the spinner flipping onto a stale "connected".
       await shell.status?.refresh(true)

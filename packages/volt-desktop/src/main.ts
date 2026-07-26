@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
-import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
+import { setBundledCli, setLspServer, loadDiff, leaveWorkspace, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
 import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
@@ -276,12 +276,7 @@ app.on("before-quit", (e) => {
   disconnectedOnQuit = true
   e.preventDefault()
   void Promise.race([
-    (async () => {
-      try {
-        const id = await boundProjectId(root) // THIS workspace's project, not the tray's active one
-        if (id !== undefined) await disconnect(id)
-      } catch { /* connector down / already gone */ }
-    })(),
+    leaveWorkspace(root), // disconnect THIS workspace's project (shared lifecycle; never throws)
     new Promise((r) => setTimeout(r, 1500)),
   ]).then(() => app.quit())
 })

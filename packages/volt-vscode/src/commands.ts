@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, initFromProject, rebind, reconnectBound, disconnect, boundProjectId, detectedProjects,
+	pull, push, build, initFromProject, rebind, enterWorkspace, leaveWorkspace, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve,
 	describePull, describePush, describeMerge, describeDisconnect, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
@@ -273,7 +273,7 @@ async function doReconnect(statuses: Map<string, VoltStatus>, workspaceRoot: str
 	const r = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: "Reconnecting to the IDE…" },
 		async () => {
-			const res = await reconnectBound(workspaceRoot)
+			const res = await enterWorkspace(workspaceRoot) // manual Reconnect override — same lifecycle as auto-connect
 			// Refresh INSIDE the progress: the connect invalidated the connector's status cache, so this re-scans and
 			// reflects the project SERVING before the toast closes — the Bridge view flips straight to connected, no flash.
 			await statuses.get(workspaceRoot)?.refresh(true)
@@ -343,7 +343,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 				// Disconnect THIS workspace's project, not the tray's active connection. They are routinely
 				// different (two IDEs open, two windows), and the global call gated the wrong project: the row the
 				// user clicked stayed connected while another workspace silently stopped syncing.
-				const res = await disconnect(await boundProjectId(w))
+				const res = await leaveWorkspace(w) // manual Disconnect override — same shared lifecycle
 				for (const s of statuses.values()) await s.refresh(true)
 				return res
 			})
