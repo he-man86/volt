@@ -109,3 +109,34 @@ binary strings. The **complete** opencode event list is: `command.executed`, `fi
   would be BOTH less complete (blind to passive navigation) AND more complex (in-process + callback). Keep the
   sniff, guarded by the runtime canary + the compat `wire` check. No plugin/event integration is worth pursuing;
   there is no navigation event to build on.
+
+---
+
+## opencode is SESSION-scoped, not project-scoped (the decisive live finding)
+
+Debugging the user's "only detects the project once a chat starts" report, driven live against a **fresh,
+session-less project**:
+
+- On that project's new-session screen — visually "in" the project, before any chat — the client's own
+  `GET /project/current` returns **`{"id":"global"}`**. opencode does NOT consider you in the project yet.
+- The project only becomes the active scope once you **create a session** (the first chat, which stores it). That's
+  when a plaintext project directory first appears — in the `x-opencode-directory` **header on POST requests** (the
+  `Mxe` interceptor only strips/encrypts the header on GET/HEAD, so POSTs keep it plaintext).
+- The `?directory=` on GET requests is **encrypted** (~26 opaque bytes; decoding shows binary with U+FFFD), so it is
+  **not usable as a filesystem path** — `existsSync` always fails on it. Replaying it to `/project/current` resolves
+  to `global` (the client is genuinely global-scoped pre-session).
+
+**Consequences (unavoidable — opencode's architecture):**
+
+1. **Binding is inherently post-chat.** There is no earlier signal; opencode itself doesn't know your project until a
+   session exists. Pre-chat binding via the sniff is impossible.
+2. **`global` is ambiguous** — it is opencode's home screen AND every new-session draft. So a release-on-`global`
+   rule (the earlier `/global/` release) unbinds the panel every time you open a draft. **Decision: STICKY binding —
+   bind on the first project directory, rebind on a different one, never release.** `global` only clears the
+   cold-start "Connecting…" so the create surface can show. (User's call: "start simple and stable, see if enough.")
+3. **create-from-home is register-ONLY.** `openInOpencode` (navigate to `/<id>`) landed on a global-scoped draft and
+   bound nothing → replaced by `registerInOpencode` (register the folder, tell the user to open it + start a
+   session). Simpler, and matches opencode's model.
+
+Open follow-up if sticky isn't enough: distinguish home from draft via the embedded view's URL (`/` vs
+`/new-session`) to release on true home only — deferred.

@@ -3,7 +3,7 @@ import { bindingAction, classifySignal } from "./binding.js"
 
 const exists = () => true // opencode always sends real, existing project paths in these cases
 
-test("classifySignal: opencode's /global/ path prefix is the home/no-project release signal", () => {
+test("classifySignal: opencode's /global/ path prefix is the home/global (no-project) signal", () => {
   expect(classifySignal("/global/event", undefined, exists)).toEqual({ kind: "none" })
   expect(classifySignal("/global/config", undefined, exists)).toEqual({ kind: "none" })
 })

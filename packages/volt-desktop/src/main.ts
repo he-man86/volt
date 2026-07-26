@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
-import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
+import { bindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
 import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
@@ -118,32 +118,25 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return norm(a) === norm(b)
 }
 
-// Feed a signal through the pure reducer and act. `dir` binds eagerly (any project-scoped request, not just chat —
-// that was the late-bind). `none` releases, but DEBOUNCED: the home view emits it repeatedly, and a lone stray
-// no-project request mustn't flap the panel — only a `none` that persists ~1.5s without a `dir` releases.
-let noneTimer: ReturnType<typeof setTimeout> | null = null
+// Feed a signal through the pure reducer and act. STICKY binding: a real project directory binds (or rebinds to a
+// different project); we NEVER release. opencode is session-scoped and reports its `global` scope for BOTH its home
+// screen AND every new-session draft (verified live) — so releasing on `global` would unbind the panel every time
+// you open a draft. Instead a `none` (global) signal only clears the cold-start "Connecting…" so the create surface
+// can show; it does not touch an existing binding. The bound project therefore stays shown until you actually work
+// in a different one (opencode only reveals a plaintext project directory once a session exists — i.e. on a chat).
 function onActiveSignal(sig: ActiveProject): void {
   const wasAwaiting = shell.awaitingOpencode
-  shell.awaitingOpencode = false // any signal means opencode's state is now known (clears the cold-start "Connecting…")
+  shell.awaitingOpencode = false // any signal means opencode is up (clears the cold-start "Connecting…")
   shell.bindStale = false // a signal arrived → the sniff works; retract any canary warning
-  if (sig.kind === "dir") {
-    if (noneTimer) { clearTimeout(noneTimer); noneTimer = null } // a real project cancels a pending release
-    if (bindingAction(shell.boundRoot, sig, sameDir).kind === "bind") return void bindWorkspace(shell, sig.dir) // pushes
-  } else if (shell.boundRoot !== undefined && noneTimer === null) {
-    noneTimer = setTimeout(() => {
-      noneTimer = null
-      if (bindingAction(shell.boundRoot, { kind: "none" }, sameDir).kind === "unbind") unbindWorkspace(shell) // pushes
-    }, 1500)
-    return // the release (or its cancellation) will push; nothing to show yet
-  }
-  // No (re)bind and no release scheduled — but if this signal just cleared the cold-start state, the renderer still
-  // needs to hear it so "Connecting…" flips to the real bound/no-project view (bind/unbind push on their own).
+  if (sig.kind === "dir" && bindingAction(shell.boundRoot, sig, sameDir).kind === "bind") return void bindWorkspace(shell, sig.dir) // pushes
+  // A `none` (opencode global/home) or a same-project `dir`: nothing to (re)bind, and we never release. Push only if
+  // this signal just cleared the cold-start state, so "Connecting…" flips to the bound / create-a-workspace view.
   if (wasAwaiting) pushStatus(shell)
 }
 
 // Every opencode GUI request reveals its active project. The pure classifier (binding.ts::classifySignal) turns the
-// request's pathname + directory into a bind/release/hold signal (a real project rides as `?directory=<path>`; the
-// home screen is a `/global/` path prefix). See the openspec observations for the verified wire facts.
+// request's pathname + directory into a signal (`dir` for a real project, `none` for opencode's `global`/home scope).
+// See the openspec observations for the verified wire facts.
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const { pathname, dir } = parseRequest(details)

@@ -73,20 +73,19 @@ export function killServer(): void {
   }
 }
 
-/** Open a folder in the embedded opencode GUI: one scoped request auto-registers it as an opencode project and
- *  returns its id (verified), then we navigate the view to it so opencode SCOPES to that folder — and the shell's
- *  follow-binding (watchActiveProject) picks it up. This is how a freshly `volt init`'d workspace becomes active
- *  without a direct bindWorkspace (which would fight the follow-driver). Returns false (caller tells the user to
- *  open it manually) when opencode isn't running or the folder can't be registered. */
-export async function openInOpencode(baseUrl: string | undefined, view: WebContentsView | null, dir: string): Promise<boolean> {
-  if (baseUrl === undefined || view === null) return false
+/** Register a folder as an opencode project (one scoped request auto-registers it and returns its id). We do NOT
+ *  navigate the view to it: opencode is SESSION-scoped, so a freshly-opened project sits at a "new session" draft
+ *  that opencode still reports as the `global` scope until the user actually starts a chat — navigating there
+ *  bound nothing and just opened a stray global draft (verified live). So we register + let the user open it when
+ *  they're ready; the follow-binding picks it up once they do. Returns false (caller guides the user) when opencode
+ *  isn't running or the folder can't be registered. */
+export async function registerInOpencode(baseUrl: string | undefined, dir: string): Promise<boolean> {
+  if (baseUrl === undefined) return false
   try {
     const res = await fetch(`${baseUrl}/project/current?directory=${encodeURIComponent(dir)}`, { signal: AbortSignal.timeout(4000) })
     if (!res.ok) return false
     const id = (await res.json() as { id?: string }).id
-    if (id === undefined || id === "") return false
-    await view.webContents.loadURL(`${baseUrl}/${id}`)
-    return true
+    return id !== undefined && id !== ""
   } catch {
     return false // opencode down / unreachable — the workspace is still created, the caller guides the user
   }

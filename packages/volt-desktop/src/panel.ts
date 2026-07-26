@@ -130,14 +130,3 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   void runDiagnostics(shell)
 }
 
-/** Release the binding when opencode leaves the project (its home/global root). The missing half of the lifecycle:
- *  without it the panel kept a closed project's live sync context shown forever. Tears down the status feed and
- *  pushes a `{bound:false}` snapshot; the IDE/bridge stay untouched (this only stops the desktop from *watching*). */
-export function unbindWorkspace(shell: Shell): void {
-  if (shell.boundRoot === undefined) return
-  shell.boundRoot = undefined
-  shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
-  shell.status?.dispose()
-  shell.status = null
-  pushStatus(shell)
-}
