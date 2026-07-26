@@ -40,6 +40,26 @@ function Ico({ d, cls = "vda-ico" }) {
   )
 }
 
+// A collapsible panel section (VS Code-style, mirroring shell.html's section()): the chevron + title toggle the
+// body; the action buttons sit in a sibling row so they keep working while the header folds.
+function Section({ id, title, acts, top, folded, onToggle, children }) {
+  const open = !folded.has(id)
+  return (
+    <>
+      <div className={"vda-sect" + (top ? " vda-sect--top" : "")}>
+        <button className="vda-s-head" onClick={() => onToggle(id)} title={open ? "Collapse" : "Expand"}>
+          <svg className={"vda-chev" + (open ? " open" : "")} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+          <span className="vda-s-title">{title}</span>
+        </button>
+        {acts && <span className="vda-s-acts">{acts}</span>}
+      </div>
+      {open && children}
+    </>
+  )
+}
+
 const DIFF = [
   { n: 3, sign: " ", text: "VAR" },
   { n: 4, sign: "+", text: "    running : BOOL;" },
@@ -62,6 +82,32 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
   const [selected, setSelected] = useState("FB_Conveyor")
   const driftN = INCOMING.length + OUTGOING.length
 
+  // The IDE Connection demo: a real connect ⇄ disconnect cycle with in-button spinners, mirroring shell.html.
+  // "connected" → click Disconnect → "disconnecting" (spinner) → "offline" (the reconnect list) → click the
+  // project → "connecting" (spinner) → "connected". `live` = the two states where the bridge is up.
+  const [bridge, setBridge] = useState("connected")
+  const cxTimer = useRef(null)
+  const live = bridge === "connected" || bridge === "disconnecting"
+  const disconnect = () => {
+    if (bridge !== "connected") return
+    setBridge("disconnecting")
+    cxTimer.current = setTimeout(() => setBridge("offline"), 900)
+  }
+  const reconnect = () => {
+    if (bridge !== "offline") return
+    setBridge("connecting")
+    cxTimer.current = setTimeout(() => setBridge("connected"), 900)
+  }
+
+  // Collapsible sections (VS Code-style): a header click folds a section's body away.
+  const [folded, setFolded] = useState(() => new Set())
+  const toggleFold = (id) =>
+    setFolded((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
   // Chat: type + send appends your message; a short typing indicator resolves to a reply. Auto-scrolls.
   const [draft, setDraft] = useState("")
   const [msgs, setMsgs] = useState([])
@@ -75,6 +121,7 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [msgs, typing])
   useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => clearTimeout(cxTimer.current), [])
 
   const send = () => {
     const text = draft.trim()
@@ -88,13 +135,21 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
     }, 1100)
   }
 
-  // click a rail icon: open that panel, or close it if already showing
-  const showPanel = (which) => setPanelState((p) => (p === which ? "off" : which))
+  // click a rail icon: open that panel (and expand its section), or close it if already showing
+  const showPanel = (which) => {
+    setPanelState((p) => (p === which ? "off" : which))
+    setFolded((prev) => {
+      const next = new Set(prev)
+      next.delete(which)
+      return next
+    })
+  }
 
   const auto = useAutoplay(
     [
       () => showPanel("bridge"),
-      () => setSelected("PLC_PRG"),
+      () => disconnect(), // → spinner → offline (the reconnect list)
+      () => reconnect(), // → spinner → connected
       () => setModelOpen(true),
       () => (setModel("claude-sonnet-5"), setModelOpen(false)),
       () => showPanel("sync"),
@@ -261,71 +316,96 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
             IDE Connection leads (the first thing to set up, the first thing to check when sync stops). */}
         {panelState !== "off" && (
           <div className="vda-panel">
-            {/* 1. IDE Connection — health + the ONE action (Disconnect when live) */}
-            <div className="vda-sect">
-              <span className="vda-s-title">IDE Connection</span>
-            </div>
-            <div className="vda-row">
-              <span className="vda-dot-sm ok" />
-              <span className="vda-rowpath">CODESYS — MyMachine</span>
-              <span className="vda-n">connected</span>
-            </div>
-            <div className="vda-conn-act">
-              <button className="vda-connbtn" title="Stops syncing. The IDE stays open — reconnect to resume.">
-                <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />
-                Disconnect from the IDE
-              </button>
-            </div>
-
-            {/* 2. IDE Sync — pull/push/build/refresh + incoming/outgoing drift */}
-            <div className="vda-sect vda-sect--top">
-              <span className="vda-s-title">IDE Sync</span>
-              <span className="vda-s-acts">
-                <button className="vda-act" title="Pull · IDE → workspace"><Ico d={P.pull} cls="vda-ico vda-ico--sm" /></button>
-                <button className="vda-act" title="Push · workspace → IDE"><Ico d={P.push} cls="vda-ico vda-ico--sm" /></button>
-                <button className="vda-act" title="Build"><Ico d={P.build} cls="vda-ico vda-ico--sm" /></button>
-                <button className="vda-act" title="Refresh"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
-              </span>
-            </div>
-            <div className="vda-scroll">
-              <div className="vda-grp">
-                Incoming · IDE → pull<span className="vda-n">{INCOMING.length}</span>
+            {/* 1. IDE Connection — an interactive connect ⇄ disconnect cycle with in-button spinners */}
+            <Section id="bridge" title="IDE Connection" folded={folded} onToggle={toggleFold}>
+              <div className="vda-row">
+                <span className={"vda-dot-sm " + (live ? "ok" : "warn")} />
+                <span className="vda-rowpath">CODESYS — MyMachine</span>
+                <span className="vda-n">{live ? "connected" : "not connected"}</span>
               </div>
-              {INCOMING.map((f, i) => (
-                <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
-                  <span className={"vda-stat " + f.sub}>{f.sub}</span>
-                  <span className="vda-rowpath">{f.name}</span>
+              {live ? (
+                <div className="vda-conn-act">
+                  <button className="vda-connbtn" title="Stops syncing. The IDE stays open — reconnect to resume." onClick={disconnect} disabled={bridge === "disconnecting"}>
+                    {bridge === "disconnecting" ? <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" /> : <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />}
+                    Disconnect from the IDE
+                  </button>
                 </div>
-              ))}
-              <div className="vda-grp">
-                Outgoing · push → IDE<span className="vda-n">{OUTGOING.length}</span>
-              </div>
-              {OUTGOING.map((f, i) => (
-                <div key={f.name} className="vda-row step" style={{ "--i": i + 3 }}>
-                  <span className={"vda-stat " + f.sub}>{f.sub}</span>
-                  <span className="vda-rowpath">{f.name}</span>
-                </div>
-              ))}
-            </div>
+              ) : (
+                <>
+                  <div className="vda-conn-note">Not syncing — pick your project below to reconnect (a different name rebinds this workspace to it):</div>
+                  <div className="vda-conn-act">
+                    <button className="vda-connbtn" title="Reconnect this workspace to the IDE." onClick={reconnect} disabled={bridge === "connecting"}>
+                      {bridge === "connecting" ? <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" /> : <Bolt cls="vda-bolt vda-bolt--sm" />}
+                      CODESYS · MyMachine
+                    </button>
+                  </div>
+                </>
+              )}
+            </Section>
 
-            {/* 3. Diagnostics */}
-            <div className="vda-sect vda-sect--top">
-              <span className="vda-s-title">Diagnostics</span>
-              <span className="vda-s-acts">
-                <button className="vda-act" title="Re-analyze"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
-              </span>
-            </div>
-            <div className="vda-grp">
-              {DIAGS.errors} errors, {DIAGS.warnings} warnings
-            </div>
-            <div className="vda-scroll">
-              {DIAGS.files.map((f, i) => (
-                <div key={f.name} className="vda-row step" style={{ "--i": i + 4 }}>
-                  <span className="vda-rowpath">{f.name}</span>
-                  <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
+            {/* 2. IDE Sync — pull/push/build/refresh + incoming/outgoing drift (offline: nothing to compare) */}
+            <Section
+              id="sync"
+              title="IDE Sync"
+              top
+              folded={folded}
+              onToggle={toggleFold}
+              acts={
+                <>
+                  {live && <button className="vda-act" title="Pull · IDE → workspace"><Ico d={P.pull} cls="vda-ico vda-ico--sm" /></button>}
+                  {live && <button className="vda-act" title="Push · workspace → IDE"><Ico d={P.push} cls="vda-ico vda-ico--sm" /></button>}
+                  {live && <button className="vda-act" title="Build"><Ico d={P.build} cls="vda-ico vda-ico--sm" /></button>}
+                  <button className="vda-act" title="Refresh"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
+                </>
+              }
+            >
+              {live ? (
+                <div className="vda-scroll">
+                  <div className="vda-grp">
+                    Incoming · IDE → pull<span className="vda-n">{INCOMING.length}</span>
+                  </div>
+                  {INCOMING.map((f, i) => (
+                    <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
+                      <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                      <span className="vda-rowpath">{f.name}</span>
+                    </div>
+                  ))}
+                  <div className="vda-grp">
+                    Outgoing · push → IDE<span className="vda-n">{OUTGOING.length}</span>
+                  </div>
+                  {OUTGOING.map((f, i) => (
+                    <div key={f.name} className="vda-row step" style={{ "--i": i + 3 }}>
+                      <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                      <span className="vda-rowpath">{f.name}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div className="vda-conn-note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>
+              )}
+            </Section>
+
+            {/* 3. Diagnostics — LSP counts, independent of the bridge */}
+            <Section
+              id="diag"
+              title="Diagnostics"
+              top
+              folded={folded}
+              onToggle={toggleFold}
+              acts={<button className="vda-act" title="Re-analyze"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>}
+            >
+              <div className="vda-grp">
+                {DIAGS.errors} errors, {DIAGS.warnings} warnings
+              </div>
+              <div className="vda-scroll">
+                {DIAGS.files.map((f, i) => (
+                  <div key={f.name} className="vda-row step" style={{ "--i": i + 4 }}>
+                    <span className="vda-rowpath">{f.name}</span>
+                    <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </Section>
           </div>
         )}
 
@@ -333,11 +413,11 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
         <div className="vda-rail">
           <button className={"vda-rail-btn" + (panelState === "bridge" ? " on" : "")} title="IDE Connection" onClick={() => showPanel("bridge")}>
             <Ico d={P.bridge} cls="vda-ico vda-ico--rail" />
-            <span className="vda-rail-status ok" />
+            <span className={"vda-rail-status " + (live ? "ok" : "warn")} />
           </button>
           <button className={"vda-rail-btn" + (panelState === "sync" ? " on" : "")} title="IDE changes" onClick={() => showPanel("sync")}>
             <Bolt cls="vda-bolt vda-bolt--rail" />
-            <span className="vda-badge">{driftN}</span>
+            {live && <span className="vda-badge">{driftN}</span>}
           </button>
           <button className={"vda-rail-btn" + (panelState === "diag" ? " on" : "")} title="Diagnostics" onClick={() => showPanel("diag")}>
             <Ico d={P.alert} cls="vda-ico vda-ico--rail" />
