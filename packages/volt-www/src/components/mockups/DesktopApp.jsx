@@ -271,7 +271,7 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
               <span className="vda-n">connected</span>
             </div>
             <div className="vda-conn-act">
-              <button className="vda-connbtn">
+              <button className="vda-connbtn" title="Stops syncing. The IDE stays open — reconnect to resume.">
                 <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />
                 Disconnect from the IDE
               </button>
@@ -287,24 +287,26 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
                 <button className="vda-act" title="Refresh"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
               </span>
             </div>
-            <div className="vda-grp">
-              Incoming · IDE → pull<span className="vda-n">{INCOMING.length}</span>
-            </div>
-            {INCOMING.map((f, i) => (
-              <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
-                <span className={"vda-stat " + f.sub}>{f.sub}</span>
-                <span className="vda-rowpath">{f.name}</span>
+            <div className="vda-scroll">
+              <div className="vda-grp">
+                Incoming · IDE → pull<span className="vda-n">{INCOMING.length}</span>
               </div>
-            ))}
-            <div className="vda-grp">
-              Outgoing · push → IDE<span className="vda-n">{OUTGOING.length}</span>
-            </div>
-            {OUTGOING.map((f, i) => (
-              <div key={f.name} className="vda-row step" style={{ "--i": i + 3 }}>
-                <span className={"vda-stat " + f.sub}>{f.sub}</span>
-                <span className="vda-rowpath">{f.name}</span>
+              {INCOMING.map((f, i) => (
+                <div key={f.name} className="vda-row step" style={{ "--i": i + 2 }}>
+                  <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                  <span className="vda-rowpath">{f.name}</span>
+                </div>
+              ))}
+              <div className="vda-grp">
+                Outgoing · push → IDE<span className="vda-n">{OUTGOING.length}</span>
               </div>
-            ))}
+              {OUTGOING.map((f, i) => (
+                <div key={f.name} className="vda-row step" style={{ "--i": i + 3 }}>
+                  <span className={"vda-stat " + f.sub}>{f.sub}</span>
+                  <span className="vda-rowpath">{f.name}</span>
+                </div>
+              ))}
+            </div>
 
             {/* 3. Diagnostics */}
             <div className="vda-sect vda-sect--top">
@@ -316,12 +318,14 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
             <div className="vda-grp">
               {DIAGS.errors} errors, {DIAGS.warnings} warnings
             </div>
-            {DIAGS.files.map((f, i) => (
-              <div key={f.name} className="vda-row step" style={{ "--i": i + 4 }}>
-                <span className="vda-rowpath">{f.name}</span>
-                <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
-              </div>
-            ))}
+            <div className="vda-scroll">
+              {DIAGS.files.map((f, i) => (
+                <div key={f.name} className="vda-row step" style={{ "--i": i + 4 }}>
+                  <span className="vda-rowpath">{f.name}</span>
+                  <span className="vda-n">{f.warnings ? f.warnings + "⚠" : ""}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

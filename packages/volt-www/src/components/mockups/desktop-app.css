@@ -1,10 +1,11 @@
 /* Scoped to .vda so the warm-dark app chrome doesn't leak into the light site. Tokens copied from
    packages/volt-desktop/shell.html so the mockup matches the real app. */
 .vda {
+  /* warm DARK — tokens are the real app's (packages/volt-desktop/shell.html); keep them in lockstep. */
   --bg: #16120e;
-  --chrome: #241d16;
+  --chrome: #2a2219;
   --border: #342b20;
-  --surface: #1c1610;
+  --surface: #201a14;
   --text: #f3ead9;
   --muted: #9a8e7c;
   --accent: #f2843c;
@@ -22,19 +23,19 @@
   font: 13px/1.4 var(--font-sans);
   user-select: none;
 }
-/* Light variant — the user prefers light; reads as the same app in a light theme. */
+/* warm LIGHT — the branded website palette, identical to shell.html's @media(light) block. */
 .vda.vda--light {
-  --bg: #ffffff;
-  --chrome: #f4f2ee;
-  --border: rgba(38, 37, 30, 0.12);
-  --surface: #faf9f6;
-  --text: #262626;
-  --muted: #7a7266;
-  --accent: #f54e00;
-  --red: #cf2d56;
-  --green: #1f8a65;
-  --amber: #b26a1f;
-  --code-bg: #f4f2ec;
+  --bg: #fff9f1;
+  --chrome: #ebe2d4;
+  --border: #e2d8c8;
+  --surface: #f4ede2;
+  --text: #1a1714;
+  --muted: #6e665b;
+  --accent: #e0651f;
+  --red: #cc4b37;
+  --green: #3e9b52;
+  --amber: #e08a2b;
+  --code-bg: #efe6d6;
 }
 .vda-bolt {
   width: 16px;
@@ -482,6 +483,23 @@ button.vda-chip {
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+}
+/* Per-section scroll box — a long incoming/outgoing or diagnostics list scrolls WITHIN its section instead of
+   growing the whole panel (matches shell.html's .scroll). */
+.vda-scroll {
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.vda-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.vda-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 .vda-sect {
   display: flex;

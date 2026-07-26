@@ -235,8 +235,20 @@
 .vsc-side {
   background: var(--vsc-side);
   border-right: 1px solid var(--vsc-border);
-  overflow: hidden;
+  /* Real VS Code sidebars scroll when the tree/views outgrow the pane — match that instead of clipping. */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vsc-border) transparent;
   font-size: 12px;
+}
+.vsc-side::-webkit-scrollbar {
+  width: 8px;
+}
+.vsc-side::-webkit-scrollbar-thumb {
+  background: var(--vsc-border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 .vsc-side-title {
   padding: 8px 12px;
