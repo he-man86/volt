@@ -392,7 +392,7 @@
     else
       diagBody =
         `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll" data-scroll="diag">` +
-        diag.files.map((f) => `<div class="row"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
+        diag.files.map((f) => `<div class="row click" data-openpath="${esc(f.path)}" title="Open file"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
 
     // Rebuilding innerHTML resets every scroll container to top. render() runs on each status poll (~4s), so
     // without this the list snaps back to top mid-scroll — and a click that lands after the snap opens the WRONG
@@ -459,6 +459,8 @@
   document.getElementById("panel").addEventListener("click", (e) => {
     const take = e.target.closest(".take")
     if (take) return doTakeSide(take.dataset.path, take.dataset.side)
+    const openF = e.target.closest("[data-openpath]") // a Diagnostics file row → open it in the OS editor
+    if (openF) return volt.openFile(openF.dataset.openpath)
     const row = e.target.closest("[data-dir]") // a change row or a conflict name → open its diff
     if (row) doDiff(row.dataset.root, row.dataset.path, row.dataset.name, row.dataset.dir)
   })

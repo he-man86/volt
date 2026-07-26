@@ -5,7 +5,7 @@
 // is on (sniffed from its x-opencode-directory header), like VS Code binding to its open folder.
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { setBundledCli, setLspServer, loadDiff, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
@@ -92,10 +92,20 @@ function activeDirFromRequest(details: { url: string; requestHeaders: Record<str
   return undefined
 }
 
+// Canonical form for comparing the active-project dir against the bound one. opencode's chat traffic reports the
+// directory in varying string forms (separators / case / trailing slash), and a RAW `!==` re-bound on EVERY
+// variation — re-running the whole diagnostics crawl repeatedly mid-chat. Normalize so only a REAL project change
+// re-binds. resolve() canonicalizes separators + trailing slash; Windows is case-insensitive, so fold case there.
+function sameDir(a: string | undefined, b: string | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b
+  const norm = (d: string): string => (process.platform === "win32" ? resolve(d).toLowerCase() : resolve(d))
+  return norm(a) === norm(b)
+}
+
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const dir = activeDirFromRequest(details)
-    if (dir !== undefined && dir !== shell.boundRoot && existsSync(dir)) void bindWorkspace(shell, dir)
+    if (dir !== undefined && existsSync(dir) && !sameDir(dir, shell.boundRoot)) void bindWorkspace(shell, dir)
     cb({ requestHeaders: details.requestHeaders })
   })
 }
@@ -128,6 +138,15 @@ ipcMain.handle("volt:diff", async (_e, workspaceRoot: string, relPath: string, n
   await diffWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html))
   diffWin.setTitle(`${name} — diff`)
   diffWin.focus()
+})
+
+// Click a Diagnostics file → open it in the OS-associated editor. On a typical dev box that's VS Code with the Volt
+// extension (which registers .fb/.st/.pou/…), so the file opens with native, jump-to-line diagnostics. If nothing is
+// associated, fall back to revealing it in Explorer rather than silently doing nothing.
+ipcMain.handle("volt:openFile", async (_e, filePath: string) => {
+  if (!existsSync(filePath)) return
+  const err = await electronShell.openPath(filePath)
+  if (err) electronShell.showItemInFolder(filePath)
 })
 
 // window controls + IDE-panel toggle (window/layout concerns stay here; the volt: actions live in commands.ts)
