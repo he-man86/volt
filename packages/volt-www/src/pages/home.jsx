@@ -5,7 +5,7 @@ import { Features } from "../components/Features.jsx"
 import { FeatureShowcase } from "../components/FeatureShowcase.jsx"
 import { DesktopApp } from "../components/mockups/DesktopApp.jsx"
 import { VSCode } from "../components/mockups/VSCode.jsx"
-import { Bridge } from "../components/mockups/Bridge.jsx"
+import { Connector } from "../components/mockups/Connector.jsx"
 import { FinalCTA } from "../components/FinalCTA.jsx"
 
 renderPage(
@@ -44,16 +44,16 @@ renderPage(
     </FeatureShowcase>
 
     <FeatureShowcase
-      eyebrow="Volt Bridge · the connector"
+      eyebrow="Volt Connector · always-on"
       title="One connector to your live IDE."
-      body="The Volt Bridge runs quietly in your system tray, links to your running PLC IDE, and keeps everything in sync. Pick your IDE and Volt does the rest — no ports to wire up by hand."
+      body="The Volt Connector runs quietly in your system tray, finds your running PLC projects across every vendor, and keeps the bridge live and Volt up to date. You connect from the app — the connector handles the rest."
       points={[
         "Full support for CODESYS-based tooling and TwinCAT/Beckhoff",
-        "Auto-selects the bridge port and keeps Volt up to date",
+        "Finds your open projects and keeps Volt updated automatically",
         "More IDEs in consideration — Siemens, Rockwell, and beyond",
       ]}
     >
-      <Bridge autoplay />
+      <Connector autoplay />
     </FeatureShowcase>
 
     <Features />
