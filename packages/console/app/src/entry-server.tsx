@@ -25,6 +25,15 @@ export default createHandler(
             <body>
               <div id="app">{children}</div>
               {scripts}
+              {/* VOLT: Cloudflare Web Analytics. Additive one-liner — the shell is a framework entry point that a
+                  beside-file can't shadow. Manual snippet is mandatory: the console is a Worker, and Cloudflare's
+                  automatic injection only rewrites origin responses. Same zone-level token as www; the dashboard
+                  splits the two by hostname. Token is public by design. */}
+              <script
+                defer
+                src="https://static.cloudflareinsights.com/beacon.min.js"
+                data-cf-beacon='{"token": "1107c69783d94f4aa88ce03e88ebf752"}'
+              />
             </body>
           </html>
         )

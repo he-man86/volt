@@ -3,8 +3,26 @@ import react from "@vitejs/plugin-react"
 
 // Static multi-page site (one HTML per page). `vite build` -> dist/ with each page pre-built. Runs on Windows.
 // The .html filenames match the design's own nav links (pricing.html, faq.html, …), so no link rewriting.
+// Cloudflare Web Analytics beacon. Injected here rather than pasted into all 14 pages — and it has to be the
+// manual snippet: the pages are served by a Worker, and Cloudflare's automatic injection only rewrites origin
+// responses, so "Enable"/auto-inject silently does nothing for this site. Token is public by design.
+const webAnalytics = {
+  name: "cf-web-analytics",
+  transformIndexHtml: () => [
+    {
+      tag: "script",
+      attrs: {
+        defer: true,
+        src: "https://static.cloudflareinsights.com/beacon.min.js",
+        "data-cf-beacon": '{"token": "1107c69783d94f4aa88ce03e88ebf752"}',
+      },
+      injectTo: "body",
+    },
+  ],
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), webAnalytics],
   build: {
     rollupOptions: {
       input: {
