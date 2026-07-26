@@ -1,8 +1,8 @@
 ## 1. The reconciler (pure, testable first)
 
-- [ ] 1.1 In `Volt.Cli.Connector.Core`, define the pure reconciler: `(sessions, forceOff, detected, nowUtc) → { toBind[], toUnbind[] }` where `desired = ⋃ non-expired sessions' interests \ forceOff`, resolved to detected projects by `matchesBinding`. No I/O.
-- [ ] 1.2 Encode the hard rules: startup-grace suppresses UNBIND (not bind) for the window; contended host (one served project) picks the most-recently-declared; force-off keeps a project unbound; a lapsed lease drops its interests.
-- [ ] 1.3 Unit-test the reconciler against all of §10/§11 cases (no bridges).
+- [x] 1.1 In `Volt.Cli.Connector.Core`, define the pure reconciler: `(sessions, forceOff, detected, nowUtc, startupGraceUntil) → { toBind[], toUnbind[] }` where `desired = ⋃ non-expired sessions' interests \ forceOff`, resolved to detected projects by vendor+name. No I/O. (`Reconciler.cs` + `Session.cs`.)
+- [x] 1.2 Encode the hard rules: startup-grace suppresses UNBIND (not bind) for the window; a shared host keeps its serving-wanted incumbent and never thrashes (cold-start picks one deterministically — no most-recent-wins machinery needed); force-off keeps a project unbound; a lapsed lease drops its interests.
+- [x] 1.3 Unit-test the reconciler against all of §10/§11 cases, incl. the anti-thrash convergence invariant (a second pass over the applied plan is a no-op). 16 tests, no bridges. `ReconcilerTests.cs`.
 
 ## 2. ConnectionManager → sessions + reconcile loop
 
