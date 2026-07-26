@@ -134,9 +134,24 @@ session-less project**:
    rule (the earlier `/global/` release) unbinds the panel every time you open a draft. **Decision: STICKY binding —
    bind on the first project directory, rebind on a different one, never release.** `global` only clears the
    cold-start "Connecting…" so the create surface can show. (User's call: "start simple and stable, see if enough.")
-3. **create-from-home is register-ONLY.** `openInOpencode` (navigate to `/<id>`) landed on a global-scoped draft and
-   bound nothing → replaced by `registerInOpencode` (register the folder, tell the user to open it + start a
-   session). Simpler, and matches opencode's model.
+3. **create-from-home binds DIRECTLY + opens opencode best-effort.** Volt *creates* the folder, so it owns the exact
+   path and `bindWorkspace(folder)`s it directly — the panel is synced instantly, and under sticky binding it stays
+   bound with **zero dependency on opencode**. Then best-effort `openInOpencode` (register + navigate to `/<id>` =
+   the automated "Add project") lands the user in the project to chat; if it fails, create-from-home still worked.
+   (Register-only was a dead end — see the registry findings below.)
+
+### What opencode actually needs to open a project (minimal-map, verified live)
+
+- Creating the folder on disk does **nothing** — opencode does not scan the filesystem, so the folder is not a
+  project until a directory-scoped request touches it.
+- `GET /project/current?directory=<path>` **upserts** the project (registers it) and returns its `id`.
+- Navigating `/?directory=<path>` is **ignored** — the client stays `global`. The only navigable route is
+  `/<projectID>`, which needs the id. So auto-open = register (for the id) **then** navigate; neither is skippable.
+- A registered project is **invisible in opencode's home** — the home lists the global scope's sessions, and there is
+  no project switcher (verified: register, register+session, reload — none surface it). So the user reaches a project
+  only via "Add project" (which itself registers + navigates) or by us navigating for them.
+- opencode's `storage/project/` holds **metadata + chats only** (id, worktree *path*, sessions); the project files
+  live on disk at the worktree.
 
 Open follow-up if sticky isn't enough: distinguish home from draft via the embedded view's URL (`/` vs
 `/new-session`) to release on true home only — deferred.
