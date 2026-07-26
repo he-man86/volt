@@ -91,7 +91,10 @@ export async function collectDiagnostics(
   conn.onRequest("window/workDoneProgress/create", () => null)
   conn.listen()
 
-  const timeoutMs = opts.timeoutMs ?? 30_000
+  // 60s default (callers may override). Measured warm on a 7.7k-file CODESYS project this is ~6.5s; the headroom
+  // absorbs a COLD first-open spike (7.7k cold file reads + CPU contention while opencode/bridge/connector spawn),
+  // which is the only time it approached the old 30s cap. Not masking a perf bug — steady state is well under it.
+  const timeoutMs = opts.timeoutMs ?? 60_000
   const tail = (): string => (stderr.trim() ? ` — ${stderr.trim().slice(-500)}` : "")
   const byUri = new Map<string, { errors: number; warnings: number }>()
   let settled = false
