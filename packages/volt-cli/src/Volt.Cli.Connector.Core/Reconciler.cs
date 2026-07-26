@@ -6,32 +6,47 @@ using Volt.Cli.Transport;
 namespace Volt.Cli.Connector
 {
     /// <summary>What one reconcile pass decided: retarget these bridges to serve (<see cref="ToBind"/>), gate these
-    /// (<see cref="ToUnbind"/>). Both are BEST-EFFORT — a failed op simply recurs next pass, because the plan is
-    /// recomputed from the bridges' ACTUAL serving state every time, never from a "desired == already done" cache.</summary>
-    public sealed record ReconcilePlan(IReadOnlyList<DetectedProject> ToBind, IReadOnlyList<DetectedProject> ToUnbind);
+    /// (<see cref="ToUnbind"/>), and the project ids that are DESIRED this pass (<see cref="Wanted"/> — ∪ interests \
+    /// forceOff, resolved to detected projects), so a caller can answer "connected" as serving ∧ wanted without
+    /// recomputing. Bind/unbind are BEST-EFFORT — a failed op simply recurs next pass, because the plan is recomputed
+    /// from the bridges' ACTUAL serving state every time, never from a "desired == already done" cache.</summary>
+    public sealed record ReconcilePlan(
+        IReadOnlyList<DetectedProject> ToBind,
+        IReadOnlyList<DetectedProject> ToUnbind,
+        IReadOnlyCollection<string> Wanted);
 
     /// <summary>
-    /// The PURE heart of the session model. Given the live sessions, the tray's force-off set, the detected projects
-    /// (each carrying its real per-row serving state), and the clock, it decides which bridges to bind and unbind so
-    /// that <b>a project serves iff some non-expired session wants it and it is not force-off</b> —
-    /// <c>desired = ⋃ interests over live sessions \ forceOff</c>. No I/O, no stored state: call it, apply the plan,
-    /// discard it. The <see cref="ConnectionManager"/> re-runs it (serialized) on every sync, lease sweep, and
-    /// detection change, so the loop is self-correcting.
+    /// The PURE heart of the session model. Given the live sessions, the tray's force-off set, what was wanted LAST
+    /// pass, the detected projects (each carrying its real per-row serving state), and the clock, it decides which
+    /// bridges to bind and unbind. No I/O, no stored state: call it, apply the plan, discard it. The
+    /// <see cref="ConnectionManager"/> re-runs it (serialized) on every sync, lease sweep, and detection change, so
+    /// the loop is self-correcting.
+    ///
+    /// <para><b>Bind is level-triggered; unbind is edge-triggered.</b> A bridge SERVES BY DEFAULT (a loaded IDE host
+    /// serves its project), so "serve iff wanted" would gate every bridge no session has declared — breaking
+    /// standalone <c>volt push</c> and gating a neighbour the moment you connect something else. Instead: RESUME any
+    /// wanted-but-idle project (level), but only GATE a project the connector was already serving on a client's
+    /// behalf and that the LAST interested session has now left (the wanted→unwanted edge), plus anything the tray
+    /// force-offs. A project no session has ever wanted is left untouched. Edge-gating also makes a startup grace
+    /// window unnecessary: after a connector restart <paramref name="previouslyWanted"/> is empty, so there are no
+    /// leave-edges and nothing serving is gated while clients re-declare.</para>
     /// </summary>
     public static class Reconciler
     {
-        /// <param name="startupGraceUntil">Until this instant, UNBIND is suppressed (bind is never delayed) so a
-        /// just-(re)started connector does not unbind still-wanted projects before live clients re-declare their
-        /// interests. Pass <see cref="DateTime.MinValue"/> for steady state (no grace).</param>
+        /// <param name="previouslyWanted">The desired set from the last pass (the connector stores it). A project in
+        /// here but no longer wanted is one whose last interested session left — the only thing (besides force-off)
+        /// this pass will gate.</param>
         public static ReconcilePlan Plan(
             IReadOnlyCollection<Session> sessions,
             IReadOnlyCollection<string> forceOff,
+            IReadOnlyCollection<string> previouslyWanted,
             IReadOnlyList<DetectedProject> detected,
-            DateTime nowUtc,
-            DateTime startupGraceUntil)
+            DateTime nowUtc)
         {
-            // desired IDENTITIES: union of interests over non-expired sessions, each resolved to a detected project
-            // by vendor+name (matchesBinding), minus force-off. An interest whose project isn't detected right now
+            var forceOffSet = forceOff as ISet<string> ?? new HashSet<string>(forceOff, StringComparer.Ordinal);
+
+            // desired IDENTITIES: union of interests over non-expired sessions, each resolved to a detected project by
+            // vendor+name (matchesBinding), minus force-off. An interest whose project isn't detected right now
             // resolves to nothing and simply waits — no error, no bind.
             var wanted = new HashSet<string>(StringComparer.Ordinal);
             foreach (var s in sessions)
@@ -40,43 +55,41 @@ namespace Volt.Cli.Connector
                 foreach (var i in s.Interests)
                 {
                     var p = Resolve(i, detected);
-                    if (p != null && !forceOff.Contains(p.Id)) wanted.Add(p.Id);
+                    if (p != null && !forceOffSet.Contains(p.Id)) wanted.Add(p.Id);
                 }
             }
 
-            var inGrace = nowUtc < startupGraceUntil;
-            var toBind = new List<DetectedProject>();
-            var toUnbind = new List<DetectedProject>();
+            // GATE (unbind): only a project we were serving on a client's behalf and no longer want (the last session
+            // left it — the wanted→unwanted edge), OR one the tray force-offs. NEVER a bridge no session ever wanted:
+            // that keeps its default serving state, so `volt push` from a terminal works and connecting one project
+            // does not gate an untouched neighbour.
+            var lost = new HashSet<string>(previouslyWanted, StringComparer.Ordinal);
+            lost.ExceptWith(wanted);
+            var toUnbind = detected.Where(p => p.Serving && (lost.Contains(p.Id) || forceOffSet.Contains(p.Id))).ToList();
 
-            // Group by HOST — the pipe a bridge serves. CODESYS is per-pid, so one project per host: no contention.
-            // A TwinCAT XAE worker can hold several projects on ONE pipe and serve only one at a time; grouping by
-            // pipe is what lets us honour that limit WITHOUT thrashing (a null pipe — only in unit fixtures — is its
-            // own isolated host, never a false sibling).
+            // RESUME (bind): any wanted-but-idle project, honouring the one-project-per-host limit. Group by HOST —
+            // the pipe a bridge serves. CODESYS is per-pid (one project per host, no contention); a TwinCAT XAE worker
+            // can hold several projects on ONE pipe and serve only one at a time. Grouping by pipe honours that WITHOUT
+            // thrashing (a null pipe — only in unit fixtures — is its own isolated host, never a false sibling).
+            var toBind = new List<DetectedProject>();
             foreach (var host in detected.GroupBy(p => p.Pipe ?? p.Id, StringComparer.Ordinal))
             {
                 var rows = host.ToList();
 
-                // Unbind every serving row this pass does not want — unless still inside the startup grace, where an
-                // unbind could gate a project whose client just hasn't re-declared yet. Binds are never suppressed.
-                if (!inGrace)
-                    foreach (var p in rows.Where(p => p.Serving && !wanted.Contains(p.Id)))
-                        toUnbind.Add(p);
-
-                // If a WANTED row already serves on this host, keep it and bind nothing else here. This is how the
-                // one-project-per-worker limit resolves with no churn: the incumbent holds, its wanted siblings stay
-                // idle, and the last imperative Connect (which set who serves) wins by simply being the one serving.
+                // A WANTED row already serving on this host holds it — bind nothing else here (the one-per-worker
+                // limit resolves with no churn: the incumbent stays, wanted siblings wait, the last Connect wins by
+                // being the one serving).
                 if (rows.Any(p => p.Serving && wanted.Contains(p.Id))) continue;
 
-                // Otherwise nothing wanted serves here yet (cold start, or the unwanted incumbent above is being
-                // gated): bind ONE wanted-but-idle row. Deterministic pick keeps the choice stable across passes;
-                // switching which sibling serves on a shared worker is an explicit Connect, not the auto-loop's job.
+                // Otherwise nothing wanted serves here yet: bind ONE wanted-but-idle row. Deterministic pick keeps the
+                // choice stable across passes; switching which sibling serves on a shared worker is an explicit Connect.
                 var candidate = rows.Where(p => wanted.Contains(p.Id) && !p.Serving)
                                     .OrderBy(p => p.Id, StringComparer.Ordinal)
                                     .FirstOrDefault();
                 if (candidate != null) toBind.Add(candidate);
             }
 
-            return new ReconcilePlan(toBind, toUnbind);
+            return new ReconcilePlan(toBind, toUnbind, wanted);
         }
 
         /// <summary>Resolve a durable interest to the currently-detected project by vendor+name — the same match

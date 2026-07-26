@@ -1,15 +1,15 @@
 ## 1. The reconciler (pure, testable first)
 
 - [x] 1.1 In `Volt.Cli.Connector.Core`, define the pure reconciler: `(sessions, forceOff, detected, nowUtc, startupGraceUntil) → { toBind[], toUnbind[] }` where `desired = ⋃ non-expired sessions' interests \ forceOff`, resolved to detected projects by vendor+name. No I/O. (`Reconciler.cs` + `Session.cs`.)
-- [x] 1.2 Encode the hard rules: startup-grace suppresses UNBIND (not bind) for the window; a shared host keeps its serving-wanted incumbent and never thrashes (cold-start picks one deterministically — no most-recent-wins machinery needed); force-off keeps a project unbound; a lapsed lease drops its interests.
-- [x] 1.3 Unit-test the reconciler against all of §10/§11 cases, incl. the anti-thrash convergence invariant (a second pass over the applied plan is a no-op). 16 tests, no bridges. `ReconcilerTests.cs`.
+- [x] 1.2 Encode the hard rules: **bind is level-triggered, unbind is edge-triggered** — a bridge serves by default, so only the wanted→unwanted LEAVE edge (or force-off) gates a project; a never-wanted serving bridge is left alone (standalone `volt push` + untouched-neighbour). A shared host keeps its serving-wanted incumbent and never thrashes (cold-start picks one deterministically — no most-recent-wins machinery). Edge-triggering also removed the need for a startup-grace window.
+- [x] 1.3 Unit-test the reconciler against all of §10/§11 cases, incl. the leave-edge, the never-wanted-neighbour guarantee, the post-restart "nothing gated", and the anti-thrash convergence invariant (a second pass over the applied plan is a no-op). 18 tests, no bridges. `ReconcilerTests.cs`.
 
 ## 2. ConnectionManager → sessions + reconcile loop
 
-- [ ] 2.1 Replace the `Selected` (one-at-a-time) + shared serving-bool state with `Sessions: {id → {interests, expiresAt}}` + `forceOff`, behind the existing single-volatile-State discipline.
-- [ ] 2.2 `OpenSession()`, `Sync(id, interests)` (renew + set interests), `CloseSession(id)`, and a lease sweep on the existing tick.
-- [ ] 2.3 Drive bind/unbind through the reconciler behind an injected `IBridgeGate` (bind/unbind a project on its host) so the manager is testable; run reconcile on each sync, sweep, and detected-project change; keep it serialized.
-- [ ] 2.4 `Aggregate()` (tray colour) + per-project serving derive from the reconciled/actual state — no `ActiveConnection` highlight.
+- [x] 2.1 Replaced the `Selected` (one-at-a-time) + serving-map state with `Sessions: {id → {interests, expiresAt}}` + `ForceOff` + `Wanted` (last pass's desired, for edge-gating), all inside the one immutable `State` behind the single gate.
+- [x] 2.2 `OpenSessionAsync()`, `SyncAsync(id, interests)` (upsert + renew + reconcile), `CloseSessionAsync(id)`, `SetForceOffAsync(id, on)`, and a lease sweep folded into the periodic `RefreshAsync` tick.
+- [x] 2.3 Bind/unbind route through the reconciler via the existing `IProjectSource` seam (no new interface needed — the sources ARE the per-vendor gate); reconcile (`CycleCoreAsync`) runs on each sync/close/force-off/refresh, serialized under the gate, best-effort with a re-scan to reflect actual serving.
+- [x] 2.4 `Aggregate()` = serving ∧ wanted (an open-but-undeclared IDE never paints green); per-project serving is read from the bridge. The `ActiveConnection`/`SelectedOf` highlight survives only as the cosmetic legacy-facade pick. `ConnectAsync`/`DisconnectAsync` reimplemented as an implicit legacy session + highlight over the same loop — all existing `ConnectionManagerTests` + `DisconnectLifecycleTests` stay green (100 connector tests pass).
 
 ## 3. Control plane API + legacy shim
 

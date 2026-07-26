@@ -13,7 +13,12 @@ namespace Volt.Cli.Connector
     /// two projects sharing a name collapse to one detected row whether they are cross-vendor or two instances of one
     /// vendor. That collapse is the accepted identity limit (see the connector-session-model design), out of scope.</para>
     /// </summary>
-    public sealed record Interest(string Vendor, string ProjectName);
+    public sealed record Interest(string Vendor, string ProjectName)
+    {
+        /// <summary>The interest that resolves to a given detected project — its vendor + name (the identity
+        /// <c>DetectedProject.DisplayName</c> carries). Used by the legacy connect facade.</summary>
+        public static Interest Of(DetectedProject p) => new(p.Vendor, p.DisplayName);
+    }
 
     /// <summary>
     /// One client's presence: the FULL set of projects it currently wants (0..n) and a lease that lapses unless

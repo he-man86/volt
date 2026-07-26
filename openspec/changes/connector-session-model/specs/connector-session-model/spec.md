@@ -1,10 +1,13 @@
 ## ADDED Requirements
 
-### Requirement: A project serves iff a live client declares interest in it
+### Requirement: Interest resumes a bridge; the last leaver gates it; untouched bridges keep their default
 
-The connector SHALL bind a project's bridge (serving) if and only if at least one non-expired session declares
-interest in that project and it is not force-off — `desired = ⋃ interests over live sessions \ forceOff`. Serving is
-DERIVED by reconciling the bridges toward `desired`; it is not set imperatively by connect/disconnect calls.
+A bridge serves by default (a loaded IDE host serves its project). The reconcile loop SHALL therefore be asymmetric:
+bind is level-triggered — any WANTED project not currently serving is resumed — while unbind is edge-triggered — a
+project is gated only when it was being served on a client's behalf and the LAST session declaring interest in it has
+left (the wanted→unwanted edge), or when the tray force-offs it. `wanted = ⋃ interests over non-expired sessions \
+forceOff`, resolved to detected projects. A project no session has ever declared MUST NOT be gated by the loop — it
+keeps its default serving state, so standalone `volt push` and an un-connected neighbour are never cut off.
 
 #### Scenario: Two clients on the same project; one leaves
 
@@ -13,8 +16,14 @@ DERIVED by reconciling the bridges toward `desired`; it is not set imperatively 
 
 #### Scenario: Last client on a project leaves
 
-- **WHEN** the only session declaring interest in X stops declaring it
+- **WHEN** the only session declaring interest in X stops declaring it (empty sync, close, or lease expiry)
 - **THEN** the connector unbinds X's bridge (X stops serving)
+
+#### Scenario: A bridge no session ever declared
+
+- **WHEN** a project's host is serving by default and no session has ever declared interest in it (e.g. another project
+  is connected, or only a terminal `volt push` uses it)
+- **THEN** the loop leaves it serving — it is never gated merely for being un-declared
 
 #### Scenario: Different projects in different clients
 
@@ -66,24 +75,24 @@ maintain.
 - **WHEN** a session sends the same `interests` set on consecutive syncs
 - **THEN** nothing changes except the renewed lease
 
-### Requirement: Reconciliation respects the one-project-per-host bridge limit and does not flap on startup
+### Requirement: Reconciliation respects the one-project-per-host bridge limit and does not flap on restart
 
 The reconciler MUST NOT attempt to make one host serve two projects at once (a bridge limit): for a host that can
-serve only one project (e.g. a TwinCAT XAE worker), it serves the most-recently-declared wanted project and reports
-the others as detected-but-idle. On connector startup it MUST NOT unbind serving projects until a short stabilization
-window has passed, so live clients can re-declare their interests without a serve interruption. Binds are never
-delayed by the window.
+serve only one project (e.g. a TwinCAT XAE worker), a wanted project already serving there holds it and wanted
+siblings stay `idle` — no thrash, and no special most-recently-declared bookkeeping. On connector restart it MUST NOT
+unbind serving projects; because unbind is edge-triggered and `previouslyWanted` is empty after a restart, there are
+no leave-edges to act on, so serving projects are left alone while clients re-declare. Binds are never delayed.
 
 #### Scenario: Connector restarts while projects are serving
 
 - **WHEN** the connector restarts and the IDE hosts are still serving their projects, before any client has re-synced
-- **THEN** the connector does not unbind those projects during the startup window; once clients re-sync within it, the
-  still-wanted projects keep serving and only genuinely-unwanted ones are unbound after the window
+- **THEN** the connector does not unbind any of them (no leave-edges exist yet); as clients re-sync, still-wanted
+  projects simply stay serving
 
 #### Scenario: Two projects contend for one worker
 
-- **WHEN** two projects that share one TwinCAT worker are both in `desired`
-- **THEN** the worker serves the most-recently-declared one and the other is reported `idle`, without error
+- **WHEN** two projects that share one TwinCAT worker are both wanted
+- **THEN** the worker serves one and the other is reported `idle`, without error or oscillation
 
 ### Requirement: Manual controls fit the multi-client model
 

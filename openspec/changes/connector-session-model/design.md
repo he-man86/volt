@@ -54,20 +54,33 @@ DELETE /session/{id}                    → 204                                 
   *immediate* instead of waiting out the TTL.
 - The lease sweep runs on the connector's existing tick.
 
-## 4. Reconciliation — precise, and the hard parts
+## 4. Reconciliation — bind is level-triggered, unbind is edge-triggered
+
+The subtlety that makes this correct: **a bridge SERVES BY DEFAULT** — a loaded IDE host serves its project the
+moment it loads (verified: `Disconnecting_one_host_leaves_every_other_host_serving` expects an un-connected neighbour
+to keep serving; `volt push` from a terminal, with no GUI session at all, relies on it). So a naive "serve iff wanted"
+would gate every bridge no session has declared — cutting off standalone CLI and gating a neighbour the instant you
+connect something else. The fix is an **asymmetry**:
 
 ```
-desired = { p : ∃ non-expired session s with p ∈ s.interests } \ forceOff
-reconcile (serialized, on: any /sync, lease sweep, or detected-project change):
-  for each detected project p:
-     want    = p ∈ desired
-     serving = bridge reports p serving
-     if want and not serving:  bind p on its host   (host may already serve a sibling — see §5)
-     if serving and not want:  unbind p on its host  (subject to §6 grace)
+wanted = { p : ∃ non-expired session s with p ∈ s.interests } \ forceOff   (resolved to detected projects by vendor+name)
+reconcile (serialized, on: any /sync, lease sweep, or detection change), given previouslyWanted:
+  # RESUME — level-triggered: any wanted-but-idle project (honouring one-per-host, §5)
+  for each host (projects sharing a pipe):
+     if some wanted row already serves here: leave it (incumbent holds)
+     else bind one wanted-but-idle row (deterministic pick)
+  # GATE — edge-triggered: only what we were serving on a client's behalf and the LAST session just left, or force-off
+  lost = previouslyWanted \ wanted
+  for each detected serving p where p ∈ lost or p ∈ forceOff:  unbind p
+  publish wanted  (becomes next pass's previouslyWanted)
 ```
 
-- **Serialized** like today's `_refreshGate` — bind/unbind are async pipe ops; never run two reconciles at once.
-- **Idempotent** — acts only on the diff, so re-running it (every sync) is cheap and safe.
+- **A bridge no session ever wanted is never gated by the loop** — it keeps its default serving state. Only the
+  wanted→unwanted *edge* (the last interested session leaving, cleanly / by empty-sync / by lease expiry) gates a
+  project, plus the tray force-off. This is what preserves standalone `volt push` and the untouched-neighbour guarantee.
+- **Serialized** under the single gate; bind/unbind are async pipe ops, never two reconciles at once.
+- **Self-correcting** — `serving` is read from the bridge every pass and the plan acts only on the diff, so re-running
+  it (every sync) is cheap, safe, and converges (a second pass over the applied state is a no-op — a pinned invariant).
 
 ### 5. Parallelism is the norm; one narrow shared-host case
 
@@ -85,14 +98,15 @@ reports the sibling `status:"idle"` ("not connected — reconnect"). The reconci
 logic**: it declares both wanted, the worker can bind one, the other stays idle until selected. Not a bug — the
 bridge's own limit, already handled below the reconciler.
 
-### 6. Startup grace — do NOT flap
+### 6. No startup grace needed — edge-triggering subsumes it
 
-On connector startup (or restart — the IDE hosts stay live across it), `desired` is empty until clients re-sync
-(~one poll). A naive reconcile would immediately unbind every serving project, then re-bind it a few seconds later
-when clients re-declare — a visible flap and a needless sync interruption. Guard: the reconciler **only unbinds after
-a startup stabilization window (~2× the poll, ~8s)**, giving live clients time to re-declare their interests. Binds
-are never delayed (connecting something wanted is always safe); only the *unbind* side waits out the grace. After the
-window, an unwanted-serving project is unbound normally.
+An earlier draft added a startup stabilization window so a just-restarted connector would not unbind every serving
+project before clients re-declared. **Edge-triggered gating (§4) removes the need for it entirely**: after a restart
+`previouslyWanted` is empty (fresh process), so there are *no* leave-edges — nothing serving is gated, everything
+keeps serving, and clients simply re-declare their interests over the next poll. A window that only ever suppressed a
+flap the model no longer produces is dead weight, so it was dropped (`After_a_connector_restart_nothing_is_gated…`
+pins this). One consequence, accepted: a client that crashed *during* the restart window has no lease in the fresh
+process, so its project keeps serving (the safe default) until something declares or force-offs it.
 
 ## 7. Manual controls, redefined correctly
 
@@ -134,19 +148,21 @@ the app lives, `DELETE`d on quit/deactivate) carries the interest set. `boundSta
 | Failure | Handled by |
 |---|---|
 | A frontend crashes without disconnecting | Lease expiry drops its interests → reconcile unbinds if no one else wants them |
-| The connector restarts | Startup grace (§6); clients re-sync within a poll and re-declare |
+| The connector restarts | Edge-triggering (§6): `previouslyWanted` is empty → no leave-edges → nothing serving is gated; clients re-declare over the next poll |
 | An IDE restarts (new host/pipe) | Interest is the binding identity (§1), re-resolved each reconcile → re-binds the new host |
-| Two clients want two projects on ONE TwinCAT worker | Hardware limit (§5): serve the most-recently-declared; others report idle |
+| Two clients want two projects on ONE TwinCAT worker | Hardware limit (§5): the incumbent holds, the sibling reports idle; no thrash |
 | Old frontend ↔ new connector (or reverse) during an update | Legacy shim / client fallback (§8) |
 | Two clients want the SAME project; one leaves | Union: still wanted by the other → stays serving (the whole point) |
 
 ## 11. Testing
 
-- **C# (`Volt.Cli.Connector.Core`):** the reconciler is a pure function of `(sessions, forceOff, detected, nowUtc)` →
-  desired bind/unbind actions. Unit-test it directly (no bridges): union of interests; a lapsed lease drops out; the
-  startup-grace suppresses unbind then releases it; force-off wins; contended-host picks the most-recent; a durable
-  interest re-resolves to a new id. Keep the actual bind/unbind (the pipe ops) behind an injected interface so the
-  reconciler is tested without a live IDE.
+- **C# (`Volt.Cli.Connector.Core`):** the reconciler is a pure function of `(sessions, forceOff, previouslyWanted,
+  detected, nowUtc)` → bind/unbind actions. Unit-test it directly (no bridges): union of interests; the wanted→unwanted
+  leave edge gates while a never-wanted serving bridge is left untouched; a lapsed lease drops out; force-off wins; the
+  shared-worker incumbent holds without thrashing; a durable interest re-resolves; and a second pass over the applied
+  plan is a no-op (convergence). The bind/unbind (pipe ops) route through the existing `IProjectSource` seam, so the
+  manager's session loop is tested against the fake sources with no live IDE. *(Done — `ReconcilerTests` 18,
+  `ConnectionManagerSessionTests` 6.)*
 - **`@volt/control`:** the session client (open → sync declares the current interest set → renew → DELETE on close);
   `enterWorkspace`/`leaveWorkspace` mutate the set; the legacy fallback path on `POST /session` 404. Same mock-fetch
   harness as `connector.test.ts`/`reconnect.test.ts`.
