@@ -130,3 +130,16 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   void runDiagnostics(shell)
 }
 
+/** Release the binding when opencode is on its genuine HOME screen (not a project). Sticky binding never releases on
+ *  the request stream (opencode reports `global` for home AND project drafts alike), so the panel would keep showing
+ *  a stale project on the homepage — this is the one place we DO release, driven by the GUI's URL being the home
+ *  route. Tears down the status feed and pushes a `{bound:false}` snapshot; the IDE/bridge stay untouched. */
+export function unbindWorkspace(shell: Shell): void {
+  if (shell.boundRoot === undefined) return
+  shell.boundRoot = undefined
+  shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
+  shell.status?.dispose()
+  shell.status = null
+  pushStatus(shell)
+}
+

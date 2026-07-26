@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import { setBundledCli, setLspServer, loadDiff, disconnect, boundProjectId, type DiffDirection } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
-import { bindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
+import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
 import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
@@ -118,12 +118,12 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return norm(a) === norm(b)
 }
 
-// Feed a signal through the pure reducer and act. STICKY binding: a real project directory binds (or rebinds to a
-// different project); we NEVER release. opencode is session-scoped and reports its `global` scope for BOTH its home
-// screen AND every new-session draft (verified live) — so releasing on `global` would unbind the panel every time
-// you open a draft. Instead a `none` (global) signal only clears the cold-start "Connecting…" so the create surface
-// can show; it does not touch an existing binding. The bound project therefore stays shown until you actually work
-// in a different one (opencode only reveals a plaintext project directory once a session exists — i.e. on a chat).
+// Feed a signal through the pure reducer and act. Binding is STICKY on the request stream: a real project directory
+// binds (or rebinds to a different project), and a `none` (opencode's `global` scope) NEVER releases here — opencode
+// reports `global` for both its home screen and a project's new-session draft (verified live), so releasing on it
+// would unbind every time you open a draft. `none` only clears the cold-start "Connecting…" so the create surface can
+// show. Release happens in ONE place — `watchHomeNavigation`, off the GUI's actual home URL, which can tell home from
+// a draft when the request stream can't.
 function onActiveSignal(sig: ActiveProject): void {
   const wasAwaiting = shell.awaitingOpencode
   shell.awaitingOpencode = false // any signal means opencode is up (clears the cold-start "Connecting…")
@@ -137,6 +137,21 @@ function onActiveSignal(sig: ActiveProject): void {
 // Every opencode GUI request reveals its active project. The pure classifier (binding.ts::classifySignal) turns the
 // request's pathname + directory into a signal (`dir` for a real project, `none` for opencode's `global`/home scope).
 // See the openspec observations for the verified wire facts.
+// Release the binding when opencode's GUI is on its genuine HOME route. Binding is otherwise STICKY — the request
+// sniff can't distinguish opencode's home from a project's new-session draft (it reports the `global` scope for
+// both), so on the real homepage the panel would keep showing a stale project. The GUI's URL CAN tell them apart:
+// `/` is home, `/new-session`/scoped is a project. So this is the one release signal — a stable, documented one (the
+// view's own URL), not the fragile wire. Covers SPA client-side nav (did-navigate-in-page) + full loads.
+function watchHomeNavigation() {
+  const onNav = (url: string): void => {
+    let pathname = "/"
+    try { pathname = new URL(url).pathname } catch { /* not a URL */ }
+    if (pathname === "/") unbindWorkspace(shell) // the true homepage → drop the sticky binding (no stale project)
+  }
+  shell.view!.webContents.on("did-navigate-in-page", (_e, url) => onNav(url))
+  shell.view!.webContents.on("did-navigate", (_e, url) => onNav(url))
+}
+
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const { pathname, dir } = parseRequest(details)
@@ -225,6 +240,7 @@ app.whenReady().then(async () => {
 
   configureTools()
   watchActiveProject() // bind to whatever project opencode's GUI is on
+  watchHomeNavigation() // …and release when it goes to its home route (the one place sticky binding lets go)
   void startWorkspace()
 
   // Probe both vendor bridges so the Initialize buttons enable only for a live IDE (parity with VS Code).

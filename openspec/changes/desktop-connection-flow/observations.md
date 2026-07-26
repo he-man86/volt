@@ -130,17 +130,21 @@ session-less project**:
 
 1. **Binding is inherently post-chat.** There is no earlier signal; opencode itself doesn't know your project until a
    session exists. Pre-chat binding via the sniff is impossible.
-2. **`global` is ambiguous** — it is opencode's home screen AND every new-session draft. So a release-on-`global`
-   rule (the earlier `/global/` release) unbinds the panel every time you open a draft. **Decision: STICKY binding —
-   bind on the first project directory, rebind on a different one, never release.** `global` only clears the
-   cold-start "Connecting…" so the create surface can show. (User's call: "start simple and stable, see if enough.")
+2. **`global` is ambiguous in the request stream** — it is opencode's home screen AND every new-session draft. So a
+   release-on-`global` rule (the earlier `/global/` release) unbinds the panel every time you open a draft.
+   **Decision: STICKY on the request stream** — bind on a project directory, rebind on a different one, never release
+   from a `global` request. **BUT release off the GUI's URL:** the home screen is `/` while a draft is
+   `/new-session`, so `watchHomeNavigation` (a `did-navigate` listener on the view) drops the binding when opencode
+   navigates to `/`. This kills the "stale project shown on the homepage" that plain sticky left (user tested sticky:
+   "it feels off"). The URL is a stable, documented signal — unlike the request wire.
 3. **create-from-home binds DIRECTLY; opencode is not driven.** Volt *creates* the folder, so it owns the exact path
    and `bindWorkspace(folder)`s it directly — the panel is synced instantly, and under sticky binding it stays bound
    with **zero dependency on opencode**. To chat about it, the user opens it in opencode via "Add project" (opencode
    auto-registers then). We deliberately do NOT drive opencode: an earlier `openInOpencode` (register + navigate to
    `/<id>`) reloaded the GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience —
    dropped as risky-for-little-reward (it re-created the "opened a session somewhere" behavior and added undocumented
-   API surface). So the ONLY opencode interactions left are: spawn `serve`, and the follow-binding sniff.
+   API surface). So the ONLY opencode interactions left are: spawn `serve`, the follow-binding sniff, and a `did-navigate` listener on
+the view (to release on the home route).
 
 ### What opencode actually needs to open a project (minimal-map, verified live)
 
@@ -155,5 +159,5 @@ session-less project**:
 - opencode's `storage/project/` holds **metadata + chats only** (id, worktree *path*, sessions); the project files
   live on disk at the worktree.
 
-Open follow-up if sticky isn't enough: distinguish home from draft via the embedded view's URL (`/` vs
-`/new-session`) to release on true home only — deferred.
+(The "distinguish home from draft via the view URL to release on true home" follow-up is now IMPLEMENTED —
+`watchHomeNavigation`, above — after sticky-only tested as "feels off" on the homepage.)
