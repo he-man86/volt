@@ -67,6 +67,34 @@ if (process.env.VOLT_VERSION) {
   console.log(`  ✓ volt-lsp-iec stamped ${process.env.VOLT_VERSION}`)
 }
 
+// SMOKE the compiled server end-to-end — it's not enough that it prints --version. Spawn it exactly as the desktop
+// does (collectDiagnostics) against a known-bad fixture and require it to ANSWER workspace/diagnostic. The
+// installer/lifecycle gates only ran --version, so a launchable-but-wedged server — or a bun --compile asset
+// regression — would ship green while the desktop just times out. This is the gate that catches that.
+{
+  const { collectDiagnostics, setLspServer } = await import("../packages/volt-control/src/index.js")
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  setLspServer(resolve(bin, "volt-lsp-iec" + ext))
+  const fx = mkdtempSync(join(tmpdir(), "volt-lsp-smoke-"))
+  // `i := b` assigns a BOOL to an INT — a type error the eager crawl must find without opening the file.
+  writeFileSync(join(fx, "F.fb"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK")
+  try {
+    const r = await collectDiagnostics(fx, "codesys", { timeoutMs: 30_000 })
+    if (r.errors < 1) {
+      console.error(`✗ volt-lsp-iec compiled but served NO diagnostics for a known-bad file — got ${JSON.stringify(r)}`)
+      process.exit(1)
+    }
+    console.log(`  ✓ volt-lsp-iec serves diagnostics (${r.errors} error(s) on the smoke fixture)`)
+  } catch (e) {
+    console.error(`✗ volt-lsp-iec failed to serve diagnostics: ${(e as Error).message}`)
+    process.exit(1)
+  } finally {
+    rmSync(fx, { recursive: true, force: true })
+  }
+}
+
 // Ship the language-reference corpus beside the binaries. `bun --compile` only embeds imported JS, not this
 // fs-read docs tree, so `volt init`'s installCorpus reads it from `resources/volt/docs` (init.ts resolves
 // `dirname(process.execPath)/../docs` when the package layout isn't present). Without this, `volt init` warns

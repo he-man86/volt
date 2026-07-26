@@ -20,7 +20,6 @@ import {
   InitializeRequest,
   InitializedNotification,
   WorkspaceDiagnosticRequest,
-  ExitNotification,
   DiagnosticSeverity,
   DocumentDiagnosticReportKind,
   type Diagnostic,
@@ -82,6 +81,7 @@ export async function collectDiagnostics(
   })
   let stderr = ""
   child.stderr?.on("data", (d) => (stderr = (stderr + d).slice(-4000))) // keep the tail so an error names its cause
+  child.stdin?.on("error", () => {}) // swallow EPIPE when teardown writes Exit to a pipe the server already closed
 
   const conn = createProtocolConnection(new StreamMessageReader(child.stdout!), new StreamMessageWriter(child.stdin!))
   // A real LSP client answers these server→client requests; a raw one that ignores them can deadlock the
@@ -125,8 +125,8 @@ export async function collectDiagnostics(
   } finally {
     settled = true // stop died/timedOut from rejecting during teardown (the kill below fires 'exit')
     if (timer) clearTimeout(timer)
-    // Teardown is fire-and-forget — never await a server that may already be wedged.
-    try { conn.sendNotification(ExitNotification.type) } catch { /* gone */ }
+    // Teardown: dispose + kill the one-shot server. Deliberately NO graceful ExitNotification — writing it races
+    // the server closing its stdin and throws an unhandled EPIPE; we're killing the process on the next line anyway.
     try { conn.dispose() } catch { /* already disposed */ }
     try { child.kill() } catch { /* already dead */ }
   }
