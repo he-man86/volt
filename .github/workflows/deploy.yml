@@ -18,9 +18,10 @@
 #        bunx sst secret load .env.deploy --stage <stage>
 #   3. GitHub environment secrets (per stage — create "dev"/"production" environments):
 #        CLOUDFLARE_API_TOKEN, PLANETSCALE_SERVICE_TOKEN, PLANETSCALE_SERVICE_TOKEN_ID,
-#        STRIPE_SECRET_KEY, HONEYCOMB_INGEST_KEY, HONEYCOMB_CONFIG_KEY
-#        (the two Honeycomb secrets are DIFFERENT keys — ingest sends events, configuration manages
-#         recipients/triggers. Both feed the env var HONEYCOMB_API_KEY, in different steps.)
+#        STRIPE_SECRET_KEY, HONEYCOMB_API_KEY, HONEYCOMB_CONFIG_KEY
+#        (the two Honeycomb secrets are DIFFERENT keys: HONEYCOMB_API_KEY = an INGEST key (sends events),
+#         HONEYCOMB_CONFIG_KEY = a CONFIGURATION key (manages recipients/triggers). Both feed the env var
+#         HONEYCOMB_API_KEY, in different steps — see the two comments at those steps below.)
 #   (DB migrations run separately — `bun run db:dev migrate` — like opencode; the dev branch also inherits
 #    the schema by forking main.)
 
@@ -107,11 +108,13 @@ jobs:
           CONSOLE_DEV_EMAILS: ${{ secrets.CONSOLE_DEV_EMAILS }}
           # Monitoring (Honeycomb → console /honeycomb/webhook → Discord). Stored as SST secrets here (inert until
           # the deploy step below actually activates monitoring — production-only). Set in the production env.
-          # The SST secret keeps the name HONEYCOMB_API_KEY (the vendored log-processor reads
-          # Resource.HONEYCOMB_API_KEY), but its VALUE must be an INGEST key. The deploy step below sets the
-          # same env name from a DIFFERENT GitHub secret — a configuration key. Separate steps, separate
-          # values; one key cannot serve both roles. See infra/secret.ts.
-          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_INGEST_KEY }}
+          # ⚠ The GitHub secret HONEYCOMB_API_KEY must hold an INGEST key — it becomes the SST secret the
+          # vendored log-processor sends as X-Honeycomb-Team. The deploy step below sets the SAME env name from
+          # HONEYCOMB_CONFIG_KEY, a configuration key, because the provider needs "manage" rights an ingest key
+          # does not have. Two roles, two GitHub secrets, one env name per step — putting a configuration key in
+          # THIS secret silently breaks telemetry (401 on ingest); putting an ingest key in the other one fails
+          # the deploy outright. See infra/secret.ts.
+          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
           DISCORD_INCIDENT_WEBHOOK_URL: ${{ secrets.DISCORD_INCIDENT_WEBHOOK_URL }}
           # Console admin endpoints (/api/support/actions/*) authenticate with this bearer token. The secret
           # existed in the environment but was never passed here, so every production deploy overwrote it with
