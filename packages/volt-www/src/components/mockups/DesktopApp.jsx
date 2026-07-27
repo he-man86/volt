@@ -26,7 +26,8 @@ function Bolt({ cls = "vda-bolt" }) {
 const P = {
   pull: "M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 3v11m0 0 4-4m-4 4-4-4",
   push: "M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 15V4m0 0 4 4m-4-4-4 4",
-  build: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+  build:
+    "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
   refresh: "M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5",
   disconnect: "M9 7H7a5 5 0 0 0 0 10h2M15 17h2a5 5 0 0 0 0-10h-2M2 2l20 20",
   bridge: "M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8",
@@ -189,7 +190,9 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
           </div>
           <div className="vda-chat" ref={chatRef}>
             <div className="vda-msg step vda-msg--user" style={{ "--i": 0 }}>
-              <div className="vda-bubble">Add a `running` flag to FB_Conveyor, set it when speed &gt; 0, then build.</div>
+              <div className="vda-bubble">
+                Add a `running` flag to FB_Conveyor, set it when speed &gt; 0, then build.
+              </div>
             </div>
 
             <div className="vda-turn">
@@ -305,7 +308,14 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
               </div>
               <button className="vda-send" onClick={send} title="Send" aria-label="Send">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 12h13m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  <path
+                    d="M4 12h13m0 0-5-5m5 5-5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
                 </svg>
               </button>
             </div>
@@ -325,17 +335,37 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
               </div>
               {live ? (
                 <div className="vda-conn-act">
-                  <button className="vda-connbtn" title="Stops syncing. The IDE stays open — reconnect to resume." onClick={disconnect} disabled={bridge === "disconnecting"}>
-                    {bridge === "disconnecting" ? <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" /> : <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />}
+                  <button
+                    className="vda-connbtn"
+                    title="Stops syncing. The IDE stays open — reconnect to resume."
+                    onClick={disconnect}
+                    disabled={bridge === "disconnecting"}
+                  >
+                    {bridge === "disconnecting" ? (
+                      <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" />
+                    ) : (
+                      <Ico d={P.disconnect} cls="vda-ico vda-ico--sm" />
+                    )}
                     Disconnect from the IDE
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="vda-conn-note">Not syncing — pick your project below to reconnect (a different name rebinds this workspace to it):</div>
+                  <div className="vda-conn-note">
+                    Not syncing — pick your project below to reconnect (a different name rebinds this workspace to it):
+                  </div>
                   <div className="vda-conn-act">
-                    <button className="vda-connbtn" title="Reconnect this workspace to the IDE." onClick={reconnect} disabled={bridge === "connecting"}>
-                      {bridge === "connecting" ? <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" /> : <Bolt cls="vda-bolt vda-bolt--sm" />}
+                    <button
+                      className="vda-connbtn"
+                      title="Reconnect this workspace to the IDE."
+                      onClick={reconnect}
+                      disabled={bridge === "connecting"}
+                    >
+                      {bridge === "connecting" ? (
+                        <Ico d={P.refresh} cls="vda-ico vda-ico--sm vda-spin" />
+                      ) : (
+                        <Bolt cls="vda-bolt vda-bolt--sm" />
+                      )}
                       CODESYS · MyMachine
                     </button>
                   </div>
@@ -352,10 +382,24 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
               onToggle={toggleFold}
               acts={
                 <>
-                  {live && <button className="vda-act" title="Pull · IDE → workspace"><Ico d={P.pull} cls="vda-ico vda-ico--sm" /></button>}
-                  {live && <button className="vda-act" title="Push · workspace → IDE"><Ico d={P.push} cls="vda-ico vda-ico--sm" /></button>}
-                  {live && <button className="vda-act" title="Build"><Ico d={P.build} cls="vda-ico vda-ico--sm" /></button>}
-                  <button className="vda-act" title="Refresh"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>
+                  {live && (
+                    <button className="vda-act" title="Pull · IDE → workspace">
+                      <Ico d={P.pull} cls="vda-ico vda-ico--sm" />
+                    </button>
+                  )}
+                  {live && (
+                    <button className="vda-act" title="Push · workspace → IDE">
+                      <Ico d={P.push} cls="vda-ico vda-ico--sm" />
+                    </button>
+                  )}
+                  {live && (
+                    <button className="vda-act" title="Build">
+                      <Ico d={P.build} cls="vda-ico vda-ico--sm" />
+                    </button>
+                  )}
+                  <button className="vda-act" title="Refresh">
+                    <Ico d={P.refresh} cls="vda-ico vda-ico--sm" />
+                  </button>
                 </>
               }
             >
@@ -381,7 +425,9 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
                   ))}
                 </div>
               ) : (
-                <div className="vda-conn-note">Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.</div>
+                <div className="vda-conn-note">
+                  Not connected to the IDE, so there's nothing to compare against. Connect from IDE Connection above.
+                </div>
               )}
             </Section>
 
@@ -392,7 +438,11 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
               top
               folded={folded}
               onToggle={toggleFold}
-              acts={<button className="vda-act" title="Re-analyze"><Ico d={P.refresh} cls="vda-ico vda-ico--sm" /></button>}
+              acts={
+                <button className="vda-act" title="Re-analyze">
+                  <Ico d={P.refresh} cls="vda-ico vda-ico--sm" />
+                </button>
+              }
             >
               <div className="vda-grp">
                 {DIAGS.errors} errors, {DIAGS.warnings} warnings
@@ -411,15 +461,27 @@ export function DesktopApp({ panel = "sync", theme = "light", autoplay = false, 
 
         {/* Volt icon rail — Connection, Sync, Diagnostics (top→bottom, matching shell.html) */}
         <div className="vda-rail">
-          <button className={"vda-rail-btn" + (panelState === "bridge" ? " on" : "")} title="IDE Connection" onClick={() => showPanel("bridge")}>
+          <button
+            className={"vda-rail-btn" + (panelState === "bridge" ? " on" : "")}
+            title="IDE Connection"
+            onClick={() => showPanel("bridge")}
+          >
             <Ico d={P.bridge} cls="vda-ico vda-ico--rail" />
             <span className={"vda-rail-status " + (live ? "ok" : "warn")} />
           </button>
-          <button className={"vda-rail-btn" + (panelState === "sync" ? " on" : "")} title="IDE changes" onClick={() => showPanel("sync")}>
+          <button
+            className={"vda-rail-btn" + (panelState === "sync" ? " on" : "")}
+            title="IDE changes"
+            onClick={() => showPanel("sync")}
+          >
             <Bolt cls="vda-bolt vda-bolt--rail" />
             {live && <span className="vda-badge">{driftN}</span>}
           </button>
-          <button className={"vda-rail-btn" + (panelState === "diag" ? " on" : "")} title="Diagnostics" onClick={() => showPanel("diag")}>
+          <button
+            className={"vda-rail-btn" + (panelState === "diag" ? " on" : "")}
+            title="Diagnostics"
+            onClick={() => showPanel("diag")}
+          >
             <Ico d={P.alert} cls="vda-ico vda-ico--rail" />
             {DIAGS.warnings > 0 && <span className="vda-badge warn">{DIAGS.warnings}</span>}
           </button>

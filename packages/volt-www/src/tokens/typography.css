@@ -7,13 +7,20 @@
   /* Type scale — cursor's: fluid display, tight tracking. Body kept readable (16px), not the extractor's .75rem. */
   --text-display: clamp(2.25rem, 4vw, 3.25rem); /* hero H1 — cursor-sized, not oversized */
   --text-display-line: 1.1;
-  --text-h1-size: 40px;   --text-h1-line: 1.1;
-  --text-h2-size: 28px;   --text-h2-line: 1.2;
-  --text-h3-size: 20px;   --text-h3-line: 1.3;
-  --text-body-size: 16px; --text-body-line: 1.55;
-  --text-lead-size: 20px; --text-lead-line: 1.5;
-  --text-small-size: 14px; --text-small-line: 1.5;
-  --text-caption-size: 12px; --text-caption-line: 1.4;
+  --text-h1-size: 40px;
+  --text-h1-line: 1.1;
+  --text-h2-size: 28px;
+  --text-h2-line: 1.2;
+  --text-h3-size: 20px;
+  --text-h3-line: 1.3;
+  --text-body-size: 16px;
+  --text-body-line: 1.55;
+  --text-lead-size: 20px;
+  --text-lead-line: 1.5;
+  --text-small-size: 14px;
+  --text-small-line: 1.5;
+  --text-caption-size: 12px;
+  --text-caption-line: 1.4;
 
   /* Weights */
   --weight-regular: 400;

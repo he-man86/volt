@@ -14,8 +14,7 @@ export const authUrl = () => `${CONSOLE_URL}/auth`
 // Windows-native. `latest/download/...` always resolves to the newest release carrying the asset, so this never
 // needs bumping per release. Override with VITE_INSTALLER_URL if the release repo/asset name changes.
 const INSTALLER_URL =
-  import.meta.env.VITE_INSTALLER_URL ||
-  "https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe"
+  import.meta.env.VITE_INSTALLER_URL || "https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe"
 
 export const downloadUrl = () => INSTALLER_URL
 

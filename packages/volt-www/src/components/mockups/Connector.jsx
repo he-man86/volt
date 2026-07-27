@@ -36,7 +36,10 @@ const LOGS = [
 function Bolt({ cls }) {
   return (
     <svg className={cls} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M13 2 4.5 13.2c-.5.66-.03 1.6.8 1.6H11l-1.4 7.2c-.16.85.94 1.34 1.47.66L20 11.4c.5-.66.03-1.6-.8-1.6H13.5L14.6 2.9c.14-.83-.93-1.32-1.46-.66Z" fill="currentColor" />
+      <path
+        d="M13 2 4.5 13.2c-.5.66-.03 1.6.8 1.6H11l-1.4 7.2c-.16.85.94 1.34 1.47.66L20 11.4c.5-.66.03-1.6-.8-1.6H13.5L14.6 2.9c.14-.83-.93-1.32-1.46-.66Z"
+        fill="currentColor"
+      />
     </svg>
   )
 }

@@ -23,6 +23,7 @@ renderPage(
         "Zero setup — install and go",
         "The fastest way to put Volt on your PLC project",
       ]}
+      link={{ href: "/docs-desktop-vs-vscode.html#the-desktop-app", label: "When to use the desktop app" }}
     >
       <DesktopApp panel="sync" theme="light" autoplay />
     </FeatureShowcase>
@@ -39,6 +40,7 @@ renderPage(
         "Drift coloring + the opencode agent in the integrated terminal",
         "A few minutes of setup — bring your own editor",
       ]}
+      link={{ href: "/docs-desktop-vs-vscode.html#the-vs-code-extension", label: "When to use the extension" }}
     >
       <VSCode autoplay />
     </FeatureShowcase>

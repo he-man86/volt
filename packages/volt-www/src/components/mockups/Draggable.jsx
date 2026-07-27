@@ -30,7 +30,10 @@ export function Draggable({ children, className, style }) {
   }
   const onMove = (e) => {
     if (!start.current) return
-    setPos({ x: start.current.px + (e.clientX - start.current.sx), y: start.current.py + (e.clientY - start.current.sy) })
+    setPos({
+      x: start.current.px + (e.clientX - start.current.sx),
+      y: start.current.py + (e.clientY - start.current.sy),
+    })
   }
   const onUp = (e) => {
     start.current = null

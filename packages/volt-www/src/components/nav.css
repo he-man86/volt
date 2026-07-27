@@ -1,0 +1,198 @@
+/* ── Nav ──────────────────────────────────────────────────── */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--surface-page) 85%, transparent);
+  border-bottom: 1px solid var(--color-border-faint);
+}
+.site-nav-inner {
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline: auto;
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+.nav-link:hover {
+  color: var(--text-body);
+}
+.nav-caret {
+  transition: transform 200ms ease;
+  opacity: 0.7;
+}
+
+/* Hamburger — hidden on desktop, shown ≤640px (see the responsive block). */
+.nav-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 2px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--text-body);
+  cursor: pointer;
+}
+.nav-burger-box {
+  position: relative;
+  width: 18px;
+  height: 12px;
+}
+.nav-burger-box i {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transition:
+    transform 200ms ease,
+    opacity 150ms ease;
+}
+.nav-burger-box i:nth-child(1) {
+  top: 0;
+}
+.nav-burger-box i:nth-child(2) {
+  top: 5px;
+}
+.nav-burger-box i:nth-child(3) {
+  top: 10px;
+}
+.nav-burger-box.is-open i:nth-child(1) {
+  transform: translateY(5px) rotate(45deg);
+}
+.nav-burger-box.is-open i:nth-child(2) {
+  opacity: 0;
+}
+.nav-burger-box.is-open i:nth-child(3) {
+  transform: translateY(-5px) rotate(-45deg);
+}
+
+/* Mobile dropdown panel — flat list of every nav item, grouped by dropdown label. */
+.nav-mobile {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  border-bottom: 1px solid var(--color-border-faint);
+  background: var(--surface-page);
+}
+.nav-mobile-group {
+  padding-block: var(--space-2);
+}
+.nav-mobile-heading {
+  font-size: var(--text-caption-size);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: var(--space-2) 0 var(--space-1);
+}
+.nav-mobile-link {
+  display: block;
+  padding: 10px 0;
+  font-size: 15px;
+  color: var(--text-body);
+}
+.nav-mobile-link:active {
+  color: var(--color-accent);
+}
+.nav-mobile-group .nav-mobile-link {
+  padding-left: var(--space-3);
+  color: var(--text-muted);
+}
+.nav-mobile-top {
+  border-top: 1px solid var(--color-border-faint);
+}
+
+/* Dropdowns — CSS only (hover + focus-within). The wrapper's top padding bridges the gap so the menu
+   doesn't vanish while the pointer travels to it. */
+.nav-item {
+  position: relative;
+}
+.nav-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 6px);
+  padding-top: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+.nav-item:hover .nav-menu,
+.nav-item:focus-within .nav-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+.nav-item:hover .nav-caret,
+.nav-item:focus-within .nav-caret {
+  transform: rotate(180deg);
+}
+/* Single-column compact list (like cursor) — short labels, no descriptions. */
+.nav-menu-panel {
+  background: var(--surface-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 168px;
+}
+.nav-menu-item {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+.nav-menu-item:hover {
+  background: var(--color-surface);
+  color: var(--text-body);
+}
+
+/* Mobile: links collapse into the hamburger panel (see MobileMenu in Nav.jsx). */
+@media (max-width: 640px) {
+  .nav-links,
+  .nav-signin {
+    display: none !important;
+  }
+  .nav-burger {
+    display: inline-flex;
+  }
+}

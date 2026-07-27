@@ -10,7 +10,10 @@ export function LegalPage({ title, updated, notice, sections }) {
         {notice && (
           <div
             className="card"
-            style={{ background: "color-mix(in srgb, var(--color-accent) 6%, transparent)", marginBottom: "var(--space-6)" }}
+            style={{
+              background: "color-mix(in srgb, var(--color-accent) 6%, transparent)",
+              marginBottom: "var(--space-6)",
+            }}
           >
             <p style={{ margin: 0, fontSize: "var(--text-small-size)" }} className="muted">
               <strong style={{ color: "var(--text-body)" }}>Pending review.</strong> {notice}

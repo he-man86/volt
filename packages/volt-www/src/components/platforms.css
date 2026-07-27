@@ -1,0 +1,56 @@
+/* ── Supported-platforms band (below the hero) ────────────── */
+.platforms {
+  padding-block: var(--space-6) var(--space-8);
+  text-align: center;
+}
+.platforms-label {
+  margin: 0 auto;
+  max-width: 480px;
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+}
+/* Bordered grid — each wordmark in its own cell. Container draws top+left, cells draw right+bottom, so ragged
+   wrapped rows stay clean (no filled empty cells). Spans the section width to align with hero/features. */
+.platforms-row {
+  margin-top: var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.platforms-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px 10px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-body);
+  opacity: 0.4;
+  filter: grayscale(1);
+  transition:
+    opacity 200ms ease,
+    background 200ms ease;
+}
+.platforms-mark:hover {
+  opacity: 0.85;
+  background: var(--color-surface);
+}
+@media (max-width: 900px) {
+  .platforms-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .platforms-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .platforms-mark:last-child {
+    grid-column: 1 / -1;
+  }
+}

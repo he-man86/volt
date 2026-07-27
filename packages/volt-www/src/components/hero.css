@@ -1,0 +1,76 @@
+/* ── Hero backdrop — soft warm wash (owned; not cursor's image) ── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: var(--space-7);
+}
+.hero-glow {
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 620px;
+  z-index: -2;
+  background:
+    radial-gradient(60% 60% at 20% 0%, rgba(245, 78, 0, 0.1), transparent 70%),
+    radial-gradient(50% 50% at 85% 10%, rgba(192, 133, 50, 0.12), transparent 70%),
+    linear-gradient(180deg, var(--color-surface), var(--surface-page));
+}
+/* Soft centered painting wash — concentrated behind the headline, feathered out before it reaches the mockups.
+   Dial `opacity` up for more presence, or delete this + the .hero-art div to remove. */
+.hero-art {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 700px;
+  z-index: -1;
+  opacity: 0.3;
+  background: url("/stage-turner.webp") center 20% / cover no-repeat;
+  -webkit-mask-image: radial-gradient(115% 80% at 50% 26%, #000 22%, transparent 68%);
+  mask-image: radial-gradient(115% 80% at 50% 26%, #000 22%, transparent 68%);
+}
+
+/* Draggable window stage (hero) — full-width composition: Volt app on the left (narrower + taller), CODESYS
+   floated right so it overlaps ~50% and the pair spans the width. */
+.hero-stage {
+  position: relative;
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+.hero-main {
+  width: calc(100% - 230px);
+}
+.hero-main .vda-body {
+  min-height: 600px;
+}
+.drag {
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+.drag [data-drag-handle] {
+  cursor: grab;
+}
+.drag.is-dragging,
+.drag.is-dragging [data-drag-handle] {
+  cursor: grabbing;
+}
+.hero-drag-hint {
+  position: absolute;
+  top: -26px;
+  right: 4px;
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+@media (max-width: 620px) {
+  .hero-cds {
+    display: none;
+  }
+  .hero-main {
+    width: 100%;
+  }
+}
+/* Drag is disabled on touch (see Draggable.jsx) — drop the hint that implies otherwise. */
+@media (pointer: coarse) {
+  .hero-drag-hint {
+    display: none;
+  }
+}

@@ -13,7 +13,15 @@ export function FinalCTA() {
           <p className="lead" style={{ marginTop: "var(--space-3)" }}>
             Free with your own AI provider. Windows.
           </p>
-          <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "center", marginTop: "var(--space-5)", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--space-3)",
+              justifyContent: "center",
+              marginTop: "var(--space-5)",
+              flexWrap: "wrap",
+            }}
+          >
             <Button kind="download" variant="primary" size="lg">
               Download for Windows
             </Button>

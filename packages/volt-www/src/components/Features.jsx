@@ -1,5 +1,6 @@
 import { FEATURES } from "../content.js"
 import { Reveal } from "../reveal.jsx"
+import "./features.css"
 
 export function Features() {
   return (

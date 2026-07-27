@@ -5,8 +5,16 @@ import { useInView } from "../../reveal.jsx"
 import "./codesys.css"
 
 const KW = new Set([
-  "FUNCTION_BLOCK", "END_FUNCTION_BLOCK", "VAR", "VAR_GLOBAL", "END_VAR", "IF", "THEN", "END_IF",
-  "PROGRAM", "END_PROGRAM",
+  "FUNCTION_BLOCK",
+  "END_FUNCTION_BLOCK",
+  "VAR",
+  "VAR_GLOBAL",
+  "END_VAR",
+  "IF",
+  "THEN",
+  "END_IF",
+  "PROGRAM",
+  "END_PROGRAM",
 ])
 const TY = new Set(["BOOL", "REAL", "INT", "DINT", "TIME", "WORD"])
 
@@ -62,24 +70,25 @@ const FILES = {
     "",
     "active := rpm > 0;",
   ],
-  GVL: [
-    "VAR_GLOBAL",
-    "    gLineSpeed : REAL := 1.5;",
-    "    gEStop     : BOOL;",
-    "END_VAR",
-  ],
+  GVL: ["VAR_GLOBAL", "    gLineSpeed : REAL := 1.5;", "    gEStop     : BOOL;", "END_VAR"],
 }
 
 // Nested device tree. Folders have children; leaves carry a `file` key into FILES.
 const TREE = [
   {
-    id: "dev", label: "Device (CODESYS Control)", ico: "device",
+    id: "dev",
+    label: "Device (CODESYS Control)",
+    ico: "device",
     children: [
       {
-        id: "plc", label: "PLC Logic", ico: "folder",
+        id: "plc",
+        label: "PLC Logic",
+        ico: "folder",
         children: [
           {
-            id: "app", label: "Application", ico: "app",
+            id: "app",
+            label: "Application",
+            ico: "app",
             children: [
               { id: "PLC_PRG", label: "PLC_PRG (PRG)", ico: "pou", file: "PLC_PRG" },
               { id: "FB_Conveyor", label: "FB_Conveyor (FB)", ico: "pou", file: "FB_Conveyor" },
@@ -162,7 +171,9 @@ export function Codesys() {
       </div>
       <div className="cds-status">
         <span className="cds-ok">● Precompile OK</span>
-        <span className="cds-status-r">{selected} · {code.length} lines</span>
+        <span className="cds-status-r">
+          {selected} · {code.length} lines
+        </span>
       </div>
     </div>
   )

@@ -1,0 +1,6 @@
+/* Footer grid — the layout itself is inline in Footer.jsx; only the breakpoint needs a stylesheet. */
+@media (max-width: 900px) {
+  [data-footer-grid] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

@@ -1,5 +1,8 @@
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
+import mdx from "@mdx-js/rollup"
+import remarkGfm from "remark-gfm"
+import rehypeSlug from "rehype-slug"
 
 // Static multi-page site (one HTML per page). `vite build` -> dist/ with each page pre-built. Runs on Windows.
 // The .html filenames match the design's own nav links (pricing.html, faq.html, …), so no link rewriting.
@@ -22,13 +25,21 @@ const webAnalytics = {
 }
 
 export default defineConfig({
-  plugins: [react(), webAnalytics],
+  // MDX runs `pre` (before react) so docs prose compiles to JSX and can embed the product mockups inline.
+  // rehype-slug gives every heading an id — the docs sidebar reads those ids off the DOM (no ToC plugin).
+  plugins: [
+    { enforce: "pre", ...mdx({ remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] }) },
+    react({ include: /\.(jsx|js|mdx)$/ }),
+    webAnalytics,
+  ],
   build: {
     rollupOptions: {
       input: {
         home: "index.html",
         pricing: "pricing.html",
         faq: "faq.html",
+        docs: "docs.html",
+        "docs-desktop-vs-vscode": "docs-desktop-vs-vscode.html",
         contact: "contact.html",
         changelog: "changelog.html",
         "legal-terms": "legal/terms.html",

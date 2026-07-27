@@ -2,6 +2,7 @@
 // uniform wordmarks. Wordmarks, not vendor logos.
 import { PLATFORMS } from "../content.js"
 import { Reveal } from "../reveal.jsx"
+import "./platforms.css"
 
 export function Platforms() {
   return (

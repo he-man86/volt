@@ -1,0 +1,147 @@
+import { Figure, Step } from "../components/DocsLayout.jsx"
+import { Connector } from "../components/mockups/Connector.jsx"
+import { DesktopApp } from "../components/mockups/DesktopApp.jsx"
+import { Codesys } from "../components/mockups/Codesys.jsx"
+import { VSCode } from "../components/mockups/VSCode.jsx"
+import { Button } from "../components/ui.jsx"
+
+Volt puts your live PLC project under real git and points an AI agent at it. This walkthrough takes you from a
+fresh install to your first pull, edit and push — about ten minutes. Every screen below is the real interface:
+click around in them as you read.
+
+## Before you start
+
+You need a Windows machine with **CODESYS** or **TwinCAT/Beckhoff** installed, and a project you can open in the
+IDE. Volt sits *alongside* your IDE — it never replaces it, and the IDE stays the source of truth for build and
+codegen.
+
+For the AI agent, Volt uses [opencode](https://opencode.ai/download) — a separate, free install that Volt does not
+bundle or update. Everything else (git sync, Structured Text language intelligence) works without it.
+
+## Install Volt
+
+<Step n="1">Download the installer and run it. One installer ships everything: the desktop app, the `volt` CLI, the
+tray Connector and the VS Code extension.</Step>
+
+<div className="docs-cta">
+  <Button kind="download" variant="primary" size="lg">Download for Windows</Button>
+  <span className="muted">Windows 10/11 · ~80 MB</span>
+</div>
+
+The installer puts `volt` on your `PATH` and starts the Connector at login. Nothing else to configure — no ports,
+no config files.
+
+## Start the Connector
+
+The Connector is the always-on piece: it lives in your system tray, finds the PLC projects you have open across
+every supported vendor, and keeps the bridge to them live.
+
+<Figure caption="The tray Connector — open projects it found, which one is connected, and the status and log windows. Click around: Disconnect, Volt Status…, Show logs.">
+  <Connector autoplay />
+</Figure>
+
+<Step n="2">Open your project in CODESYS or TwinCAT, then check the tray. Your project should appear in the
+Connector's list within a few seconds.</Step>
+
+If it doesn't show up, open **Volt Status…** from the tray menu — it reports what the Connector can and can't see.
+For CODESYS you may need **Activate in CODESYS…** once, which installs Volt's in-IDE add-in.
+
+## Connect the app to your IDE
+
+Open the Volt desktop app. The right-hand panel is where your project lives — **IDE Connection** at the top,
+then **IDE Sync**, then **Diagnostics**.
+
+<Figure wide caption="The desktop app. Click the rail icons on the right to switch between IDE Connection, IDE Sync and Diagnostics — and try Disconnect / reconnect in the Connection panel.">
+  <DesktopApp panel="bridge" theme="light" autoplay />
+</Figure>
+
+<Step n="3">In **IDE Connection**, click your project to connect. The dot turns green and the rest of the panel
+comes alive.</Step>
+
+Connecting binds this workspace to that project. If you later rename the project in the IDE, just pick the new
+name from the same list — it rebinds; nothing is lost.
+
+## Pull your project into git
+
+Volt models your live IDE as a **git remote**. Pulling fetches the IDE's current state and merges it into your
+working tree with plain `git merge` — no bespoke merge engine, no `.volt` snapshot directory.
+
+<Step n="4">Hit **Pull** in the IDE Sync panel (the ⭳ icon), or run it from a terminal:</Step>
+
+```bash
+cd C:\projects\MyMachine
+
+volt init --vendor codesys   # once — git repo + workspace binding
+volt pull                    # IDE → git
+volt status                  # incoming / outgoing
+```
+
+Every object in your project becomes one text file, named after the object. Function blocks, programs, DUTs, GVLs
+and editable graphical bodies (FBD/LD) are all readable, diffable text — commit them, branch them, review them
+like any other code.
+
+<Figure wide caption="IDE Sync after a pull: incoming changes from the IDE, outgoing changes waiting to be pushed, and the Diagnostics panel with live Structured Text analysis.">
+  <DesktopApp panel="sync" theme="light" autoplay />
+</Figure>
+
+## Work with the agent
+
+With the project in text form, the agent can actually read it: your POUs, function blocks, referenced library
+signatures and the device tree — not a single file guessed at out of context.
+
+<Step n="5">Ask for something concrete in the chat pane. Good first prompts:</Step>
+
+- *"Explain what `FB_ConveyorControl` does and where it's called from."*
+- *"Add a fault-latch output to `FB_Pump` and reset it on the rising edge of `bReset`."*
+- *"Why does `MAIN` report a warning here?"*
+
+Diagnostics run locally the whole time — go-to-definition, hover, completion and errors come from Volt's own IEC
+61131-3 language server, tuned against real CODESYS builds. Type-checking and codegen stay the IDE's job.
+
+## Push back to the IDE
+
+<Step n="6">When you're happy with the diff, push. Volt writes the changed objects back into the live IDE — a
+declarative set/delete, only what actually changed.</Step>
+
+```bash
+git add -A && git commit -m "feat(pump): latch faults until reset"
+volt push        # git → IDE
+volt build       # compile in the IDE, report errors back here
+```
+
+<Figure caption="Your IDE, right after a push — the objects Volt wrote are just normal objects in the device tree. Expand the tree, click a POU.">
+  <Codesys />
+</Figure>
+
+If the IDE changed underneath you, `volt pull` merges first and you resolve conflicts with your normal git tools;
+`volt merge --continue` picks up where you left off.
+
+## Prefer VS Code?
+
+Everything above also works from VS Code (and Windsurf) with the Volt extension, installed alongside the app.
+You get the same language intelligence plus drift coloring — files the IDE changed are colored differently from
+files you changed.
+
+<Figure wide caption="The VS Code extension: Explorer, Source Control, and Volt's own views — IDE Sync, Diagnostics, Bridge, Agent & Settings. Switch views in the activity bar; type in the terminal.">
+  <VSCode autoplay zoom={0.92} />
+</Figure>
+
+## CLI reference
+
+The whole workflow is scriptable — the desktop app and the extension drive exactly these verbs.
+
+| Command | What it does |
+| --- | --- |
+| `volt init --vendor <codesys\|twincat>` | Make the project root a git repo and bind it to a vendor |
+| `volt pull` | Fetch the live IDE and merge it into your working tree |
+| `volt push` | Write your committed changes back into the IDE |
+| `volt status` | Incoming / outgoing changes vs. the IDE |
+| `volt build` | Build in the IDE, report errors in the terminal |
+| `volt show <name>` | Print one object's text form |
+| `volt merge --continue` | Finish a conflicted pull after you've resolved it |
+
+## Where to go next
+
+- **[Pricing](/pricing.html)** — Free brings your own model key; Pro is hosted and free during the public beta.
+- **[FAQ](/faq.html)** — data handling, supported vendors, platform support.
+- **[Contact](/contact.html)** — something not working, or a vendor you need? Tell us.

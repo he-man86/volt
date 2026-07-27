@@ -1,8 +1,10 @@
 // Full-bleed showcase (cursor style): the app mockup floating over an edge-to-edge public-domain painting that
 // feathers into the page — with the feature copy on the left, mockup on the right.
 import { Reveal } from "../reveal.jsx"
+import { Arrow } from "./ui.jsx"
+import "./showcase.css"
 
-export function FeatureShowcase({ eyebrow, title, body, points = [], flip = false, bg = true, children }) {
+export function FeatureShowcase({ eyebrow, title, body, points = [], link, flip = false, bg = true, children }) {
   return (
     <section className={"showcase" + (flip ? " is-flip" : "") + (bg ? "" : " no-bg")}>
       {bg && <div className="showcase-bg" aria-hidden="true" />}
@@ -22,6 +24,11 @@ export function FeatureShowcase({ eyebrow, title, body, points = [], flip = fals
                 <li key={p}>{p}</li>
               ))}
             </ul>
+          )}
+          {link && (
+            <a href={link.href} className="showcase-link">
+              {link.label} <Arrow />
+            </a>
           )}
         </Reveal>
         <Reveal className="showcase-mockup" delayIndex={1}>

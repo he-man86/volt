@@ -11,8 +11,18 @@ const KW = new Set(["FUNCTION_BLOCK", "PROGRAM", "VAR", "VAR_GLOBAL", "END_VAR",
 const TY = new Set(["BOOL", "REAL", "INT"])
 function hl(text) {
   return text.split(/(\w+)/).map((t, i) => {
-    if (KW.has(t)) return <span key={i} className="vsc-kw">{t}</span>
-    if (TY.has(t)) return <span key={i} className="vsc-ty">{t}</span>
+    if (KW.has(t))
+      return (
+        <span key={i} className="vsc-kw">
+          {t}
+        </span>
+      )
+    if (TY.has(t))
+      return (
+        <span key={i} className="vsc-ty">
+          {t}
+        </span>
+      )
     return <span key={i}>{t}</span>
   })
 }
@@ -68,10 +78,14 @@ const COMPLETIONS = [
 // Explorer file tree
 const EXPLORER = [
   {
-    id: "root", label: "MYMACHINE", folder: true,
+    id: "root",
+    label: "MYMACHINE",
+    folder: true,
     children: [
       {
-        id: "app", label: "Application", folder: true,
+        id: "app",
+        label: "Application",
+        folder: true,
         children: [
           // Explorer drift decorations: the real extension paints an `o`/`i`/`C` badge on files the IDE changed.
           { id: "FB_Conveyor.fb", label: "FB_Conveyor.fb", ico: "fb", drift: "o" },
@@ -88,7 +102,8 @@ const EXPLORER = [
 // here as collapsible sections (which is how VS Code stacks views in one container). Labels/rows match panel.ts.
 const VOLT_SECTIONS = [
   {
-    id: "sync", title: "IDE Sync",
+    id: "sync",
+    title: "IDE Sync",
     rows: [
       { group: "Incoming (IDE → pull)", n: 1 },
       { badge: "i", cls: "in", label: "FB_Motor", desc: "FB", file: "FB_Motor.fb" },
@@ -97,7 +112,8 @@ const VOLT_SECTIONS = [
     ],
   },
   {
-    id: "diag", title: "Diagnostics",
+    id: "diag",
+    title: "Diagnostics",
     rows: [
       { badge: "!", cls: "warn", label: "0 errors, 2 warnings" },
       { badge: "", label: "FB_Motor.fb", desc: "2⚠", file: "FB_Motor.fb", indent: true },
@@ -106,7 +122,8 @@ const VOLT_SECTIONS = [
   // NOTE: the "IDE Connection" view leads the container (built dynamically in the component — interactive
   // connect ⇄ disconnect) and is prepended to these in `voltSections`.
   {
-    id: "ref", title: "Agent & Settings",
+    id: "ref",
+    title: "Agent & Settings",
     rows: [
       { badge: "◆", cls: "muted", label: "Open Agent" },
       { badge: "⚙", cls: "muted", label: "Open Settings" },
@@ -119,7 +136,11 @@ const runCmd = (raw) => {
   const c = raw.trim()
   if (!c) return []
   if (c === "volt status") return [{ c: "", t: "  2 incoming · 1 outgoing · bridge online" }]
-  if (c === "volt pull") return [{ c: "ok", t: "  ✓ merged FB_Motor.fb" }, { c: "dim", t: "  in sync with volt/ide" }]
+  if (c === "volt pull")
+    return [
+      { c: "ok", t: "  ✓ merged FB_Motor.fb" },
+      { c: "dim", t: "  in sync with volt/ide" },
+    ]
   if (c === "volt push") return [{ c: "ok", t: "  ✓ pushed FB_Conveyor.fb → IDE" }]
   return [{ c: "dim", t: `  volt: '${c}' — try: status, pull, push` }]
 }
@@ -178,7 +199,12 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
     id: "bridge",
     title: "IDE Connection",
     rows: [
-      { badge: bridgeLive ? "●" : "○", cls: bridgeLive ? "ok" : "warn", label: "CODESYS — MyMachine", desc: bridgeLive ? "connected" : "not connected" },
+      {
+        badge: bridgeLive ? "●" : "○",
+        cls: bridgeLive ? "ok" : "warn",
+        label: "CODESYS — MyMachine",
+        desc: bridgeLive ? "connected" : "not connected",
+      },
       bridge === "connected"
         ? { badge: "⏻", cls: "muted", label: "Disconnect from the IDE", desc: "pause syncing", onClick: disconnect }
         : bridge === "disconnecting"
@@ -244,7 +270,11 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
           {n.folder ? <span className={"vsc-chev" + (open ? " open" : "")} /> : <span className="vsc-chev-sp" />}
           <span className={"vsc-fico " + (n.ico || "folder")} />
           <span className="vsc-side-label">{n.label}</span>
-          {n.drift && <span className={"vsc-tree-drift " + (n.drift === "i" ? "in" : n.drift === "C" ? "conflict" : "out")}>{n.drift}</span>}
+          {n.drift && (
+            <span className={"vsc-tree-drift " + (n.drift === "i" ? "in" : n.drift === "C" ? "conflict" : "out")}>
+              {n.drift}
+            </span>
+          )}
         </div>
       )
       return n.folder && open ? [row, ...renderTree(n.children, depth + 1)] : [row]
@@ -267,12 +297,20 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
       <div className="vsc-body">
         {/* activity bar */}
         <div className="vsc-activity">
-          <button className={"vsc-act-btn" + (view === "explorer" ? " on" : "")} title="Explorer" onClick={() => setView("explorer")}>
+          <button
+            className={"vsc-act-btn" + (view === "explorer" ? " on" : "")}
+            title="Explorer"
+            onClick={() => setView("explorer")}
+          >
             <svg className="vsc-ai" viewBox="0 0 24 24">
               <path d={ICON.explorer} />
             </svg>
           </button>
-          <button className={"vsc-act-btn" + (view === "scm" ? " on" : "")} title="Source Control" onClick={() => setView("scm")}>
+          <button
+            className={"vsc-act-btn" + (view === "scm" ? " on" : "")}
+            title="Source Control"
+            onClick={() => setView("scm")}
+          >
             <svg className="vsc-ai" viewBox="0 0 24 24">
               <circle cx="6" cy="6" r="2.4" />
               <circle cx="6" cy="18" r="2.4" />
@@ -281,9 +319,16 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
             </svg>
             {changes.length > 0 && <span className="vsc-act-badge">{changes.length}</span>}
           </button>
-          <button className={"vsc-act-btn volt" + (view === "volt" ? " on" : "")} title="Volt" onClick={() => setView("volt")}>
+          <button
+            className={"vsc-act-btn volt" + (view === "volt" ? " on" : "")}
+            title="Volt"
+            onClick={() => setView("volt")}
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M13 2 4.5 13.2c-.5.66-.03 1.6.8 1.6H11l-1.4 7.2c-.16.85.94 1.34 1.47.66L20 11.4c.5-.66.03-1.6-.8-1.6H13.5L14.6 2.9c.14-.83-.93-1.32-1.46-.66Z" fill="currentColor" />
+              <path
+                d="M13 2 4.5 13.2c-.5.66-.03 1.6.8 1.6H11l-1.4 7.2c-.16.85.94 1.34 1.47.66L20 11.4c.5-.66.03-1.6-.8-1.6H13.5L14.6 2.9c.14-.83-.93-1.32-1.46-.66Z"
+                fill="currentColor"
+              />
             </svg>
           </button>
         </div>
@@ -343,10 +388,19 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
                       ) : (
                         <div
                           key={i}
-                          className={"vsc-side-row" + (r.indent ? " indent" : "") + (r.file || r.onClick ? " clickable" : "") + (r.file === active ? " is-active" : "")}
+                          className={
+                            "vsc-side-row" +
+                            (r.indent ? " indent" : "") +
+                            (r.file || r.onClick ? " clickable" : "") +
+                            (r.file === active ? " is-active" : "")
+                          }
                           onClick={() => (r.onClick ? r.onClick() : r.file && openFile(r.file))}
                         >
-                          {r.spin ? <span className="vsc-spin" /> : <span className={"vsc-badge " + (r.cls || "")}>{r.badge}</span>}
+                          {r.spin ? (
+                            <span className="vsc-spin" />
+                          ) : (
+                            <span className={"vsc-badge " + (r.cls || "")}>{r.badge}</span>
+                          )}
                           <span className="vsc-side-label">{r.label}</span>
                           {r.desc && <span className="vsc-side-desc">{r.desc}</span>}
                         </div>
@@ -361,7 +415,11 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
         <div className="vsc-center">
           <div className="vsc-tabs">
             {tabs.map((name) => (
-              <span key={name} className={"vsc-tab" + (name === active ? " is-active" : "")} onClick={() => setActive(name)}>
+              <span
+                key={name}
+                className={"vsc-tab" + (name === active ? " is-active" : "")}
+                onClick={() => setActive(name)}
+              >
                 {name === "FB_Conveyor.fb" && <span className="vsc-dot-o" />} {name}
               </span>
             ))}
@@ -411,7 +469,9 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
             </div>
             <pre className="vsc-term" ref={termRef}>
               {term.map((l, i) => (
-                <div key={i} className={"vsc-tl " + l.c}>{l.t}</div>
+                <div key={i} className={"vsc-tl " + l.c}>
+                  {l.t}
+                </div>
               ))}
             </pre>
             <div className="vsc-term-input">

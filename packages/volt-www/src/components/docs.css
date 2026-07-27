@@ -1,0 +1,193 @@
+/* ── Docs ─────────────────────────────────────────────────── */
+.docs {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-8);
+  padding-top: var(--space-9);
+  padding-bottom: var(--space-10);
+  align-items: start;
+}
+.docs-nav {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: 2px;
+}
+.docs-nav-title {
+  margin-bottom: var(--space-2);
+}
+.docs-nav-link {
+  padding: 6px 10px;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+  border-left: 2px solid transparent;
+}
+.docs-nav-link:hover {
+  color: var(--text-body);
+  background: var(--surface-card);
+}
+.docs-nav-link.is-active {
+  color: var(--text-body);
+  border-left-color: var(--color-accent);
+  font-weight: var(--weight-medium);
+}
+.docs-body {
+  max-width: 780px;
+}
+.docs-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-h1-size);
+}
+.docs-lead {
+  margin-top: var(--space-3);
+}
+.docs-body h2 {
+  font-size: var(--text-h2-size);
+  line-height: var(--text-h2-line);
+  letter-spacing: var(--tracking-tight);
+  margin: var(--space-8) 0 var(--space-3);
+  scroll-margin-top: 88px;
+}
+.docs-body h3 {
+  font-size: var(--text-h3-size);
+  margin: var(--space-6) 0 var(--space-2);
+  scroll-margin-top: 88px;
+}
+.docs-body p,
+.docs-body li {
+  color: var(--text-muted);
+}
+.docs-body strong,
+.docs-body a {
+  color: var(--text-body);
+}
+.docs-body a {
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 3px;
+}
+.docs-body a:hover {
+  color: var(--color-accent);
+}
+.docs-body ul {
+  padding-left: 22px;
+}
+.docs-body li {
+  margin-bottom: 6px;
+}
+.docs-body code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--surface-card);
+  border: 1px solid var(--color-border-faint);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.docs-body pre {
+  background: var(--color-ink);
+  color: var(--color-text-on-dark);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4);
+  overflow-x: auto;
+  font-size: var(--text-small-size);
+  line-height: 1.6;
+}
+.docs-body pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+.docs-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-small-size);
+  margin: var(--space-4) 0;
+  display: block;
+  overflow-x: auto;
+}
+.docs-body th,
+.docs-body td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: top;
+}
+.docs-body th {
+  font-weight: var(--weight-semibold);
+}
+.docs-body td:first-child {
+  white-space: nowrap;
+}
+/* Numbered instruction line — the thing to actually DO in each section. */
+.docs-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  color: var(--text-body) !important;
+  font-weight: var(--weight-medium);
+}
+.docs-step-n {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  display: inline-grid;
+  place-items: center;
+  transform: translateY(3px);
+}
+/* Live product mockup inside the prose. `is-wide` breaks out of the text column on roomy screens. */
+.docs-figure {
+  margin: var(--space-5) 0 var(--space-6);
+}
+.docs-figure-frame {
+  filter: drop-shadow(0 18px 44px rgba(31, 41, 55, 0.18));
+}
+.docs-figure figcaption {
+  margin-top: var(--space-3);
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+}
+@media (min-width: 1200px) {
+  .docs-figure.is-wide {
+    width: min(1000px, calc(100vw - 320px));
+  }
+}
+.docs-cta {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  flex-wrap: wrap;
+  margin: var(--space-4) 0 var(--space-5);
+}
+@media (max-width: 900px) {
+  .docs {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+  .docs-nav {
+    position: static;
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    gap: var(--space-2);
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+  }
+  .docs-nav-title {
+    display: none;
+  }
+  .docs-nav-link {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .docs-nav-link.is-active {
+    border-bottom-color: var(--color-accent);
+  }
+}

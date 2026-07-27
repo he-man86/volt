@@ -3,6 +3,7 @@ import { DesktopApp } from "./mockups/DesktopApp.jsx"
 import { Codesys } from "./mockups/Codesys.jsx"
 import { Draggable } from "./mockups/Draggable.jsx"
 import { Reveal } from "../reveal.jsx"
+import "./hero.css"
 
 export function Hero() {
   return (

@@ -33,7 +33,17 @@ function Mark({ size = 24 }) {
 
 export function Logo() {
   return (
-    <a href="/" style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600, fontSize: "18px", letterSpacing: "-0.02em" }}>
+    <a
+      href="/"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        fontWeight: 600,
+        fontSize: "18px",
+        letterSpacing: "-0.02em",
+      }}
+    >
       <Mark size={26} />
       Volt
     </a>
@@ -60,7 +70,13 @@ export function PageHeader({ eyebrow, title, lead }) {
 export function Arrow() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ marginTop: 1 }}>
-      <path d="M4 8h8m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 8h8m0 0-3-3m3 3-3 3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

@@ -1,5 +1,6 @@
 import { FOOTER } from "../content.js"
 import { Logo } from "./ui.jsx"
+import "./footer.css"
 
 export function Footer() {
   return (
@@ -16,7 +17,10 @@ export function Footer() {
       >
         <div>
           <Logo />
-          <p className="muted" style={{ marginTop: "var(--space-3)", fontSize: "var(--text-small-size)", maxWidth: 260 }}>
+          <p
+            className="muted"
+            style={{ marginTop: "var(--space-3)", fontSize: "var(--text-small-size)", maxWidth: 260 }}
+          >
             The AI coding agent for industrial automation. CODESYS and TwinCAT.
           </p>
         </div>

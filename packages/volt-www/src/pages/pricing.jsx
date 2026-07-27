@@ -45,7 +45,12 @@ function Plan({ p, i }) {
         </div>
         <div style={{ fontSize: "var(--text-h2-size)", fontWeight: 600 }}>
           {p.price}
-          {p.period && <span className="muted" style={{ fontSize: "var(--text-body-size)", fontWeight: 400 }}> {p.period}</span>}
+          {p.period && (
+            <span className="muted" style={{ fontSize: "var(--text-body-size)", fontWeight: 400 }}>
+              {" "}
+              {p.period}
+            </span>
+          )}
         </div>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "var(--space-2)", flex: 1 }}>
           {p.features.map((f) => (
@@ -56,7 +61,11 @@ function Plan({ p, i }) {
           ))}
         </ul>
         <div style={{ display: "grid", gap: "var(--space-2)" }}>
-          <Button kind={p.kind} variant={p.featured ? "primary" : "secondary"} href={p.kind === "contact" ? ctaHref("contact") : undefined}>
+          <Button
+            kind={p.kind}
+            variant={p.featured ? "primary" : "secondary"}
+            href={p.kind === "contact" ? ctaHref("contact") : undefined}
+          >
             {p.cta}
           </Button>
           {p.betaNote && (
@@ -72,7 +81,11 @@ function Plan({ p, i }) {
 
 renderPage(
   <>
-    <PageHeader eyebrow="Pricing" title="Start free. Bring your own AI." lead="The tooling is free with your own model provider. Pro adds hosted AI — and it's in public beta right now: sign up free, no card required." />
+    <PageHeader
+      eyebrow="Pricing"
+      title="Start free. Bring your own AI."
+      lead="The tooling is free with your own model provider. Pro adds hosted AI — and it's in public beta right now: sign up free, no card required."
+    />
     <section className="section container" style={{ maxWidth: 720 }}>
       <div className="pricing-grid">
         {PRICING.map((p, i) => (

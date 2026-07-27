@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { NAV } from "../content.js"
 import { authUrl, dashboardUrl, isSignedIn } from "../config.js"
 import { Logo, Button, Caret } from "./ui.jsx"
+import "./nav.css"
 
 function NavEntry({ item }) {
   if (!item.items) {
