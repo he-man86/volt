@@ -129,6 +129,8 @@ export class VoltViews implements vscode.Disposable {
 		this.diagnostics.setRoots(diagnosticRoots())
 	}
 
+	// Disposable lifecycle — VS Code calls this when the subscription is torn down, not our code.
+	// fallow-ignore-next-line unused-class-member
 	dispose(): void {
 		for (const d of this.disposables) d.dispose()
 	}

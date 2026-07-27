@@ -114,7 +114,7 @@ export function loadTaskRoots(root: string): Set<string> {
 }
 
 /** Obsolete-POU catalog for a workspace root — scans every source file's text for `{attribute 'obsolete'}`. */
-export function loadObsoletePous(root: string): Map<string, { name: string; message: string }> {
+function loadObsoletePous(root: string): Map<string, { name: string; message: string }> {
   const out = new Map<string, { name: string; message: string }>()
   for (const file of walkFiles(root)) {
     if (!SOURCE_EXTENSION_SET.has(extname(file).toLowerCase())) continue

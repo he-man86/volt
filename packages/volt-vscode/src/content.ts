@@ -16,6 +16,8 @@ export function parseUri(uri: vscode.Uri): { workspaceRoot: string; ref: ShowRef
 }
 
 export class VoltContentProvider implements vscode.TextDocumentContentProvider {
+	// Required by TextDocumentContentProvider; VS Code reads it (registered in extension.ts), our code doesn't.
+	// fallow-ignore-next-line unused-class-member
 	readonly onDidChange = new vscode.EventEmitter<vscode.Uri>().event
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {

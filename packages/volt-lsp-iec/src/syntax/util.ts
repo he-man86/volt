@@ -6,6 +6,7 @@ import type { Keyword, Token } from "./tokens.js"
 import type { Span } from "./span.js"
 import type { BodySpan, Identifier, VarSection } from "./ast.js"
 import type { Cursor } from "./cursor.js"
+// fallow-ignore-next-line circular-dependency -- inherent recursive-descent recursion: util's block helpers call into var-section, which calls back into util. Function-body imports, no init hazard.
 import { atVarSection, parseVarSection } from "./var-section.js"
 
 /** Build a span covering the source range from `a.start` to `b.end`. */
@@ -36,21 +37,6 @@ export function skipFolderDirective(c: Cursor): boolean {
   c.consume() // %
   while (!c.atEof() && c.peek().span.startLine === line) c.consume()
   return true
-}
-
-/**
- * Consume meaningful tokens until `pred` returns true for the next
- * one (or we hit EOF). Returns the consumed tokens. Does NOT consume
- * the terminator. Skips trivia (the cursor handles that).
- */
-export function collectUntil(c: Cursor, pred: (t: Token) => boolean): Token[] {
-  const out: Token[] = []
-  while (!c.atEof()) {
-    const next = c.peek()
-    if (pred(next)) break
-    out.push(c.consume())
-  }
-  return out
 }
 
 /**

@@ -43,7 +43,7 @@ export interface BareRef {
  * `a.b`) nor named-argument params (`p` in `f(p := v)`), both of which are `IdentExpr` in the tree but
  * resolve against a callee/type, not the local scope. Mirrors `ast-walk`'s traversal minus those.
  */
-export function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
+function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
   switch (e.kind) {
     case "ident_expr":
       emit(e)

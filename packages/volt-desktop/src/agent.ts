@@ -37,7 +37,7 @@ function freePinnedPort(): void {
   }
 }
 
-export function startServer(): Promise<string> {
+function startServer(): Promise<string> {
   // Still parse the URL opencode prints (robust to host/scheme) — we only pin the port. Reject if none prints.
   return new Promise((resolve, reject) => {
     freePinnedPort() // reclaim the port from any orphaned opencode before binding it

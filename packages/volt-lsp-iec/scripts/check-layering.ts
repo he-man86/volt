@@ -17,6 +17,10 @@ const SRC = resolve(import.meta.dir, "..", "src")
 // consumed BY analysis + services), while `graphical` reuses the services core (so it sits above them).
 const RANK: Record<string, number> = {
   syntax: 0,
+  // graphical/text/ is the VG sublanguage FRONTEND (text→AST): it depends only on syntax, so it's the
+  // low rung of the graphical family (architecture.md §F), not the rank-6 graphical layer. Ranked just
+  // above syntax so both `services` and `graphical` may consume it downward. Mirrors fallow's lsp-vg-text zone.
+  "graphical-text": 0.5,
   symbols: 1,
   types: 2,
   reference: 3,
@@ -27,6 +31,10 @@ const RANK: Record<string, number> = {
 }
 // transpile is a sibling backend, not a stack rung: it may only reach A·B·C.
 const TRANSPILE_ALLOWED = new Set(["syntax", "symbols", "types"])
+// Sanctioned upward edges (documented in .fallowrc.jsonc boundaries). `types → reference`: the type
+// checker reads the read-only reference catalog for built-in return types — inherent coupling, like a
+// checker reading its typed stdlib. Fixing it properly means binding built-ins into the symbol table.
+const ALLOWED_UPWARD = new Set(["types→reference"])
 
 function walk(dir: string): string[] {
   const out: string[] = []
@@ -41,6 +49,8 @@ function walk(dir: string): string[] {
 // First path segment under src/ = the file's layer (or null for top-level files like index.ts/bin.ts).
 function layerOf(file: string): string | null {
   const rel = relative(SRC, file).replaceAll("\\", "/")
+  // The VG frontend is a low rung of the graphical family — classify it before the first-segment rule.
+  if (rel.startsWith("graphical/text/")) return "graphical-text"
   const seg = rel.split("/")[0]
   return rel.includes("/") ? seg : null
 }
@@ -77,7 +87,13 @@ for (const file of walk(SRC)) {
       continue
     }
     // Rule 1: upward import between stack layers.
-    if (srcLayer in RANK && tgtLayer && tgtLayer in RANK && RANK[tgtLayer] > RANK[srcLayer]) {
+    if (
+      srcLayer in RANK &&
+      tgtLayer &&
+      tgtLayer in RANK &&
+      RANK[tgtLayer] > RANK[srcLayer] &&
+      !ALLOWED_UPWARD.has(`${srcLayer}→${tgtLayer}`)
+    ) {
       violations.push(`${relFrom} → ${relTo}: upward import (${srcLayer} must not import ${tgtLayer})`)
       continue
     }

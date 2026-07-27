@@ -32,7 +32,7 @@ import type {
 import { parseLiteralValue } from "./literal-value.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
-export const BINARY_PRECEDENCE: ReadonlyArray<{
+const BINARY_PRECEDENCE: ReadonlyArray<{
   ops: readonly string[]
   prec: number
   rightAssoc?: boolean
@@ -389,7 +389,7 @@ export function initializerFromTokens(tokens: Token[]): Initializer | undefined 
 // error-tolerant: an element it can't classify becomes `unparsed`; an unrecognized outer shape → `unknown`.
 
 /** Parse aggregate `tokens` (including the outer delimiters) into a form + top-level elements. */
-export function parseAggregate(tokens: Token[]): { form: AggregateForm; elements: AggregateElement[] } {
+function parseAggregate(tokens: Token[]): { form: AggregateForm; elements: AggregateElement[] } {
   const peeled = peelAggregate(tokens)
   if (peeled === undefined) return { form: "unknown", elements: [] }
   return { form: peeled.form, elements: splitTopLevel(peeled.inner).map(parseElement) }

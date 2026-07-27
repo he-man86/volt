@@ -42,11 +42,6 @@ export function errorCatalog(): ErrorCode[] {
   return catalogData as unknown as ErrorCode[]
 }
 
-/** One entry by code (`"C0077"`), or undefined. */
-export function lookupErrorCode(code: string): ErrorCode | undefined {
-  return errorCatalog().find((e) => e.code === code)
-}
-
 // The runtime slug→(code,url) lookup (`codesysCodeFor`) lives in the generated `error-code-map.ts`, NOT here:
 // this module embeds the full 230KB test catalog and is test-only, so the running LSP must not import it.
 // A drift test (error-codes.test.ts) keeps that generated map in sync with this catalog.

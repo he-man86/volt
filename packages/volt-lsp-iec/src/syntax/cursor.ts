@@ -64,10 +64,6 @@ export class Cursor {
     return this.pos
   }
 
-  rewind(to: number): void {
-    this.pos = to
-  }
-
   // ─── Typed eaters ──────────────────────────────────────────────
 
   /** Consume if the next meaningful token is the given keyword. Returns the token, else undefined. */

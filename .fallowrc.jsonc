@@ -1,0 +1,92 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  // Scope analysis to Volt's OWN product packages. `workspaces.patterns` only affects dependency
+  // resolution — ignorePatterns is what actually excludes files from analysis.
+  "workspaces": { "patterns": ["packages/volt-*"] },
+
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/*.d.ts",
+    // Vendored opencode source — never edit (CLAUDE.md's vendored-console rule); fallow must not
+    // surface deletions here.
+    "packages/console/**",
+    // SST infrastructure-as-code — entry is sst.config.ts, not import-reachable, so all-"dead".
+    "infra/**",
+    "sst.config.ts",
+    // The agent-config dir shipped to opencode: loaded at runtime via OPENCODE_CONFIG_DIR, never
+    // imported, so its every file reads as "unused". Not product code we refactor here.
+    "opencode-config/**",
+    // Repo-level orchestration scripts run by name, not imported.
+    "volt-scripts/**",
+    // Dev scripts (run by name via bun/tsx), not import-reachable — every one reads as "unused".
+    "**/scripts/**",
+    // Out of the current focus. www is the marketing site — add back when you want it scored.
+    "packages/volt-www/**"
+  ],
+
+  "entry": [
+    // Electron loads preload.cjs via BrowserWindow, not an `import` — declare it so it isn't "unused".
+    "packages/volt-desktop/preload.cjs",
+    // The LSP server's CLI entry (package.json `bin` → dist/src/bin.js); reached by exec, not import.
+    "packages/volt-lsp-iec/src/bin.ts"
+  ],
+
+  // Dependencies fallow's static graph can't see, but are real and load-bearing:
+  //  - @volt/lsp-iec: bundled into the .vsix at build (esbuild), not imported in TS source.
+  //  - zod: consumed by opencode-config/tool/volt.ts, which is excluded from analysis above.
+  "ignoreDependencies": ["@volt/lsp-iec", "zod"],
+
+  // fallow's own `init` seeds minOccurrences:3 to hide pair-only clone noise. Our two remaining
+  // clones are pair-only structural ceremony inside gate-guarding pull/push/merge handlers — not
+  // worth a dedupe that risks a re-entrancy bug. Report clones that recur 3+ times (real spread).
+  "duplicates": { "minOccurrences": 3 },
+
+  // Architecture enforcement — encodes volt-lsp-iec's documented layer rank (see scripts/check-layering.ts
+  // + docs/architecture.md). A layer may import only LOWER layers; transpile is a side backend (A·B·C only).
+  // Downward-only, so any upward import surfaces as a `boundary-violation`. (The sibling-check isolation rule
+  // in check-layering.ts can't be expressed here — keep that script for it.)
+  "boundaries": {
+    "zones": [
+      { "name": "lsp-syntax", "patterns": ["packages/volt-lsp-iec/src/syntax/**"] },
+      { "name": "lsp-symbols", "patterns": ["packages/volt-lsp-iec/src/symbols/**"] },
+      { "name": "lsp-types", "patterns": ["packages/volt-lsp-iec/src/types/**"] },
+      { "name": "lsp-reference", "patterns": ["packages/volt-lsp-iec/src/reference/**"] },
+      { "name": "lsp-analysis", "patterns": ["packages/volt-lsp-iec/src/analysis/**"] },
+      { "name": "lsp-services", "patterns": ["packages/volt-lsp-iec/src/services/**"] },
+      // The VG sublanguage parser (text→AST) depends ONLY on syntax — it's a low-level parse primitive,
+      // not a high-graphical concern. Zoned before lsp-graphical (first-match wins) so both graphical and
+      // services may consume it downward. (check-layering.ts still ranks it under graphical — see summary.)
+      { "name": "lsp-vg-text", "patterns": ["packages/volt-lsp-iec/src/graphical/text/**"] },
+      { "name": "lsp-graphical", "patterns": ["packages/volt-lsp-iec/src/graphical/**"] },
+      { "name": "lsp-server", "patterns": ["packages/volt-lsp-iec/src/server/**"] },
+      { "name": "lsp-transpile", "patterns": ["packages/volt-lsp-iec/src/transpile/**"] }
+    ],
+    "rules": [
+      { "from": "lsp-syntax", "allow": [] },
+      { "from": "lsp-symbols", "allow": ["lsp-syntax"] },
+      // reference is a read-only embedded data catalog (CODESYS library signatures). The type system
+      // reads it for built-in return types (infer.ts) — inherent coupling, like a checker reading its
+      // typed stdlib. Allowed by design; the mutual reference↔types cycle is suppressed at its edge.
+      { "from": "lsp-types", "allow": ["lsp-syntax", "lsp-symbols", "lsp-reference"] },
+      { "from": "lsp-reference", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types"] },
+      { "from": "lsp-vg-text", "allow": ["lsp-syntax"] },
+      { "from": "lsp-analysis", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types", "lsp-reference"] },
+      { "from": "lsp-services", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types", "lsp-reference", "lsp-analysis", "lsp-vg-text"] },
+      { "from": "lsp-graphical", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types", "lsp-reference", "lsp-analysis", "lsp-services", "lsp-vg-text"] },
+      { "from": "lsp-server", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types", "lsp-reference", "lsp-analysis", "lsp-services", "lsp-graphical"] },
+      { "from": "lsp-transpile", "allow": ["lsp-syntax", "lsp-symbols", "lsp-types"] }
+    ]
+  },
+
+  "overrides": [
+    {
+      // Test files are reachable via the test runner, not via imports — so fallow's entry-point
+      // model wrongly calls them "dead". Turn those two rules off for tests only.
+      "files": ["**/*.test.ts", "**/test/**"],
+      // Tests legitimately reach across layers (they exercise internals) — check-layering.ts excludes
+      // them too. Turn off unused + boundary rules for tests only.
+      "rules": { "unused-files": "off", "unused-exports": "off", "boundary-violation": "off" }
+    }
+  ]
+}
