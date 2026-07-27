@@ -2,9 +2,19 @@
 
 This suite drives a **live IDE bridge** over the named pipe (the same wire the CLI uses). It is a **local tier**,
 not CI: it needs a real CODESYS or TcXaeShell running, so it can't run headless on a build agent. The *same* suite
-runs against either vendor (`VOLT_VENDOR` / `VOLT_PIPE`) — a pass on one and a fail on the other is a real parity
-bug, not an expected difference. Tests provision their own `VltE2E_*` items and clean them up, so they never depend
-on ambient project content.
+runs against either vendor — a pass on one and a fail on the other is a real parity bug, not an expected difference.
+Tests provision their own `VltE2E_*` items and clean them up, so they never depend on ambient project content.
+
+**Pick a vendor with `VOLT_VENDOR`; the harness does the rest.** It **discovers the live per-pid pipe** by prefix
+(so an IDE that restarts with a new pid is followed — no need to hunt for `volt.bridge.<vendor>.<pid>`), and
+`requireHealthy()` **selects the detected project and waits for it to serve** (CODESYS serves its project by default;
+a TwinCAT XAE starts every project `idle` and must be told which to serve — the harness does that). `VOLT_PIPE` still
+overrides for a specific pipe/prefix. One command per vendor:
+
+```bash
+bun run test:e2e:codesys      # = VOLT_VENDOR=codesys bun test test/e2e
+bun run test:e2e:twincat      # = VOLT_VENDOR=twincat bun test test/e2e
+```
 
 ## Fixtures (committed, deterministic)
 
@@ -33,7 +43,7 @@ pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up -Ui
 pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up -Instance a
 pwsh packages/volt-cli/scripts/codesys-pipe.ps1 down          # (add -Instance a to stop that one)
 
-$env:VOLT_PIPE="volt.bridge.codesys"; $env:VOLT_VENDOR="codesys"; bun test test/e2e
+bun run test:e2e:codesys   # discovers the live codesys pipe + runs the suite
 ```
 
 ## TwinCAT
@@ -47,15 +57,15 @@ pwsh packages/volt-cli/scripts/twincat-instances.ps1 up            # both fixtur
 pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 13  # just one
 pwsh packages/volt-cli/scripts/twincat-instances.ps1 down          # close the ones it opened
 
-# give TcXaeShell ~30-60s to load the PLC project(s), then:
-$env:VOLT_PIPE="volt.bridge.twincat"; $env:VOLT_VENDOR="twincat"; bun test test/e2e
+# TcXaeShell takes ~30-60s to load; the runner discovers the pipe + selects the project + waits, so just:
+bun run test:e2e:twincat
 ```
 
 **One-time build per fixture.** The committed fixtures ship source-only (no `_CompileInfo`), so a freshly-opened
 one isn't fully serveable until it's built: **Build → Build Solution** in TcXaeShell once after opening. Until then
-the DTE registers but the PLC project isn't fully accessible, and the suite reports the bridge as `unavailable`.
-The connector must be running (it supervises the worker); the worker's `instances` op should list the built
-project(s) before you run the suite.
+the DTE registers but the PLC project isn't fully accessible; `requireHealthy()` selects it and waits, and if it
+never serves within 60s the suite fails with a clear message ("selected it but it stayed idle — is the IDE still
+loading?"). The connector must be running (it supervises the worker).
 
 ## A note on TwinCAT stability
 

@@ -9,19 +9,47 @@
  */
 import { expect } from "bun:test"
 import { connect } from "node:net"
+import { readdirSync } from "node:fs"
 
 export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
-// The named pipe of the bridge under test; VOLT_PIPE overrides.
-export const PIPE = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
+// Both vendors serve ONE pipe per running IDE, keyed by pid (`volt.bridge.<vendor>.<pid>`). We target by prefix, not a
+// fixed pid, so a TwinCAT XAE (or CODESYS) that restarts with a new pid is picked up automatically. VOLT_PIPE (an
+// exact pid pipe, or a prefix) overrides the vendor default; even a dead-pid VOLT_PIPE resolves to the live pipe of
+// the same vendor.
+const PIPE_PREFIX = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
+
+/** The live per-pid pipe(s) matching the target (the VOLT_PIPE prefix, or any pipe of this vendor). */
+function livePipes(): string[] {
+	try {
+		return readdirSync("\\\\.\\pipe\\").filter(
+			(n) => n === PIPE_PREFIX || n.startsWith(PIPE_PREFIX + ".") || n.startsWith(`volt.bridge.${VENDOR}.`),
+		)
+	} catch {
+		return []
+	}
+}
+
+let cachedPipe: string | undefined
+/** Resolve the live pipe: keep the cached one while it's still up, else re-discover. Falls back to the raw prefix
+ *  (a `connect` there ENOENTs with a clear name) when no bridge is up. */
+function resolvePipe(): string {
+	if (cachedPipe && livePipes().includes(cachedPipe)) return cachedPipe
+	cachedPipe = livePipes()[0] ?? PIPE_PREFIX
+	return cachedPipe
+}
+
+export const PIPE = resolvePipe() // for labels + one-shot callers; live calls re-resolve
 export const BASE = `pipe ${PIPE}` // a label for describe() titles (the wire is the pipe, not a URL)
 export const PREFIX = "VltE2E"
 export const FOLDER = "POUs"
 
 /** One request per connection (mirrors the CLI's PipeClient): write `{op,body}\n`, drain frames, return the
- *  terminal result (progress frames ignored; an error frame throws). */
+ *  terminal result (progress frames ignored; an error frame throws). Re-resolves the pipe each call, so a bridge that
+ *  restarted with a new pid is followed; a connect error drops the cached pipe so the next call re-discovers. */
 function pipeCall(op: string, body?: unknown): Promise<any> {
+	const pipe = resolvePipe()
 	return new Promise((resolve, reject) => {
-		const sock = connect(`\\\\.\\pipe\\${PIPE}`)
+		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = ""
 		let result: unknown
 		sock.on("connect", () => sock.write(JSON.stringify({ op, body: body ?? undefined }) + "\n"))
@@ -39,7 +67,7 @@ function pipeCall(op: string, body?: unknown): Promise<any> {
 			}
 		})
 		sock.on("end", () => resolve(result))
-		sock.on("error", reject)
+		sock.on("error", (e) => { cachedPipe = undefined; reject(e) })
 	})
 }
 
@@ -83,9 +111,26 @@ export function healthStatus(h: any): "healthy" | "degraded" | "unavailable" {
 	return served.status === "degraded" ? "degraded" : "healthy"
 }
 
-export async function requireHealthy(): Promise<void> {
-	const s = healthStatus(await bridge.health())
-	if (s !== "healthy") throw new Error(`bridge not healthy: ${s}`)
+/** Ensure the bridge is SERVING a project before a suite runs. CODESYS serves its loaded project by default, but a
+ *  TwinCAT XAE worker starts every project `idle` and must be told which one to serve — so this SELECTS the first
+ *  detected project and waits for it to go healthy (retrying across an IDE that is still loading, or one whose pipe
+ *  just changed pid). Vendor-agnostic: on CODESYS the select is a harmless re-confirm. Throws with a clear reason if
+ *  nothing becomes healthy in time. */
+export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
+	const t0 = Date.now()
+	let lastProject: string | undefined
+	while (Date.now() - t0 < timeoutMs) {
+		const h = await bridge.health().catch(() => ({ projects: [] }))
+		if (healthStatus(h) === "healthy") return
+		lastProject = (h.projects ?? [])[0]?.project as string | undefined
+		if (lastProject) await bridge.connect({ project: lastProject }).catch(() => {}) // TwinCAT idle → select it
+		await new Promise((r) => setTimeout(r, 1500))
+	}
+	throw new Error(
+		lastProject
+			? `bridge never served '${lastProject}' (selected it but it stayed idle — is the IDE still loading, or is the worker crashing?)`
+			: `no project detected on the bridge (open the IDE + its project; for TwinCAT run scripts/twincat-instances.ps1 up)`,
+	)
 }
 
 // ── test-item identity + cleanup ──────────────────────────────────────────────
