@@ -155,16 +155,24 @@ namespace Volt.Cli.Connector
             finally { _gate.Release(); }
         }
 
+        /// <summary>The projects the tray has force-offed (supervisor override), by id — so the tray can render the
+        /// paused rows and offer "resume".</summary>
+        public IReadOnlyCollection<string> ForceOffIds => _state.ForceOff;
+
         /// <summary>Set or clear the tray's force-off for a project id (the supervisor escape hatch for a stuck
         /// bridge): while set, reconcile keeps that project unbound regardless of any session's interest.</summary>
-        public async Task SetForceOffAsync(string projectId, bool forceOff)
+        public Task SetForceOffAsync(string projectId, bool forceOff) => SetForceOffAsync(new[] { projectId }, forceOff);
+
+        /// <summary>Batch form — set/clear force-off for several projects in ONE reconcile (the tray's pause/resume).</summary>
+        public async Task SetForceOffAsync(IReadOnlyCollection<string> projectIds, bool forceOff)
         {
+            if (projectIds.Count == 0) return;
             await _gate.WaitAsync().ConfigureAwait(false);
             try
             {
                 var s = _state;
                 var set = new HashSet<string>(s.ForceOff, StringComparer.Ordinal);
-                if (forceOff) set.Add(projectId); else set.Remove(projectId);
+                foreach (var id in projectIds) { if (forceOff) set.Add(id); else set.Remove(id); }
                 _state = s with { ForceOff = set };
                 await CycleCoreAsync().ConfigureAwait(false);
             }

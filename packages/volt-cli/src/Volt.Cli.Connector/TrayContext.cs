@@ -105,11 +105,9 @@ namespace Volt.Cli.Connector
 
         private string StatusText()
         {
-            var connected = _conn.Sources
-                .Select(s => _conn.SelectedOf(s.Vendor))
-                .Where(p => p != null)
-                .Select(p => p!.DisplayName)
-                .ToList();
+            // The frontends' sessions drive connections now, so "connected" is the set of SERVING projects (not a tray
+            // highlight, which no longer exists).
+            var connected = _conn.Projects.Where(p => _conn.IsServingProject(p.Id)).Select(p => p.DisplayName).ToList();
             if (connected.Count > 0) return "connected: " + string.Join(", ", connected);
             var n = _conn.Projects.Count;
             return n > 0 ? $"{n} project(s) detected — connect from the app" : "no project detected";
@@ -252,12 +250,29 @@ namespace Volt.Cli.Connector
             return result;
         }
 
-        /// <summary>The menu-click wrapper: never throws (the handler is async void — an escaped exception would
-        /// take the tray down with it). The control plane calls TrayDisconnectAsync directly and surfaces errors.</summary>
+        /// <summary>Toggle the supervisor force-off for one project (a clickable row). Force-off keeps the project's
+        /// bridge unbound regardless of any session's interest until cleared — the escape hatch for a stuck bridge.
+        /// Never throws (async void handler — an escaped exception would take the tray down).</summary>
+        private async Task ToggleForceOff(string projectId, bool forceOff)
+        {
+            try
+            {
+                await _conn.SetForceOffAsync(projectId, forceOff);
+                await OnUiThread(() => _ = TickAsync()); // repaint the row's paused/connected state now
+            }
+            catch (Exception ex) { Log.Error($"force-off toggle failed: {ex.Message}"); }
+        }
+
+        /// <summary>"Resume all Volt sync" — clear every supervisor force-off at once, so the frontends' sessions take
+        /// over serving again. Never throws (async void handler).</summary>
         private async Task DisconnectFromTray()
         {
-            try { await TrayDisconnectAsync(null); }
-            catch (Exception ex) { Log.Error($"disconnect failed: {ex.Message}"); }
+            try
+            {
+                await _conn.SetForceOffAsync(_conn.ForceOffIds.ToList(), false);
+                await OnUiThread(() => _ = TickAsync());
+            }
+            catch (Exception ex) { Log.Error($"resume-all failed: {ex.Message}"); }
         }
 
         // ── menu ────────────────────────────────────────────────────────────
@@ -347,20 +362,31 @@ namespace Volt.Cli.Connector
                 var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
                 foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
                 {
-                    var connected = _conn.SelectedOf(p.Vendor)?.Id == p.Id;
+                    var serving = _conn.IsServingProject(p.Id);
+                    var paused = _conn.ForceOffIds.Contains(p.Id);
                     var ver = multi.Contains(p.Vendor) && !string.IsNullOrEmpty(p.IdeVersion) ? $" ({p.IdeVersion})" : "";
-                    // Status rows: not clickable (the UI connects). Mark the connected one THREE ways so it's obvious
-                    // even greyed as a disabled row — a "● connected" text tag (readable at any colour), the native
-                    // checkmark, and bold. A plain detected project is greyed with no tag.
-                    var tag = connected ? "   ● connected" : "";
+                    // The frontends drive per-project connect/disconnect via their sessions; the TRAY is the supervisor
+                    // escape hatch. A serving row can be force-off'd (paused regardless of interest) and a paused row
+                    // resumed — those rows are clickable to toggle it. A merely-detected row is status-only (greyed).
+                    var tag = paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
                     var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.DisplayName}{(p.Dirty ? " *" : "")}{tag}";
-                    var row = new ToolStripMenuItem(label) { Enabled = false, Checked = connected };
-                    if (connected) row.Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold);
+                    var actionable = serving || paused;
+                    var id = p.Id;
+                    var row = new ToolStripMenuItem(label, null, actionable ? async (_, _) => await ToggleForceOff(id, !paused) : null)
+                    {
+                        Enabled = actionable,
+                        Checked = serving && !paused,
+                    };
+                    if (serving && !paused) row.Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold);
                     AddRow(row);
                 }
             }
 
-            _disconnectItem.Enabled = _conn.ActiveConnection != null;
+            // The "Disconnect" item is now the supervisor "resume everything" shortcut — shown only while some project
+            // is force-off'd (per-project pause/resume happens on the rows above).
+            _disconnectItem.Text = "Resume all Volt sync";
+            _disconnectItem.Visible = _conn.ForceOffIds.Count > 0;
+            _disconnectItem.Enabled = _conn.ForceOffIds.Count > 0;
         }
 
         private void ShowCodesysActivation()

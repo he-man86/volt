@@ -14,6 +14,10 @@ import { boundStatus, connectProject, type DetectedProject, type DisconnectResul
 import { declareInterest, dropInterest } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
+// The one session-lifecycle call the shells need beyond enter/leave: drop the whole session on quit/deactivate.
+// (declareInterest/dropInterest stay internal — the shells go through enterWorkspace/leaveWorkspace.)
+export { shutdownSession } from "./session.js"
+
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
 // `status` (on ok) is the resulting drift state the CLI already computed — the caller adopts it into the
 // tracker, so a pull/push is ONE bridge call (the action) with no follow-up `volt status` (/refs).

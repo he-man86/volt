@@ -96,6 +96,25 @@ public class ConnectionManagerSessionTests
     }
 
     [Fact]
+    public async Task Batch_force_off_and_ForceOffIds_track_the_supervisor_override()
+    {
+        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var a = cds.Add("A", serving: true);
+        var b = cds.Add("B", serving: true);
+        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var (sid, _) = await mgr.OpenSessionAsync();
+        await mgr.SyncAsync(sid, new[] { Want(a), Want(b) });
+
+        await mgr.SetForceOffAsync(new[] { a.Id, b.Id }, true); // the tray pauses both in one reconcile
+        Assert.Contains(a, cds.Unbound);
+        Assert.Contains(b, cds.Unbound);
+        Assert.Equal(new[] { a.Id, b.Id }.OrderBy(x => x), mgr.ForceOffIds.OrderBy(x => x));
+
+        await mgr.SetForceOffAsync(mgr.ForceOffIds.ToList(), false); // "resume all"
+        Assert.Empty(mgr.ForceOffIds);
+    }
+
+    [Fact]
     public async Task Force_off_gates_a_project_and_clearing_it_lets_a_session_resume()
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");

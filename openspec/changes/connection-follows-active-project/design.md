@@ -49,8 +49,13 @@ project while I stay on it."
 Connections are keyed by **project**, not by frontend. If one project is open in two UIs (editing in VS Code, chatting
 in opencode-desktop), both are connected to the same bridge; `leaveWorkspace` from one **deselects the bridge for
 both**. Under B, the other frontend re-connects on its next status poll (being-bound implies a connect), so it
-self-heals with a brief flicker. The correct fix is **A (reference-count in the connector)** — deferred, because it's
-a C# change outside `@volt/control`.
+self-heals with a brief flicker.
+
+> **SUPERSEDED.** The deferred fix "A (reference-count in the connector)" was NOT built as a counter. It was replaced
+> by the **`connector-session-model`** change: each frontend declares its *interests* to the connector, which serves a
+> project iff ≥1 live session wants it (a union, not a count) and gates it only when the LAST session leaves. That
+> removes the shared-project deselect race entirely — no flicker, no counter — and folds the declaration into the
+> status poll the frontends already make. See `openspec/changes/connector-session-model/`.
 
 ## Idempotence / safety
 

@@ -23,11 +23,21 @@ pipe.
 ## The connection model
 
 Everything the surface shows is a **`DetectedProject`** — display name, vendor, dirty, and an opaque attach
-reference. A **`ConnectionManager`** owns the merged list across every **`IProjectSource`**, the current
-selection, the bind dispatch, and the aggregate status. The tray menu and the control plane are both
-thin views over it, and **neither branches on vendor** — the vendor is a field (for the platform badge +
-routing), never a UI lane. The whole model lives in the UI-free `Volt.Cli.Connector.Core` assembly (unit-tested
-without WinForms).
+reference. A **`ConnectionManager`** owns the merged list across every **`IProjectSource`**, the client **sessions**
+and their declared **interests**, the tray's force-off overrides, and the **reconcile loop** that drives the bind
+dispatch. The tray menu and the control plane are both thin views over it, and **neither branches on vendor** — the
+vendor is a field (for the platform badge + routing), never a UI lane. The whole model lives in the UI-free
+`Volt.Cli.Connector.Core` assembly (unit-tested without WinForms).
+
+**Declared desired-state, not imperative connect** (openspec `connector-session-model`). A frontend (a desktop
+instance, a VS Code window) opens a **session** and, on every sync, declares the FULL set of projects it is currently
+using. The connector computes `desired = ⋃ interests over non-expired sessions \ forceOff` and the pure
+**`Reconciler`** turns it into bind/unbind actions. Two rules make it correct against bridges that **serve by
+default**: *bind is level-triggered* (resume any wanted project not yet serving) but *unbind is edge-triggered* (gate
+a project only when the LAST session using it leaves — the wanted→unwanted edge — or the tray force-offs it). So a
+bridge no session ever declared keeps serving (standalone `volt push` and an un-connected neighbour are never cut
+off), while closing the last window that used a project gates it. Presence is a **lease** renewed on each sync, so a
+crash is the same as a clean leave — its interests just expire.
 
 Because both bridges expose the **same `instances` / `select` / `health` wire ops**, there is exactly one source
 implementation — `PipeProjectSource` — parameterized only by pipe + vendor. All the per-vendor attach mechanism
@@ -40,29 +50,37 @@ stays behind the wire.
 | **ExternalAttach** | a headless worker process attaches to the running IDE via its external API | TwinCAT (COM/DTE) | spawn + supervise the worker |
 | **InIdeLoad** | a DLL must load *inside* the IDE (no external API) | CODESYS | **guide** the user to activate it — never launch |
 
-The **data wire is a named pipe** — `volt.bridge.twincat` (one worker, ROT-multiplexed) and one
-`volt.bridge.codesys.<pid>` **per running CODESYS** (`CodesysProjectSource` discovers them all, so multiple IDEs
-are live at once). The `health`, `instances`, `select`, `deselect`, and sync ops flow over it. There are no HTTP data ports.
-The only HTTP is the localhost **control plane on `:8550`** (orchestration only: `/status`, `/connect`,
-`/disconnect`, `/workers/{id}/restart`).
+The **data wire is a named pipe** — one `volt.bridge.<vendor>.<pid>` **per running IDE** (both vendors are per-pid;
+`PerPipeProjectSource` discovers them all, so multiple IDEs are live at once and their projects serve in parallel).
+The `health`, `select`, `deselect`, and sync ops flow over it. There are no HTTP data ports. The only HTTP is the
+localhost **control plane on `:8550`**: the primary surface is the session API — `POST /session`,
+`POST /session/{id}/sync`, `DELETE /session/{id}` — plus the legacy shim (`/status`, `/connect`, `/disconnect`,
+`/workers/{id}/restart`) that an un-updated frontend still uses.
 
-**One active connection, many live hosts.** Every activated CODESYS + every running TwinCAT project is listed and
-clickable; clicking makes it the ONE active connection (vendor-neutral), so switching is just another click. A
-vendor with >1 live instance shows the IDE version in the label.
+**Many live hosts, served in parallel.** Every activated CODESYS + every running TwinCAT project is listed; each
+serves iff some session declares interest in it (or the tray hasn't force-offed it). The reconciler binds every
+wanted project across their independent per-pid pipes at once — no "one active connection". The single narrow limit
+is a TwinCAT XAE worker holding ≥2 projects in one solution: that one pipe serves one at a time (the incumbent holds,
+siblings report `idle`), which the reconciler honours without thrashing.
 
-**Disconnect is a gate, not a shutdown.** It sends `deselect` to that project's bridge, which then refuses every
-sync op with `PLC_DISCONNECTED` until the next `select` — and clears the selection. **Nothing is torn down:** the
-CODESYS in-proc host stays loaded (the `start_volt_codesys.py` activation survives), the TwinCAT worker keeps its
-COM attach, the project stays listed, and reconnecting is just another connect with no IDE restart. The gate has
-to live on the bridge because **the CLI reaches the pipe directly and never talks to the connector** — a
-connector-side flag alone would leave `volt push`/`volt pull` working after you pressed Disconnect (it did, until
-this existed). The flag is in-memory: restarting the host or the connector resets it to "serving".
+**Disconnect is a gate, not a shutdown.** When the last session using a project drops it (or the tray force-offs it),
+reconcile sends `deselect` to that project's bridge, which then refuses every sync op with `PLC_DISCONNECTED` until
+the next `select`. **Nothing is torn down:** the CODESYS in-proc host stays loaded (the `start_volt_codesys.py`
+activation survives), the TwinCAT worker keeps its COM attach, the project stays listed, and reconnecting is just
+another declared interest with no IDE restart. The gate has to live on the bridge because **the CLI reaches the pipe
+directly and never talks to the connector** — a connector-side flag alone would leave `volt push`/`volt pull` working
+after a disconnect (it did, until this existed). The flag is in-memory: restarting the host or the connector resets
+it to "serving" (so a connector restart never gates anything — `previouslyWanted` is empty, so there are no leave
+edges).
 
 ## What it does
 
 - **Tray icon** colour = aggregate connection state: green (connected) · amber (degraded) · orange (up, waiting
   for a project) · grey (nothing running). A vendor with no IDE running never paints a fault colour.
-- **Tray menu**: quick actions — "Connect to" (the same unified list), "Activate in CODESYS…", Show logs, Exit.
+- **Tray menu**: the detected projects (status), "Activate in CODESYS…", Show logs, Exit. Connecting is done from
+  the app (the frontends declare interest); the tray is the **supervisor escape hatch** — a serving project row is
+  clickable to **force-off** it (pause its bridge regardless of any session's interest, for a stuck bridge), a paused
+  row to resume it, and "Resume all Volt sync" clears every force-off at once.
 - **CODESYS activation is guided, never driven.** The connector does not launch any IDE. "Activate in CODESYS…"
   copies the `start_volt_codesys.py` path to the clipboard and shows the steps (Tools → Scripting → Execute Script
   File); once the user runs it, the in-proc host serves the pipe and the project appears in the list.

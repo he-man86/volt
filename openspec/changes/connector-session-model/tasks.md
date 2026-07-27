@@ -26,11 +26,11 @@
 
 ## 5. Frontends (touch-ups only — call sites already exist)
 
-- [ ] 5.1 Desktop: call `shutdownSession()` on quit (the session poll already starts on the first `enterWorkspace`); `enterWorkspace`/`leaveWorkspace` call sites unchanged.
-- [ ] 5.2 VS Code: fold `shutdownSession()` into `deactivate`'s returned thenable (beside `leaveWorkspace`); per-workspace `enter/leave` unchanged.
-- [ ] 5.3 Manual Disconnect wording/behaviour: "stop syncing this project for me" (drops my interest); it no longer implies the bridge stops for everyone.
-- [ ] 5.4 Tray Disconnect → `SetForceOffAsync` (the deferred task 3.3): the supervisor override, designed + verified now that frontends drive real session connections.
+- [x] 5.1 Desktop: `before-quit` now `leaveWorkspace(root).then(shutdownSession)` (bounded ~1.5s); the session poll starts on the first `enterWorkspace`. Call sites unchanged.
+- [x] 5.2 VS Code: `deactivate` folds `shutdownSession()` after the per-workspace `leaveWorkspace`s into the returned thenable (beside `stopLsp`). Call sites unchanged.
+- [x] 5.3 Manual Disconnect wording: `describeDisconnect` (the one shared place) now says "Stopped syncing this project here" — per-window, no longer implying a global gate.
+- [x] 5.4 Tray force-off (the deferred 3.3): `ConnectionManager` exposes `ForceOffIds` + a batch `SetForceOffAsync`; the tray's serving rows are clickable to **pause** (force-off) a stuck bridge, paused rows to **resume**, and a "Resume all Volt sync" item clears every override. The single "active connection" Disconnect item is gone (there is no highlight in the session model). Batch + accessor covered by `ConnectionManagerSessionTests`; tray UI compiles (no WinForms tests, as before).
 
 ## 6. Docs
 
-- [ ] 6.1 Update both frontend READMEs + the connector README/ARCHITECTURE to the session/interest/reconcile model; document the one-project-per-host constraint, the lease TTL, and the tray force-off. Mark the deferred counter (A) in `connection-follows-active-project` as SUPERSEDED by this change.
+- [x] 6.1 Updated the connector `README.md` (session/interest/reconcile model, edge-triggered gating, per-pid parallelism + the one-XAE limit, the supervisor force-off) + `ARCHITECTURE.md` (no single "active connection"), and both frontend READMEs (declare/drop interest, `shutdownSession`, no more shared-project disconnect). Marked option A in `connection-follows-active-project` SUPERSEDED by this change.

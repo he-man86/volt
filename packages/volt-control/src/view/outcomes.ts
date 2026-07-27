@@ -67,7 +67,9 @@ export function describeDisconnect(r: { ok: boolean; gated: boolean; reason?: st
         "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
       actions: [],
     }
-  return { tone: "info", message: "Disconnected — the IDE stays open. Connect again to resume syncing.", actions: [] }
+  // The session-model success: dropping this window's interest. The bridge keeps serving if another window/app still
+  // wants the project, so word it as "here", not a global disconnect.
+  return { tone: "info", message: "Stopped syncing this project here. The IDE stays open — connect again to resume.", actions: [] }
 }
 
 /** The confirm shown before `volt init` binds a folder. Shared so both shells state the SAME consequences: init is

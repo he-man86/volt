@@ -177,8 +177,10 @@ LIFECYCLE (who owns the host), and mirrors InIdeLoad vs ExternalAttach — **do 
   This lifecycle cost — spawn/reap a separate process — is the whole price of TwinCAT being ExternalAttach; CODESYS
   gets it for free because its host is in-proc.
 
-Above the connector everything is vendor-neutral: ONE active connection, a flat project list, click to switch. The
-per-instance-pipe machinery + the TwinCAT supervisor live entirely below `IProjectSource`.
+Above the connector everything is vendor-neutral: a flat project list, and each project serves iff a live client
+**session declares interest** in it (the `connector-session-model` — `ConnectionManager` reconciles bind/unbind from
+the union of interests; there is no single "active connection"). The per-instance-pipe machinery + the TwinCAT
+supervisor live entirely below `IProjectSource`.
 
 **The rule that separates the two — and it is now enforced, not just intended:** *any per-vendor difference that
 Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries above are strictly about how each IDE
