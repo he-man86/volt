@@ -10,8 +10,8 @@
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { isBridgeOnline, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
-import { boundStatus, connectProject, type DetectedProject, type DisconnectResult } from "./connector.js"
-import { declareInterest, dropInterest } from "./session.js"
+import { boundStatus, type DetectedProject, type DisconnectResult } from "./connector.js"
+import { declareInterest, dropInterest, selectPickedProject, adoptPickedProject, releasePickedProject } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
 // The one session-lifecycle call the shells need beyond enter/leave: drop the whole session on quit/deactivate.
@@ -189,19 +189,25 @@ export async function initFromProject(
   parent: string,
   opts: ProgressOpt = {},
 ): Promise<InitResult> {
-  // The connect (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
+  // The select (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
   // couldn't attach the project (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on)
   // used to slip through: init then fetched an unselected bridge, got zero items, and the CLI reported a
   // misleading "is the project open?". Fail here, clearly, instead of racing the fetch against a half-done select.
-  const connected = await connectProject(project.id)
+  // Uses a TEMPORARY session interest (not the immortal legacy /connect, which pinned the project so its later
+  // Disconnect silently no-op'd), handed over to the created workspace on success and released on failure.
+  const connected = await selectPickedProject(project)
   if (!connected) {
+    await releasePickedProject(project)
     return {
       stdout: "",
       code: 1,
       stderr: `Couldn't attach “${project.displayName}”. It may have been closed, or — if more than one IDE window is open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
     }
   }
-  return init(parent, project.vendor, { ...opts, pipe: project.pipe })
+  const r = await init(parent, project.vendor, { ...opts, pipe: project.pipe })
+  if (r.code === 0 && r.workspace) adoptPickedProject(project, r.workspace)
+  else await releasePickedProject(project)
+  return r
 }
 
 /** Re-point the workspace's binding to a DIFFERENT/renamed project — the reconnect list's "rebind". Reconnects the
@@ -210,13 +216,23 @@ export async function initFromProject(
  *  newly-bound project through the normal safe merge. */
 export async function rebind(workspaceRoot: string, project: DetectedProject): Promise<{ ok: boolean; message?: string }> {
   return withGate(workspaceRoot, async () => {
-    const connected = await connectProject(project.id)
+    // Validate the bridge can attach FIRST (so a bridge that won't attach leaves the config untouched), via a
+    // TEMPORARY session select — NOT the immortal legacy `/connect` (which pinned the project into a session
+    // Disconnect could never clear). Then config-rewrite, then hand the select over to this workspace root so its
+    // interest tracks the new project and its Disconnect can drop it.
+    const connected = await selectPickedProject(project)
     if (!connected) {
+      await releasePickedProject(project)
       return { ok: false, message: `Couldn't attach “${project.displayName}” — make sure it's open in your IDE, then try again.` }
     }
     const name = project.projectName ?? project.displayName
     const r = await runCli(workspaceRoot, ["rebind", "--vendor", project.vendor, "--project-name", name, "--workspace", workspaceRoot])
-    return r.code === 0 ? { ok: true } : { ok: false, message: firstLine(r.stderr) ?? `exit ${r.code}` }
+    if (r.code === 0) {
+      adoptPickedProject(project, workspaceRoot)
+      return { ok: true }
+    }
+    await releasePickedProject(project)
+    return { ok: false, message: firstLine(r.stderr) ?? `exit ${r.code}` }
   })
 }
 

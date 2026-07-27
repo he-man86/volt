@@ -30,14 +30,27 @@ void mock.module("./cli.js", () => ({
 }))
 
 const { pull, push, fetchStatus, rebind } = await import("./actions.js")
+const { __resetSessionForTest } = await import("./session.js")
 
 const detected = (over: Partial<DetectedProject>): DetectedProject =>
   ({ id: "codesys::P:", displayName: "Disp", vendor: "codesys", dirty: false, connected: false, ...over })
 
-// rebind first POSTs the connector /connect; make it succeed or fail via the connector's {ok} reply.
-function stubConnect(ok: boolean): () => void {
+// rebind validates the bridge via a session select (POST /session + /sync). Mock that API: `serving` decides whether
+// the /sync view shows the picked project (id "codesys::P:") as serving, which is what gates the config rewrite.
+function stubConnect(serving: boolean): () => void {
   const real = globalThis.fetch
-  globalThis.fetch = (async () => ({ ok: true, json: async () => ({ ok }) }) as Response) as typeof fetch
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const u = String(url)
+    if (u.endsWith("/session") && init?.method === "POST") return { ok: true, status: 200, json: async () => ({ sessionId: "s1", leaseSeconds: 15 }) } as Response
+    if (u.includes("/sync")) {
+      // Echo the declared interests back as serving rows (that's what selectPickedProject checks), so the mock works
+      // for whatever project a test picks.
+      const interests = init?.body ? (JSON.parse(String(init.body)).interests as { vendor: string; projectName: string }[]) : []
+      const projects = serving ? interests.map((i) => ({ id: `${i.vendor}::${i.projectName}:`, displayName: i.projectName, vendor: i.vendor, dirty: false, connected: true, status: "healthy", projectName: i.projectName })) : []
+      return { ok: true, status: 200, json: async () => ({ projects }) } as Response
+    }
+    return { ok: true, status: 200, json: async () => ({}) } as Response
+  }) as typeof fetch
   return () => void (globalThis.fetch = real)
 }
 
@@ -48,6 +61,7 @@ function captureArgs(stdout = "{}"): void {
 
 afterEach(() => {
   lastArgs = []
+  __resetSessionForTest() // rebind now uses the module-singleton session client
 })
 
 function boundWorkspace(): string {

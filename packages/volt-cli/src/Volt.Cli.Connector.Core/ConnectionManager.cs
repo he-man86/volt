@@ -113,11 +113,10 @@ namespace Volt.Cli.Connector
         {
             var id = Guid.NewGuid().ToString("N");
             await _gate.WaitAsync().ConfigureAwait(false);
-            try
-            {
-                UpsertSession(id, Array.Empty<Interest>());
-                await CycleCoreAsync().ConfigureAwait(false);
-            }
+            // Just register the (empty-interest) session — no reconcile/scan: a session that declares nothing can't
+            // change `desired`, and the client's first sync (which DOES declare) reconciles then. Skips a wasted
+            // all-pipe probe on every connect.
+            try { UpsertSession(id, Array.Empty<Interest>()); }
             finally { _gate.Release(); }
             return (id, _leaseTtl.TotalSeconds);
         }

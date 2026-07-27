@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { connectorStatus, type ConnectorView } from "./connector.js"
-import { declareInterest, dropInterest, shutdownSession, __resetSessionForTest } from "./session.js"
+import { declareInterest, dropInterest, shutdownSession, selectPickedProject, adoptPickedProject, __resetSessionForTest } from "./session.js"
+import type { DetectedProject } from "./connector.js"
 
 const realFetch = globalThis.fetch
 // The session client is a module singleton — reset it around every test so state never leaks across tests or files.
@@ -125,6 +126,20 @@ describe("session client (declarative connection presence)", () => {
       { vendor: "codesys", projectName: "MachineA" },
       { vendor: "twincat", projectName: "MachineB" },
     ])
+  })
+
+  test("a picked project adopted by its workspace is clearable by leaveWorkspace — not a permanent pin", async () => {
+    // Regression: init/rebind used to /connect (the connector's immortal legacy session), so the project could never
+    // be disconnected. Now init selects it as a temporary interest and hands it to the created workspace root, so a
+    // later dropInterest declares the smaller set — the connection is owned by the workspace, not pinned forever.
+    const calls = newConnector(true)
+    const project = { id: "codesys::New:", displayName: "New", vendor: "codesys", dirty: false, connected: false, projectName: "New", status: "healthy" } as DetectedProject
+
+    await selectPickedProject(project) // init's pre-fetch select
+    adoptPickedProject(project, "/ws/new") // handed to the workspace init created
+    await dropInterest("/ws/new") // the workspace's later Disconnect
+
+    expect(lastSync(calls)?.body).toEqual({ interests: [] }) // dropped — not pinned
   })
 
   test("shutdownSession DELETEs the session", async () => {
