@@ -11,24 +11,19 @@
 import type { Initializer } from "../../../syntax/index.js"
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        if (decl.init === undefined || !isStructInit(decl.init)) continue
-        if (resolveTypeExpr(decl.type, ctx.project).kind !== "elementary") continue
-        out.push({
-          severity: "error",
-          span: decl.init.span,
-          source: SOURCE,
-          code: "unexpected-struct-init",
-          message: ctx.messages.unexpectedStructInit(),
-        })
-      }
-    }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.init === undefined || !isStructInit(decl.init)) continue
+    if (resolveTypeExpr(decl.type, ctx.project).kind !== "elementary") continue
+    out.push({
+      severity: "error",
+      span: decl.init.span,
+      source: SOURCE,
+      code: "unexpected-struct-init",
+      message: ctx.messages.unexpectedStructInit(),
+    })
   }
 }
 

@@ -9,23 +9,18 @@
  */
 import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        const op = decl.at?.tokens.find((t) => !isTrivia(t.kind))
-        if (op === undefined || op.kind !== "identifier") continue
-        out.push({
-          severity: "error",
-          span: op.span,
-          source: SOURCE,
-          code: "at-address",
-          message: ctx.messages.directAddressExpectedAt(op.text),
-        })
-      }
-    }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    const op = decl.at?.tokens.find((t) => !isTrivia(t.kind))
+    if (op === undefined || op.kind !== "identifier") continue
+    out.push({
+      severity: "error",
+      span: op.span,
+      source: SOURCE,
+      code: "at-address",
+      message: ctx.messages.directAddressExpectedAt(op.text),
+    })
   }
 }

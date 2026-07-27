@@ -24,11 +24,7 @@ export const SOURCE = "volt-lsp-iec"
  * (unit scope) and statement bodies (body scope). Skips units whose scope doesn't resolve (0-FP, like
  * `bodies()`). Statement-level checks (assignment/narrowing pairs) walk statements directly, not this.
  */
-export function forEachExpr(
-  parseResult: ParseResult,
-  project: Scope,
-  visit: (e: Expr, scope: Scope) => void,
-): void {
+export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e: Expr, scope: Scope) => void): void {
   for (const unit of parseResult.units) {
     if (!("varSections" in unit)) continue
     const scope = scopeForUnit(project, unit)
@@ -37,7 +33,23 @@ export function forEachExpr(
       for (const decl of section.decls)
         if (decl.init !== undefined && decl.init.kind !== "aggregate_init") walkExpr(decl.init, (e) => visit(e, scope))
   }
-  for (const { scope, statements } of bodies(parseResult.units, project)) walkAllExprs(statements, (e) => visit(e, scope))
+  for (const { scope, statements } of bodies(parseResult.units, project))
+    walkAllExprs(statements, (e) => visit(e, scope))
+}
+
+/**
+ * Visit every variable declaration in a project — the `units → varSections → sections → decls` walk shared by
+ * the declaration / type / oop checks, plus the unit `scope` each resolves names against. The decl counterpart
+ * of `forEachExpr`. Unlike `forEachExpr`, a unit whose scope doesn't resolve is NOT skipped: `scope` falls back
+ * to the project scope, so a check that only touches the decl node (or looks up in `project`) still runs on
+ * every unit. Checks needing the section or unit destructure them too.
+ */
+export function* forEachDecl(parseResult: ParseResult, project: Scope) {
+  for (const unit of parseResult.units) {
+    if (!("varSections" in unit)) continue
+    const scope = scopeForUnit(project, unit) ?? project
+    for (const section of unit.varSections) for (const decl of section.decls) yield { unit, section, decl, scope }
+  }
 }
 
 // `isLibrarySymbol` moved to the symbols layer (B) so types (const-eval/infer) reach the SAME normalized

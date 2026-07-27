@@ -6,31 +6,24 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a narrow `STRING(n)` with a const-foldable length
  * and a string-literal init fires, on a strict over-length; a sizeless `STRING` and any `WSTRING` are skipped.
  */
-import { scopeForUnit } from "../../../symbols/index.js"
 import { constEval, renderTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        if (decl.type.kind !== "string_type" || decl.type.wide || decl.type.length === undefined) continue
-        const init = decl.init
-        if (init === undefined || init.kind !== "literal" || typeof init.value !== "string") continue
-        const size = constEval(decl.type.length, scope)
-        if (typeof size !== "bigint" || BigInt(decodedLength(init.value)) <= size) continue
-        out.push({
-          severity: "error",
-          span: init.span,
-          source: SOURCE,
-          code: "string-constant-too-long",
-          message: ctx.messages.stringConstantTooLong(init.value, renderTypeExpr(decl.type)),
-        })
-      }
-    }
+  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.type.kind !== "string_type" || decl.type.wide || decl.type.length === undefined) continue
+    const init = decl.init
+    if (init === undefined || init.kind !== "literal" || typeof init.value !== "string") continue
+    const size = constEval(decl.type.length, scope)
+    if (typeof size !== "bigint" || BigInt(decodedLength(init.value)) <= size) continue
+    out.push({
+      severity: "error",
+      span: init.span,
+      source: SOURCE,
+      code: "string-constant-too-long",
+      message: ctx.messages.stringConstantTooLong(init.value, renderTypeExpr(decl.type)),
+    })
   }
 }
 

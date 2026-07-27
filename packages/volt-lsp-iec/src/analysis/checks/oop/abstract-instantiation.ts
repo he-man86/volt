@@ -6,27 +6,22 @@
 import type { FunctionBlock } from "../../../syntax/index.js"
 import { lookupLocal } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        if (decl.type.kind !== "named_type") continue
-        const name = decl.type.name.text
-        const fbSym = lookupLocal(ctx.project, name).find((s) => s.kind === "function_block")
-        if (fbSym === undefined || (fbSym.ast as FunctionBlock).abstract !== true) continue
-        for (const id of decl.names) {
-          out.push({
-            severity: "error",
-            span: id.span,
-            source: SOURCE,
-            code: "abstract-instantiation",
-            message: ctx.messages.abstractInstantiation(name),
-          })
-        }
-      }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.type.kind !== "named_type") continue
+    const name = decl.type.name.text
+    const fbSym = lookupLocal(ctx.project, name).find((s) => s.kind === "function_block")
+    if (fbSym === undefined || (fbSym.ast as FunctionBlock).abstract !== true) continue
+    for (const id of decl.names) {
+      out.push({
+        severity: "error",
+        span: id.span,
+        source: SOURCE,
+        code: "abstract-instantiation",
+        message: ctx.messages.abstractInstantiation(name),
+      })
     }
   }
 }

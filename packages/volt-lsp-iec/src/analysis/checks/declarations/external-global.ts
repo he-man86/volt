@@ -8,19 +8,20 @@
  */
 import { lookupLocal } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkExternalGlobal(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      if (section.sectionKind !== "VAR_EXTERNAL") continue
-      for (const decl of section.decls) {
-        for (const name of decl.names) {
-          if (lookupLocal(ctx.project, name.text).some((s) => s.kind === "gvl_var")) continue
-          out.push({ severity: "error", span: name.span, source: SOURCE, code: "external-no-global", message: ctx.messages.externalNoGlobal(name.text) })
-        }
-      }
+  for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (section.sectionKind !== "VAR_EXTERNAL") continue
+    for (const name of decl.names) {
+      if (lookupLocal(ctx.project, name.text).some((s) => s.kind === "gvl_var")) continue
+      out.push({
+        severity: "error",
+        span: name.span,
+        source: SOURCE,
+        code: "external-no-global",
+        message: ctx.messages.externalNoGlobal(name.text),
+      })
     }
   }
 }

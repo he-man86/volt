@@ -12,24 +12,25 @@
  */
 import type { Span } from "../../../syntax/span.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { forEachDecl, forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkObsoleteUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
   const obsolete = ctx.references.obsoletePous
   if (obsolete.size === 0) return
   const flag = (span: Span, entry: { name: string; message: string }) =>
-    out.push({ severity: "warning", span, source: SOURCE, code: "obsolete-usage", message: ctx.messages.pouObsolete(entry.name, entry.message) })
+    out.push({
+      severity: "warning",
+      span,
+      source: SOURCE,
+      code: "obsolete-usage",
+      message: ctx.messages.pouObsolete(entry.name, entry.message),
+    })
 
   // A variable declared with an obsolete POU as its type.
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        if (decl.type.kind !== "named_type") continue
-        const entry = obsolete.get(decl.type.name.text.toLowerCase())
-        if (entry !== undefined) flag(decl.type.span, entry)
-      }
-    }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.type.kind !== "named_type") continue
+    const entry = obsolete.get(decl.type.name.text.toLowerCase())
+    if (entry !== undefined) flag(decl.type.span, entry)
   }
   // A direct call to an obsolete FUNCTION.
   forEachExpr(ctx.parseResult, ctx.project, (e) => {

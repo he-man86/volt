@@ -12,28 +12,23 @@ import type { Initializer, Span } from "../../../syntax/index.js"
 import { lookupLocal } from "../../../symbols/index.js"
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        if (decl.init === undefined) continue
-        const type = resolveTypeExpr(decl.type, ctx.project)
-        if (type.kind !== "function_block" || type.scope === undefined) continue
-        for (const { name, span } of initFields(decl.init)) {
-          const isInout = lookupLocal(type.scope, name).some((s) => s.varSection === "VAR_IN_OUT")
-          if (!isInout) continue
-          out.push({
-            severity: "error",
-            span,
-            source: SOURCE,
-            code: "fb-init-inout",
-            message: ctx.messages.fbInitNoOutput(name, type.name),
-          })
-        }
-      }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.init === undefined) continue
+    const type = resolveTypeExpr(decl.type, ctx.project)
+    if (type.kind !== "function_block" || type.scope === undefined) continue
+    for (const { name, span } of initFields(decl.init)) {
+      const isInout = lookupLocal(type.scope, name).some((s) => s.varSection === "VAR_IN_OUT")
+      if (!isInout) continue
+      out.push({
+        severity: "error",
+        span,
+        source: SOURCE,
+        code: "fb-init-inout",
+        message: ctx.messages.fbInitNoOutput(name, type.name),
+      })
     }
   }
 }

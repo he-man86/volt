@@ -7,24 +7,19 @@
  * rejects it), named per variable.
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkExternalInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      if (section.sectionKind !== "VAR_EXTERNAL") continue
-      for (const decl of section.decls) {
-        if (decl.init === undefined) continue
-        for (const name of decl.names)
-          out.push({
-            severity: "error",
-            span: name.span,
-            source: SOURCE,
-            code: "external-initializer",
-            message: ctx.messages.noInitForExternal(name.text),
-          })
-      }
-    }
+  for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (section.sectionKind !== "VAR_EXTERNAL") continue
+    if (decl.init === undefined) continue
+    for (const name of decl.names)
+      out.push({
+        severity: "error",
+        span: name.span,
+        source: SOURCE,
+        code: "external-initializer",
+        message: ctx.messages.noInitForExternal(name.text),
+      })
   }
 }

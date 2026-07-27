@@ -11,53 +11,52 @@
  * are skipped for C0233 (an enum accepts integer literals). C0075 fires only on a single dimension with
  * const-foldable bounds, all-countable elements, and a strict OVER-count (a short initializer is legal).
  */
-import { scopeForUnit, type Scope } from "../../../symbols/index.js"
+import { type Scope } from "../../../symbols/index.js"
 import { constancyOf, constEval, resolveTypeExpr } from "../../../types/index.js"
 import type { AggregateElement } from "../../../syntax/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
-    for (const section of unit.varSections) {
-      for (const decl of section.decls) {
-        const init = decl.init
-        if (init === undefined || init.kind !== "aggregate_init" || init.form !== "array") continue
-        // C0162 — a repeat count `n(v)` that is a non-constant variable (independent of the declared type).
-        for (const e of init.elements)
-          if (e.kind === "repeat" && constancyOf(e.count, scope) === "variable")
-            push(out, e.count.span, "array-init-count-non-const", ctx.messages.arrayInitCountNonConst(text(ctx.source, e.count.span)))
-        const t = resolveTypeExpr(decl.type, ctx.project)
-        if (t.kind === "unknown") continue
-        if (t.kind !== "array") {
-          push(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
-          continue
-        }
-        // C0232 / C0233 — a scalar literal where a nested array / struct-init is required (takes precedence over count).
-        const scalar = firstScalarLiteral(init.elements)
-        if (scalar !== undefined && t.element.kind === "array") {
-          push(out, scalar.span, "array-init-nesting", ctx.messages.arrayInitExpected()) // C0232
-          continue
-        }
-        if (scalar !== undefined && t.element.kind === "struct") {
-          push(out, scalar.span, "array-init-element", ctx.messages.initListExpected(t.element.name)) // C0233
-          continue
-        }
-        // C0075 — too many values for a single dimension.
-        if (t.dims.length !== 1) continue
-        const dim = t.dims[0]
-        if (dim.lower === undefined || dim.upper === undefined) continue // dynamic bound → skip
-        const lo = constEval(dim.lower, scope)
-        const hi = constEval(dim.upper, scope)
-        if (typeof lo !== "bigint" || typeof hi !== "bigint") continue
-        const count = elementCount(init.elements, scope)
-        if (count === undefined || BigInt(count) <= hi - lo + 1n) continue // indeterminate or fits → skip
-        push(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
-      }
+  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+    const init = decl.init
+    if (init === undefined || init.kind !== "aggregate_init" || init.form !== "array") continue
+    // C0162 — a repeat count `n(v)` that is a non-constant variable (independent of the declared type).
+    for (const e of init.elements)
+      if (e.kind === "repeat" && constancyOf(e.count, scope) === "variable")
+        push(
+          out,
+          e.count.span,
+          "array-init-count-non-const",
+          ctx.messages.arrayInitCountNonConst(text(ctx.source, e.count.span)),
+        )
+    const t = resolveTypeExpr(decl.type, ctx.project)
+    if (t.kind === "unknown") continue
+    if (t.kind !== "array") {
+      push(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
+      continue
     }
+    // C0232 / C0233 — a scalar literal where a nested array / struct-init is required (takes precedence over count).
+    const scalar = firstScalarLiteral(init.elements)
+    if (scalar !== undefined && t.element.kind === "array") {
+      push(out, scalar.span, "array-init-nesting", ctx.messages.arrayInitExpected()) // C0232
+      continue
+    }
+    if (scalar !== undefined && t.element.kind === "struct") {
+      push(out, scalar.span, "array-init-element", ctx.messages.initListExpected(t.element.name)) // C0233
+      continue
+    }
+    // C0075 — too many values for a single dimension.
+    if (t.dims.length !== 1) continue
+    const dim = t.dims[0]
+    if (dim.lower === undefined || dim.upper === undefined) continue // dynamic bound → skip
+    const lo = constEval(dim.lower, scope)
+    const hi = constEval(dim.upper, scope)
+    if (typeof lo !== "bigint" || typeof hi !== "bigint") continue
+    const count = elementCount(init.elements, scope)
+    if (count === undefined || BigInt(count) <= hi - lo + 1n) continue // indeterminate or fits → skip
+    push(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
   }
 }
 

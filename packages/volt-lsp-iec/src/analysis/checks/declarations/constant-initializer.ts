@@ -11,28 +11,23 @@
  */
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 const INLINE_CONST_SECTIONS = new Set(["VAR", "VAR_GLOBAL"])
 
 export function checkConstantInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    if (!("varSections" in unit)) continue
-    for (const section of unit.varSections) {
-      if (section.constant !== true || !INLINE_CONST_SECTIONS.has(section.sectionKind)) continue
-      for (const decl of section.decls) {
-        if (decl.init !== undefined) continue
-        const t = resolveTypeExpr(decl.type, ctx.project).kind
-        if (t === "unknown" || t === "function_block" || t === "interface") continue // unresolvable/non-value → skip (zero-FP)
-        for (const name of decl.names)
-          out.push({
-            severity: "warning",
-            span: name.span,
-            source: SOURCE,
-            code: "constant-no-initial-value",
-            message: ctx.messages.constantNoInitialValue(name.text),
-          })
-      }
-    }
+  for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (section.constant !== true || !INLINE_CONST_SECTIONS.has(section.sectionKind)) continue
+    if (decl.init !== undefined) continue
+    const t = resolveTypeExpr(decl.type, ctx.project).kind
+    if (t === "unknown" || t === "function_block" || t === "interface") continue // unresolvable/non-value → skip (zero-FP)
+    for (const name of decl.names)
+      out.push({
+        severity: "warning",
+        span: name.span,
+        source: SOURCE,
+        code: "constant-no-initial-value",
+        message: ctx.messages.constantNoInitialValue(name.text),
+      })
   }
 }
