@@ -70,9 +70,19 @@ fails. Confirmed: a real gateway request produced no dataset (`/1/datasets` retu
       initialize Honeycomb provider". The key must stay set for any honeycombio resource to be managed.
 - [ ] Let real gateway traffic populate the `zen` dataset via the now-independent pipeline. (Seeding synthetic
       events would work too, but it fixes column *types* from a guess — prefer real traffic.)
-- [ ] Resolve the metric mismatch: either bump the vendored console to a revision that emits
-      `isGoTier`/`isFreeTier`/`tps.output`, or trim `monitoring.ts` to the fields this gateway emits. Do NOT add
-      the metrics to vendored source — that is a customization the vendored-console rule forbids.
+- [ ] Resolve the metric mismatch by **renaming the filters in `monitoring.ts`** — no vendored edit and no
+      opencode bump needed. Verified against the live `zen` schema on 2026-07-27:
+      - `isGoTier` → **`model.tier`** (`"go"` / `"zen"`). Same split, newer field name. Fixes
+        IncreasedModelHttpErrors Go/Zen.
+      - `provider`, `llm.error.code` → emitted only on a *successful* upstream call / upstream error
+        (`handler.ts:186`, `:270`). Absent so far only because the sample request 401'd at auth. Expect them
+        with real traffic; IncreasedProviderHttpErrors should then validate as written.
+      - `isFreeTier` → no direct equivalent; closest is `source` (`logger.metric({ source: billingSource })`).
+        Re-express the free-tier filter in terms of it, or drop the trigger.
+      - `tps.output` → **emitted nowhere**. The two LowModelTps triggers cannot work without a vendored change;
+        drop them unless a later opencode revision adds the metric.
+      Live columns for reference: `event_type, status, model, model.tier, user_agent, error.type, error.message,
+      duration, is_stream, session, request, client, ip, ip.prefix, request_length, cf.*`.
 - [ ] Re-add `HONEYCOMB_CONFIG_KEY`, deploy, verify the triggers create and a test alert reaches Discord.
 - [ ] Only worth doing once the gateway has real users — these alerts watch model error rates and TPS, so on an
       empty dataset they would never fire anyway.
