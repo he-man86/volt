@@ -19,16 +19,17 @@
 
 ## 4. @volt/control → session client
 
-- [ ] 4.1 A single per-app session: open on first `enterWorkspace`, a sync poll (~4s) that declares the current interest set + renews the lease + returns `ConnectorView`, `DELETE` on shutdown.
-- [ ] 4.2 `enterWorkspace(root)` / `leaveWorkspace(root)` mutate the local interest set (resolve root → `{vendor, projectName}` via `readBoundProject`); the poll ships it. Manual Connect forces an immediate sync.
-- [ ] 4.3 `connectorStatus` / `boundStatus` read the `/sync` response. Fallback: if `POST /session` 404s (old connector), use the legacy `/connect`+`/status` path (§8) so new-frontend↔old-connector still works.
-- [ ] 4.4 Unit-test the session client + the legacy fallback with the mock-fetch harness.
+- [x] 4.1 New `session.ts` owns the ONE per-app session: opened lazily on the first `enterWorkspace` (`POST /session`), a ~4s sync poll (`ensurePolling`) that declares the FULL interest set + renews + reads the view back in one `POST /session/{id}/sync`, and `shutdownSession()` = stop poll + `DELETE /session/{id}` (exported for the shells to call on quit/deactivate — wired in task 5).
+- [x] 4.2 `enterWorkspace`/`reconnectBound` → `declareInterest(root)` and `leaveWorkspace` → `dropInterest(root)` (in `actions.ts`). They mutate the local `interests` map (resolved from `readBoundProject`) and force an immediate sync, so a connect/disconnect lands without waiting for the poll. `declareInterest.ok` reflects whether the bound project is actually serving (so manual Reconnect can still message "not detected — open it").
+- [x] 4.3 `connectorStatus` prefers the session's cached `/sync` view via a `registerSessionView` hook (no extra `GET /status`, no `session.ts`→`connector.ts` cycle); `boundStatus` reads through it. Legacy fallback: `POST /session` 404 → LEGACY mode maps enter→`/connect`, leave→`/disconnect`, status→`GET /status` (§8).
+- [x] 4.4 `session.test.ts` (11 tests: open+declare, view-preferred, not-serving, unbound no-op, drop, two-interests, shutdown DELETE, and the 3 legacy-fallback cases) + `reconnect.test.ts` rewritten to the session model. Full `@volt/control` suite: 99 pass, typecheck clean.
 
 ## 5. Frontends (touch-ups only — call sites already exist)
 
-- [ ] 5.1 Desktop: ensure the session poll runs for the app lifetime (even on home, declaring `[]`), `DELETE` on quit; `enterWorkspace`/`leaveWorkspace` call sites unchanged.
-- [ ] 5.2 VS Code: session opened in `activate`, `DELETE` folded into `deactivate`'s thenable; per-workspace `enter/leave` unchanged.
+- [ ] 5.1 Desktop: call `shutdownSession()` on quit (the session poll already starts on the first `enterWorkspace`); `enterWorkspace`/`leaveWorkspace` call sites unchanged.
+- [ ] 5.2 VS Code: fold `shutdownSession()` into `deactivate`'s returned thenable (beside `leaveWorkspace`); per-workspace `enter/leave` unchanged.
 - [ ] 5.3 Manual Disconnect wording/behaviour: "stop syncing this project for me" (drops my interest); it no longer implies the bridge stops for everyone.
+- [ ] 5.4 Tray Disconnect → `SetForceOffAsync` (the deferred task 3.3): the supervisor override, designed + verified now that frontends drive real session connections.
 
 ## 6. Docs
 

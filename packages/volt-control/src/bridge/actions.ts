@@ -9,8 +9,9 @@
  */
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
-import { isBridgeOnline, readBridgeVendor, readBoundProject, type HealthState, type Vendor } from "./health.js"
-import { boundStatus, connectProject, detectedProjects, disconnect, boundProjectId, type DetectedProject, type DisconnectResult } from "./connector.js"
+import { isBridgeOnline, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
+import { boundStatus, connectProject, type DetectedProject, type DisconnectResult } from "./connector.js"
+import { declareInterest, dropInterest } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
@@ -215,41 +216,25 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
   })
 }
 
-/** Re-point the bridge at this workspace's ALREADY-bound project (the "Reconnect" action). Reopening a bound
- *  workspace doesn't re-fire `select`, so after a connector restart / IDE re-open / project switch the bridge can
- *  be serving the wrong project; this fires the same connect the desktop/VS Code do at init time, but resolved
- *  from the binding instead of a picked project. Returns a message on failure for the caller to surface. */
+/** Re-point the bridge at this workspace's ALREADY-bound project (the manual "Reconnect" action). In the session
+ *  model this is just a fresh {@link enterWorkspace} — re-add the interest and force an immediate sync — so a bridge
+ *  that had drifted (connector restart / IDE re-open / project switch) reconnects. Returns a message on failure. */
 export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boolean; message?: string }> {
-  const bound = readBoundProject(workspaceRoot)
-  if (bound === undefined) return { ok: false, message: "This folder isn't a Volt workspace — initialize it first." }
-  const ofVendor = (await detectedProjects()).filter((p) => p.vendor === bound.vendor)
-  // Match on the binding name (projectName === health.ProjectName), NOT displayName — for TwinCAT displayName is
-  // the PLC sub-project. Fall back to displayName (older connector / CODESYS) then to the sole project of the vendor.
-  const match =
-    ofVendor.find((p) => (p.projectName ?? p.displayName) === bound.projectName) ??
-    (ofVendor.length === 1 ? ofVendor[0] : undefined)
-  if (match === undefined)
-    return { ok: false, message: `“${bound.projectName}” isn't detected — open it in your IDE and start its bridge, then Reconnect.` }
-  return (await connectProject(match.id))
-    ? { ok: true }
-    : { ok: false, message: "The Volt Connector refused the connection — is it running?" }
+  return declareInterest(workspaceRoot)
 }
 
-/** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project): a frontend
- *  calls `enterWorkspace` when a project becomes the one it's showing, and `leaveWorkspace` when it stops. Both
- *  shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop bind/unbind,
- *  VS Code activate/deactivate). Thin wrappers over the existing connect/disconnect primitives. */
+/** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project + the session
+ *  model): a frontend calls `enterWorkspace` when a project becomes the one it's showing, `leaveWorkspace` when it
+ *  stops. Both shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop
+ *  bind/unbind, VS Code activate/deactivate). These MUTATE the app's declared interest set; the session sync poll
+ *  ships it (and against an old connector they fall back to a plain connect/disconnect). */
 export async function enterWorkspace(root: string): Promise<{ ok: boolean; message?: string }> {
-  return reconnectBound(root) // connect the bridge to THIS workspace's bound project
+  return declareInterest(root)
 }
 
-/** Disconnect THIS workspace's bound project (not the tray's active one). Dedupes the `boundProjectId` + `disconnect`
- *  combo both shells inlined. Safe: an unbound / undetected workspace has no bound project id, so it disconnects
- *  NOTHING — we must NOT fall through to a bare `disconnect(undefined)`, which drops the tray's active connection
- *  instead. Never throws (a down connector resolves to `{ok:false}`). */
+/** Drop THIS workspace's project from the declared interests — the connector gates its bridge only if no other live
+ *  session still wants it. Never throws (a down connector resolves to `{ok:false}`). */
 export async function leaveWorkspace(root: string): Promise<DisconnectResult> {
-  const id = await boundProjectId(root)
-  if (id === undefined) return { ok: false, gated: false } // nothing bound/detected here → disconnect nothing
-  return disconnect(id)
+  return dropInterest(root)
 }
 

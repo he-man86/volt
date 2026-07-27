@@ -113,9 +113,20 @@ export interface ConnectorView {
   projects: DetectedProject[]
 }
 
-/** GET the connector's aggregated status. Never throws — the connector being down (or any fetch/parse error)
- *  resolves to `undefined`, which callers render as "no projects / start Volt". */
+// Once a session is active, its sync poll IS the live source of the view (declare + renew + read in one call), so
+// there's no reason to also GET /status. The session client (session.ts) registers a getter here; connectorStatus
+// prefers its cached view when present. Registered via a hook so connector.ts never imports session.ts (one-way dep).
+let sessionViewGetter: (() => ConnectorView | undefined) | undefined
+export function registerSessionView(getter: () => ConnectorView | undefined): void {
+  sessionViewGetter = getter
+}
+
+/** GET the connector's aggregated status — or, when a session poll is live, its last `/sync` view (no extra request).
+ *  Never throws — the connector being down (or any fetch/parse error) resolves to `undefined`, which callers render
+ *  as "no projects / start Volt". */
 export async function connectorStatus(timeoutMs = 2_000): Promise<ConnectorView | undefined> {
+  const fromSession = sessionViewGetter?.()
+  if (fromSession !== undefined) return fromSession
   try {
     const res = await fetch(`${controlBase()}/status`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return undefined
