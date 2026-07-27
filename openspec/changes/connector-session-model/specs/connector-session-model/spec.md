@@ -110,20 +110,15 @@ project that keeps it unbound regardless of interests until cleared — the supe
 - **WHEN** the tray Disconnect is used on a project
 - **THEN** the connector keeps that project unbound regardless of any session's interest until the force-off is cleared
 
-### Requirement: The transition survives a version-skewed update
+### Requirement: The session API is the only control surface — no legacy connect/disconnect
 
-The new connector SHALL keep the legacy `GET /status` / `POST /connect` / `POST /disconnect` endpoints working (mapped
-onto one implicit legacy session) so an OLD frontend still functions against it. A new `@volt/control` MUST fall back
-to the legacy endpoints when `POST /session` is not available (an OLD connector). Neither skew direction may silently
-stop sync.
+The control plane SHALL expose only the session API (`POST /session`, `POST /session/{id}/sync`, `DELETE /session/{id}`)
+to drive serving, plus `GET /status` as the ambient detected-list read and `POST /workers/{id}/restart`. There SHALL
+be no `POST /connect` / `POST /disconnect`, no implicit legacy session, no single-owner highlight, and no client-side
+fallback. (The connector and frontends are all Volt's own and auto-update together; the transient version-skew window
+is accepted rather than carried as a permanent second control plane.)
 
-#### Scenario: Old frontend, new connector
+#### Scenario: An imperative connect is not a route
 
-- **WHEN** an updated connector is running and a not-yet-updated frontend calls `POST /connect` / `POST /disconnect`
-- **THEN** those calls drive the implicit legacy session's interests and sync works with the legacy single-owner
-  behaviour
-
-#### Scenario: New frontend, old connector
-
-- **WHEN** an updated frontend starts and `POST /session` returns 404 (the connector hasn't updated yet)
-- **THEN** the frontend falls back to `POST /connect` / `GET /status` and sync works
+- **WHEN** any client `POST`s to `/connect` or `/disconnect`
+- **THEN** the connector answers 404 — the only way to make a project serve is to declare interest in it via a session

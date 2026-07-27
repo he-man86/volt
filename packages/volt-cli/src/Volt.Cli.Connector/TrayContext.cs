@@ -42,8 +42,6 @@ namespace Volt.Cli.Connector
 
         public TrayContext()
         {
-            _conn.Connected += OnConnected;
-
             // TwinCAT workers are spawned per-XAE by the first TickAsync (via ReconcileTwincatWorkers) — no fixed
             // startup spawn. CODESYS is user-activated in-proc, never launched.
 
@@ -58,11 +56,10 @@ namespace Volt.Cli.Connector
             // Clicking the "update available" toast starts the update directly — no hunting for the tray menu.
             _icon.BalloonTipClicked += (_, _) => { if (Updater.PendingVersion != null && !Updater.IsApplying) ApplyUpdate(); };
 
-            // Control plane (:8550) — the extension / desktop app see + drive the connection over the model. The
-            // session handlers are the primary surface (clients declare interests); connect/disconnect stay as the
-            // legacy shim for an un-updated frontend.
+            // Control plane (:8550) — the extension / desktop app declare their interests over the session API; the
+            // connector reconciles the bridges to match. GET /status is the ambient read for the connect picker.
             _control = new ControlServer(
-                FreshSnapshotAsync, ConnectByIdAsync, TrayDisconnectAsync, RestartWorker,
+                FreshSnapshotAsync, RestartWorker,
                 openSession: () => _conn.OpenSessionAsync(),
                 sync: SessionSyncAsync,
                 closeSession: id => _conn.CloseSessionAsync(id));
@@ -129,7 +126,6 @@ namespace Volt.Cli.Connector
         private ConnectorView Snapshot() => new(
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
-                Connected: _conn.SelectedOf(p.Vendor)?.Id == p.Id,
                 Status: p.Status, // serving derives from status (!= "idle") on the client
                 p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
 
@@ -140,17 +136,6 @@ namespace Volt.Cli.Connector
             await _conn.SyncAsync(sessionId, interests);
             await OnUiThread(() => _ = TickAsync()); // repaint the tray now, not up to a poll later
             return Snapshot();
-        }
-
-        // Awaited (not fire-and-forget): the connect ends in a `select` on the bridge, which is also what resumes
-        // a disconnected bridge — a client that refreshed right after the response would otherwise still see it
-        // disconnected. A connect that throws (the project closed mid-click) is a plain false.
-        private async Task<bool> ConnectByIdAsync(string projectId)
-        {
-            var p = _conn.Projects.FirstOrDefault(x => x.Id == projectId);
-            if (p == null) return false;
-            try { await _conn.ConnectAsync(p); return true; }
-            catch (Exception ex) { Log.Warn($"connect to {p.DisplayName} failed: {ex.Message}"); return false; }
         }
 
         // TwinCAT is per-XAE: probe the live XAE window pids (a COM-isolated subprocess, off the UI thread), then keep
@@ -181,13 +166,6 @@ namespace Volt.Cli.Connector
         }
 
         // ── notifications ──────────────────────────────────────────────────
-        // A connect names the PLATFORM, so the toast/tooltip say what it attached to, not just the project name.
-        private void OnConnected(DetectedProject p)
-        {
-            Log.Info($"connected to {p.DisplayName} ({_conn.DisplayNameOf(p.Vendor)})");
-            _icon.ShowBalloonTip(4000, "Volt", $"Connected to {p.DisplayName} ({_conn.DisplayNameOf(p.Vendor)}).", ToolTipIcon.Info);
-        }
-
         private void OnAggregateChanged(BridgeStatus prev, BridgeStatus now)
         {
             if (prev == BridgeStatus.Connected && now is BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown)
@@ -197,14 +175,9 @@ namespace Volt.Cli.Connector
             }
         }
 
-        // Disconnect the active connection — its bridge refuses sync until the next connect, but every host stays
-        // live (the CODESYS in-proc host stays loaded, the TwinCAT worker keeps its attach), so reconnecting is
-        // just another connect. One place for both the tray menu and the control-plane disconnect, so the
-        // "disconnected from X" line is logged wherever it's triggered.
-        /// <summary>Run on the WinForms UI thread. The control plane calls TrayDisconnectAsync from a threadpool
-        /// thread, and everything it touches afterwards — the balloon tip, the NotifyIcon, RebuildProjectItems'
-        /// ToolStrip collection — is UI state the 4s timer is also mutating. Without this marshal the two collide
-        /// (a ToolStrip cleared mid-rebuild, a torn icon cache) and the tray throws or corrupts its menu.</summary>
+        /// <summary>Run on the WinForms UI thread. The session-sync + force-off handlers touch UI state (the balloon
+        /// tip, the NotifyIcon, RebuildProjectItems' ToolStrip collection) the 4s timer is also mutating; without this
+        /// marshal the two collide (a ToolStrip cleared mid-rebuild, a torn icon cache) and the tray corrupts its menu.</summary>
         private Task OnUiThread(Action action)
         {
             if (_icon.ContextMenuStrip is not { } menu || !menu.InvokeRequired) { action(); return Task.CompletedTask; }
@@ -215,39 +188,6 @@ namespace Volt.Cli.Connector
                 catch (Exception ex) { tcs.TrySetException(ex); }
             }));
             return tcs.Task;
-        }
-
-        private async Task<UnbindResult> TrayDisconnectAsync(string? projectId)
-        {
-            var active = projectId is null ? _conn.ActiveConnection : _conn.Projects.FirstOrDefault(p => p.Id == projectId);
-            var result = await _conn.DisconnectAsync(projectId);
-            if (active == null) return result;
-            var platform = _conn.DisplayNameOf(active.Vendor);
-            if (result == UnbindResult.Unsupported)
-            {
-                // The bridge didn't take the deselect — it predates the op and KEEPS serving the CLI. Say so
-                // rather than toasting a disconnect that didn't happen.
-                Log.Warn($"{active.DisplayName} ({platform}) did not accept the disconnect — its bridge is out of date");
-                await OnUiThread(() => _icon.ShowBalloonTip(6000, "Volt", $"{active.DisplayName} ({platform}) is running an out-of-date bridge, so it stays connected. Restart {platform} (CODESYS: re-run start_volt_codesys.py) to finish updating.", ToolTipIcon.Warning));
-                await OnUiThread(() => _ = TickAsync());
-                return result;
-            }
-            if (result == UnbindResult.Unreachable)
-            {
-                // The IDE closed before the click landed. Already disconnected — no scary warning, just say so.
-                Log.Info($"{active.DisplayName} ({platform}) was already gone");
-                await OnUiThread(() => _ = TickAsync());
-                return result;
-            }
-            Log.Info($"disconnected from {active.DisplayName} ({platform})");
-            // Toast it, exactly like OnConnected does. Disconnect can be triggered from ANOTHER window (the VS Code
-            // view / the desktop app) via the control plane, so without this the tray silently changed state — the
-            // one place the user looks to confirm it said nothing at all.
-            await OnUiThread(() => _icon.ShowBalloonTip(4000, "Volt", $"Disconnected from {active.DisplayName} ({platform}). The IDE stays open — connect again to resume.", ToolTipIcon.Info));
-            // Repaint now instead of waiting up to a full 4s poll: the icon colour + menu are how the user sees
-            // that a disconnect driven from another window actually landed.
-            await OnUiThread(() => _ = TickAsync());
-            return result;
         }
 
         /// <summary>Toggle the supervisor force-off for one project (a clickable row). Force-off keeps the project's

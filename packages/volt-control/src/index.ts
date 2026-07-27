@@ -10,7 +10,7 @@
 export * from "./bridge/cli.js" // setBundledCli, cliScript, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
 export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, VENDORS, Vendor
-export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, connectProject, DetectedProject, ConnectorView, BridgeStatusView
+export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, ConnectorView
 export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
 
 // state/ — the reactive per-workspace tracker

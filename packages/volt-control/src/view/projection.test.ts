@@ -141,18 +141,12 @@ test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else i
 })
 
 // ── describeDisconnect: one wording for both shells ──────────────────────────
-// Both frontends hand-wrote this if/else and had already drifted — the desktop showed an out-of-date bridge as an
-// "error", VS Code as a "warning", for the same event. The dangerous case is `ok && !gated && unsupported`: that
-// bridge is STILL SYNCING, so it must never read as a plain success.
-test("describeDisconnect: four distinct outcomes, and an un-gated bridge is never reported as success", () => {
-  expect(describeDisconnect({ ok: false, gated: false }).tone).toBe("error")
-  expect(describeDisconnect({ ok: true, gated: true, reason: "gated" }).tone).toBe("info")
+// Both frontends hand-wrote this if/else and had already drifted (desktop "error", VS Code "warning" for the same
+// event); described once now. In the session model a Disconnect just drops THIS window's interest.
+test("describeDisconnect: connector-down is an error, a clean drop is a per-window info", () => {
+  expect(describeDisconnect({ ok: false }).tone).toBe("error")
 
-  const gone = describeDisconnect({ ok: true, gated: false, reason: "unreachable" })
-  expect(gone.tone).toBe("info") // already disconnected — nothing to fix, so no alarm
-  expect(gone.message).toContain("no longer running")
-
-  const stale = describeDisconnect({ ok: true, gated: false, reason: "unsupported" })
-  expect(stale.tone).toBe("warn")
-  expect(stale.message).toContain("STILL syncing") // the bit that must not be softened
+  const ok = describeDisconnect({ ok: true })
+  expect(ok.tone).toBe("info")
+  expect(ok.message).toContain("here") // worded per-window, not a global disconnect
 })

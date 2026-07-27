@@ -26,9 +26,6 @@ export interface DetectedProject {
   displayName: string
   vendor: Vendor
   dirty: boolean
-  /** The tray HIGHLIGHT — the project the user last picked. A UI nicety; it says nothing about whether sync
-   *  works. Never derive connection state from it (use {@link isServing}). */
-  connected: boolean
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
   /** IDE version, shown in the label when a vendor has more than one live instance. */
@@ -39,9 +36,8 @@ export interface DetectedProject {
   projectName?: string | null
   /** GROUND TRUTH: the row's full connection state — "idle" (detected, not the served one), "healthy" (served,
    *  channel OK), "degraded" (served, recent errors). Connection state is read from THIS ({@link isServing}), never
-   *  from {@link DetectedProject.connected} and never from the project merely appearing in the list (a disconnected
-   *  bridge stays listed — that list is how you reconnect, so "detected" never meant "connected"). Absent → not
-   *  serving, never connected. */
+   *  from the project merely appearing in the list (a disconnected bridge stays listed — that list is how you
+   *  reconnect, so "detected" never meant "connected"). Absent → not serving. */
   status?: "idle" | "healthy" | "degraded"
 }
 
@@ -52,8 +48,8 @@ export function isServing(p: DetectedProject | undefined): boolean {
 }
 
 /** Does this detected project satisfy a workspace's binding — same vendor AND the name the binding matches on
- *  (projectName, falling back to displayName for CODESYS / older connectors)? The ONE "is this MY project"
- *  predicate, shared by reconnect, boundProjectId, boundStatus, and connectOptions. */
+ *  (projectName, falling back to displayName for CODESYS)? The ONE "is this MY project" predicate, shared by the
+ *  session client's interest resolution, boundStatus, and connectOptions. */
 export function matchesBinding(p: DetectedProject, bound: BoundProject): boolean {
   return p.vendor === bound.vendor && (p.projectName ?? p.displayName) === bound.projectName
 }
@@ -142,67 +138,6 @@ export async function detectedProjects(): Promise<DetectedProject[]> {
   return (await connectorStatus())?.projects ?? []
 }
 
-/** Bind the bridge to a detected project (POST /connect). Returns whether the connector accepted it. */
-export async function connectProject(projectId: string, timeoutMs = 4_000): Promise<boolean> {
-  try {
-    const res = await fetch(`${controlBase()}/connect`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ projectId }),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    if (!res.ok) return false
-    return ((await res.json()) as { ok?: boolean }).ok === true
-  } catch {
-    return false
-  }
-}
-
-/** The outcome of a Disconnect. `ok` — the connector took the request at all. `gated` — the BRIDGE accepted the
- *  deselect and is now refusing sync. They differ on a mixed install: an out-of-date bridge (mid-update, or a
- *  CODESYS in-proc host loaded before the gate shipped) has no `deselect` op and keeps serving `volt push`, so
- *  the selection clears and the UI would claim "disconnected" while sync still worked. Shells must warn on
- *  `ok && !gated` — a Disconnect button that silently does nothing is worse than no button. */
-export interface DisconnectResult {
-  ok: boolean
-  gated: boolean
-  /** Why, when `gated` is false: `unsupported` = an out-of-date bridge that KEEPS SYNCING (restart that IDE);
-   *  `unreachable` = its IDE is already gone, so there is nothing to warn about. Collapsing these told people to
-   *  go fix an out-of-date bridge when they had simply closed the IDE. */
-  reason?: "gated" | "unsupported" | "unreachable"
-}
-
-/** Disconnect the active connection (POST /disconnect). Every activated host stays LIVE — the bridge just stops
- *  serving sync until the next connect. Never throws (connector down → {ok:false}). */
-export async function disconnect(projectId?: string, timeoutMs = 4_000): Promise<DisconnectResult> {
-  try {
-    // Name the project. A frontend disconnects the project ITS workspace is bound to, which is frequently not the
-    // tray's active connection — without this, clicking Disconnect in one window gated a DIFFERENT project and
-    // silently stopped another workspace's sync while the row that was clicked stayed connected.
-    const res = await fetch(`${controlBase()}/disconnect`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(projectId !== undefined ? { projectId } : {}),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    if (!res.ok) return { ok: false, gated: false }
-    // `gated` is absent on an older CONNECTOR (it answered a bare {ok:true}); that connector can't have gated the
-    // bridge either, so absent must read as false — never as success.
-    const body = (await res.json().catch(() => ({}))) as { gated?: boolean; reason?: DisconnectResult["reason"] }
-    return { ok: true, gated: body.gated === true, reason: body.reason }
-  } catch {
-    return { ok: false, gated: false }
-  }
-}
-
-/** The connector's id for the project THIS workspace is bound to, or undefined when it isn't detected. Shells
- *  pass it to {@link disconnect} so they act on their own project rather than the tray's active one. */
-export async function boundProjectId(workspaceRoot: string): Promise<string | undefined> {
-  const bound = readBoundProject(workspaceRoot)
-  if (bound === undefined) return undefined
-  const projects = await detectedProjects()
-  return projects.find((p) => matchesBinding(p, bound))?.id
-}
 
 /** The bound workspace's live connection status (use case A). PER-WORKSPACE: it reflects whether THIS workspace's
  *  bound project is live (its host is serving), NOT the connector's single global "active connection" — so two

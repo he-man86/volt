@@ -151,38 +151,3 @@ describe("session client (declarative connection presence)", () => {
   })
 })
 
-describe("legacy fallback (a connector without the session API)", () => {
-  function oldConnector(): Call[] {
-    return router((c) => {
-      if (c.method === "POST" && c.url.endsWith("/session")) return { status: 404, json: {} }
-      if (c.method === "GET" && c.url.endsWith("/status")) return { json: view(true) }
-      if (c.method === "POST" && c.url.endsWith("/connect")) return { json: { ok: true } }
-      if (c.method === "POST" && c.url.endsWith("/disconnect")) return { json: { ok: true, gated: true } }
-      return { status: 404, json: {} }
-    })
-  }
-
-  test("declareInterest falls back to POST /connect and never uses /sync", async () => {
-    const calls = oldConnector()
-    const r = await declareInterest(boundWorkspace("codesys", "MyMachine"))
-
-    expect(r.ok).toBe(true)
-    expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/connect"))).toBe(true)
-    expect(calls.some((c) => c.url.includes("/sync"))).toBe(false)
-  })
-
-  test("connectorStatus falls back to GET /status in legacy mode", async () => {
-    oldConnector()
-    await declareInterest(boundWorkspace("codesys", "MyMachine")) // trips legacy detection
-
-    const v = await connectorStatus()
-    expect(v?.projects[0].displayName).toBe("MyMachine")
-  })
-
-  test("dropInterest falls back to POST /disconnect", async () => {
-    const calls = oldConnector()
-    await dropInterest(boundWorkspace("codesys", "MyMachine"))
-
-    expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/disconnect"))).toBe(true)
-  })
-})

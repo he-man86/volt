@@ -51,24 +51,11 @@ export const ABORT_MERGE: OutcomeAction = {
   confirmMessage: "Abort discards this merge and restores your workspace to before the pull. Your in-merge edits are lost. This cannot be undone.",
 }
 
-/** The four genuinely different endings of a Disconnect, described ONCE. Both shells rendered this with their own
- *  hand-written if/else and their own wording, which is precisely how the two frontends drift — the desktop was
- *  already showing an out-of-date bridge as an "error" while VS Code showed a "warning", for the same event.
- *  Note `ok && !gated && reason === "unsupported"` is the dangerous one: the bridge is STILL SYNCING, so it must
- *  never be reported as a plain success. */
-export function describeDisconnect(r: { ok: boolean; gated: boolean; reason?: string }): OutcomeView {
+/** The two endings of a Disconnect (dropping THIS window's interest), described ONCE so the shells can't word them
+ *  differently. In the session model the bridge keeps serving if another window/app still wants the project, so a
+ *  success is worded as "here", not a global disconnect. */
+export function describeDisconnect(r: { ok: boolean }): OutcomeView {
   if (!r.ok) return { tone: "error", message: "Couldn't reach the Volt Connector — is it running?", actions: [] }
-  if (r.reason === "unreachable")
-    return { tone: "info", message: "Already disconnected — that IDE is no longer running.", actions: [] }
-  if (!r.gated)
-    return {
-      tone: "warn",
-      message:
-        "Disconnected in Volt, but this IDE's bridge is out of date and is STILL syncing. Restart the IDE (in CODESYS, re-run start_volt_codesys.py) to finish updating.",
-      actions: [],
-    }
-  // The session-model success: dropping this window's interest. The bridge keeps serving if another window/app still
-  // wants the project, so word it as "here", not a global disconnect.
   return { tone: "info", message: "Stopped syncing this project here. The IDE stays open — connect again to resume.", actions: [] }
 }
 

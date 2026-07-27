@@ -53,9 +53,10 @@ stays behind the wire.
 The **data wire is a named pipe** — one `volt.bridge.<vendor>.<pid>` **per running IDE** (both vendors are per-pid;
 `PerPipeProjectSource` discovers them all, so multiple IDEs are live at once and their projects serve in parallel).
 The `health`, `select`, `deselect`, and sync ops flow over it. There are no HTTP data ports. The only HTTP is the
-localhost **control plane on `:8550`**: the primary surface is the session API — `POST /session`,
-`POST /session/{id}/sync`, `DELETE /session/{id}` — plus the legacy shim (`/status`, `/connect`, `/disconnect`,
-`/workers/{id}/restart`) that an un-updated frontend still uses.
+localhost **control plane on `:8550`**: the session API — `POST /session`, `POST /session/{id}/sync`,
+`DELETE /session/{id}` — is the ONLY way to drive serving; `GET /status` is the ambient read of the detected-project
+list (the connect picker), and `POST /workers/{id}/restart` respawns a worker. There is no imperative
+connect/disconnect.
 
 **Many live hosts, served in parallel.** Every activated CODESYS + every running TwinCAT project is listed; each
 serves iff some session declares interest in it (or the tray hasn't force-offed it). The reconciler binds every
@@ -125,21 +126,17 @@ dotnet build src/Volt.Cli.Connector -c Release
 resolution is zero-config. The UI-free model + its tests live in `Volt.Cli.Connector.Core` /
 `test/Volt.Cli.Connector.Tests`.
 
-## Testing the connection lifecycle
+## Testing the connection model
 
-`test/Volt.Cli.Connector.Tests` runs the real model over **real named pipes** with only the IDE faked — no CODESYS,
-no tray, CI-runnable in seconds. The parity boundary is the pipe wire, so a live `BridgePipeHost` on a real pipe
-reproduces every state a real IDE can put the connector in; a headless CODESYS would only add confidence in the
-vendor glue *below* the wire, which is `test/e2e`'s job.
+`test/Volt.Cli.Connector.Tests` runs the model with no pipes and no tray, CI-runnable in seconds:
 
-- `CodesysSourceLiveTests` — multi-instance discovery: N live hosts, each on its own pipe, connect/switch, and a
-  host closing mid-session (dropped + deselected).
-- `DisconnectLifecycleTests` — connect/disconnect/reconnect asserted from **both sides after every transition**:
-  the connector's view (`ConnectionManager`) *and* a raw `PipeClient` standing in for the CLI, which reaches the
-  bridge directly and never consults the connector. That second assertion is the point — it is what catches the
-  bug this gate exists for (Disconnect left `volt push` working). Also covers: disconnecting one host leaves its
-  neighbours serving, *switching* is not a disconnect, a disconnected host that then closes is dropped normally,
-  disconnecting an already-dead bridge is silent, and disconnect is idempotent.
+- `ReconcilerTests` — the pure planner: `(sessions, forceOff, previouslyWanted, detected, now) → bind/unbind`.
+  Edge-triggered gating, the one-project-per-worker limit, force-off, and the anti-thrash convergence invariant.
+- `ConnectionManagerTests` — detection, the immutable-`State` concurrency discipline, `Aggregate` (serving ∧ wanted).
+- `ConnectionManagerSessionTests` — the session loop end-to-end through fake sources: a Sync declaring an interest
+  resumes the project; the union keeps it served until the last session leaves; force-off pauses/resumes.
+- `ControlServerTests` — the HTTP edge: the session API (open/sync/close), `GET /status`, `/workers/{id}/restart`,
+  and the CSRF guard, over a real loopback `HttpListener`.
 
-When changing anything in this area, verify the tests are **red without the fix** — comment out the `_paused` gate
-in `BridgePipeHost.Dispatch` and three of them must fail.
+The live bridge **gate** itself (deselect refuses sync until the next select, over a real pipe) is covered by
+`test/e2e/lifecycle/disconnect-cycle.test.ts`; multi-instance parallelism by `test/e2e/stability/parallel-instances`.

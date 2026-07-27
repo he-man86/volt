@@ -13,14 +13,12 @@ namespace Volt.Cli.Connector
     /// <c>volt init</c>; <c>IdeVersion</c> disambiguates same-named projects across IDE versions. <c>ProjectName</c>
     /// is the name the workspace BINDING matches on (the vendor's <c>health.ProjectName</c> = the TwinCAT project /
     /// the CODESYS project) — NOT <c>DisplayName</c>, which for TwinCAT is the PLC sub-project.</summary>
-    /// <param name="Connected">The tray HIGHLIGHT — this is the one project the user last picked. A UI nicety; it
-    /// says nothing about whether sync works.</param>
     /// <param name="Status">GROUND TRUTH: the row's full connection state — "idle" (detected, not served) | "healthy"
     /// (served, channel OK) | "degraded" (served, recent errors). Clients render connection state from THIS (serving =
-    /// <c>status != "idle"</c>), never from <paramref name="Connected"/> and never from the project merely appearing in
-    /// the list — a disconnected bridge stays listed (that is how you reconnect), and treating "detected" as
-    /// "connected" is what let the UI claim a connection against a gated bridge.</param>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, bool Connected, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
+    /// <c>status != "idle"</c>), never from the project merely appearing in the list — a disconnected bridge stays
+    /// listed (that is how you reconnect), and treating "detected" as "connected" is what let the UI claim a connection
+    /// against a gated bridge.</param>
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;
@@ -41,13 +39,7 @@ namespace Volt.Cli.Connector
     ///   POST   /session/{id}/sync             → ConnectorView                  — declare interests + renew + read, one call
     ///   DELETE /session/{id}                  → 204                            — clean shutdown
     ///
-    /// <para>The <b>legacy</b> routes remain so an OLD frontend keeps working against a new connector (they drive the
-    /// implicit legacy session inside the manager). A NEW client prefers the session API and falls back to these only
-    /// when <c>POST /session</c> 404s (an old connector — which is exactly what leaving the session handlers null
-    /// produces here):</para>
-    ///   GET  /status                 → ConnectorView (the unified, self-describing project list)
-    ///   POST /connect                → body { projectId } — connect a detected project (legacy single-owner)
-    ///   POST /disconnect             → disconnect a project (the bridge refuses sync; hosts stay live)
+    ///   GET  /status                 → ConnectorView (the unified, self-describing project list — the ambient read)
     ///   POST /workers/{id}/restart   → respawn a worker
     /// </summary>
     public sealed class ControlServer : IDisposable
@@ -58,36 +50,27 @@ namespace Volt.Cli.Connector
         // Async so GET /status can refresh-if-stale before answering: a client that polls must not read the tray
         // tick's cache, or a change made outside Volt (an IDE closing) lags by the tick PLUS the client's own poll.
         private readonly Func<Task<ConnectorView>> _snapshot;
-        // Both connect + disconnect are awaited before the response is written: each ends in a `select`/`deselect`
-        // on the bridge pipe, and a client that refreshes its status right after the 200 would otherwise race it.
-        private readonly Func<string, Task<bool>> _connect;   // projectId → connected?
-        private readonly Func<string?, Task<UnbindResult>> _disconnect; // projectId (null = the active one)
         private readonly Action<string> _restart;             // worker id
-        // The session API (null on a connector that predates it → those routes 404, so a new client falls back).
-        private readonly Func<Task<(string SessionId, double LeaseSeconds)>>? _openSession;
-        private readonly Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? _sync; // declare + renew + read
-        private readonly Func<string, Task>? _closeSession;
+        // The session API — the ONLY way to drive serving (a client declares its interests; the connector reconciles).
+        private readonly Func<Task<(string SessionId, double LeaseSeconds)>> _openSession;
+        private readonly Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>> _sync; // declare + renew + read
+        private readonly Func<string, Task> _closeSession;
         private readonly int _port;
         private volatile bool _running;
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-        /// <param name="openSession">Session API — leave null to emulate a pre-session connector (the routes 404).</param>
         /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
         /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
         public ControlServer(
             Func<Task<ConnectorView>> snapshot,
-            Func<string, Task<bool>> connect,
-            Func<string?, Task<UnbindResult>> disconnect,
             Action<string> restart,
-            int port = ControlPort,
-            Func<Task<(string SessionId, double LeaseSeconds)>>? openSession = null,
-            Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? sync = null,
-            Func<string, Task>? closeSession = null)
+            Func<Task<(string SessionId, double LeaseSeconds)>> openSession,
+            Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>> sync,
+            Func<string, Task> closeSession,
+            int port = ControlPort)
         {
             _snapshot = snapshot;
-            _connect = connect;
-            _disconnect = disconnect;
             _restart = restart;
             _openSession = openSession;
             _sync = sync;
@@ -114,9 +97,9 @@ namespace Volt.Cli.Connector
             try { ctx = _listener.EndGetContext(ar); }
             catch { return; }
             try { _listener.BeginGetContext(OnContext, null); } catch { /* listener stopped */ }
-            // Fire-and-forget the ASYNC handler: /status can refresh (probing every bridge pipe) and
-            // /connect + /disconnect await a wire call, so handling inline would tie up the listener callback
-            // thread for the duration and serialize unrelated requests behind it.
+            // Fire-and-forget the ASYNC handler: /status can refresh (probing every bridge pipe) and /session/sync
+            // awaits a reconcile, so handling inline would tie up the listener callback thread for the duration and
+            // serialize unrelated requests behind it.
             _ = HandleSafeAsync(ctx);
         }
 
@@ -141,10 +124,9 @@ namespace Volt.Cli.Connector
             var method = ctx.Request.HttpMethod;
             var parts = path.Split('/');
 
-            // ── the session API (the primary surface) ──
+            // ── the session API: open → sync (declare interests + renew + read) → close ──
             if (method == "POST" && path == "session")
             {
-                if (_openSession is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
                 var (sid, lease) = await _openSession().ConfigureAwait(false);
                 WriteJson(ctx, 200, new { sessionId = sid, leaseSeconds = lease });
                 return;
@@ -154,7 +136,6 @@ namespace Volt.Cli.Connector
                 var sid = parts[1];
                 if (method == "POST" && parts.Length == 3 && parts[2] == "sync")
                 {
-                    if (_sync is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
                     var body = ReadBody<SyncBody>(ctx);
                     var interests = (body?.Interests ?? new List<InterestDto>())
                         .Where(i => !string.IsNullOrEmpty(i.Vendor) && !string.IsNullOrEmpty(i.ProjectName))
@@ -165,7 +146,6 @@ namespace Volt.Cli.Connector
                 }
                 if (method == "DELETE" && parts.Length == 2)
                 {
-                    if (_closeSession is null) { WriteJson(ctx, 404, new { error = "session API not available" }); return; }
                     await _closeSession(sid).ConfigureAwait(false);
                     ctx.Response.StatusCode = 204;
                     ctx.Response.Close();
@@ -173,28 +153,8 @@ namespace Volt.Cli.Connector
                 }
             }
 
+            // The ambient read — the detected-project list (the init/connect picker reads this before any session).
             if (method == "GET" && path == "status") { WriteJson(ctx, 200, await _snapshot().ConfigureAwait(false)); return; }
-
-            if (method == "POST" && path == "connect")
-            {
-                var id = ReadBody<ConnectBody>(ctx)?.ProjectId;
-                var ok = !string.IsNullOrEmpty(id) && await _connect(id!).ConfigureAwait(false);
-                WriteJson(ctx, ok ? 200 : 400, new { ok });
-                return;
-            }
-
-            if (method == "POST" && path == "disconnect")
-            {
-                // Optional projectId: a frontend disconnects the project ITS workspace is bound to, which is not
-                // necessarily the tray's active one. Absent → the active connection (the tray's own menu item).
-                var target = ReadBody<ConnectBody>(ctx)?.ProjectId;
-                var outcome = await _disconnect(string.IsNullOrEmpty(target) ? null : target).ConfigureAwait(false);
-                // Always a 200 — the highlight cleared regardless. `gated` says whether the BRIDGE actually
-                // stopped serving; `reason` distinguishes an out-of-date bridge (still syncing, needs an IDE
-                // restart) from one that is simply gone (nothing to warn about).
-                WriteJson(ctx, 200, new { ok = true, gated = outcome == UnbindResult.Gated, reason = outcome.ToString().ToLowerInvariant() });
-                return;
-            }
 
             // POST workers/{id}/restart
             if (method == "POST" && parts.Length == 3 && parts[0] == "workers" && parts[2] == "restart")
@@ -207,7 +167,6 @@ namespace Volt.Cli.Connector
             WriteJson(ctx, 404, new { error = $"no route for {method} /{path}" });
         }
 
-        private sealed record ConnectBody(string? ProjectId);
         private sealed record InterestDto(string? Vendor, string? ProjectName);
         private sealed record SyncBody(List<InterestDto>? Interests);
 

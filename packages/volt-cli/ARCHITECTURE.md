@@ -48,8 +48,8 @@ volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
 
 Ops: `health`, `refs`, `fetch`, `push`, `build`, `init`, plus `connect`/`disconnect` and `debug`. Each connection
 carries one request and its streamed frames. There is **no** events/SSE and no wait-change — change-detection is
-client-polled. (`connect`/`disconnect` are the wire verbs the control-plane `/connect`, `/disconnect` routes map to —
-same name across both layers.)
+client-polled. (`connect`/`disconnect` are the bridge `select`/`deselect` wire verbs the connector's reconciler drives
+to bind/unbind a project — nothing to do with the removed HTTP connect/disconnect; the control plane is session-only.)
 
 **`health` is the ONE ambient poll — and it must never marshal onto the IDE thread.** The IDE has exactly ONE work
 thread (CODESYS's primary thread; TwinCAT's STA) and it is genuinely single-threaded — a `fetch`/`push`/`build`

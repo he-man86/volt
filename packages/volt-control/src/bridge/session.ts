@@ -9,25 +9,17 @@
  *     back — all in one `POST /session/{id}/sync`, whose response IS the connector view the UI renders,
  *   • `DELETE`s the session on shutdown so its interests drop immediately.
  *
- * `enterWorkspace`/`leaveWorkspace` (in actions.ts) mutate the interest set through here; the poll ships it.
- *
- * **Legacy fallback:** against a connector that predates the session API, `POST /session` 404s — the client switches
- * to LEGACY mode and maps enter→`/connect`, leave→`/disconnect`, status→`GET /status` (exactly the old behaviour), so
- * a new frontend keeps working against an old connector during a staged update.
- *
- * Never throws: a down connector leaves the session unopened and is retried by the poll.
+ * `enterWorkspace`/`leaveWorkspace` (in actions.ts) mutate the interest set through here; the poll ships it. This is
+ * the ONLY way to drive serving — there is no imperative connect/disconnect. Never throws: a down connector leaves
+ * the session unopened and is retried by the poll.
  */
 import { readBoundProject, type BoundProject } from "./health.js"
 import {
   registerSessionView,
   matchesBinding,
   isServing,
-  boundProjectId,
-  connectProject,
-  disconnect,
   type ConnectorView,
   type DetectedProject,
-  type DisconnectResult,
 } from "./connector.js"
 
 interface Interest {
@@ -38,12 +30,11 @@ interface Interest {
 // Module-level: the one per-app session.
 const S: {
   id?: string
-  legacy: boolean
   opening?: Promise<void>
   interests: Map<string, Interest> // workspace root (or a pick key) → its durable binding identity
   view?: ConnectorView // the last /sync response — what connectorStatus prefers
   timer?: ReturnType<typeof setInterval>
-} = { legacy: false, interests: new Map() }
+} = { interests: new Map() }
 
 const POLL_MS = 4_000
 const TIMEOUT_MS = 2_000
@@ -69,19 +60,15 @@ function uniqueInterests(): Interest[] {
   return out
 }
 
-/** Open the session once. A 404 means the connector predates the session API → LEGACY mode. A down connector leaves
- *  it unopened (S.id undefined, not legacy) to be retried by the next tick. Concurrent callers share one attempt. */
+/** Open the session once. A down connector leaves it unopened (S.id undefined) to be retried by the next tick.
+ *  Concurrent callers share one attempt. */
 async function ensureSession(): Promise<void> {
-  if (S.id || S.legacy) return
+  if (S.id) return
   if (S.opening) return S.opening
   S.opening = (async () => {
     try {
       const res = await fetch(`${controlBase()}/session`, { method: "POST", signal: AbortSignal.timeout(TIMEOUT_MS) })
-      if (res.status === 404) {
-        S.legacy = true
-        return
-      }
-      if (!res.ok) return // transient (connector still starting) — retry later
+      if (!res.ok) return // connector down / still starting — retry later
       const body = (await res.json()) as { sessionId?: string }
       if (body.sessionId) S.id = body.sessionId
     } catch {
@@ -109,16 +96,9 @@ function stopPolling(): void {
   }
 }
 
-/** One poll iteration: (re)open the session, then declare the current interest set. If we discover an OLD connector
- *  mid-flight (e.g. the connector was down at first declare and came back as a pre-session build), stop polling and
- *  connect the declared interests the legacy way. */
+/** One poll iteration: (re)open the session, then declare the current interest set. */
 async function tick(): Promise<void> {
   await ensureSession()
-  if (S.legacy) {
-    stopPolling()
-    for (const root of S.interests.keys()) void legacyConnect(root)
-    return
-  }
   if (S.id) await syncDeclare()
 }
 
@@ -138,37 +118,19 @@ async function syncDeclare(): Promise<void> {
   }
 }
 
-// ── legacy fallback (pre-session connector) — map enter/leave onto the old /connect + /disconnect ──
-async function legacyConnect(root: string): Promise<{ ok: boolean; message?: string }> {
-  const id = await boundProjectId(root)
-  if (id === undefined)
-    return { ok: false, message: `“${readBoundProject(root)?.projectName ?? "This project"}” isn't detected — open it in your IDE, then Reconnect.` }
-  return (await connectProject(id))
-    ? { ok: true }
-    : { ok: false, message: "The Volt Connector refused the connection — is it running?" }
-}
-
-async function legacyDisconnect(root: string): Promise<DisconnectResult> {
-  const id = await boundProjectId(root)
-  if (id === undefined) return { ok: false, gated: false } // nothing bound/detected → disconnect nothing
-  return disconnect(id)
-}
-
 // ── the public API actions.ts delegates to ──
 
 /** Declare interest in the project THIS workspace is bound to (navigate-to / manual Connect): add it to the interest
  *  set and sync immediately so the bridge connects without waiting for the poll. `ok` reflects whether the bound
  *  project is actually serving now (so the manual "Reconnect" button can report "not detected — open it"); the
- *  automatic follow callers ignore the result. Legacy connector → a plain connect. */
+ *  automatic follow callers ignore the result. */
 export async function declareInterest(root: string): Promise<{ ok: boolean; message?: string }> {
   const bound = readBoundProject(root)
   if (bound === undefined) return { ok: false, message: "This folder isn't a Volt workspace — initialize it first." }
 
-  await ensureSession()
-  if (S.legacy) return legacyConnect(root)
-
   S.interests.set(root, { vendor: bound.vendor, projectName: bound.projectName })
   ensurePolling()
+  await ensureSession()
   await syncDeclare()
   return declareResult(bound)
 }
@@ -181,17 +143,17 @@ function declareResult(bound: BoundProject): { ok: boolean; message?: string } {
 }
 
 /** Drop interest in this workspace's project (navigate-away / close / manual Disconnect): remove it and sync so the
- *  connector gates the bridge if no other client wants it. Reports `gated: true` — in the session model dropping an
- *  interest is enough and there is no per-project deselect result, so the shells' out-of-date-bridge warning (which
- *  only applied to the legacy deselect op) must not fire. Legacy connector → a plain disconnect. */
-export async function dropInterest(root: string): Promise<DisconnectResult> {
+ *  connector gates the bridge if no other client wants it. `ok` = the connector took the declaration. */
+export async function dropInterest(root: string): Promise<{ ok: boolean }> {
   const had = S.interests.delete(root)
+  // Nothing declared here and no session even opened → a pure no-op; don't open a session just to drop nothing.
+  if (!had && S.id === undefined) return { ok: true }
+
   await ensureSession()
-  if (S.legacy) return legacyDisconnect(root)
   if (S.id !== undefined) ensurePolling() // a live session must renew, never linger un-polled after a stray drop
-  if (!had) return { ok: true, gated: true }
+  if (!had) return { ok: true }
   await syncDeclare()
-  return { ok: S.view !== undefined, gated: true }
+  return { ok: S.view !== undefined }
 }
 
 // ── init/rebind support: select a PICKED (not-yet-bound) project without pinning it ──
@@ -201,16 +163,13 @@ function pickKey(projectId: string): string {
   return `::pick::${projectId}`
 }
 
-/** Select a PICKED project on its bridge so `volt init` can fetch it — as a TEMPORARY app-session interest, NOT the
- *  immortal legacy `/connect` (which pins a project that disconnect can never clear). On an old connector, falls back
- *  to the legacy select. Returns whether the project is now serving. */
+/** Select a PICKED project on its bridge so `volt init` can fetch it — as a TEMPORARY app-session interest, handed to
+ *  the created/rebound workspace root on success and released on failure. Returns whether the project is now serving. */
 export async function selectPickedProject(project: DetectedProject): Promise<boolean> {
-  await ensureSession()
-  if (S.legacy) return connectProject(project.id)
-
   const want: BoundProject = { vendor: project.vendor, projectName: project.projectName ?? project.displayName }
   S.interests.set(pickKey(project.id), want)
   ensurePolling()
+  await ensureSession()
   await syncDeclare()
   // Match the way the connector resolves an interest — by vendor+name (matchesBinding), not the ephemeral row id.
   return isServing(S.view?.projects.find((p) => matchesBinding(p, want)))
@@ -218,7 +177,7 @@ export async function selectPickedProject(project: DetectedProject): Promise<boo
 
 /** Hand a pick's temporary interest to the workspace root that will now own it (after `volt init` created it), so the
  *  ongoing connection is keyed by the workspace and cleared by leaveWorkspace/shutdown. The declared SET is unchanged
- *  (same vendor+name), so no bridge churns. No-op in legacy mode. */
+ *  (same vendor+name), so no bridge churns. */
 export function adoptPickedProject(project: DetectedProject, workspaceRoot: string): void {
   const interest = S.interests.get(pickKey(project.id))
   if (interest === undefined) return
@@ -247,11 +206,10 @@ export async function shutdownSession(): Promise<void> {
   }
 }
 
-/** Test-only: reset all session state (poll timer, id, view, interests, legacy flag). */
+/** Test-only: reset all session state (poll timer, id, view, interests). */
 export function __resetSessionForTest(): void {
   stopPolling()
   S.id = undefined
-  S.legacy = false
   S.opening = undefined
   S.interests.clear()
   S.view = undefined

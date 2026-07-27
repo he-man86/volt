@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { boundStatus, connectOptions, connectSurface, connectorStatus, connectProject, detectedProjects, type ConnectorView } from "./connector.js"
+import { boundStatus, connectOptions, connectSurface, connectorStatus, detectedProjects, type ConnectorView } from "./connector.js"
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -92,15 +92,6 @@ describe("connector client (the UI's single source of connection status)", () =>
     expect(await detectedProjects()).toEqual([])
   })
 
-  test("connectProject POSTs the projectId and reads ok", async () => {
-    let body: unknown
-    mockFetch((_url, init) => {
-      body = JSON.parse(String(init?.body))
-      return { ok: true, json: { ok: true } }
-    })
-    expect(await connectProject("codesys:::MyMachine:")).toBe(true)
-    expect(body).toEqual({ projectId: "codesys:::MyMachine:" })
-  })
 
   test("boundStatus maps the bound vendor's connector health to HealthState (use case A)", async () => {
     const dir = tempWorkspace("codesys")

@@ -121,18 +121,16 @@ process, so its project keeps serving (the safe default) until something declare
   regardless of interests until cleared. This is the supervisor escape hatch (a stuck/misbehaving bridge) — the ONE
   place a connector-side override is right, because the tray is a supervisor, not a project view.
 
-## 8. Migration & version skew — the real trap
+## 8. No legacy shim — one control surface
 
-The connector **auto-updates independently** of the frontends, so during an update an **old frontend can talk to a
-new connector** (or vice-versa). To avoid a window where sync silently stops:
-
-- The new connector **keeps the legacy `POST /connect` / `POST /disconnect` / `GET /status` endpoints** as a thin
-  compatibility shim mapped onto ONE implicit, never-expiring **"legacy session"**: a legacy `connect X` adds X to the
-  legacy session's interests; `disconnect X` removes it; `GET /status` returns the derived `ConnectorView`. An old
-  frontend therefore keeps working (with the old single-owner semantics) against the new model.
-- A **new** `@volt/control` prefers the session API and falls back to legacy `/connect` only if `POST /session`
-  404s (an old connector). So new-frontend↔old-connector also degrades gracefully to the legacy behaviour.
-- The legacy shim is removed only once a floor connector version is guaranteed — noted, not rushed.
+An earlier draft kept the old `POST /connect` / `POST /disconnect` endpoints as a compatibility shim (mapped onto an
+implicit "legacy session") so an un-updated frontend would keep working during a staged update, with `@volt/control`
+falling back to them on a `POST /session` 404. **That shim was removed entirely** — no `/connect`, no `/disconnect`, no
+implicit legacy session, no client fallback, no single-owner highlight. The session API is the ONLY way to drive
+serving; `GET /status` is the ambient detected-list read. Both the connector and the frontends are Volt's own and
+auto-update together, so the transient skew window the shim guarded is not worth the permanent complexity of a second
+control plane. (`ConnectAsync`/`DisconnectAsync`/`ActiveConnection`/`SelectedOf`/the `Connected` highlight,
+`connectProject`/`disconnect`/`DisconnectResult`, and the client `legacy` mode are all gone.)
 
 ## 9. Frontend impact is small (the wiring already shipped)
 
@@ -151,7 +149,6 @@ the app lives, `DELETE`d on quit/deactivate) carries the interest set. `boundSta
 | The connector restarts | Edge-triggering (§6): `previouslyWanted` is empty → no leave-edges → nothing serving is gated; clients re-declare over the next poll |
 | An IDE restarts (new host/pipe) | Interest is the binding identity (§1), re-resolved each reconcile → re-binds the new host |
 | Two clients want two projects on ONE TwinCAT worker | Hardware limit (§5): the incumbent holds, the sibling reports idle; no thrash |
-| Old frontend ↔ new connector (or reverse) during an update | Legacy shim / client fallback (§8) |
 | Two clients want the SAME project; one leaves | Union: still wanted by the other → stays serving (the whole point) |
 
 ## 11. Testing
@@ -164,8 +161,7 @@ the app lives, `DELETE`d on quit/deactivate) carries the interest set. `boundSta
   manager's session loop is tested against the fake sources with no live IDE. *(Done — `ReconcilerTests` 18,
   `ConnectionManagerSessionTests` 6.)*
 - **`@volt/control`:** the session client (open → sync declares the current interest set → renew → DELETE on close);
-  `enterWorkspace`/`leaveWorkspace` mutate the set; the legacy fallback path on `POST /session` 404. Same mock-fetch
-  harness as `connector.test.ts`/`reconnect.test.ts`.
+  `enterWorkspace`/`leaveWorkspace` mutate the set. Same mock-fetch harness as `connector.test.ts`/`reconnect.test.ts`.
 - The full loop (clients ↔ connector ↔ bridges) is the e2e layer; the pure reconciler + the control client are where
   correctness is actually pinned.
 
@@ -176,17 +172,15 @@ the app lives, `DELETE`d on quit/deactivate) carries the interest set. `boundSta
   the reconciler still calls — the gate is unchanged), `Volt.Cli.Tests/*` (CLI reaches the pipe directly), and the
   connector **detection** tests (`PerPipeProjectSource`, `TwincatSupervisor`, `TwincatXaeProbe`, `WireContract*` — the
   `health.projects ↔ DetectedProject` shape and the `{project}` bind payload survive verbatim).
-- **Kept via the legacy shim** — `DisconnectLifecycleTests` and the selection half of `ConnectionManagerTests` call
-  `ConnectAsync`/`DisconnectAsync`/`ActiveConnection`; the §8 shim maps those onto the implicit legacy session, so they
-  pass unchanged and become the **legacy-caller regression suite**. The detection half of `ConnectionManagerTests`
-  (merge, same-name collapse, concurrent/torn-generation, `RefreshIfStale`) stays as-is — the immutable-`State`
-  discipline carries into the reconciler.
-- **Retired as newly-impossible (the stability win)** — `Connect_invalidates_the_status_cache…` (+ Disconnect twin)
-  guard the imperative-connect + 1s-stale-cache flash; declarative reconcile derives serving every sync, so that race
-  is gone. `Connecting_one_project_clears_any_other_active_connection` pins single-owner — the exact multi-client bug
-  this change removes.
-- **Extended** — `ControlHarness/Program.cs` + the `@volt/control` client tests gain the `POST /session/{id}/sync`
-  path and a legacy-fallback (`POST /session` 404 → `/connect`) test.
+- **Deleted with the legacy plane** — `DisconnectLifecycleTests` and `CodesysSourceLiveTests` were entirely the
+  imperative `ConnectAsync`/`DisconnectAsync`/`ActiveConnection` facade; with that facade removed they are gone. The
+  live-pipe **gate** they proved is covered by `test/e2e/lifecycle/disconnect-cycle.test.ts`; the reconcile bind/unbind
+  by `ConnectionManagerSessionTests` + `ReconcilerTests`. `ConnectionManagerTests` keeps only its detection/aggregate/
+  concurrency half (the immutable-`State` discipline carries into the reconciler); the selection half is deleted.
+- **Extended** — `ControlHarness/Program.cs` gained the session endpoints (a simple interest→serving reconcile);
+  `ControlServerTests` + `@volt/control`'s `session.test.ts` + the cross-language `connector.e2e.test.ts` all test the
+  session wire (open → declare → reconcile → drop → close). `ControlServerTests`' legacy `/connect`,`/disconnect` cases
+  and `session.test.ts`'s legacy-fallback block were deleted.
 
 ## 12. Correctness invariants (the non-negotiables — pin these or it drifts)
 
@@ -210,12 +204,11 @@ These close the gaps a "quick fix" would later paper over. They are requirements
    *transitions*, not a level re-asserted every tick, so nothing silently clobbers the manual override. No per-workspace
    "suppressed" flag is needed — the mutated set already is the state.
 
-4. **Per-row `status` is the connection truth; the single highlight is retired.** Frontends read each row's `status`
-   (`healthy`/`degraded` = connected) — they already do, and reconcile drives it correctly for N simultaneous projects.
-   The removed `ActiveConnection`/single `Connected` had no data role. Tray colour = `Aggregate()` over the **serving
-   rows** (green iff ≥1 row serves), not over a highlight. `ProjectView.Connected`, if kept at all, is cosmetic: in a
-   `/sync` response it may mean "in THIS session's interests"; the legacy `/status` keeps the legacy session's last pick.
-   No frontend may re-introduce a dependency on it.
+4. **Per-row `status` is the connection truth; the highlight is deleted.** Frontends read each row's `status`
+   (`healthy`/`degraded` = connected) — they already did, and reconcile drives it correctly for N simultaneous
+   projects. `ActiveConnection`/`SelectedOf`/the `ProjectView.Connected` highlight had no data role and were **removed
+   from the wire and the client** (`DetectedProject.connected` too). Tray colour = `Aggregate()` over serving ∧ wanted
+   rows, not a highlight.
 
 5. **`forceOff` is connector-lifetime by design.** The tray force-off lives in connector memory and is intentionally
    **not persisted** — a connector restart clears it (the "stuck bridge" it guarded is a fresh process anyway). Stated as
@@ -224,11 +217,6 @@ These close the gaps a "quick fix" would later paper over. They are requirements
 6. **Lease TTL ≥ 3× the poll**, so a single missed/slow poll never drops a live client's interests (which would flap its
    project unbound-then-rebound). A client stalled for >2 polls does flap — the accepted, self-healing tail, and the
    reason the TTL is generous rather than tight.
-
-7. **The legacy shim composes by union, never clobbers.** Legacy `connect X`/`disconnect X` mutate the *one implicit
-   legacy session's* interests; `desired` still unions it with every real session. So an old frontend and a new one
-   coexisting on the same connector cannot un-serve each other's projects — the whole point of the union holds across the
-   skew too.
 
 ## 13. Why this is right (and what it retires)
 

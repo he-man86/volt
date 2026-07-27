@@ -10,7 +10,7 @@
 import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { isBridgeOnline, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
-import { boundStatus, type DetectedProject, type DisconnectResult } from "./connector.js"
+import { boundStatus, type DetectedProject } from "./connector.js"
 import { declareInterest, dropInterest, selectPickedProject, adoptPickedProject, releasePickedProject } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
@@ -254,7 +254,7 @@ export async function enterWorkspace(root: string): Promise<{ ok: boolean; messa
 
 /** Drop THIS workspace's project from the declared interests — the connector gates its bridge only if no other live
  *  session still wants it. Never throws (a down connector resolves to `{ok:false}`). */
-export async function leaveWorkspace(root: string): Promise<DisconnectResult> {
+export async function leaveWorkspace(root: string): Promise<{ ok: boolean }> {
   return dropInterest(root)
 }
 

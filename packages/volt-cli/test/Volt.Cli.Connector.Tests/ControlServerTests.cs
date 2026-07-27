@@ -1,246 +1,61 @@
-using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace Volt.Cli.Connector.Tests;
 
 /// <summary>
-/// The control plane (:8550) — the ONLY path the VS Code extension and the desktop app use to connect and
-/// disconnect. Everything else in this suite drives <see cref="ConnectionManager"/> directly, which skips this
-/// layer entirely; these tests cover the HTTP edge itself.
-///
-/// The invariant they exist for: /connect and /disconnect must NOT answer until their wire call has landed. Both
-/// end in a `select`/`deselect` on the bridge pipe, and every caller refreshes its status the moment the response
-/// arrives — so an early 200 makes the UI read the state it had a moment ago and render "still connected" right
-/// after a successful disconnect. They used to be fire-and-forget.
+/// The control plane (:8550) — the HTTP edge itself. The session API (open / sync / close) is the ONLY way to drive
+/// serving; GET /status is the ambient read of the detected-project list (the connect picker); /workers/{id}/restart
+/// respawns a worker. Everything else drives <see cref="ConnectionManager"/> directly.
 /// </summary>
 public class ControlServerTests : IDisposable
 {
-    // Not 8550: a dev box has the real connector listening there, and a test must never fight it (or, worse,
-    // silently drive it). A per-instance high port keeps runs independent.
-    private static int _next = 18550;
-    private readonly int _port = System.Threading.Interlocked.Increment(ref _next);
+    // Not 8550: a dev box has the real connector listening there. A per-instance high port keeps runs independent.
+    private static int _next = 18650;
+    private readonly int _port = Interlocked.Increment(ref _next);
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private ControlServer? _server;
 
-    private ControlServer Start(Func<string, Task<bool>> connect, Func<string?, Task<UnbindResult>> disconnect)
-    {
-        var view = new ConnectorView(Array.Empty<ProjectView>());
-        _server = new ControlServer(() => Task.FromResult(view), connect, disconnect, _ => { }, _port);
-        _server.Start();
-        return _server;
-    }
-
-    private Task<HttpResponseMessage> Post(string path, string? body = null) =>
-        _http.PostAsync($"http://127.0.0.1:{_port}/{path}", new StringContent(body ?? "{}", Encoding.UTF8, "application/json"));
-
-    public void Dispose() { _server?.Dispose(); _http.Dispose(); }
-
-    [Fact]
-    public async Task Disconnect_does_not_respond_until_the_deselect_has_landed()
-    {
-        var landed = new TaskCompletionSource<bool>();
-        var started = new TaskCompletionSource<bool>();
-        Start(_ => Task.FromResult(true), async _ => { started.TrySetResult(true); await landed.Task; return UnbindResult.Gated; });
-
-        var response = Post("disconnect");
-        Assert.True(await Task.WhenAny(started.Task, Task.Delay(5000)) == started.Task, "the handler never ran");
-
-        // The slow deselect is still in flight — the response MUST still be pending. Checked by RACING it against
-        // a delay, not by reading IsCompleted: the task hasn't necessarily transitioned the instant the server
-        // writes, so IsCompleted passes even when the handler answered early (verified — it did).
-        Assert.NotSame(response, await Task.WhenAny(response, Task.Delay(500)));
-
-        landed.SetResult(true);
-        var r = await response;
-        Assert.Equal(200, (int)r.StatusCode);
-    }
-
-    [Fact]
-    public async Task Connect_does_not_respond_until_the_select_has_landed()
-    {
-        // Same race on the way back IN: `select` is what RESUMES a disconnected bridge, so an early 200 makes
-        // "Reconnect" report success while the bridge is still refusing sync.
-        var landed = new TaskCompletionSource<bool>();
-        var started = new TaskCompletionSource<bool>();
-        Start(async _ => { started.TrySetResult(true); await landed.Task; return true; }, _ => Task.FromResult(UnbindResult.Gated));
-
-        var response = Post("connect", "{\"projectId\":\"codesys::MachineA:\"}");
-        Assert.True(await Task.WhenAny(started.Task, Task.Delay(5000)) == started.Task, "the handler never ran");
-        Assert.NotSame(response, await Task.WhenAny(response, Task.Delay(500)));
-
-        landed.SetResult(true);
-        var r = await response;
-        Assert.Equal(200, (int)r.StatusCode);
-    }
-
-    // `gated` is how a shell tells a REAL disconnect from one against an out-of-date bridge (no `deselect` op,
-    // still serving `volt push`). Both are a 200 — the selection cleared either way — so the status code can't
-    // carry it and the shells must switch on this field. One test per case: each xunit instance gets its own port.
-    [Fact]
-    public async Task A_real_disconnect_reports_gated_true()
-    {
-        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated));
-        var body = await (await Post("disconnect")).Content.ReadAsStringAsync();
-        Assert.Contains("\"gated\":true", body);
-    }
-
-    [Fact]
-    public async Task A_disconnect_against_an_out_of_date_bridge_reports_gated_false()
-    {
-        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Unsupported));
-        var r = await Post("disconnect");
-        Assert.Equal(200, (int)r.StatusCode); // still a 200 — the selection DID clear
-        Assert.Contains("\"gated\":false", await r.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
-    public async Task A_connect_that_fails_answers_400_so_the_UI_can_report_it()
-    {
-        Start(_ => Task.FromResult(false), _ => Task.FromResult(UnbindResult.Gated));
-        var r = await Post("connect", "{\"projectId\":\"nope\"}");
-        Assert.Equal(400, (int)r.StatusCode);
-    }
-
-    [Fact]
-    public async Task A_connect_with_no_projectId_is_rejected_and_never_reaches_the_model()
-    {
-        var reached = false;
-        Start(_ => { reached = true; return Task.FromResult(true); }, _ => Task.FromResult(UnbindResult.Gated));
-        var r = await Post("connect", "{}");
-        Assert.Equal(400, (int)r.StatusCode);
-        Assert.False(reached);
-    }
-
-    [Fact]
-    public async Task Concurrent_status_polls_from_multiple_clients_are_served_in_parallel()
-    {
-        // Both frontends (VS Code + desktop) poll /status independently and concurrently. Each request is handled on
-        // its own async path — the server re-arms BeginGetContext before running the handler — so one client's slow
-        // refresh must not stall another's. Proven by ORDERING, not a stopwatch: each handler signals on entry and
-        // awaits release, so all N can only be observed entered if they ran in parallel (serialized, the first would
-        // block the accept loop). The 30s wait is a deadlock detector, not a latency budget (a tight 8×200ms/<1200ms
-        // budget flaked when a loaded CI runner slowed even the parallel path).
-        const int n = 8;
-        var entered = new CountdownEvent(n);
-        var release = new TaskCompletionSource();
-        var view = new ConnectorView(Array.Empty<ProjectView>());
-        _server = new ControlServer(async () => { entered.Signal(); await release.Task; return view; },
-            _ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated), _ => { }, _port);
-        _server.Start();
-
-        var polls = Enumerable.Range(0, n).Select(_ => _http.GetAsync($"http://127.0.0.1:{_port}/status")).ToArray();
-        Assert.True(entered.Wait(30_000), "status polls were serialized — one client blocked another");
-        release.SetResult();
-        var responses = await Task.WhenAll(polls);
-
-        Assert.All(responses, r => Assert.Equal(200, (int)r.StatusCode));
-    }
-
-    [Fact]
-    public async Task Concurrent_connects_to_different_projects_all_reach_the_model()
-    {
-        var reached = new System.Collections.Concurrent.ConcurrentBag<string>();
-        Start(id => { reached.Add(id); return Task.FromResult(true); }, _ => Task.FromResult(UnbindResult.Gated));
-
-        await Task.WhenAll(Enumerable.Range(0, 6).Select(i => Post("connect", $"{{\"projectId\":\"p{i}\"}}")));
-
-        Assert.Equal(6, reached.Distinct().Count()); // every concurrent connect landed, distinct
-    }
-
-    [Fact]
-    public async Task Disconnect_with_a_projectId_targets_that_project()
-    {
-        // A frontend disconnects the project ITS workspace is bound to — the id must reach the model, not be dropped
-        // for the tray's active one.
-        string? got = "unset";
-        Start(_ => Task.FromResult(true), id => { got = id; return Task.FromResult(UnbindResult.Gated); });
-
-        await Post("disconnect", "{\"projectId\":\"twincat:Line1\"}");
-
-        Assert.Equal("twincat:Line1", got);
-    }
-
-    [Fact]
-    public async Task A_malformed_connect_body_is_rejected_and_never_reaches_the_model()
-    {
-        var reached = false;
-        Start(_ => { reached = true; return Task.FromResult(true); }, _ => Task.FromResult(UnbindResult.Gated));
-
-        var r = await Post("connect", "{ not json");
-
-        Assert.Equal(400, (int)r.StatusCode);
-        Assert.False(reached);
-    }
-
-    [Fact]
-    public async Task An_unknown_route_is_404()
-    {
-        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated));
-        Assert.Equal(404, (int)(await Post("nope/route")).StatusCode);
-    }
-
-    [Fact]
-    public async Task A_worker_restart_route_calls_restart_with_the_per_xae_id()
-    {
-        string? restarted = null;
-        var view = new ConnectorView(Array.Empty<ProjectView>());
-        _server = new ControlServer(() => Task.FromResult(view), _ => Task.FromResult(true),
-            _ => Task.FromResult(UnbindResult.Gated), id => restarted = id, _port);
-        _server.Start();
-
-        // Per-XAE worker ids are "twincat.<pid>" — the DOT must survive the route parse (which splits on '/'), or a
-        // UI restart of one XAE would target the wrong/no worker.
-        var r = await Post("workers/twincat.17844/restart");
-
-        Assert.Equal(200, (int)r.StatusCode);
-        Assert.Equal("twincat.17844", restarted);
-    }
-
-    [Fact]
-    public async Task Cross_origin_browser_requests_are_refused()
-    {
-        // The CSRF guard: a page in the user's browser must not be able to disconnect their IDE. First-party
-        // callers (the extension's Node fetch, the desktop) send no Origin at all.
-        var disconnected = false;
-        Start(_ => Task.FromResult(true), _ => { disconnected = true; return Task.FromResult(UnbindResult.Gated); });
-
-        var req = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{_port}/disconnect");
-        req.Headers.Add("Origin", "https://evil.example");
-        var r = await _http.SendAsync(req);
-
-        Assert.Equal(403, (int)r.StatusCode);
-        Assert.False(disconnected);
-    }
-
-    // ── the session API (the primary surface) ──
-
-    /// <summary>Start a server wired only for the session routes (connect/disconnect/restart are inert stubs).</summary>
-    private ControlServer StartSessions(
+    /// <summary>Start a server. `openSession`/`sync`/`closeSession` default to trivial stubs; pass overrides to assert
+    /// what the client sent. `snapshot` defaults to an empty view.</summary>
+    private ControlServer Start(
+        Func<Task<ConnectorView>>? snapshot = null,
         Func<Task<(string, double)>>? openSession = null,
         Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? sync = null,
         Func<string, Task>? closeSession = null,
-        Func<Task<ConnectorView>>? snapshot = null)
+        Action<string>? restart = null)
     {
-        var view = new ConnectorView(Array.Empty<ProjectView>());
+        var empty = new ConnectorView(Array.Empty<ProjectView>());
         _server = new ControlServer(
-            snapshot ?? (() => Task.FromResult(view)),
-            _ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated), _ => { },
-            _port, openSession, sync, closeSession);
+            snapshot ?? (() => Task.FromResult(empty)),
+            restart ?? (_ => { }),
+            openSession ?? (() => Task.FromResult(("s1", 15.0))),
+            sync ?? ((_, _) => Task.FromResult(empty)),
+            closeSession ?? (_ => Task.CompletedTask),
+            _port);
         _server.Start();
         return _server;
     }
+
+    private string Url(string path) => $"http://127.0.0.1:{_port}/{path}";
+    private Task<HttpResponseMessage> Post(string path, string? body = null) =>
+        _http.PostAsync(Url(path), new StringContent(body ?? "{}", Encoding.UTF8, "application/json"));
+
+    public void Dispose() { _server?.Dispose(); _http.Dispose(); }
+
+    // ── the session API ──
 
     [Fact]
     public async Task Open_session_returns_the_id_and_lease_seconds()
     {
-        StartSessions(openSession: () => Task.FromResult(("abc", 15.0)));
+        Start(openSession: () => Task.FromResult(("abc", 15.0)));
         var root = JsonDocument.Parse(await (await Post("session")).Content.ReadAsStringAsync()).RootElement;
 
         Assert.Equal("abc", root.GetProperty("sessionId").GetString());
@@ -251,8 +66,8 @@ public class ControlServerTests : IDisposable
     public async Task Sync_passes_the_declared_interests_and_returns_the_reconciled_view()
     {
         IReadOnlyCollection<Interest>? received = null;
-        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, false, "healthy") });
-        StartSessions(sync: (id, interests) => { received = interests; return Task.FromResult(view); });
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "healthy") });
+        Start(sync: (id, interests) => { received = interests; return Task.FromResult(view); });
 
         var r = await Post("session/sess1/sync", "{\"interests\":[{\"vendor\":\"codesys\",\"projectName\":\"A\"}]}");
 
@@ -268,7 +83,7 @@ public class ControlServerTests : IDisposable
     public async Task Sync_with_an_empty_set_declares_no_interests()
     {
         IReadOnlyCollection<Interest>? received = null;
-        StartSessions(sync: (id, interests) => { received = interests; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
+        Start(sync: (id, interests) => { received = interests; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
 
         await Post("session/sess1/sync", "{\"interests\":[]}");
 
@@ -276,24 +91,96 @@ public class ControlServerTests : IDisposable
     }
 
     [Fact]
+    public async Task Sync_does_not_respond_until_the_reconcile_has_landed()
+    {
+        // The reconcile (bind/unbind on the bridge pipes) is awaited before the response — a client that reads its
+        // status the moment the 200 arrives must see the RECONCILED view, not the one from before its declare.
+        var landed = new TaskCompletionSource<bool>();
+        var started = new TaskCompletionSource<bool>();
+        Start(sync: async (_, _) => { started.TrySetResult(true); await landed.Task; return new ConnectorView(Array.Empty<ProjectView>()); });
+
+        var response = Post("session/s/sync", "{\"interests\":[]}");
+        Assert.True(await Task.WhenAny(started.Task, Task.Delay(5000)) == started.Task, "the handler never ran");
+        Assert.NotSame(response, await Task.WhenAny(response, Task.Delay(500))); // still pending while reconcile runs
+
+        landed.SetResult(true);
+        Assert.Equal(200, (int)(await response).StatusCode);
+    }
+
+    [Fact]
     public async Task Close_session_returns_204_and_names_the_session()
     {
         string? closed = null;
-        StartSessions(closeSession: id => { closed = id; return Task.CompletedTask; });
+        Start(closeSession: id => { closed = id; return Task.CompletedTask; });
 
-        var r = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"http://127.0.0.1:{_port}/session/sess1"));
+        var r = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Delete, Url("session/sess1")));
 
         Assert.Equal(204, (int)r.StatusCode);
         Assert.Equal("sess1", closed);
     }
 
-    [Fact]
-    public async Task Session_routes_404_when_the_connector_predates_them()
-    {
-        // No session handlers → an OLD connector. This 404 is exactly what makes a new client's legacy fallback fire.
-        Start(_ => Task.FromResult(true), _ => Task.FromResult(UnbindResult.Gated));
+    // ── the ambient read + worker restart ──
 
-        Assert.Equal(404, (int)(await Post("session")).StatusCode);
-        Assert.Equal(404, (int)(await Post("session/x/sync", "{\"interests\":[]}")).StatusCode);
+    [Fact]
+    public async Task Status_returns_the_detected_project_list()
+    {
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "idle") });
+        Start(snapshot: () => Task.FromResult(view));
+
+        var root = JsonDocument.Parse(await (await _http.GetAsync(Url("status"))).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("A", root.GetProperty("projects")[0].GetProperty("displayName").GetString());
+    }
+
+    [Fact]
+    public async Task Concurrent_status_polls_from_multiple_clients_are_served_in_parallel()
+    {
+        // Both frontends poll /status independently; each request is handled on its own async path (the server re-arms
+        // BeginGetContext before running the handler), so one slow refresh must not stall another. Proven by ORDERING.
+        const int n = 8;
+        var entered = new CountdownEvent(n);
+        var release = new TaskCompletionSource();
+        var view = new ConnectorView(Array.Empty<ProjectView>());
+        Start(snapshot: async () => { entered.Signal(); await release.Task; return view; });
+
+        var polls = Enumerable.Range(0, n).Select(_ => _http.GetAsync(Url("status"))).ToArray();
+        Assert.True(entered.Wait(30_000), "status polls were serialized — one client blocked another");
+        release.SetResult();
+        var responses = await Task.WhenAll(polls);
+
+        Assert.All(responses, r => Assert.Equal(200, (int)r.StatusCode));
+    }
+
+    [Fact]
+    public async Task A_worker_restart_route_calls_restart_with_the_per_xae_id()
+    {
+        string? restarted = null;
+        Start(restart: id => restarted = id);
+
+        var r = await Post("workers/twincat.17844/restart"); // the DOT must survive the '/' split
+
+        Assert.Equal(200, (int)r.StatusCode);
+        Assert.Equal("twincat.17844", restarted);
+    }
+
+    [Fact]
+    public async Task An_unknown_route_is_404()
+    {
+        Start();
+        Assert.Equal(404, (int)(await Post("nope/route")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Cross_origin_browser_requests_are_refused()
+    {
+        // The CSRF guard: a page in the user's browser must not drive the connector. First-party callers send no Origin.
+        var synced = false;
+        Start(sync: (_, _) => { synced = true; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
+
+        var req = new HttpRequestMessage(HttpMethod.Post, Url("session/s/sync")) { Content = new StringContent("{\"interests\":[]}", Encoding.UTF8, "application/json") };
+        req.Headers.Add("Origin", "https://evil.example");
+        var r = await _http.SendAsync(req);
+
+        Assert.Equal(403, (int)r.StatusCode);
+        Assert.False(synced);
     }
 }

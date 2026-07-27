@@ -3,10 +3,12 @@ using Volt.Cli.Connector;
 
 // VoltControlHarness <viewJsonPath> <port>
 // Runs the REAL ControlServer on <port>, serving the ConnectorView read from <viewJsonPath> (a JSON array of
-// ProjectView rows) — re-read on every GET /status, so an e2e can change the scenario (single → multi-instance) by
-// rewriting the file. POST /connect and /disconnect mutate an in-memory "which project is connected" overlay, so a
-// connect/disconnect round-trips into the next /status exactly as the live connector's would. This exercises the
-// production control-plane wire (serialization, routes, camelCasing) against the volt-control TS client — no mock.
+// ProjectView rows) — re-read on every read, so an e2e can change the scenario (single → multi-instance) by rewriting
+// the file. It exercises the production control-plane wire (serialization, routes, camelCasing) against the
+// volt-control TS client — no mock:
+//   • GET /status — the ambient read of the detected-project list (the connect picker).
+//   • the SESSION plane — POST /session, /session/{id}/sync (declare interests), DELETE /session — with a simple
+//     interest→serving reconcile that mirrors the live connector (a row a live session declares interest in serves).
 if (args.Length < 2 || !int.TryParse(args[1], out var port))
 {
     Console.Error.WriteLine("usage: VoltControlHarness <viewJsonPath> <port>");
@@ -15,9 +17,8 @@ if (args.Length < 2 || !int.TryParse(args[1], out var port))
 var viewPath = args[0];
 var json = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-// The one project the harness currently considers "connected" (null = none) — the tray's active selection.
-string? connectedId = null;
 var gate = new object();
+var sessions = new Dictionary<string, List<Interest>>(); // id → the FULL interest set it last declared
 
 List<ProjectView> Raw() => JsonSerializer.Deserialize<List<ProjectView>>(File.ReadAllText(viewPath), json) ?? new();
 
@@ -25,33 +26,37 @@ ConnectorView Snapshot()
 {
     lock (gate)
     {
-        var active = connectedId;
-        // Connecting a project makes it the highlight AND makes its bridge serve (idle → healthy); the rest are
-        // detected-but-idle. Mirrors what the live connector's ConnectorView reports after a select.
+        // A row SERVES (idle → healthy) iff a live session declares interest in it, by vendor + the binding name
+        // (projectName ?? displayName) — the union the real reconciler computes.
+        var wanted = sessions.Values
+            .SelectMany(list => list)
+            .Select(i => (i.Vendor, i.ProjectName))
+            .ToHashSet();
         var rows = Raw().ConvertAll(p =>
-            p.Id == active ? p with { Connected = true, Status = "healthy" }
-                           : p with { Connected = false, Status = p.Status == "idle" ? "idle" : p.Status });
+        {
+            var name = p.ProjectName ?? p.DisplayName;
+            var serving = wanted.Contains((p.Vendor, name));
+            return p with { Status = serving ? (p.Status == "degraded" ? "degraded" : "healthy") : "idle" };
+        });
         return new ConnectorView(rows);
     }
 }
 
 using var server = new ControlServer(
     snapshot: () => Task.FromResult(Snapshot()),
-    // Mirror the real ConnectionManager.ConnectByIdAsync: an UNKNOWN project id is rejected (false) and changes
-    // nothing — the connect only lands when the id is actually present. Connecting an already-connected id is a no-op.
-    connect: id =>
-    {
-        lock (gate)
-        {
-            if (!Raw().Exists(p => p.Id == id)) return Task.FromResult(false);
-            connectedId = id;
-            return Task.FromResult(true);
-        }
-    },
-    // Disconnect the named project (or the active one when null). Disconnecting a project that isn't the active one
-    // leaves the active selection untouched. Always answers Gated (the highlight cleared regardless).
-    disconnect: id => { lock (gate) { if (id == null || id == connectedId) connectedId = null; } return Task.FromResult(UnbindResult.Gated); },
     restart: _ => { },
+    openSession: () =>
+    {
+        var id = Guid.NewGuid().ToString("N");
+        lock (gate) { sessions[id] = new(); }
+        return Task.FromResult((id, 15.0));
+    },
+    sync: (id, interests) =>
+    {
+        lock (gate) { sessions[id] = interests.ToList(); } // declare the FULL set (idempotent replace)
+        return Task.FromResult(Snapshot());                // declare + read in one round-trip, reconciled
+    },
+    closeSession: id => { lock (gate) { sessions.Remove(id); } return Task.CompletedTask; },
     port: port);
 server.Start();
 Console.WriteLine($"READY {port}"); // the e2e waits for this line
