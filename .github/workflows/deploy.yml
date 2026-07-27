@@ -160,3 +160,9 @@ jobs:
           # (the env name stays HONEYCOMB_API_KEY — that is what the honeycombio provider reads). An ingest key
           # fails the deploy with: "this API key isn't allowed to manage recipients".
           HONEYCOMB_API_KEY: ${{ github.event.inputs.stage == 'production' && secrets.HONEYCOMB_CONFIG_KEY || '' }}
+          # Alert definitions (infra/monitoring.ts) — OFF until the `zen` dataset has real gateway traffic AND the
+          # metric mismatch is resolved; flip to "on" here when both hold. See openspec/changes/
+          # console-production-launch (Monitoring). The key above stays set regardless: it runs the telemetry
+          # pipeline that populates the dataset, and Pulumi needs the provider to manage existing honeycombio
+          # resources — with an empty key even a DELETE fails ("Unable to initialize Honeycomb provider").
+          HONEYCOMB_ALERTS: "off"

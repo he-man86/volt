@@ -64,9 +64,12 @@ log-processor ships events — and the tail consumer that produces them is gated
 fails. Confirmed: a real gateway request produced no dataset (`/1/datasets` returned `[]`).
 
 **Plan when this is resumed — in order, no quick fixes:**
-- [ ] Split the gate in `infra/console.ts` so the tail pipeline switches on independently of alerting, then
-      deploy telemetry-only and let real gateway traffic populate the `zen` dataset. (Seeding synthetic events
-      would work too, but it fixes column *types* from a guess — prefer real traffic.)
+- [x] Split the gate (done 2026-07-27): `HONEYCOMB_API_KEY` now runs the provider + telemetry pipeline, and
+      `HONEYCOMB_ALERTS` (`deploy.yml`, currently `"off"`) runs the alert definitions. Forced by a third failure
+      mode: with the key removed, Pulumi could not even DELETE the recipient left in state — "Unable to
+      initialize Honeycomb provider". The key must stay set for any honeycombio resource to be managed.
+- [ ] Let real gateway traffic populate the `zen` dataset via the now-independent pipeline. (Seeding synthetic
+      events would work too, but it fixes column *types* from a guess — prefer real traffic.)
 - [ ] Resolve the metric mismatch: either bump the vendored console to a revision that emits
       `isGoTier`/`isFreeTier`/`tps.output`, or trim `monitoring.ts` to the fields this gateway emits. Do NOT add
       the metrics to vendored source — that is a customization the vendored-console rule forbids.

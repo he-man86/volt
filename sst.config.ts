@@ -36,9 +36,16 @@ export default $config({
     // support.ts: the vendored per-customer support-lookup portal at `support.${domain}`, gated by Cloudflare
     // Access. Deployed as-is (no edit to the opencode package); see infra/support.ts for the Access prereqs.
     await import("./infra/support.js")
-    // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. Gated on the key so it can't break a
-    // pre-Honeycomb deploy. Telemetry SEND (log-processor → Honeycomb) activates via the HONEYCOMB_API_KEY secret.
-    if (process.env.HONEYCOMB_API_KEY) await import("./infra/monitoring.js")
+    // Success-rate monitoring: Honeycomb error-rate SLOs + alerts. TWO independent switches, deliberately:
+    //   HONEYCOMB_API_KEY  — the provider + the telemetry pipeline (log-processor tail consumer). Must stay set
+    //                        for Pulumi to manage ANY honeycombio resource, including deleting one.
+    //   HONEYCOMB_ALERTS   — the alert definitions themselves.
+    // They were one switch, which deadlocked: a trigger is validated against the live dataset schema, but the
+    // dataset only gains columns once the pipeline ships events — and the pipeline was gated on the same key, so
+    // the deploy that would create the data was the deploy that failed. Split so telemetry can run and populate
+    // the dataset first. See openspec/changes/console-production-launch (Monitoring) before switching alerts on:
+    // four of the five triggers filter on metrics this vendored gateway never emits.
+    if (process.env.HONEYCOMB_API_KEY && process.env.HONEYCOMB_ALERTS === "on") await import("./infra/monitoring.js")
     return {
       StatWorkerUrl: stat.url,
       AwsStage: stage.awsStage,
