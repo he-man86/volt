@@ -267,9 +267,8 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => app.quit())
 
 // Close the connection when the app quits — drop this workspace's interest, then end the whole session (one DELETE
-// drops every interest at once; in legacy mode the leaveWorkspace above is the /disconnect). The bridge stops serving
-// until the next connect; the IDE stays open. Deferred via before-quit but bounded so a slow/absent connector can't
-// hold the app open more than ~1.5s.
+// drops every interest at once). The bridge stops serving until the next connect; the IDE stays open. Deferred via
+// before-quit but bounded so a slow/absent connector can't hold the app open more than ~1.5s.
 let disconnectedOnQuit = false
 app.on("before-quit", (e) => {
   const root = shell.status?.workspaceRoot

@@ -204,11 +204,10 @@ function updateContextKeys(): void {
 }
 
 export function deactivate(): Thenable<void> {
-	// Disconnect each bound workspace's bridge, then end the whole session (one DELETE drops every interest at once;
-	// in legacy mode the per-workspace leaveWorkspace is the /disconnect). The window is closing, so we're leaving
-	// every project (the active project view owns the connection; shared with the desktop). Bounded to ~1.5s so a
-	// slow/absent connector can't hold VS Code open. Folded into the returned thenable alongside the LSP shutdown so
-	// the editor WAITS for both.
+	// Drop each bound workspace's interest, then end the whole session (one DELETE drops every interest at once). The
+	// window is closing, so we're leaving every project (the active project view owns the connection; shared with the
+	// desktop). Bounded to ~1.5s so a slow/absent connector can't hold VS Code open. Folded into the returned thenable
+	// alongside the LSP shutdown so the editor WAITS for both.
 	const disconnected = Promise.race([
 		Promise.allSettled([...statuses.keys()].map((root) => leaveWorkspace(root))).then(() => shutdownSession()),
 		new Promise((resolve) => setTimeout(resolve, 1500)),

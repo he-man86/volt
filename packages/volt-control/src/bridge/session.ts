@@ -166,7 +166,7 @@ function pickKey(projectId: string): string {
 /** Select a PICKED project on its bridge so `volt init` can fetch it — as a TEMPORARY app-session interest, handed to
  *  the created/rebound workspace root on success and released on failure. Returns whether the project is now serving. */
 export async function selectPickedProject(project: DetectedProject): Promise<boolean> {
-  const want: BoundProject = { vendor: project.vendor, projectName: project.projectName ?? project.displayName }
+  const want: BoundProject = { vendor: project.vendor, projectName: project.projectName }
   S.interests.set(pickKey(project.id), want)
   ensurePolling()
   await ensureSession()

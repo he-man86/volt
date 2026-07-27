@@ -33,7 +33,7 @@ const { pull, push, fetchStatus, rebind } = await import("./actions.js")
 const { __resetSessionForTest } = await import("./session.js")
 
 const detected = (over: Partial<DetectedProject>): DetectedProject =>
-  ({ id: "codesys::P:", displayName: "Disp", vendor: "codesys", dirty: false, connected: false, ...over })
+  ({ id: "codesys::P:", displayName: "Disp", vendor: "codesys", dirty: false, projectName: "Disp", ...over })
 
 // rebind validates the bridge via a session select (POST /session + /sync). Mock that API: `serving` decides whether
 // the /sync view shows the picked project (id "codesys::P:") as serving, which is what gates the config rewrite.
@@ -46,7 +46,7 @@ function stubConnect(serving: boolean): () => void {
       // Echo the declared interests back as serving rows (that's what selectPickedProject checks), so the mock works
       // for whatever project a test picks.
       const interests = init?.body ? (JSON.parse(String(init.body)).interests as { vendor: string; projectName: string }[]) : []
-      const projects = serving ? interests.map((i) => ({ id: `${i.vendor}::${i.projectName}:`, displayName: i.projectName, vendor: i.vendor, dirty: false, connected: true, status: "healthy", projectName: i.projectName })) : []
+      const projects = serving ? interests.map((i) => ({ id: `${i.vendor}::${i.projectName}:`, displayName: i.projectName, vendor: i.vendor, dirty: false, status: "healthy", projectName: i.projectName })) : []
       return { ok: true, status: 200, json: async () => ({ projects }) } as Response
     }
     return { ok: true, status: 200, json: async () => ({}) } as Response
@@ -118,23 +118,9 @@ test("rebind reconnects, then sends `rebind` with the binding's projectName", as
   }
 })
 
-test("rebind falls back to displayName when the project has no projectName", async () => {
-  const dir = boundWorkspace()
-  const restore = stubConnect(true)
-  try {
-    captureArgs()
-    await rebind(dir, detected({ vendor: "twincat", displayName: "SubPlc", projectName: null }))
-    expect(lastArgs[lastArgs.indexOf("--project-name") + 1]).toBe("SubPlc")
-    expect(lastArgs[lastArgs.indexOf("--vendor") + 1]).toBe("twincat")
-  } finally {
-    restore()
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
-
 test("rebind rewrites NOTHING when the bridge won't attach — no CLI call", async () => {
   const dir = boundWorkspace()
-  const restore = stubConnect(false) // connector refuses the /connect
+  const restore = stubConnect(false) // the bridge won't attach (not serving)
   try {
     captureArgs()
     const r = await rebind(dir, detected({}))
@@ -157,7 +143,7 @@ test("fetchStatus sends --local only in local mode", async () => {
     ({
       ok: true,
       json: async () => ({
-        projects: [{ id: "codesys::P:", displayName: "P", vendor: "codesys", dirty: false, connected: true, status: "healthy", projectName: "P" }],
+        projects: [{ id: "codesys::P:", displayName: "P", vendor: "codesys", dirty: false, status: "healthy", projectName: "P" }],
       }),
     }) as Response) as typeof fetch
   try {

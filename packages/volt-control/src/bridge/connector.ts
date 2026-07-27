@@ -32,8 +32,8 @@ export interface DetectedProject {
   ideVersion?: string | null
   /** The name the workspace BINDING matches on (the vendor's health.ProjectName). Equals `displayName` for
    *  CODESYS, but for TwinCAT it's the TwinCAT project while `displayName` is the PLC sub-project — so binding
-   *  lookups must use this, not `displayName`. */
-  projectName?: string | null
+   *  lookups must use this, not `displayName`. Always present (the connector stamps every row). */
+  projectName: string
   /** GROUND TRUTH: the row's full connection state — "idle" (detected, not the served one), "healthy" (served,
    *  channel OK), "degraded" (served, recent errors). Connection state is read from THIS ({@link isServing}), never
    *  from the project merely appearing in the list (a disconnected bridge stays listed — that list is how you
@@ -47,11 +47,11 @@ export function isServing(p: DetectedProject | undefined): boolean {
   return p?.status === "healthy" || p?.status === "degraded"
 }
 
-/** Does this detected project satisfy a workspace's binding — same vendor AND the name the binding matches on
- *  (projectName, falling back to displayName for CODESYS)? The ONE "is this MY project" predicate, shared by the
- *  session client's interest resolution, boundStatus, and connectOptions. */
+/** Does this detected project satisfy a workspace's binding — same vendor AND the binding name (`projectName`)? The
+ *  ONE "is this MY project" predicate, shared by the session client's interest resolution, boundStatus, and
+ *  connectOptions. */
 export function matchesBinding(p: DetectedProject, bound: BoundProject): boolean {
-  return p.vendor === bound.vendor && (p.projectName ?? p.displayName) === bound.projectName
+  return p.vendor === bound.vendor && p.projectName === bound.projectName
 }
 
 /** What clicking a detected project in the connection surface does:
@@ -151,10 +151,9 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   const view = await connectorStatus()
   if (view === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
 
-  // THIS workspace's row. Match on the binding name (projectName === health.ProjectName), NOT displayName — for
-  // TwinCAT displayName is the PLC sub-project, so it would never equal the bound TwinCAT-project name. Fall back to
-  // displayName (older connector without projectName / CODESYS, where they're equal). An old binding with no project
-  // name at all falls back to the vendor's serving row.
+  // THIS workspace's row, matched on the binding name (projectName === health.ProjectName) — NOT displayName, which
+  // for TwinCAT is the PLC sub-project and would never equal the bound TwinCAT-project name. A config with a vendor
+  // but no bound project (only reachable mid-init) takes the vendor's serving row.
   const proj = bound
     ? view.projects.find((p) => matchesBinding(p, bound))
     : view.projects.find((p) => p.vendor === vendor && isServing(p)) ?? view.projects.find((p) => p.vendor === vendor)
@@ -172,14 +171,14 @@ function healthStateOf(proj: DetectedProject | undefined, boundName?: string): H
   if (proj === undefined || (proj.status !== "healthy" && proj.status !== "degraded"))
     return {
       kind: "disconnected",
-      health: { connected: false, projectName: proj?.projectName ?? proj?.displayName ?? boundName ?? null },
+      health: { connected: false, projectName: proj?.projectName ?? boundName ?? null },
     }
   const degraded = proj.status === "degraded"
   return {
     kind: degraded ? "degraded" : "connected",
     health: {
       connected: true,
-      projectName: proj.projectName ?? proj.displayName,
+      projectName: proj.projectName,
       projectDirty: proj.dirty,
     },
   }

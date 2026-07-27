@@ -51,8 +51,7 @@ internal sealed class FakeProjectSource : IProjectSource
     }
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
-    public UnbindResult UnbindOutcome { get; set; } = UnbindResult.Gated;
-    public Task<UnbindResult> UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.FromResult(UnbindOutcome); }
+    public Task UnbindAsync(DetectedProject project) { Unbound.Add(project); return Task.CompletedTask; }
 }
 
 /// <summary>The detection + aggregate + concurrency core of the ConnectionManager — no sessions, no pipes. The

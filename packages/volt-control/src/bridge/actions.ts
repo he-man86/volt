@@ -181,20 +181,19 @@ export function init(parent: string, vendor: Vendor, opts: { pipe?: string | nul
   })
 }
 
-/** Project-centric init: the user picked a DETECTED PROJECT (not a vendor). Bind the bridge to it (best-effort —
- *  init proceeds even if the connector `/connect` is unavailable), then `volt init` with the vendor DERIVED from
- *  that project. The one init entry point the shells call — no vendor is ever passed by the UI. */
+/** Project-centric init: the user picked a DETECTED PROJECT (not a vendor). Select the bridge to it (via a temporary
+ *  session interest), then `volt init` with the vendor DERIVED from that project. The one init entry point the shells
+ *  call — no vendor is ever passed by the UI. */
 export async function initFromProject(
   project: DetectedProject,
   parent: string,
   opts: ProgressOpt = {},
 ): Promise<InitResult> {
-  // The select (a bridge `select`) is CONFIRMED before we fetch — its result is not ignored. A select that
-  // couldn't attach the project (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on)
-  // used to slip through: init then fetched an unselected bridge, got zero items, and the CLI reported a
-  // misleading "is the project open?". Fail here, clearly, instead of racing the fetch against a half-done select.
-  // Uses a TEMPORARY session interest (not the immortal legacy /connect, which pinned the project so its later
-  // Disconnect silently no-op'd), handed over to the created workspace on success and released on failure.
+  // The select is CONFIRMED before we fetch — its result is not ignored. A select that couldn't attach the project
+  // (e.g. picking a project that lives in a DIFFERENT IDE window than the bridge is on) used to slip through: init
+  // then fetched an unselected bridge, got zero items, and the CLI reported a misleading "is the project open?".
+  // Fail here, clearly, instead of racing the fetch against a half-done select. Uses a TEMPORARY session interest,
+  // handed over to the created workspace on success and released on failure.
   const connected = await selectPickedProject(project)
   if (!connected) {
     await releasePickedProject(project)
@@ -217,15 +216,14 @@ export async function initFromProject(
 export async function rebind(workspaceRoot: string, project: DetectedProject): Promise<{ ok: boolean; message?: string }> {
   return withGate(workspaceRoot, async () => {
     // Validate the bridge can attach FIRST (so a bridge that won't attach leaves the config untouched), via a
-    // TEMPORARY session select — NOT the immortal legacy `/connect` (which pinned the project into a session
-    // Disconnect could never clear). Then config-rewrite, then hand the select over to this workspace root so its
-    // interest tracks the new project and its Disconnect can drop it.
+    // TEMPORARY session select. Then config-rewrite, then hand the select over to this workspace root so its interest
+    // tracks the new project and its Disconnect can drop it.
     const connected = await selectPickedProject(project)
     if (!connected) {
       await releasePickedProject(project)
       return { ok: false, message: `Couldn't attach “${project.displayName}” — make sure it's open in your IDE, then try again.` }
     }
-    const name = project.projectName ?? project.displayName
+    const name = project.projectName
     const r = await runCli(workspaceRoot, ["rebind", "--vendor", project.vendor, "--project-name", name, "--workspace", workspaceRoot])
     if (r.code === 0) {
       adoptPickedProject(project, workspaceRoot)
@@ -247,7 +245,7 @@ export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boole
  *  model): a frontend calls `enterWorkspace` when a project becomes the one it's showing, `leaveWorkspace` when it
  *  stops. Both shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop
  *  bind/unbind, VS Code activate/deactivate). These MUTATE the app's declared interest set; the session sync poll
- *  ships it (and against an old connector they fall back to a plain connect/disconnect). */
+ *  ships it. */
 export async function enterWorkspace(root: string): Promise<{ ok: boolean; message?: string }> {
   return declareInterest(root)
 }

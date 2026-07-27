@@ -15,7 +15,7 @@ namespace Volt.Cli.Connector.Tests;
 /// </summary>
 public class ConnectionManagerSessionTests
 {
-    private static Interest Want(DetectedProject p) => Interest.Of(p);
+    private static Interest Want(DetectedProject p) => new(p.Vendor, p.DisplayName);
 
     [Fact]
     public async Task Sync_declaring_an_interest_resumes_the_project()

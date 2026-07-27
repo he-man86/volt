@@ -24,8 +24,7 @@ interface Call {
   body?: Body
 }
 
-/** Install a fetch that records every call and answers per a route table. `status` drives the 404 the session
- *  client keys its legacy fallback off of. Returns the recorded calls for assertions. */
+/** Install a fetch that records every call and answers per a route table. Returns the recorded calls for assertions. */
 function router(route: (c: Call) => { status?: number; ok?: boolean; json?: unknown } | Error): Call[] {
   const calls: Call[] = []
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
@@ -54,7 +53,7 @@ function boundWorkspace(vendor: string, projectName: string): string {
 /** A one-project view; `serving` flips its row between connected and gated. */
 const view = (serving: boolean): ConnectorView => ({
   projects: [
-    { id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: false, connected: serving, status: serving ? "healthy" : "idle", projectName: "MyMachine" },
+    { id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: false, status: serving ? "healthy" : "idle", projectName: "MyMachine" },
   ],
 })
 
@@ -129,11 +128,10 @@ describe("session client (declarative connection presence)", () => {
   })
 
   test("a picked project adopted by its workspace is clearable by leaveWorkspace — not a permanent pin", async () => {
-    // Regression: init/rebind used to /connect (the connector's immortal legacy session), so the project could never
-    // be disconnected. Now init selects it as a temporary interest and hands it to the created workspace root, so a
-    // later dropInterest declares the smaller set — the connection is owned by the workspace, not pinned forever.
+    // init/rebind select a project as a TEMPORARY interest and hand it to the created workspace root, so a later
+    // dropInterest declares the smaller set — the connection is owned by the workspace, never pinned forever.
     const calls = newConnector(true)
-    const project = { id: "codesys::New:", displayName: "New", vendor: "codesys", dirty: false, connected: false, projectName: "New", status: "healthy" } as DetectedProject
+    const project = { id: "codesys::New:", displayName: "New", vendor: "codesys", dirty: false, projectName: "New", status: "healthy" } as DetectedProject
 
     await selectPickedProject(project) // init's pre-fetch select
     adoptPickedProject(project, "/ws/new") // handed to the workspace init created

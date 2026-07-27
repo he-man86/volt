@@ -18,7 +18,7 @@ namespace Volt.Cli.Connector
     /// <c>status != "idle"</c>), never from the project merely appearing in the list — a disconnected bridge stays
     /// listed (that is how you reconnect), and treating "detected" as "connected" is what let the UI claim a connection
     /// against a gated bridge.</param>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, string Status, string? Pipe = null, string? IdeVersion = null, string? ProjectName = null);
+    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;

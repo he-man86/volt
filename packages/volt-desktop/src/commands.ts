@@ -185,15 +185,12 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   )
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
-      // The bridge stops serving sync; the IDE stays open and re-connectable (nothing is torn down).
-      // The manual Disconnect override — THIS workspace's project, not the tray's active connection (shared lifecycle).
+      // Drop THIS workspace's interest — the bridge stops serving only if no other window wants it; the IDE stays open.
       const r = await leaveWorkspace(shell.status?.workspaceRoot ?? "")
-      // Refresh BEFORE the spinner clears (runGuarded's finally) — disconnect invalidated the cache, so status re-scans
-      // to "disconnected" now instead of the spinner flipping onto a stale "connected".
+      // Refresh BEFORE the spinner clears (runGuarded's finally) so status reflects the drop now, not a stale row.
       await shell.status?.refresh(true)
-      // Described ONCE in @volt/control so this and the VS Code command can't word it differently — they already
-      // did (this reported an out-of-date bridge as an "error", VS Code as a "warning", for the same event).
-      // Only surface a problem (error, or the out-of-date-bridge warning) — a clean disconnect needs no popup.
+      // Worded ONCE in @volt/control so this and the VS Code command can't drift. Only surface a problem (connector
+      // unreachable) — a clean drop needs no popup.
       const view = describeDisconnect(r)
       if (view.tone !== "info") notify(view.tone === "error" ? "error" : "info", view.message)
     }),

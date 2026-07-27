@@ -61,14 +61,12 @@ namespace Volt.Cli.Connector
             return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { project = project.Attach.Project });
         }
 
-        public async Task<UnbindResult> UnbindAsync(DetectedProject project)
+        public async Task UnbindAsync(DetectedProject project)
         {
-            if (string.IsNullOrEmpty(project.Pipe)) return UnbindResult.Unreachable;
-            try { await _wireFor(project.Pipe!).CallAsync(Ops.Disconnect); return UnbindResult.Gated; }
-            // The host ANSWERED with an error: it is loaded but predates `deselect`, so it keeps serving.
-            catch (PipeCallException) { return UnbindResult.Unsupported; }
-            // Nothing answered — that IDE closed. Already disconnected; nothing to warn about.
-            catch { return UnbindResult.Unreachable; }
+            // Best-effort `deselect` on the project's own pipe. Any failure (no pipe, IDE gone) is a no-op — the
+            // reconciler re-derives from the bridge's actual serving state next cycle.
+            if (string.IsNullOrEmpty(project.Pipe)) return;
+            try { await _wireFor(project.Pipe!).CallAsync(Ops.Disconnect); } catch { }
         }
     }
 

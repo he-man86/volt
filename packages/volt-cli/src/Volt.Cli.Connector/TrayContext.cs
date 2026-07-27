@@ -126,8 +126,8 @@ namespace Volt.Cli.Connector
         private ConnectorView Snapshot() => new(
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.DisplayName, p.Vendor, p.Dirty,
-                Status: p.Status, // serving derives from status (!= "idle") on the client
-                p.Pipe, p.IdeVersion, p.Attach.Project)).ToList());
+                p.Status, // serving derives from status (!= "idle") on the client
+                p.Attach.Project, p.Pipe, p.IdeVersion)).ToList());
 
         // A session declares its FULL interest set; the manager reconciles the bridges and re-scans, so the snapshot
         // we return already reflects what those bridges now serve — the client reads its own row from it in one call.

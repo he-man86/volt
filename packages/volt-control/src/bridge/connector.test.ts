@@ -18,7 +18,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 }
 
 const VIEW: ConnectorView = {
-  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, connected: true, status: "healthy", projectName: "MyMachine" }],
+  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
 }
 
 function tempWorkspace(vendor?: string): string {
@@ -38,17 +38,17 @@ function boundWorkspace(vendor: string, projectName: string): string {
   writeFileSync(join(dir, ".git", "volt", "config.json"), JSON.stringify({ bridge: { vendor }, project: { platform: vendor, projectName } }))
   return dir
 }
-// `connected` is only the tray highlight; the row's `status` decides connection state (default "healthy"/serving —
-// these fixtures describe live projects unless a test is specifically about a bridge that isn't serving, i.e. "idle").
-const proj = (vendor: string, name: string, connected: boolean, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, connected, status, projectName: projectName ?? name })
+// The row's `status` decides connection state (default "healthy"/serving — these fixtures describe live projects
+// unless a test is specifically about a bridge that isn't serving, i.e. "idle").
+const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, status, projectName: projectName ?? name })
 const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
 
 // The connection picker's per-project action — replaces the old accept-rename flow: a renamed project is just a
 // `rebind` row. Unbound ⇒ every row is a first-time `init`; matched ⇒ `connect`; anything else ⇒ `rebind`.
 test("connectOptions tags each detected project: init (unbound) / connect (match) / rebind (else)", () => {
-  const mine = proj("codesys", "MyMachine", true)
-  const renamed = proj("codesys", "MyMachine_v2", true)
-  const other = proj("codesys", "OtherRig", false)
+  const mine = proj("codesys", "MyMachine")
+  const renamed = proj("codesys", "MyMachine_v2")
+  const other = proj("codesys", "OtherRig")
   expect(connectOptions([mine, renamed, other] as never, undefined).map((o) => o.action)).toEqual(["init", "init", "init"])
   const bound = { vendor: "codesys" as const, projectName: "MyMachine" }
   expect(connectOptions([mine, renamed, other] as never, bound).map((o) => o.action)).toEqual(["connect", "rebind", "rebind"])
@@ -56,9 +56,9 @@ test("connectOptions tags each detected project: init (unbound) / connect (match
 
 // The surface partition both shells frame from: create (unbound) vs reconnect (bound), matching project primary.
 test("connectSurface splits create vs reconnect and puts the matching project first", () => {
-  const mine = proj("codesys", "MyMachine", true)
-  const renamed = proj("codesys", "MyMachine_v2", true)
-  const other = proj("codesys", "OtherRig", false)
+  const mine = proj("codesys", "MyMachine")
+  const renamed = proj("codesys", "MyMachine_v2")
+  const other = proj("codesys", "OtherRig")
 
   // Unbound → a create surface: every option is a first-time init, no reconnect groups.
   const create = connectSurface(connectOptions([mine, other] as never, undefined))
@@ -131,8 +131,8 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus is PER-WORKSPACE: a live bound project shows connected even when another is the active one", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      // MachineA is the global active connection; MachineB is also live (its own pipe) but not highlighted.
-      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA", true), proj("codesys", "MachineB", false)]) }))
+      // Both MachineA and MachineB are live (each on its own pipe); this workspace is bound to MachineB.
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA"), proj("codesys", "MachineB")]) }))
       const h = await boundStatus(dir)
       expect(h.kind).toBe("connected")
       if (h.kind === "connected") expect(h.health.projectName).toBe("MachineB")
@@ -144,7 +144,7 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus is disconnected when the bound project's IDE isn't serving it", async () => {
     const dir = boundWorkspace("codesys", "Ghost")
     try {
-      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA", true)]) }))
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineA")]) }))
       const h = await boundStatus(dir)
       expect(h.kind).toBe("disconnected")
       if (h.kind === "disconnected") expect(h.health.projectName).toBe("Ghost")
@@ -160,7 +160,7 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus is disconnected when the project is detected but its bridge is idle (not serving it)", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineB", false, undefined, "idle")]) }))
+      mockFetch(() => ({ ok: true, json: projView([proj("codesys", "MachineB", undefined, "idle")]) }))
       const h = await boundStatus(dir)
       expect(h.kind).toBe("disconnected")
       if (h.kind === "disconnected") expect(h.health.connected).toBe(false)
@@ -174,8 +174,8 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus treats a missing/idle `status` as not connected, never as connected", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      const legacy = { id: "codesys::MachineB:", displayName: "MachineB", vendor: "codesys", dirty: false, connected: true, projectName: "MachineB" }
-      mockFetch(() => ({ ok: true, json: projView([legacy]) }))
+      const highlightFixture = { id: "codesys::MachineB:", displayName: "MachineB", vendor: "codesys", dirty: false, projectName: "MachineB" }
+      mockFetch(() => ({ ok: true, json: projView([highlightFixture]) }))
       expect((await boundStatus(dir)).kind).toBe("disconnected")
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -186,7 +186,7 @@ describe("connector client (the UI's single source of connection status)", () =>
     // The binding stores the TwinCAT project name; the detected project's displayName is the PLC sub-project.
     const dir = boundWorkspace("twincat", "project13")
     try {
-      mockFetch(() => ({ ok: true, json: projView([proj("twincat", "Untitled1", false, "project13")]) }))
+      mockFetch(() => ({ ok: true, json: projView([proj("twincat", "Untitled1", "project13")]) }))
       const h = await boundStatus(dir)
       expect(h.kind).toBe("connected") // would be "disconnected" if we matched displayName === projectName
       if (h.kind === "connected") expect(h.health.projectName).toBe("project13")

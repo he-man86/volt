@@ -66,7 +66,7 @@ public class ControlServerTests : IDisposable
     public async Task Sync_passes_the_declared_interests_and_returns_the_reconciled_view()
     {
         IReadOnlyCollection<Interest>? received = null;
-        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "healthy") });
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "healthy", "A") });
         Start(sync: (id, interests) => { received = interests; return Task.FromResult(view); });
 
         var r = await Post("session/sess1/sync", "{\"interests\":[{\"vendor\":\"codesys\",\"projectName\":\"A\"}]}");
@@ -124,7 +124,7 @@ public class ControlServerTests : IDisposable
     [Fact]
     public async Task Status_returns_the_detected_project_list()
     {
-        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "idle") });
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "A", "codesys", false, "idle", "A") });
         Start(snapshot: () => Task.FromResult(view));
 
         var root = JsonDocument.Parse(await (await _http.GetAsync(Url("status"))).Content.ReadAsStringAsync()).RootElement;

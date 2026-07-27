@@ -20,14 +20,10 @@ const { bridgeRoots, syncRoots } = await import("./panel.js")
 const offlineView = { workspaceRoot: "/w", connectionLabel: "CODESYS — MyMachine", boundProjectName: "MyMachine", health: { label: "Disconnected", tone: "error", online: false }, vendor: "codesys", paused: null, mode: "offline", affordance: { caption: "not connected", action: "connect" }, incoming: [], outgoing: [], conflicts: [] }
 const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true }, mode: "ready", affordance: { caption: "connected", action: "disconnect" } }
 
-const proj = (over: Record<string, unknown> = {}) => ({
-  id: "codesys::MyMachine:",
-  displayName: "MyMachine",
-  vendor: "codesys" as const,
-  dirty: false,
-  connected: true,
-  ...over,
-})
+const proj = (over: Record<string, unknown> = {}) => {
+  const base = { id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys" as const, dirty: false, status: "healthy" as const, ...over }
+  return { ...base, projectName: (base as { projectName?: string }).projectName ?? base.displayName }
+}
 
 // The bug this guards: the welcome button is static markdown and can't show WHICH project it binds. This view
 // fills that gap — an unbound folder with detected projects renders an INDENTED list: a "Detected project(s)"
