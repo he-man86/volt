@@ -20,17 +20,22 @@
     // Repo-level orchestration scripts run by name, not imported.
     "volt-scripts/**",
     // Dev scripts (run by name via bun/tsx), not import-reachable — every one reads as "unused".
-    "**/scripts/**",
-    // Out of the current focus. www is the marketing site — add back when you want it scored.
-    "packages/volt-www/**"
+    "**/scripts/**"
   ],
 
   "entry": [
     // Electron loads preload.cjs via BrowserWindow, not an `import` — declare it so it isn't "unused".
     "packages/volt-desktop/preload.cjs",
     // The LSP server's CLI entry (package.json `bin` → dist/src/bin.js); reached by exec, not import.
-    "packages/volt-lsp-iec/src/bin.ts"
+    "packages/volt-lsp-iec/src/bin.ts",
+    // volt-www is a static multi-page Vite site: every src/pages/*.jsx is a page root loaded by its own
+    // HTML (rollupOptions.input). fallow resolves the top-level pages but not the legal/ subdir ones.
+    "packages/volt-www/src/pages/**"
   ],
+
+  // volt-www's HTML entries load pages via Vite root-absolute `/src/...` specifiers, which fallow's
+  // resolver can't follow from a subdirectory (legal/*.html). Suppress just those unresolved-imports.
+  "ignoreUnresolvedImports": ["/src/pages/*"],
 
   // Dependencies fallow's static graph can't see, but are real and load-bearing:
   //  - @volt/lsp-iec: bundled into the .vsix at build (esbuild), not imported in TS source.

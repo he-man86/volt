@@ -1,5 +1,6 @@
 // All marketing copy in one place. Pages/components read from here so copy edits are a single-file change.
 
+// fallow-ignore-next-line unused-export -- canonical brand copy, kept as the single source of truth even when no page currently reads it
 export const BRAND = {
   name: "Volt",
   tagline: "The AI coding agent for industrial automation.",
