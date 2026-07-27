@@ -11,16 +11,19 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { init, pull, mergeResolve, mergeContinue, loadDiff, setBundledCli } from "@volt/control"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs"
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve, basename } from "node:path"
 import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, PIPE } from "../harness"
 
-// Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with).
+// Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with). Pick
+// the NEWEST of the candidates — a stale `dist/Cli/volt.exe` (an old shipped build) must not mask a fresh source
+// build, or init fails against the current bridge wire for a reason that isn't the code under test.
 const CLI_ROOT = resolve(import.meta.dir, "../..", "..") // packages/volt-cli
 const CLI = ["dist/Cli/volt.exe", "src/Volt.Cli/bin/Release/net8.0/volt.exe", "src/Volt.Cli/bin/Debug/net8.0/volt.exe"]
 	.map((p) => join(CLI_ROOT, p))
-	.find(existsSync)
+	.filter(existsSync)
+	.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]
 if (CLI) setBundledCli(CLI)
 
 const git = (cwd: string, ...args: string[]): void => {
@@ -46,17 +49,19 @@ function srcFileOf(root: string, itemId: string): { abs: string; rel: string } {
 
 describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish (${BASE})`, () => {
 	setDefaultTimeout(180_000) // init pulls the whole fixture project; each pull is a live bridge fetch
-	let root = ""
+	let root = "" // the WORKSPACE — `volt init` creates <parent>/<projectName>/ (git-clone semantics), not <parent>
+	let parent = "" // the temp dir we make; init makes the named workspace inside it, and we clean up the whole thing
 
 	beforeAll(async () => {
 		await requireHealthy()
-		root = mkdtempSync(join(tmpdir(), "volt-e2e-conflict-"))
-		const r = await init(root, VENDOR, { pipe: PIPE })
+		parent = mkdtempSync(join(tmpdir(), "volt-e2e-conflict-"))
+		const r = await init(parent, VENDOR, { pipe: PIPE })
 		expect(r.code).toBe(0)
+		root = r.workspace ?? parent // operate on the created workspace, NOT the parent (which has no .git/volt)
 	})
 	afterAll(async () => {
 		try { await cleanup() } catch {} // remove the VltE2E_* items from the IDE
-		if (root && existsSync(root)) rmSync(root, { recursive: true, force: true })
+		if (parent && existsSync(parent)) rmSync(parent, { recursive: true, force: true })
 	})
 
 	/** Create a fresh item, pull the base in, then diverge: MINE (committed in the workspace) vs IDE (live), each
