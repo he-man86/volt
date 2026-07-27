@@ -18,7 +18,9 @@
 #        bunx sst secret load .env.deploy --stage <stage>
 #   3. GitHub environment secrets (per stage — create "dev"/"production" environments):
 #        CLOUDFLARE_API_TOKEN, PLANETSCALE_SERVICE_TOKEN, PLANETSCALE_SERVICE_TOKEN_ID,
-#        STRIPE_SECRET_KEY, HONEYCOMB_API_KEY
+#        STRIPE_SECRET_KEY, HONEYCOMB_INGEST_KEY, HONEYCOMB_CONFIG_KEY
+#        (the two Honeycomb secrets are DIFFERENT keys — ingest sends events, configuration manages
+#         recipients/triggers. Both feed the env var HONEYCOMB_API_KEY, in different steps.)
 #   (DB migrations run separately — `bun run db:dev migrate` — like opencode; the dev branch also inherits
 #    the schema by forking main.)
 
@@ -105,8 +107,24 @@ jobs:
           CONSOLE_DEV_EMAILS: ${{ secrets.CONSOLE_DEV_EMAILS }}
           # Monitoring (Honeycomb → console /honeycomb/webhook → Discord). Stored as SST secrets here (inert until
           # the deploy step below actually activates monitoring — production-only). Set in the production env.
-          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
+          # The SST secret keeps the name HONEYCOMB_API_KEY (the vendored log-processor reads
+          # Resource.HONEYCOMB_API_KEY), but its VALUE must be an INGEST key. The deploy step below sets the
+          # same env name from a DIFFERENT GitHub secret — a configuration key. Separate steps, separate
+          # values; one key cannot serve both roles. See infra/secret.ts.
+          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_INGEST_KEY }}
           DISCORD_INCIDENT_WEBHOOK_URL: ${{ secrets.DISCORD_INCIDENT_WEBHOOK_URL }}
+          # Console admin endpoints (/api/support/actions/*) authenticate with this bearer token. The secret
+          # existed in the environment but was never passed here, so every production deploy overwrote it with
+          # PLACEHOLDER_UNSET.
+          SUPPORT_API_KEY: ${{ secrets.SUPPORT_API_KEY }}
+          # Declared in infra/ but unprovisioned — no keys exist yet, so these resolve to PLACEHOLDER_UNSET and
+          # the features stay inert. Listed so adding the GitHub secret is the ONLY step needed to go live.
+          AWS_SES_ACCESS_KEY_ID: ${{ secrets.AWS_SES_ACCESS_KEY_ID }}
+          AWS_SES_SECRET_ACCESS_KEY: ${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
+          EMAILOCTOPUS_API_KEY: ${{ secrets.EMAILOCTOPUS_API_KEY }}
+          SALESFORCE_CLIENT_ID: ${{ secrets.SALESFORCE_CLIENT_ID }}
+          SALESFORCE_CLIENT_SECRET: ${{ secrets.SALESFORCE_CLIENT_SECRET }}
+          SALESFORCE_INSTANCE_URL: ${{ secrets.SALESFORCE_INSTANCE_URL }}
 
       # Gateway model catalog → ZEN_MODELS1..30. ALWAYS runs — no secret-gated `if:` (GitHub masks secrets in
       # `if` conditions, which silently skipped this). set-models substitutes the provider keys into models.json,
@@ -135,4 +153,7 @@ jobs:
           # infra/monitoring.ts (the Discord alert triggers), AND the tail-Worker log pipeline — which needs the
           # Workers PAID plan (console.ts:303). It's also pointless off-production (monitoring.ts disables alerts
           # when stage != production). So gate it PRODUCTION-ONLY: a dev push/deploy stays on Workers Free.
-          HONEYCOMB_API_KEY: ${{ github.event.inputs.stage == 'production' && secrets.HONEYCOMB_API_KEY || '' }}
+          # The VALUE here must be a Honeycomb CONFIGURATION key with "Manage Recipients" + "Manage Triggers"
+          # (the env name stays HONEYCOMB_API_KEY — that is what the honeycombio provider reads). An ingest key
+          # fails the deploy with: "this API key isn't allowed to manage recipients".
+          HONEYCOMB_API_KEY: ${{ github.event.inputs.stage == 'production' && secrets.HONEYCOMB_CONFIG_KEY || '' }}
