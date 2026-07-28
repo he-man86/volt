@@ -6,7 +6,16 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
-import { setBundledCli, setLspServer, loadDiff, leaveWorkspace, shutdownSession, type DiffDirection } from "@volt/control"
+import {
+  setBundledCli,
+  setLspServer,
+  loadDiff,
+  leaveWorkspace,
+  shutdownSession,
+  startConnectorFeed,
+  onConnectorView,
+  type DiffDirection,
+} from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
 import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
@@ -232,9 +241,10 @@ app.whenReady().then(async () => {
   watchHomeNavigation() // …and release when it goes to its home route (the one place sticky binding lets go)
   void startWorkspace()
 
-  // Probe both vendor bridges so the Initialize buttons enable only for a live IDE (parity with VS Code).
-  void refreshDetectedProjects(shell)
-  setInterval(() => void refreshDetectedProjects(shell), 10_000)
+  // The detected-project list rides the connector feed's ONE clock (no second timer here — this used to poll every
+  // 10s for a value the session client had already fetched, so the list could be ~14s behind what it knew).
+  onConnectorView.event(() => void refreshDetectedProjects(shell))
+  void startConnectorFeed()
 
   const agentUp = await launchAgent(shell.view)
 

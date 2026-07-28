@@ -76,7 +76,7 @@ export function pushStatus(shell: Shell): void {
 }
 
 /** Refresh the detected-project list from the connector. Pushes to the renderer only when the list changes, so the
- *  10s poll is otherwise silent. Runs even when BOUND: the list also feeds the offline connection surface (pick your
+ *  connector feed is otherwise silent. Runs even when BOUND: the list also feeds the offline connection surface (pick your
  *  project to reconnect, or a renamed one to rebind) — not only the unbound init picker. */
 export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // One connector probe drives BOTH the detected-project list AND whether the connector is even running, so the

@@ -3,7 +3,16 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { connectorStatus, type ConnectorView } from "./connector.js"
-import { declareInterest, dropInterest, shutdownSession, selectPickedProject, adoptPickedProject, __resetSessionForTest } from "./session.js"
+import {
+  declareInterest,
+  dropInterest,
+  shutdownSession,
+  selectPickedProject,
+  adoptPickedProject,
+  startConnectorFeed,
+  onConnectorView,
+  __resetSessionForTest,
+} from "./session.js"
 import type { DetectedProject } from "./connector.js"
 
 const realFetch = globalThis.fetch
@@ -151,6 +160,62 @@ describe("session client (declarative connection presence)", () => {
     await dropInterest("/ws/new") // the workspace's later Disconnect
 
     expect(lastSync(calls)?.body).toEqual({ interests: [] }) // dropped — not pinned
+  })
+
+  // ── the connector feed: ONE clock, and it says when the connector stops answering ──
+
+  test("the feed fires only when the view actually changed", async () => {
+    let dirty = false
+    router((c) => {
+      if (c.method === "POST" && c.url.endsWith("/session")) return { json: { sessionId: "s1", leaseSeconds: 15 } }
+      if (c.method === "POST" && c.url.includes("/session/s1/sync")) {
+        const v = view(true)
+        v.projects[0].dirty = dirty
+        return { json: v }
+      }
+      return { status: 404, json: {} }
+    })
+
+    let fired = 0
+    const sub = onConnectorView.event(() => fired++)
+    try {
+      await startConnectorFeed()
+      expect(fired).toBe(1) // the first view
+      await declareInterest(boundWorkspace("codesys", "MyMachine")) // syncs again, same view
+      expect(fired).toBe(1) // …so nothing downstream re-renders
+      dirty = true
+      await declareInterest(boundWorkspace("codesys", "MyMachine"))
+      expect(fired).toBe(2) // a real change does
+    } finally {
+      sub.dispose()
+    }
+  })
+
+  test("a connector that stops answering publishes NO view — a remembered one is never served", async () => {
+    let up = true
+    router((c) => {
+      if (!up) return new Error("ECONNREFUSED")
+      if (c.method === "POST" && c.url.endsWith("/session")) return { json: { sessionId: "s1", leaseSeconds: 15 } }
+      if (c.method === "POST" && c.url.includes("/session/s1/sync")) return { json: view(true) }
+      return { status: 404, json: {} }
+    })
+
+    await startConnectorFeed()
+    expect((await connectorStatus())?.projects).toHaveLength(1)
+
+    up = false
+    await declareInterest(boundWorkspace("codesys", "MyMachine")) // its sync fails
+    expect(await connectorStatus()).toBeUndefined() // reported down, not "still those projects"
+  })
+
+  test("while the feed runs, connectorStatus never issues its own request", async () => {
+    const calls = newConnector(true)
+    await startConnectorFeed()
+    const before = calls.length
+
+    await connectorStatus()
+    await connectorStatus()
+    expect(calls.length).toBe(before) // reads are free — they project the feed's view
   })
 
   test("shutdownSession DELETEs the session", async () => {

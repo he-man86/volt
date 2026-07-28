@@ -8,7 +8,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, setBundledCli, enterWorkspace, leaveWorkspace, shutdownSession } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, setBundledCli, enterWorkspace, leaveWorkspace, shutdownSession, startConnectorFeed, onConnectorView } from "@volt/control"
 
 // Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
 // launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
@@ -98,7 +98,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		// command reports "No PLC project detected…" itself, which beats a button that ignores you.
 		views?.setDetected(projects, view !== undefined)
 	}
-	const bridgeTimer = setInterval(() => void refreshBridgeLive(), 10_000)
+	// The list rides the connector feed's ONE clock — no second timer for a value the session client already has.
+	const bridgeSub = onConnectorView.event(() => void refreshBridgeLive())
+	void startConnectorFeed()
 
 	// Bring a (possibly just-initialized) folder online without a reload.
 	const ensureWorkspace = (folderPath: string): void => {
@@ -110,7 +112,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	context.subscriptions.push(
-		{ dispose: () => clearInterval(bridgeTimer) },
+		bridgeSub,
 		vscode.window.registerFileDecorationProvider(decorations),
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new VoltContentProvider()),
 		...registerCommands(statuses, ensureWorkspace),

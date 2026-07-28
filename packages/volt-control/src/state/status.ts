@@ -1,10 +1,11 @@
 /**
- * VoltStatus — the reactive IDE-changes state for ONE workspace: bridge health + `volt status --json` drift,
- * refreshed by a single cheap `/health` poll (drives the health indicator) plus a state-file mtime poll. Pure over
- * volt-control (no `vscode`), so the VS Code extension and the desktop shell share ONE tracker and each renders
- * `onDidChange` in its own UI.
+ * VoltStatus — the reactive IDE-changes state for ONE workspace: bridge health + `volt status --json` drift. Health
+ * follows the connector feed (`onConnectorView` — the product's one live-connection clock, so this owns NO timer for
+ * it); drift follows a state-file mtime poll, a src/ watcher, and explicit refreshes. Pure over volt-control (no
+ * `vscode`), so the VS Code extension and the desktop shell share ONE tracker and each renders `onDidChange` in its
+ * own UI.
  *
- * An IDE-side edit (the project going dirty, or a rebind) is detected from the cheap health poll and raises the
+ * An IDE-side edit (the project going dirty, or a rebind) is detected from the connector feed's view and raises the
  * {@link VoltStatus.ideChanged} HINT — it does NOT auto-run `volt status`/`/refs`, which walks the whole project on
  * the IDE's single thread and freezes it (measured ~9s on a 10 MB CODESYS project). The UI surfaces the hint and the
  * user refreshes when they choose to; a full refresh recomputes incoming and clears the hint.
@@ -13,7 +14,8 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
 import { fetchStatus, enterWorkspace, leaveWorkspace } from "../bridge/actions.js";
 import { describeConnect, describeDisconnect, type OutcomeView } from "../view/outcomes.js";
-import { Emitter } from "./emitter.js";
+import { Emitter, type Disposable } from "./emitter.js";
+import { onConnectorView } from "../bridge/session.js";
 import { isMutationInFlight } from "../bridge/gate.js";
 import { readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
 import { boundStatus } from "../bridge/connector.js";
@@ -21,9 +23,6 @@ import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.j
 import type { StatusJson } from "../view/types.js";
 import { isPouFile, readStateMtime } from "./files.js";
 
-// One cheap /health poll cadence for BOTH the health indicator and IDE-change detection. ~4s keeps
-// edit-detection latency close to the old /refs poll without a full-project scan (which is what /refs was).
-const HEALTH_MS = 4_000;
 const MTIME_MS = 3_000;
 // Coalesce a burst of src writes (e.g. the agent rewriting many files) into one refresh.
 const WATCH_DEBOUNCE_MS = 400;
@@ -83,21 +82,21 @@ export class VoltStatus {
 	statusError: string | undefined;
 	isRefreshing = false;
 	/** The IDE was edited (project went dirty, or a rebind) since the last full refresh — a HINT for the UI to
-	 *  prompt "Refresh to check for incoming". Set from the cheap health poll; NEVER auto-runs the IDE-freezing
+	 *  prompt "Refresh to check for incoming". Set from the connector feed; NEVER auto-runs the IDE-freezing
 	 *  `/refs` walk. Cleared when a full (non-local) refresh recomputes incoming. */
 	ideChanged = false;
 
 	/** Fires whenever health / drift / error changes. Shaped like `vscode.EventEmitter` (`.event` / `.fire`). */
 	readonly onDidChange = new Emitter<void>();
 
-	private heartbeat: ReturnType<typeof setInterval> | null = null;
+	private viewSub: Disposable | null = null;
 	private mtimePoll: ReturnType<typeof setInterval> | null = null;
 	private srcWatcher: FSWatcher | null = null;
 	private watchDebounce: ReturnType<typeof setTimeout> | null = null;
 	private lastMtime = 0;
 	private lastRefreshMs = 0;
 	private bridgeVendor: Vendor | undefined;
-	// Change-detection baselines: the health poll fires a refresh on a projectDirty false→true edge or a
+	// Change-detection baselines: a health read fires a refresh on a projectDirty false→true edge or a
 	// projectName change. `seenHealth` gates the first probe (start()'s explicit refresh covers the initial state).
 	private lastDirty = false;
 	private lastProjectName: string | undefined;
@@ -110,18 +109,20 @@ export class VoltStatus {
 
 	async start(): Promise<void> {
 		this.bridgeVendor = readBridgeVendor(this.workspaceRoot);
-		// One /health poll drives health AND IDE-change detection (no separate /refs poll, no slow heartbeat).
-		this.heartbeat = setInterval(() => this.pollConnection(), HEALTH_MS);
+		// Health (and the IDE-change edge read off it) follows the connector feed's ONE clock — no timer here. This
+		// tracker used to poll every 4s for a value the session client had already fetched on ITS 4s timer, so the
+		// two drifted and a connection change could take ~8s to reach the UI. Now it lands as soon as it changes.
+		this.viewSub = onConnectorView.event(() => void this.readHealth());
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
 		this.watchSrc();
-		this.pollConnection();
+		void this.readHealth();
 		await this.refresh();
 	}
 
 	/** Watch the workspace `src/` tree so an OUTGOING change is detected however it's made — the agent's tools, a
 	 *  terminal, git, an external editor — not just an in-editor save (the extension's onDidSaveTextDocument, absent
-	 *  on the desktop). The mtime/health polls can't see src edits (they watch ide-refs.json + IDE health), so this
-	 *  is the only auto-trigger for outgoing. refresh()'s 1s debounce + the mutation gate absorb our own pull/push
+	 *  on the desktop). The mtime poll + the connector feed can't see src edits (they watch ide-refs.json + IDE
+	 *  health), so this is the only auto-trigger for outgoing. refresh()'s 1s debounce + the mutation gate absorb our own pull/push
 	 *  writes. ponytail: fs.watch recursive is Windows/macOS only — Volt is Windows-only, so no extra dep. */
 	private watchSrc(): void {
 		const srcDir = join(this.workspaceRoot, "src");
@@ -147,7 +148,7 @@ export class VoltStatus {
 	}
 
 	dispose(): void {
-		if (this.heartbeat !== null) clearInterval(this.heartbeat);
+		this.viewSub?.dispose();
 		if (this.mtimePoll !== null) clearInterval(this.mtimePoll);
 		if (this.srcWatcher !== null) this.srcWatcher.close();
 		if (this.watchDebounce !== null) clearTimeout(this.watchDebounce);
@@ -219,20 +220,21 @@ export class VoltStatus {
 		}
 	}
 
-	/** Refresh ONLY the connection health (the connector's view — no CLI, no IDE walk), then fire. For actions that
-	 *  change nothing but whether the bridge serves: connect/disconnect. A full `refresh()` there costs a `/refs`
-	 *  walk (~9s on a big project, and against a bridge disconnect just gated it errors), which delayed the result
-	 *  the user is waiting for. Callers that also want drift can kick `refresh(true)` in the background after. */
+	/** Re-read connection health from the connector's already-fetched view (no CLI, no IDE walk) and fire. For the
+	 *  actions that change nothing but whether the bridge serves — connect/disconnect — where a full `refresh()`
+	 *  would cost a `/refs` walk (~9s on a big project) the user is left waiting on. */
 	async refreshHealth(): Promise<void> {
-		await this.pollConnection();
+		await this.readHealth();
 	}
 
-	private async pollConnection(): Promise<void> {
+	/** Recompute health + the IDE-change edge from the current connector view. Cheap by construction: `boundStatus`
+	 *  reads the session client's cached view, so this is a projection, not a fetch. */
+	private async readHealth(): Promise<void> {
 		// Skip while OUR OWN mutation holds the in-memory gate — the gate is held until the whole action settles (PAST
 		// the bridge op), so it also absorbs the state-file write our own pull/push makes (saveIdeRefs). Reset the edge
-		// baseline so the FIRST post-mutation poll re-baselines WITHOUT firing a spurious refresh. (Mutations run by
+		// baseline so the FIRST post-mutation read re-baselines WITHOUT firing a spurious refresh. (Mutations run by
 		// ANOTHER frontend or a terminal `volt push` are no longer surfaced — that command reports its own progress;
-		// this UI just sees the settled state on its next poll.)
+		// this UI just sees the settled state afterwards.)
 		if (isMutationInFlight(this.workspaceRoot)) {
 			this.seenHealth = false;
 			return;

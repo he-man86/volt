@@ -13,6 +13,7 @@
  * the ONLY way to drive serving — there is no imperative connect/disconnect. Never throws: a down connector leaves
  * the session unopened and is retried by the poll.
  */
+import { Emitter } from "../state/emitter.js"
 import { readBoundProject, type BoundProject } from "./health.js"
 import {
   registerSessionView,
@@ -33,14 +34,23 @@ const S: {
   opening?: Promise<void>
   interests: Map<string, Interest> // workspace root (or a pick key) → its durable binding identity
   view?: ConnectorView // the last /sync response — what connectorStatus prefers
+  viewKey?: string // its serialization, so a poll that changed nothing fires nothing
   timer?: ReturnType<typeof setInterval>
 } = { interests: new Map() }
+
+/** Fires when the connector view CHANGED — including changing to "no view" when the connector stops answering.
+ *  This is the product's ONE live-connection clock: every workspace's health and every shell's detected-project
+ *  list hang off it. Before, three timers (this poll, VoltStatus's own 4s health poll, each shell's 10s project
+ *  poll) read the same cached value on unsynchronized schedules, so the UI could render state this client already
+ *  knew was stale — a connect/disconnect took up to ~8s to show, and the project list up to ~14s. */
+export const onConnectorView = new Emitter<void>()
 
 const POLL_MS = 4_000
 const TIMEOUT_MS = 2_000
 
-// connectorStatus() prefers this cached view over GET /status once a session sync has produced one.
-registerSessionView(() => S.view)
+// While the feed is polling, connectorStatus() reads its view and never issues its own request — including when
+// that view is "the connector isn't answering". No feed running → undefined, and the one-shot GET applies.
+registerSessionView(() => (S.timer === undefined ? undefined : { view: S.view }))
 
 function controlBase(): string {
   return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
@@ -100,9 +110,10 @@ function stopPolling(): void {
 async function tick(): Promise<void> {
   await ensureSession()
   if (S.id) await syncDeclare()
+  else publish(undefined) // the connector isn't answering at all — that IS the state
 }
 
-/** POST the full interest set (declare + renew + read). Never throws; keeps the last view on a transient error. */
+/** POST the full interest set (declare + renew + read). Never throws. */
 async function syncDeclare(): Promise<void> {
   if (!S.id) return
   try {
@@ -112,10 +123,29 @@ async function syncDeclare(): Promise<void> {
       body: JSON.stringify({ interests: uniqueInterests() }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
-    if (res.ok) S.view = (await res.json()) as ConnectorView
+    publish(res.ok ? ((await res.json()) as ConnectorView) : undefined)
   } catch {
-    // keep the last view
+    // The connector stopped answering. Publish that, rather than keeping a remembered view alive: a stale view
+    // rendered a dead connector as "running", with its last projects still listed and clickable.
+    publish(undefined)
   }
+}
+
+/** Adopt a view and notify — but only when it actually differs, so a quiet 4s poll costs nothing downstream. */
+function publish(view: ConnectorView | undefined): void {
+  const key = view === undefined ? "" : JSON.stringify(view)
+  if (key === S.viewKey) return
+  S.viewKey = key
+  S.view = view
+  onConnectorView.fire()
+}
+
+/** Start the connector feed — open the session and poll it, whether or not anything is declared yet. An app with
+ *  no bound workspace still needs the detected-project list to create one, and that list is this same view. Runs
+ *  the first tick now (so the UI fills immediately) and is idempotent; call it once at startup. */
+export async function startConnectorFeed(): Promise<void> {
+  ensurePolling()
+  await tick()
 }
 
 // ── the public API actions.ts delegates to ──
@@ -199,7 +229,7 @@ export async function shutdownSession(): Promise<void> {
   const id = S.id
   S.id = undefined
   S.interests.clear()
-  S.view = undefined
+  publish(undefined) // we're leaving: no view, and anything still listening hears it
   if (id === undefined) return
   try {
     await fetch(`${controlBase()}/session/${id}`, { method: "DELETE", signal: AbortSignal.timeout(TIMEOUT_MS) })
@@ -215,4 +245,5 @@ export function __resetSessionForTest(): void {
   S.opening = undefined
   S.interests.clear()
   S.view = undefined
+  S.viewKey = undefined
 }
