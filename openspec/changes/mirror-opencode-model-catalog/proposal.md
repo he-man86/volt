@@ -66,6 +66,22 @@ hand-written declaration. Concretely, decide between and then implement:
 Whatever we pick, the invariant to land is: **one source of truth for "which models does Volt serve", with the
 picker, the gateway and billing derived from it** — not three files agreeing by convention.
 
+## Definition of done
+
+The deliverable is the **shipped, correct integration** — the research in section 1 is how we find out which shape
+is correct, not an output of its own. A `design.md` with no change behind it is a failed change here. Done means:
+
+- A user picks a Volt model in the picker and gets a real completion through the gateway. Verified live, once, by a
+  human with a subscriber key — not inferred from config.
+- Volt's rows carry the same metadata quality as opencode's built-ins (name, context, output), and an upstream
+  change to Anthropic's or DeepSeek's models reaches them without a Volt code edit. If the chosen shape can't do
+  that, say so explicitly and accept the maintenance instead of pretending it's automatic.
+- "Which models does Volt serve" has ONE source; the picker, the gateway's served list and billing derive from it,
+  and `check-wiring` fails if they disagree.
+- A user with no Volt subscription is not shown rows that will fail (or is shown a clear failure — decided, not
+  accidental).
+- Uninstall returns opencode to vanilla, including anything global the chosen shape introduces.
+
 ## Open questions (answer before designing)
 
 - How does opencode register its own gateway as a provider — is `opencode`/`zen` an entry in the models.dev catalog,
