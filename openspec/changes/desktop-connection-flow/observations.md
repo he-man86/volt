@@ -126,6 +126,17 @@ session-less project**:
   **not usable as a filesystem path** — `existsSync` always fails on it. Replaying it to `/project/current` resolves
   to `global` (the client is genuinely global-scoped pre-session).
 
+> **Re-verified 2026-07-28 against opencode 1.18.3 — the opaque-query part no longer holds.** Read out of the bundle
+> a live `opencode serve` actually serves (`/assets/index-*.js`): the client stamps
+> `x-opencode-directory: encodeURIComponent(dir)` on every request at construction (`$xe`); the interceptor (`Mxe`)
+> early-returns for non-GET/HEAD, so **POSTs keep the header**; and on GET/HEAD the helper (`Dxe`) compares the
+> header to the known directory (raw or encoded) and, on a match, writes the **plaintext path** into `?directory=`
+> before deleting the header. So in 1.18.3 **both carriers are real paths, split by method** — neither is opaque.
+> `parseRequest` (now in `binding.ts`, unit-tested) reads both, and `verify-opencode.ts`'s wire check fails `bun run
+> compat` if a release drops either the header or that method split. Whether the older encrypted-query behaviour was
+> a different version or the workspace-scoped case was not chased — `classifySignal`'s `exists` check makes an
+> unusable value a no-op either way.
+
 **Consequences (unavoidable — opencode's architecture):**
 
 1. **Binding is inherently post-chat.** There is no earlier signal; opencode itself doesn't know your project until a

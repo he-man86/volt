@@ -1,14 +1,33 @@
 import { expect, test } from "bun:test"
-import { bindingAction, classifySignal } from "./binding.js"
+import { bindingAction, classifySignal, parseRequest } from "./binding.js"
 
 const exists = () => true // opencode always sends real, existing project paths in these cases
+
+// Both encodings, split by HTTP METHOD — read out of the installed opencode's own client transform (1.18.3): it
+// early-returns for anything that isn't GET/HEAD, and only on GET/HEAD moves the header into the query and deletes
+// it. Read one encoding and you lose the other half of the traffic; these two pin that.
+test("parseRequest: a GET carries ?directory= (the client rewrote its header into the query)", () => {
+  const r = parseRequest("http://127.0.0.1:4096/session?directory=C%3A%5CUsers%5Cme%5CMyMachine", {})
+  expect(r).toEqual({ pathname: "/session", dir: "C:\\Users\\me\\MyMachine" })
+})
+
+test("parseRequest: a POST carries the x-opencode-directory header and NO query — chat traffic is all POST", () => {
+  const r = parseRequest("http://127.0.0.1:4096/session/abc/message", {
+    "x-opencode-directory": "C%3A%5CUsers%5Cme%5CMyMachine",
+  })
+  expect(r).toEqual({ pathname: "/session/abc/message", dir: "C:\\Users\\me\\MyMachine" })
+})
+
+test("parseRequest: no directory anywhere (assets, registry endpoints) reports none", () => {
+  expect(parseRequest("http://127.0.0.1:4096/global/config", {})).toEqual({ pathname: "/global/config", dir: undefined })
+})
 
 test("classifySignal: opencode's /global/ path prefix is the home/global (no-project) signal", () => {
   expect(classifySignal("/global/event", undefined, exists)).toEqual({ kind: "none" })
   expect(classifySignal("/global/config", undefined, exists)).toEqual({ kind: "none" })
 })
 
-test("classifySignal: a real ?directory= path binds (this is how opencode scopes a project — not the header)", () => {
+test("classifySignal: a real project directory binds (however parseRequest found it — query or header)", () => {
   expect(classifySignal("/session", "C:\\Users\\me\\MyMachine", exists)).toEqual({ kind: "dir", dir: "C:\\Users\\me\\MyMachine" })
 })
 

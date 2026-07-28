@@ -14,6 +14,41 @@ export type ActiveProject = { kind: "dir"; dir: string } | { kind: "none" } | { 
 // these unit tests run on Linux CI. opencode only ever sends "/" here; the drive-root/UNC cases are cheap insurance.
 const isRootDir = (dir: string): boolean => dir === "/" || dir === "\\" || /^[A-Za-z]:[\\/]?$/.test(dir)
 
+/** Pull the two things the binding cares about out of one request: its `pathname` (opencode's home scope is a
+ *  `/global/` path prefix) and the opencode-scoped `directory`.
+ *
+ *  BOTH carriers are load-bearing, and the HTTP METHOD decides which one you get. Read live out of the client
+ *  bundle opencode 1.18.3 serves (`/assets/index-*.js`, the exact code our WebContentsView runs):
+ *    - at construction the client stamps `x-opencode-directory: encodeURIComponent(dir)` on EVERY request;
+ *    - its interceptor early-returns for anything that is not GET/HEAD — so POST/PUT/DELETE (chat sends, session
+ *      ops: most traffic while the agent is in use) keep the header and get no query;
+ *    - on GET/HEAD it moves the value into `?directory=` and DELETES the header. The moved value is the PLAINTEXT
+ *      path: the helper compares the header against the known directory (raw or encodeURIComponent'd) and, on a
+ *      match, emits the plain one.
+ *  The two are mutually exclusive per request, so the order below is a formality; the header is read first because
+ *  it is the client's own construction-time value, while the query is a transform of it. Reading only one carrier
+ *  silently halves the signal — that is what deleting the header branch did.
+ *
+ *  This is CI-checked, not folklore: `verify-opencode.ts`'s wire check (`bun run compat`) spawns a live
+ *  `opencode serve`, fetches the bundle it serves, and fails if either the header or that method split is gone.
+ *  To watch it live instead, run the desktop with VOLT_BIND_DEBUG=1 — every request logs dir + classification. */
+export function parseRequest(url: string, headers: Record<string, string>): { pathname: string; dir: string | undefined } {
+  let pathname = ""
+  try {
+    pathname = new URL(url).pathname
+  } catch { /* not a URL */ }
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === "x-opencode-directory" && typeof v === "string" && v.length > 0) {
+      try { return { pathname, dir: decodeURIComponent(v) } } catch { return { pathname, dir: v } }
+    }
+  }
+  try {
+    return { pathname, dir: new URL(url).searchParams.get("directory") ?? undefined } // searchParams already decodes
+  } catch {
+    return { pathname, dir: undefined }
+  }
+}
+
 /** Classify one request's (pathname, directory) into an active-project signal. Pure — the fs check is injected.
  *  VERIFIED against the live opencode client (openspec/changes/desktop-connection-flow/observations.md):
  *   - opencode's HOME / no-project screen is a `/global/` PATH PREFIX (no directory) → `none`.

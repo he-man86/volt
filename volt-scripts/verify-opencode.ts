@@ -168,12 +168,16 @@ async function verifyWire(): Promise<boolean> {
 
     const okServer = root.ok // the GUI HTML is served
     const okScope = bundle.includes("x-opencode-directory") // the client still scopes requests by directory
-    const ok = okServer && okScope
+    // …and the client still SPLITS that scope by method: its interceptor early-returns for non-GET/HEAD (so those
+    // keep the header) and rewrites GET/HEAD into `?directory=`. `parseRequest` reads BOTH carriers because of this
+    // split; if a release drops it, one of the two goes silent and binding degrades without any error.
+    const okSplit = /method!=="GET"&&\s*\S{0,40}method!=="HEAD"/.test(bundle)
+    const ok = okServer && okScope && okSplit
     return report(
       "wire",
       ok,
-      "the desktop binding wire holds: `opencode serve` prints a parseable URL + serves the GUI, and the client still scopes requests by x-opencode-directory",
-      `desktop binding wire DRIFT — server:${okServer} client-scope:${okScope}. The follow-binding reads opencode's GUI wire directly; a failure means an opencode release moved it — update packages/volt-desktop (main.ts) + observations.md.`,
+      "the desktop binding wire holds: `opencode serve` prints a parseable URL + serves the GUI, and the client still scopes requests by x-opencode-directory (header on non-GET, ?directory= on GET/HEAD)",
+      `desktop binding wire DRIFT — server:${okServer} client-scope:${okScope} method-split:${okSplit}. The follow-binding reads opencode's GUI wire directly; a failure means an opencode release moved it — update packages/volt-desktop (binding.ts::parseRequest) + observations.md.`,
       ok ? "" : `bundleLen=${bundle.length}`,
     )
   } finally {

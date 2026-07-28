@@ -2,7 +2,7 @@
 // panel, see shell.html); opencode renders as the inner content pane in a WebContentsView. This file owns the
 // window and lifecycle; the concern-split siblings mirror the extension: `agent` (opencode), `panel` (the
 // IDE-sync data feed), `commands` (pull/push/init). The active workspace follows the project opencode's GUI
-// is on (its `?directory=` request scope + its own URL), like VS Code binding to its open folder.
+// is on (the directory scope on its requests + its own URL), like VS Code binding to its open folder.
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
@@ -18,7 +18,7 @@ import {
 } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
-import { bindingAction, classifySignal, type ActiveProject } from "./binding.js"
+import { bindingAction, classifySignal, parseRequest, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
@@ -96,18 +96,6 @@ function configureTools() {
   }
 }
 
-/** Parse one request URL into the two things the binding cares about: its `pathname` (opencode's home scope is a
- *  `/global/` path prefix) and the opencode-scoped `directory`, which the GUI announces as a `?directory=` query
- *  (verified against the live client — it deletes its own `x-opencode-directory` header and re-emits it here). */
-function parseRequest(url: string): { pathname: string; dir: string | undefined } {
-  try {
-    const u = new URL(url)
-    return { pathname: u.pathname, dir: u.searchParams.get("directory") ?? undefined } // searchParams already decodes
-  } catch {
-    return { pathname: "", dir: undefined } // not a URL
-  }
-}
-
 // Canonical form for comparing the active-project dir against the bound one. opencode's chat traffic reports the
 // directory in varying string forms (separators / case / trailing slash), and a RAW `!==` re-bound on EVERY
 // variation — re-running the whole diagnostics crawl repeatedly mid-chat. Normalize so only a REAL project change
@@ -154,7 +142,7 @@ function watchHomeNavigation() {
 
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-    const { pathname, dir } = parseRequest(details.url)
+    const { pathname, dir } = parseRequest(details.url, details.requestHeaders)
     const sig = classifySignal(pathname, dir, existsSync)
     if (BIND_DEBUG) console.log(`[bind] ${details.method} ${pathname || details.url} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
     if (sig !== undefined) onActiveSignal(sig)
