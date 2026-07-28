@@ -1,5 +1,4 @@
 {
   "$schema": "https://opencode.ai/tui.json",
-  "theme": "volt",
-  "plugin": ["./plugins/volt.tsx"]
+  "theme": "volt"
 }
