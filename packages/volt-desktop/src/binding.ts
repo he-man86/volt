@@ -71,7 +71,14 @@ export function bindingAction(
   boundRoot: string | undefined,
   signal: ActiveProject,
   same: (a: string | undefined, b: string | undefined) => boolean,
+  onHomeRoute = false,
 ): BindAction {
+  // The GUI's ROUTE outranks the request stream. opencode's client is constructed WITH a directory and stamps it on
+  // every request it makes, so on the home page it still emits `/mcp`, `/lsp`, `/config`, `/project/current`… all
+  // naming the LAST project (verified live with VOLT_BIND_DEBUG=1). Sticky binding let that stale project win, and
+  // because binding auto-connects, Volt made the connector SERVE a project the user had not opened. The request
+  // stream answers WHICH project only once the route says a project is open at all.
+  if (onHomeRoute) return boundRoot === undefined ? { kind: "noop" } : { kind: "unbind" }
   switch (signal.kind) {
     case "unknown":
       return { kind: "noop" } // haven't learned opencode's state yet — hold, don't touch the binding

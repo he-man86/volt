@@ -48,6 +48,17 @@ test("classifySignal: a directory that doesn't exist is ignored, not bound", () 
 // Exact compare — the canonical (resolve + case-fold) compare is the caller's; here we test the decision logic.
 const same = (a?: string, b?: string): boolean => a === b
 
+// The bug this exists to prevent, seen live: sitting on opencode's HOME page, its client still stamped the LAST
+// project's directory on /mcp, /lsp, /config, /project/current… Sticky binding took it, binding auto-connects, and
+// the connector ended up SERVING a project the user had never opened. The route decides whether a project is open;
+// the request stream only says which one.
+test("bindingAction: on the home route a project directory NEVER binds", () => {
+  const sig = { kind: "dir", dir: "C:\\proj" } as const
+  expect(bindingAction(undefined, sig, same, true)).toEqual({ kind: "noop" })
+  expect(bindingAction("C:\\other", sig, same, true)).toEqual({ kind: "unbind" }) // leaving a project releases it
+  expect(bindingAction(undefined, sig, same, false)).toEqual({ kind: "bind", dir: "C:\\proj" }) // in a project: binds
+})
+
 test("unknown holds — never binds or unbinds (cold start must not touch the binding)", () => {
   expect(bindingAction(undefined, { kind: "unknown" }, same).kind).toBe("noop")
   expect(bindingAction("/proj", { kind: "unknown" }, same).kind).toBe("noop")

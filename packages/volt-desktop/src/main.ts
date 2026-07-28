@@ -106,6 +106,10 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return norm(a) === norm(b)
 }
 
+// Is opencode's GUI on its home route right now? THE authority on whether a project is open, and a hard gate on
+// binding — see onActiveSignal. Starts true: the view's first load IS the home route.
+let onHomeRoute = true
+
 // Feed a signal through the pure reducer and act. Binding is STICKY on the request stream: a real project directory
 // binds (or rebinds to a different project), and a `none` (opencode's `global` scope) NEVER releases here — opencode
 // reports `global` for both its home screen and a project's new-session draft (verified live), so releasing on it
@@ -116,7 +120,10 @@ function onActiveSignal(sig: ActiveProject): void {
   const wasAwaiting = shell.awaitingOpencode
   shell.awaitingOpencode = false // any signal means opencode is up (clears the cold-start "Connecting…")
   shell.bindStale = false // a signal arrived → the sniff works; retract any canary warning
-  if (sig.kind === "dir" && bindingAction(shell.boundRoot, sig, sameDir).kind === "bind") return void bindWorkspace(shell, sig.dir) // pushes
+  // The route gates the bind — see bindingAction (it holds the reasoning and the tests).
+  const action = bindingAction(shell.boundRoot, sig, sameDir, onHomeRoute)
+  if (action.kind === "bind") return void bindWorkspace(shell, action.dir) // pushes
+  if (action.kind === "unbind") return unbindWorkspace(shell) // pushes
   // A `none` (opencode global/home) or a same-project `dir`: nothing to (re)bind, and we never release. Push only if
   // this signal just cleared the cold-start state, so "Connecting…" flips to the bound / create-a-workspace view.
   if (wasAwaiting) pushStatus(shell)
@@ -134,7 +141,9 @@ function watchHomeNavigation() {
   const onNav = (url: string): void => {
     let pathname = "/"
     try { pathname = new URL(url).pathname } catch { /* not a URL */ }
-    if (pathname === "/") unbindWorkspace(shell) // the true homepage → drop the sticky binding (no stale project)
+    onHomeRoute = pathname === "/"
+    if (BIND_DEBUG) console.log(`[bind] nav ${pathname} → ${onHomeRoute ? "HOME (binding gated)" : "in a project (binding allowed)"}`)
+    if (onHomeRoute) unbindWorkspace(shell) // the true homepage → drop the sticky binding (no stale project)
   }
   shell.view!.webContents.on("did-navigate-in-page", (_e, url) => onNav(url))
   shell.view!.webContents.on("did-navigate", (_e, url) => onNav(url))
