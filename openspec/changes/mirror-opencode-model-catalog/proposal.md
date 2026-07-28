@@ -11,6 +11,28 @@ Three lists have to agree today and nothing enforces it: `models.json` (`zenMode
 bills), `opencode-config/opencode.json` (`provider.volt.models` — what the picker offers), and whatever the upstream
 provider actually supports. Two are checked by a comment; the third is checked by nobody.
 
+## Where this stands right now (so a fresh session doesn't re-derive it)
+
+Shipped and live in **0.1.15988** (promoted to stable 2026-07-28): one `provider.volt`
+(`@ai-sdk/openai-compatible`, `baseURL https://volt-ai.dev/v1`) with two models, `deepseek-chat` and
+`claude-sonnet-4-5`, now labelled `… · via Volt` and carrying `limit` — that labelling was the stopgap for
+"the picker looks like duplicates", NOT this change. Nothing about the drift or the metadata source is fixed.
+
+**`plugins/volt-auth.ts` has never been exercised — by anything.** No test, no live login, no completion has ever
+gone through the Volt gateway from a client. Every statement in this document about auth is read from code, not
+observed. That is the single largest unknown here, and it gates most of section 4.
+
+**Human dependency:** verifying any of this end to end needs a real Volt subscriber API key, which is not on the
+dev box. Ask for one before starting section 3 — otherwise the work lands unverified, which is exactly how the
+binding integration accumulated two bugs that shipped.
+
+Files this change touches or reasons about:
+- `opencode-config/opencode.json` — `provider.volt` (the picker entry)
+- `models.json` → `volt-scripts/set-models.ts` → `ZEN_MODELS1..30` (the gateway catalog + billing)
+- `opencode-config/plugins/volt-auth.ts` (credentials for the provider id)
+- `packages/console/app/src/routes/v1/{chat/completions,messages,models}.ts` (the gateway's inbound routes)
+- `volt-scripts/check-wiring.ts` (where the anti-drift assertion belongs)
+
 ## What we know (measured, 2026-07-28)
 
 - **opencode's catalog is models.dev**, fetched and cached as `models.json` under its cache dir, and redirectable:

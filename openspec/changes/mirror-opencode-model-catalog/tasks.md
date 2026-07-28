@@ -1,3 +1,12 @@
+> Read `proposal.md` first — "Where this stands right now" lists what already shipped, the files involved, and the
+> one human dependency (a subscriber API key) that blocks section 3 onward.
+>
+> Reproduce the two facts this rests on before trusting them; both take a minute:
+> ```bash
+> grep -a -o -E '.{60}models\.dev.{100}' "$(which opencode)"        # OPENCODE_MODELS_URL || https://models.dev
+> curl -s https://volt-ai.dev/v1/models                              # the gateway's live model list
+> ```
+
 ## 1. Understand opencode's own gateway integration (no code yet)
 
 - [ ] 1.1 Read `sst/opencode` for how its gateway provider is registered client-side: is it a models.dev catalog
@@ -8,8 +17,12 @@
       catalog. Prove it live (a request log against a scratch gateway URL beats reading minified code).
 - [ ] 1.4 Establish exactly what `OPENCODE_MODELS_URL` replaces (whole catalog vs merge) and what the client does
       when it is unreachable — a gateway outage must not leave the user with no models at all.
-- [ ] 1.5 Write the findings into this change as `design.md`, with citations (file/line or a live request), the way
+- [ ] 1.5 Check whether models.dev itself carries an entry for opencode's gateway (and what shape it has) — that
+      answers "is mirroring them a catalog entry or code?" more directly than reading the binary.
+- [ ] 1.6 Write the findings into this change as `design.md`, with citations (file/line or a live request), the way
       `desktop-connection-flow/observations.md` records the binding wire. No conclusions without evidence.
+      That file also carries a worked example of the failure mode to avoid: a documented observation that had gone
+      stale and was believed for months until it was re-verified live.
 
 ## 2. Decide
 
