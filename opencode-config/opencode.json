@@ -14,8 +14,14 @@
         "baseURL": "https://volt-ai.dev/v1"
       },
       "models": {
-        "deepseek-chat": { "name": "DeepSeek (Volt)" },
-        "claude-sonnet-4-5": { "name": "Claude (Volt)" }
+        "deepseek-chat": {
+          "name": "DeepSeek · via Volt",
+          "limit": { "context": 128000, "output": 8192 }
+        },
+        "claude-sonnet-4-5": {
+          "name": "Claude Sonnet 4.5 · via Volt",
+          "limit": { "context": 200000, "output": 64000 }
+        }
       }
     }
   },
