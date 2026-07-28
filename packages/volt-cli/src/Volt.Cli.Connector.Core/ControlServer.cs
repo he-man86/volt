@@ -46,6 +46,14 @@ namespace Volt.Cli.Connector
     {
         public const int ControlPort = 8550;
 
+        /// <summary>The port THIS process serves its control plane on: <c>VOLT_CONTROL_PORT</c> when set, else the
+        /// fixed <see cref="ControlPort"/> every client knows. The override exists for the live-test tier, which
+        /// runs a SECOND connector beside the engineer's installed one — an unattended run must never fight it or
+        /// reconfigure it. Read here (not in two places) so the single-instance mutex and the listener can't
+        /// disagree about which instance this is.</summary>
+        public static int ConfiguredPort =>
+            int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), out var p) && p > 0 ? p : ControlPort;
+
         private readonly HttpListener _listener = new();
         // Async so GET /status can refresh-if-stale before answering: a client that polls must not read the tray
         // tick's cache, or a change made outside Volt (an IDE closing) lags by the tick PLUS the client's own poll.

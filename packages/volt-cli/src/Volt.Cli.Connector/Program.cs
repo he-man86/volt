@@ -23,7 +23,12 @@ namespace Volt.Cli.Connector
             // --silent: launched by the installer/login/extension rather than a user double-click.
             var silent = Array.IndexOf(args, "--silent") >= 0;
 
-            _single = new Mutex(initiallyOwned: true, "Local\\VoltConnector", out var isNew);
+            // One connector PER CONTROL PORT. The production instance owns the classic name, so double-clicking the
+            // tray app still says "already running"; an instance on an overridden VOLT_CONTROL_PORT gets its own
+            // name and coexists — otherwise the live-test tier could never run a connector of its own, whatever
+            // port it was given.
+            var port = ControlServer.ConfiguredPort;
+            _single = new Mutex(initiallyOwned: true, port == ControlServer.ControlPort ? "Local\\VoltConnector" : $"Local\\VoltConnector.{port}", out var isNew);
             if (!isNew)
             {
                 if (!silent)

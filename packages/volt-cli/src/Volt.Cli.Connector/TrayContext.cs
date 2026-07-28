@@ -58,13 +58,17 @@ namespace Volt.Cli.Connector
 
             // Control plane (:8550) — the extension / desktop app declare their interests over the session API; the
             // connector reconciles the bridges to match. GET /status is the ambient read for the connect picker.
+            // ControlServer.ConfiguredPort honours VOLT_CONTROL_PORT — see there; Program.cs scopes the
+            // single-instance mutex by the same number so the two instances can't collide.
+            var port = ControlServer.ConfiguredPort;
             _control = new ControlServer(
                 FreshSnapshotAsync, RestartWorker,
                 openSession: () => _conn.OpenSessionAsync(),
                 sync: SessionSyncAsync,
-                closeSession: id => _conn.CloseSessionAsync(id));
+                closeSession: id => _conn.CloseSessionAsync(id),
+                port: port);
             _control.Start();
-            Log.Info("connector started; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
+            Log.Info($"connector started on :{port}; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
             _timer = new System.Windows.Forms.Timer { Interval = 4000 };
             _timer.Tick += async (_, _) => await TickAsync();
