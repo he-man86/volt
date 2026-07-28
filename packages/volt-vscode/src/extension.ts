@@ -8,7 +8,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, setBundledCli, enterWorkspace, leaveWorkspace, shutdownSession, startConnectorFeed, onConnectorView } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace, leaveWorkspace, shutdownSession, startConnectorFeed, onConnectorView } from "@volt/control"
 
 // Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
 // launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
@@ -184,9 +184,15 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 	})
 	statuses.set(folder.uri.fsPath, s)
 	void s.start()
-	// The active project view owns the connection: opening a Volt workspace connects its bridge (shared with the
-	// desktop). Fire-and-forget + refresh so the view reflects "connected" without blocking activation.
-	void enterWorkspace(folder.uri.fsPath).then(() => { if (statuses.get(folder.uri.fsPath) === s) void s.refresh(true) })
+	// The active project view owns the connection: opening a Volt workspace connects its bridge, through the SAME
+	// shared flow as the manual Reconnect (health settles cheaply; drift re-scans only if it connected — this used
+	// to run a full `volt status` either way, walking the IDE over a bridge that wasn't serving). Fire-and-forget so
+	// activation isn't blocked; a folder removed meanwhile disposes its tracker, which makes the settle a no-op.
+	// LOGGED, not toasted: an automatic connect must not interrupt, and the Bridge view already states the outcome
+	// (health says whether the connector or the project is the problem, and offers Reconnect).
+	void connectWorkspace(s).then((view) => {
+		if (view.tone === "error") console.warn(`[volt] auto-connect for ${folder.uri.fsPath}: ${view.message}`)
+	})
 }
 
 /** Drive the menu when-clause context keys off the shared `aggregate()` display model (worst-state-wins). No

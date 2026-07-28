@@ -11,7 +11,7 @@ import {
   connectorStatus,
   collectDiagnostics,
   onboardingMode,
-  enterWorkspace,
+  connectWorkspace,
   leaveWorkspace,
   type DriftItem,
   type WorkspaceView,
@@ -130,10 +130,17 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   await shell.status.start()
   pushStatus(shell)
   void runDiagnostics(shell)
-  // The active project view owns the connection: connect the bridge on bind. Fire-and-forget so the panel shows the
-  // project immediately, then refresh once connected — but only if this workspace is still the bound one (a fast
-  // rebind must not refresh the wrong status).
-  void enterWorkspace(root).then(() => { if (shell.boundRoot === root) void shell.status?.refresh(true) })
+  // The active project view owns the connection: connect the bridge on bind, through the SAME shared flow the
+  // manual Connect button runs — so an auto-connect settles health cheaply and only re-scans drift if it actually
+  // connected (this used to fire a full `volt status` either way, i.e. an IDE walk against a bridge that was not
+  // serving). Fire-and-forget so the panel shows the project immediately; a fast rebind disposes this tracker,
+  // which makes the settle a no-op. The failure is LOGGED, not popped up: an automatic connect must not interrupt,
+  // and the panel already states it — health carries why (connector unreachable vs project not serving) and the
+  // reconnect surface offers the fix. The log is what turns "it just says not connected" into a diagnosable event.
+  const st = shell.status
+  void connectWorkspace(st).then((view) => {
+    if (view.tone === "error") console.warn(`[volt] auto-connect for ${root}: ${view.message}`)
+  })
 }
 
 /** Release the binding when opencode is on its genuine HOME screen (not a project). Sticky binding never releases on

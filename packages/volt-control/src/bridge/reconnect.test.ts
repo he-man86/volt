@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { reconnectBound, enterWorkspace, leaveWorkspace } from "./actions.js"
+import { enterWorkspace, leaveWorkspace } from "./actions.js"
 import { __resetSessionForTest } from "./session.js"
 import type { ConnectorView } from "./connector.js"
 
-// The actions layer (enterWorkspace / leaveWorkspace / reconnectBound) now delegates to the session client; the
+// The actions layer (enterWorkspace / leaveWorkspace) now delegates to the session client; the
 // full behaviour is covered in session.test.ts. These tests pin the ACTIONS-level wiring: each wrapper declares /
 // drops THIS workspace's interest through the session API, and an unbound folder is a clean no-op. The session
 // client is a module singleton, so reset it around every test.
@@ -56,12 +56,12 @@ describe("enter/leave/reconnect — declare this workspace's interest through th
     }
   })
 
-  test("reconnectBound re-declares the same interest (the manual Reconnect action)", async () => {
+  test("a re-declare uses the binding's projectName as the identity (the manual Reconnect path)", async () => {
     // The binding's projectName is the identity — for TwinCAT that's the TwinCAT project, not a PLC sub-project.
     const dir = boundWorkspace("twincat", "project13")
     try {
       mockSessionConnector(false)
-      await reconnectBound(dir)
+      await enterWorkspace(dir) // what connectWorkspace runs; the old reconnectBound alias was exactly this
       expect(lastInterests).toEqual([{ vendor: "twincat", projectName: "project13" }])
     } finally {
       rmSync(dir, { recursive: true, force: true })

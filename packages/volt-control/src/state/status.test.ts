@@ -62,6 +62,22 @@ test("settleOutcome re-reads health after adopting the action's status", async (
 	}
 });
 
+// A disposed tracker must go quiet: the desktop rebinds the moment opencode switches project, and an in-flight
+// auto-connect settles a beat later — that late refresh would walk the IDE for a workspace nobody is showing.
+test("a disposed VoltStatus stops refreshing", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "volt-disposed-"));
+	try {
+		const s = new VoltStatus(dir);
+		let fired = 0;
+		s.onDidChange.event(() => fired++);
+		s.dispose();
+		await s.refresh(true); // a late settle from work that was already in flight
+		expect(fired).toBe(0);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("refresh on an unbound workspace clears state and fires onDidChange (no bridge needed)", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "volt-st-"));
 	try {

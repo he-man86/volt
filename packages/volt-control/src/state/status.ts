@@ -108,6 +108,7 @@ export class VoltStatus {
 	private lastProjectName: string | undefined;
 	private seenHealth = false;
 	private pendingForce = false; // a forced refresh requested while one was in flight — run it after, don't drop it
+	private disposed = false; // set by dispose(); refresh + health reads become no-ops (see dispose)
 
 	constructor(workspaceRoot: string) {
 		this.workspaceRoot = workspaceRoot;
@@ -154,6 +155,12 @@ export class VoltStatus {
 	}
 
 	dispose(): void {
+		// Also makes every later refresh/health read a no-op. A workspace can be disposed with work in flight — the
+		// desktop rebinds the moment opencode switches project, and an in-flight connect settles a beat later — and
+		// that late work used to run against the DEAD tracker: a `volt status` (an IDE walk) for a workspace nobody
+		// is showing. One flag here beats an `is this still the bound one?` guard at each call site (they were
+		// individually correct and collectively easy to forget).
+		this.disposed = true;
 		this.viewSub?.dispose();
 		if (this.mtimePoll !== null) clearInterval(this.mtimePoll);
 		if (this.srcWatcher !== null) this.srcWatcher.close();
@@ -177,6 +184,7 @@ export class VoltStatus {
 	 *  MEASURED on a real 10 MB CODESYS project: full status 9.16s vs 1.13s local. That 9s ran on EVERY save and
 	 *  froze the IDE for its duration, because `/refs` walks the whole project on the IDE's single STA thread. */
 	async refresh(force = false, local = false): Promise<void> {
+		if (this.disposed) return;
 		if (this.isRefreshing) {
 			// Don't drop a forced refresh (a user click, or an IDE-change edge) — coalesce it to run once the
 			// in-flight one settles, so the view reflects the latest state instead of waiting for the next poll.
@@ -236,6 +244,7 @@ export class VoltStatus {
 	/** Recompute health + the IDE-change edge from the current connector view. Cheap by construction: `boundStatus`
 	 *  reads the session client's cached view, so this is a projection, not a fetch. */
 	private async readHealth(): Promise<void> {
+		if (this.disposed) return;
 		// Skip while OUR OWN mutation holds the in-memory gate — the gate is held until the whole action settles (PAST
 		// the bridge op), so it also absorbs the state-file write our own pull/push makes (saveIdeRefs). Reset the edge
 		// baseline so the FIRST post-mutation read re-baselines WITHOUT firing a spurious refresh. (Mutations run by

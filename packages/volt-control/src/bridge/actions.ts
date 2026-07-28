@@ -234,13 +234,6 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
   })
 }
 
-/** Re-point the bridge at this workspace's ALREADY-bound project (the manual "Reconnect" action). In the session
- *  model this is just a fresh {@link enterWorkspace} — re-add the interest and force an immediate sync — so a bridge
- *  that had drifted (connector restart / IDE re-open / project switch) reconnects. Returns a message on failure. */
-export async function reconnectBound(workspaceRoot: string): Promise<{ ok: boolean; message?: string }> {
-  return declareInterest(workspaceRoot)
-}
-
 /** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project + the session
  *  model): a frontend calls `enterWorkspace` when a project becomes the one it's showing, `leaveWorkspace` when it
  *  stops. Both shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop
