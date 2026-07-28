@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Volt.Cli.Transport;
@@ -50,6 +52,9 @@ namespace Volt.Cli.Connector
         private readonly IReadOnlyList<IProjectSource> _sources;
         private readonly Dictionary<string, IProjectSource> _byVendor;
         private readonly TimeSpan _leaseTtl;
+        // How long after start we hold disconnects so clients can re-declare (see CycleCoreAsync).
+        private static readonly TimeSpan GateHold = TimeSpan.FromSeconds(20);
+        private readonly DateTime _gateHoldUntil;
         private volatile State _state;
 
         // Detection, session mutation and reconcile are all WRITERS and must not interleave, so they share ONE gate.
@@ -64,11 +69,16 @@ namespace Volt.Cli.Connector
             _sources = sources;
             _byVendor = sources.ToDictionary(s => s.Vendor);
             _leaseTtl = leaseTtl == default ? TimeSpan.FromSeconds(15) : leaseTtl;
+            _gateHoldUntil = DateTime.UtcNow + GateHold;
             _state = new State(
                 Array.Empty<DetectedProject>(),
                 new Dictionary<string, bool>(),
                 new Dictionary<string, Session>(),
-                Array.Empty<string>(),
+                // `Wanted` is RESTORED from disk, not empty. Gating is edge-triggered ("was wanted, now isn't"), so a
+                // connector that starts blank has no edge for anything it was serving before — and an auto-update
+                // restarts us mid-session. Field incident 2026-07-28: after an update a project sat `healthy` with
+                // every client closed, and nothing could ever gate it again. Restoring the set restores the edge.
+                LoadWanted(),
                 Array.Empty<string>(),
                 AnyReachable: false);
         }
@@ -80,6 +90,10 @@ namespace Volt.Cli.Connector
 
         /// <summary>Is this project's bridge serving it right now — the single signal every surface renders from.</summary>
         public bool IsServingProject(string projectId) => _state.Serving.TryGetValue(projectId, out var s) && s;
+
+        /// <summary>Does any live session still WANT this project? Distinguishes a deliberate disconnect (nobody wants
+        /// it any more) from an incident (still wanted, stopped serving) — see the tray's disconnect notification.</summary>
+        public bool IsWantedProject(string projectId) => _state.Wanted.Contains(projectId);
 
         /// <summary>Human platform name for a vendor id ("codesys" → "CODESYS").</summary>
         public string DisplayNameOf(string vendor) =>
@@ -215,6 +229,17 @@ namespace Volt.Cli.Connector
             var s = _state;
             var plan = Reconciler.Plan(s.Sessions.Values.ToList(), s.ForceOff, s.Wanted, s.Projects, DateTime.UtcNow);
 
+            // A restored `Wanted` would gate everything in the seconds BEFORE the clients have re-declared — the app
+            // and the connector come back together after an update, and whoever loses that race would see its bridge
+            // gated out from under it. So hold unbinds during a short startup window: a client that re-declares
+            // inside it keeps its project (no edge), and anything still unwanted when the window closes is gated for
+            // real. Binds are never held — resuming a wanted project early is always safe.
+            if (plan.ToUnbind.Count > 0 && DateTime.UtcNow < _gateHoldUntil)
+            {
+                Log.Info($"reconcile: holding {plan.ToUnbind.Count} disconnect(s) — startup grace, waiting for clients to re-declare");
+                plan = plan with { ToUnbind = Array.Empty<DetectedProject>() };
+            }
+
             if (plan.ToUnbind.Count > 0 || plan.ToBind.Count > 0)
             {
                 // The decision, before it is applied — so a log read after the fact says what the connector INTENDED,
@@ -238,6 +263,7 @@ namespace Volt.Cli.Connector
                         Log.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
+            if (!plan.Wanted.SequenceEqual(_state.Wanted)) SaveWanted(plan.Wanted); // so a restart inherits the edge
             _state = _state with { Wanted = plan.Wanted };
         }
 
@@ -286,6 +312,33 @@ namespace Volt.Cli.Connector
             if (_byVendor.TryGetValue(p.Vendor, out var src))
                 try { await src.UnbindAsync(p).ConfigureAwait(false); }
                 catch (Exception e) { Log.Warn($"disconnect {p.Id} failed: {e.Message}"); }
+        }
+
+        // The desired set, across restarts. Tiny and best-effort: losing it costs one stranded bridge (the old
+        // behaviour), never correctness, so it must never throw or block a reconcile.
+        private static string WantedFile =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) is { Length: > 0 } d ? d : Path.GetTempPath(),
+                "Volt", "wanted.json");
+
+        private static IReadOnlyCollection<string> LoadWanted()
+        {
+            try
+            {
+                if (!File.Exists(WantedFile)) return Array.Empty<string>();
+                return JsonSerializer.Deserialize<string[]>(File.ReadAllText(WantedFile)) ?? Array.Empty<string>();
+            }
+            catch { return Array.Empty<string>(); }
+        }
+
+        private static void SaveWanted(IReadOnlyCollection<string> wanted)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(WantedFile)!);
+                File.WriteAllText(WantedFile, JsonSerializer.Serialize(wanted.ToArray()));
+            }
+            catch (Exception e) { Log.Warn($"could not persist the desired set: {e.Message}"); }
         }
 
         /// <summary>Drop sessions whose lease has lapsed (crash / lost connector). Reconcile ignores expired sessions

@@ -142,9 +142,14 @@ test("a client that dies without closing is cleaned up by its lease, not left ho
   ).toBe(false)
 }, LEASE_GRACE_MS + 30_000)
 
-// Needs a connector WE own (it gets restarted), so it only runs against an isolated instance:
+// Needs a connector WE own (it gets restarted):
 //   VOLT_CONTROL_PORT=8551 VoltConnector.exe --silent
 //   VOLT_CONTROL_BASE=http://127.0.0.1:8551 VOLT_E2E_CONNECTOR_EXE=<path> bun test test/live
+//
+// …and it must be the ONLY connector running. A second connector is isolated in its control PORT but not in what
+// it reconciles: both scan the same bridges, so the installed one gates whatever the test one binds (nothing in
+// ITS sessions wants it) and the two thrash. Measured: with both up, every test here fails; with one, they pass.
+// So the live tier stops the installed connector for the duration — port isolation is not fleet isolation.
 const OWN_EXE = process.env.VOLT_E2E_CONNECTOR_EXE
 // KNOWN BUG — this test currently FAILS, on purpose, and reproduces a field incident (2026-07-28): after the
 // 14:25 auto-update the connector came back with no memory of what it had bound, so `Pro2193` sat `healthy` with
@@ -200,11 +205,16 @@ test("two sessions wanting the same project: one leaving does not disconnect the
 
   const want = [{ vendor: project.vendor, projectName: project.projectName }]
   await sync(a, want)
-  expect(serving(await sync(b, want), project.projectName)).toBe(true)
+  await sync(b, want)
+  // POLL, don't trust one response: a reconcile is a cycle, and a bridge gated moments earlier (by the test before
+  // this one) needs a scan to come back before it can be re-bound. Asserting the sync response directly made this
+  // fail 20ms in, looking like a product bug when it was the harness being impatient.
+  expect(serving(await until((v) => serving(v, project.projectName), 20_000), project.projectName)).toBe(true)
 
   // A closes. B still wants it — the union, not a refcount, is what decides. This is the "two windows on one
   // project" case that used to disconnect whichever app you closed first.
   await close(a)
-  const still = await sync(b, want)
-  expect(serving(still, project.projectName), "B still wants it — closing A must not gate the bridge").toBe(true)
+  await sync(b, want)
+  await sleep(2000) // give a WRONG implementation time to gate it
+  expect(serving(await status(), project.projectName), "B still wants it — closing A must not gate the bridge").toBe(true)
 }, 60_000)

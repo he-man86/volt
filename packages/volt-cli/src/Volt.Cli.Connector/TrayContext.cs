@@ -172,11 +172,23 @@ namespace Volt.Cli.Connector
         // ── notifications ──────────────────────────────────────────────────
         private void OnAggregateChanged(BridgeStatus prev, BridgeStatus now)
         {
-            if (prev == BridgeStatus.Connected && now is BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown)
+            if (prev != BridgeStatus.Connected || now is not (BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown))
+                return;
+
+            // Only an UNEXPECTED loss is worth interrupting for. `Connected` means "serving ∧ wanted", so it also
+            // drops the moment the last client stops WANTING a project — closing the app, leaving a project, a
+            // Disconnect click. Those are the user's own doing and were toasting "A bridge disconnected." at them
+            // every time (a live-test run popped one per declare/drop cycle). If nothing is wanted any more, this is
+            // a deliberate disconnect: log it, don't interrupt. Something still wanted but no longer served IS the
+            // incident — the IDE closed, the bridge died — and still toasts.
+            var stillWanted = _conn.Projects.Any(p => _conn.IsWantedProject(p.Id));
+            if (!stillWanted)
             {
-                Log.Warn("a bridge disconnected");
-                _icon.ShowBalloonTip(5000, "Volt", "A bridge disconnected.", ToolTipIcon.Warning);
+                Log.Info("bridge disconnected on request (nothing is wanted any more)");
+                return;
             }
+            Log.Warn("a bridge disconnected unexpectedly — still wanted, no longer served");
+            _icon.ShowBalloonTip(5000, "Volt", "A bridge disconnected.", ToolTipIcon.Warning);
         }
 
         /// <summary>Run on the WinForms UI thread. The session-sync + force-off handlers touch UI state (the balloon
