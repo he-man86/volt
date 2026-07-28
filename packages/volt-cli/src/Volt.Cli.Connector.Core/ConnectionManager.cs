@@ -55,6 +55,11 @@ namespace Volt.Cli.Connector
         // How long after start we hold disconnects so clients can re-declare (see CycleCoreAsync).
         private static readonly TimeSpan GateHold = TimeSpan.FromSeconds(20);
         private readonly DateTime _gateHoldUntil;
+        // The set we RESTORED from disk. Only these may be held during the startup window — a project a live
+        // session declared and then dropped is a genuine edge and must gate at once (five unit tests said so).
+        // Cleared the moment any client declares anything: the clients are back, so the protection has done its job.
+        private HashSet<string> _restored;
+        private readonly string _wantedFile;
         private volatile State _state;
 
         // Detection, session mutation and reconcile are all WRITERS and must not interleave, so they share ONE gate.
@@ -64,12 +69,16 @@ namespace Volt.Cli.Connector
 
         /// <param name="leaseTtl">How long a session's lease lives without a renewing sync. Should be ≥3× the client
         /// poll so a single slow poll never drops a live client. Default 15s (poll is ~4s).</param>
-        public ConnectionManager(IReadOnlyList<IProjectSource> sources, TimeSpan leaseTtl = default)
+        public ConnectionManager(IReadOnlyList<IProjectSource> sources, TimeSpan leaseTtl = default, string? wantedFile = null)
         {
+            // Injectable so a unit test never reads (or writes) the machine's real desired-set — two tests failed
+            // exactly that way, inheriting a live run's wanted.json.
+            _wantedFile = wantedFile ?? DefaultWantedFile;
             _sources = sources;
             _byVendor = sources.ToDictionary(s => s.Vendor);
             _leaseTtl = leaseTtl == default ? TimeSpan.FromSeconds(15) : leaseTtl;
             _gateHoldUntil = DateTime.UtcNow + GateHold;
+            _restored = new HashSet<string>(LoadWanted(_wantedFile), StringComparer.Ordinal);
             _state = new State(
                 Array.Empty<DetectedProject>(),
                 new Dictionary<string, bool>(),
@@ -78,7 +87,7 @@ namespace Volt.Cli.Connector
                 // connector that starts blank has no edge for anything it was serving before — and an auto-update
                 // restarts us mid-session. Field incident 2026-07-28: after an update a project sat `healthy` with
                 // every client closed, and nothing could ever gate it again. Restoring the set restores the edge.
-                LoadWanted(),
+                LoadWanted(_wantedFile),
                 Array.Empty<string>(),
                 AnyReachable: false);
         }
@@ -124,6 +133,7 @@ namespace Volt.Cli.Connector
             {
                 // Log the DECLARATION, not the poll: a client re-declares the same set every few seconds, so only a
                 // real change is worth a line. This is the "who asked for what" half of every connection question.
+                if (_restored.Count > 0) _restored = new HashSet<string>(StringComparer.Ordinal); // a client spoke
                 var now = Describe(interests);
                 if (!_state.Sessions.TryGetValue(sessionId, out var prior) || Describe(prior.Interests) != now)
                     Log.Info($"session {Short(sessionId)} declares {now}");
@@ -234,10 +244,14 @@ namespace Volt.Cli.Connector
             // gated out from under it. So hold unbinds during a short startup window: a client that re-declares
             // inside it keeps its project (no edge), and anything still unwanted when the window closes is gated for
             // real. Binds are never held — resuming a wanted project early is always safe.
-            if (plan.ToUnbind.Count > 0 && DateTime.UtcNow < _gateHoldUntil)
+            if (_restored.Count > 0 && DateTime.UtcNow < _gateHoldUntil)
             {
-                Log.Info($"reconcile: holding {plan.ToUnbind.Count} disconnect(s) — startup grace, waiting for clients to re-declare");
-                plan = plan with { ToUnbind = Array.Empty<DetectedProject>() };
+                var held = plan.ToUnbind.Where(p => _restored.Contains(p.Id)).ToList();
+                if (held.Count > 0)
+                {
+                    Log.Info($"reconcile: holding {held.Count} disconnect(s) — startup grace, waiting for clients to re-declare");
+                    plan = plan with { ToUnbind = plan.ToUnbind.Where(p => !_restored.Contains(p.Id)).ToList() };
+                }
             }
 
             if (plan.ToUnbind.Count > 0 || plan.ToBind.Count > 0)
@@ -263,7 +277,7 @@ namespace Volt.Cli.Connector
                         Log.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
-            if (!plan.Wanted.SequenceEqual(_state.Wanted)) SaveWanted(plan.Wanted); // so a restart inherits the edge
+            if (!plan.Wanted.SequenceEqual(_state.Wanted)) SaveWanted(_wantedFile, plan.Wanted); // so a restart inherits the edge
             _state = _state with { Wanted = plan.Wanted };
         }
 
@@ -316,27 +330,27 @@ namespace Volt.Cli.Connector
 
         // The desired set, across restarts. Tiny and best-effort: losing it costs one stranded bridge (the old
         // behaviour), never correctness, so it must never throw or block a reconcile.
-        private static string WantedFile =>
+        private static string DefaultWantedFile =>
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) is { Length: > 0 } d ? d : Path.GetTempPath(),
                 "Volt", "wanted.json");
 
-        private static IReadOnlyCollection<string> LoadWanted()
+        private static IReadOnlyCollection<string> LoadWanted(string file)
         {
             try
             {
-                if (!File.Exists(WantedFile)) return Array.Empty<string>();
-                return JsonSerializer.Deserialize<string[]>(File.ReadAllText(WantedFile)) ?? Array.Empty<string>();
+                if (!File.Exists(file)) return Array.Empty<string>();
+                return JsonSerializer.Deserialize<string[]>(File.ReadAllText(file)) ?? Array.Empty<string>();
             }
             catch { return Array.Empty<string>(); }
         }
 
-        private static void SaveWanted(IReadOnlyCollection<string> wanted)
+        private static void SaveWanted(string file, IReadOnlyCollection<string> wanted)
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(WantedFile)!);
-                File.WriteAllText(WantedFile, JsonSerializer.Serialize(wanted.ToArray()));
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                File.WriteAllText(file, JsonSerializer.Serialize(wanted.ToArray()));
             }
             catch (Exception e) { Log.Warn($"could not persist the desired set: {e.Message}"); }
         }

@@ -15,6 +15,11 @@ namespace Volt.Cli.Connector.Tests;
 /// </summary>
 public class ConnectionManagerSessionTests
 {
+        // Every manager gets its OWN desired-set file: these are unit tests, and reading the machine's real
+        // %LOCALAPPDATA%\Volt\wanted.json made two of them fail after a live run had written it.
+        private static string TempWanted() =>
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt-wanted-" + System.Guid.NewGuid().ToString("N") + ".json");
+
     private static Interest Want(DetectedProject p) => new(p.Vendor, p.DisplayName);
 
     [Fact]
@@ -22,7 +27,7 @@ public class ConnectionManagerSessionTests
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var a = cds.Add("A"); // idle
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
 
         await mgr.SyncAsync(sid, new[] { Want(a) });
@@ -35,7 +40,7 @@ public class ConnectionManagerSessionTests
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var a = cds.Add("A", serving: true); // a loaded host, already serving
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (s1, _) = await mgr.OpenSessionAsync();
         var (s2, _) = await mgr.OpenSessionAsync();
         await mgr.SyncAsync(s1, new[] { Want(a) });
@@ -53,7 +58,7 @@ public class ConnectionManagerSessionTests
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var a = cds.Add("A", serving: true);
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
         await mgr.SyncAsync(sid, new[] { Want(a) });
 
@@ -68,7 +73,7 @@ public class ConnectionManagerSessionTests
         var tc = new FakeProjectSource("twincat", "TwinCAT");
         var a = cds.Add("A");
         var b = tc.Add("B");
-        var mgr = new ConnectionManager(new IProjectSource[] { cds, tc });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds, tc }, wantedFile: TempWanted());
         var (s1, _) = await mgr.OpenSessionAsync();
         var (s2, _) = await mgr.OpenSessionAsync();
 
@@ -86,7 +91,7 @@ public class ConnectionManagerSessionTests
         // state — the loop never gates it.
         var cds = new FakeProjectSource("codesys", "CODESYS");
         cds.Add("A", serving: true);
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
 
         await mgr.SyncAsync(sid, Array.Empty<Interest>());
@@ -101,7 +106,7 @@ public class ConnectionManagerSessionTests
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var a = cds.Add("A", serving: true);
         var b = cds.Add("B", serving: true);
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
         await mgr.SyncAsync(sid, new[] { Want(a), Want(b) });
 
@@ -119,7 +124,7 @@ public class ConnectionManagerSessionTests
     {
         var cds = new FakeProjectSource("codesys", "CODESYS");
         var a = cds.Add("A", serving: true);
-        var mgr = new ConnectionManager(new IProjectSource[] { cds });
+        var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
         await mgr.SyncAsync(sid, new[] { Want(a) });
 
