@@ -1,81 +1,50 @@
 import { expect, test } from "bun:test"
-import { bindingAction, classifySignal, parseRequest } from "./binding.js"
+import { bindingAction, classifyRoute } from "./binding.js"
 
-const exists = () => true // opencode always sends real, existing project paths in these cases
+const exists = () => true // the route's directory really is there
+// The live route captured from opencode 1.18.3: `/<base64url(dir)>/session/<id>`.
+const PROJ = "C:\\Users\\marce\\Documents\\Pro2193-94-95-96_COdesys"
+const SEG = Buffer.from(PROJ, "utf8").toString("base64url")
 
-// Both encodings, split by HTTP METHOD — read out of the installed opencode's own client transform (1.18.3): it
-// early-returns for anything that isn't GET/HEAD, and only on GET/HEAD moves the header into the query and deletes
-// it. Read one encoding and you lose the other half of the traffic; these two pin that.
-test("parseRequest: a GET carries ?directory= (the client rewrote its header into the query)", () => {
-  const r = parseRequest("http://127.0.0.1:4096/session?directory=C%3A%5CUsers%5Cme%5CMyMachine", {})
-  expect(r).toEqual({ pathname: "/session", dir: "C:\\Users\\me\\MyMachine" })
+test("classifyRoute: a project page names its own directory (base64url first segment)", () => {
+  expect(classifyRoute(`/${SEG}`, exists)).toEqual({ kind: "dir", dir: PROJ })
+  expect(classifyRoute(`/${SEG}/session/ses_060aa62fdffeIXZeTjyXQgmV90`, exists)).toEqual({ kind: "dir", dir: PROJ })
 })
 
-test("parseRequest: a POST carries the x-opencode-directory header and NO query — chat traffic is all POST", () => {
-  const r = parseRequest("http://127.0.0.1:4096/session/abc/message", {
-    "x-opencode-directory": "C%3A%5CUsers%5Cme%5CMyMachine",
-  })
-  expect(r).toEqual({ pathname: "/session/abc/message", dir: "C:\\Users\\me\\MyMachine" })
+test("classifyRoute: `/` is home — the release signal", () => {
+  expect(classifyRoute("/", exists)).toEqual({ kind: "none" })
+  expect(classifyRoute("", exists)).toEqual({ kind: "none" })
 })
 
-test("parseRequest: no directory anywhere (assets, registry endpoints) reports none", () => {
-  expect(parseRequest("http://127.0.0.1:4096/global/config", {})).toEqual({ pathname: "/global/config", dir: undefined })
+// Anything we don't recognise must HOLD the binding, never guess it away: an unknown route (a settings page, or a
+// scheme change in a future opencode) silently unbinding a working workspace would be worse than doing nothing.
+test("classifyRoute: an unrecognised route tells us nothing (hold, don't unbind)", () => {
+  expect(classifyRoute("/settings", exists)).toBeUndefined() // decodes to mojibake, not a path
+  expect(classifyRoute("/new-session", exists)).toBeUndefined()
 })
 
-test("classifySignal: opencode's /global/ path prefix is the home/global (no-project) signal", () => {
-  expect(classifySignal("/global/event", undefined, exists)).toEqual({ kind: "none" })
-  expect(classifySignal("/global/config", undefined, exists)).toEqual({ kind: "none" })
+test("classifyRoute: a segment that decodes to a non-existent directory is ignored", () => {
+  expect(classifyRoute(`/${Buffer.from("C:\\nope", "utf8").toString("base64url")}`, () => false)).toBeUndefined()
 })
 
-test("classifySignal: a real project directory binds (however parseRequest found it — query or header)", () => {
-  expect(classifySignal("/session", "C:\\Users\\me\\MyMachine", exists)).toEqual({ kind: "dir", dir: "C:\\Users\\me\\MyMachine" })
-})
-
-test("classifySignal: a directory that is a filesystem root is opencode's global worktree → none", () => {
-  expect(classifySignal("/config", "/", exists)).toEqual({ kind: "none" })
-  expect(classifySignal("/config", "C:\\", exists)).toEqual({ kind: "none" })
-})
-
-test("classifySignal: no directory and no /global/ prefix tells us nothing (registry endpoints, assets)", () => {
-  expect(classifySignal("/project", undefined, exists)).toBeUndefined()
-  expect(classifySignal("/provider", undefined, exists)).toBeUndefined()
-})
-
-test("classifySignal: a directory that doesn't exist is ignored, not bound", () => {
-  expect(classifySignal("/session", "C:\\nope", () => false)).toBeUndefined()
+// opencode's `global` worktree is "/" — a route naming a filesystem root is not a project.
+test("classifyRoute: a filesystem root is the global worktree, not a project", () => {
+  expect(classifyRoute(`/${Buffer.from("/", "utf8").toString("base64url")}`, exists)).toBeUndefined()
+  expect(classifyRoute(`/${Buffer.from("C:\\", "utf8").toString("base64url")}`, exists)).toBeUndefined()
 })
 
 // Exact compare — the canonical (resolve + case-fold) compare is the caller's; here we test the decision logic.
 const same = (a?: string, b?: string): boolean => a === b
 
-// The bug this exists to prevent, seen live: sitting on opencode's HOME page, its client still stamped the LAST
-// project's directory on /mcp, /lsp, /config, /project/current… Sticky binding took it, binding auto-connects, and
-// the connector ended up SERVING a project the user had never opened. The route decides whether a project is open;
-// the request stream only says which one.
-test("bindingAction: on the home route a project directory NEVER binds", () => {
-  const sig = { kind: "dir", dir: "C:\\proj" } as const
-  expect(bindingAction(undefined, sig, same, true)).toEqual({ kind: "noop" })
-  expect(bindingAction("C:\\other", sig, same, true)).toEqual({ kind: "unbind" }) // leaving a project releases it
-  expect(bindingAction(undefined, sig, same, false)).toEqual({ kind: "bind", dir: "C:\\proj" }) // in a project: binds
+test("bindingAction: binds a new project, holds the same one, releases on home", () => {
+  expect(bindingAction(undefined, { kind: "dir", dir: "C:\\a" }, same)).toEqual({ kind: "bind", dir: "C:\\a" })
+  expect(bindingAction("C:\\a", { kind: "dir", dir: "C:\\a" }, same)).toEqual({ kind: "noop" })
+  expect(bindingAction("C:\\a", { kind: "dir", dir: "C:\\b" }, same)).toEqual({ kind: "bind", dir: "C:\\b" })
+  expect(bindingAction("C:\\a", { kind: "none" }, same)).toEqual({ kind: "unbind" })
+  expect(bindingAction(undefined, { kind: "none" }, same)).toEqual({ kind: "noop" })
 })
 
-test("unknown holds — never binds or unbinds (cold start must not touch the binding)", () => {
-  expect(bindingAction(undefined, { kind: "unknown" }, same).kind).toBe("noop")
-  expect(bindingAction("/proj", { kind: "unknown" }, same).kind).toBe("noop")
-})
-
-test("dir binds on a new project, holds on the same one (this is the late-bind fix — any dir, not just chat)", () => {
-  expect(bindingAction(undefined, { kind: "dir", dir: "/proj" }, same)).toEqual({ kind: "bind", dir: "/proj" })
-  expect(bindingAction("/old", { kind: "dir", dir: "/proj" }, same)).toEqual({ kind: "bind", dir: "/proj" })
-  expect(bindingAction("/proj", { kind: "dir", dir: "/proj" }, same).kind).toBe("noop")
-})
-
-test("none releases only when bound (the sticky-bind fix), noop otherwise", () => {
-  expect(bindingAction("/proj", { kind: "none" }, same).kind).toBe("unbind")
-  expect(bindingAction(undefined, { kind: "none" }, same).kind).toBe("noop")
-})
-
-test("dir equality is delegated to same() — a case-only difference on Windows must not re-bind", () => {
-  const ci = (a?: string, b?: string): boolean => (a ?? "").toLowerCase() === (b ?? "").toLowerCase()
-  expect(bindingAction("C:\\Proj", { kind: "dir", dir: "c:\\proj" }, ci).kind).toBe("noop")
+test("bindingAction: the cold-start unknown never touches the binding", () => {
+  expect(bindingAction(undefined, { kind: "unknown" }, same)).toEqual({ kind: "noop" })
+  expect(bindingAction("C:\\a", { kind: "unknown" }, same)).toEqual({ kind: "noop" })
 })

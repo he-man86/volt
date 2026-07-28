@@ -1,84 +1,64 @@
-// The workspace-binding lifecycle, distilled to a pure decision. opencode's server has NO queryable "current
-// project" (verified — see openspec/changes/desktop-connection-flow/observations.md); the ONLY signal is the
-// directory it stamps on its requests. main.ts turns that request stream into an ActiveProject and feeds it here;
-// this file just decides bind/unbind/hold. Pure (no electron, no fs) so the lifecycle is unit-tested directly.
+// The workspace-binding lifecycle, distilled to a pure decision. The signal is opencode's GUI ROUTE: its project
+// pages are `/<base64url(project directory)>/…`, so the page the user is looking at names its own directory —
+// verified live (`/QzpcVXNlcnNcbWFyY2VcRG9jdW1lbnRzXFBybzIxOTMtOTQtOTUtOTZfQ09kZXN5cw/session/ses_060a…` decodes to
+// `C:\Users\marce\Documents\Pro2193-94-95-96_COdesys`). main.ts feeds this file the view's URL on every navigation
+// and applies what it returns. Pure (no electron, no fs) so the lifecycle is unit-tested directly.
+//
+// This REPLACED a sniff of opencode's HTTP request stream (an `x-opencode-directory` header / `?directory=` query on
+// the requests its GUI happened to make). That was indirect and wrong in both directions: the client is constructed
+// WITH a directory and keeps stamping it on the home page (so Volt bound — and auto-connected — a project the user
+// had never opened), while a project with no session yet emits nothing but `/global/health` (so opening a project
+// bound NOTHING until you sent a chat message). The route has neither failure: it changes exactly when the user
+// navigates, which is exactly when the binding should change.
 
-/** opencode's active project, as classified from its request stream (main.ts `watchActiveProject` → `classifySignal`):
- *  - `dir`     — the GUI is scoped to a real project directory.
- *  - `none`    — the GUI is on opencode's `global`/home scope, i.e. no project selected.
- *  - `unknown` — the initial state, before any signal has arrived (cold start). */
+/** opencode's active project, as classified from its GUI route:
+ *  - `dir`     — the GUI is on a project page, and this is that project's directory.
+ *  - `none`    — the GUI is on its home route, i.e. no project selected.
+ *  - `unknown` — the initial state, before any navigation (cold start). */
 export type ActiveProject = { kind: "dir"; dir: string } | { kind: "none" } | { kind: "unknown" }
 
 // Is `dir` a filesystem root? opencode's `global` worktree is "/". Deliberately a platform-INDEPENDENT string check,
 // NOT node:path — `path.resolve()` is platform-dependent, so it would misclassify a Windows drive-root ("C:\") when
-// these unit tests run on Linux CI. opencode only ever sends "/" here; the drive-root/UNC cases are cheap insurance.
+// these unit tests run on Linux CI.
 const isRootDir = (dir: string): boolean => dir === "/" || dir === "\\" || /^[A-Za-z]:[\\/]?$/.test(dir)
 
-/** Pull the two things the binding cares about out of one request: its `pathname` (opencode's home scope is a
- *  `/global/` path prefix) and the opencode-scoped `directory`.
- *
- *  BOTH carriers are load-bearing, and the HTTP METHOD decides which one you get. Read live out of the client
- *  bundle opencode 1.18.3 serves (`/assets/index-*.js`, the exact code our WebContentsView runs):
- *    - at construction the client stamps `x-opencode-directory: encodeURIComponent(dir)` on EVERY request;
- *    - its interceptor early-returns for anything that is not GET/HEAD — so POST/PUT/DELETE (chat sends, session
- *      ops: most traffic while the agent is in use) keep the header and get no query;
- *    - on GET/HEAD it moves the value into `?directory=` and DELETES the header. The moved value is the PLAINTEXT
- *      path: the helper compares the header against the known directory (raw or encodeURIComponent'd) and, on a
- *      match, emits the plain one.
- *  The two are mutually exclusive per request, so the order below is a formality; the header is read first because
- *  it is the client's own construction-time value, while the query is a transform of it. Reading only one carrier
- *  silently halves the signal — that is what deleting the header branch did.
- *
- *  This is CI-checked, not folklore: `verify-opencode.ts`'s wire check (`bun run compat`) spawns a live
- *  `opencode serve`, fetches the bundle it serves, and fails if either the header or that method split is gone.
- *  To watch it live instead, run the desktop with VOLT_BIND_DEBUG=1 — every request logs dir + classification. */
-export function parseRequest(url: string, headers: Record<string, string>): { pathname: string; dir: string | undefined } {
-  let pathname = ""
+/** Decode one base64url path segment, or undefined if it isn't valid base64url text. */
+function decodeSegment(seg: string): string | undefined {
+  if (!/^[A-Za-z0-9_-]+=*$/.test(seg)) return undefined
   try {
-    pathname = new URL(url).pathname
-  } catch { /* not a URL */ }
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() === "x-opencode-directory" && typeof v === "string" && v.length > 0) {
-      try { return { pathname, dir: decodeURIComponent(v) } } catch { return { pathname, dir: v } }
-    }
-  }
-  try {
-    return { pathname, dir: new URL(url).searchParams.get("directory") ?? undefined } // searchParams already decodes
+    const text = Buffer.from(seg.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")
+    // A wrong guess decodes to mojibake, not a path. Require it to look like one and to round-trip.
+    return text.length > 0 && !text.includes("\uFFFD") ? text : undefined
   } catch {
-    return { pathname, dir: undefined }
+    return undefined
   }
 }
 
-/** Classify one request's (pathname, directory) into an active-project signal. Pure — the fs check is injected.
- *  VERIFIED against the live opencode client (openspec/changes/desktop-connection-flow/observations.md):
- *   - opencode's HOME / no-project screen is a `/global/` PATH PREFIX (no directory) → `none`.
- *   - a real project rides as `?directory=<path>` (the client deletes the header and re-emits it as this query),
- *     resolving to a real dir → `dir`. A directory that is a filesystem root is the `global` worktree → `none`.
- *   - anything else (no directory, non-`/global/` path — registry endpoints, assets) tells us nothing → undefined. */
-export function classifySignal(pathname: string, dir: string | undefined, exists: (d: string) => boolean): ActiveProject | undefined {
-  if (pathname.startsWith("/global/")) return { kind: "none" }
-  if (dir === undefined) return undefined
-  if (isRootDir(dir)) return { kind: "none" }
-  if (!exists(dir)) return undefined
+/** Classify one GUI URL's pathname into an active-project signal. Pure — the directory check is injected.
+ *
+ *  Three cases, and only two of them are positive:
+ *   - `/`                          → `none`. The home route: no project open. THE release signal.
+ *   - `/<base64url(dir)>/…`        → `dir`, when it decodes to a directory that exists. Covers every project page
+ *                                    (`/<dir>`, `/<dir>/session/<id>`, drafts) — the prefix is what matters.
+ *   - anything else                → `undefined`: tells us nothing, so HOLD the current binding rather than guess.
+ *     An unrecognised route (a settings page, a scheme change) must not silently unbind a working workspace. */
+export function classifyRoute(pathname: string, exists: (d: string) => boolean): ActiveProject | undefined {
+  const first = pathname.split("/").filter(Boolean)[0]
+  if (first === undefined) return { kind: "none" } // "/" — opencode's home
+  const dir = decodeSegment(first)
+  if (dir === undefined || isRootDir(dir) || !exists(dir)) return undefined
   return { kind: "dir", dir }
 }
 
-/** What the desktop should do given its current bound root and opencode's active-project signal. The debounce of
- *  `none` and the canonical dir comparison (`same`) are the caller's job (main.ts) — this stays pure. */
+/** What the desktop should do given its current bound root and opencode's active-project signal. The canonical dir
+ *  comparison (`same`) is the caller's job (main.ts) — this stays pure. */
 export type BindAction = { kind: "bind"; dir: string } | { kind: "unbind" } | { kind: "noop" }
 
 export function bindingAction(
   boundRoot: string | undefined,
   signal: ActiveProject,
   same: (a: string | undefined, b: string | undefined) => boolean,
-  onHomeRoute = false,
 ): BindAction {
-  // The GUI's ROUTE outranks the request stream. opencode's client is constructed WITH a directory and stamps it on
-  // every request it makes, so on the home page it still emits `/mcp`, `/lsp`, `/config`, `/project/current`… all
-  // naming the LAST project (verified live with VOLT_BIND_DEBUG=1). Sticky binding let that stale project win, and
-  // because binding auto-connects, Volt made the connector SERVE a project the user had not opened. The request
-  // stream answers WHICH project only once the route says a project is open at all.
-  if (onHomeRoute) return boundRoot === undefined ? { kind: "noop" } : { kind: "unbind" }
   switch (signal.kind) {
     case "unknown":
       return { kind: "noop" } // haven't learned opencode's state yet — hold, don't touch the binding

@@ -18,7 +18,7 @@ import {
 } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
 import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
-import { bindingAction, classifySignal, parseRequest, type ActiveProject } from "./binding.js"
+import { bindingAction, classifyRoute, type ActiveProject } from "./binding.js"
 import { registerCommands } from "./commands.js"
 import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
@@ -66,10 +66,10 @@ const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined
 // what does the home/project-list screen actually emit?). Off unless VOLT_BIND_DEBUG is set.
 const BIND_DEBUG = !!process.env.VOLT_BIND_DEBUG
 
-// Startup canary grace period. opencode's GUI makes scoped requests immediately on load (its home screen alone emits
-// several `/global/*` calls within ~1s), so if we've classified NOTHING after this long while opencode IS loaded, our
-// request-sniff has almost certainly broken — opencode changed its GUI↔server wire on a release. We surface that
-// instead of sitting silently on "Connecting…". Purely observational: it reads our own flag, never opencode.
+// Startup canary grace period. Loading the GUI fires a navigation immediately, so if we have classified NO route by
+// now while opencode IS loaded, its route scheme has almost certainly moved (its project pages are
+// `/<base64url(dir)>/…` — see binding.ts). We surface that instead of sitting silently on "Connecting…". Purely
+// observational: it reads our own flag, never opencode.
 const BIND_CANARY_MS = 20_000
 
 function layoutView() {
@@ -106,57 +106,33 @@ function sameDir(a: string | undefined, b: string | undefined): boolean {
   return norm(a) === norm(b)
 }
 
-// Is opencode's GUI on its home route right now? THE authority on whether a project is open, and a hard gate on
-// binding — see onActiveSignal. Starts true: the view's first load IS the home route.
-let onHomeRoute = true
-
-// Feed a signal through the pure reducer and act. Binding is STICKY on the request stream: a real project directory
-// binds (or rebinds to a different project), and a `none` (opencode's `global` scope) NEVER releases here — opencode
-// reports `global` for both its home screen and a project's new-session draft (verified live), so releasing on it
-// would unbind every time you open a draft. `none` only clears the cold-start "Connecting…" so the create surface can
-// show. Release happens in ONE place — `watchHomeNavigation`, off the GUI's actual home URL, which can tell home from
-// a draft when the request stream can't.
+// Apply one route signal through the pure reducer. The GUI's route IS the active project (binding.ts explains the
+// encoding and why this replaced the request sniff), so a navigation is the ONLY thing that moves the binding.
 function onActiveSignal(sig: ActiveProject): void {
   const wasAwaiting = shell.awaitingOpencode
-  shell.awaitingOpencode = false // any signal means opencode is up (clears the cold-start "Connecting…")
-  shell.bindStale = false // a signal arrived → the sniff works; retract any canary warning
-  // The route gates the bind — see bindingAction (it holds the reasoning and the tests).
-  const action = bindingAction(shell.boundRoot, sig, sameDir, onHomeRoute)
+  shell.awaitingOpencode = false // a classified route means opencode is up (clears the cold-start "Connecting…")
+  shell.bindStale = false // we read its route → retract any canary warning
+  const action = bindingAction(shell.boundRoot, sig, sameDir)
   if (action.kind === "bind") return void bindWorkspace(shell, action.dir) // pushes
   if (action.kind === "unbind") return unbindWorkspace(shell) // pushes
-  // A `none` (opencode global/home) or a same-project `dir`: nothing to (re)bind, and we never release. Push only if
-  // this signal just cleared the cold-start state, so "Connecting…" flips to the bound / create-a-workspace view.
+  // Same project, or home while already unbound: nothing to do. Push only if this just cleared the cold-start state,
+  // so "Connecting…" flips to the bound / create-a-workspace view.
   if (wasAwaiting) pushStatus(shell)
 }
 
-// Every opencode GUI request reveals its active project. The pure classifier (binding.ts::classifySignal) turns the
-// request's pathname + directory into a signal (`dir` for a real project, `none` for opencode's `global`/home scope).
-// See the openspec observations for the verified wire facts.
-// Release the binding when opencode's GUI is on its genuine HOME route. Binding is otherwise STICKY — the request
-// sniff can't distinguish opencode's home from a project's new-session draft (it reports the `global` scope for
-// both), so on the real homepage the panel would keep showing a stale project. The GUI's URL CAN tell them apart:
-// `/` is home, `/new-session`/scoped is a project. So this is the one release signal — a stable, documented one (the
-// view's own URL), not the fragile wire. Covers SPA client-side nav (did-navigate-in-page) + full loads.
-function watchHomeNavigation() {
+// The GUI's URL names the project: opencode's project pages are `/<base64url(directory)>/…` and its home is `/`.
+// Covers SPA client-side nav (did-navigate-in-page) and full loads. An unrecognised route classifies as undefined
+// and is ignored, so nothing unbinds on a route we don't know.
+function watchActiveProject() {
   const onNav = (url: string): void => {
     let pathname = "/"
     try { pathname = new URL(url).pathname } catch { /* not a URL */ }
-    onHomeRoute = pathname === "/"
-    if (BIND_DEBUG) console.log(`[bind] nav ${pathname} → ${onHomeRoute ? "HOME (binding gated)" : "in a project (binding allowed)"}`)
-    if (onHomeRoute) unbindWorkspace(shell) // the true homepage → drop the sticky binding (no stale project)
+    const sig = classifyRoute(pathname, existsSync)
+    if (BIND_DEBUG) console.log(`[bind] nav ${pathname} → ${sig === undefined ? "ignored" : sig.kind === "dir" ? `project ${sig.dir}` : "home"}`)
+    if (sig !== undefined) onActiveSignal(sig)
   }
   shell.view!.webContents.on("did-navigate-in-page", (_e, url) => onNav(url))
   shell.view!.webContents.on("did-navigate", (_e, url) => onNav(url))
-}
-
-function watchActiveProject() {
-  shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-    const { pathname, dir } = parseRequest(details.url, details.requestHeaders)
-    const sig = classifySignal(pathname, dir, existsSync)
-    if (BIND_DEBUG) console.log(`[bind] ${details.method} ${pathname || details.url} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
-    if (sig !== undefined) onActiveSignal(sig)
-    cb({ requestHeaders: details.requestHeaders })
-  })
 }
 
 async function startWorkspace() {
@@ -234,8 +210,7 @@ app.whenReady().then(async () => {
   shell.view.webContents.setWindowOpenHandler(({ url }) => (electronShell.openExternal(url), { action: "deny" }))
 
   configureTools()
-  watchActiveProject() // bind to whatever project opencode's GUI is on
-  watchHomeNavigation() // …and release when it goes to its home route (the one place sticky binding lets go)
+  watchActiveProject() // the binding follows opencode's GUI route: a project page binds it, home releases it
   void startWorkspace()
 
   // The detected-project list rides the connector feed's ONE clock (no second timer here — this used to poll every
@@ -250,10 +225,10 @@ app.whenReady().then(async () => {
   // make the silent failure visible in the panel + logs. This never affects binding; it only reports.
   if (agentUp) {
     setTimeout(() => {
-      if (!shell.awaitingOpencode) return // a signal arrived — the sniff works
+      if (!shell.awaitingOpencode) return // a route was classified — the binding works
       shell.bindStale = true
       console.warn(
-        `[volt] opencode loaded but no active-project signal was seen in ${BIND_CANARY_MS / 1000}s — the binding may be out of date with this opencode version. Run with VOLT_BIND_DEBUG=1 to inspect.`,
+        `[volt] opencode loaded but no route was classified in ${BIND_CANARY_MS / 1000}s — its route scheme may have changed in this opencode version. Run with VOLT_BIND_DEBUG=1 to inspect.`,
       )
       pushStatus(shell)
     }, BIND_CANARY_MS)

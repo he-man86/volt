@@ -96,6 +96,7 @@ namespace Volt.Cli.Connector
             await _gate.WaitAsync().ConfigureAwait(false);
             try { UpsertSession(id, Array.Empty<Interest>()); }
             finally { _gate.Release(); }
+            Log.Info($"session {Short(id)} opened (a client connected; lease {_leaseTtl.TotalSeconds:0}s)");
             return (id, _leaseTtl.TotalSeconds);
         }
 
@@ -107,11 +108,21 @@ namespace Volt.Cli.Connector
             await _gate.WaitAsync().ConfigureAwait(false);
             try
             {
+                // Log the DECLARATION, not the poll: a client re-declares the same set every few seconds, so only a
+                // real change is worth a line. This is the "who asked for what" half of every connection question.
+                var now = Describe(interests);
+                if (!_state.Sessions.TryGetValue(sessionId, out var prior) || Describe(prior.Interests) != now)
+                    Log.Info($"session {Short(sessionId)} declares {now}");
                 UpsertSession(sessionId, interests);
                 await CycleCoreAsync().ConfigureAwait(false);
             }
             finally { _gate.Release(); }
         }
+
+        private static string Short(string sessionId) => sessionId.Length <= 8 ? sessionId : sessionId.Substring(0, 8);
+
+        private static string Describe(IReadOnlyCollection<Interest> interests) =>
+            interests.Count == 0 ? "no projects" : string.Join(", ", interests.Select(i => $"{i.Vendor}/{i.ProjectName}"));
 
         /// <summary>Drop a session immediately (clean shutdown) — its interests leave <c>desired</c> at once rather
         /// than after the lease TTL.</summary>
@@ -123,6 +134,7 @@ namespace Volt.Cli.Connector
                 var s = _state;
                 if (s.Sessions.ContainsKey(sessionId))
                 {
+                    Log.Info($"session {Short(sessionId)} closed (client shut down cleanly)");
                     var next = new Dictionary<string, Session>(s.Sessions);
                     next.Remove(sessionId);
                     _state = s with { Sessions = next };
@@ -205,9 +217,25 @@ namespace Volt.Cli.Connector
 
             if (plan.ToUnbind.Count > 0 || plan.ToBind.Count > 0)
             {
+                // The decision, before it is applied — so a log read after the fact says what the connector INTENDED,
+                // and the serving-transition lines below say what actually came of it.
+                if (plan.ToBind.Count > 0) Log.Info($"reconcile: connecting {string.Join(", ", plan.ToBind.Select(p => p.Id))}");
+                if (plan.ToUnbind.Count > 0) Log.Info($"reconcile: disconnecting {string.Join(", ", plan.ToUnbind.Select(p => p.Id))} (no live session wants it)");
                 foreach (var p in plan.ToUnbind) await SafeUnbindAsync(p).ConfigureAwait(false);
                 foreach (var p in plan.ToBind) await SafeBindAsync(p).ConfigureAwait(false);
+
+                var before = s.Serving;
                 await ScanIntoStateAsync().ConfigureAwait(false); // reflect what the bridges now serve
+                // What actually changed, per project. A plan that did NOT take effect is the interesting case (a
+                // bridge that refused to gate stays serving with nobody wanting it), and it was invisible before.
+                foreach (var kv in _state.Serving)
+                {
+                    before.TryGetValue(kv.Key, out var was);
+                    if (was != kv.Value) Log.Info($"{kv.Key} is now {(kv.Value ? "SERVING" : "gated")}");
+                }
+                foreach (var p in plan.ToUnbind)
+                    if (_state.Serving.TryGetValue(p.Id, out var still) && still)
+                        Log.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
             _state = _state with { Wanted = plan.Wanted };
@@ -244,16 +272,20 @@ namespace Volt.Cli.Connector
             _lastRefreshUtc = DateTime.UtcNow;
         }
 
+        // Bind/unbind stay best-effort, but a swallowed failure is now VISIBLE: silently eating them is what let a
+        // bridge sit "connected" that no client had asked for, with nothing anywhere saying why.
         private async Task SafeBindAsync(DetectedProject p)
         {
             if (_byVendor.TryGetValue(p.Vendor, out var src))
-                try { await src.BindAsync(p).ConfigureAwait(false); } catch { /* best-effort; retried next cycle */ }
+                try { await src.BindAsync(p).ConfigureAwait(false); }
+                catch (Exception e) { Log.Warn($"connect {p.Id} failed: {e.Message} (retried next cycle)"); }
         }
 
         private async Task SafeUnbindAsync(DetectedProject p)
         {
             if (_byVendor.TryGetValue(p.Vendor, out var src))
-                try { await src.UnbindAsync(p).ConfigureAwait(false); } catch { /* best-effort; retried next cycle */ }
+                try { await src.UnbindAsync(p).ConfigureAwait(false); }
+                catch (Exception e) { Log.Warn($"disconnect {p.Id} failed: {e.Message}"); }
         }
 
         /// <summary>Drop sessions whose lease has lapsed (crash / lost connector). Reconcile ignores expired sessions
@@ -263,6 +295,10 @@ namespace Volt.Cli.Connector
             var s = _state;
             var now = DateTime.UtcNow;
             if (!s.Sessions.Values.Any(v => v.ExpiresAt <= now)) return;
+            // A lapsed lease is a client that died without closing (crash, kill, machine sleep) — the difference
+            // between "the app shut down" and "the app vanished" is exactly what a support log needs to show.
+            foreach (var kv in s.Sessions.Where(kv => kv.Value.ExpiresAt <= now))
+                Log.Info($"session {Short(kv.Key)} lease lapsed after {(now - kv.Value.ExpiresAt + _leaseTtl).TotalSeconds:0}s — client gone without closing ({Describe(kv.Value.Interests)})");
             var next = s.Sessions.Where(kv => kv.Value.ExpiresAt > now).ToDictionary(kv => kv.Key, kv => kv.Value);
             _state = s with { Sessions = next };
         }
