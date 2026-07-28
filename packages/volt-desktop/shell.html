@@ -148,6 +148,10 @@
   .btn.primary:hover { background: var(--accent-hi); }
   .btn.primary .bolt { color: var(--on-accent); }
   .btn:disabled { opacity: .38; pointer-events: none; } /* in-flight (spinner) or no live IDE — visible but inert */
+  /* The panel's primary action (create a workspace / reconnect) — sized up so it reads as the thing to do, not a
+     list item. Secondary actions (rebind alternates) stay at the default size outside `.cta`. */
+  .cta .grp { font-size: 13px; color: var(--text); padding-top: 12px; }
+  .cta .btn { padding: 12px 14px; font-size: 13.5px; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -249,7 +253,8 @@
       : p.action === "rebind"
         ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
         : "Creates the git workspace and pulls the project's code — the IDE is not modified."
-    return btn(key, "btn", click, `<svg class="bolt"><use href="#bolt"/></svg>`, label, title)
+    // init/connect are the primary move on their screen (accent fill); rebind stays quiet — it's a correction.
+    return btn(key, p.action === "rebind" ? "btn" : "btn primary", click, `<svg class="bolt"><use href="#bolt"/></svg>`, label, title)
   }
   const projectList = (projects) => `<div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
   // The two connection surfaces. The GROUPING is @volt/control's (snapshot passes s.surface already partitioned +
@@ -257,16 +262,20 @@
   // which project is primary. CREATE (unbound folder): the outcome is named up front so "pick a project" reads as
   // "make a new workspace". RECONNECT (bound, offline): the matching project first, others demoted to rebind.
   const createSurface = (surface) =>
-    `<div class="grp">Create a Volt workspace</div>` +
+    `<div class="cta"><div class="grp">Create a Volt workspace</div>` +
     `<div class="note">Pick the open IDE project to create a new synced folder + git repo from — your IDE isn't modified.</div>` +
-    projectList(surface.create)
+    projectList(surface.create) + `</div>`
+  // Same shape as createSurface — one named heading, one prominent CTA — so the in-project screen reads like the
+  // home one. `.cta` sizes up the primary action only; the rebind alternates stay quiet below it.
   const reconnectSurface = (surface) => {
     if (!surface.primary.length)
       // This workspace's own project isn't open — only others are, offered as rebind targets.
       return `<div class="grp">Bind to a different project</div>` +
         `<div class="note">This workspace's project isn't detected. Open it in the IDE to reconnect, or bind to one of these instead.</div>` +
         projectList(surface.alternates)
-    return `<div class="grp">Reconnect</div>` + projectList(surface.primary) +
+    return `<div class="cta"><div class="grp">Reconnect</div>` +
+      `<div class="note">Resume syncing with this project — your IDE isn't modified.</div>` +
+      projectList(surface.primary) + `</div>` +
       (surface.alternates.length ? `<div class="grp">Bind to a different project instead</div>` + projectList(surface.alternates) : "")
   }
 
@@ -333,12 +342,10 @@
       : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`
     let bridgeBody
     if (!s.bound) bridgeBody = emptyStateBody()
-    else if (!s.initialized) {
-      // A folder is open but it isn't a Volt workspace yet — show the folder name (the only identity we have) above the
-      // same create/onboarding body as the unbound state.
-      const folderRow = `<div class="row"><svg class="ico ico--muted"><use href="#i-folder"/></svg><span class="path" style="flex:1" title="${esc(s.workspaceRoot || "")}">${esc(base(s.workspaceRoot || "") || "—")}</span></div>`
-      bridgeBody = folderRow + (busy ? "" : emptyStateBody())
-    } else {
+    // Bound to a folder that isn't a Volt workspace yet: same create/onboarding body as unbound. No folder row — the
+    // open folder isn't the subject here (nothing acts on it), and it pushed the actual CTA down the panel.
+    else if (!s.initialized) bridgeBody = busy ? "" : emptyStateBody()
+    else {
       // Bound Volt workspace — ONE identity: the project name (canonical, what the IDE shows), a health dot, and the
       // connection caption; the workspace folder path lives in the tooltip. A reconcile hint shows ONLY if the folder
       // name diverged from the project (a rename + rebind) — otherwise one name (init names the folder after the project).

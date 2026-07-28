@@ -73,17 +73,15 @@ export function killServer(): void {
   }
 }
 
-/** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. Returns the
- *  server's base URL (so the shell can drive opencode — e.g. open a freshly-created workspace in it), or undefined
- *  when opencode isn't available. */
-export async function launchAgent(view: WebContentsView): Promise<string | undefined> {
+/** Start the opencode server and show its GUI in the view; on failure, show the install banner instead. Returns
+ *  whether opencode actually launched — the only thing the shell needs (Volt never drives opencode's GUI). */
+export async function launchAgent(view: WebContentsView): Promise<boolean> {
   try {
-    const url = await startServer()
-    await view.webContents.loadURL(url)
-    return url
+    await view.webContents.loadURL(await startServer())
+    return true
   } catch (err) {
     await agentBanner(view, { error: (err as Error).message })
-    return undefined
+    return false
   }
 }
 

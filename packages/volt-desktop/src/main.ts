@@ -2,7 +2,7 @@
 // panel, see shell.html); opencode renders as the inner content pane in a WebContentsView. This file owns the
 // window and lifecycle; the concern-split siblings mirror the extension: `agent` (opencode), `panel` (the
 // IDE-sync data feed), `commands` (pull/push/init). The active workspace follows the project opencode's GUI
-// is on (sniffed from its x-opencode-directory header), like VS Code binding to its open folder.
+// is on (its `?directory=` request scope + its own URL), like VS Code binding to its open folder.
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
@@ -51,7 +51,7 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, opencodeUrl: undefined, status: null, boundRoot: undefined, awaitingOpencode: true, bindStale: false, panelOpen: false, projects: [], connectorUp: false }
+const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, awaitingOpencode: true, bindStale: false, panelOpen: false, projects: [], connectorUp: false }
 
 // Log every request's directory + classification so opencode's real timeline is observable (openspec task 1.1:
 // what does the home/project-list screen actually emit?). Off unless VOLT_BIND_DEBUG is set.
@@ -87,25 +87,16 @@ function configureTools() {
   }
 }
 
-/** Parse one request into the two things the binding cares about: its `pathname` (opencode's home scope is a
- *  `/global/` path prefix) and the opencode-scoped `directory`. The GUI announces the directory as a `?directory=`
- *  query — it DELETES the `x-opencode-directory` header and re-emits it as this query (verified against the live
- *  client) — but we still honor the header first for older clients. Parses the URL ONCE, so the hot
- *  `onBeforeSendHeaders` path (and the debug log) don't re-parse it. */
-function parseRequest(details: { url: string; requestHeaders: Record<string, string> }): { pathname: string; dir: string | undefined } {
-  let pathname = ""
-  let queryDir: string | undefined
+/** Parse one request URL into the two things the binding cares about: its `pathname` (opencode's home scope is a
+ *  `/global/` path prefix) and the opencode-scoped `directory`, which the GUI announces as a `?directory=` query
+ *  (verified against the live client — it deletes its own `x-opencode-directory` header and re-emits it here). */
+function parseRequest(url: string): { pathname: string; dir: string | undefined } {
   try {
-    const u = new URL(details.url)
-    pathname = u.pathname
-    queryDir = u.searchParams.get("directory") ?? undefined // searchParams already decodes
-  } catch { /* not a URL */ }
-  for (const [k, v] of Object.entries(details.requestHeaders)) {
-    if (k.toLowerCase() === "x-opencode-directory" && typeof v === "string" && v.length > 0) {
-      try { return { pathname, dir: decodeURIComponent(v) } } catch { return { pathname, dir: v } }
-    }
+    const u = new URL(url)
+    return { pathname: u.pathname, dir: u.searchParams.get("directory") ?? undefined } // searchParams already decodes
+  } catch {
+    return { pathname: "", dir: undefined } // not a URL
   }
-  return { pathname, dir: queryDir }
 }
 
 // Canonical form for comparing the active-project dir against the bound one. opencode's chat traffic reports the
@@ -154,7 +145,7 @@ function watchHomeNavigation() {
 
 function watchActiveProject() {
   shell.view!.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-    const { pathname, dir } = parseRequest(details)
+    const { pathname, dir } = parseRequest(details.url)
     const sig = classifySignal(pathname, dir, existsSync)
     if (BIND_DEBUG) console.log(`[bind] ${details.method} ${pathname || details.url} dir=${dir ?? "-"} → ${sig?.kind ?? "ignored"}`)
     if (sig !== undefined) onActiveSignal(sig)
@@ -230,9 +221,7 @@ app.whenReady().then(async () => {
     return
   }
 
-  shell.view = new WebContentsView()
-  // The GUI language is forced via the x-opencode-locale header in watchActiveProject (highest precedence, so it
-  // beats any stale oc_locale cookie — no storage to clear).
+  shell.view = new WebContentsView() // GUI language is forced by the --lang switch above, client-side (see there)
   shell.win.contentView.addChildView(shell.view)
   layoutView()
   shell.win.on("resize", layoutView)
@@ -247,12 +236,12 @@ app.whenReady().then(async () => {
   void refreshDetectedProjects(shell)
   setInterval(() => void refreshDetectedProjects(shell), 10_000)
 
-  shell.opencodeUrl = await launchAgent(shell.view)
+  const agentUp = await launchAgent(shell.view)
 
   // Arm the binding canary only when opencode actually launched (a missing opencode legitimately never signals — the
   // install banner is showing, not a broken sniff). If we still haven't classified any signal after the grace period,
   // make the silent failure visible in the panel + logs. This never affects binding; it only reports.
-  if (shell.opencodeUrl !== undefined) {
+  if (agentUp) {
     setTimeout(() => {
       if (!shell.awaitingOpencode) return // a signal arrived — the sniff works
       shell.bindStale = true

@@ -45,5 +45,7 @@ tsconfig.tsbuildinfo
 .turbo
 .oc-console-check
 
-# CODESYS per-user session files, generated when a test .project is opened (headless multi-instance smoke)
+# CODESYS per-user session files, generated when a test .project is opened (headless multi-instance smoke).
+# `.~u` is the open-by-<user@host> lock CODESYS writes beside the project and removes on a clean close.
 packages/volt-cli/test/*.opt
+packages/volt-cli/test/*.~u
