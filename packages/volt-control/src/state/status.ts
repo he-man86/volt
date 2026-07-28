@@ -34,8 +34,14 @@ const WATCH_DEBOUNCE_MS = 400;
  *  can't diverge. */
 export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutcome | MergeOutcome): Promise<void> {
 	const status = "status" in out ? out.status : undefined;
-	if (status) st.adopt(status);
-	else if (out.kind !== "ok") await st.refresh(true); // merge outcomes carry no status → always re-fetch
+	if (status) {
+		st.adopt(status);
+		// …and re-read health, which `adopt` does not carry. A connector view that changed WHILE the mutation held the
+		// gate was dropped (the read skips under the gate, and the feed fires once per change — it does not repeat
+		// itself), so without this the panel could sit on "connected" against an IDE that closed mid-push. This is the
+		// gate's release valve; it is a projection of the feed's view, not a fetch.
+		await st.refreshHealth();
+	} else if (out.kind !== "ok") await st.refresh(true); // merge outcomes carry no status → always re-fetch
 }
 
 /** Connect this workspace (the manual Connect / Reconnect) and settle the UI — the ONE flow both shells run, so

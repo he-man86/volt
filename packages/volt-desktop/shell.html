@@ -539,13 +539,16 @@
     }
     if (p.done) {
       // The action's RESULT, shown where the user is already looking (see commands.ts `finish`). Buttons unlock at
-      // once (busyAction null) — only the message lingers, then clears itself.
+      // once (busyAction null) — only the message lingers. A SUCCESS clears itself; an ERROR does not: it's the
+      // actionable one ("open it in your IDE, then reconnect"), and a message that deletes itself after 2.5s leaves
+      // no trace anywhere in the UI. It stays until the next action begins (`begin` resets the tone).
       busy = p.message; busyTone = p.tone ?? "info"; busyAction = null; busyPct = null
       const start = (busyStart = Date.now())
-      setTimeout(() => {
-        if (busyStart !== start) return
-        busy = null; busyTone = null; render()
-      }, RESULT_MS)
+      if (busyTone !== "error")
+        setTimeout(() => {
+          if (busyStart !== start) return
+          busy = null; busyTone = null; render()
+        }, RESULT_MS)
       render()
       return
     }

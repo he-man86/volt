@@ -2,7 +2,8 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { VoltStatus, isIdeChangeEdge } from "./status.js";
+import { VoltStatus, isIdeChangeEdge, settleOutcome } from "./status.js";
+import type { StatusJson } from "../view/types.js";
 
 /** Poll until `cond()` is true or `ms` elapses — fs.watch delivers events + the handler debounces, so a fixed
  *  sleep would be racy. */
@@ -33,6 +34,32 @@ test("isIdeChangeEdge: fires on a project switch (rebind)", () => {
 test("isIdeChangeEdge: a reconnect (name undefined↔defined) is not an edit edge", () => {
 	expect(isIdeChangeEdge({ seen: true, dirty: false, name: undefined }, { dirty: false, name: "P" })).toBe(false); // reconnect
 	expect(isIdeChangeEdge({ seen: true, dirty: false, name: "P" }, { dirty: false, name: undefined })).toBe(false); // disconnect
+});
+
+// `adopt` carries the drift the action returned but NOT health, and health now rides the connector feed, which
+// fires once per change and never repeats itself. A change that lands while our own mutation holds the gate is
+// skipped — so settling must re-read, or the panel sits on "connected" against an IDE that closed mid-push.
+test("settleOutcome re-reads health after adopting the action's status", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "volt-settle-"));
+	try {
+		const s = new VoltStatus(dir);
+		const health = spyOn(s, "refreshHealth").mockResolvedValue(undefined);
+		const status: StatusJson = {
+			initialized: true,
+			merging: null,
+			incoming: { added: [], modified: [], deleted: [] },
+			outgoing: { added: [], modified: [], deleted: [] },
+			pathByName: {},
+			projectMismatch: null,
+			summary: "",
+		};
+
+		await settleOutcome(s, { kind: "ok", status });
+		expect(health).toHaveBeenCalledTimes(1);
+		s.dispose();
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
 
 test("refresh on an unbound workspace clears state and fires onDidChange (no bridge needed)", async () => {

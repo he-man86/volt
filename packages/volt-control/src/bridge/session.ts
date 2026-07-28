@@ -35,6 +35,7 @@ const S: {
   interests: Map<string, Interest> // workspace root (or a pick key) → its durable binding identity
   view?: ConnectorView // the last /sync response — what connectorStatus prefers
   viewKey?: string // its serialization, so a poll that changed nothing fires nothing
+  settled?: boolean // a tick has produced an answer — only THEN is this feed the source (see registerSessionView)
   timer?: ReturnType<typeof setInterval>
 } = { interests: new Map() }
 
@@ -48,9 +49,12 @@ export const onConnectorView = new Emitter<void>()
 const POLL_MS = 4_000
 const TIMEOUT_MS = 2_000
 
-// While the feed is polling, connectorStatus() reads its view and never issues its own request — including when
-// that view is "the connector isn't answering". No feed running → undefined, and the one-shot GET applies.
-registerSessionView(() => (S.timer === undefined ? undefined : { view: S.view }))
+// Once the feed has an ANSWER, connectorStatus() reads it and never issues its own request — including when that
+// answer is "the connector isn't answering". Gated on `settled`, not on the timer existing: the timer is armed
+// synchronously by startConnectorFeed, so a read in that window (VS Code's activate does exactly one) would have
+// been told "no view" and painted "Volt Connector not running" over a connector that was running. Until the first
+// tick answers, callers fall through to the one-shot GET, as they did before any feed existed.
+registerSessionView(() => (S.settled === true ? { view: S.view } : undefined))
 
 function controlBase(): string {
   return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
@@ -133,6 +137,7 @@ async function syncDeclare(): Promise<void> {
 
 /** Adopt a view and notify — but only when it actually differs, so a quiet 4s poll costs nothing downstream. */
 function publish(view: ConnectorView | undefined): void {
+  S.settled = true // set before the dedup: a repeat answer is still an answer
   const key = view === undefined ? "" : JSON.stringify(view)
   if (key === S.viewKey) return
   S.viewKey = key
@@ -229,7 +234,12 @@ export async function shutdownSession(): Promise<void> {
   const id = S.id
   S.id = undefined
   S.interests.clear()
-  publish(undefined) // we're leaving: no view, and anything still listening hears it
+  // Drop the view WITHOUT firing: this runs on app quit / deactivate, and a listener woken here would re-render a
+  // view that is being disposed (the desktop's send() on a destroyed window throws) — and, with the feed already
+  // stopped, would fall through to a live GET on the way out.
+  S.view = undefined
+  S.viewKey = undefined
+  S.settled = undefined
   if (id === undefined) return
   try {
     await fetch(`${controlBase()}/session/${id}`, { method: "DELETE", signal: AbortSignal.timeout(TIMEOUT_MS) })
@@ -246,4 +256,5 @@ export function __resetSessionForTest(): void {
   S.interests.clear()
   S.view = undefined
   S.viewKey = undefined
+  S.settled = undefined
 }

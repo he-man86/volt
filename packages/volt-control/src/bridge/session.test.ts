@@ -208,14 +208,33 @@ describe("session client (declarative connection presence)", () => {
     expect(await connectorStatus()).toBeUndefined() // reported down, not "still those projects"
   })
 
-  test("while the feed runs, connectorStatus never issues its own request", async () => {
+  test("shutdownSession drops the view WITHOUT firing — nothing re-renders on the way out", async () => {
+    newConnector(true)
+    await startConnectorFeed()
+
+    let fired = 0
+    const sub = onConnectorView.event(() => fired++)
+    try {
+      await shutdownSession()
+      expect(fired).toBe(0)
+    } finally {
+      sub.dispose()
+    }
+  })
+
+  test("connectorStatus GETs until the feed has answered, then never issues its own request", async () => {
     const calls = newConnector(true)
+
+    // No feed has answered yet → the one-shot GET still applies. (Blinding it on "a timer exists" made VS Code's
+    // activate paint "Volt Connector not running" in the window before the first tick.)
+    await connectorStatus()
+    expect(calls.some((c) => c.method === "GET" && c.url.endsWith("/status"))).toBe(true)
+
     await startConnectorFeed()
     const before = calls.length
-
     await connectorStatus()
     await connectorStatus()
-    expect(calls.length).toBe(before) // reads are free — they project the feed's view
+    expect(calls.length).toBe(before) // reads are free now — they project the feed's view
   })
 
   test("shutdownSession DELETEs the session", async () => {
