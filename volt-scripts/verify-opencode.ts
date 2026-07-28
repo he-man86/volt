@@ -7,10 +7,10 @@
  * catches opencode changing its config/tool/LSP contract — no unit test can:
  *
  *   1. lsp   — a planted-error `.fb` must come back flagged by `volt-lsp-iec`
- *   2. tool  — `opencode debug agent volt` must report `tools.volt = true`   (needs a configured provider)
- *   3. wire  — the desktop's UNDOCUMENTED follow-binding still holds against a live `opencode serve`: it reads
- *              opencode's GUI↔server wire directly, so an opencode release can change it and break binding SILENTLY —
- *              no OPENCODE_CONFIG_DIR contract covers it. (No provider needed.)
+ *   2. tool  — `opencode debug agent build` must report `tools.volt = true` AND `permission volt = ask`
+ *   3. wire  — a live `opencode serve` still prints a parseable URL and serves its GUI, which is what the desktop
+ *              points its WebContentsView at. (No provider needed. The GUI ROUTE the binding reads is covered by
+ *              volt-desktop/test/e2e/opencode-binding.test.ts, which drives the real GUI over CDP.)
  *
  * Run on an opencode version bump: `bun run compat` (which also runs check-wiring.ts first), or this
  * file alone. All checks always run — a failure in one shouldn't hide the others' result.
@@ -98,37 +98,40 @@ function verifyTool(): boolean {
   if (!existsSync(resolve(cfgDir, "tool/volt.ts")))
     return report("tool", false, "", `opencode-config/tool/volt.ts missing under ${cfgDir}`, "")
 
+  // Ask the DEFAULT agent (`build`), not a Volt-specific one: Volt ships no agent of its own any more, and the
+  // point is precisely that the tool is loaded and GATED in whatever agent the user is in.
   // Parse stdout ONLY — stderr is diagnostics, and concatenating it would break the parse on any warning.
-  const { stdout, stderr } = opencode(["debug", "agent", "volt"], cfgDir, repoRoot)
-  let tools: Record<string, boolean> | undefined
+  const { stdout, stderr } = opencode(["debug", "agent", "build"], cfgDir, repoRoot)
+  let agent: { tools?: Record<string, boolean>; permission?: { permission: string; action: string }[] } | undefined
   try {
-    tools = (JSON.parse(stdout) as { tools?: Record<string, boolean> }).tools
+    agent = JSON.parse(stdout) as typeof agent
   } catch {
-    return report(
-      "tool",
-      false,
-      "",
-      "could not parse `debug agent volt` (opencode on PATH? provider configured?)",
-      stderr + stdout,
-    )
+    return report("tool", false, "", "could not parse `debug agent build` (opencode on PATH? provider configured?)", stderr + stdout)
   }
+  const loaded = agent?.tools?.volt === true
+  // …and that a mutating verb still PROMPTS. The tool asks under the `volt` permission, which is NOT covered by the
+  // `bash` rules — so with no `permission.volt` in opencode.json it fell through to opencode's default `*: allow`
+  // and `volt push` ran unattended in Build/Plan. That silence is the failure this asserts against.
+  const gated = agent?.permission?.some((p) => p.permission === "volt" && p.action === "ask") === true
   return report(
     "tool",
-    tools?.volt === true,
-    "the 'volt' tool loads + is enabled (tools.volt = true)",
-    `'volt' tool not loaded/enabled (tools.volt = ${tools?.volt}) — does opencode-config/tool/volt.ts export the tool shape?`,
+    loaded && gated,
+    "the 'volt' tool loads (tools.volt = true) and its mutating verbs are gated (permission volt = ask)",
+    `'volt' tool loaded=${loaded} gated=${gated} — loaded needs opencode-config/tool/volt.ts to export the tool shape; gated needs "permission": { "volt": "ask" } in opencode-config/opencode.json`,
     "",
   )
 }
 
-// ── 3. the desktop binding wire ───────────────────────────────────────────────
-// The follow-binding reads opencode's GUI↔server wire directly (undocumented), so an opencode release can change it
-// and break binding SILENTLY — no OPENCODE_CONFIG_DIR contract covers it. Assert the two facts it depends on against
-// a live `opencode serve` (see openspec/changes/desktop-connection-flow/observations.md):
-//   (a) `serve` prints a parseable "listening on <url>" line + serves the GUI — the desktop's agent-launch (agent.ts)
-//   (b) the served client bundle still stamps its directory scope via `x-opencode-directory` — what the sniff reads
-// Read-only; the server is always killed in `finally`. (create-from-home no longer touches opencode — Volt binds the
-// folder it creates directly — so there's nothing else to assert here.)
+// ── 3. the desktop agent-launch wire ──────────────────────────────────────────
+// What the desktop depends on from a live `opencode serve`, asserted against one: it prints a parseable
+// "listening on <url>" line (agent.ts parses exactly that to point the WebContentsView) and it serves the GUI.
+//
+// It no longer asserts anything about `x-opencode-directory` / `?directory=`. The binding stopped reading the
+// request stream: it reads the GUI's ROUTE (`/<base64url(dir)>/…`, see volt-desktop/src/binding.ts). Asserting a
+// wire we don't consume is worse than not asserting it — it fails when opencode drops something harmless, and
+// passes while the thing we DO depend on moves. The route scheme is covered where it belongs: live, over CDP, in
+// volt-desktop/test/e2e/opencode-binding.test.ts, with the startup canary as the runtime detector.
+// Read-only; the server is always killed in `finally`.
 const READY = /listening on (https?:\/\/\S+)/i
 
 async function verifyWire(): Promise<boolean> {
@@ -163,22 +166,13 @@ async function verifyWire(): Promise<boolean> {
     }
 
     const root = await get("/")
-    const scriptSrc = root.text.match(/src="(\/assets\/[^"]+\.js)"/)?.[1]
-    const bundle = scriptSrc !== undefined ? (await get(scriptSrc)).text : ""
-
-    const okServer = root.ok // the GUI HTML is served
-    const okScope = bundle.includes("x-opencode-directory") // the client still scopes requests by directory
-    // …and the client still SPLITS that scope by method: its interceptor early-returns for non-GET/HEAD (so those
-    // keep the header) and rewrites GET/HEAD into `?directory=`. `parseRequest` reads BOTH carriers because of this
-    // split; if a release drops it, one of the two goes silent and binding degrades without any error.
-    const okSplit = /method!=="GET"&&\s*\S{0,40}method!=="HEAD"/.test(bundle)
-    const ok = okServer && okScope && okSplit
+    const ok = root.ok // `serve` printed a parseable URL (we got here) and the GUI HTML is served
     return report(
       "wire",
       ok,
-      "the desktop binding wire holds: `opencode serve` prints a parseable URL + serves the GUI, and the client still scopes requests by x-opencode-directory (header on non-GET, ?directory= on GET/HEAD)",
-      `desktop binding wire DRIFT — server:${okServer} client-scope:${okScope} method-split:${okSplit}. The follow-binding reads opencode's GUI wire directly; a failure means an opencode release moved it — update packages/volt-desktop (binding.ts::parseRequest) + observations.md.`,
-      ok ? "" : `bundleLen=${bundle.length}`,
+      "the desktop agent-launch holds: `opencode serve` prints a parseable URL and serves its GUI",
+      "`opencode serve` did not serve its GUI — the desktop's WebContentsView would show the install banner instead",
+      ok ? "" : root.text.slice(0, 200),
     )
   } finally {
     kill()

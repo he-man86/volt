@@ -7,7 +7,7 @@
  *
  * Verifies:
  *   - Config layer (opencode-config/opencode.json) exists, parses, and registers the LSP (bare-name)
- *   - Agent persona (opencode-config/agent/volt.md) + volt custom tool (opencode-config/tool/volt.ts) present
+ *   - The volt custom tool (opencode-config/tool/volt.ts) is present, gated, and asks before mutating verbs
  *   - LSP + CLI binaries are built (dist/ output present)
  *   - volt-lsp-iec binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
@@ -24,6 +24,16 @@ const REPO_ROOT = resolve(import.meta.dirname, "..");
 let passed = 0;
 let failed = 0;
 
+async function checkAsync(name: string, fn: () => Promise<boolean | string>): Promise<void> {
+	let result: boolean | string;
+	try {
+		result = await fn();
+	} catch (err) {
+		result = err instanceof Error ? err.message : String(err);
+	}
+	report(name, result);
+}
+
 function check(name: string, fn: () => boolean | string): void {
 	let result: boolean | string;
 	try {
@@ -31,6 +41,10 @@ function check(name: string, fn: () => boolean | string): void {
 	} catch (err) {
 		result = err instanceof Error ? err.message : String(err);
 	}
+	report(name, result);
+}
+
+function report(name: string, result: boolean | string): void {
 	if (result === true) {
 		console.log(`  ✓ ${name}`);
 		passed++;
@@ -54,12 +68,54 @@ check("opencode-config/opencode.json exists + registers volt-lsp-iec (bare-name)
 	if (!lsp) return "no lsp.volt-lsp-iec entry";
 	return lsp.command?.[0] === "volt-lsp-iec" || "LSP command is not the bare name (must resolve off PATH)";
 });
-check("opencode-config/agent/volt.md exists (agent persona)", () =>
-	existsSync(join(REPO_ROOT, "opencode-config/agent/volt.md")) || "agent persona missing"
-);
 check("opencode-config/tool/volt.ts exists (volt CLI custom tool)", () =>
 	existsSync(join(REPO_ROOT, "opencode-config/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
 );
+// The tool asks under the `volt` permission — a DIFFERENT key from the `bash` rules below it. Without this entry
+// it fell through to opencode's default `*: allow`, so `volt push` ran unattended in Build/Plan while the bash
+// rules (which the agent wasn't using) looked like they had it covered. Two keys, one guarantee.
+check('opencode-config/opencode.json gates the volt TOOL (permission.volt = "ask")', () => {
+	const p = JSON.parse(readFileSync(join(REPO_ROOT, "opencode-config/opencode.json"), "utf-8")).permission;
+	return p?.volt === "ask" || 'missing permission.volt = "ask" — the tool\'s mutating verbs would not prompt';
+});
+check("opencode-config/opencode.json gates volt via bash too (init/pull/push/merge = ask)", () => {
+	const bash = JSON.parse(readFileSync(join(REPO_ROOT, "opencode-config/opencode.json"), "utf-8")).permission?.bash ?? {};
+	const missing = ["volt init*", "volt pull*", "volt push*", "volt merge*"].filter((k) => bash[k] !== "ask");
+	return missing.length === 0 || `not gated for: ${missing.join(", ")}`;
+});
+// The config declaring the gate is half of it; the TOOL has to actually ask. Drive its execute() with a fake
+// ToolContext whose ask() throws — a mutating verb must reject with that sentinel (asked, and asked BEFORE it ran
+// anything), a read-only verb must never reach it. Cheap, offline, and it fails loudly if someone reorders the
+// ask past the spawn.
+await checkAsync("tool/volt.ts asks BEFORE running a mutating verb (and not for read-only ones)", async () => {
+	const tool = (await import(join(REPO_ROOT, "opencode-config/tool/volt.ts"))).default as {
+		execute(input: { command: string; args?: string[]; cwd?: string }, ctx: unknown): Promise<unknown>;
+	};
+	const SENTINEL = "asked";
+	const asks: string[] = [];
+	const ctx = {
+		directory: REPO_ROOT,
+		abort: new AbortController().signal,
+		ask: (input: { permission: string; patterns: string[] }) => {
+			asks.push(`${input.permission}:${input.patterns.join(",")}`);
+			throw new Error(SENTINEL); // deny → execution must not continue
+		},
+	};
+	for (const command of ["init", "pull", "push", "merge"]) {
+		asks.length = 0;
+		const outcome = await tool.execute({ command, args: ["--dry-run"], cwd: REPO_ROOT }, ctx).then(
+			() => "ran without asking",
+			(e: Error) => (e.message === SENTINEL ? "asked" : `failed differently: ${e.message}`),
+		);
+		if (outcome !== "asked") return `${command}: ${outcome}`;
+		if (asks[0] !== `volt:volt ${command}`) return `${command}: asked with ${asks[0]} (expected volt:volt ${command})`;
+	}
+	// `status` is read-only: it must NOT ask. It may still fail to run (no volt on PATH in CI) — that's fine, the
+	// tool reports that as text; the assertion is only that nothing prompted.
+	asks.length = 0;
+	await tool.execute({ command: "status", cwd: REPO_ROOT }, ctx).catch(() => undefined);
+	return asks.length === 0 || `status prompted (${asks[0]}) — read-only verbs must not ask`;
+});
 // The st-reference skill is GENERATED into a consumer project by `volt init`
 // (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
 // assert the installer that produces it is built rather than a committed file.
@@ -231,7 +287,7 @@ console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun dev   # OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode (Volt-aware)");
 console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-iec' diagnostics.");
 console.log("     ('volt-lsp-iec' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
-console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
+console.log("  3. Ask it to run a mutating volt verb → opencode must PROMPT (permission volt = ask).");
 console.log("  4. Ask: 'run volt status' → agent calls the `volt` tool (or bash); output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init/merge) opencode prompts for approval per call.");
 console.log("  5. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");

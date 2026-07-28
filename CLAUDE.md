@@ -29,7 +29,7 @@ The commercial side is **two packages, and they are not `volt-*`**:
 >
 > Two traps that cost real money to learn: **"unlinked" is not "unexposed"** — SolidStart serves every file under `routes/**` by URL, so dormancy must be *proven*, not assumed (`/go` was the referral landing page, `/download` proxied opencode's binaries, `bench/submission.ts` was an unauthenticated public write). And **the console does not build on Windows** (a `vite:define` path bug), so a console change is compiled only at **deploy** time (`deploy.yml` runs `sst deploy`, which builds on Linux) — a build break (e.g. a deleted component a compiled-but-unlinked page still imports; typecheck won't catch it) surfaces there, post-merge, not in a PR gate. The two sites share **no components** (React vs SolidJS); only the design tokens port, via `style/volt-theme.css`.
 
-**`opencode-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + `volt` permission gates), `agent/volt.md`, `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx`. It's dependency-free — the tool bundles only `zod`; nothing here needs `@opencode-ai/plugin`, so the shipped dir loads with no npm/registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode`.
+**`opencode-config/`** (repo root) — the whole agent-facing layer shipped to opencode as ONE dir via `OPENCODE_CONFIG_DIR`: `opencode.json` (LSP registration + the `volt` permission gates), `themes/volt.json`, `tool/volt.ts` (the `volt` CLI as a custom tool), `plugins/volt.tsx` (TUI) and `plugins/volt-auth.ts` (gateway login). Volt ships **no agent of its own** — a `volt` primary agent used to sit beside Build/Plan and was removed: the PLC guidance belongs in the tool description + the `st-reference` skill, where every agent gets it. It's dependency-free — the tool bundles only `zod`; nothing here needs `@opencode-ai/plugin`, so the shipped dir loads with no npm/registry at runtime. Dev runs `OPENCODE_CONFIG_DIR=$PWD/opencode-config opencode`.
 
 Each `volt-*` package has its own `README.md` — read it before deep work there.
 
@@ -56,7 +56,7 @@ maps every script**; keep it accurate. `compat`'s sub-steps are runnable alone w
 `build-payload.ts` (the `dist/volt/` payload); that stage has no `bun run` on purpose — it's a step, not a
 destination.
 
-The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`opencode-config/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify with `opencode debug agent volt` (look for `tools.volt: true`).
+The `volt` CLI is exposed to opencode two ways, and BOTH need gating — they are different permission keys. The **custom tool** (`opencode-config/tool/volt.ts`, typed `command`+`args`) asks under `permission.volt`; **bash** (`volt …`) asks under `permission.bash`. Declaring only the bash rules left the tool falling through to opencode's default `*: allow`, so `volt push` ran unattended in Build/Plan — the config now carries `"volt": "ask"` too. Verify with `opencode debug agent build`: `tools.volt: true` AND a resolved `{permission: volt, action: ask}`; `bun run compat` asserts both.
 
 Per-package work for the TS packages (run from the package dir, e.g. `packages/volt-lsp-iec`):
 
