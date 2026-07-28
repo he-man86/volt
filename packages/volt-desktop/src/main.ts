@@ -2,7 +2,7 @@
 // panel, see shell.html); opencode renders as the inner content pane in a WebContentsView. This file owns the
 // window and lifecycle; the concern-split siblings mirror the extension: `agent` (opencode), `panel` (the
 // IDE-sync data feed), `commands` (pull/push/init). The active workspace follows the project opencode's GUI
-// is on (the directory scope on its requests + its own URL), like VS Code binding to its open folder.
+// is on (read from its GUI route — see binding.ts), like VS Code binding to its open folder.
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
@@ -14,6 +14,7 @@ import {
   shutdownSession,
   startConnectorFeed,
   onConnectorView,
+  voltLog,
   type DiffDirection,
 } from "@volt/control"
 import { READY, launchAgent, killServer } from "./agent.js"
@@ -62,9 +63,6 @@ app.setAppUserModelId("dev.volt.desktop")
 
 const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, awaitingOpencode: true, bindStale: false, panelOpen: false, projects: [], connectorUp: false }
 
-// Log every request's directory + classification so opencode's real timeline is observable (openspec task 1.1:
-// what does the home/project-list screen actually emit?). Off unless VOLT_BIND_DEBUG is set.
-const BIND_DEBUG = !!process.env.VOLT_BIND_DEBUG
 
 // Startup canary grace period. Loading the GUI fires a navigation immediately, so if we have classified NO route by
 // now while opencode IS loaded, its route scheme has almost certainly moved (its project pages are
@@ -96,10 +94,10 @@ function configureTools() {
   }
 }
 
-// Canonical form for comparing the active-project dir against the bound one. opencode's chat traffic reports the
-// directory in varying string forms (separators / case / trailing slash), and a RAW `!==` re-bound on EVERY
-// variation — re-running the whole diagnostics crawl repeatedly mid-chat. Normalize so only a REAL project change
-// re-binds. resolve() canonicalizes separators + trailing slash; Windows is case-insensitive, so fold case there.
+// Canonical form for comparing the active-project dir against the bound one. The same project can reach us in
+// varying string forms (separators / case / trailing slash), and a RAW `!==` would re-bind on every variation —
+// re-running the whole diagnostics crawl for nothing. Normalize so only a REAL project change re-binds: resolve()
+// canonicalizes separators + trailing slash, and Windows is case-insensitive, so fold case there.
 function sameDir(a: string | undefined, b: string | undefined): boolean {
   if (a === undefined || b === undefined) return a === b
   const norm = (d: string): string => (process.platform === "win32" ? resolve(d).toLowerCase() : resolve(d))
@@ -128,7 +126,9 @@ function watchActiveProject() {
     let pathname = "/"
     try { pathname = new URL(url).pathname } catch { /* not a URL */ }
     const sig = classifyRoute(pathname, existsSync)
-    if (BIND_DEBUG) console.log(`[bind] nav ${pathname} → ${sig === undefined ? "ignored" : sig.kind === "dir" ? `project ${sig.dir}` : "home"}`)
+    // Always logged: "which project is Volt on, and why" is the first question of every support conversation, and
+    // it used to be answerable only via a dev-only env var printing to a console no installed app has.
+    voltLog("desktop", `nav ${pathname} → ${sig === undefined ? "ignored (unknown route — binding held)" : sig.kind === "dir" ? `project ${sig.dir}` : "home (no project)"}`)
     if (sig !== undefined) onActiveSignal(sig)
   }
   shell.view!.webContents.on("did-navigate-in-page", (_e, url) => onNav(url))
@@ -221,14 +221,14 @@ app.whenReady().then(async () => {
   const agentUp = await launchAgent(shell.view)
 
   // Arm the binding canary only when opencode actually launched (a missing opencode legitimately never signals — the
-  // install banner is showing, not a broken sniff). If we still haven't classified any signal after the grace period,
+  // install banner is showing, not a broken read). If we still haven't classified a route after the grace period,
   // make the silent failure visible in the panel + logs. This never affects binding; it only reports.
   if (agentUp) {
     setTimeout(() => {
       if (!shell.awaitingOpencode) return // a route was classified — the binding works
       shell.bindStale = true
       console.warn(
-        `[volt] opencode loaded but no route was classified in ${BIND_CANARY_MS / 1000}s — its route scheme may have changed in this opencode version. Run with VOLT_BIND_DEBUG=1 to inspect.`,
+        `[volt] opencode loaded but no route was classified in ${BIND_CANARY_MS / 1000}s — its route scheme may have changed in this opencode version. See the desktop log for the navigations it did classify.`,
       )
       pushStatus(shell)
     }, BIND_CANARY_MS)

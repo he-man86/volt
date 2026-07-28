@@ -118,7 +118,7 @@ test("the binding follows opencode's route: home serves nothing, a project page 
     cwd: root,
     // A dedicated opencode port: the shell frees its pinned port before binding it, so sharing the default would
     // kill the opencode of any Volt app the developer has open.
-    env: { ...process.env, VOLT_BIND_DEBUG: "1", OPENCODE_PORT: String(OPENCODE_PORT) },
+    env: { ...process.env, OPENCODE_PORT: String(OPENCODE_PORT) },
     stdio: ["ignore", "pipe", "pipe"],
   })
   let log = ""
@@ -149,7 +149,7 @@ test("the binding follows opencode's route: home serves nothing, a project page 
   await navigate(`${base}/`)
   const after = await until(connectorProjects, (r) => !serving(r, target.projectName))
   console.log(`  home:    ${after?.map((p) => `${p.displayName}[${p.status}]`).join(", ")}`)
-  const binds = log.split(/\r?\n/).filter((l) => l.startsWith("[bind]"))
+  const binds = log.split(/\r?\n/).filter((l) => l.includes("[desktop]"))
   console.log(["  --- bind log ---", ...binds.map((l) => "  " + l)].join("\n"))
   expect(serving(after, target.projectName), "leaving the project must stop serving it").toBe(false)
 }, 180_000)

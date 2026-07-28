@@ -3,6 +3,7 @@
 // banner. Mirrors the extension's agent.ts (which locates/launches the same CLI).
 import { spawn, spawnSync } from "node:child_process"
 import type { WebContentsView } from "electron"
+import { voltLog } from "@volt/control"
 
 // Installed opencode. Default: `opencode` on PATH (resolved via shell:true at spawn, so npm's `.cmd`/`.ps1`
 // shim works). Override with OPENCODE_BIN to point at a specific binary.
@@ -77,9 +78,14 @@ export function killServer(): void {
  *  whether opencode actually launched — the only thing the shell needs (Volt never drives opencode's GUI). */
 export async function launchAgent(view: WebContentsView): Promise<boolean> {
   try {
-    await view.webContents.loadURL(await startServer())
+    const url = await startServer()
+    voltLog("desktop", `opencode serving at ${url} (${OPENCODE_BIN})`)
+    await view.webContents.loadURL(url)
     return true
   } catch (err) {
+    // The install banner is what the user sees; this is what tells US which of the failures it was (not installed,
+    // port stuck, exited before serving) without asking them to reproduce with a flag.
+    voltLog("desktop", `opencode did not start: ${(err as Error).message}`, "warn")
     await agentBanner(view, { error: (err as Error).message })
     return false
   }

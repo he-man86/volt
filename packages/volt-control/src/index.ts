@@ -29,5 +29,8 @@ export * from "./view/outcomes.js" // describePull, describePush, describeMerge,
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 export * from "./view/diff.js" // loadDiff, lineDiff, FileDiff, DiffLine, DiffDirection — shared change-diff logic
 
+// the shared log store (same folder + line format as the connector's own log)
+export * from "./log.js" // voltLog, VOLT_LOG_DIR, LogSource
+
 // headless LSP-diagnostics collector (desktop's Diagnostics section)
 export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics

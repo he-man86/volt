@@ -16,7 +16,7 @@ export interface Shell {
   // moment any active-project signal — a bind OR a release — is processed.
   awaitingOpencode: boolean
   // Set by the startup canary when opencode's GUI loaded but NO active-project signal was ever classified within the
-  // grace period — the sign our request-sniff broke (opencode changed its GUI↔server wire on a release). Surfaced in
+  // grace period — the sign its route scheme changed (its project pages are `/<base64url(dir)>/…`). Surfaced in
   // the panel so a silent binding failure becomes visible; cleared the moment any signal finally arrives.
   bindStale: boolean
   panelOpen: boolean

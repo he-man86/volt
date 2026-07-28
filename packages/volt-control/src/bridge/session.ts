@@ -14,6 +14,7 @@
  * the session unopened and is retried by the poll.
  */
 import { Emitter } from "../state/emitter.js"
+import { voltLog, type LogSource } from "../log.js"
 import { readBoundProject, type BoundProject } from "./health.js"
 import {
   registerSessionView,
@@ -60,6 +61,12 @@ function controlBase(): string {
   return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
 }
 
+// Which client this is, for the log file name. The desktop runs under electron (its main process sets no marker of
+// its own, but `process.versions.electron` is definitive); anything else importing this is the VS Code extension.
+function logSource(): LogSource {
+  return (process.versions as { electron?: string }).electron !== undefined ? "desktop" : "vscode"
+}
+
 /** The interests declared across all entered workspaces, de-duplicated (two roots can bind the same project). */
 function uniqueInterests(): Interest[] {
   const seen = new Set<string>()
@@ -84,7 +91,12 @@ async function ensureSession(): Promise<void> {
       const res = await fetch(`${controlBase()}/session`, { method: "POST", signal: AbortSignal.timeout(TIMEOUT_MS) })
       if (!res.ok) return // connector down / still starting — retry later
       const body = (await res.json()) as { sessionId?: string }
-      if (body.sessionId) S.id = body.sessionId
+      if (body.sessionId) {
+        S.id = body.sessionId
+        // Pairs with the connector's own "session … opened" line, so a merged log read shows BOTH ends of the
+        // handshake and which client owns which session id.
+        voltLog(logSource(), `connector session ${body.sessionId.slice(0, 8)} opened`)
+      }
     } catch {
       // connector down — retried on the next tick
     }
@@ -232,6 +244,7 @@ export async function releasePickedProject(project: DetectedProject): Promise<vo
 export async function shutdownSession(): Promise<void> {
   stopPolling()
   const id = S.id
+  if (id !== undefined) voltLog(logSource(), `connector session ${id.slice(0, 8)} closing (client shutting down)`)
   S.id = undefined
   S.interests.clear()
   // Drop the view WITHOUT firing: this runs on app quit / deactivate, and a listener woken here would re-render a

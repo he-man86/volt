@@ -232,8 +232,9 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const out = await initFromProject(project, picked.filePaths[0], { onProgress: report })
       clearProgress()
       if (out.code === 0 && out.workspace) {
-        // Volt OWNS the folder it just created, so bind it DIRECTLY — the panel is synced instantly and, under sticky
-        // binding, stays bound with ZERO dependency on opencode. To chat about it, the user opens it in opencode via
+        // Volt OWNS the folder it just created, so bind it DIRECTLY — the panel is synced instantly, and it stays
+        // bound with ZERO dependency on opencode (only a navigation moves the binding). To chat about it, the user
+        // opens the folder in opencode via
         // Add project (opencode auto-registers then). We deliberately do NOT drive opencode ourselves: navigating it
         // reloaded its GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience — not
         // worth the extra undocumented-API surface. See openspec/changes/desktop-connection-flow/observations.md.

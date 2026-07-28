@@ -13,6 +13,7 @@ import {
   onboardingMode,
   connectWorkspace,
   leaveWorkspace,
+  voltLog,
   type DriftItem,
   type WorkspaceView,
   type DetectedProject,
@@ -122,7 +123,8 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
 }
 
 export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
-  shell.boundRoot = root // set synchronously so the header watcher won't re-bind the same dir mid-flight
+  voltLog("desktop", `binding workspace ${root} — opencode navigated into it`)
+  shell.boundRoot = root // set synchronously so the route watcher won't re-bind the same dir mid-flight
   shell.awaitingOpencode = false // opencode's state is now known
   shell.status?.dispose()
   shell.status = new VoltStatus(root)
@@ -138,18 +140,18 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   // and the panel already states it — health carries why (connector unreachable vs project not serving) and the
   // reconnect surface offers the fix. The log is what turns "it just says not connected" into a diagnosable event.
   const st = shell.status
-  void connectWorkspace(st).then((view) => {
-    if (view.tone === "error") console.warn(`[volt] auto-connect for ${root}: ${view.message}`)
-  })
+  void connectWorkspace(st).then((view) =>
+    voltLog("desktop", `auto-connect ${root}: ${view.message}`, view.tone === "error" ? "warn" : "info"),
+  )
 }
 
-/** Release the binding when opencode is on its genuine HOME screen (not a project). Sticky binding never releases on
- *  the request stream (opencode reports `global` for home AND project drafts alike), so the panel would keep showing
- *  a stale project on the homepage — this is the one place we DO release, driven by the GUI's URL being the home
- *  route. Tears down the status feed and pushes a `{bound:false}` snapshot; the IDE/bridge stay untouched. */
+/** Release the binding when opencode navigates to its HOME route (`/`) — no project is open there, so the panel must
+ *  not keep showing one. Tears down the status feed and pushes a `{bound:false}` snapshot; the IDE and the bridge are
+ *  untouched (leaveWorkspace only drops THIS window's interest). */
 export function unbindWorkspace(shell: Shell): void {
   if (shell.boundRoot === undefined) return
   const root = shell.boundRoot
+  voltLog("desktop", `releasing workspace ${root} — opencode left it (home route)`)
   shell.boundRoot = undefined
   shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
   shell.status?.dispose()
