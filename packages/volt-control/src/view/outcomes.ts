@@ -51,6 +51,13 @@ export const ABORT_MERGE: OutcomeAction = {
   confirmMessage: "Abort discards this merge and restores your workspace to before the pull. Your in-merge edits are lost. This cannot be undone.",
 }
 
+/** The two endings of a Connect/Reconnect (declaring THIS window's interest), described ONCE. The failure text is
+ *  the session client's — it knows WHY (connector down vs the project not open). */
+export function describeConnect(r: { ok: boolean; message?: string }): OutcomeView {
+  if (!r.ok) return { tone: "error", message: r.message ?? "Reconnect failed.", actions: [] }
+  return { tone: "info", message: "Connected — syncing with the IDE.", actions: [] }
+}
+
 /** The two endings of a Disconnect (dropping THIS window's interest), described ONCE so the shells can't word them
  *  differently. In the session model the bridge keeps serving if another window/app still wants the project, so a
  *  success is worded as "here", not a global disconnect. */

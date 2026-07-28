@@ -132,6 +132,8 @@ export async function declareInterest(root: string): Promise<{ ok: boolean; mess
   ensurePolling()
   await ensureSession()
   await syncDeclare()
+  // One declare, one answer — the connector reconciles and re-scans before it replies, so this IS the state. No
+  // retry loop: a bridge that wasn't ready reports not-connected, and the user connects again when it is.
   return declareResult(bound)
 }
 

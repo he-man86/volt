@@ -97,6 +97,19 @@ describe("session client (declarative connection presence)", () => {
     expect(r.message).toContain("isn't connected yet")
   })
 
+  test("declareInterest declares ONCE — one sync, one answer, no retry loop", async () => {
+    let syncs = 0
+    router((c) => {
+      if (c.method === "POST" && c.url.endsWith("/session")) return { json: { sessionId: "s1", leaseSeconds: 15 } }
+      if (c.method === "POST" && c.url.includes("/session/s1/sync")) return { json: view(++syncs > 1) }
+      return { status: 404, json: {} }
+    })
+
+    const r = await declareInterest(boundWorkspace("codesys", "MyMachine"))
+    expect(syncs).toBe(1) // it does NOT keep re-syncing until the answer turns favourable
+    expect(r.ok).toBe(false) // reports what the connector said; the user can connect again
+  })
+
   test("an unbound folder declares nothing and does not open a session", async () => {
     const calls = router(() => ({ json: {} }))
     const dir = join(tmpdir(), `volt-sess-unbound-${Math.random().toString(36).slice(2)}`)

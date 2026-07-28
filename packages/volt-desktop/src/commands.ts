@@ -10,15 +10,14 @@ import {
   build,
   initFromProject,
   rebind,
-  enterWorkspace,
-  leaveWorkspace,
+  connectWorkspace,
+  disconnectWorkspace,
   mergeContinue,
   mergeAbort,
   mergeResolve,
   describePull,
   describePush,
   describeMerge,
-  describeDisconnect,
   presentOutcome,
   settleOutcome,
   formatProgress,
@@ -38,6 +37,11 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   // One progress channel for EVERY action (formatProgress is shared with vscode); null clears it.
   const report = (p: ProgressUpdate): void => void shell.win?.webContents.send("volt:progress", formatProgress(p))
   const clearProgress = (): void => void shell.win?.webContents.send("volt:progress", null)
+  // End an action by leaving its RESULT in the titlebar/panel progress line (which the user is already watching)
+  // instead of a modal. For connect/disconnect: neither is destructive, and the panel itself shows the state that
+  // resulted — a dialog to dismiss was pure friction. The renderer holds a `done` frame briefly, then clears.
+  const finish = (message: string, tone: "info" | "error" = "info"): void =>
+    void shell.win?.webContents.send("volt:progress", { message, done: true, tone })
   const notify = (type: "error" | "info", message: string): void => {
     if (shell.win) void dialog.showMessageBox(shell.win, { type, message })
   }
@@ -175,24 +179,19 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     runGuarded(async () => {
       const st = shell.status
       if (!st) return
-      const r = await enterWorkspace(st.workspaceRoot) // the manual Connect override — same lifecycle as auto-connect
-      // Refresh status BEFORE the spinner clears — the connect invalidated the connector's cache, so this re-scans and
-      // shows the project SERVING. The spinner is cleared by runGuarded's finally AFTER this, so it never flips onto a
-      // stale "disconnected" (the flash). The select's own response (r.ok) is what gates success, not a timer.
-      await st.refresh(true)
-      if (!r.ok) notify("error", r.message ?? "Reconnect failed.") // success needs no popup; the UI shows it
+      // The flow (declare interest → settle health → word the result) is @volt/control's, shared with VS Code.
+      const view = await connectWorkspace(st)
+      finish(view.message, view.tone === "error" ? "error" : "info")
     }),
   )
   ipcMain.handle("volt:disconnect", () =>
     runGuarded(async () => {
       // Drop THIS workspace's interest — the bridge stops serving only if no other window wants it; the IDE stays open.
-      const r = await leaveWorkspace(shell.status?.workspaceRoot ?? "")
-      // Refresh BEFORE the spinner clears (runGuarded's finally) so status reflects the drop now, not a stale row.
-      await shell.status?.refresh(true)
-      // Worded ONCE in @volt/control so this and the VS Code command can't drift. Only surface a problem (connector
-      // unreachable) — a clean drop needs no popup.
-      const view = describeDisconnect(r)
-      if (view.tone !== "info") notify(view.tone === "error" ? "error" : "info", view.message)
+      const st = shell.status
+      if (!st) return
+      // Same shared flow as Connect — the desktop only decides that the result lands in the progress line.
+      const view = await disconnectWorkspace(st)
+      finish(view.message, view.tone === "error" ? "error" : "info")
     }),
   )
   // Re-point the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the

@@ -46,6 +46,10 @@
   .progress.on { display: flex; }
   .progress .ico { width: 13px; height: 13px; color: var(--accent); }
   .progress .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The RESULT frame (connect/disconnect end here instead of in a modal): no spinner, and an error reads red. */
+  .progress.done .ico { display: none; }
+  .progress.done .msg { color: var(--text); }
+  .progress.done.err .msg { color: var(--red); }
   .tbar { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--accent);
     transition: width 160ms ease; }
   .brand { display: flex; align-items: center; gap: 8px; font-weight: 640; letter-spacing: -0.01em; }
@@ -202,6 +206,7 @@
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let busyAction = null // WHICH action is in flight ("pull"/"connect"/"rebind:<id>"/…) — spins THAT button until done
   let busyPct = null // determinate % for the titlebar bar (null = indeterminate — just spin the icon)
+  let busyTone = null // set only by a RESULT frame ("info"/"error") — the finished-action styling; null while running
   let moreOpen = false // the sync section's "⋯" overflow menu (force pull/push)
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
   const collapsed = new Set() // section keys the user collapsed (click a header to fold its body away, VS Code-style)
@@ -304,7 +309,10 @@
   // The titlebar progress — updated on EVERY render (before the panel early-return), so an action is visible even
   // with the panel closed. Empties out when `busy` clears (runGuarded sends a null progress frame on completion).
   function renderProgress() {
-    document.getElementById("progress").classList.toggle("on", busy != null)
+    const el = document.getElementById("progress")
+    el.classList.toggle("on", busy != null)
+    el.classList.toggle("done", busyTone != null) // a finished action's result, not a running one
+    el.classList.toggle("err", busyTone === "error")
     document.getElementById("progressMsg").textContent = busy || ""
     document.getElementById("tbar").style.width = busy != null && busyPct != null ? busyPct + "%" : "0"
   }
@@ -478,7 +486,8 @@
   // Start an action: set its label and CLEAR any leftover % so the titlebar bar doesn't flash the prior run's fill
   // before the first progress frame arrives. The main process surfaces errors + clears progress itself (runGuarded).
   let busyStart = 0
-  function begin(label, key) { busy = label; busyAction = key ?? null; busyPct = null; busyStart = Date.now(); render() }
+  const RESULT_MS = 2500 // how long a finished action's result message stays in the progress line before clearing
+  function begin(label, key) { busy = label; busyAction = key ?? null; busyPct = null; busyTone = null; busyStart = Date.now(); render() }
   async function doPull() { begin("Pulling…", "pull"); await volt.pull() }
   async function doPush() { begin("Pushing…", "push"); await volt.push() }
   async function doBuild() { begin("Building…", "build"); await volt.build() }
@@ -520,11 +529,24 @@
       // Action finished. Hold the busy state for a MINIMUM ~500ms so a fast action (connect/disconnect) still shows
       // visible feedback instead of a sub-frame flash. Guard on busyStart so a NEW action isn't cleared by a stale
       // delayed clear.
+      if (busyTone != null) return // a result frame owns the line — its own timer clears it, not runGuarded's null
       const start = busyStart
       setTimeout(() => {
         if (busyStart !== start) return
         busy = null; busyAction = null; busyPct = null; render()
       }, Math.max(0, 500 - (Date.now() - start)))
+      return
+    }
+    if (p.done) {
+      // The action's RESULT, shown where the user is already looking (see commands.ts `finish`). Buttons unlock at
+      // once (busyAction null) — only the message lingers, then clears itself.
+      busy = p.message; busyTone = p.tone ?? "info"; busyAction = null; busyPct = null
+      const start = (busyStart = Date.now())
+      setTimeout(() => {
+        if (busyStart !== start) return
+        busy = null; busyTone = null; render()
+      }, RESULT_MS)
+      render()
       return
     }
     busy = p.message ?? "Working…"

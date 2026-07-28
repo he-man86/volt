@@ -11,7 +11,8 @@
  */
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
-import { fetchStatus } from "../bridge/actions.js";
+import { fetchStatus, enterWorkspace, leaveWorkspace } from "../bridge/actions.js";
+import { describeConnect, describeDisconnect, type OutcomeView } from "../view/outcomes.js";
 import { Emitter } from "./emitter.js";
 import { isMutationInFlight } from "../bridge/gate.js";
 import { readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
@@ -36,6 +37,30 @@ export async function settleOutcome(st: VoltStatus, out: PullOutcome | PushOutco
 	const status = "status" in out ? out.status : undefined;
 	if (status) st.adopt(status);
 	else if (out.kind !== "ok") await st.refresh(true); // merge outcomes carry no status → always re-fetch
+}
+
+/** Connect this workspace (the manual Connect / Reconnect) and settle the UI — the ONE flow both shells run, so
+ *  they can't drift; each only decides how to SHOW the returned view.
+ *
+ *  The settle is health-only on purpose. Both shells used to `await refresh(true)` here, which runs `volt status`
+ *  and walks the whole project over the bridge (~9s on a big one) — so the result message, and the buttons, waited
+ *  on a walk that has nothing to do with connecting. `refreshHealth()` reads the connector's view (no CLI, no IDE
+ *  traffic), which is exactly what changed; the drift re-scan then runs in the BACKGROUND and lands via
+ *  `onDidChange` whenever it's ready. */
+export async function connectWorkspace(st: VoltStatus): Promise<OutcomeView> {
+	const r = await enterWorkspace(st.workspaceRoot);
+	await st.refreshHealth();
+	if (r.ok) void st.refresh(true); // recompute incoming/outgoing against the now-serving bridge, off the click path
+	return describeConnect(r);
+}
+
+/** Disconnect this workspace and settle the UI. Health-only, and NO background status: we just asked the connector
+ *  to gate this bridge, so a `volt status` would walk an IDE that is no longer serving us — seconds of waiting to
+ *  end in an error. Nothing git-side changed anyway; only whether the bridge serves. */
+export async function disconnectWorkspace(st: VoltStatus): Promise<OutcomeView> {
+	const r = await leaveWorkspace(st.workspaceRoot);
+	await st.refreshHealth();
+	return describeDisconnect(r);
 }
 
 /** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a switch between
@@ -192,6 +217,14 @@ export class VoltStatus {
 				void this.refresh(true);
 			}
 		}
+	}
+
+	/** Refresh ONLY the connection health (the connector's view — no CLI, no IDE walk), then fire. For actions that
+	 *  change nothing but whether the bridge serves: connect/disconnect. A full `refresh()` there costs a `/refs`
+	 *  walk (~9s on a big project, and against a bridge disconnect just gated it errors), which delayed the result
+	 *  the user is waiting for. Callers that also want drift can kick `refresh(true)` in the background after. */
+	async refreshHealth(): Promise<void> {
+		await this.pollConnection();
 	}
 
 	private async pollConnection(): Promise<void> {

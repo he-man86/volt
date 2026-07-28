@@ -14,7 +14,7 @@ export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boun
 export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
 
 // state/ — the reactive per-workspace tracker
-export * from "./state/status.js" // VoltStatus, isIdeChangeEdge
+export * from "./state/status.js" // VoltStatus, isIdeChangeEdge, settleOutcome, connect/disconnectWorkspace
 export * from "./state/emitter.js" // Emitter, Disposable (vscode-EventEmitter-shaped)
 export * from "./state/files.js" // isPouFile, readStateMtime
 
