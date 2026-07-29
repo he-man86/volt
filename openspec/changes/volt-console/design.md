@@ -37,42 +37,62 @@ anything client-side, and it has nothing to do with chat content. It dies with t
 product value is lost. The *desire* it gets confused with — understanding real-world LSP and agent behaviour —
 is a separate follow-up, recorded in `proposal.md`.
 
-## 0.1 Tiers — free is a 30-day trial, then read-only
+## 0.1 Tiers — free is 3 projects, pro is unlimited
 
-| | days 1–30 | after |
+**Revised 2026-07-29**, replacing a 30-day trial. Not time-limited at all.
+
+| | free | pro |
 |---|---|---|
-| `volt status` / `build` / `show` | ✅ | ✅ |
-| LSP + VS Code extension | ✅ | ✅ |
-| `volt pull` / `push` / `merge` | ✅ | ❌ |
+| bound projects | **3** | unlimited |
+| capability on a bound project | full — `pull`/`push`/`merge`, LSP, extension | full |
 
-Pro unlocks the write path — the git-for-PLC workflow that is the actual product. Every user experiences the
-full thing before deciding, which suits a tool whose value is not obvious from a feature list.
+A "project" is concrete: a git repo root carrying `.git/volt/config.json` (vendor + project name) — one
+CODESYS or TwinCAT project, in practice one machine or line.
 
-**Consequences:**
+**Why this beats a 30-day trial:**
 
-- **An account is required from day one.** There is no fully-offline free tier. Accepted: it costs a signup
-  step but gives a funnel and a usage signal, and the trial needs an identity to attach to.
-- **Trial start is server-side, per workspace**, set at signup. It must not live on the client or a reinstall
-  resets the trial.
-- The client's clock is therefore only trusted for the offline grace window (0.2), where tampering buys a
-  bounded extension and nothing more.
+- **It removes the clock from tier enforcement.** A trial needs `now > trialStartedAt + 30d`, which is a second
+  clock alongside the offline grace window in 0.2. A count is a fact the client can already see.
+- **It does not punish slow evaluation.** Try it for three days, come back in two months, and a trial is gone;
+  a project allowance is not.
+- **It is a permanent funnel rather than one-shot urgency.** Lapsed trial users disappear. Free-tier users stay
+  in the ecosystem and convert when they grow.
+- **Usage-aligned:** you pay when you are getting more value, not when a timer runs out.
 
-**Still to decide:** whether the read-only set above is exactly right. It is the current best guess, not a
-researched answer — validate against what a PLC engineer can actually do with it.
+**The risk, accepted:** an engineer with one or two machines never pays. 3 is set low enough that most
+professionals cross it — a plant engineer maintains many machines, a machine builder ships dozens a year — and
+whoever stays under three was unlikely to convert regardless.
 
-## 0.2 Enforcement — 14-day offline grace, then degrade to free
+**Where the count lives: client-side.** The licence response carries `maxProjects`; the CLI counts its own
+bindings. Server-side counting would mean `volt init` registering a project identifier with Volt, which
+contradicts the privacy line drawn for telemetry (proposal.md → Follow-ups: never ship identifiers). Client-side
+is gameable by deleting `.git/volt` and re-running `init`, but that is deliberate effort to dodge €19.
+
+**Open sub-question:** whether free requires an account at all. The counter makes a fully offline free tier
+possible — default to 3 with no key present, sign up only to go pro — which is the least possible friction.
+Against that: no account means no funnel, no mailing list and no usage signal. Requiring an account also keeps
+one code path, since every workspace then has a licence key, free or pro. Not yet decided.
+
+## 0.2 Enforcement — 14-day offline grace, then "keep what you have, add nothing new"
 
 ```
-online              → validate, cache {tier, trialEndsAt, validatedAt}
+online              → validate, cache {tier, maxProjects, validatedAt}
 offline < 14 days   → work normally
-offline ≥ 14 days   → degrade to the free capability set, with an explicit message
+offline ≥ 14 days   → existing bound projects keep working; binding a NEW one is blocked,
+                      with an explicit message
 ```
 
 Never refuses to start. Never silently downgrades. Volt runs on plant floors where the network is unreliable
 or absent, and a failed HTTP call must not cost an engineer their shift.
 
-**This converges with 0.1**, which is the point: post-trial free and past-grace degraded are the *same*
-read-only state. One degraded mode to build, one to explain, one to test.
+**The project counter makes this materially kinder than the trial design it replaces.** Under a time trial, a
+pro user offline past grace degraded to *read-only* — precisely the stranded-engineer scenario this section
+exists to prevent. Under a counter, an engineer offline for three weeks keeps working on every project they
+already have, and only meets a wall when starting something new, which is exactly the moment reconnecting is
+reasonable.
+
+It also means there is no separate "degraded mode" to design: past-grace behaviour is just the free tier's
+allowance applied to new bindings, and a user already within their allowance notices nothing at all.
 
 **Still to decide:** per-machine binding. Binding means device management and a support burden; not binding
 means a key can be shared. Deferred until there is evidence it matters.
@@ -157,16 +177,17 @@ configured currency.
 For reference: 100 subscribers ≈ €22.8k ARR, at near-zero COGS now that Volt does not pay for tokens. It also
 leaves room for a team tier around €15/seat without the individual price looking wrong.
 
-### Consequence: the trial does NOT take a card
+### Consequence: the free tier has no Stripe object at all
 
-0.1 already requires trial start to be server-side per workspace, which means **Volt owns the trial clock, not
-Stripe.** Stripe's native `trial_period_days` would be simpler — the tier would just derive from
-`subscription.status === "trialing"` — but it requires a card up front, and card-gated trials collapse signup
-rates for a tool engineers want to evaluate quietly.
+No credit card is involved until someone goes pro. With 0.1's project counter there is no trial to gate either,
+so a free workspace is simply a workspace with `maxProjects = 3` and **no Stripe customer, subscription or
+payment method in existence**.
 
-So: sign up → workspace created with `trialStartedAt` → no Stripe object exists yet. A Stripe customer and
-subscription are created only at conversion. The licence validate endpoint must therefore answer for
-workspaces that have no Stripe record at all.
+That has one implementation consequence worth building in from the start rather than retrofitting: **the
+licence validate endpoint must answer for workspaces with no Stripe record.** Deriving tier from Stripe (a
+requirement in the spec) means "no Stripe record" has to resolve to free, not to an error or an empty result.
+
+A Stripe customer and subscription are created only at conversion, through hosted Checkout.
 
 ### Consequence: EU VAT
 
@@ -175,12 +196,12 @@ Selling a subscription into the EU brings VAT obligations, including the B2B rev
 code; it is not automatic. Not a blocker for building, but it must be settled before taking real money — add
 it to section 1.4.
 
-## 0.7 Price, currency, trial length — OPEN
+## 0.8 Existing subscribers — none
 
-Trial is 30 days (0.1). Price and currency undecided. The old €24/month was a gateway subscription where Volt
-paid for tokens; the customer now brings their own key, so the same number buys them less but costs them less
-overall. Supersedes the gateway pricing in `stripe-go-live`.
+**Zero subscribers; Volt never went live.** No migration, no revenue at risk, no live Stripe products to
+preserve — the existing `ZenLite` / `ZenBlack` products and their coupons can simply be deleted and recreated
+at €19.
 
-## 0.8 Existing subscribers — OPEN
-
-Needs a factual answer before assuming migration is a footnote.
+This inverts the build order to **delete-first** (3 → 1 → 2 → 4); see `tasks.md` → Ordering. Section 3 removes,
+in one pass, the `aws` provider that currently blocks every `sst` command, 30 of the ~52 declared secrets, and
+the PlanetScale / Upstash / R2 / Honeycomb bill — all of which sections 1–2 would otherwise work around.

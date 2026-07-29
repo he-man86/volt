@@ -31,8 +31,9 @@
 - [ ] 1.3 Auth: sign in, session, and workspace membership per 0.5.
 - [ ] 1.4 Stripe: Checkout for subscribe, Customer Portal for manage/cancel/invoices. Both are hosted — do not
       rebuild them. `checkout.session.completed` issues the licence key. €19/month in EUR (0.7).
-      **No card at trial start** — Volt owns the trial clock, so a trialing workspace has no Stripe object at
-      all and the validate endpoint must answer for it.
+      **No card until conversion** — a free workspace has no Stripe customer, subscription or payment method
+      at all (0.1 has no trial to gate). The validate endpoint must resolve "no Stripe record" to free rather
+      than to an error.
       **Enable Stripe Tax** and set the product's tax code: EU VAT, B2B reverse charge and OSS reporting apply
       and are not automatic. Settle before taking real money.
 - [ ] 1.5 Dashboard: current tier, licence key (copyable, revocable), link to the portal.
@@ -46,12 +47,16 @@
 - [ ] 2.1 Issue: a key per workspace, on `checkout.session.completed`. Store status + tier.
 - [ ] 2.2 **Reconciliation.** A missed webhook must not leave a paying customer keyless — a poll or a
       "refresh my subscription" action that reads Stripe as the source of truth.
-- [ ] 2.3 Validate endpoint: key → `{ tier, active, expires }`. Cheap, cacheable, no auth beyond the key.
+- [ ] 2.3 Validate endpoint: key → `{ tier, active, maxProjects }`. Cheap, cacheable, no auth beyond the key.
+      Must answer for workspaces with no Stripe record (free).
 - [ ] 2.4 CLI side: hold the key, check on a schedule, cache the result, honour the grace policy from 0.2.
-      Decide where the key lives on disk and who can read it.
+      Enforce `maxProjects` against the CLI's OWN count of bound repos — do not register project identifiers
+      with the server (0.1). Decide where the key lives on disk and who can read it.
 - [ ] 2.5 Revocation + rotation, and what the CLI does when a key is revoked mid-grace.
-- [ ] 2.6 Tests for the enforcement paths — expired, revoked, offline-within-grace, offline-past-grace. This
-      sits in front of every paying customer; it is the one part that must not be discovered in production.
+- [ ] 2.6 Tests for the enforcement paths — revoked, offline-within-grace, offline-past-grace-on-an-existing-
+      project (must keep working), offline-past-grace-binding-a-new-one (must refuse with a clear message), and
+      at-the-allowance-boundary. This sits in front of every paying customer; it is the one part that must not
+      be discovered in production.
 
 ## 3. Delete the gateway and the vendored console
 
@@ -80,7 +85,8 @@
 
 - [ ] 4.1 A real subscribe → key → CLI validates, end to end on `dev`, with a Stripe test card.
 - [ ] 4.2 The same on `production` with a real card, then refunded.
-- [ ] 4.3 Offline behaviour: disconnect, confirm the CLI keeps working within grace and degrades per 0.2 after.
+- [ ] 4.3 Offline behaviour: disconnect, confirm the CLI keeps working within grace; past grace confirm
+      existing projects still pull/push/merge and only a NEW binding is refused.
 - [ ] 4.4 Cancel via the Customer Portal → the key deactivates within the expected window.
 - [ ] 4.5 `bun run compat`, `bun volt-scripts/check-wiring.ts`, typecheck and lint all green.
 - [ ] 4.6 Confirm the deleted services are actually gone from the bill — Upstash, the R2 buckets, and

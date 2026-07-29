@@ -80,17 +80,20 @@ Section 0 of `tasks.md` is complete. Summary:
 | | |
 |---|---|
 | **0.0** governing principle | fewest providers — prefer an extra Cloudflare product over an extra platform. End state: Cloudflare + Stripe + GitHub |
-| **0.1** tiers | free is a 30-day full trial, then read-only (`status`/`build`/`show` + LSP + extension). Pro unlocks `pull`/`push`/`merge` |
-| **0.2** enforcement | 14-day offline grace, then degrade to free, always with an explicit message. Never refuses to start |
+| **0.1** tiers | free is **3 bound projects**, full capability, no time limit. Pro is unlimited |
+| **0.2** enforcement | 14-day offline grace, then "keep what you have, add nothing new". Existing projects always keep working |
 | **0.3** database | Cloudflare D1 |
 | **0.4** workspaces | present from day one, 1:1 and invisible. Licence key belongs to the workspace |
 | **0.5** auth | GitHub + Google + email code, over Cloudflare Email Sending (not SES) |
 | **0.6** support portal | folds into `volt-console` as an operator-gated `/admin/lookup` |
-| **0.7** price | €19/month, EUR. No card at trial start, so Volt owns the trial clock |
+| **0.7** price | €19/month, EUR. No credit card to use the free tier |
 | **0.8** subscribers | zero — Volt never went live. Build order inverts to delete-first |
 
-Two decisions turned out to interact usefully: post-trial free (0.1) and past-grace degraded (0.2) are the
-**same** read-only state, so there is one degraded mode to build, explain and test rather than two.
+0.1 was revised from a 30-day trial to a project counter, which turned out to simplify 0.2 as well: a count is
+a fact the client already knows, so tier enforcement needs **no clock at all** — only the grace window has one.
+It also made the offline story kinder. Under the trial, a pro user offline past grace degraded to *read-only*,
+which is the stranded-engineer scenario the spec exists to prevent; under a counter they keep working on every
+project they already have and only meet a wall when starting something new.
 
 ## Risks
 

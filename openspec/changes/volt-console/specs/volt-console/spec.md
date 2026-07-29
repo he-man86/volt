@@ -39,13 +39,24 @@ The subscription SHALL model **free** and **pro**, with **team** designed for bu
 workspace SHALL have exactly one tier at a time, and the tier SHALL be derived from Stripe rather than stored
 as the source of truth.
 
+Free SHALL be limited by **number of bound projects**, not by time. There is no trial clock. A bound project is
+a git repo root carrying `.git/volt/config.json`. Free allows 3; pro is unlimited.
+
+The limit SHALL be carried in the licence response and enforced by the client against its own bindings.
+Registering project identifiers with the server is NOT permitted — it would contradict the privacy constraint
+that Volt never collects identifiers from customer machines.
+
 #### Scenario: tier follows Stripe
 - **WHEN** a subscription is created, cancelled or lapses in Stripe
 - **THEN** the workspace's tier reflects that change without manual intervention
 
 #### Scenario: downgrade is not destructive
 - **WHEN** a pro subscription ends
-- **THEN** the workspace returns to free and no user data is deleted
+- **THEN** the workspace returns to free, no user data is deleted, and projects already bound keep working
+
+#### Scenario: free is not time-limited
+- **WHEN** a free user returns after months of not using Volt
+- **THEN** their allowance is unchanged — nothing has expired
 
 ### Requirement: A licence key gates pro features, and never strands an offline engineer
 
@@ -56,14 +67,23 @@ Validation failure caused by **lack of connectivity** SHALL NOT immediately disa
 period SHALL apply, and behaviour after it expires SHALL be a deliberate, documented decision rather than an
 accident of error handling. Volt is used on plant floors where the network is unreliable or absent.
 
+Past grace, work already in progress SHALL continue. Degradation SHALL apply only to **binding a new project**,
+never to projects already bound. An engineer offline for weeks must not lose access to the machines they are
+working on.
+
 #### Scenario: offline within grace
 - **WHEN** the CLI cannot reach the console but the cached licence is inside its grace period
 - **THEN** the toolchain continues to work exactly as before
 
-#### Scenario: offline past grace
-- **WHEN** the grace period has expired and the console is still unreachable
-- **THEN** the CLI behaves as the enforcement policy specifies, and tells the user plainly what happened and
-  how to fix it — never a bare failure or a silent downgrade
+#### Scenario: offline past grace, working on existing projects
+- **WHEN** the grace period has expired, the console is unreachable, and the engineer is working on projects
+  already bound
+- **THEN** everything continues to work — pull, push and merge included
+
+#### Scenario: offline past grace, binding something new
+- **WHEN** the grace period has expired and the engineer runs `volt init` beyond the free allowance
+- **THEN** that binding is refused with a plain explanation of why and how to fix it — never a bare failure or
+  a silent downgrade
 
 #### Scenario: revoked key
 - **WHEN** a key is revoked or the subscription is cancelled
