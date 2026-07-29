@@ -80,8 +80,9 @@ Section 0 of `tasks.md` is complete. Summary:
 | | |
 |---|---|
 | **0.0** governing principle | fewest providers — prefer an extra Cloudflare product over an extra platform. End state: Cloudflare + Stripe + GitHub |
-| **0.1** tiers | free is **3 bound projects**, full capability, no time limit. Pro is unlimited |
+| **0.1** tiers | free is **3 bound projects**, full capability, no time limit. Pro is unlimited. An account is required — attributed telemetry is what makes diagnosis possible |
 | **0.2** enforcement | 14-day offline grace, then "keep what you have, add nothing new". Existing projects always keep working |
+| **0.2b** who validates | the always-on tray **connector**, on its existing update cadence. The CLI reads a cached verdict and never makes a network call |
 | **0.3** database | Cloudflare D1 |
 | **0.4** workspaces | present from day one, 1:1 and invisible. Licence key belongs to the workspace |
 | **0.5** auth | GitHub + Google + email code, over Cloudflare Email Sending (not SES) |
@@ -129,7 +130,9 @@ and alerts Discord when the failure ratio climbs. It never sees the LSP, and it 
 
 Signals worth collecting:
 
-- **LSP** — which diagnostic codes fire, counts, timings, crash stacks, file kinds.
+- **LSP** — which diagnostic codes fire, counts, timings, crash stacks, file kinds. Attributable to a
+  workspace, since 0.1 requires an account — which is what turns "some users see this" into a support
+  conversation, and is also why the constraints below matter more, not less.
 - **The `volt` tool** (`opencode-config/tool/volt.ts`) — Volt's own code, running inside the agent loop. Which
   verbs the agent reaches for, pull vs push ratios, what fails. Reveals how the agent uses Volt without seeing
   a single prompt.

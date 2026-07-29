@@ -68,10 +68,17 @@ bindings. Server-side counting would mean `volt init` registering a project iden
 contradicts the privacy line drawn for telemetry (proposal.md → Follow-ups: never ship identifiers). Client-side
 is gameable by deleting `.git/volt` and re-running `init`, but that is deliberate effort to dodge €19.
 
-**Open sub-question:** whether free requires an account at all. The counter makes a fully offline free tier
-possible — default to 3 with no key present, sign up only to go pro — which is the least possible friction.
-Against that: no account means no funnel, no mailing list and no usage signal. Requiring an account also keeps
-one code path, since every workspace then has a licence key, free or pro. Not yet decided.
+**Free requires an account.** Decided 2026-07-29. The counter would have allowed a fully offline free tier
+(default to 3 with no key present), which is less friction — but an account buys three things worth more:
+
+- **Diagnosis.** Telemetry attributed to a workspace lets a support conversation start from "your LSP is
+  raising this" rather than "can you reproduce it". Anonymous telemetry answers aggregate questions only.
+- A funnel and a usage signal, neither of which exist otherwise.
+- One code path: every workspace has a licence key, free or pro.
+
+This tightens the privacy constraint rather than loosening it — attributed telemetry is *more* sensitive, so
+the "codes and counts, never source or identifiers" rule in the telemetry follow-up becomes more load-bearing,
+not less.
 
 ## 0.2 Enforcement — 14-day offline grace, then "keep what you have, add nothing new"
 
@@ -96,6 +103,32 @@ allowance applied to new bindings, and a user already within their allowance not
 
 **Still to decide:** per-machine binding. Binding means device management and a support burden; not binding
 means a key can be shared. Deferred until there is evidence it matters.
+
+## 0.2b The connector owns licence validation, not the CLI
+
+The always-on tray connector (`packages/volt-cli/src/Volt.Cli.Connector`) is the right holder of the licence,
+not the `volt` CLI. It already:
+
+| | |
+|---|---|
+| `LoginItem.cs` | starts at login — it is always running |
+| `Updater.cs` | already phones home on a schedule, so licence validation is the same cadence, not a new one |
+| `TrayContext.cs`, `StatusWindow.cs` | somewhere to *show* licence state and warn before grace bites |
+| `BridgeSupervisor.cs` | already tracks what is bound |
+
+**The decisive reason: `volt push` must not make a network call.** Validating per CLI invocation would add an
+HTTP round-trip to every operation an engineer performs. Instead the connector validates on its schedule and
+writes a cached verdict locally; the CLI reads that file and does no networking at all.
+
+**The cache file is the contract, not the connector.** The CLI must work when the connector is not running —
+stopped, crashed, or never installed (the CLI can be used standalone). It reads the last cached verdict and
+applies the same grace rules. A missing cache means free tier, not failure.
+
+This also gives a natural place to warn *before* something bites: the tray can say "licence unverified for 11
+days" long before the 14-day grace expires, which is far better than discovering it mid-task.
+
+Wiring this up is future work, not part of section 2 — but the licence design should assume it, so the CLI
+never grows a network path that has to be removed later.
 
 ## 0.3 Database — Cloudflare D1
 

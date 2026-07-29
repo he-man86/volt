@@ -49,9 +49,11 @@
       "refresh my subscription" action that reads Stripe as the source of truth.
 - [ ] 2.3 Validate endpoint: key → `{ tier, active, maxProjects }`. Cheap, cacheable, no auth beyond the key.
       Must answer for workspaces with no Stripe record (free).
-- [ ] 2.4 CLI side: hold the key, check on a schedule, cache the result, honour the grace policy from 0.2.
-      Enforce `maxProjects` against the CLI's OWN count of bound repos — do not register project identifiers
-      with the server (0.1). Decide where the key lives on disk and who can read it.
+- [ ] 2.4 Client side, per 0.2b: the **connector** validates on a schedule and writes a cached verdict; the
+      **CLI reads that file and does no networking at all** — `volt push` must not make an HTTP call. The CLI
+      must still work with the connector stopped or absent (missing cache ⇒ free, never failure). Enforce
+      `maxProjects` against the CLI's OWN count of bound repos — do not register project identifiers with the
+      server (0.1). Decide where the key and the cache live on disk and who can read them.
 - [ ] 2.5 Revocation + rotation, and what the CLI does when a key is revoked mid-grace.
 - [ ] 2.6 Tests for the enforcement paths — revoked, offline-within-grace, offline-past-grace-on-an-existing-
       project (must keep working), offline-past-grace-binding-a-new-one (must refuse with a clear message), and

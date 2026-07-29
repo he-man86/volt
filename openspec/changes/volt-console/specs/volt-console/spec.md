@@ -60,8 +60,14 @@ that Volt never collects identifiers from customer machines.
 
 ### Requirement: A licence key gates pro features, and never strands an offline engineer
 
-Each workspace SHALL have a licence key. The CLI SHALL hold it, validate it against the console on a schedule,
-and cache the result.
+Each workspace SHALL have a licence key. The always-on tray **connector** SHALL validate it on a schedule and
+write a cached verdict locally.
+
+The **CLI SHALL NOT make a network call** to determine entitlement — it reads the cached verdict. Adding an
+HTTP round-trip to `volt push` would tax every operation an engineer performs.
+
+The cache SHALL be the contract, not the connector: the CLI SHALL behave correctly when the connector is
+stopped, crashed or not installed. A missing cache SHALL resolve to the free tier, never to a failure.
 
 Validation failure caused by **lack of connectivity** SHALL NOT immediately disable the toolchain. A grace
 period SHALL apply, and behaviour after it expires SHALL be a deliberate, documented decision rather than an
@@ -84,6 +90,15 @@ working on.
 - **WHEN** the grace period has expired and the engineer runs `volt init` beyond the free allowance
 - **THEN** that binding is refused with a plain explanation of why and how to fix it — never a bare failure or
   a silent downgrade
+
+#### Scenario: the connector is not running
+- **WHEN** the CLI is used with the connector stopped or never installed
+- **THEN** it applies the last cached verdict, or the free tier if there is none — it never fails or blocks on
+  the connector's absence
+
+#### Scenario: no network call on a routine operation
+- **WHEN** an engineer runs `volt push`
+- **THEN** entitlement is read from the local cache and no request leaves the machine as part of that command
 
 #### Scenario: revoked key
 - **WHEN** a key is revoked or the subscription is cancelled
