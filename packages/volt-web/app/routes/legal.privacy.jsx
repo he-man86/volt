@@ -1,82 +1,106 @@
 import { LegalPage } from "../components/LegalPage.jsx"
 
-// Volt Privacy Policy. Reflects Volt's ACTUAL architecture (PLC source stays local in git; the hosted service
-// handles accounts, billing, and the AI gateway, which meters usage metadata — not prompt/completion content).
-// Reassurances ("what we don't do", NL processing) adapted from the PLC Assist production docs; PLC Assist's
-// stored-conversation-history / AI-improvement-consent claims were intentionally NOT ported — Volt doesn't do
-// those. Pending final counsel review.
-const UPDATED = "16 July 2026"
+// Volt Privacy Policy.
+//
+// Rewritten 29 July 2026. The previous version described collecting account names and emails via OAuth, storing
+// billing status, metering AI usage through a gateway, and sharing data with PlanetScale, Stripe, Anthropic and
+// DeepSeek as our processors. None of that exists — the console and the gateway were deleted
+// (openspec/changes/sell-cli-subscription) and Volt now runs no backend at all.
+//
+// This policy is short because the honest answer is short: we operate no servers, so there is almost nothing to
+// disclose. The substantive content is therefore about who ELSE processes data (Polar as merchant of record,
+// Cloudflare as host, your own AI provider) and what stays on your machine.
+const UPDATED = "29 July 2026"
 // Each section is [title, body, bullets?].
 const SECTIONS = [
   [
-    "1. Scope",
-    "This Privacy Policy explains what information Volt (“we”, “us”) collects when you use the Volt desktop app, CLI, language tools, and hosted cloud service (the “Service”), and how we use it. It does not cover third-party services you connect to, which have their own policies.",
+    "1. The short version",
+    "Volt runs no servers. We have no database, no user accounts and no analytics on you. Your PLC code, your git history and your AI prompts never reach us — not as a policy choice we could quietly reverse, but because there is no system of ours for them to reach. The personal data we hold is limited to emails you send us. Payment is handled by Polar, who are the merchant of record and hold your purchase details under their own policy.",
   ],
   [
-    "2. Local-first by design",
-    "Your PLC projects, source code, and repository history live in git on your own machines. We do not store or receive your project files. When you use AI features, the specific prompt you submit is transmitted through our gateway to the AI model provider to generate a response; the gateway records usage metadata (such as model, token counts, and cost) for rate-limiting and billing, not the content of your prompts or the model’s responses.",
+    "2. Who we are",
+    "Volt (“we”, “us”) publishes the Volt software. We are based in the Netherlands. For any processing described here, we are the data controller, and you can reach us at privacy@volt-ai.dev.",
   ],
   [
-    "3. Information we collect",
-    "Account information: your name and email and, for OAuth sign-in, the basic profile your provider (e.g. Google or GitHub) shares. Billing information: subscription and payment status. Card details are handled by our payment processor (Stripe) — we do not store full card numbers. Usage information: request metadata needed to operate the Service, such as token counts and cost for rate-limiting and billing, plus diagnostic logs (including IP address, browser, and access times). Support information: anything you send us when you contact us.",
-  ],
-  [
-    "4. How we use it",
-    "To provide, secure, and operate the Service; to authenticate you; to process payments and prevent fraud; to meter and bill AI usage; to respond to your requests; to monitor and improve reliability; and to comply with legal obligations.",
-  ],
-  [
-    "5. What we don’t do",
-    "We are deliberate about what we don’t collect or do:",
+    "3. What stays on your machine",
+    "The following never leaves your computer, and we have no means of obtaining it:",
     [
-      "We do not sell your personal information.",
-      "We do not use Your Content or the prompts you send through the gateway to train AI models.",
-      "We do not store the content of your AI prompts or responses — only the usage metadata needed to meter and bill.",
-      "Our AI model providers are contractually bound not to use your data to train their models.",
+      "Your PLC projects, source code and git history — Volt syncs your IDE to a git repository on your own disk.",
+      "Your AI prompts and the responses to them. You supply your own provider key and your agent talks to that provider directly; we are not in that path and could not see them even if we wanted to.",
+      "Your AI provider key and your Volt licence key, which are stored locally on your machine.",
+      "Which projects you have bound. The free-tier limit is enforced by the software against your own local state; it is never reported to us.",
     ],
   ],
   [
-    "6. Service providers",
-    "We share information with providers who process it on our behalf under contract, only as needed to run the Service — including cloud hosting and edge delivery (Cloudflare), our database provider (PlanetScale), our payment processor (Stripe), AI model providers (Anthropic and DeepSeek, for gateway requests), and identity providers (for OAuth sign-in). We may also disclose information where required to comply with applicable laws or legal processes. These providers act as our processors or as independent controllers under their own terms.",
+    "4. What we actually collect",
+    "Very little, and only in these situations:",
+    [
+      "Email. If you write to hello@, privacy@ or legal@volt-ai.dev, we receive your address, your message and anything you choose to include, so that we can reply. Our mail is hosted by a European provider.",
+      "Licence validation. When you activate or revalidate a licence, the software sends your licence key and activation id to Polar — not to us. Polar necessarily sees the connecting IP address and processes it under their policy. We receive no telemetry from this and learn nothing about when or how you use Volt.",
+      "Update downloads. When Volt checks for or downloads an update, it requests a file from our public release location on GitHub. GitHub logs that request, including your IP address, under their own policy. We do not receive per-user download data.",
+      "Website visits. Our site is static files served by Cloudflare, who process request data (including IP addresses) to deliver and protect it. See §6.",
+    ],
   ],
   [
-    "7. Data retention",
-    "We keep personal information for as long as your account is active and as needed to provide the Service, then for the period required to meet legal, accounting, and dispute-resolution obligations, after which we delete or anonymize it.",
+    "5. Purchases — handled by Polar",
+    "We sell through Polar, who act as the merchant of record. Polar collects and holds what a purchase requires — your name, email, billing address, country for VAT purposes and payment details — and issues your licence key. They are an independent controller for that data under their own privacy policy, not our processor. We never see or store your card details. We can see the subscription status attached to a licence, which is what tells us whether a key is valid.",
   ],
   [
-    "8. Security",
-    "We use industry-standard measures — encryption in transit (TLS), access controls, and reputable infrastructure providers — to protect information. No system is perfectly secure; we cannot guarantee absolute security.",
+    "6. Our website",
+    "volt-ai.dev is a set of static files. It has no backend, no sign-in and no forms — the contact page is a plain mailto: link, so nothing is submitted to us. It sets no cookies whatsoever (see our Cookie Policy). Cloudflare hosts it and processes connection data such as IP address and user agent to serve and protect the site, as any host must. If we later enable Cloudflare Web Analytics we will say so here; it is cookieless and does not fingerprint or track visitors across sites.",
+  ],
+  [
+    "7. What we do not do",
+    "Stated plainly, because the industry norm is the opposite:",
+    [
+      "We do not sell or share your personal information, and we run no advertising.",
+      "We do not profile you, build a behavioural record, or track you across sites.",
+      "We do not train models on anything of yours.",
+      "We do not phone home. Volt sends nothing to us during normal use — no telemetry, no crash reports, no usage statistics.",
+    ],
+  ],
+  [
+    "8. Legal bases and retention",
+    "Where the GDPR applies: we process support email to respond to you and on the basis of our legitimate interest in supporting our software; purchase data is processed by Polar to perform your contract with them and to meet their tax obligations. We keep support email for as long as needed to handle the matter and any follow-up, and delete it when it no longer serves a purpose. Polar sets its own retention for purchase records, which tax law requires them to keep for several years.",
   ],
   [
     "9. Your rights",
-    "Depending on where you live (for example, under the GDPR or CCPA), you may have rights to access, correct, delete, port, or restrict the processing of your personal information, and to object or withdraw consent. To exercise these rights, email privacy@volt-ai.dev. We will respond as required by applicable law.",
+    "Under the GDPR and comparable laws you may request access to the personal data we hold about you, correction, erasure, restriction, portability, and you may object to processing. In practice the only data we are likely to hold is your correspondence. Email privacy@volt-ai.dev and we will respond within the time the law allows. For purchase data, contact Polar directly, since they are the controller. If you are in the EU or UK you also have the right to lodge a complaint with your data-protection authority — in the Netherlands, the Autoriteit Persoonsgegevens.",
   ],
   [
     "10. International transfers",
-    "We are based in the Netherlands and process information there and in other countries where our service providers operate. If you are located elsewhere, your information may be transferred to and processed in the Netherlands or those countries. Where required, we use appropriate safeguards for such transfers.",
+    "We are in the Netherlands. The third parties named here (Polar, Cloudflare, GitHub) may process data outside the EEA, including in the United States, under the transfer safeguards set out in their own policies. Because we do not send them personal data about you beyond what §4 and §5 describe, our own transfers are minimal.",
   ],
   [
-    "11. Cookies",
-    "The hosted service uses only the cookies needed to keep you signed in and to operate securely; the marketing site does not use advertising trackers. See our Cookie Policy at /legal/cookies for details.",
+    "11. Security",
+    "Traffic to our site and to the licensing endpoint is encrypted in transit (TLS). The strongest protection here is structural rather than procedural: we hold almost no data, so there is very little to lose. Your licence key is stored on your own machine and should be treated like any other credential. No system is perfectly secure and we cannot guarantee absolute security.",
   ],
   [
     "12. Children",
-    "The Service is not directed to children under 16, and we do not knowingly collect their personal information.",
+    "Volt is a professional engineering tool, is not directed to children under 16, and we do not knowingly collect their personal data.",
   ],
   [
     "13. Changes",
-    "We may update this Policy from time to time. Material changes will be posted here with an updated date and, where appropriate, additional notice.",
+    "We may update this Policy. Material changes will be posted here with a new date. If Volt ever starts collecting something it does not collect today — telemetry, crash reports, analytics — we will say so here before it ships, not after.",
   ],
   ["14. Contact", "Questions about privacy? Email privacy@volt-ai.dev."],
 ]
 
-export const meta = () => [{ title: "Privacy Policy — Volt" }, { name: "description", content: "Volt Privacy Policy." }]
+export const meta = () => [
+  { title: "Privacy Policy — Volt" },
+  {
+    name: "description",
+    content:
+      "Volt runs no servers. Your PLC code, git history and AI prompts never reach us, and the site sets no cookies.",
+  },
+]
 
 export default function Page() {
   return (
     <LegalPage
       title="Privacy Policy"
       updated={UPDATED}
-      notice="This policy is being finalized ahead of Volt’s general availability. Questions? Email privacy@volt-ai.dev."
+      notice="Volt is not yet open for purchase. This policy describes how the software actually works today and is pending final review by counsel before sales open. Questions? Email privacy@volt-ai.dev."
       sections={SECTIONS}
     />
   )
