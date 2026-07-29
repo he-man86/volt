@@ -237,7 +237,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
         // opens the folder in opencode via
         // Add project (opencode auto-registers then). We deliberately do NOT drive opencode ourselves: navigating it
         // reloaded its GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience — not
-        // worth the extra undocumented-API surface. See openspec/changes/desktop-connection-flow/observations.md.
+        // worth the extra undocumented-API surface. See openspec/changes/archive/2026-07-29-desktop-connection-flow/observations.md.
         await bindWorkspace(shell, out.workspace)
         notify("info", `Created and synced the Volt workspace at ${out.workspace}. To use it with the AI agent, open it in opencode (Add project → pick this folder).`)
       } else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)

@@ -1,3 +1,11 @@
+> ## SUPERSEDED — 2026-07-29
+>
+> Superseded by `volt-console`, which drops the AI gateway entirely in favour of a flat subscription for the
+> PLC toolchain. It describes launching the vendored opencode console and its LLM gateway. That console is being deleted and replaced by packages/volt-console.
+>
+> Archived unfinished on purpose: the work is not abandoned so much as no longer applicable. See
+> `openspec/changes/archive/2026-07-29-volt-console/` (or `openspec/changes/volt-console/` while in flight).
+
 ## Why
 
 The whole commercial backend — console, LLM gateway, marketing site, and the gated support portal — runs on the

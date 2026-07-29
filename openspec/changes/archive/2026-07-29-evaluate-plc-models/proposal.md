@@ -1,3 +1,11 @@
+> ## SUPERSEDED — 2026-07-29
+>
+> Superseded by `volt-console`, which drops the AI gateway entirely in favour of a flat subscription for the
+> PLC toolchain. It tests whether DeepSeek is good enough at IEC 61131-3 to be Volt's cheap default tier. Volt no longer chooses models for anyone: users bring their own opencode and their own provider key, so there is no default to validate.
+>
+> Archived unfinished on purpose: the work is not abandoned so much as no longer applicable. See
+> `openspec/changes/archive/2026-07-29-volt-console/` (or `openspec/changes/volt-console/` while in flight).
+
 ## Why
 
 Volt's subscription margin rests on one untested assumption: **DeepSeek is good enough at IEC 61131-3 for the

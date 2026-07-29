@@ -139,7 +139,7 @@ check("volt-lsp-iec skill installer built (dist/src/init.js)", () =>
 // The gateway's catalog is no longer a committed file: ZEN_MODELS1..30 is edited in place on the stage with
 // opencode's own core/script/update-models.ts. So there is nothing local left to compare the picker
 // against — provider.volt.models in opencode-config is hand-maintained. (Registering Volt as a models.dev
-// provider would delete that block entirely; see openspec/changes/mirror-opencode-model-catalog/design.md.)
+// provider would delete that block entirely; see openspec/changes/archive/2026-07-29-mirror-opencode-model-catalog/design.md.)
 //
 // This one check survives on purpose. It is the ONLY remaining guard on a hand-maintained block, and it
 // catches the exact regression dropping the generator introduced: the picker offering a model the gateway

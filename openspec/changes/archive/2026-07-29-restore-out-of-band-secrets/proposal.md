@@ -1,3 +1,11 @@
+> ## SUPERSEDED — 2026-07-29
+>
+> Superseded by `volt-console`, which drops the AI gateway entirely in favour of a flat subscription for the
+> PLC toolchain. Most of the secrets it is about — ZEN_MODELS1..30, the upstream provider keys, ZEN_LIMITS, Upstash — disappear with the gateway. Its central FINDING still stands and is worth keeping: a CI runner cannot read SST secrets set from a dev machine, which is why deploy.yml provisions them in-job.
+>
+> Archived unfinished on purpose: the work is not abandoned so much as no longer applicable. See
+> `openspec/changes/archive/2026-07-29-volt-console/` (or `openspec/changes/volt-console/` while in flight).
+
 ## Why
 
 `deploy.yml` says it out loud, at the top of the file:

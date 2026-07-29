@@ -1,3 +1,11 @@
+> ## SUPERSEDED — 2026-07-29
+>
+> Superseded by `volt-console`, which drops the AI gateway entirely in favour of a flat subscription for the
+> PLC toolchain. Its pricing model is metered gateway billing with a 2x markup on token cost. A flat CLI subscription has no COGS and needs pricing designed from scratch — volt-console decision 0.7.
+>
+> Archived unfinished on purpose: the work is not abandoned so much as no longer applicable. See
+> `openspec/changes/archive/2026-07-29-volt-console/` (or `openspec/changes/volt-console/` while in flight).
+
 ## Why
 
 The commercial backend deploys with Stripe **test** keys. The full funnel — Google login → Go subscription

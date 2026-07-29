@@ -1,3 +1,11 @@
+> ## SUPERSEDED — 2026-07-29
+>
+> Superseded by `volt-console`, which drops the AI gateway entirely in favour of a flat subscription for the
+> PLC toolchain. The picker entry, the model catalog and the drift check only exist to expose Volt's gateway to opencode; with no gateway there is nothing to expose. The measurements in its design.md remain accurate and useful reading on how opencode's model catalog works.
+>
+> Archived unfinished on purpose: the work is not abandoned so much as no longer applicable. See
+> `openspec/changes/archive/2026-07-29-volt-console/` (or `openspec/changes/volt-console/` while in flight).
+
 ## Why
 
 Volt's gateway IS opencode's Zen, forked (`packages/console`). But Volt's **client** side is hand-rolled: a

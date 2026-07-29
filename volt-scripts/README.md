@@ -98,7 +98,7 @@ first fails — a broken LSP shouldn't hide the tool's result.
 >
 > The picker (`opencode-config/opencode.json` → `provider.volt.models`) is hand-maintained; `check-wiring`
 > only compares its ids against the deployed `/v1/models`. Registering Volt as a models.dev provider would
-> delete that block entirely — see `openspec/changes/mirror-opencode-model-catalog/design.md` §9.3.
+> delete that block entirely — see `openspec/changes/archive/2026-07-29-mirror-opencode-model-catalog/design.md` §9.3.
 
 ## Where the package-specific scripts went
 
