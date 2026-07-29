@@ -30,6 +30,11 @@
 
 ## 2. Polar setup
 
+- [ ] 2.0 **PRE-FLIGHT, blocks everything (§0.2c).** Confirm with Polar whether `/activate` and `/validate` can
+      be called from an end-user machine with the licence key and `organization_id` alone, or whether they
+      require a server-side token. If the latter, add a stateless Cloudflare Worker to proxy `/validate` — no
+      database, no state, but "no backend at all" becomes "one endpoint" and the proposal needs correcting.
+
 - [ ] 2.1 Create the Polar organisation and product: **Volt Pro, €19/month recurring** (§0.7).
 - [ ] 2.2 Attach the **licence key benefit**: brandable prefix (`VOLT_*****`), no expiry (the subscription's
       status is the source of truth), **revoke on cancellation**.
@@ -44,20 +49,24 @@
 
 ## 3. Licence enforcement in the client
 
-- [ ] 3.1 Connector: call Polar `/validate` on the existing update cadence (§0.2b) and write a cached verdict
-      — tier, allowance, `validatedAt`. Weekly is sufficient given a 14-day grace.
-- [ ] 3.2 Connector: an activation flow — enter a key, call `/activate`, register this device, show the result.
-      Plus deactivate-this-device, so a user can move machines without contacting support (§0.9).
-- [ ] 3.3 Connector: surface licence state in the status window, and **warn before grace bites** — "unverified
-      for 11 days" is far better than discovering it on day 15.
-- [ ] 3.4 CLI: read the cached verdict, **make no network call**. Must work with the connector stopped,
-      crashed or never installed; a missing cache resolves to free, never to failure (§0.2b).
-- [ ] 3.5 CLI: enforce the project allowance against its own count of bound repos (§0.1). Refuse a *new*
+> §0.2b: the **CLI owns this**. The connector is an accelerator and must never be required.
+
+- [ ] 3.1 `volt login` (and `volt logout`): explicit, interactive, blocking. Calls `/activate`, persists the
+      key **and the returned activation id** — validation needs the latter once activation limits are on.
+- [ ] 3.2 Credential + cache storage: **per-user/per-machine, never under `.git/`**. Decide the location and
+      who can read it. A licence key must not be committable by accident.
+- [ ] 3.3 CLI: read the cached verdict on every command; **no network call when the cache is fresh**, and never
+      block a mutating verb when it is stale. Refresh opportunistically on a cheap command with a short timeout.
+- [ ] 3.4 CLI: enforce the project allowance against its own count of bound repos (§0.1). Refuse a *new*
       binding beyond the allowance; never restrict a project already bound.
-- [ ] 3.6 Decide where the key and the cache live on disk, and who can read them.
+- [ ] 3.5 Connector (optional path): refresh the same cache on its existing update cadence so the CLI rarely
+      needs to; surface tier and expiry in the status window; **warn before grace bites**. Offer a GUI route to
+      activation and deactivate-this-device so a tray user need not open a terminal (§0.9).
+- [ ] 3.6 Verify the whole licensing path works with the connector **absent** — that is the supported
+      standalone configuration, not a degraded one.
 - [ ] 3.7 Tests for every enforcement path: valid, cancelled, revoked, offline-within-grace,
       offline-past-grace-on-an-existing-project (must keep working), offline-past-grace-binding-a-new-one (must
-      refuse clearly), at-the-allowance-boundary, and no-cache-at-all. This sits in front of every paying
+      refuse clearly), at-the-allowance-boundary, no-cache-at-all, and **no-connector-at-all**. This sits in front of every paying
       customer and must not be discovered in production.
 
 ## 4. `volt-www` becomes the storefront
@@ -72,13 +81,14 @@
 
 ## 5. Verify
 
-- [ ] 5.1 End to end on a real purchase: buy → key issued → connector activates → CLI reports pro → bind a 4th
-      project successfully.
-- [ ] 5.2 Cancel in Polar's portal → the key is revoked → the connector reflects it at next validation → the
-      CLI degrades to the free allowance without touching bound projects.
+- [ ] 5.1 End to end on a real purchase: buy → key issued → `volt login` activates → CLI reports pro → bind a
+      4th project successfully. Repeat via the connector's GUI path to confirm both reach the same state.
+- [ ] 5.2 Cancel in Polar's portal → the key is revoked → the next validation picks it up → the CLI degrades to
+      the free allowance without touching bound projects. Test with the connector running AND absent.
 - [ ] 5.3 Offline: disconnect; within grace everything works; past grace existing projects still
       `pull`/`push`/`merge` and only a new binding is refused.
-- [ ] 5.4 Free path: fresh install, no key, 3 projects bind, the 4th is refused with a clear message.
+- [ ] 5.4 Free path: fresh install, no key, 3 projects bind, the 4th is refused with a clear message —
+      **on a machine with no internet at all**, since free must never contact the provider.
 - [ ] 5.5 `bun run compat`, `bun volt-scripts/check-wiring.ts`, typecheck and lint all green.
 - [ ] 5.6 Confirm the deleted services are gone from the bill — PlanetScale, Upstash, R2, Honeycomb, AWS.
 

@@ -59,18 +59,58 @@ it is the free allowance applied to new bindings.
 **This is why LicenseSpring's offline machinery is unnecessary.** Activation files, deactivation files and
 air-gapped portals exist to make a *hard* offline gate safe. This gate is soft by construction.
 
-## 0.2b The connector validates, not the CLI
+## 0.2b The CLI owns the licence; the connector keeps the cache warm
 
-The always-on tray connector (`packages/volt-cli/src/Volt.Cli.Connector`) holds the licence and calls Polar. It
-already has everything needed: `LoginItem.cs` (starts at login), `Updater.cs` (already phones home on a
-schedule, so validation rides an existing cadence), `TrayContext.cs` + `StatusWindow.cs` (somewhere to *show*
-licence state and warn before grace bites), `BridgeSupervisor.cs` (already tracks what is bound).
+**Revised 2026-07-29.** An earlier draft had the connector own validation. That was backwards: Volt *is* a CLI
+tool, the connector is a supervisor for IDE bridges, and this design already requires the CLI to work with the
+connector stopped, crashed or never installed. Making the CLI depend on a tray app being alive inverts the
+dependency.
 
-**The decisive reason: `volt push` must not make a network call.** Validating per invocation would add an HTTP
-round-trip to every operation an engineer performs.
+```
+volt login            explicit, interactive, blocking → Polar /activate → store {key, activationId}
+volt push/pull/merge  read the cached verdict, NO network call
+connector             always-on: refreshes the cache before it goes stale, shows state, warns
+```
 
-**The cache file is the contract, not the connector.** The CLI must work with the connector stopped, crashed or
-never installed — it can be used standalone. A missing cache resolves to the free tier, never to a failure.
+**Ownership:** the CLI owns the credential, the cache format and the login flow. `volt login` is the idiom
+engineers already expect from `gh`, `wrangler` and `docker`.
+
+**The connector is an accelerator, not the owner.** Being always-on, it has no process-lifetime problem, so it
+can refresh on a schedule and keep the cache fresh enough that the CLI never needs to. It reads and writes the
+same cache. Remove it and everything still works — the CLI refreshes opportunistically instead.
+
+**Routine commands never block on the network.** A fresh cache means no request at all. A stale cache does not
+block a mutating verb either: the CLI uses what it has and refreshes on a cheap command, with a short timeout.
+Offline simply means no refresh happens, and §0.2's grace applies.
+
+**Where the credential lives: user-level, not repo-level.** `.git/volt/config.json` is *per project and inside
+a git repo* — a licence key must never land there. It belongs somewhere per-user/per-machine.
+
+**Both the key and the `activationId` must be persisted.** Polar's `/activate` returns an activation id, and
+`/validate` requires it whenever activation limits are enabled. Storing only the key would break validation on
+the second call.
+
+**Free never contacts Polar at all.** With no key there is nothing to validate, so the 3-project allowance is
+enforced entirely locally and a free user is fully offline-capable. That also means the allowance is
+unverifiable — accepted in §0.1.
+
+## 0.2c OPEN — can the client call Polar directly?
+
+`/activate` and `/validate` take `key` + `organization_id`. Polar's documentation **does not state** whether
+they are safe to call from an end-user machine or require a server-side token. They are documented as customer
+portal endpoints, which suggests end-user use is intended, and `organization_id` is an identifier rather than a
+secret.
+
+**This must be confirmed before anything is built**, because it is the one thing that could reintroduce a
+backend:
+
+| answer | consequence |
+|---|---|
+| callable with the key alone | the CLI calls Polar directly. **No backend**, as designed |
+| requires a server-side token | a ~50-line Cloudflare Worker proxies `/validate`. Still small, but "no backend at all" becomes "one endpoint" |
+
+Even in the worse case the proxy holds no state and no database — so the shape of this change survives either
+way. It is a pre-flight question, not a design fork.
 
 ## 0.3 No database
 
@@ -141,12 +181,15 @@ The split:
 
 | surface | owns |
 |---|---|
-| **connector** (C#, tray) | enter/activate a licence key, show tier and expiry, warn before grace bites, deactivate this device |
+| **connector** (C#, tray) | show tier and expiry, warn before grace bites, deactivate this device, and offer a GUI path to the same activation the CLI performs |
 | **Polar portal** (web) | billing, invoices, payment method, cancellation, device list |
 | **`volt-www`** (static) | marketing, pricing, buy button |
 
 Volt builds **no web application**. Billing in a native app is the wrong place — card entry, invoices and tax
-belong in a hosted portal — but licence state belongs where the software runs, and the connector is already
-there, already always-on, already has a status window.
+belong in a hosted portal — but licence state belongs where the software runs.
+
+Note this is *display and convenience*, not ownership: per §0.2b the CLI owns the credential and the login
+flow. The connector surfaces that state and offers a GUI route to it, because a tray user should not have to
+open a terminal — but it is reading the CLI's cache, not maintaining its own.
 
 This is how most native tools behave: activation in-app, billing on the web.
