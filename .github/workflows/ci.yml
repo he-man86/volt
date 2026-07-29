@@ -61,8 +61,6 @@ jobs:
   #     `test` script; its offline C# tests are the `volt-cli` job below.
   #   • lsp-iec's `test` is the OFFLINE suite (src + conformance); the heavy real-project corpus is `test:corpus`,
   #     a local ratchet (known-incomplete precision work — it DISCOVERS FPs, it doesn't gate).
-  # The vendored console packages carry no `test` script (never edit vendored opencode source — the vendored-console
-  # rule), so they're invoked directly, as before.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -73,10 +71,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Volt package suites (lsp-iec offline + control)
         run: bun run --filter='*' test
-      - name: Console suites (gateway + billing — vendored, no test script)
-        run: |
-          (cd packages/console/core && bun test)
-          (cd packages/console/app && bun test)
 
   # Build the volt binaries, then the key-free wiring check (config layer + bins + wire/product version parity).
   # Key-free ON PURPOSE: this is the half of `bun run compat` that needs neither opencode nor a provider key,

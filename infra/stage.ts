@@ -1,21 +1,10 @@
+// Volt's domain per stage. `production` → volt-ai.dev, `dev` → dev.volt-ai.dev, anything else → a personal
+// sandbox under dev.
 export const domain = (() => {
-  if ($app.stage === "production") return "opencode.ai"
-  if ($app.stage === "dev") return "dev.opencode.ai"
-  return `${$app.stage}.dev.opencode.ai`
+  if ($app.stage === "production") return "volt-ai.dev"
+  if ($app.stage === "dev") return "dev.volt-ai.dev"
+  return `${$app.stage}.dev.volt-ai.dev`
 })()
 
-export const zoneID = "430ba34c138cfb5360826c4909f99be8"
-export const awsStage = $app.stage === "production" ? "production" : "dev"
-export const deployAws = $app.stage === awsStage
-
-new cloudflare.RegionalHostname("RegionalHostname", {
-  hostname: domain,
-  regionKey: "us",
-  zoneId: zoneID,
-})
-
-export const shortDomain = (() => {
-  if ($app.stage === "production") return "opncd.ai"
-  if ($app.stage === "dev") return "dev.opncd.ai"
-  return `${$app.stage}.dev.opncd.ai`
-})()
+// Cloudflare Zone ID for volt-ai.dev.
+export const zoneID = "ebac4f049c913d03ae11f89114379d6c"

@@ -1,9 +1,0 @@
-# VOLT: the console is the account app — `/` redirects to `/auth`. Volt's public site is a separate deployment
-# (packages/volt-www, at www.${domain}) and ships its own robots.txt.
-#
-# opencode's version advertised ITS sitemaps (https://opencode.ai/sitemap.xml and /data/sitemap.xml) from Volt's
-# domain, and disallowed /s/ and /share/ — routes this console does not serve. There is no console sitemap now: the
-# generator that produced one emitted 90 https://opencode.ai/* marketing URLs into a gitignored file on every
-# build, and it was deleted with the marketing tree.
-User-agent: *
-Allow: /

@@ -23,10 +23,9 @@ const REPO_ROOT = resolve(import.meta.dirname, "..");
 
 let passed = 0;
 let failed = 0;
-let skipped = 0;
 
-/** true = pass, string = failure reason, {skip} = could not be verified here (NOT a pass — see report()). */
-type Result = boolean | string | { skip: string };
+/** true = pass, string = failure reason. */
+type Result = boolean | string;
 
 async function checkAsync(name: string, fn: () => Promise<Result>): Promise<void> {
 	let result: Result;
@@ -52,13 +51,6 @@ function report(name: string, result: Result): void {
 	if (result === true) {
 		console.log(`  ✓ ${name}`);
 		passed++;
-		return;
-	}
-	// A check that needs something this run doesn't have (network, a deployed gateway) must read as UNVERIFIED,
-	// never as a tick. It doesn't fail the run either — CI is offline and key-free by design.
-	if (typeof result === "object") {
-		console.log(`  ~ ${name} — SKIPPED: ${result.skip}`);
-		skipped++;
 		return;
 	}
 	console.log(`  ✗ ${name}${typeof result === "string" ? ` — ${result}` : ""}`);
@@ -134,37 +126,6 @@ check("volt-lsp-iec skill installer built (dist/src/init.js)", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/init.js"))
 		|| "not built — run: bun run --cwd packages/volt-lsp-iec build"
 );
-
-// ── Model catalog ─────────────────────────────────────────────────────────────────────────────────
-// The gateway's catalog is no longer a committed file: ZEN_MODELS1..30 is edited in place on the stage with
-// opencode's own core/script/update-models.ts. So there is nothing local left to compare the picker
-// against — provider.volt.models in opencode-config is hand-maintained. (Registering Volt as a models.dev
-// provider would delete that block entirely; see openspec/changes/archive/2026-07-29-mirror-opencode-model-catalog/design.md.)
-//
-// This one check survives on purpose. It is the ONLY remaining guard on a hand-maintained block, and it
-// catches the exact regression dropping the generator introduced: the picker offering a model the gateway
-// does not serve (or missing one it does). It needs the network, so an unreachable gateway reports SKIPPED
-// rather than passing — CI stays offline and key-free.
-console.log("\nModel catalog (picker → deployed gateway)");
-await checkAsync("picker model ids == deployed /v1/models", async () => {
-	const picker = JSON.parse(readFileSync(join(REPO_ROOT, "opencode-config/opencode.json"), "utf-8")).provider?.volt
-		?.models;
-	if (!picker) return "opencode-config/opencode.json has no provider.volt.models";
-	const declared = Object.keys(picker).sort();
-	let served: string[];
-	try {
-		const res = await fetch("https://volt-ai.dev/v1/models", { signal: AbortSignal.timeout(5_000) });
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		served = ((await res.json()) as { data: Array<{ id: string }> }).data.map((m) => m.id).sort();
-	} catch (e) {
-		return { skip: `gateway unreachable (${e instanceof Error ? e.message : String(e)})` };
-	}
-	return (
-		(served.length === declared.length && served.every((id, i) => id === declared[i])) ||
-		`picker offers [${declared.join(", ")}], gateway serves [${served.join(", ")}] — fix opencode.json, or ` +
-			`update the deployed catalog: bun run models:dev`
-	);
-});
 
 console.log("\nBuilt binaries");
 // The `volt` PLC CLI is now the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
@@ -305,7 +266,7 @@ check(`lsp server.ts watched reference exts ⊆ canonical [${REF_CANON.join(", "
 });
 
 console.log("\n" + "-".repeat(40));
-console.log(`${passed} passed, ${failed} failed${skipped ? `, ${skipped} skipped (unverified)` : ""}.`);
+console.log(`${passed} passed, ${failed} failed.`);
 
 if (failed > 0) {
 	process.exit(1);

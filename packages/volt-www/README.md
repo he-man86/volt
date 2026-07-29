@@ -1,11 +1,10 @@
 # volt-www
 
 Volt's public marketing/landing site. **Static Vite + React build** — no SSR, no server — so it builds and runs on
-Windows and deploys as static assets (Cloudflare Pages/R2), independent of the console's Linux-only pipeline.
+Windows and deploys as static assets to Cloudflare.
 
-Why separate from `packages/console`: the console is vendored opencode (kept minimal, guarded by
-`check-console-divergence.ts`). Volt owns its landing outright, so it lives here — not edited into vendored routes.
-See `openspec/changes/volt-branding/` (Decision 3) for the full rationale and the console route map.
+It is the **only** thing Volt deploys, and it serves the apex. There is no console and no backend — payment,
+EU VAT, licence keys and the customer portal are Polar's. See `openspec/changes/sell-cli-subscription`.
 
 ```bash
 bun install
@@ -45,13 +44,20 @@ section nav built from the rendered `h2[id]`s, so a new `##` needs no config). T
 Adding one: write `src/docs/<name>.mdx` → `src/pages/docs-<name>.jsx` (3 lines, copy an existing one) →
 `docs-<name>.html` → add the entry to `vite.config.js`.
 
-## Auth & download (cross-links to the console)
-The CTAs link out; this site implements no auth/billing of its own. Targets live in `src/config.js`:
-- `authUrl()` → `<console>/auth` (OpenAuth, sign-in *and* sign-up). Console host = `VITE_CONSOLE_URL` (default
-  `https://dev.volt-ai.dev`).
+## CTAs
+This site implements no auth or billing of its own — it links out. Targets live in `src/config.js`:
+- **Buy** → Polar checkout. Polar issues the licence key and hosts the customer portal (billing, invoices,
+  devices, cancellation).
 - `downloadUrl()` → the **Volt installer**: `he-man86/volt` GitHub Releases `latest/download/Volt-win-Setup.exe`
   (built by `volt-scripts/build-installer.ts`). Windows-only. Override with `VITE_INSTALLER_URL`.
 
+> ⚠️ **This site is NOT ready to put in front of customers.** Its copy still sells the deleted gateway:
+> `src/content.js` advertises Pro at €24 with "Hosted AI, no key required" and a sign-up CTA (`kind: "auth"`)
+> whose target no longer exists, and `src/config.js` still resolves `authUrl()` / `dashboardUrl()` against a
+> console that is gone. The FAQ, `getting-started.mdx` and all three legal pages describe a hosted gateway,
+> user accounts and Stripe. Task §4b of `openspec/changes/sell-cli-subscription` lists every location — and
+> the legal pages are contracts.
+
 ```bash
-VITE_CONSOLE_URL=https://volt-ai.dev bun run build   # production
+bun run build   # production — no env vars needed; SST deploys dist/ to the apex
 ```

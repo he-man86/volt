@@ -6,27 +6,37 @@
 
 ## 1. Delete the gateway and the console
 
-- [ ] 1.1 Delete `packages/console` entirely — with it the vendored-console rule in `CLAUDE.md`, the merge
+- [x] 1.1 Delete `packages/console` entirely — with it the vendored-console rule in `CLAUDE.md`, the merge
       obligation against opencode, and the `support.${domain}` portal (§0.6, not rebuilt).
-- [ ] 1.2 Remove the gateway's infra: `ZEN_MODELS1..30`, the upstream provider API keys, `ZEN_LIMITS`, Upstash
+- [x] 1.2 Remove the gateway's infra: `ZEN_MODELS1..30`, the upstream provider API keys, `ZEN_LIMITS`, Upstash
       secrets, the `ZenData` / `ZenDataNew` / `Bucket` R2 buckets and the LogProcessor worker.
-- [ ] 1.3 Remove the vendors that existed only for it: PlanetScale, AWS SES (`core/src/aws.ts`, `aws4fetch`,
+- [x] 1.3 Remove the vendors that existed only for it: PlanetScale, AWS SES (`core/src/aws.ts`, `aws4fetch`,
       both `AWS_SES_*` secrets) and Honeycomb (`infra/monitoring.ts`, the `honeycombio` provider, both keys).
       Confirm each disappears from the bill.
-- [ ] 1.4 Delete the `aws` provider block from `sst.config.ts` **early** — it blocks every `sst` command.
-- [ ] 1.5 Remove the two client-side gateway files: the `provider.volt` block in
+- [x] 1.4 Delete the `aws` provider block from `sst.config.ts` **early** — it blocks every `sst` command.
+- [x] 1.5 Remove the two client-side gateway files: the `provider.volt` block in
       `opencode-config/opencode.json` and `opencode-config/plugins/volt-auth.ts`. Nothing in `volt-cli`,
       `volt-control`, `volt-desktop` or the LSP touches the gateway. **`bun run compat` must still pass** — the
       LSP, the `volt` tool and its permission gate are unaffected and must keep working.
-- [ ] 1.6 Delete the model-catalog scripts (`update-models`, `promote-models`, `pull-models`) and the
+- [x] 1.6 Delete the model-catalog scripts (`update-models`, `promote-models`, `pull-models`) and the
       authoring-stage machinery documented in `infra/README.md`.
-- [ ] 1.7 Reduce `infra/` to what remains: `volt-www` and DNS. Rewrite `infra/README.md` — most of its groups
+- [x] 1.7 Reduce `infra/` to what remains: `volt-www` and DNS. Rewrite `infra/README.md` — most of its groups
       A–G describe opencode's console and stop applying.
-- [ ] 1.8 Update `CLAUDE.md`: the vendored-console rule, the `packages/console` description, the two-package
+- [x] 1.8 Update `CLAUDE.md`: the vendored-console rule, the `packages/console` description, the two-package
       commercial-side claim and the gateway architecture are all wrong after this.
 - [ ] 1.9 Deprovision the deployed gateway: delete the Cloudflare Workers, R2 buckets, the PlanetScale database
       and the Stripe products. Zero subscribers (§0.8) means nothing needs preserving — but check the Stripe
       account has no live subscription before deleting anything.
+
+> **Section 1 done 2026-07-29 except 1.9** (deprovisioning the live Cloudflare/PlanetScale/Stripe resources —
+> that is account work, not repo work). 441 files deleted. Gates after: typecheck 5/5, lint 0 errors,
+> check-wiring 20/0, openspec 6/6, both workflows parse.
+>
+> Two things the deletion surfaced, both now flagged in `packages/volt-www/README.md`:
+> **`src/config.js` still resolves `authUrl()` and `dashboardUrl()` against the deleted console**, so those
+> CTAs are dead links right now — §4b covers it. And **`deploy.yml` fires on `infra/**` and `sst.config.ts`**,
+> both of which changed, so the next push to `dev` will deploy the site — to the **apex** rather than `www.`,
+> with that copy still on it. Do §4b before pushing, or expect a live site advertising hosted AI at €24.
 
 ## 2. Polar setup
 

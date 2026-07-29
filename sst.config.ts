@@ -1,43 +1,29 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
+// Volt's infrastructure. Since openspec/changes/sell-cli-subscription this deploys exactly one thing: the
+// static marketing site. Payment, EU VAT, licence keys and the customer portal are Polar's; there is no
+// database, no auth and no backend of Volt's own.
+//
+// Providers removed with the gateway and the vendored console:
+//   aws         nothing creates AWS resources any more (it also blocked every `sst` command locally, because
+//               it pointed at `opencode-dev` / `opencode-production` SSO profiles that do not exist here)
+//   stripe      Polar is the merchant of record
+//   planetscale no database
+//   honeycomb   Cloudflare Workers Logs
+//   random      only used to generate a webhook secret for the console
 export default $config({
   app(input) {
     return {
-      name: "opencode",
+      name: "volt",
       removal: input?.stage === "production" ? "retain" : "remove",
       protect: ["production"].includes(input?.stage),
       home: "cloudflare",
-      providers: {
-        aws: {
-          version: "7.30.0",
-          region: "us-east-1",
-          profile: process.env.GITHUB_ACTIONS
-            ? undefined
-            : input.stage === "production"
-              ? "opencode-production"
-              : "opencode-dev",
-        },
-        stripe: {
-          version: "0.0.28",
-          apiKey: process.env.STRIPE_SECRET_KEY!,
-        },
-        random: "4.19.2",
-        planetscale: "0.4.1",
-        honeycomb: "0.49.0",
-      },
     }
   },
   async run() {
-    const stage = await import("./infra/stage.js")
-    await import("./infra/app.js")
-    const { stat } = await import("./infra/console.js")
-    if ($app.stage === "production" || $app.stage === "vimtor") {
-      await import("./infra/monitoring.js")
-    }
-
+    const { www } = await import("./infra/www.js")
     return {
-      StatWorkerUrl: stat.url,
-      AwsStage: stage.awsStage,
+      Www: www.url,
     }
   },
 })
