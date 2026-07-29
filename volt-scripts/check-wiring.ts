@@ -159,7 +159,6 @@ console.log("\nProduct version parity");
 // separate package.json files because the extension also self-publishes to the Marketplace. release.ts and
 // release.yml both refuse a mismatch — but those only run at release, by which point a half-bump is already on
 // dev. This runs on every push/PR, so the drift fails in the PR that introduces it.
-// NOTE: packages/console/* is deliberately excluded — its version tracks the vendored opencode, not Volt.
 check("volt-desktop version == volt-vscode version", () => {
 	const read = (p: string): string | undefined => {
 		const f = join(REPO_ROOT, p, "package.json");

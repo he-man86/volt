@@ -18,7 +18,7 @@ import type { Token } from "./tokens.js"
 import type { ArrayDim, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "./ast.js"
 import type { Span } from "./span.js"
 import { Cursor } from "./cursor.js"
-// fallow-ignore-next-line circular-dependency -- inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
+// Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
 import { identFromToken, joinSpans } from "./util.js"
 import { parseExpression, parseExprFromTokens } from "./expression.js"
 

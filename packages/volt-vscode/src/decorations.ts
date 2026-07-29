@@ -11,7 +11,6 @@ interface Badges {
 export class VoltDecorations implements vscode.FileDecorationProvider {
 	private readonly emitter = new vscode.EventEmitter<vscode.Uri | undefined>()
 	// Required by FileDecorationProvider; VS Code reads it (registered in extension.ts), our code doesn't.
-	// fallow-ignore-next-line unused-class-member
 	readonly onDidChangeFileDecorations = this.emitter.event
 
 	// Per-workspace so multiple bound folders don't clobber each other — refresh() used to REPLACE one flat map

@@ -6,7 +6,7 @@ import type { Keyword, Token } from "./tokens.js"
 import type { Span } from "./span.js"
 import type { BodySpan, Identifier, VarSection } from "./ast.js"
 import type { Cursor } from "./cursor.js"
-// fallow-ignore-next-line circular-dependency -- inherent recursive-descent recursion: util's block helpers call into var-section, which calls back into util. Function-body imports, no init hazard.
+// Inherent recursive-descent recursion: util's block helpers call into var-section, which calls back into util. Function-body imports, no init hazard.
 import { atVarSection, parseVarSection } from "./var-section.js"
 
 /** Build a span covering the source range from `a.start` to `b.end`. */

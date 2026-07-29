@@ -19,7 +19,7 @@ const RANK: Record<string, number> = {
   syntax: 0,
   // graphical/text/ is the VG sublanguage FRONTEND (text→AST): it depends only on syntax, so it's the
   // low rung of the graphical family (architecture.md §F), not the rank-6 graphical layer. Ranked just
-  // above syntax so both `services` and `graphical` may consume it downward. Mirrors fallow's lsp-vg-text zone.
+  // above syntax so both `services` and `graphical` may consume it downward.
   "graphical-text": 0.5,
   symbols: 1,
   types: 2,
@@ -31,7 +31,7 @@ const RANK: Record<string, number> = {
 }
 // transpile is a sibling backend, not a stack rung: it may only reach A·B·C.
 const TRANSPILE_ALLOWED = new Set(["syntax", "symbols", "types"])
-// Sanctioned upward edges (documented in .fallowrc.jsonc boundaries). `types → reference`: the type
+// Sanctioned upward edges. `types → reference`: the type
 // checker reads the read-only reference catalog for built-in return types — inherent coupling, like a
 // checker reading its typed stdlib. Fixing it properly means binding built-ins into the symbol table.
 const ALLOWED_UPWARD = new Set(["types→reference"])

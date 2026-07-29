@@ -22,7 +22,7 @@ import type {
 import { canonicalElem, elementaryType, isDatetime, isDuration } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
-// fallow-ignore-next-line circular-dependency -- inherent: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
+// Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
 import { lookupReference } from "../reference/index.js"
 
 /** Infer the type of an ST expression. `unknown` on any unresolved sub-part (conservative). */
