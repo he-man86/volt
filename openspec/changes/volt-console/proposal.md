@@ -73,32 +73,24 @@ policy so a customer on a plant floor with no internet is not locked out of thei
 
 That is the only net-new system here. Everything else is deletion.
 
-## Open questions — decide before building
+## Decisions — all made, recorded in `design.md`
 
-**Tiers**
-- What does **free** actually include? Is it the full toolchain with nagging, a feature-limited build, or
-  time-limited? This decides whether free needs an account at all.
-- What does **pro** unlock? Until there is a concrete list, the licence check has nothing to gate.
-- Does free require sign-in, or is it fully offline? Offline free is simpler and friendlier, but gives no
-  funnel and no usage signal.
+Section 0 of `tasks.md` is complete. Summary:
 
-**Enforcement**
-- Hard gate (refuse to run) or soft (warn, degrade)? For a tool engineers depend on mid-shift, a hard gate on a
-  failed network call is hostile.
-- Offline grace period — days? weeks? What happens when it expires with no connectivity?
-- Per-machine binding, or is a shared key acceptable? Binding means device management; not binding means the
-  key spreads.
+| | |
+|---|---|
+| **0.0** governing principle | fewest providers — prefer an extra Cloudflare product over an extra platform. End state: Cloudflare + Stripe + GitHub |
+| **0.1** tiers | free is a 30-day full trial, then read-only (`status`/`build`/`show` + LSP + extension). Pro unlocks `pull`/`push`/`merge` |
+| **0.2** enforcement | 14-day offline grace, then degrade to free, always with an explicit message. Never refuses to start |
+| **0.3** database | Cloudflare D1 |
+| **0.4** workspaces | present from day one, 1:1 and invisible. Licence key belongs to the workspace |
+| **0.5** auth | GitHub + Google + email code, over Cloudflare Email Sending (not SES) |
+| **0.6** support portal | folds into `volt-console` as an operator-gated `/admin/lookup` |
+| **0.7** price | €19/month, EUR. No card at trial start, so Volt owns the trial clock |
+| **0.8** subscribers | zero — Volt never went live. Build order inverts to delete-first |
 
-**Shape**
-- Keep PlanetScale, or move to Cloudflare D1? D1 is SST-provisionable and free-tier; PlanetScale has no free
-  tier and is sized for the gateway's load, which is gone.
-- Are workspaces present from day one (so team is a tier flip), or added later (simpler now, migration later)?
-- Reuse the deployed OpenAuth issuer, or something simpler? It works today and is already provisioned.
-- Does the support portal move into `volt-console`, or stay its own worker?
-
-**Commercial**
-- Price, currency, trial. `stripe-go-live` carries the current thinking for the gateway product; it needs
-  redoing for a flat CLI subscription.
+Two decisions turned out to interact usefully: post-trial free (0.1) and past-grace degraded (0.2) are the
+**same** read-only state, so there is one degraded mode to build, explain and test rather than two.
 
 ## Risks
 
