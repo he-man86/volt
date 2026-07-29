@@ -18,26 +18,7 @@ function Plan({ p, i }) {
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
-            <div className="h3">{p.name}</div>
-            {p.beta && (
-              <span
-                style={{
-                  fontSize: "var(--text-small-size)",
-                  fontWeight: 600,
-                  lineHeight: 1,
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  border: "1px solid var(--color-accent)",
-                  color: "var(--color-accent)",
-                  letterSpacing: "0.02em",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Public beta
-              </span>
-            )}
-          </div>
+          <div className="h3">{p.name}</div>
           <div className="muted" style={{ fontSize: "var(--text-small-size)" }}>
             {p.note}
           </div>
@@ -67,11 +48,6 @@ function Plan({ p, i }) {
           >
             {p.cta}
           </Button>
-          {p.betaNote && (
-            <div className="muted" style={{ fontSize: "var(--text-small-size)", textAlign: "center" }}>
-              {p.betaNote}
-            </div>
-          )}
         </div>
       </div>
     </Reveal>
@@ -92,7 +68,7 @@ export default function Page() {
       <PageHeader
         eyebrow="Pricing"
         title="Start free. Bring your own AI."
-        lead="The tooling is free with your own model provider. Pro adds hosted AI — and it's in public beta right now: sign up free, no card required."
+        lead="Free covers up to 3 PLC projects. Pro lifts the limit. Both bring your own AI provider key — Volt never proxies your prompts."
       />
       <section className="section container" style={{ maxWidth: 720 }}>
         <div className="pricing-grid">
