@@ -2,8 +2,18 @@
   "$schema": "https://opencode.ai/config.json",
   "lsp": {
     "volt-lsp-iec": {
-      "command": ["volt-lsp-iec", "--stdio"],
-      "extensions": [".fb", ".prg", ".fun", ".itf", ".dut", ".gvl"]
+      "command": [
+        "volt-lsp-iec",
+        "--stdio"
+      ],
+      "extensions": [
+        ".fb",
+        ".prg",
+        ".fun",
+        ".itf",
+        ".dut",
+        ".gvl"
+      ]
     }
   },
   "provider": {
@@ -16,11 +26,68 @@
       "models": {
         "deepseek-chat": {
           "name": "DeepSeek · via Volt",
-          "limit": { "context": 128000, "output": 8192 }
+          "cost": {
+            "input": 0.54,
+            "output": 2.2,
+            "cache_read": 0.0108
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 384000
+          },
+          "family": "deepseek",
+          "release_date": "2025-12-01",
+          "attachment": true,
+          "reasoning": false,
+          "temperature": true,
+          "tool_call": true,
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
         },
         "claude-sonnet-4-5": {
           "name": "Claude Sonnet 4.5 · via Volt",
-          "limit": { "context": 200000, "output": 64000 }
+          "provider": {
+            "npm": "@ai-sdk/anthropic"
+          },
+          "cost": {
+            "input": 6,
+            "output": 30,
+            "cache_read": 0.6,
+            "cache_write": 7.5,
+            "context_over_200k": {
+              "input": 12,
+              "output": 60,
+              "cache_read": 1.2,
+              "cache_write": 15
+            }
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 64000
+          },
+          "family": "claude-sonnet",
+          "release_date": "2025-09-29",
+          "attachment": true,
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true,
+          "interleaved": true,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
+          }
         }
       }
     }

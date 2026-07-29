@@ -7,16 +7,14 @@ import { SECRET } from "./secret"
 ////////////////
 
 const cluster = planetscale.getDatabaseOutput({
-  name: "volt",
-  organization: "mheijmans",
+  name: "opencode",
+  organization: "anomalyco",
 })
 
 const branch =
-  // Volt's `volt` DB uses PlanetScale's default `main` as the production branch (not a branch named
-  // "production" as opencode assumed). Production stage → use `main` directly; other stages fork from it.
   $app.stage === "production"
     ? planetscale.getBranchOutput({
-        name: "main",
+        name: "production",
         organization: cluster.organization,
         database: cluster.name,
       })
@@ -24,7 +22,7 @@ const branch =
         database: cluster.name,
         organization: cluster.organization,
         name: $app.stage,
-        parentBranch: "main",
+        parentBranch: "production",
       })
 const password = new planetscale.Password("DatabasePassword", {
   name: $app.stage,
@@ -64,23 +62,14 @@ export const auth = new sst.cloudflare.Worker("AuthApi", {
   domain: `auth.${domain}`,
   handler: "packages/console/function/src/auth.ts",
   url: true,
-  environment: {
-    // Dev-only login allowlist (comma-separated emails / @domains). Empty = open. Ignored on production.
-    CONSOLE_DEV_EMAILS: process.env.CONSOLE_DEV_EMAILS ?? "",
-  },
   link: [database, authStorage, GITHUB_CLIENT_ID_CONSOLE, GITHUB_CLIENT_SECRET_CONSOLE, GOOGLE_CLIENT_ID],
 })
 
 ////////////////
-// GATEWAY (Stripe)
+// GATEWAY
 ////////////////
-// TODO(volt): this whole section is opencode's Zen product shape (a "Go" plan @ $10/mo + a "Black" tier +
-// coupons). On deploy it CREATES these products/prices in your Stripe account. For the first deploy it gives you
-// a working placeholder product so the signup→checkout loop works; replace with Volt's real product/pricing in
-// the adapt stage. console/app reads ZEN_LITE_PRICE / ZEN_BLACK_PRICE, so keep those linkables until then.
 
 export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint", {
-  // Console (+ its /stripe/webhook route) serves the apex. (Domain split to app.${consoleDomain} is deferred.)
   url: $interpolate`https://${domain}/stripe/webhook`,
   enabledEvents: [
     "checkout.session.async_payment_failed",
@@ -113,62 +102,56 @@ export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint",
 })
 
 const zenLiteProduct = new stripe.Product("ZenLite", {
-  name: "Volt Gateway", // the Volt gateway subscription (opencode's "Go"/lite plan)
+  name: "OpenCode Go",
 })
-// VOLT: opencode's "First month 50% off" coupon is GONE — the resource is deleted, so the deploy removes it from
-// Stripe and it never appears in the dashboard. Volt sells the Gateway at a flat €24/month.
-//
-// It was not a campaign: core/src/billing.ts handed it to EVERY new subscriber by default, with no opt-in, so half
-// of every first month was given away silently. That default is removed there too (a marked edit).
-//
-// The linkable property below survives as a DEAD SENTINEL, and that is deliberate. Vendored code still reads it:
-// core/src/lite.ts exports it, and app/src/routes/stripe/webhook.ts:164 compares it against the coupon carried in
-// the checkout session's metadata (webhook.ts:114). With no discount that metadata value is `undefined` — so if
-// this property were simply deleted, the comparison would become `undefined === undefined`, fire, and mark
-// GO1MONTH50 redeemed for subscribers who never received it. A sentinel that matches no coupon id keeps that
-// comparison false forever, and costs nothing.
+const zenLiteCouponFirstMonth50 = new stripe.Coupon("ZenLiteCouponFirstMonth50", {
+  name: "First month 50% off",
+  percentOff: 50,
+  appliesToProducts: [zenLiteProduct.id],
+  duration: "once",
+})
 const zenLiteCouponFirstMonth100 = new stripe.Coupon("ZenLiteCouponFirstMonth100", {
   name: "First month 100% off",
   percentOff: 100,
-  appliesTos: [zenLiteProduct.id],
+  appliesToProducts: [zenLiteProduct.id],
   duration: "once",
 })
 const zenLiteCouponThreeMonths100 = new stripe.Coupon("ZenLiteCoupon3Months100", {
   name: "3 months 100% off",
   percentOff: 100,
-  appliesTos: [zenLiteProduct.id],
+  appliesToProducts: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 3,
 })
 const zenLiteCouponSixMonths100 = new stripe.Coupon("ZenLiteCoupon6Months100", {
   name: "6 months 100% off",
   percentOff: 100,
-  appliesTos: [zenLiteProduct.id],
+  appliesToProducts: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 6,
 })
 const zenLiteCouponTwelveMonths100 = new stripe.Coupon("ZenLiteCoupon12Months100", {
   name: "12 months 100% off",
   percentOff: 100,
-  appliesTos: [zenLiteProduct.id],
+  appliesToProducts: [zenLiteProduct.id],
   duration: "repeating",
   durationInMonths: 12,
 })
 const zenLitePrice = new stripe.Price("ZenLitePrice", {
   product: zenLiteProduct.id,
-  currency: "eur", // Volt Gateway — priced in euros
+  currency: "usd",
   recurring: {
     interval: "month",
     intervalCount: 1,
   },
-  unitAmount: 2400, // €24/month
+  unitAmount: 1000,
 })
-export const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
+const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
   properties: {
     product: zenLiteProduct.id,
     price: zenLitePrice.id,
     priceInr: 92900,
-    firstMonth50Coupon: "volt-no-first-month-discount", // dead sentinel — see above; matches no coupon id, applied by nothing
+    firstMonth50Coupon: zenLiteCouponFirstMonth50.id,
     firstMonth100Coupon: zenLiteCouponFirstMonth100.id,
     threeMonths100Coupon: zenLiteCouponThreeMonths100.id,
     sixMonths100Coupon: zenLiteCouponSixMonths100.id,
@@ -177,7 +160,7 @@ export const ZEN_LITE_PRICE = new sst.Linkable("ZEN_LITE_PRICE", {
 })
 
 const zenBlackProduct = new stripe.Product("ZenBlack", {
-  name: "OpenCode Black", // Black is unused — Volt only sells the Gateway plan — so this stays 100% opencode (unbranded, never shown to Volt users)
+  name: "OpenCode Black",
 })
 const zenBlackPriceProps = {
   product: zenBlackProduct.id,
@@ -190,7 +173,7 @@ const zenBlackPriceProps = {
 const zenBlackPrice200 = new stripe.Price("ZenBlackPrice", { ...zenBlackPriceProps, unitAmount: 20000 })
 const zenBlackPrice100 = new stripe.Price("ZenBlack100Price", { ...zenBlackPriceProps, unitAmount: 10000 })
 const zenBlackPrice20 = new stripe.Price("ZenBlack20Price", { ...zenBlackPriceProps, unitAmount: 2000 })
-export const ZEN_BLACK_PRICE = new sst.Linkable("ZEN_BLACK_PRICE", {
+const ZEN_BLACK_PRICE = new sst.Linkable("ZEN_BLACK_PRICE", {
   properties: {
     product: zenBlackProduct.id,
     plan200: zenBlackPrice200.id,
@@ -251,17 +234,16 @@ const DISCORD_INCIDENT_WEBHOOK_URL = new sst.Secret("DISCORD_INCIDENT_WEBHOOK_UR
 const AWS_SES_ACCESS_KEY_ID = new sst.Secret("AWS_SES_ACCESS_KEY_ID")
 const AWS_SES_SECRET_ACCESS_KEY = new sst.Secret("AWS_SES_SECRET_ACCESS_KEY")
 
-const SALESFORCE_CLIENT_ID = new sst.Secret("SALESFORCE_CLIENT_ID")
-const SALESFORCE_CLIENT_SECRET = new sst.Secret("SALESFORCE_CLIENT_SECRET")
-const SALESFORCE_INSTANCE_URL = new sst.Secret("SALESFORCE_INSTANCE_URL")
+// VOLT: SALESFORCE_CLIENT_ID / _SECRET / _INSTANCE_URL removed — their only consumer was
+// app/src/routes/api/enterprise.ts (via lib/salesforce.ts), which the public-surface strip deleted. See README.
 
 const logProcessor = new sst.cloudflare.Worker("LogProcessor", {
   handler: "packages/console/function/src/log-processor.ts",
   link: [SECRET.HoneycombApiKey],
 })
 
-export const web = new sst.cloudflare.x.SolidStart("Console", {
-  domain, // the apex, for now (the console→app.${domain} split ships with volt-www — deferred; see sst.config.ts)
+new sst.cloudflare.x.SolidStart("Console", {
+  domain,
   path: "packages/console/app",
   link: [
     bucket,
@@ -278,13 +260,9 @@ export const web = new sst.cloudflare.x.SolidStart("Console", {
     EMAILOCTOPUS_API_KEY,
     AWS_SES_ACCESS_KEY_ID,
     AWS_SES_SECRET_ACCESS_KEY,
-    SALESFORCE_CLIENT_ID,
-    SALESFORCE_CLIENT_SECRET,
-    SALESFORCE_INSTANCE_URL,
     ZEN_BLACK_PRICE,
     ZEN_LITE_PRICE,
-    SECRET.ZenLimits,
-    SECRET.ConsoleDevEmails, // reused by the subscribe soft-launch gate (lite-section.tsx)
+    new sst.Secret("ZEN_LIMITS"),
     new sst.Secret("ZEN_SESSION_SECRET"),
     ...ZEN_MODELS,
     ...($dev
@@ -305,9 +283,7 @@ export const web = new sst.cloudflare.x.SolidStart("Console", {
       placement: { region: "aws:us-east-2" },
       transform: {
         worker: {
-          // Tail Workers require the Workers Paid plan. This pipeline only feeds monitoring, which is gated on
-          // HONEYCOMB_API_KEY — so on the Free plan (monitoring deferred) we skip the tail consumer and deploy.
-          tailConsumers: process.env.HONEYCOMB_API_KEY ? [{ service: logProcessor.nodes.worker.scriptName }] : [],
+          tailConsumers: [{ service: logProcessor.nodes.worker.scriptName }],
         },
       },
     },

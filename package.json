@@ -15,14 +15,15 @@
     "test:ext": "bun volt-scripts/test-extension.ts",
     "test:install:lifecycle": "bun volt-scripts/test-install-lifecycle.ts",
     "compat": "bun install && bun volt-scripts/check-wiring.ts && bun volt-scripts/verify-opencode.ts",
-    "secrets:dev": "bun volt-scripts/deploy-secrets.ts --apply dev",
     "deploy:dev": "bunx sst deploy --stage dev",
     "db:dev": "bun run --cwd packages/console/core db-dev",
     "shell:dev": "bun run --cwd packages/console/core shell-dev",
     "typecheck": "bun run --filter='*' typecheck",
     "lint": "oxlint",
     "prepare": "husky",
-    "test": "echo 'do not run tests from root' && exit 1"
+    "test": "echo 'do not run tests from root' && exit 1",
+    "models:dev": "cd packages/console/core && bun script/update-models.ts dev",
+    "models:prod": "cd packages/console/core && bun script/update-models.ts production"
   },
   "workspaces": {
     "packages": [

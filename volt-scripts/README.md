@@ -66,7 +66,7 @@ current opencode still load Volt's config?", which only changes when *opencode* 
 
 | Step | Script | Answers | Needs |
 |---|---|---|---|
-| 1. integration | `check-wiring.ts` | config layer, built binaries, wire-version + product-version parity, source-extension parity across all runtimes | nothing — **CI runs this on every push/PR** |
+| 1. integration | `check-wiring.ts` | config layer, built binaries, wire-version + product-version parity, source-extension parity across all runtimes, model-catalog parity | nothing — **CI runs this on every push/PR** |
 | 2. opencode | `verify-opencode.ts` | does the **installed** opencode load the volt LSP **and** the `volt` tool via `OPENCODE_CONFIG_DIR`? | opencode + a configured provider |
 
 Step 2 is the reason the gate exists — it drives the real binary, and nothing else catches opencode changing its
@@ -84,9 +84,21 @@ first fails — a broken LSP shouldn't hide the tool's result.
 
 | Script | Does |
 |---|---|
-| `deploy-secrets.ts` | `bun run secrets:dev` — push SST secrets for a stage |
-| `set-models.ts` | maintain the console's model catalog |
 | `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
+
+> **There are no Volt scripts for infra any more.** Secrets are set out of band, like opencode:
+> `bunx sst secret set NAME <value> --stage <stage>`, or `sst secret load <file>` for many. `deploy.yml` runs
+> one `sst deploy` step whose env carries only PROVIDER credentials. `deploy-secrets.ts`, `set-models.ts`,
+> `gen-model-config.ts` and `update-models.ts` are all gone.
+>
+> The gateway model catalog (`ZEN_MODELS1..30`) is edited with `bun run models:dev` / `models:prod`, which runs
+> opencode's own `packages/console/core/script/update-models.ts` — read the 30 chunks, edit the joined
+> document, validate, write back. Two `VOLT:`-marked value-edits in it: the stage is an argument, and the
+> editor is `$EDITOR` rather than `vim`.
+>
+> The picker (`opencode-config/opencode.json` → `provider.volt.models`) is hand-maintained; `check-wiring`
+> only compares its ids against the deployed `/v1/models`. Registering Volt as a models.dev provider would
+> delete that block entirely — see `openspec/changes/mirror-opencode-model-catalog/design.md` §9.3.
 
 ## Where the package-specific scripts went
 

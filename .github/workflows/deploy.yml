@@ -1,168 +1,48 @@
-# Deploy the Volt commercial backend (console/app + SST) from CI.
-#
-# WHY CI: console/app's SolidStart web build fails on Windows (the pinned @solidjs/start preview mangles
-# Windows paths — proven: vite build/dev both fail). `sst deploy` runs that build locally, so the deploy
-# must run on Linux. This job (ubuntu) is that Linux builder — you stay on Windows.
-#
-# Mirrors opencode's own deploy.yml, adapted for Volt's *verified* differences:
-#   - no AWS step (we removed the aws provider; the infra creates zero AWS resources)
-#   - no Sentry (dropped — 0 code refs in opencode)
-#   - PLANETSCALE_SERVICE_TOKEN_ID (current/recommended per the Pulumi provider docs), not the
-#     deprecated _NAME opencode's older workflow used
-#
-# PREREQUISITES (not done here — opencode also sets secrets out of band):
-#   1. volt-ai.dev must be Active on Cloudflare (custom domains resolve).
-#   2. The ~48 SST secrets must already be set for the stage. Generate + load them once (from a host with
-#      SST + Cloudflare auth — sst secret load does NOT build the web app, so it is not Windows-blocked):
-#        bun volt-scripts/deploy-secrets.ts            # writes .env.deploy from .env
-#        bunx sst secret load .env.deploy --stage <stage>
-#   3. GitHub environment secrets (per stage — create "dev"/"production" environments):
-#        CLOUDFLARE_API_TOKEN, PLANETSCALE_SERVICE_TOKEN, PLANETSCALE_SERVICE_TOKEN_ID,
-#        STRIPE_SECRET_KEY, HONEYCOMB_API_KEY, HONEYCOMB_CONFIG_KEY
-#        (the two Honeycomb secrets are DIFFERENT keys: HONEYCOMB_API_KEY = an INGEST key (sends events),
-#         HONEYCOMB_CONFIG_KEY = a CONFIGURATION key (manages recipients/triggers). Both feed the env var
-#         HONEYCOMB_API_KEY, in different steps — see the two comments at those steps below.)
-#   (DB migrations run separately — `bun run db:dev migrate` — like opencode; the dev branch also inherits
-#    the schema by forking main.)
-
 name: deploy
 
 on:
-  # Auto-deploy dev when the DEPLOYED surface changes on dev (opencode-style CD) — "merged = live", no drift.
-  # Path-filtered so docs / openspec / other-workflow commits don't fire a pointless (idempotent) redeploy.
-  # Kept deliberately broad — every input the deploy actually builds from — so a real change never slips through.
-  # (workflow_dispatch below is unaffected by paths: a manual deploy always runs.)
   push:
-    branches: [dev]
-    paths:
-      - "packages/console/**" # the console app + gateway code (the deployed artifact)
-      - "packages/volt-www/**" # the public marketing site (StaticSite, infra/www.ts)
-      - "infra/**" # SST infra definitions
-      - "sst.config.ts" # SST entrypoint
-      - "models.json" # gateway model catalog (set-models.ts reads it)
-      - "volt-scripts/deploy-secrets.ts" # deploy-time secret provisioning
-      - "volt-scripts/set-models.ts" # deploy-time catalog provisioning
-      - ".github/workflows/deploy.yml" # the deploy workflow itself
-  # Manual for production (or an on-demand dev redeploy).
+    branches:
+      - dev
+      - production
   workflow_dispatch:
-    inputs:
-      stage:
-        description: SST stage to deploy
-        required: true
-        default: dev
-        type: choice
-        options:
-          - dev
-          - production
 
-# Serialize deploys per stage; a push resolves to the dev stage (no input). Not cancel-in-progress — never kill
-# an in-flight deploy; queue behind it.
-concurrency: deploy-${{ github.event.inputs.stage || 'dev' }}
+concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy:
+    if: github.repository == 'anomalyco/opencode' && (github.ref_name == 'dev' || github.ref_name == 'production')
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.stage || 'dev' }}
+    environment: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
+      - uses: ./.github/actions/setup-bun
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
 
-      - run: bun install --frozen-lockfile
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: opencode-${{ github.run_id }}
+          aws-region: us-east-1
 
-      # Set the SST secrets IN THIS JOB, before deploy. SST state is per-machine (local + cloud-backed,
-      # passphrase-encrypted) — secrets set from a dev laptop are NOT visible to a fresh CI runner (proven:
-      # CI saw 0/48). Loading them here guarantees the deploy step below reads them (same runner, same .sst/).
-      # deploy-secrets fills each declared secret from process.env (the GitHub secrets below), else a
-      # non-empty PLACEHOLDER_UNSET (SST rejects empty). Placeholder'd features stay inert until provisioned.
-      - name: Load SST secrets into this run's state
-        run: bun volt-scripts/deploy-secrets.ts --apply ${{ github.event.inputs.stage || 'dev' }}
+      - run: bun sst deploy --stage=${{ github.ref_name }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
-          # Real values where the GitHub secret exists; anything unset → PLACEHOLDER_UNSET (feature inert).
-          # Add these secrets to the environment to make the feature live on the next deploy.
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          ZEN_SESSION_SECRET: ${{ secrets.ZEN_SESSION_SECRET }}
-          # GitHub Actions reserves the GITHUB_ secret-name prefix, so these are stored as GH_* and mapped here.
-          GITHUB_CLIENT_ID_CONSOLE: ${{ secrets.GH_CLIENT_ID_CONSOLE }}
-          GITHUB_CLIENT_SECRET_CONSOLE: ${{ secrets.GH_CLIENT_SECRET_CONSOLE }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          UpstashRedisRestUrl: ${{ secrets.UpstashRedisRestUrl }}
-          UpstashRedisRestToken: ${{ secrets.UpstashRedisRestToken }}
-          ZEN_LIMITS: ${{ secrets.ZEN_LIMITS }}
-          # Operator allow-list — the dev-login gate AND (reused) the prod subscribe soft-launch gate. Loaded
-          # as an SST secret so the console app worker can read it; also passed to the deploy step for the auth
-          # worker's env var. Unset ⇒ subscriptions closed on prod.
-          CONSOLE_DEV_EMAILS: ${{ secrets.CONSOLE_DEV_EMAILS }}
-          # Monitoring (Honeycomb → console /honeycomb/webhook → Discord). Stored as SST secrets here (inert until
-          # the deploy step below actually activates monitoring — production-only). Set in the production env.
-          # ⚠ The GitHub secret HONEYCOMB_API_KEY must hold an INGEST key — it becomes the SST secret the
-          # vendored log-processor sends as X-Honeycomb-Team. The deploy step below sets the SAME env name from
-          # HONEYCOMB_CONFIG_KEY, a configuration key, because the provider needs "manage" rights an ingest key
-          # does not have. Two roles, two GitHub secrets, one env name per step — putting a configuration key in
-          # THIS secret silently breaks telemetry (401 on ingest); putting an ingest key in the other one fails
-          # the deploy outright. See infra/secret.ts.
-          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
-          DISCORD_INCIDENT_WEBHOOK_URL: ${{ secrets.DISCORD_INCIDENT_WEBHOOK_URL }}
-          # Console admin endpoints (/api/support/actions/*) authenticate with this bearer token. The secret
-          # existed in the environment but was never passed here, so every production deploy overwrote it with
-          # PLACEHOLDER_UNSET.
-          SUPPORT_API_KEY: ${{ secrets.SUPPORT_API_KEY }}
-          # Declared in infra/ but unprovisioned — no keys exist yet, so these resolve to PLACEHOLDER_UNSET and
-          # the features stay inert. Listed so adding the GitHub secret is the ONLY step needed to go live.
-          AWS_SES_ACCESS_KEY_ID: ${{ secrets.AWS_SES_ACCESS_KEY_ID }}
-          AWS_SES_SECRET_ACCESS_KEY: ${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
-          EMAILOCTOPUS_API_KEY: ${{ secrets.EMAILOCTOPUS_API_KEY }}
-          SALESFORCE_CLIENT_ID: ${{ secrets.SALESFORCE_CLIENT_ID }}
-          SALESFORCE_CLIENT_SECRET: ${{ secrets.SALESFORCE_CLIENT_SECRET }}
-          SALESFORCE_INSTANCE_URL: ${{ secrets.SALESFORCE_INSTANCE_URL }}
-
-      # Gateway model catalog → ZEN_MODELS1..30. ALWAYS runs — no secret-gated `if:` (GitHub masks secrets in
-      # `if` conditions, which silently skipped this). set-models substitutes the provider keys into models.json,
-      # or loads an empty-but-valid catalog if they're absent. Runs in-job so the chunks reach the deploy's own
-      # state, overriding the placeholders deploy-secrets set above.
-      - name: Provision gateway model catalog
-        run: bun volt-scripts/set-models.ts --apply ${{ github.event.inputs.stage || 'dev' }}
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - run: bunx sst deploy --stage ${{ github.event.inputs.stage || 'dev' }} --print-logs
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_NAME: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_NAME }}
           PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          # The Stripe provider (pulumi-stripe) is a community plugin fetched from GitHub releases. Unauthenticated
-          # downloads hit GitHub's 60/hr/IP limit on CI (403 rate-limit). The Actions token raises it to 5000/hr.
-          GITHUB_TOKEN: ${{ github.token }}
-          # Dev-only login allowlist for the auth worker (see infra/console.ts). Empty = open.
-          CONSOLE_DEV_EMAILS: ${{ secrets.CONSOLE_DEV_EMAILS }}
-          # HONEYCOMB_API_KEY here (process.env) is the ACTIVATION switch: it turns on the honeycomb provider,
-          # infra/monitoring.ts (the Discord alert triggers), AND the tail-Worker log pipeline — which needs the
-          # Workers PAID plan (console.ts:303). It's also pointless off-production (monitoring.ts disables alerts
-          # when stage != production). So gate it PRODUCTION-ONLY: a dev push/deploy stays on Workers Free.
-          # The VALUE here must be a Honeycomb CONFIGURATION key with "Manage Recipients" + "Manage Triggers"
-          # (the env name stays HONEYCOMB_API_KEY — that is what the honeycombio provider reads). An ingest key
-          # fails the deploy with: "this API key isn't allowed to manage recipients".
-          HONEYCOMB_API_KEY: ${{ github.event.inputs.stage == 'production' && secrets.HONEYCOMB_CONFIG_KEY || '' }}
-          # Alert definitions (infra/monitoring.ts) — OFF until the `zen` dataset has real gateway traffic AND the
-          # metric mismatch is resolved; flip to "on" here when both hold. See openspec/changes/
-          # console-production-launch (Monitoring). The key above stays set regardless: it runs the telemetry
-          # pipeline that populates the dataset, and Pulumi needs the provider to manage existing honeycombio
-          # resources — with an empty key even a DELETE fails ("Unable to initialize Honeycomb provider").
-          HONEYCOMB_ALERTS: "off"
+          STRIPE_SECRET_KEY: ${{ github.ref_name == 'production' && secrets.STRIPE_SECRET_KEY_PROD || secrets.STRIPE_SECRET_KEY_DEV }}
+          HONEYCOMB_API_KEY: ${{ secrets.HONEYCOMB_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.WEB_SENTRY_PROJECT }}
+          SENTRY_RELEASE: web@${{ github.sha }}
+          VITE_SENTRY_DSN: ${{ vars.WEB_SENTRY_DSN }}
+          VITE_SENTRY_RELEASE: web@${{ github.sha }}
