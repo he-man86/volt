@@ -1,2 +1,9 @@
-packages/core/migration/**/snapshot.json linguist-generated
-packages/core/src/database/migration.gen.ts linguist-generated
+# The LSP test corpus is four REAL CODESYS projects, checked in byte-identical to what the IDE wrote.
+# It is 27k of the repo's 28.5k tracked files — 95% — so without this it dominates GitHub's language
+# stats, buries real changes in diffs, and makes every search noisy.
+#
+# `linguist-vendored` keeps it out of the language breakdown; `-diff` collapses it to "Binary files
+# differ" instead of printing thousands of lines of machine-written XML on the rare commit that
+# re-records a fixture. Neither changes how git STORES the files — they are still plain text, and
+# still diffable on demand with `git diff --text`.
+packages/volt-lsp-iec/test-corpus/** linguist-vendored -diff
