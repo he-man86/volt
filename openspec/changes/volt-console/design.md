@@ -27,6 +27,7 @@ Consequences, decided here and applied across the other sections:
 | database | PlanetScale (~$39/mo, no free tier) | **Cloudflare D1** |
 | transactional email | AWS SES (new AWS account, IAM, sandbox approval) | **Cloudflare Email Sending** |
 | observability | Honeycomb (`monitoring.ts` 287 lines, 2 distinct API keys, LogProcessor tail worker) | **Cloudflare Workers Logs** — built in, on by default |
+| rate limiting | Upstash Redis | gone with the gateway; KV or Durable Objects if ever needed |
 
 Honeycomb is worth naming precisely, because it is easy to assume it does more than it does.
 `infra/monitoring.ts` is an **error-rate SLO on the gateway's HTTP responses** — it filters on
@@ -35,7 +36,6 @@ Honeycomb is worth naming precisely, because it is easy to assume it does more t
 anything client-side, and it has nothing to do with chat content. It dies with the gateway and nothing of
 product value is lost. The *desire* it gets confused with — understanding real-world LSP and agent behaviour —
 is a separate follow-up, recorded in `proposal.md`.
-| rate limiting | Upstash Redis | gone with the gateway; KV or Durable Objects if ever needed |
 
 ## 0.1 Tiers — free is a 30-day trial, then read-only
 
