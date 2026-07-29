@@ -1,19 +1,30 @@
-// Shared primitives: Volt logo/mark, buttons, and the CTA href resolver (wraps config.js so every CTA points at the
-// console/installer, honoring the env-var overrides).
-import { authUrl, downloadUrl } from "../config.js"
+// Shared primitives: Volt logo/mark, buttons, and the CTA href resolver (wraps config.js).
+import { checkoutUrl, downloadUrl } from "../config.js"
 
-// CTA kinds → destination. "contact" stays on-site.
+// CTA kinds → destination. "contact" stays on-site. `null` means the destination does not exist yet, and the
+// Button renders a disabled "Coming soon" control rather than a dead link.
 export function ctaHref(kind) {
   if (kind === "download") return downloadUrl()
-  if (kind === "auth") return authUrl()
+  if (kind === "buy") return checkoutUrl()
   if (kind === "contact") return "/contact.html"
-  return "#"
+  return null
 }
 
-export function Button({ kind = "auth", variant = "primary", size, children, href, ...rest }) {
+export function Button({ kind = "download", variant = "primary", size, children, href, ...rest }) {
   const cls = ["btn", `btn-${variant}`, size === "lg" && "btn-lg"].filter(Boolean).join(" ")
+  const target = href ?? ctaHref(kind)
+
+  // No destination → a non-interactive control. Keeps the layout identical to the live button.
+  if (!target) {
+    return (
+      <span className={cls} aria-disabled="true" style={{ opacity: 0.55, cursor: "default" }} {...rest}>
+        Coming soon
+      </span>
+    )
+  }
+
   return (
-    <a className={cls} href={href ?? ctaHref(kind)} {...rest}>
+    <a className={cls} href={target} {...rest}>
       {children}
     </a>
   )

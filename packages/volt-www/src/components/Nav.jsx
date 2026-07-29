@@ -1,9 +1,11 @@
-// Top nav — cursor composition: wordmark left, centered links with dropdowns (Product / Resources), Sign in +
-// Download right. Desktop dropdowns are CSS-only (hover + focus-within). Below 640px the links collapse into a
+// Top nav — cursor composition: wordmark left, centered links with dropdowns (Product / Resources), Download
+// right. Desktop dropdowns are CSS-only (hover + focus-within). Below 640px the links collapse into a
 // hamburger-toggled panel (the only JS state here) so the dropdown items stay reachable on mobile.
-import { useEffect, useState } from "react"
+//
+// There is no Sign in / Dashboard: the console was deleted and Volt has no account system — the licence key is
+// the credential, and billing lives in Polar's own portal (openspec/changes/sell-cli-subscription).
+import { useState } from "react"
 import { NAV } from "../content.js"
-import { authUrl, dashboardUrl, isSignedIn } from "../config.js"
 import { Logo, Button, Caret } from "./ui.jsx"
 import "./nav.css"
 
@@ -54,18 +56,12 @@ function MobileMenu({ signedIn, onNavigate }) {
           </a>
         ),
       )}
-      <a href={signedIn ? dashboardUrl() : authUrl()} className="nav-mobile-link nav-mobile-top">
-        {signedIn ? "Dashboard" : "Sign in"}
-      </a>
     </div>
   )
 }
 
 export function Nav() {
-  // Resolve after mount (reads a cookie) so the pre-built HTML stays static and correct for signed-out visitors.
-  const [signedIn, setSignedIn] = useState(false)
   const [open, setOpen] = useState(false)
-  useEffect(() => setSignedIn(isSignedIn()), [])
 
   return (
     <header className="site-nav">
@@ -77,15 +73,6 @@ export function Nav() {
           ))}
         </div>
         <div className="nav-actions">
-          {signedIn ? (
-            <a href={dashboardUrl()} className="btn btn-secondary nav-signin">
-              Dashboard
-            </a>
-          ) : (
-            <a href={authUrl()} className="nav-link nav-signin">
-              Sign in
-            </a>
-          )}
           <Button kind="download" variant="primary">
             Download
           </Button>

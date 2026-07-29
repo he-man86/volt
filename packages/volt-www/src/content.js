@@ -111,33 +111,31 @@ export const PLATFORMS = ["Beckhoff", "CODESYS", "Schneider", "WAGO", "Lenze", "
 export const PRICING = [
   {
     name: "Free",
-    price: "$0",
-    note: "Bring your own AI provider",
+    price: "€0",
+    note: "Up to 3 PLC projects",
     features: [
       "The volt CLI + git-native sync",
       "Structured Text language intelligence",
       "Desktop app & VS Code extension",
-      "Your own model provider key",
+      "Bring your own AI provider key",
     ],
     cta: "Download for Windows",
     kind: "download",
   },
   {
     name: "Pro",
-    price: "€24",
+    price: "€19",
     period: "/ month",
-    note: "Hosted AI, no key required",
+    note: "Unlimited PLC projects",
     features: [
       "Everything in Free",
-      "Hosted models — nothing to configure",
+      "Unlimited bound projects",
       "Priority language-server updates",
       "Email support",
     ],
-    cta: "Join the public beta",
-    kind: "auth", // → the console's /auth (sign up); no checkout yet — accounts are free during the beta
+    cta: "Buy Volt Pro",
+    kind: "buy",
     featured: true,
-    beta: true, // PUBLIC BETA: sign up now, free while it lasts — no card, no charge yet
-    betaNote: "Free while in public beta — no card required.",
   },
 ]
 
@@ -160,7 +158,7 @@ export const FAQ = [
   },
   {
     q: "Do I need a separate AI subscription?",
-    a: "On the Free plan you bring your own model provider key. Pro includes hosted models — nothing to configure. Pro is in public beta right now: you can sign up free, no card required (it'll be €24/month once billing opens).",
+    a: "Both plans bring your own model provider key — Volt never proxies your prompts. Free covers up to 3 PLC projects; Pro is €19/month for unlimited projects. Pro is not open for purchase yet.",
   },
 ]
 

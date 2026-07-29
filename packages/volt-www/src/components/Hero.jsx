@@ -21,8 +21,8 @@ export function Hero() {
             <Button kind="download" variant="primary" size="lg">
               Download for Windows
             </Button>
-            <Button kind="auth" variant="secondary" size="lg">
-              Get started <Arrow />
+            <Button href="/docs.html" variant="secondary" size="lg">
+              Read the docs <Arrow />
             </Button>
           </div>
         </Reveal>

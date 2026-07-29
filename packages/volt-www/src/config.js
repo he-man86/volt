@@ -1,29 +1,28 @@
-// volt-www runtime config. The console (auth + download resolver) runs on its own host; volt-www is the static
-// marketing site, so its CTAs link *across* to the console. The host is set at build time via VITE_CONSOLE_URL.
-// The console host, baked in at build time via VITE_CONSOLE_URL (infra/www.ts sets it when volt-www deploys).
-// Defaults to the production console at the apex. (When the console→app.${domain} domain split ships, update this
-// + infra/www.ts to `app.volt-ai.dev`.)
-const CONSOLE_URL = (import.meta.env.VITE_CONSOLE_URL || "https://volt-ai.dev").replace(/\/+$/, "")
+// volt-www runtime config.
+//
+// This site is entirely static and has no backend to link to. The console and the AI gateway were deleted
+// (openspec/changes/sell-cli-subscription); payment, licence keys and the customer portal will be Polar's,
+// and the buy CTA points there once that is wired.
+//
+// Until then the commercial surface is CLOSED — both the download and the purchase flow render as
+// "Coming soon" rather than as links, because a dead link is worse than an honest one.
 
-// /auth is the console's OpenAuth entry — it handles both sign-in and sign-up (new users are created on first
-// login), so "Sign in" and "Start free" both point here.
-export const authUrl = () => `${CONSOLE_URL}/auth`
+/** Flip to false once the installer is published and the Polar checkout URL is set below. */
+export const COMING_SOON = true
 
-// The Volt desktop installer: the one-installer that volt-scripts/build-app.ts publishes to GitHub Releases
-// (he-man86/volt) via `gh release create`. Windows-only — Volt's PLC tooling (bridges, CODESYS) is
-// Windows-native. `latest/download/...` always resolves to the newest release carrying the asset, so this never
-// needs bumping per release. Override with VITE_INSTALLER_URL if the release repo/asset name changes.
+// The Volt desktop installer: the one-installer that volt-scripts/build-installer.ts publishes to GitHub
+// Releases (he-man86/volt). Windows-only — Volt's PLC tooling (bridges, CODESYS) is Windows-native.
+// `latest/download/...` always resolves to the newest release carrying the asset, so it never needs bumping
+// per release. Override with VITE_INSTALLER_URL if the release repo or asset name changes.
 const INSTALLER_URL =
   import.meta.env.VITE_INSTALLER_URL || "https://github.com/he-man86/volt/releases/latest/download/Volt-win-Setup.exe"
 
-export const downloadUrl = () => INSTALLER_URL
+/** null while COMING_SOON — callers render a disabled control instead of a link. */
+export const downloadUrl = () => (COMING_SOON ? null : INSTALLER_URL)
 
-// Signed-in hint: the console sets a **readable** (non-httpOnly) cookie on the shared parent domain when a session
-// exists, so this static site can swap "Sign in" for "Dashboard" without its own auth. Name overridable.
-// (httpOnly session cookies stay on the console; this is only a presence hint, never a credential.)
-const SESSION_COOKIE = import.meta.env.VITE_SESSION_COOKIE || "volt_session"
-export const isSignedIn = () =>
-  typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith(SESSION_COOKIE + "="))
+// Polar hosts checkout, and issues the licence key on subscription. Set VITE_CHECKOUT_URL (or hardcode the
+// product link) when the Polar product exists — see openspec/changes/sell-cli-subscription task 2.1.
+const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL || ""
 
-// Where a signed-in user lands (the console app root).
-export const dashboardUrl = () => `${CONSOLE_URL}/`
+/** null until a Polar checkout URL exists. */
+export const checkoutUrl = () => (COMING_SOON || !CHECKOUT_URL ? null : CHECKOUT_URL)
