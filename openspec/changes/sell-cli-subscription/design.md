@@ -90,16 +90,23 @@ a git repo* — a licence key must never land there. It belongs somewhere per-us
 `/validate` requires it whenever activation limits are enabled. Storing only the key would break validation on
 the second call.
 
+**One activation per machine, not per component.** Volt ships four things that can act on a licence: the CLI,
+the connector, the VS Code extension and the desktop app. Polar counts activations per *device instance*, so if
+each called `/activate` independently a single workstation would consume four. They share one credential and
+one activation, held by the CLI — which is a second reason the CLI owns it (§0.2b), beyond the dependency
+argument.
+
 **Free never contacts Polar at all.** With no key there is nothing to validate, so the 3-project allowance is
 enforced entirely locally and a free user is fully offline-capable. That also means the allowance is
 unverifiable — accepted in §0.1.
 
-## 0.2c OPEN — can the client call Polar directly?
+## 0.2c Can the client call Polar directly? — almost certainly yes, confirm anyway
 
-`/activate` and `/validate` take `key` + `organization_id`. Polar's documentation **does not state** whether
-they are safe to call from an end-user machine or require a server-side token. They are documented as customer
-portal endpoints, which suggests end-user use is intended, and `organization_id` is an identifier rather than a
-secret.
+The endpoint is `/customer-portal/license-keys/validate` — the *customer portal* namespace, which implies
+end-user use by design. Community integrations report it *"doesn't require authentication and can be safely
+used on a public client, like a desktop application or a mobile app"*, and `organization_id` is an identifier
+rather than a secret. Polar's own API reference does not state it in as many words, so it remains a
+confirm-before-building item rather than an assumption.
 
 **This must be confirmed before anything is built**, because it is the one thing that could reintroduce a
 backend:
@@ -111,6 +118,41 @@ backend:
 
 Even in the worse case the proxy holds no state and no database — so the shape of this change survives either
 way. It is a pre-flight question, not a design fork.
+
+## 0.2d Polar provides no offline story — the cache and grace are entirely Volt's
+
+Confirmed 2026-07-29: **every licence check is a live API call.** Polar issues no signed offline artifact, has
+no grace period and no fallback. Its own guidance is to *"validate the user's license key for each session"*.
+
+Volt deliberately deviates: §0.2b caches a verdict and §0.2 grants 14 days of grace. That is not an
+optimisation, it is the only thing standing between an unreliable plant-floor network and an unusable
+toolchain — a per-session live call would fail exactly when engineers need the tool most.
+
+Two consequences to accept:
+
+- **The cached verdict is unsigned.** It is a local file a determined user could edit to extend entitlement.
+  That is consistent with the project allowance already being client-side and gameable (§0.1); at €19 the
+  effort exceeds the saving. If that ever stops being true, the answer is a signed verdict from a Volt
+  endpoint, not a different licensing vendor.
+- **This is a deviation from vendor guidance**, so it belongs in the code as a comment, not just here. Whoever
+  next reads the integration should not "fix" it back to per-session validation.
+
+## 0.2e OPEN — product definition is NOT infrastructure-as-code
+
+`sst.config.ts` today creates the Stripe product, prices, coupons and webhook endpoint declaratively. **Polar
+has no Terraform or Pulumi provider**, so that stops being true: the €19 product and its licence-key benefit
+are configured in Polar's dashboard, or by a script against their TypeScript SDK.
+
+This is a genuine regression against the principle behind the whole infra effort — *everything as code, nothing
+clicked in a dashboard*. Options, undecided:
+
+| | |
+|---|---|
+| **dashboard, documented** | simplest; the product is configured once and rarely changes. Risk: undocumented drift, and no reproducibility for a fresh environment |
+| **a small provisioning script** (`@polar-sh/sdk`) | keeps product + price + benefit in version control and re-runnable. Not declarative, but auditable |
+
+Polar does offer **sandbox and production environments** in its SDKs, which removes the dev/prod concern that
+disqualified LicenseSpring's free tier. Whichever option is chosen must cover both.
 
 ## 0.3 No database
 

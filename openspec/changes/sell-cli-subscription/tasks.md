@@ -30,10 +30,16 @@
 
 ## 2. Polar setup
 
-- [ ] 2.0 **PRE-FLIGHT, blocks everything (§0.2c).** Confirm with Polar whether `/activate` and `/validate` can
-      be called from an end-user machine with the licence key and `organization_id` alone, or whether they
-      require a server-side token. If the latter, add a stateless Cloudflare Worker to proxy `/validate` — no
+- [ ] 2.0 **PRE-FLIGHT (§0.2c).** Confirm `/customer-portal/license-keys/validate` is callable from an
+      end-user machine with the key alone. Strong evidence it is — it sits in the *customer portal* namespace
+      and community integrations call it from desktop apps — but Polar's API reference does not say so
+      outright. If a server-side token turns out to be required, a stateless Cloudflare Worker proxies it: no
       database, no state, but "no backend at all" becomes "one endpoint" and the proposal needs correcting.
+- [ ] 2.0b **Decide how the product is defined (§0.2e).** Polar has no Terraform/Pulumi provider, so the €19
+      product, its price and the licence-key benefit cannot be declared in `sst.config.ts` the way the Stripe
+      ones are today. Either configure in the dashboard and document it, or write a re-runnable script against
+      `@polar-sh/sdk`. Cover **both sandbox and production** — Polar's SDKs support both, which is what removes
+      the dev/prod concern that disqualified LicenseSpring.
 
 - [ ] 2.1 Create the Polar organisation and product: **Volt Pro, €19/month recurring** (§0.7).
 - [ ] 2.2 Attach the **licence key benefit**: brandable prefix (`VOLT_*****`), no expiry (the subscription's
@@ -64,6 +70,13 @@
       activation and deactivate-this-device so a tray user need not open a terminal (§0.9).
 - [ ] 3.6 Verify the whole licensing path works with the connector **absent** — that is the supported
       standalone configuration, not a degraded one.
+- [ ] 3.6b **One activation per machine.** The CLI, connector, VS Code extension and desktop app must share a
+      single credential and a single Polar activation — four independent `/activate` calls would burn four
+      device slots for one workstation. Confirm `volt-vscode` and `volt-desktop` read the shared cache and
+      never activate on their own.
+- [ ] 3.6c Comment the deviation from Polar's guidance in the code: they recommend validating *per session*;
+      Volt caches with a 14-day grace (§0.2d), deliberately, because a per-session live call fails exactly when
+      a plant-floor engineer needs the tool. Without a comment someone will "fix" it back.
 - [ ] 3.7 Tests for every enforcement path: valid, cancelled, revoked, offline-within-grace,
       offline-past-grace-on-an-existing-project (must keep working), offline-past-grace-binding-a-new-one (must
       refuse clearly), at-the-allowance-boundary, no-cache-at-all, and **no-connector-at-all**. This sits in front of every paying
