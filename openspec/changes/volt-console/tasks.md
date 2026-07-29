@@ -16,8 +16,8 @@
 - [x] 0.4 **Workspaces from day one, or later?** Present from the start makes team a tier flip; deferring is
       simpler now and a migration later.
 - [x] 0.5 **Auth.** GitHub + Google + email code; transport is Cloudflare Email Sending, not SES.
-- [ ] 0.6 **Support portal** — folded into `volt-console` or left as its own worker.
-- [ ] 0.7 **Price, currency, trial.** Supersedes the gateway pricing in `stripe-go-live`.
+- [x] 0.6 **Support portal** — folded into `volt-console` or left as its own worker.
+- [x] 0.7 **Price, currency, trial.** Supersedes the gateway pricing in `stripe-go-live`.
 - [ ] 0.8 Confirm how many live subscribers exist today. If non-zero, migration is a task, not a footnote.
 
 ## 1. Scaffold `packages/volt-console`
@@ -29,8 +29,14 @@
       (sqlite dialect), so drizzle's mysql-specific column types need translating rather than copying.
 - [ ] 1.3 Auth: sign in, session, and workspace membership per 0.5.
 - [ ] 1.4 Stripe: Checkout for subscribe, Customer Portal for manage/cancel/invoices. Both are hosted — do not
-      rebuild them. `checkout.session.completed` issues the licence key.
+      rebuild them. `checkout.session.completed` issues the licence key. €19/month in EUR (0.7).
+      **No card at trial start** — Volt owns the trial clock, so a trialing workspace has no Stripe object at
+      all and the validate endpoint must answer for it.
+      **Enable Stripe Tax** and set the product's tax code: EU VAT, B2B reverse charge and OSS reporting apply
+      and are not automatic. Settle before taking real money.
 - [ ] 1.5 Dashboard: current tier, licence key (copyable, revocable), link to the portal.
+- [ ] 1.5b `/admin/lookup` — the support portal, folded in per 0.6, gated by an operator email allow-list
+      (`CONSOLE_DEV_EMAILS` is the existing pattern). Replaces the standalone `support.${domain}` worker.
 - [ ] 1.6 Infra as code, SST, in the existing `infra/` — one Worker, the DB from 0.3, the Stripe product/price,
       secrets. `infra/www.ts` was 17 lines; this should be the same order of magnitude.
 

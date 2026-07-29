@@ -124,11 +124,56 @@ The `CodeProvider` is already imported and commented out at `function/src/auth.t
 **Open:** whether SST's Cloudflare Worker component can declare a `send_email` binding. If not, use the REST
 API with an API token secret — same result, and it works from outside Workers too.
 
-## 0.6 Support portal — OPEN
+## 0.6 Support portal — folded into `volt-console` as an operator-gated route
 
-Today a separate worker at `support.${domain}` behind Cloudflare Access. It dies with `packages/console`.
-Options: fold into `volt-console` as an operator-gated admin route, keep standalone, or drop until there is a
-customer to support. Cloudflare Access is already Cloudflare, so standalone costs no extra provider.
+```
+volt-console/
+  /                 customer dashboard
+  /admin/lookup     operator-only
+```
+
+One worker, one deploy, one auth system. It reuses the workspace and subscription queries the dashboard needs
+anyway, rather than porting a second copy of them into a standalone app.
+
+Gate on an operator email allow-list. `CONSOLE_DEV_EMAILS` already does exactly this in the vendored console
+(read by `function/src/auth.ts` and `go/lite-section.tsx`), so the pattern carries over.
+
+Replaces today's separate worker at `support.${domain}` behind Cloudflare Access, which dies with
+`packages/console`. Dropping Cloudflare Access here is a small simplification — one fewer thing to configure —
+though Access remains available if the admin surface ever needs stronger isolation.
+
+## 0.7 Price — €19/month, EUR
+
+**€19/month, charged in EUR.**
+
+Chosen for the buying motion, not to recover a cost. Above roughly €50/month a company purchase usually needs
+procurement sign-off, which is fatal when there is no sales team; €19 sits comfortably inside "expense it
+without asking", so an engineer can buy it on a company card the same day they evaluate it. Self-serve is the
+only motion Volt has.
+
+EUR because the buyers are European automation houses — CODESYS and Beckhoff heartland — and it is already the
+configured currency.
+
+For reference: 100 subscribers ≈ €22.8k ARR, at near-zero COGS now that Volt does not pay for tokens. It also
+leaves room for a team tier around €15/seat without the individual price looking wrong.
+
+### Consequence: the trial does NOT take a card
+
+0.1 already requires trial start to be server-side per workspace, which means **Volt owns the trial clock, not
+Stripe.** Stripe's native `trial_period_days` would be simpler — the tier would just derive from
+`subscription.status === "trialing"` — but it requires a card up front, and card-gated trials collapse signup
+rates for a tool engineers want to evaluate quietly.
+
+So: sign up → workspace created with `trialStartedAt` → no Stripe object exists yet. A Stripe customer and
+subscription are created only at conversion. The licence validate endpoint must therefore answer for
+workspaces that have no Stripe record at all.
+
+### Consequence: EU VAT
+
+Selling a subscription into the EU brings VAT obligations, including the B2B reverse charge and OSS reporting.
+**Stripe Tax** handles calculation and collection but has to be enabled and configured with the product's tax
+code; it is not automatic. Not a blocker for building, but it must be settled before taking real money — add
+it to section 1.4.
 
 ## 0.7 Price, currency, trial length — OPEN
 
