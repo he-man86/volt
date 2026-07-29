@@ -1,7 +1,7 @@
 # infra — pristine opencode, and what to change
 
 `infra/`, `sst.config.ts` and `.github/workflows/deploy.yml` are **opencode v1.18.3** (`sst/opencode`) with
-exactly one deliberate change, listed under "Applied divergences" below. Everything else is byte-identical, and
+two deliberate changes, listed under "Applied divergences" below. Everything else is byte-identical, and
 this file is the only added file, so upstream merges stay clean.
 
 Verify at any time:
@@ -42,6 +42,41 @@ PlanetScale and Stripe, and nothing bridges them to Salesforce.
 `routes/api/enterprise.ts` from upstream. An enterprise contact form works with just the SES mail; the
 Salesforce half only pays off once a sales pipeline actually runs in it.
 
+### Authoring stage renamed `frank` → `marce`
+
+`packages/console/core/script/update-models.ts` (2 lines) and `promote-models.ts` (1 line), each with a
+`VOLT:` marker.
+
+**What `frank` is:** a person. opencode hardcodes several developers' personal SST stages into their infra —
+`vimtor` and `adam` (`infra/app.ts:33`), `thdxr` (`:44`), and `frank` in the model scripts. `sst deploy` with
+no `--stage` targets *your own* stage, so each developer gets an isolated copy; `production` and `dev` are the
+only shared ones.
+
+**Why that matters:** the model catalog's master copy — including every upstream provider API key — lives in
+one named individual's personal stage, and dev/prod are *promoted* from it. So the scripts form a small release
+pipeline:
+
+```
+bun run pull-models-from-prod    # prod's catalog  → your stage
+bun run update-models            # your stage → $EDITOR → validate → back to your stage
+bun run promote-models-to-dev    # your stage → dev
+bun run promote-models-to-prod   # your stage → production
+```
+
+Run them from `packages/console/core`. `update-models` opens **vim**, which is hardcoded — that needs no edit
+here because Git for Windows ships vim at `/usr/bin/vim`.
+
+Volt's authoring stage is **`marce`**, set in `.sst/stage` (gitignored, so not a repo change). Change it in
+three places if you rename: `.sst/stage`, and the two scripts above.
+
+> ⚠️ `sst remove` on the authoring stage deletes the state, the secrets **and the encryption passphrase**. That
+> would destroy the master catalog. Prod keeps its own copy, so recovery means `pull-models-from-prod` — but
+> anything edited and not yet promoted is gone.
+
+**Left as `frank` on purpose:** `script/reset-db.ts:9` guards on `Resource.App.stage !== "frank"`. Pointing at
+a stage that does not exist makes that destructive script inert, which is the safer default. Change it only if
+you actually want to be able to reset the database.
+
 ### Related, deliberately NOT removed
 
 - **`AWS_SES_*` — keep.** Not only for the enterprise form: `core/src/user.ts:143` sends workspace **invite
@@ -62,7 +97,7 @@ commit per group keeps the diff against upstream readable, and makes any group r
 | # | group | verify with |
 |---|---|---|
 | 1 | **C** — ✅ files deleted + unhooked; ⬜ still gut `app.ts` and drop its import | `bun run typecheck` — no unresolved imports |
-| 2 | **B** — drop the `aws` provider, conditional Honeycomb | nothing references `deployAws` any more |
+| 2 | **B** — drop the `aws` provider, conditional Honeycomb | `bunx sst secret list --stage <s>` runs at all |
 | 3 | **A** — domain, zone, app name, PlanetScale | grep for `opencode.ai` / `anomalyco` → no hits |
 | 4 | **D** — restore `www.ts` + `support.ts`, add two `export`s | `sst.config.ts` imports resolve |
 | 5 | **G** — `deploy.yml` (line 18 **first**, see the warning there) | a `workflow_dispatch` run actually starts |
@@ -71,6 +106,12 @@ commit per group keeps the diff against upstream readable, and makes any group r
 
 C before B before A is deliberate: C removes the files that *use* the `aws` provider, so B is then a clean
 deletion; and A is pure find-and-replace once nothing structural is still moving.
+
+> ⚠️ **Until group B lands, no `sst` command works at all** — not just deploys. SST initialises every declared
+> provider up front, and opencode's `aws` block points at `opencode-dev` / `opencode-production` SSO profiles
+> that do not exist here, so even `sst secret list` fails with
+> `aws: failed to refresh cached credentials … InvalidGrantException`. That includes seeding the model catalog
+> into your authoring stage. B is a 9-line deletion; do it early.
 
 Do not deploy until the secrets exist — `sst deploy` errors on the first unset one, and secrets are now set
 out of band (see group G).
@@ -110,7 +151,10 @@ created a branch literally named `production`.
 
 ---
 
-## B. Providers — drop AWS (REQUIRED)
+## B. Providers — drop AWS (REQUIRED — blocks every `sst` command)
+
+Not a deploy-time concern: SST initialises declared providers before doing anything, so with the `aws` block
+present even `sst secret list` fails. Nothing here can be set or read until this is deleted.
 
 ### `sst.config.ts`
 

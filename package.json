@@ -21,9 +21,7 @@
     "typecheck": "bun run --filter='*' typecheck",
     "lint": "oxlint",
     "prepare": "husky",
-    "test": "echo 'do not run tests from root' && exit 1",
-    "models:dev": "cd packages/console/core && bun script/update-models.ts dev",
-    "models:prod": "cd packages/console/core && bun script/update-models.ts production"
+    "test": "echo 'do not run tests from root' && exit 1"
   },
   "workspaces": {
     "packages": [
