@@ -118,6 +118,50 @@ That is the only net-new system here. Everything else is deletion.
 - Team/seat management as built functionality — designed for, not implemented.
 - Changing the deploy model. SST + GitHub Actions stays: everything as code, nothing clicked.
 
+## Follow-ups — spec separately, do not block this change
+
+### Product telemetry (LSP + the `volt` tool)
+
+Wanted: see how Volt behaves on **real** PLC projects, to hunt LSP bugs and false positives against the
+projects Volt does not have in its corpus. The corpus tells you about four projects you own; telemetry tells
+you about every project you do not.
+
+Not to be confused with what Honeycomb does today. `infra/monitoring.ts` is an **error-rate SLO on the
+gateway's HTTP responses** — it filters on `event_type = "completions"` and `user_agent contains "opencode"`
+and alerts Discord when the failure ratio climbs. It never sees the LSP, and it dies with the gateway.
+
+Signals worth collecting:
+
+- **LSP** — which diagnostic codes fire, counts, timings, crash stacks, file kinds.
+- **The `volt` tool** (`opencode-config/tool/volt.ts`) — Volt's own code, running inside the agent loop. Which
+  verbs the agent reaches for, pull vs push ratios, what fails. Reveals how the agent uses Volt without seeing
+  a single prompt.
+- **Compile outcomes** — whether agent-written ST actually builds, via the bridge.
+
+Constraints, non-negotiable:
+
+- **Never ship source, identifiers or file paths.** PLC source is customer IP, frequently under NDA, in plants
+  with strict IT policy. Diagnostic *codes* and counts only.
+- **Opt-in and clearly disclosed.** Getting this wrong once ends the product's credibility with exactly the
+  customers Volt wants.
+- Collection belongs in `packages/volt-lsp-iec`, **not** `opencode-config` — the LSP also runs under the VS
+  Code extension, which is probably where most users are. `opencode-config` can only *switch it on*: opencode's
+  LSP config schema supports an `env` map (`lsp.volt-lsp-iec.env`), verified against `opencode.ai/config.json`.
+- Destination under the fewest-providers rule (design.md 0.0): **Cloudflare Workers Analytics Engine** — built
+  for high-cardinality custom metrics, SQL-queryable, no new vendor.
+
+### Chat history analysis — attractive, but the gateway was the only clean route
+
+Analysing conversations would show what engineers actually ask for and where the agent fails on PLC tasks.
+**This change removes the only legitimate access to it.** Post-pivot the user's opencode talks directly to
+their own provider; Volt is never in the path. That is the trade, not an oversight — no gateway, no COGS, no
+data.
+
+Recovering it would mean collecting conversations client-side, which is **categorically worse than the
+telemetry above**: an AI coding agent's prompts contain the customer's PLC source verbatim. Recommended
+against for this audience. The three signals above answer "is the agent useful for PLC work?" without holding
+anyone's source.
+
 ## Supersedes
 
 - `mirror-opencode-model-catalog` — the picker/catalog integration only matters with a gateway.
