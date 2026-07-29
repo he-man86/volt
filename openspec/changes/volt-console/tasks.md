@@ -18,7 +18,8 @@
 - [x] 0.5 **Auth.** GitHub + Google + email code; transport is Cloudflare Email Sending, not SES.
 - [x] 0.6 **Support portal** — folded into `volt-console` or left as its own worker.
 - [x] 0.7 **Price, currency, trial.** Supersedes the gateway pricing in `stripe-go-live`.
-- [ ] 0.8 Confirm how many live subscribers exist today. If non-zero, migration is a task, not a footnote.
+- [x] 0.8 **Zero subscribers — Volt never went live.** No migration, no revenue to protect, no live Stripe
+      products to preserve. This inverts the build order; see "Ordering" at the bottom.
 
 ## 1. Scaffold `packages/volt-console`
 
@@ -54,7 +55,8 @@
 
 ## 3. Delete the gateway and the vendored console
 
-> Not before section 2 works. Deleting first leaves no commercial backend at all.
+> **Do this FIRST** (see Ordering). With zero subscribers there is nothing to protect, and deleting first means
+> sections 1–2 get built on a clean, cheap base instead of alongside a gateway that has to keep working.
 
 - [ ] 3.1 Delete `packages/console`.
 - [ ] 3.2 Remove the gateway's infra: Upstash secrets, `ZenData` / `ZenDataNew` / `Bucket`, the LogProcessor
@@ -84,7 +86,31 @@
 - [ ] 4.6 Confirm the deleted services are actually gone from the bill — Upstash, the R2 buckets, and
       PlanetScale if 0.3 moved off it.
 
-## Ordering note
+## Ordering — 3 first, then 1, 2, 4
 
-Section 3 must not land before section 2 is verified on `dev`. The gateway is currently the only thing being
-sold; removing it before licences work leaves nothing to sell and no way to bill.
+The original plan was build-then-delete, to avoid removing the only thing being sold before its replacement
+worked. **0.8 removed that constraint: there are zero subscribers and Volt never went live.** So:
+
+| | | why |
+|---|---|---|
+| 1st | **3** — delete the gateway + vendored console | nothing to protect, and it removes the obstacles below |
+| 2nd | **1** — scaffold `volt-console` | on a clean base, not alongside a gateway that must keep working |
+| 3rd | **2** — licence system | |
+| 4th | **4** — verify | |
+
+Deleting first is not just safe, it is *easier*. Section 3 removes, in one pass:
+
+- the `aws` provider, which today blocks **every** `sst` command including `sst secret list`
+- `ZEN_MODELS1..30` and the provider API keys — 30 of the ~52 declared secrets
+- PlanetScale, Upstash, three R2 buckets, the LogProcessor worker and Honeycomb
+
+Every one of those is friction that sections 1–2 would otherwise have to work around. It also stops the bill
+immediately rather than at the end of the project.
+
+Two further consequences of zero subscribers:
+
+- **The live Stripe products can simply be deleted and recreated** at €19 (0.7). Task 3 no longer needs to
+  preserve `ZenLite` / `ZenBlack` or their coupons, and group F's "changes live Stripe products" caution in
+  `infra/README.md` is moot.
+- **`infra/README.md` group D shrinks**: only `www.ts` needs restoring. `support.ts` is not coming back — the
+  portal folds into `volt-console` per 0.6.

@@ -102,14 +102,16 @@ That is the only net-new system here. Everything else is deletion.
 
 ## Risks
 
-- **Walking away from working, deployed code.** Auth, Stripe, the webhook and the console are live on
-  `volt-ai.dev`. This is a real cost, not zero — the argument for paying it is that code nobody can maintain
-  is not an asset.
+- **Walking away from working, deployed code.** Auth, Stripe, the webhook and the console are deployed on
+  `volt-ai.dev`. A real cost, though smaller than it first looked: with zero subscribers nothing deployed is
+  load-bearing, so this is discarded *effort*, not discarded *service*. The argument for paying it stands —
+  code nobody can maintain is not an asset.
 - **Licence enforcement is new and untested**, and it sits in the path of every paying customer. Getting the
   offline story wrong turns a network blip into a support incident.
 - **Stripe webhook reliability becomes load-bearing** — if `checkout.session.completed` is missed, a paying
   customer has no key. Needs a reconciliation path, not just a webhook.
-- Existing subscribers, if any, need migrating. Confirm the count before assuming it is zero.
+- ~~Existing subscribers need migrating.~~ **Resolved: zero subscribers, Volt never went live.** No migration,
+  no revenue at risk, and the build order inverts to delete-first (see `tasks.md` → Ordering).
 
 ## Non-goals
 
