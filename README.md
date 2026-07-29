@@ -2,7 +2,7 @@
 
 Manage IEC 61131-3 PLC projects (CODESYS and TwinCAT/Beckhoff) as version-controllable text.
 
-Volt gives PLC code a git-native workflow and AI assistance: it syncs a live IDE project to a git repo of text files, analyzes Structured Text with a dedicated LSP, and exposes the whole thing to [opencode](https://opencode.ai) as a first-class tool + agent.
+Volt gives PLC code a git-native workflow and AI assistance: it syncs a live IDE project to a git repo of text files, analyzes Structured Text with a dedicated LSP, and exposes the whole thing to [opencode](https://opencode.ai) as a first-class tool.
 
 ## What's here
 
@@ -13,6 +13,7 @@ Volt gives PLC code a git-native workflow and AI assistance: it syncs a live IDE
 | `packages/volt-control` | UI-agnostic core (status/pull/push/health/diagnostics) shared by both frontends |
 | `packages/volt-desktop` | Electron shell wrapping the installed opencode's GUI + a Volt IDE panel |
 | `packages/volt-vscode` | VS Code extension: PLC language intelligence + IDE-drift coloring |
+| `packages/volt-web` | the public website — React Router, prerendered to static HTML, deployed at the apex |
 | `opencode-config/` | the agent-config layer handed to opencode via `OPENCODE_CONFIG_DIR` |
 
 ## opencode
@@ -21,7 +22,7 @@ Volt is **opencode-independent**: opencode is a **runtime dependency** (a user-p
 
 ## Development
 
-Bun workspaces + Turbo. Requires `bun@1.3.14` and, for the agent, an installed `opencode` on PATH.
+Bun workspaces (no Turbo — task-running is bun-native `--filter`). Requires `bun@1.3.14` and, for the agent, an installed `opencode` on PATH.
 
 ```bash
 bun install
