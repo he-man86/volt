@@ -4,15 +4,18 @@
 
 ## 0. Decide (no code)
 
-- [ ] 0.1 **Tier contents.** What free includes, what pro unlocks, whether free needs an account. Write it as a
+> **Decisions are recorded in `design.md`.** 0.0 (fewest providers) governs the rest: prefer an extra
+> Cloudflare product over an extra platform. Target end state is three providers — Cloudflare, Stripe, GitHub.
+
+- [x] 0.1 **Tier contents.** What free includes, what pro unlocks, whether free needs an account. Write it as a
       feature table in `design.md` — this is the input to every other task.
-- [ ] 0.2 **Enforcement policy.** Hard gate vs soft degrade; offline grace duration; behaviour when grace
+- [x] 0.2 **Enforcement policy.** Hard gate vs soft degrade; offline grace duration; behaviour when grace
       expires offline; per-machine binding or not. Bias toward not breaking an engineer mid-shift.
-- [ ] 0.3 **Database.** Stay on PlanetScale or move to Cloudflare D1. Decide against expected scale (tens to
+- [x] 0.3 **Database.** Stay on PlanetScale or move to Cloudflare D1. Decide against expected scale (tens to
       low hundreds of subscribers), cost, and the fact that D1 is SST-provisionable.
-- [ ] 0.4 **Workspaces from day one, or later?** Present from the start makes team a tier flip; deferring is
+- [x] 0.4 **Workspaces from day one, or later?** Present from the start makes team a tier flip; deferring is
       simpler now and a migration later.
-- [ ] 0.5 **Auth.** Reuse the deployed OpenAuth issuer, or replace it. It works today.
+- [x] 0.5 **Auth.** GitHub + Google + email code; transport is Cloudflare Email Sending, not SES.
 - [ ] 0.6 **Support portal** — folded into `volt-console` or left as its own worker.
 - [ ] 0.7 **Price, currency, trial.** Supersedes the gateway pricing in `stripe-go-live`.
 - [ ] 0.8 Confirm how many live subscribers exist today. If non-zero, migration is a task, not a footnote.
@@ -22,7 +25,8 @@
 - [ ] 1.1 New package. Pick the framework deliberately rather than inheriting SolidStart — `volt-www` is
       React/Vite, and one frontend stack across the product is worth more than reusing vendored code.
 - [ ] 1.2 Port the data model *by hand* from opencode's shape (proposal.md): `account`, `auth`, `workspace`,
-      `user`, `billing`, `key`. Leave out `benchmark`, `ip`, `model`, `provider`, `referral`.
+      `user`, `billing`, `key`. Leave out `benchmark`, `ip`, `model`, `provider`, `referral`. Target is D1
+      (sqlite dialect), so drizzle's mysql-specific column types need translating rather than copying.
 - [ ] 1.3 Auth: sign in, session, and workspace membership per 0.5.
 - [ ] 1.4 Stripe: Checkout for subscribe, Customer Portal for manage/cancel/invoices. Both are hosted — do not
       rebuild them. `checkout.session.completed` issues the licence key.
@@ -49,6 +53,10 @@
 - [ ] 3.1 Delete `packages/console`.
 - [ ] 3.2 Remove the gateway's infra: Upstash secrets, `ZenData` / `ZenDataNew` / `Bucket`, the LogProcessor
       worker, `ZEN_MODELS1..30`, `ZEN_LIMITS`, and the provider API keys.
+- [ ] 3.2b Per design.md 0.0, also remove the vendors the gateway was the reason for: PlanetScale (→ D1),
+      AWS SES (→ Cloudflare Email Sending: delete `core/src/aws.ts`, the `aws4fetch` dep and both `AWS_SES_*`
+      secrets), and Honeycomb (→ Workers Logs: delete `infra/monitoring.ts`, the `honeycombio` provider, and
+      both Honeycomb keys). Verify each disappears from the bill.
 - [ ] 3.3 Remove the two client-side files: the `provider.volt` block in `opencode-config/opencode.json` and
       `opencode-config/plugins/volt-auth.ts`. Verify `bun run compat` still passes — the LSP, the `volt` tool
       and the permission gates are unaffected and must stay working.
