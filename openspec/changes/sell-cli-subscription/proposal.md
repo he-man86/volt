@@ -22,7 +22,7 @@ This change therefore deletes far more than it builds.
 entirely.** No replacement console is built.
 
 ```
-volt-www          static marketing site            →  Cloudflare
+volt-web          static website (prerendered)     →  Cloudflare
   ↓ buy
 Polar checkout    payment + EU VAT + licence key issued
   ↓
@@ -40,8 +40,9 @@ This is the point of the change, so it is worth stating as plainly as the work:
 - **No database.** No D1, no PlanetScale, no Prisma or Drizzle schemas. Polar holds customers and licences.
 - **No auth system.** No OpenAuth issuer, no sign-in, no sessions. The licence key is the credential.
 - **No dashboard.** Polar's customer portal covers key, devices, billing and invoices.
-- **No console package.** No Next.js, no React Router, no SolidStart — the framework question dissolves with
-  the app it was for. `volt-www` stays as it is: React + Vite, static.
+- **No console package.** No Next.js, no SolidStart — the framework question dissolves with the app it was
+  for. (`volt-web` *does* use React Router, but with `ssr: false`: it prerenders to files and runs no server.
+  That is a router, not a backend — see §4.4.)
 - **No Stripe integration**, no webhook handler, no reconciliation path, no VAT registration or OSS filing.
 
 ## Why Polar, and what was rejected
@@ -86,7 +87,7 @@ Pro plan at $20/month becomes cheaper above roughly 58 subscribers.
 
 Three things, all small:
 
-1. A pricing/buy page on `volt-www`, linking to Polar checkout.
+1. A pricing/buy page on `volt-web`, linking to Polar checkout.
 2. Licensing in the **CLI** — `volt login` activates a key and caches the verdict; routine commands read the
    cache and make no network call. The connector, being always-on, refreshes that cache and surfaces state, but
    is never required (§0.2b).

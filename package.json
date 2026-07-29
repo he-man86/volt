@@ -27,7 +27,7 @@
       "packages/volt-desktop",
       "packages/volt-lsp-iec",
       "packages/volt-vscode",
-      "packages/volt-www"
+      "packages/volt-web"
     ],
     "catalog": {
       "@tsconfig/node22": "22.0.2",

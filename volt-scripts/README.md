@@ -86,7 +86,7 @@ first fails — a broken LSP shouldn't hide the tool's result.
 |---|---|
 | `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
 
-> **There are no infra scripts any more.** Volt deploys one thing — the static site at `packages/volt-www` —
+> **There are no infra scripts any more.** Volt deploys one thing — the static site at `packages/volt-web` —
 > and it needs no secrets: `bunx sst deploy --stage <stage>` with a `CLOUDFLARE_API_TOKEN`. See `infra/README.md`.
 >
 > Deleted with the gateway and the vendored console: `deploy-secrets.ts`, `set-models.ts`,

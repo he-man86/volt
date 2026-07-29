@@ -92,17 +92,36 @@
       refuse clearly), at-the-allowance-boundary, no-cache-at-all, and **no-connector-at-all**. This sits in front of every paying
       customer and must not be discovered in production.
 
-## 4. `volt-www` becomes the storefront
+## 4. `volt-web` becomes the storefront
 
 - [ ] 4.1 Pricing page: free vs pro, the 3-project allowance stated plainly, €19/month.
 - [ ] 4.2 Buy button → Polar checkout. Post-purchase, tell the user where their key is and how to enter it in
       the connector.
 - [ ] 4.3 Document the licence model where a customer will actually look — what free includes, what happens
       offline, how to move machines.
-- [ ] 4.4 Keep it static on Cloudflare. No SSR, no framework migration: `volt-www` is React + Vite and stays
-      that way (§0.3 — the console it would have merged into is not being built). It is a Vite **MPA**: one
-      HTML file per page, no router. After 4.2 it has no dependency on Volt infrastructure at all — static
-      files plus one external checkout link.
+- [x] 4.4 Keep it static on Cloudflare. **Done 2026-07-29, but not as written** — the constraint held, the
+      implementation did not. The site WAS migrated, from the Vite MPA to **React Router in framework mode**,
+      and renamed `volt-www` → **`packages/volt-web`** (`@volt/web`).
+
+      The rule this task was defending was *no server*, and that rule is intact: `ssr: false` +
+      `prerender` compiles all 16 routes to HTML at build time, so it still deploys as `sst.cloudflare.StaticSite`
+      with no Worker and no origin. What changed is authoring, not hosting — one `<head>` and one layout instead
+      of 14 hand-maintained `.html` files, one place listing the URLs, and client-side navigation. URLs lost
+      their `.html` (`/pricing.html` → `/pricing`), and the six feature pages collapsed from six near-identical
+      HTML files (each setting `window.__FEATURE` before booting) into one `/features/:slug` route prerendered
+      per entry in `content.js`.
+
+      Reason to do it now rather than later: §0.3 assumed the console would answer the framework question, and
+      the console is not being built — so this site is the only place a future authenticated view (licence
+      lookup, "where's my key") could live. Flipping one route to `ssr: true` is now a config change plus
+      swapping `infra/www.ts` to `sst.cloudflare.ReactRouter`; under the MPA it was a rewrite.
+
+      Two bugs surfaced in the move: the six feature pages had **nothing linking to them** (the home grid cards
+      weren't links — now they are), and `Nav.jsx` referenced an undefined `signedIn` left over from removing
+      the sign-in link, which threw whenever the mobile menu opened.
+
+      After 4.2 the site still has no dependency on Volt infrastructure — static files plus one external
+      checkout link.
 
 ### 4b. Audit gateway-era claims — the site currently sells a product Volt will not have
 

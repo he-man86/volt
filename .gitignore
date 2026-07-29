@@ -13,6 +13,9 @@ playground
 tmp
 dist
 ts-dist
+# @volt/web (React Router) builds to build/, and caches generated types in .react-router/
+build
+.react-router
 **/.serena
 .serena/
 **/.omo

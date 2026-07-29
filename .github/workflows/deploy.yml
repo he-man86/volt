@@ -1,7 +1,7 @@
 # Deploy Volt's public site.
 #
 # Since openspec/changes/sell-cli-subscription this deploys exactly one thing: the static marketing site at
-# packages/volt-www. There is no console, no gateway, no database and no secrets to provision — payment, EU
+# packages/volt-web. There is no console, no gateway, no database and no secrets to provision — payment, EU
 # VAT, licence keys and the customer portal are Polar's.
 #
 # The only credential needed is a Cloudflare API token: SST creates the Workers site, the custom domain and
@@ -13,7 +13,7 @@ on:
   push:
     branches: [dev]
     paths:
-      - "packages/volt-www/**"
+      - "packages/volt-web/**"
       - "infra/**"
       - "sst.config.ts"
       - ".github/workflows/deploy.yml"

@@ -22,7 +22,7 @@ Bun workspaces (no Turbo — task-running is bun-native `--filter`). All product
 
 The commercial side is **one package, and it is not `volt-*`**:
 
-- **`volt-www`** (`@volt/www`) — the public marketing site (static Vite/**React**), deployed at the apex. Volt's public face, and its storefront: the buy button links to Polar checkout.
+- **`volt-web`** (`@volt/web`) — the public website, deployed at the apex. Volt's public face, and its storefront: the buy button links to Polar checkout. **React Router in framework mode with `ssr: false`** — every route is prerendered to HTML at build (`react-router.config.js`), so it deploys as a `StaticSite` with no Worker and no origin, consistent with Volt running no backend. The `prerender` list IS the sitemap: a route missing from it has no HTML for a crawler or a cold load. Copy lives in `app/content.js`, never in JSX. `app/config.js` exports **`COMING_SOON`** — while true, the download and buy CTAs render a disabled "Coming soon" control instead of a dead link. The three `legal.*` routes are **known-stale** (they still describe a hosted gateway, accounts and Stripe) and must be rewritten before Volt takes money.
 
 **Volt operates no backend.** It sells a €19/month subscription for the toolchain through [Polar](https://polar.sh), which is the **merchant of record** — payment, EU VAT, licence-key issuance, revocation on cancellation and the customer portal are all theirs. There is no database, no auth system, no dashboard and no Stripe integration. The CLI holds a licence key, caches a verdict, and enforces a free allowance of 3 bound projects locally; the connector keeps that cache warm but is never required. See `openspec/changes/sell-cli-subscription`.
 

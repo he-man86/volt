@@ -180,7 +180,7 @@ to a workspace for diagnosis. That still matters — but the licence key is itse
 telemetry can be attributed by **hashed key** without Volt operating an auth system.
 
 The real cost is the funnel: no sign-up means no mailing list and no usage signal beyond what Polar reports.
-Accepted for now; a newsletter box on `volt-www` is a cheaper way to buy that back if it turns out to matter.
+Accepted for now; a newsletter box on `volt-web` is a cheaper way to buy that back if it turns out to matter.
 
 ## 0.6 Support — Polar's dashboard, plus the connector's status window
 
@@ -225,7 +225,7 @@ The split:
 |---|---|
 | **connector** (C#, tray) | show tier and expiry, warn before grace bites, deactivate this device, and offer a GUI path to the same activation the CLI performs |
 | **Polar portal** (web) | billing, invoices, payment method, cancellation, device list |
-| **`volt-www`** (static) | marketing, pricing, buy button |
+| **`volt-web`** (static) | marketing, pricing, buy button |
 
 Volt builds **no web application**. Billing in a native app is the wrong place — card entry, invoices and tax
 belong in a hosted portal — but licence state belongs where the software runs.
