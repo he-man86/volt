@@ -77,7 +77,46 @@
 - [ ] 4.3 Document the licence model where a customer will actually look — what free includes, what happens
       offline, how to move machines.
 - [ ] 4.4 Keep it static on Cloudflare. No SSR, no framework migration: `volt-www` is React + Vite and stays
-      that way (§0.3 — the console it would have merged into is not being built).
+      that way (§0.3 — the console it would have merged into is not being built). It is a Vite **MPA**: one
+      HTML file per page, no router. After 4.2 it has no dependency on Volt infrastructure at all — static
+      files plus one external checkout link.
+
+### 4b. Audit gateway-era claims — the site currently sells a product Volt will not have
+
+> The live marketing site promises **hosted AI at €24/month** with a signup CTA pointing at the console being
+> deleted. Every one of those claims inverts. This is not cosmetic: a customer could buy expecting hosted
+> models, and three of the documents involved are contracts.
+
+- [ ] 4b.1 `src/content.js` → `PRICING`: `price` €24 → €19; Pro's `note` "Hosted AI, no key required" and
+      feature "Hosted models — nothing to configure" are now false; `cta` "Join the public beta" → buy;
+      `kind: "auth"` (points at the console's `/auth`) → Polar checkout; drop `beta` / `betaNote`
+      ("Free while in public beta — no card required").
+      **The axis of the pitch changes**: Free vs Pro is no longer "your key vs our models" but **3 projects vs
+      unlimited**. Both tiers bring their own key now, so the differentiator moves from AI to scale.
+- [ ] 4b.2 `src/content.js` → FAQ: the answer stating "Pro includes hosted models — nothing to configure…
+      it'll be €24/month once billing opens" is wrong in every clause.
+- [ ] 4b.3 `src/docs/getting-started.mdx:145` — "Pro is hosted and free during the public beta".
+- [ ] 4b.4 **`src/pages/legal-terms.jsx`** — describes "the hosted Volt cloud service", "a gateway that proxies
+      AI model requests", a whole "3. Accounts" section requiring an account, restrictions on "use the AI
+      gateway", a licence grant for "transmitting the prompts you submit to the AI gateway", and billing
+      "through our payment processor (Stripe)". Under this change there is no gateway, no account, and Polar is
+      the **merchant of record** — a reseller, not merely a processor. That is a different legal relationship
+      and must be stated as such.
+- [ ] 4b.5 **`src/pages/legal-privacy.jsx`** — states that prompts are "transmitted through our gateway to the
+      AI model provider", that the gateway "records usage metadata… for rate-limiting and billing", that Volt
+      collects "your name and email and, for OAuth sign-in, the basic profile", and that "Card details are
+      handled by our payment processor (Stripe)". None of that will be true. A privacy policy describing
+      collection that does not happen is inaccurate even though it over-claims.
+- [ ] 4b.6 **`src/pages/legal-cookies.jsx`** — "secure access to your account" and "Stripe (payment
+      processing) — may set cookies". No accounts, no Stripe. Verify the remaining claim "we currently do not
+      use third-party analytics cookies" still holds: `vite.config.js` injects the Cloudflare Web Analytics
+      beacon, which is cookieless by design, so it should — but confirm rather than assume.
+- [ ] 4b.7 Have the three legal documents reviewed before launch. `legal-cookies.jsx` already carries a
+      "pending final counsel review" note; they are contracts, and this change alters what the Service *is*.
+- [ ] 4b.8 **Take the win.** `content.js` already claims "Volt runs locally and brings your own AI provider
+      key — nothing about your project is uploaded" and "Your prompts go to the provider you choose, not to
+      us". That was true of Free only and contradicted the privacy policy's gateway clause. It is now true of
+      **every** tier — the privacy story gets stronger, and the contradiction disappears. Say so plainly.
 
 ## 5. Verify
 

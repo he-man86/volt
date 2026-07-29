@@ -26,7 +26,8 @@ volt-www          static marketing site            →  Cloudflare
   ↓ buy
 Polar checkout    payment + EU VAT + licence key issued
   ↓
-connector         validates against Polar on a schedule, caches the verdict
+volt login        CLI activates the key, caches the verdict; routine commands never
+                  touch the network. The connector keeps the cache warm but is optional
 Polar portal      customer manages key, devices, billing, invoices
 ```
 
@@ -86,9 +87,15 @@ Pro plan at $20/month becomes cheaper above roughly 58 subscribers.
 Three things, all small:
 
 1. A pricing/buy page on `volt-www`, linking to Polar checkout.
-2. Licence validation in the **connector** — it is always-on, already phones home for updates, and already has
-   a status window. It caches a verdict; the CLI reads the cache and makes no network call.
+2. Licensing in the **CLI** — `volt login` activates a key and caches the verdict; routine commands read the
+   cache and make no network call. The connector, being always-on, refreshes that cache and surfaces state, but
+   is never required (§0.2b).
 3. Enforcement of the free allowance in the CLI, counted against its own bindings.
+
+Plus one piece of unglamorous but load-bearing work: **the marketing site currently sells the gateway.**
+`content.js` advertises "Hosted AI, no key required" at €24/month with a signup CTA into the console being
+deleted, and all three legal documents — terms, privacy, cookies — describe a hosted gateway, user accounts and
+Stripe. Those are contracts, not copy. See tasks §4b.
 
 ## Risks
 
