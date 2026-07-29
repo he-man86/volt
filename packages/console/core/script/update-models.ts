@@ -29,7 +29,10 @@ await tempFile.write(JSON.stringify(JSON.parse(oldValues.join("")), null, 2))
 console.log("tempFile", tempFile.name)
 
 // open temp file in vim and read the file on close
-await $`vim ${tempFile.name}`
+// VOLT: VS Code instead of vim. `--wait` is load-bearing — without it `code` returns immediately and the
+// script would read back the UNEDITED file. Set $EDITOR to override (e.g. `vim`, `nano`, `notepad`).
+const [editor, ...editorArgs] = (process.env.EDITOR ?? "code --wait").split(" ")
+await $`${editor} ${editorArgs} ${tempFile.name}`
 const newValue = JSON.stringify(JSON.parse(await tempFile.text()))
 ZenData.validate(JSON.parse(newValue))
 

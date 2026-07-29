@@ -44,8 +44,8 @@ Salesforce half only pays off once a sales pipeline actually runs in it.
 
 ### Authoring stage renamed `frank` → `marce`
 
-`packages/console/core/script/update-models.ts` (2 lines) and `promote-models.ts` (1 line), each with a
-`VOLT:` marker.
+`packages/console/core/script/update-models.ts` and `promote-models.ts`, each change `VOLT:`-marked — the
+authoring stage, plus the editor (below).
 
 **What `frank` is:** a person. opencode hardcodes several developers' personal SST stages into their infra —
 `vimtor` and `adam` (`infra/app.ts:33`), `thdxr` (`:44`), and `frank` in the model scripts. `sst deploy` with
@@ -63,8 +63,24 @@ bun run promote-models-to-dev    # your stage → dev
 bun run promote-models-to-prod   # your stage → production
 ```
 
-Run them from `packages/console/core`. `update-models` opens **vim**, which is hardcoded — that needs no edit
-here because Git for Windows ships vim at `/usr/bin/vim`.
+Run them from `packages/console/core`.
+
+**The editor.** Upstream hardcodes `vim`. `update-models.ts` now opens **VS Code** instead, honouring
+`$EDITOR` if set:
+
+```ts
+// VOLT:
+const [editor, ...editorArgs] = (process.env.EDITOR ?? "code --wait").split(" ")
+await $`${editor} ${editorArgs} ${tempFile.name}`
+```
+
+`--wait` is load-bearing: without it `code` returns immediately and the script reads back the **unedited**
+file, silently writing the catalog straight back unchanged. The `.split(" ")` + splat exists because Bun's
+`$` treats an interpolated string as a single argv[0] — `` $`${"code --wait"} f` `` would look for a binary
+literally named `code --wait`.
+
+Override with `EDITOR=vim bun run update-models` (or `nano`, `notepad`, …). Git for Windows ships vim at
+`/usr/bin/vim` if you want upstream's behaviour back.
 
 Volt's authoring stage is **`marce`**, set in `.sst/stage` (gitignored, so not a repo change). Change it in
 three places if you rename: `.sst/stage`, and the two scripts above.
