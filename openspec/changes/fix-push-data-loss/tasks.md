@@ -41,3 +41,29 @@
       cheap and does not need an IDE.
 - [ ] 3.6 **`ide-restart` to 2 pass / 0 fail**, assertions intact. It is currently 1 pass / 1 fail and stays red
       until this is fixed — do NOT weaken it.
+
+## 4. Scope the TwinCAT save to what Volt wrote (DECIDED 2026-07-30, not yet implemented)
+
+**Decision:** `push` stays durable — a push that reports success must be on disk — but it must NOT commit the
+engineer's unrelated work. `Solution.Save()` + `Documents.SaveAll()` saves every open editor, which is a side effect
+on data Volt does not own.
+
+Why it isn't done yet: a TwinCAT write targets a **system-manager tree node** (`n.DeclarationText` /
+`n.ImplementationText`), and that node exposes no DTE document or file path — so the mapping from touched node to
+the document/project to save has to be established against the live COM model. Guessing it would be worse than the
+current broad save, which at least keeps push durable (CODESYS commits on write, so dropping the save entirely
+would make `push` durable on one vendor and not the other — an observable per-vendor difference).
+
+- [ ] 4.1 Live probe: for a POU tree node, find what identifies its file — walk `_dte.Solution.Projects` /
+      `ProjectItems` and correlate with the node's path (`_plcProjectPath` + the node name), or check whether the
+      node exposes a path-ish property. Record what actually works; do not infer it from the VS DTE docs alone.
+- [ ] 4.2 Have `TcObjectModel` record what it touched since the last flush — content writes (`WriteText`) separately
+      from STRUCTURAL changes (`CreateChild`/`DeleteChild`/`Rename`), since structure is what the existing comment
+      says must be persisted to avoid a later rename colliding with stale files.
+- [ ] 4.3 `FlushPendingWrites` saves only those: each touched item's document, plus the containing PLC project when
+      structure changed. No seam change needed — the object model mediates every write, so it can track its own
+      dirty set.
+- [ ] 4.4 A failed scoped save must stay LOUD (already true): durability is this method's whole purpose, so
+      reporting success over a failed save is how committed work gets lost.
+- [ ] 4.5 Verify: an engineer's unrelated dirty editor is still dirty after a `volt push`, and the pushed item IS on
+      disk. Then remove the `ponytail:` marker in `TcObjectModel.FlushPendingWrites`.

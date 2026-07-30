@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using Volt.Cli.Transport;
+using Volt.Engine;
 using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
@@ -395,15 +397,36 @@ internal sealed class TcObjectModel
     }
 
     // ── build / diagnostics ─────────────────────────────────────────
+    /// <summary>Commit applied writes to TwinCAT's own store. <c>DTE.Documents.SaveAll()</c> saves open editor tabs,
+    /// but tree operations (create/delete/rename) change the project structure on disk, so the solution is persisted
+    /// too — otherwise a later rename collides with stale files from async tree deletions.
+    /// <para>A failure here is NOT swallowed. Durability is this method's entire purpose: `push` calls it and then
+    /// reports success, so a silently-failed save means Volt tells the engineer their work is committed while it
+    /// exists only in the IDE's memory — and an IDE crash loses it. Fail loud instead, and let the push fail.</para></summary>
     public void FlushPendingWrites()
     {
-        if (_dte == null) return;
-        // DTE.Documents.SaveAll() saves open editor tabs, but tree operations
-        // (create/delete/rename) change the project structure on disk. Force
-        // the solution to persist so subsequent rename ops don't collide with
-        // stale files from async tree deletions.
-        try { _dte.Solution.Save(); } catch { }
-        try { _dte.Documents.SaveAll(); } catch { }
+        if (_dte == null)
+            throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
+                "cannot commit writes — no IDE is attached");
+        // ponytail: saves the whole solution + ALL open documents, which also commits the engineer's unrelated dirty
+        // editors — a side effect on data Volt does not own. DECIDED (2026-07-30) to scope this to only what Volt
+        // wrote; not yet implemented because a write here targets a system-manager TREE NODE
+        // (n.DeclarationText/ImplementationText), and a tree node exposes no DTE document or file path, so the
+        // node -> document/project mapping has to be found against the live COM model first. Until then the broad
+        // save stays, because it is what makes `push` durable at all (CODESYS commits on write, so dropping it would
+        // leave push durable on one vendor and not the other). Upgrade path in
+        // openspec/changes/fix-push-data-loss tasks §4.
+        try
+        {
+            _dte.Solution.Save();
+            _dte.Documents.SaveAll();
+        }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"SaveAll failed — applied writes may not be on disk: {ex.Message}");
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"the IDE could not save the applied changes, so they are NOT committed to disk: {ex.Message}", ex);
+        }
     }
 
     public bool Build()
