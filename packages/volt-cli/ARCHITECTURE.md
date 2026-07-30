@@ -81,7 +81,7 @@ A strict layer stack; each layer depends only on the ones above it. Read top-dow
 |---|---|---|
 | **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` provides the shared degraded-state machine + single-flight health probe. `ItemRef` is the opaque per-vendor handle that keeps native objects out of Core; `ProjectItem` carries name/folder/`ExcludeFromBuild`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `ItemRef`, `ProjectItem` |
 | **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse`). The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Wire/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `HealthResponse` |
-| **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`, `DebugService` (`debug`). `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `DebugService`, `Hasher`, `Versioning` |
+| **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`. `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. **`DebugService` has NO wire op** — `Ops` does not list one and `BridgePipeHost.Dispatch` has no `debug` case, so it and the three `IIdeSession.Debug*` members are unreachable from any client (they were the retired HTTP `GET /debug?…`). Decide it deliberately — restore an op or delete them; don't leave it half-wired. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text; `SourceText/` splits/assembles ST (`StSplitter` ⇄ `StAssembler`, sharing `CodeHelper`). `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `SourceText/StSplitter`, `SourceText/StAssembler` |
 | **`Graphical/`** | **Graphical materialization** — PlcOpen XML ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` and `Vg/VgParser`/`Vg/VgWriter` are the two ends. | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `Vg/VgParser`, `Vg/VgWriter` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body + hash basis), `LibSignature`/`LibSignatureRenderer` (verbose-fetch signatures under the Library Manager). | `LibraryManifest`, `LibSignature`, `LibSignatureRenderer` |
@@ -209,6 +209,50 @@ means that XAE's per-pipe worker, which serves its one selected project. In-memo
 restart resets it to serving. `VOLT_PIPE` overrides the pipe directly (dev,
 tests, and `volt init` — which has no binding yet — via the shell). The workspace binding stores the vendor +
 project name; `pull`/`push` resolve the live pipe at op-time.
+
+## Conventions — the rules this source actually follows
+
+Derived from the line-by-line audit of `src/` (`openspec/changes/audit-volt-cli-src`), not invented: every rule
+below is here because breaking it produced a real defect in this codebase. Where an exception is deliberate, it is
+marked in the code with its reason — a `ponytail:` comment — rather than left to be re-discovered.
+
+1. **No fallbacks. Fail loud with a coded error.** A defensive default (`?? ""`, `?? "FBD"`, a silent `catch`)
+   masks a bug somewhere else and buys nothing. Concretely: `Hasher.ComputeItemVersion` no longer defaults a
+   missing folder to `""`, because that hashed identically to a legitimately *empty* folder and silently drifted an
+   item's version; `FetchService` raises a coded `BridgeException` naming the item instead. `PipeClient` no longer
+   invents `"ERROR"` for a malformed error frame. If data is required, say so **and** guard it.
+2. **A nullable annotation is not enforcement.** Annotations are compile-time only, so tightening `string?` →
+   `string` changes nothing at runtime. If a value is genuinely required, add a runtime guard; otherwise you have
+   documented an intention and moved a warning up the call chain.
+3. **One question, one answer.** The not-connected precondition is decided from live driver state
+   (`IIdeSession.IsConnected` + `ServedProjectName`), never from `BuildHealthResponse()` — health is served from a
+   per-vendor **throttled cache**, and deciding a write against it refused pushes on stale state while reads of the
+   same bridge succeeded. If two code paths answer the same question from different sources, that is the bug.
+4. **Never swallow a background failure.** `DriverBase`'s health probe stays best-effort for the *request* (a probe
+   failure must not fault `health`) but logs and marks degraded. A bare `catch` there once left health repeating a
+   stale "nothing serving" indefinitely with no log line to read.
+5. **One error channel, one log path.** Only `BridgeException`/`BridgeErrorCodes` cross the wire — a driver must not
+   leak a vendor exception. All logging goes through `Diagnostics/VoltLog`.
+6. **Parity-critical decisions live in Core, once.** Anything a pipe client can observe is decided in
+   `Wire/BridgePipeHost` or a `Sync/` service; drivers supply only irreducible primitives (attach, walk, code r/w).
+   See "Load-bearing asymmetries" above for what is *legitimately* per-vendor — do not unify those for symmetry.
+7. **Centralized vocabulary stays centralized.** `ItemKind.Kinds`, `BridgeErrorCodes`, `Ops`, `Vendors` are the
+   spellings; re-spelling one as a literal outside its home file fails `WireVocabularyGuardTests`. That guard is
+   load-bearing, not pedantry — it caught a real regression during this audit.
+8. **A false comment is a defect, not cosmetics.** The audit found comments claiming both vendors emit the same
+   library manifest (CODESYS never calls that renderer), that `__`-*prefixed* names are skipped (the code tests
+   `Contains`), and that keyword scanning happens "at column 0" (it does `TrimStart`, so any indentation matches —
+   which decides whether an indented `END_METHOD` closes a child block). Fix the comment with the code, or fix the
+   code.
+9. **Static search does not prove code dead.** Reflection, `dynamic`, and the IronPython entry point reach the
+   CODESYS host with no compile-time reference; and a `public static` helper can rot with no compiler warning
+   (`CodeHelper.ExtractAcl` did). Prove callers repo-wide before deleting, and treat the live e2e run as the real
+   check.
+10. **Tests are the oracle.** A change that needs a test rewritten to stay green is a behaviour change wearing a
+    costume — escalate it instead. A test may only change when its premise is wrong on grounds *independent* of the
+    code's current behaviour. Beware the double: `FakeIde` asserted that `IsConnected` and
+    `BuildHealthResponse().Connected` were the same signal — an invariant the real TwinCAT driver breaks — so 500+
+    green unit tests could not see the divergence.
 
 ## Build, run, test
 

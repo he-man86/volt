@@ -1,14 +1,14 @@
 ## 0. Setup
 
-- [ ] 0.1 Write the conventions the audit enforces into `packages/volt-cli/ARCHITECTURE.md` (a short
+- [x] 0.1 Write the conventions the audit enforces into `packages/volt-cli/ARCHITECTURE.md` (a short
       "Conventions" section: one logging path, error channel, no defensive fallback, nullability, naming,
       file/partial-class layout). Derived from what the code already does *right* — the pilot batch (1) is
       allowed to revise it before the rest run.
-- [ ] 0.2 Confirm the gates run clean **before** touching anything (a red baseline invalidates every later
+- [x] 0.2 Confirm the gates run clean **before** touching anything (a red baseline invalidates every later
       verdict): `dotnet build Volt.Cli.sln -c Release`, `dotnet test test/Volt.Engine.Tests/`,
       `dotnet test test/Volt.Cli.Tests/`. Use `C:\Program Files\dotnet\dotnet.exe` — the `dotnet` on PATH is an
       x86 stub with no SDK.
-- [ ] 0.3 Record the baseline: 118 files / 15,160 LOC (excluding generated `obj/`), and the pre-audit test
+- [x] 0.3 Record the baseline: 118 files / 15,160 LOC (excluding generated `obj/`), and the pre-audit test
       counts, at the top of `ledger.md`.
 
 ## Per-batch loop (applies to every batch below)
@@ -22,44 +22,52 @@
 
 ## 1. Batch 1 — `Volt.Cli.Transport` (9 files, 422 LOC) — PILOT
 
-- [ ] 1.1 Group 1.1 — all of `Volt.Cli.Transport/` (`PipeServer`, `PipeClient`, `PipeDiscovery`, `PipeNames`,
+- [x] 1.1 Group 1.1 — all of `Volt.Cli.Transport/` (`PipeServer`, `PipeClient`, `PipeDiscovery`, `PipeNames`,
       `PipeMessages`, `Ops`, `Vendors`, `BridgeErrorCodes`, `HealthStatus`).
-- [ ] 1.2 Gate + ledger + commit.
-- [ ] 1.3 **Review the pilot with the user** before batch 2 — finding quality, false-positive rate, whether the
+- [x] 1.2 Gate + ledger + commit.
+- [x] 1.3 **Review the pilot with the user** before batch 2 — finding quality, false-positive rate, whether the
       conventions doc (0.1) needs revising, whether the role prompts need tightening. This is the cheapest
       possible place to learn the workflow is mis-tuned.
 
 ## 2. Batch 2 — `Volt.Engine` contracts (3 groups, 1,272 LOC)
 
-- [ ] 2.1 Group 2.1 — `Ide/*` (9 files) + `BridgeException.cs` + `Polyfills.cs` (414)
-- [ ] 2.2 Group 2.2 — `Wire/*` (7 files: `BridgePipeHost`, `PushModels`, `RefsFetch`, `HealthResponse`,
+- [x] 2.1 Group 2.1 — `Ide/*` (9 files) + `BridgeException.cs` + `Polyfills.cs` (414)
+- [x] 2.2 Group 2.2 — `Wire/*` (7 files: `BridgePipeHost`, `PushModels`, `RefsFetch`, `HealthResponse`,
       `BuildModels`, `ProjectEntry`, `ProgressFrame`) (537)
-- [ ] 2.3 Group 2.3 — `Diagnostics/VoltLog.cs` + `Library/*` (321)
-- [ ] 2.4 Gate + ledger + commit.
+- [x] 2.3 Group 2.3 — `Diagnostics/VoltLog.cs` + `Library/*` (321)
+- [x] 2.4 Gate + ledger + commit.
 
 ## 3. Batch 3 — `Volt.Engine/Sync` (3 groups, 1,236 LOC)
 
-- [ ] 3.1 Group 3.1 — `PushService.cs` (550)
-- [ ] 3.2 Group 3.2 — `FetchService.cs` + `ProjectSnapshot.cs` + `Hasher.cs` (415)
-- [ ] 3.3 Group 3.3 — `DebugService.cs` + `BuildService.cs` + `RefsService.cs` + `Versioning.cs` +
-      `OpGuard.cs` (271)
-- [ ] 3.4 Gate + ledger + commit.
+- [x] 3.1 Group 3.1 — `PushService.cs` (550)
+- [x] 3.2 Group 3.2 — `ProjectSnapshot.cs` + `Hasher.cs` + `Versioning.cs` — `FetchService.cs` was DEFERRED to
+      batch 5 (the `fix-connected-precondition` change had just rewritten it, so its diff was not the surgeon's)
+- [x] 3.3 Group 3.3 — `DebugService.cs` + `BuildService.cs` + `RefsService.cs` — `OpGuard.cs` DEFERRED to batch 5,
+      same reason
+- [x] 3.4 Gate + ledger + commit.
 
 ## 4. Batch 4 — `Volt.Engine/Workspace` (4 groups, 1,650 LOC)
 
-- [ ] 4.1 Group 4.1 — `SourceText/StSplitter.cs` (688)
-- [ ] 4.2 Group 4.2 — `SourceText/StAssembler.cs` + `SourceText/CodeHelper.cs` (308)
-- [ ] 4.3 Group 4.3 — `ItemKind.cs` + `Materializer.cs` (438)
-- [ ] 4.4 Group 4.4 — `PouToStText.cs` + `FolderPath.cs` + `PouData.cs` + `WorkspaceItem.cs` (216)
-- [ ] 4.5 Gate + ledger + commit.
+- [x] 4.1 Group 4.1 — `SourceText/StSplitter.cs` (688)
+- [x] 4.2 Group 4.2 — `SourceText/StAssembler.cs` + `SourceText/CodeHelper.cs` (308)
+- [x] 4.3 Group 4.3 — `ItemKind.cs` + `Materializer.cs` (438)
+- [x] 4.4 Group 4.4 — `PouToStText.cs` + `FolderPath.cs` + `PouData.cs` + `WorkspaceItem.cs` (216)
+- [x] 4.5 Gate + ledger + commit.
 
-## 5. Batch 5 — `Volt.Engine/Graphical` I (4 groups, 1,662 LOC)
+## 5. Batch 5 — `Volt.Engine/Graphical` I + the deferred Sync pair (4 groups)
+
+> **Launched 2026-07-30 and DID NOT RUN — all four auditors failed on the session token limit before doing any
+> work (0 agents completed, nothing written, tree clean). Relaunch as-is; there is no partial state to clean up.**
 
 - [ ] 5.1 Group 5.1 — `Vg/VgParser.cs` (562)
 - [ ] 5.2 Group 5.2 — `Vg/VgWriter.cs` + `VgBody.cs` (328)
 - [ ] 5.3 Group 5.3 — `PlcOpenWriter.cs` (432)
-- [ ] 5.4 Group 5.4 — `PlcOpenReader.cs` (372)
+- [ ] 5.4 Group 5.4 — `FetchService.cs` + `OpGuard.cs` (the batch-3 deferral; now committed, so their diffs are clean)
 - [ ] 5.5 Gate + ledger + commit.
+
+## 5b. Batch 5b — `PlcOpenReader.cs` (372)
+
+- [ ] 5b.1 Group — `PlcOpenReader.cs` (moved out of batch 5 to keep it at 4 groups / 12 agents)
 
 ## 6. Batch 6 — `Volt.Engine/Graphical` II (3 groups, 738 LOC)
 
