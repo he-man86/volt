@@ -361,6 +361,11 @@ public static class PushService
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
             }
+            // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
+            // root guard above. Checking inside the apply loop instead would leave the root body already written
+            // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
+            foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType);
+
             if (pouVg) GraphicalCode.Write(ide, pou, impl, decl);
             else ide.WriteText(pou, decl, bodyImpl);
         }
@@ -368,13 +373,21 @@ public static class PushService
         foreach (var child in split.Children)
         {
             var cimpl = child.Implementation;
-            // Read-only graphical view (CFC/SFC) — never overwrite or create.
-            if (VgBody.Is(cimpl) && !VgBody.IsEditable(VgBody.LanguageOf(cimpl))) continue;
+            var childVg = VgBody.Is(cimpl);
+            // A read-only graphical (CFC/SFC) child has NO text form — it materializes as
+            // Materializer.GraphicalBodyMarker, and VgBody.Is matches only a `NETWORK n LANG` header, so it REJECTS
+            // that marker. The old guard here was `VgBody.Is(cimpl) && !IsEditable(...)`, which therefore never fired
+            // for the one case it existed to stop: the marker fell through to the textual path below and
+            // ide.WriteText replaced the engineer's graphical body with a comment. Refuse the round-tripped marker
+            // outright — it is never something to write.
+            if (Materializer.IsGraphicalBodyMarker(cimpl))
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{child.Name}' is a read-only graphical body — edit it in the IDE, not via push.");
 
             var childParent = ResolveFolder(ide, pou, child.Folder);
             var existingChild = FindChild(ide, childParent, child.Name);
 
-            if (VgBody.Is(cimpl))
+            if (childVg)
             {
                 if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
@@ -492,6 +505,40 @@ public static class PushService
 
     private static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name));
+
+    /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it
+    /// decides from the IDE's LIVE body language, never from the incoming text. <c>VgBody</c>'s contract says it
+    /// outright: CFC/SFC read-only-ness "is enforced by live IDE state on push, not by any content marker".
+    /// <para>The old guard tried to do it from content — <c>VgBody.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
+    /// never work, because a CFC/SFC body has no text form and materializes as
+    /// <see cref="Materializer.GraphicalBodyMarker"/>, which <c>VgBody.Is</c> (a <c>NETWORK n LANG</c> matcher)
+    /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
+    /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
+    /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
+    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, StSplitter.StChild child, int itemType)
+    {
+        var cimpl = child.Implementation;
+        // The round-tripped marker is never something to write, whatever the IDE currently holds.
+        if (Materializer.IsGraphicalBodyMarker(cimpl))
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{child.Name}' is a read-only graphical body — edit it in the IDE, not via push.");
+
+        if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
+        if (FindChild(ide, ResolveFolder(ide, pou, child.Folder), child.Name) is not { } live) return;
+
+        var lang = ide.BodyLanguage(live);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
+        var childVg = VgBody.Is(cimpl);
+        if (lang is "CFC" or "SFC")
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{child.Name}' is a read-only {lang} body — edit it in the IDE, not via push.");
+        if (lang is not null && !childVg)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{child.Name}' is a graphical {lang} body in the IDE — a textual push would overwrite it. " +
+                "Edit it in the IDE, or delete it first to replace it.");
+        if (lang is null && childVg)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{child.Name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
+    }
 
     /// <summary>The one 1-based child scan every lookup here shares: first child matching
     /// <paramref name="match"/>, or null. (<see cref="RemoveOrphanChildren"/> keeps its own loop on purpose —

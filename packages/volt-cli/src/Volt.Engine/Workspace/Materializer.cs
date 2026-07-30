@@ -37,7 +37,16 @@ public static class Materializer
         return dot > 0 ? wireName.Substring(0, dot) : wireName;
     }
 
-    internal static string GraphicalBodyMarker(string language) => $"(* @volt-graphical: {language} *)";
+    private const string MarkerPrefix = "(* @volt-graphical:";
+
+    internal static string GraphicalBodyMarker(string language) => $"{MarkerPrefix} {language} *)";
+
+    /// <summary>Is this body text the informational CFC/SFC marker rather than real source? A read-only graphical
+    /// body has no text form, so <see cref="GraphicalBodyMarker"/> is what materializes for it — and pushing that
+    /// text BACK must never reach the IDE, or it replaces the engineer's graphical body with a comment. A prefix
+    /// test against the same literal the writer uses, so reader and writer cannot drift apart.</summary>
+    internal static bool IsGraphicalBodyMarker(string? impl) =>
+        impl != null && impl.TrimStart().StartsWith(MarkerPrefix, System.StringComparison.Ordinal);
 
     private static PouData BuildSource(IIdeDriver ide, ItemRef item, string kind)
     {
