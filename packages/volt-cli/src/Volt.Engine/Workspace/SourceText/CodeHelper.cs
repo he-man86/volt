@@ -20,7 +20,6 @@ public static class CodeHelper
 
         var lines = code.Split('\n');
         string headerLine = "";
-        int headerIdx = -1;
         bool inBlockComment = false;
         for (int i = 0; i < lines.Length; i++)
         {
@@ -39,7 +38,6 @@ public static class CodeHelper
                 continue;
             }
             headerLine = trimmed;
-            headerIdx = i;
             break;
         }
 
@@ -88,16 +86,4 @@ public static class CodeHelper
         Regex.Match(headerLine, $@"^{keyword}\s+(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*(\w+)",
             RegexOptions.IgnoreCase) is { Success: true } m ? m.Groups[1].Value : null;
 
-    /// <summary>The first access modifier (PUBLIC/PRIVATE/PROTECTED/INTERNAL) in a
-    /// space-separated modifier list, upper-cased; null if none.</summary>
-    public static string? ExtractAcl(string modifierList)
-    {
-        if (string.IsNullOrWhiteSpace(modifierList)) return null;
-        foreach (var token in modifierList.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            var upper = token.ToUpperInvariant();
-            if (upper is "PUBLIC" or "PRIVATE" or "PROTECTED" or "INTERNAL") return upper;
-        }
-        return null;
-    }
 }

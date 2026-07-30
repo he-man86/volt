@@ -240,11 +240,12 @@ public static class ItemKind
     public static IEnumerable<(string Ext, bool IsSource)> FileExtensions =>
         SourceKindExtensions.Select(x => (x.Ext, true)).Concat(ReferenceKindExtensions.Select(x => (x.Ext, false)));
 
-    /// <summary>Workspace file extension for a kind string (lowercase); a folder has no extension (""). No
-    /// silent fallback — an unmapped kind throws so a new kind is caught, not dropped.</summary>
+    /// <summary>Workspace file extension for a kind string (lowercase). No silent fallback — an unmapped kind
+    /// throws so a new kind is caught, not dropped. That includes <see cref="Kinds.Folder"/>: a folder is a PATH
+    /// SEGMENT, never a file, and both driver walks recurse it without emitting an item — the old <c>folder → ""</c>
+    /// arm was left from the era when folders WERE emitted, and produced a bare-trailing-dot name ("POUs.").</summary>
     public static string ExtFor(string kind) =>
-        kind == Kinds.Folder ? ""
-        : ExtByKind.TryGetValue(kind, out var ext) ? ext
+        ExtByKind.TryGetValue(kind, out var ext) ? ext
         : throw new ArgumentException(
             $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");
 }

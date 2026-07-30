@@ -16,7 +16,7 @@ public static class Materializer
     {
         if (ItemKind.IsSourceKind(kind))
         {
-            var build = BuildSource(ide, name, item, kind);
+            var build = BuildSource(ide, item, kind);
             var text = PouToStText.Convert(build);
             var resolvedKind = build.Kind;
             return new WorkspaceItem(text, FullWireName(name, ItemKind.ExtFor(resolvedKind)));
@@ -39,17 +39,17 @@ public static class Materializer
 
     internal static string GraphicalBodyMarker(string language) => $"(* @volt-graphical: {language} *)";
 
-    private static PouData BuildSource(IIdeDriver ide, string name, ItemRef item, string kind)
+    private static PouData BuildSource(IIdeDriver ide, ItemRef item, string kind)
     {
         if (PouKinds.Contains(kind))
-            return BuildPouFromXml(ide, name, item);
+            return BuildPouFromXml(ide, item);
 
         var decl = ide.ReadDeclaration(item);
         var header = CodeHelper.ParseCodeHeader(decl);
         return new PouData(header.Type, decl.TrimEnd(), null, null, new());
     }
 
-    private static PouData BuildPouFromXml(IIdeDriver ide, string name, ItemRef item)
+    private static PouData BuildPouFromXml(IIdeDriver ide, ItemRef item)
     {
         var xml = ide.ReadXml(item);
         var parsed = PlcOpenPouParser.Parse(xml);

@@ -8,15 +8,16 @@ using Volt.Cli.Transport;
 namespace Volt.Engine.Workspace.SourceText;
 
 /// <summary>
-/// Splits a single assembled workspace source item (ST text, assembled by the agent) into
-/// its TwinCAT tree-item primitives: one outer POU + N children
-/// (methods / actions / properties / property accessors).
+/// Splits one canonical workspace source item (ST text) into the vendor-neutral primitives
+/// <c>Sync/PushService</c> writes through the <c>IIdeDriver</c> contract: one outer item + N
+/// children (methods / actions / properties / property accessors).
 ///
-/// Wire-model: the agent sends raw ST text to /push via the
-/// pushPou op. The bridge runs SplitSt on it to recover the tree
-/// structure it needs to drive ITcSmTreeItem.CreateChild calls.
+/// Wire-model: a push carries the item's whole ST text in the pipe's declarative `set` op
+/// (<c>Wire/PushModels</c>). PushService runs SplitSt on it to recover the tree structure it
+/// needs to create/update those children. The inverse producer — the canonical text this
+/// expects — is <c>Workspace/PouToStText</c>.
 ///
-/// Format (canonical workspace ST-text layout — see also StAssembler):
+/// Format (canonical workspace ST-text layout — see PouToStText):
 ///   {optional pragmas/comments}
 ///   FUNCTION_BLOCK Name [EXTENDS B] [IMPLEMENTS I,J]
 ///   VAR_INPUT … END_VAR
@@ -37,17 +38,17 @@ namespace Volt.Engine.Workspace.SourceText;
 /// after END_INTERFACE. SplitInterfaceBody pulls them out as children.
 /// GVL / DUT are simple single-block forms with no child structure.
 ///
-/// State machine — at column 0 (line start), match outer-end keywords
+/// State machine — at the first non-whitespace of a line (LineStartsWithKeyword
+/// does TrimStart, so ANY indentation matches; it is not column-0), match outer-end keywords
 /// (END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION / END_INTERFACE)
 /// and child boundaries (METHOD / ACTION / PROPERTY / END_METHOD /
 /// END_ACTION / END_PROPERTY / GET / SET / END_GET / END_SET).
 ///
 /// Deliberately string/regex-based — no token-level parser. The
-/// LSP's full parser lives in volt-lsp-st on the agent side; the
-/// bridge only needs the structural skeleton, not statement
-/// semantics. Block comments `(* ... *)`, line comments `// ...`,
-/// pragmas `{ ... }` and string literals `'...'` / `"..."` are all
-/// detected and skipped from the keyword-search.
+/// full ST parser lives in the `volt-lsp-iec` LSP; the push path
+/// only needs the structural skeleton, not statement semantics.
+/// Block comments `(* ... *)`, line comments `// ...` and pragmas
+/// `{ ... }` are skipped from the keyword-search (see ScanContext).
 /// </summary>
 public static class StSplitter
 {
@@ -61,19 +62,18 @@ public static class StSplitter
 		StAccessor? Getter = null,
 		StAccessor? Setter = null,
 		string? Folder = null,
-		string? AccessModifier = null,
 		string? ReturnType = null,
 		string? DataType = null);
 
 	public record StSplitResult(
 		string PouKind,              // function_block / program / function / interface / gvl / dut
-		string? PouName,             // null for GVL
 		string PouDeclaration,
 		string PouImplementation,
 		List<StChild> Children);
 
 	/// <summary>
-	/// Split an assembled workspace source item (ST text) into its TwinCAT primitives.
+	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
+	/// push path writes through <c>IIdeDriver</c>.
 	/// </summary>
 	public static StSplitResult SplitSt(string sourceText)
 	{
@@ -82,17 +82,16 @@ public static class StSplitter
 
 		var lines = NormalizeLines(sourceText);
 
-		// 1. Identify the outer POU header (uses the existing
-		// CodeHelper logic which handles pragmas + comments above
-		// the keyword).
-		var header = CodeHelper.ParseCodeHeader(sourceText);
-		var kind = header.Type;
+		// 1. Identify the outer POU kind (uses the existing CodeHelper
+		// logic which handles pragmas + comments above the keyword; it
+		// also validates the header).
+		var kind = CodeHelper.ParseCodeHeader(sourceText).Type;
 
 		// 2. Branch on kind: composite POUs have children, simple
 		// ones (gvl / dut) are single text blobs.
 		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
 		{
-			return new StSplitResult(kind, header.Name, sourceText.TrimEnd(), "", new List<StChild>());
+			return new StSplitResult(kind, sourceText.TrimEnd(), "", new List<StChild>());
 		}
 
 		// 3. Composite POU: find the outer END_X to split POU from
@@ -100,8 +99,8 @@ public static class StSplitter
 		// method/property signatures live INSIDE the INTERFACE block
 		// (not as siblings after END_INTERFACE like FB methods).
 		var outerEnd = OuterEndKeyword(kind);
-		var (pouStart, pouEnd, childrenStart) = FindOuterBlock(lines, outerEnd);
-		var pouLines = lines.Slice(pouStart, pouEnd - pouStart);
+		var (pouEnd, childrenStart) = FindOuterBlock(lines, outerEnd);
+		var pouLines = SliceLines(lines, 0, pouEnd - 1);
 
 		if (kind == ItemKind.Kinds.Interface)
 		{
@@ -112,12 +111,12 @@ public static class StSplitter
 			// source — we don't merge those in (no spec for sibling
 			// children of an interface).
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines);
-			return new StSplitResult(kind, header.Name, interfaceDecl, "", interfaceChildren);
+			return new StSplitResult(kind, interfaceDecl, "", interfaceChildren);
 		}
 
 		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, kind);
-		var children = SplitChildren(lines.Slice(childrenStart, lines.Count - childrenStart));
-		return new StSplitResult(kind, header.Name, pouDecl, pouImpl, children);
+		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1));
+		return new StSplitResult(kind, pouDecl, pouImpl, children);
 	}
 
 	/// <summary>
@@ -128,15 +127,7 @@ public static class StSplitter
 	private static (string decl, List<StChild> children) SplitInterfaceBody(IList<string> bodyLines)
 	{
 		// Find the INTERFACE header line — first non-trivia line.
-		var ctx = new ScanContext();
-		int interfaceHeaderLineIdx = -1;
-		for (int i = 0; i < bodyLines.Count; i++)
-		{
-			ctx.Update(bodyLines[i]);
-			if (ctx.InsideTrivia) continue;
-			interfaceHeaderLineIdx = i;
-			break;
-		}
+		int interfaceHeaderLineIdx = FirstCodeLine(bodyLines);
 		if (interfaceHeaderLineIdx < 0)
 		{
 			// No header found — treat everything as decl, no children.
@@ -175,15 +166,13 @@ public static class StSplitter
 	};
 
 	/// <summary>
-	/// Walk lines tracking comment/string/pragma context. Returns
-	/// (firstLineOfOuter, lineAfterOuterEnd, lineWhereChildrenBegin).
-	/// pouStart is the first non-empty non-comment line up to and
-	/// INCLUDING the outer keyword (so we keep any pragmas above the
-	/// FUNCTION_BLOCK line as part of the POU declaration).
+	/// Walk lines tracking comment/pragma context to locate the outer block's end. Returns
+	/// (index OF the outer END keyword line, index of the first child line after it — blanks
+	/// skipped). The outer block always starts at line 0, so any pragmas/comments above the
+	/// FUNCTION_BLOCK line stay part of the POU declaration.
 	/// </summary>
-	private static (int pouStart, int pouEnd, int childrenStart) FindOuterBlock(IList<string> lines, string outerEnd)
+	private static (int outerEndIdx, int childrenStart) FindOuterBlock(IList<string> lines, string outerEnd)
 	{
-		int pouStart = 0;
 		int? endIdx = null;
 		var ctx = new ScanContext();
 		for (int i = 0; i < lines.Count; i++)
@@ -203,7 +192,7 @@ public static class StSplitter
 		int childrenStart = endIdx.Value + 1;
 		while (childrenStart < lines.Count && string.IsNullOrWhiteSpace(lines[childrenStart]))
 			childrenStart++;
-		return (pouStart, endIdx.Value, childrenStart);
+		return (endIdx.Value, childrenStart);
 	}
 
 	// ─── POU decl/impl split ─────────────────────────────────────────
@@ -213,7 +202,7 @@ public static class StSplitter
 	/// <c>%FOLDER</c> directive (it's prepended to the impl and must stay there for PeelFolderDirective).
 	/// -1 for a plain textual body (which includes CFC/SFC — their `(* @volt-graphical: LANG *)` marker is a
 	/// comment, i.e. trivia, so it's declaration-adjacent, not a body start).
-	/// Trivia (comments/strings) is skipped so a comment mentioning these can't false-match.</summary>
+	/// Trivia (comments/pragmas) is skipped so a comment mentioning these can't false-match.</summary>
 	private static int FirstMarkerLine(IList<string> lines, bool includeFolder)
 	{
 		var ctx = new ScanContext();
@@ -222,8 +211,8 @@ public static class StSplitter
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
 			var t = lines[i].TrimStart();
-			if (includeFolder && t.StartsWith("%FOLDER", System.StringComparison.Ordinal)) return i;
-			if (t.StartsWith("NETWORK ", System.StringComparison.Ordinal) && t.Length > 8 && char.IsDigit(t[8]))
+			if (includeFolder && t.StartsWith("%FOLDER", StringComparison.Ordinal)) return i;
+			if (t.StartsWith("NETWORK ", StringComparison.Ordinal) && t.Length > 8 && char.IsDigit(t[8]))
 				return i;
 		}
 		return -1;
@@ -260,54 +249,11 @@ public static class StSplitter
 		// If no END_VAR present (e.g. FB with no VAR section), declaration is
 		// just the first non-blank/non-comment line (the header) and the rest
 		// is impl.
-		var ctx = new ScanContext();
-		int lastEndVar = -1;
-		for (int i = 0; i < pouLines.Count; i++)
-		{
-			ctx.Update(pouLines[i]);
-			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(pouLines[i], "END_VAR")) lastEndVar = i;
-		}
+		int lastEndVar = LastCodeLine(pouLines, "END_VAR");
 		if (lastEndVar < 0)
-		{
-			// Find header line — first non-trivia line.
-			var ctx2 = new ScanContext();
-			int headerEnd = 0;
-			for (int i = 0; i < pouLines.Count; i++)
-			{
-				ctx2.Update(pouLines[i]);
-				if (ctx2.InsideTrivia) continue;
-				headerEnd = i;
-				break;
-			}
-			var declSb = new StringBuilder();
-			for (int i = 0; i <= headerEnd; i++)
-			{
-				if (i > 0) declSb.Append('\n');
-				declSb.Append(pouLines[i]);
-			}
-			var implSb = new StringBuilder();
-			for (int i = headerEnd + 1; i < pouLines.Count; i++)
-			{
-				if (i > headerEnd + 1) implSb.Append('\n');
-				implSb.Append(pouLines[i]);
-			}
-			return (declSb.ToString().TrimEnd(), implSb.ToString().Trim());
-		}
-
-		var dSb = new StringBuilder();
-		for (int i = 0; i <= lastEndVar; i++)
-		{
-			if (i > 0) dSb.Append('\n');
-			dSb.Append(pouLines[i]);
-		}
-		var iSb = new StringBuilder();
-		for (int i = lastEndVar + 1; i < pouLines.Count; i++)
-		{
-			if (i > lastEndVar + 1) iSb.Append('\n');
-			iSb.Append(pouLines[i]);
-		}
-		return (dSb.ToString().TrimEnd(), iSb.ToString().Trim());
+			// Header line = first non-trivia line; line 0 if the whole block reads as trivia.
+			return SplitAtLine(pouLines, Math.Max(FirstCodeLine(pouLines), 0) + 1);
+		return SplitAtLine(pouLines, lastEndVar + 1);
 	}
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
@@ -345,7 +291,7 @@ public static class StSplitter
 	private static StChild ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw)
 	{
 		int sigLine = i; // line with the keyword
-		// Find matching end at column 0.
+		// Find the matching end keyword — at any indentation (see LineStartsWithKeyword), not column 0.
 		var ctx = new ScanContext();
 		// Re-walk from blockStart to sigLine to bring scan context up to
 		// date (the pragmas/comments above the keyword).
@@ -365,9 +311,9 @@ public static class StSplitter
 		var block = SliceLines(lines, blockStart, endLine.Value);
 		i = endLine.Value + 1;
 
-		// Parse header of the signature line for name + access mods + return type.
+		// Parse header of the signature line for name + return type.
 		var sig = lines[sigLine];
-		var (name, accessModifier, returnType) = ParseMethodOrActionSignature(sig, kind);
+		var (name, returnType) = ParseMethodOrActionSignature(sig, kind);
 
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
@@ -377,7 +323,7 @@ public static class StSplitter
 		// sub-folder) and is peeled off. The graphical marker (NETWORK … for editable FBD/LD) stays
 		// in the body for graphical detection.
 		var (folder, body) = PeelFolderDirective(impl);
-		return new StChild(kind, name, decl, body, Folder: folder, AccessModifier: accessModifier, ReturnType: returnType);
+		return new StChild(kind, name, decl, body, Folder: folder, ReturnType: returnType);
 	}
 
 	private static StChild ReadProperty(IList<string> lines, ref int i, int blockStart)
@@ -423,7 +369,7 @@ public static class StSplitter
 		i = endLine.Value + 1;
 
 		var sig = lines[sigLine];
-		var (name, accessModifier, dataType) = ParsePropertySignature(sig);
+		var (name, dataType) = ParsePropertySignature(sig);
 
 		// Declaration of the property itself: from blockStart up to (but
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
@@ -444,7 +390,7 @@ public static class StSplitter
 		return new StChild(
 			ItemKind.Kinds.Property, name, propDecl, "",
 			Getter: getter, Setter: setter,
-			Folder: folder, AccessModifier: accessModifier, DataType: dataType);
+			Folder: folder, DataType: dataType);
 	}
 
 	private static StAccessor ParseAccessor(IList<string> accLines)
@@ -454,31 +400,8 @@ public static class StSplitter
 		// the GET/SET keyword IS the signature. Decl is everything up to
 		// END_VAR (if any); impl is the rest.
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
-		var ctx = new ScanContext();
-		int lastEndVar = -1;
-		for (int i = 0; i < inner.Count; i++)
-		{
-			ctx.Update(inner[i]);
-			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(inner[i], "END_VAR")) lastEndVar = i;
-		}
-		if (lastEndVar < 0)
-		{
-			return new StAccessor("", string.Join("\n", inner).Trim());
-		}
-		var dSb = new StringBuilder();
-		for (int i = 0; i <= lastEndVar; i++)
-		{
-			if (i > 0) dSb.Append('\n');
-			dSb.Append(inner[i]);
-		}
-		var iSb = new StringBuilder();
-		for (int i = lastEndVar + 1; i < inner.Count; i++)
-		{
-			if (i > lastEndVar + 1) iSb.Append('\n');
-			iSb.Append(inner[i]);
-		}
-		return new StAccessor(dSb.ToString().TrimEnd(), iSb.ToString().Trim());
+		var (decl, impl) = SplitAtLine(inner, LastCodeLine(inner, "END_VAR") + 1);
+		return new StAccessor(decl, impl);
 	}
 
 	private static (string decl, string impl) SplitDeclImplOfChild(IList<string> innerLines)
@@ -489,85 +412,48 @@ public static class StSplitter
 		int gfx = FirstMarkerLine(innerLines, includeFolder: true);
 		if (gfx >= 0) return SplitAtLine(innerLines, gfx);
 
-		var ctx = new ScanContext();
-		int lastEndVar = -1;
-		// Find the signature line first — first non-trivia line.
-		int sigLine = -1;
-		for (int i = 0; i < innerLines.Count; i++)
-		{
-			ctx.Update(innerLines[i]);
-			if (ctx.InsideTrivia) continue;
-			if (sigLine < 0) sigLine = i;
-			if (LineStartsWithKeyword(innerLines[i], "END_VAR")) lastEndVar = i;
-		}
+		int lastEndVar = LastCodeLine(innerLines, "END_VAR");
 		if (lastEndVar < 0)
-		{
-			// No VAR sections — declaration is the signature line + any preceding
-			// pragmas; implementation is everything after the signature line.
-			var declSb = new StringBuilder();
-			for (int i = 0; i <= sigLine; i++)
-			{
-				if (i > 0) declSb.Append('\n');
-				declSb.Append(innerLines[i]);
-			}
-			var implSb = new StringBuilder();
-			for (int i = sigLine + 1; i < innerLines.Count; i++)
-			{
-				if (i > sigLine + 1) implSb.Append('\n');
-				implSb.Append(innerLines[i]);
-			}
-			return (declSb.ToString().TrimEnd(), implSb.ToString().Trim());
-		}
-		var dSb = new StringBuilder();
-		for (int i = 0; i <= lastEndVar; i++)
-		{
-			if (i > 0) dSb.Append('\n');
-			dSb.Append(innerLines[i]);
-		}
-		var iSb = new StringBuilder();
-		for (int i = lastEndVar + 1; i < innerLines.Count; i++)
-		{
-			if (i > lastEndVar + 1) iSb.Append('\n');
-			iSb.Append(innerLines[i]);
-		}
-		return (dSb.ToString().TrimEnd(), iSb.ToString().Trim());
+			// No VAR sections — declaration is the signature line (first non-trivia line) + any
+			// preceding pragmas; implementation is everything after the signature line.
+			return SplitAtLine(innerLines, FirstCodeLine(innerLines) + 1);
+		return SplitAtLine(innerLines, lastEndVar + 1);
 	}
 
 	// ─── Signature parsing helpers (METHOD/ACTION/PROPERTY headers) ──
 
-	private static (string name, string? accessModifier, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
+	/// <summary>Name + (methods only) return type off the signature line. The access-modifier group is
+	/// matched but not captured into a field — nothing on the write path tells the IDE a member's
+	/// visibility on create, so an extracted modifier would have no reader.</summary>
+	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
 	{
 		var clean = sig.TrimEnd();
 		if (kind == ItemKind.Kinds.Method)
 		{
 			var m = Regex.Match(clean,
-				@"^METHOD\s+((?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*)(\w+)(?:\s*:\s*(.+?))?\s*;?\s*$",
+				@"^METHOD\s+(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*(\w+)(?:\s*:\s*(.+?))?\s*;?\s*$",
 				RegexOptions.IgnoreCase);
 			if (!m.Success)
 				throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse METHOD signature: {Truncate(sig, 80)}");
-			var name = m.Groups[2].Value;
-			var acl = CodeHelper.ExtractAcl(m.Groups[1].Value);
-			var rt  = m.Groups[3].Success ? m.Groups[3].Value.Trim() : null;
-			return (name, acl, rt);
+			var name = m.Groups[1].Value;
+			var rt  = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
+			return (name, rt);
 		}
 		// action
 		var ma = Regex.Match(clean, @"^ACTION\s+(\w+)\s*$", RegexOptions.IgnoreCase);
 		if (!ma.Success)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse ACTION signature: {Truncate(sig, 80)}");
-		return (ma.Groups[1].Value, null, null);
+		return (ma.Groups[1].Value, null);
 	}
 
-	private static (string name, string? accessModifier, string dataType) ParsePropertySignature(string sig)
+	private static (string name, string dataType) ParsePropertySignature(string sig)
 	{
 		var m = Regex.Match(sig.TrimEnd(),
-			@"^PROPERTY\s+(?:(PUBLIC|PRIVATE|PROTECTED|INTERNAL)\s+)?(\w+)\s*:\s*(.+?)\s*;?\s*$",
+			@"^PROPERTY\s+(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL)\s+)?(\w+)\s*:\s*(.+?)\s*;?\s*$",
 			RegexOptions.IgnoreCase);
 		if (!m.Success)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse PROPERTY signature: {Truncate(sig, 80)}");
-		var name = m.Groups[2].Value;
-		var acl  = m.Groups[1].Success ? m.Groups[1].Value.ToUpperInvariant() : null;
-		var dt   = m.Groups[3].Value.Trim();
-		return (name, acl, dt);
+		return (m.Groups[1].Value, m.Groups[2].Value.Trim());
 	}
 
 	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
@@ -617,8 +503,8 @@ public static class StSplitter
 				int close = line.IndexOf("*)", StringComparison.Ordinal);
 				if (close < 0) { InsideTrivia = true; return; }
 				_inBlockComment = false;
-				// Anything after */) on the same line is real source. But for
-				// our purposes — keyword-at-column-0 detection — we only care
+				// Anything after *) on the same line is real source. But for
+				// our purposes — leading-keyword detection — we only care
 				// about lines that start with code. If the close-comment isn't
 				// at the very beginning of the line, mark as trivia.
 				if (trimmed.IndexOf("*)", StringComparison.Ordinal) >= 0
@@ -649,6 +535,34 @@ public static class StSplitter
 		}
 	}
 
+	/// <summary>Index of the first line that is real code (not blank / comment / pragma), or -1 if the
+	/// whole range is trivia.</summary>
+	private static int FirstCodeLine(IList<string> lines)
+	{
+		var ctx = new ScanContext();
+		for (int i = 0; i < lines.Count; i++)
+		{
+			ctx.Update(lines[i]);
+			if (!ctx.InsideTrivia) return i;
+		}
+		return -1;
+	}
+
+	/// <summary>Index of the LAST code line starting with <paramref name="keyword"/>, or -1 if there is
+	/// none. Trivia is skipped so a commented-out keyword can't match.</summary>
+	private static int LastCodeLine(IList<string> lines, string keyword)
+	{
+		var ctx = new ScanContext();
+		int last = -1;
+		for (int i = 0; i < lines.Count; i++)
+		{
+			ctx.Update(lines[i]);
+			if (ctx.InsideTrivia) continue;
+			if (LineStartsWithKeyword(lines[i], keyword)) last = i;
+		}
+		return last;
+	}
+
 	private static bool LineStartsWithKeyword(string line, string keyword)
 	{
 		var trimmed = line.TrimStart();
@@ -666,6 +580,8 @@ public static class StSplitter
 		return new List<string>(raw);
 	}
 
+	/// <summary>The lines in [startInclusive, endInclusive] — the ONE slicing convention in this file.
+	/// An empty or reversed range yields an empty list.</summary>
 	private static List<string> SliceLines(IList<string> lines, int startInclusive, int endInclusive)
 	{
 		var slice = new List<string>(Math.Max(0, endInclusive - startInclusive + 1));
@@ -674,15 +590,4 @@ public static class StSplitter
 	}
 
 	private static string Truncate(string s, int max) => s.Length <= max ? s : s.Substring(0, max) + "...";
-}
-
-/// <summary>Lightweight Slice extension to mimic Span-ish access on List&lt;string&gt;.</summary>
-internal static class StSplitterExtensions
-{
-	public static List<string> Slice(this List<string> src, int start, int count)
-	{
-		var dst = new List<string>(count);
-		for (int i = 0; i < count && start + i < src.Count; i++) dst.Add(src[start + i]);
-		return dst;
-	}
 }

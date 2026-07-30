@@ -81,7 +81,7 @@ Findings by kind: `bug` 0 · `legacy` 0 · `inconsistency` 0 · `dead-code` 0 ·
 ## Batch 1 — `Volt.Cli.Transport` (9 files, 422 LOC) — PILOT
 
 Gate: build ✓ 0 errors · `Volt.Engine.Tests` ✓ 313/313 · `Volt.Cli.Tests` ✓ 116/116 ·
-`Volt.Cli.Connector.Tests` ✓ 76/76 · verifier verdict **accept, zero reverts** · not yet committed
+`Volt.Cli.Connector.Tests` ✓ 76/76 · verifier verdict **accept, zero reverts** · committed `4c63935` (the bridge fix is `1082190`)
 
 | File | Found | Fixed | Skipped (reason) | LOC before → after |
 |---|---|---|---|---|
@@ -186,7 +186,7 @@ was found (`Engine/Wire` applied **5 of 20**, skipping the rest as behavior-chan
 ## Batch 3 — `Volt.Engine/Sync` (3 groups, 7 files, 930 LOC)
 
 Gate: build ✓ 0 errors, **`src/Volt.Engine` warning-free** · 317/317 · 116/116 · 76/76 · verdicts **accept ×3,
-zero reverts** · not yet committed
+zero reverts** · committed `4c63935` (the bridge fix is `1082190`)
 
 | File | LOC before → after |
 |---|---|
@@ -238,6 +238,56 @@ warning count is watched. And the tightening's stated goal is **not actually ach
 compile-time only, so a null folder still hashes as `""` at runtime. That, plus the 4 new CS8625 warnings in
 `HasherTests.Null_text_is_stable` (which passes null deliberately and still passes), is a decision left for a
 human in `arch-notes.md` — I did **not** edit that test to match the new signature.
+
+## Batch 4 — `Volt.Engine/Workspace` (4 groups, 9 files, 1,650 LOC)
+
+Gate: build ✓ 0 errors · 317/317 · 116/116 · 76/76 · verdicts **accept ×3 + accept-with-reverts ×1 (1 hunk
+reverted)**
+
+| File | LOC before → after |
+|---|---|
+| `SourceText/StSplitter.cs` | 688 → **593** (−95) |
+| `SourceText/StAssembler.cs` | 205 → 211 |
+| `SourceText/CodeHelper.cs` | 103 → **89** (−14) |
+| `ItemKind.cs` | 250 → 251 |
+| `PouToStText.cs` | 101 → 116 |
+| `PouData.cs` | 26 → 33 |
+| `Materializer.cs`, `FolderPath.cs`, `WorkspaceItem.cs` | unchanged in size |
+| **batch** | **1,650 → 1,580 (−70)** |
+
+First net **reduction** of the audit, and it came from the biggest file in the layer: `StSplitter` lost 95 lines
+(unread record properties `PouName`/`AccessModifier`, a `StSplitterExtensions.Slice` helper, capture groups that
+were captured and never read) with no behavioural change.
+
+### The verification bar this batch set
+
+The `StSplitter` verifier did not read the diff and opine — it **built a differential oracle**: compiled the HEAD
+and working-tree versions side by side in a throwaway project against the real `CodeHelper`/`ItemKind`, rendered
+the *full* `StSplitResult` for both (every child's kind/name/decl/impl/folder/return type/accessors, newlines
+escaped so whitespace shows), and compared them over **583,225 inputs** — 26,175 real corpus files from five
+CODESYS projects, 400,000 fuzzed programs built from 45 adversarial fragments (unterminated `(*`, orphan
+`GET`/`END_SET`, bare `%FOLDER`, `METHOD PUBLIC FINAL M : INT`), and 157,050 mutations designed to desynchronize
+the block-comment scanner. **Zero differences.** It then instrumented the old copy to prove which degenerate
+branches actually execute (8,389 / 33,552 / 797 / 27,663 hits) and proved the three never-hit ones unreachable by
+reading, rather than accepting them as covered.
+
+### The one revert — a rot-guard earning its keep
+
+Group 4.2 replaced the centralized `ItemKind.Kinds.Folder` const with a bare `"folder"` literal in
+`StAssembler.cs:147`. `WireVocabularyGuardTests` scans `src/` for re-spelled centralized vocabulary outside its
+home file and went **RED** — the verifier ran it, identified the single offender, and required the revert. Restored
+with a comment naming the guard, so the next person doesn't re-do it. This is the first time the three-role
+pipeline caught a real regression rather than confirming a clean diff.
+
+### Two follow-ups applied by hand from the verifier's `missed` list
+
+- **`StSplitter`'s "column 0" claim was false in a way that matters** — and the rewrite had fixed four other false
+  claims in the same block while leaving this one. `LineStartsWithKeyword` does `TrimStart()`, so every keyword
+  scan matches at **any indentation**; the comment said column 0 in three places. That is the difference between
+  an indented `END_METHOD` terminating a child block or not, i.e. where the split lands on real source.
+- **`CodeHelper.ExtractAcl` became dead in this very batch** (its last caller went with the `AccessModifier`
+  property) and, being `public static`, would never surface as a compiler warning. Verified unreferenced
+  repo-wide, then deleted.
 
 <!-- One section per batch, appended after its gate passes. Format:
 

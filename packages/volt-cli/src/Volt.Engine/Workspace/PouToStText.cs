@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using Volt.Cli.Transport;
+
 namespace Volt.Engine.Workspace;
 
 /// <summary>Assembles a <see cref="PouData"/> into canonical workspace Structured Text.
@@ -44,13 +46,17 @@ public static class PouToStText
     private static bool HasBody(string kind) =>
         kind is not (ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut);
 
+    // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.
+    // The kind is DERIVED text (CodeHelper.ParseCodeHeader), so a malformed export can legitimately hand us
+    // `method`/`property`/`action` here; fail loud, exactly like the sibling ItemKind.ExtFor (which throws on
+    // the same kind a few lines later in Materializer — so this fallback was masked, not unreachable).
     private static string EndKeyword(string kind) => kind switch
     {
         ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
         ItemKind.Kinds.Program => "END_PROGRAM",
         ItemKind.Kinds.Function => "END_FUNCTION",
         ItemKind.Kinds.Interface => "END_INTERFACE",
-        _ => $"END_{kind.ToUpperInvariant()}",
+        _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, $"No END keyword for kind '{kind}'"),
     };
 
     private static int KindOrder(string kind) => kind switch
@@ -66,7 +72,13 @@ public static class PouToStText
         if (child.Kind == ItemKind.Kinds.Property) return AssembleProperty(child);
         var decl = child.Declaration.TrimEnd();
         var impl = PrependFolder(child.Folder, (child.BodyText ?? "").Trim());
-        var end = child.Kind == ItemKind.Kinds.Method ? "END_METHOD" : "END_ACTION";
+        var end = child.Kind switch
+        {
+            ItemKind.Kinds.Method => "END_METHOD",
+            ItemKind.Kinds.Action => "END_ACTION",
+            _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
+                $"No END keyword for POU child kind '{child.Kind}'"),
+        };
         return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
     }
 
@@ -93,6 +105,9 @@ public static class PouToStText
         return string.Join("\n", lines);
     }
 
+    /// <summary>Prepend a `%FOLDER &lt;path&gt;` directive to a child body — the child's sub-folder
+    /// within the POU. The signature line stays a clean identifier; this `%FOLDER` line sits at the top
+    /// of the body, ahead of its graphical content (the `NETWORK` marker for editable FBD/LD).</summary>
     private static string PrependFolder(string? folder, string impl)
     {
         if (string.IsNullOrEmpty(folder)) return impl;

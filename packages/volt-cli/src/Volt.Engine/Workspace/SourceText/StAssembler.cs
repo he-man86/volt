@@ -10,9 +10,9 @@ namespace Volt.Engine.Workspace.SourceText;
 /// Render a fetched item back to its assembled Structured Text source (POU/GVL/DUT/interface, each
 /// named by its kind — .fb/.prg/.fun/.itf/.dut/.gvl) — the inverse of <see cref="StSplitter"/>.
 ///
-/// Used by FetchHandler to ship `sourceText` on the wire so the agent
-/// can drop the file directly into the workspace without any
-/// per-child reassembly on its side.
+/// Superseded on the data path by <c>Workspace/PouToStText</c>, which the live read path
+/// (<c>Materializer</c>) calls with a typed <c>PouData</c>; this dict-shaped form has no
+/// production call site left — only the assemble⇄split round-trip tests drive it.
 ///
 /// Format (canonical workspace ST-text layout — inverse of StSplitter):
 ///
@@ -28,13 +28,17 @@ namespace Volt.Engine.Workspace.SourceText;
 /// Children:
 ///   METHOD/ACTION → {declaration}\n{impl}\nEND_X (impl omitted if empty)
 ///   PROPERTY     → {declaration}\nGET … END_GET\nSET … END_SET\nEND_PROPERTY
+///
+/// ponytail: kept ONLY because the two assemble⇄split round-trip tests (ChildDirectiveTests,
+/// InterfaceRoundTripTests) still drive this dict-based copy. Upgrade path: repoint those tests at
+/// PouToStText.Convert(PouData) — the class Materializer actually calls — then delete this file; the
+/// canonical ST emit format must not live in two places.
 /// </summary>
 public static class StAssembler
 {
 	/// <summary>
-	/// Assemble a GetHandler.BuildResult-shaped dictionary into the
-	/// canonical workspace ST text. Returns null if the input shape
-	/// is incompatible (e.g. a graphical POU whose body was masked).
+	/// Assemble a fetched-item-shaped dictionary (kind/declaration/implementation/children) into the
+	/// canonical workspace ST text.
 	/// </summary>
 	public static string Assemble(IDictionary<string, object?> result)
 	{
@@ -117,7 +121,7 @@ public static class StAssembler
 		var list = new List<ChildSnapshot>();
 		if (raw is null) return list;
 
-		// raw is either JsonArray (during FetchHandler use) or a List<object>
+		// raw is either a JsonArray (parsed wire JSON) or a List<object>
 		// (when called with a deserialized dict). Normalize both.
 		IEnumerable<IDictionary<string, object?>>? entries = raw switch
 		{
@@ -140,6 +144,8 @@ public static class StAssembler
 				SetterCode: GetSn("setterCode"),
 				GetterDeclaration: GetSn("getterDeclaration"),
 				SetterDeclaration: GetSn("setterDeclaration"),
+				// Stays the centralized const, NOT the literal "folder": WireVocabularyGuardTests fails the build on a
+				// re-spelled item-kinds literal outside its home file, and that rot-guard is the point.
 				Folder: GetSn(ItemKind.Kinds.Folder)));
 		}
 		return list;
