@@ -5,8 +5,6 @@
 // imports its own stylesheet beside it (nav.css, hero.css, …) so those layer on top of the base.
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import "./styles.css"
-import { Nav } from "./components/Nav.jsx"
-import { Footer } from "./components/Footer.jsx"
 import { PageHeader } from "./components/ui.jsx"
 
 // Cloudflare Web Analytics, injected only when the token is set — local builds and previews stay beacon-free.
@@ -34,9 +32,7 @@ export function Layout({ children }) {
         <Links />
       </head>
       <body>
-        <Nav />
         <main>{children}</main>
-        <Footer />
         <ScrollRestoration />
         <Scripts />
         {CF_ANALYTICS_TOKEN && (
