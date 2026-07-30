@@ -103,6 +103,9 @@ public sealed class FakeIde : IIdeDriver
     // Default non-null so a bare `new FakeIde(...)` models a connected bridge WITH a project loaded (serving). A test
     // that wants "connected to the IDE but no project" sets this to null explicitly (then nothing serves).
     public string? HealthProjectName { get; init; } = "FakeProject";
+    // Force the CACHED health snapshot to show NOTHING serving while the live signals still say connected — exactly
+    // what TwinCAT's ~5s-throttled snapshot does for a moment after a reconnect. Default false: the two agree.
+    public bool StaleHealthSnapshot { get; init; }
 
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
@@ -214,8 +217,14 @@ public sealed class FakeIde : IIdeDriver
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
-    // Mirror a real driver: IsConnected and BuildHealthResponse().Connected (derived from Status) are the SAME signal.
+    // The LIVE signals (IsConnected / ServedProjectName / Vendor) and the CACHED health snapshot are SEPARATE
+    // sources here, because they are separate on a real driver: TwinCAT serves health from a ~5s-throttled snapshot
+    // while IsConnected is a live state read, so the two CAN disagree. This double used to assert they were the same
+    // signal, which made the divergence unrepresentable — and hid a real bug. `StaleHealthSnapshot` models it.
     public bool IsConnected => HealthConnected && _attached;
+    public string Vendor => HealthPlatform;
+    /// <summary>The LIVE served-project name — what the in-op guard reads. Independent of the health snapshot.</summary>
+    public string? ServedProjectName => IsConnected ? HealthProjectName : null;
     public string? IdeVersion => "0";
     public void Disconnect() { }
     public bool IsDegraded => false;
@@ -227,8 +236,10 @@ public sealed class FakeIde : IIdeDriver
         // attach, or HealthConnected=false, forces every row to `idle`, like a real driver. When no rows are
         // configured, model the default connected bridge: while IsConnected, synthesize the one served row (name from
         // the knob, or a placeholder) so a bare `new FakeIde(...)` reports connected+serving exactly as before.
-        var rows = Projects.Select(p => p with { Status = IsConnected ? p.Status : HealthStatus.Idle }).ToList();
-        if (rows.Count == 0 && IsConnected && !string.IsNullOrEmpty(HealthProjectName))
+        // `StaleHealthSnapshot` = the cached list has no serving row even though the live signals say connected.
+        var serving = IsConnected && !StaleHealthSnapshot;
+        var rows = Projects.Select(p => p with { Status = serving ? p.Status : HealthStatus.Idle }).ToList();
+        if (rows.Count == 0 && serving && !string.IsNullOrEmpty(HealthProjectName))
             rows.Add(new ProjectEntry(HealthPlatform, "0", HealthProjectName!, HealthStatus.Healthy, false));
         return new HealthResponse { Projects = rows };
     }

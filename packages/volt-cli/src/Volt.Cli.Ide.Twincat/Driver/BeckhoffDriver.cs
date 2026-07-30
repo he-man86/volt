@@ -29,6 +29,11 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override bool IsConnected => _om.IsConnected;
 
+    public override string Vendor => Vendors.Twincat;
+    // LIVE, not the cached row: `_om.ProjectName` is the bound name held in the object model (a plain field), so this
+    // never lags the ~5s health snapshot. Same value BuildProjects() reads for its `served` row.
+    public override string? ServedProjectName => IsConnected ? _om.ProjectName : null;
+
     public override string? IdeVersion => _om.IdeVersion;
 
     /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).

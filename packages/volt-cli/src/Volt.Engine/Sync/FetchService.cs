@@ -27,7 +27,7 @@ public static class FetchService
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard (replaces the client's old pre-op health check) — atomic with the walk.
-        var health = OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
+        var bound = OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
@@ -85,7 +85,11 @@ public static class FetchService
 
             // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
             // can't be materialized), never throw for the whole batch.
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
+            // Hasher REQUIRES a folder: defaulting a missing one to "" would hash identically to a legitimately
+            // empty folder and silently drift the item's version instead of surfacing the walk bug. So fail loud.
+            var folder = it.Folder ?? throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"the project walk returned item '{it.Name}' with no folder");
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, folder, out var mat);
             // The aggregate project/structure version must cover EVERY walked item — readable or not, and
             // regardless of the onlyItems subset — so it matches /refs and the push receipt (an unreadable item
             // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
@@ -168,9 +172,10 @@ public static class FetchService
             Removed = removed,
             Items = fullVersions,
             Folders = folders,
-            // Echo the project we actually walked, so the client can confirm it before merging.
-            Platform = health.Platform,
-            ProjectName = health.ProjectName,
+            // Echo the project we actually walked, so the client can confirm it before merging. This is the LIVE
+            // identity the guard checked, not a cached health row — the echo can't disagree with what was walked.
+            Platform = bound.Vendor,
+            ProjectName = bound.ProjectName,
         };
     }
 

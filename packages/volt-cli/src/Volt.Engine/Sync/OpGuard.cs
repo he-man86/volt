@@ -13,16 +13,23 @@ namespace Volt.Engine.Sync;
 public static class OpGuard
 {
     /// <summary>Throws <c>PLC_DISCONNECTED</c> if no project is attached, or <c>WRONG_PROJECT</c> if the live
-    /// bridge is serving a project other than the one the caller is bound to. Returns the health it read so the
-    /// caller can echo the identity back (a read op does, so the client can double-check before it merges).</summary>
-    public static HealthResponse RequireBoundProject(IIdeDriver ide, string? expectedPlatform, string? expectedName)
+    /// bridge is serving a project other than the one the caller is bound to. Returns the LIVE identity it checked,
+    /// so a caller can echo it back (a read op does, so the client can double-check before it merges).
+    /// <para>Both facts come from the driver's LIVE state (<see cref="IIdeSession.IsConnected"/> +
+    /// <see cref="IIdeSession.ServedProjectName"/>), which is what <c>IIdeSession</c> documents as THE precondition
+    /// and what <c>RefsService</c> already used. It deliberately does NOT read <c>BuildHealthResponse()</c>: that is
+    /// served from a per-vendor THROTTLED cache (~5s on TwinCAT), so deciding a write against it refused pushes with
+    /// PLC_DISCONNECTED on stale state while reads of the same bridge succeeded — most visibly right after an IDE
+    /// close/reopen, where `connect` and `refs` both pass and the first write fails. One question, one answer.</para></summary>
+    public static (string Vendor, string? ProjectName) RequireBoundProject(
+        IIdeDriver ide, string? expectedPlatform, string? expectedName)
     {
-        var h = ide.BuildHealthResponse();
-        if (!h.Connected) throw BridgeException.PlcDisconnected();
+        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        var served = ide.ServedProjectName;
         if (!string.IsNullOrEmpty(expectedName) &&
-            (!string.Equals(h.ProjectName, expectedName, StringComparison.Ordinal) ||
-             !string.Equals(h.Platform, expectedPlatform, StringComparison.OrdinalIgnoreCase)))
-            throw BridgeException.WrongProject(h.Platform, h.ProjectName, expectedPlatform, expectedName);
-        return h;
+            (!string.Equals(served, expectedName, StringComparison.Ordinal) ||
+             !string.Equals(ide.Vendor, expectedPlatform, StringComparison.OrdinalIgnoreCase)))
+            throw BridgeException.WrongProject(ide.Vendor, served, expectedPlatform, expectedName);
+        return (ide.Vendor, served);
     }
 }

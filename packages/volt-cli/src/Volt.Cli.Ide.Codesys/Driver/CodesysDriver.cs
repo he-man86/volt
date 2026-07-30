@@ -34,6 +34,10 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // collection (HasProjects) — otherwise a closed project still reports "connected" with a null project name.
     // A reopen recovers on its own: the live PrimaryProject lookup makes the next probe flip _hasProject back.
     public override bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
+    public override string Vendor => Vendors.Codesys;
+    // LIVE, not the cached row: reads the primary project's path off the object model, so it must only be called on
+    // the primary thread — which is where the in-op guard runs. Same value BuildProjects() snapshots.
+    public override string? ServedProjectName => IsConnected ? _om.ProjectName : null;
     public override string? IdeVersion => "3.5";
 
     /// <summary>CODESYS startup attach: snapshot health on the primary thread (called by its own PipeHost, not Core).</summary>

@@ -58,6 +58,61 @@ public class OpGuardTests
         Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
     }
 
+    /// <summary>Same bridge, but its CACHED health snapshot has no serving row while the LIVE signals say connected —
+    /// TwinCAT's shape for a moment after a reconnect (health is throttled to ~5s; `IsConnected` is a live read).</summary>
+    private static FakeIde StaleSnapshot(string platform, string project) => new(
+        FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+    { HealthConnected = true, HealthPlatform = platform, HealthProjectName = project, StaleHealthSnapshot = true };
+
+    private static PushRequest Empty(string platform, string project) => new()
+    {
+        Force = true, ExpectedProjectVersion = null, Ops = new List<PushOp>(),
+        ExpectedPlatform = platform, ExpectedProjectName = project,
+    };
+
+    /// <summary>REGRESSION — the precondition must come from ONE LIVE signal. `IIdeSession` documents that the
+    /// not-connected precondition is decided against `IsConnected`; `RefsService` did that, but `OpGuard` (every
+    /// fetch/push/build) read `BuildHealthResponse().Connected` — a throttled CACHED snapshot on TwinCAT. So a WRITE
+    /// was refused PLC_DISCONNECTED on stale state while a READ of the same bridge succeeded. Symptom: after an IDE
+    /// close/reopen, `connect` and `refs` succeed and the first write fails.</summary>
+    [Fact]
+    public void A_write_is_not_refused_because_the_cached_health_snapshot_is_stale()
+    {
+        var ide = StaleSnapshot("codesys", "Demo");
+        Assert.False(ide.BuildHealthResponse().Connected); // the snapshot really is stale
+        Assert.True(ide.IsConnected);                      // ...while the live signal says connected
+        PushService.Handle(ide, Empty("codesys", "Demo")); // must NOT throw
+    }
+
+    /// <summary>A read and a write must never disagree about whether the bridge is connected.</summary>
+    [Fact]
+    public void A_read_and_a_write_reach_the_same_verdict_on_a_stale_snapshot()
+    {
+        var ide = StaleSnapshot("twincat", "PLC_A");
+        RefsService.Handle(ide);                            // the live-signal path already proceeded
+        PushService.Handle(ide, Empty("twincat", "PLC_A")); // so the write must too
+    }
+
+    /// <summary>The fix must not become permissiveness: a REAL identity mismatch still refuses, and it refuses with
+    /// WRONG_PROJECT (naming both projects) rather than degrading into PLC_DISCONNECTED because the cache was empty.</summary>
+    [Fact]
+    public void A_real_mismatch_still_refuses_when_the_snapshot_is_stale()
+    {
+        var ex = Assert.Throws<BridgeException>(() =>
+            PushService.Handle(StaleSnapshot("codesys", "Demo"), Empty("codesys", "SomethingElse")));
+        Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
+        Assert.Contains("Demo", ex.Message);
+    }
+
+    /// <summary>And a genuinely detached bridge still refuses even though nothing is stale.</summary>
+    [Fact]
+    public void A_detached_bridge_still_refuses_with_PLC_DISCONNECTED()
+    {
+        var ex = Assert.Throws<BridgeException>(() =>
+            PushService.Handle(Ide("codesys", "Demo", connected: false), Empty("codesys", "Demo")));
+        Assert.Equal(BridgeErrorCodes.PlcDisconnected, ex.ErrorCode);
+    }
+
     [Fact]
     public void No_expected_identity_checks_only_connected_not_the_project()
     {

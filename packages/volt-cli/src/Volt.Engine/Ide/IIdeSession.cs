@@ -13,6 +13,18 @@ namespace Volt.Engine.Ide;
 public interface IIdeSession
 {
     bool IsConnected { get; }
+
+    /// <summary>This bridge's vendor (a <see cref="Volt.Cli.Transport.Vendors"/> value). Constant for the driver's
+    /// lifetime — a bridge never changes vendor — so it is always safe to read live.</summary>
+    string Vendor { get; }
+
+    /// <summary>The project this bridge is serving RIGHT NOW, or null when nothing is attached. A LIVE state read,
+    /// the companion to <see cref="IsConnected"/> — deliberately NOT read off the cached health snapshot, which is
+    /// throttled per vendor and can lag a reconnect. Together these two are the ONLY source for the not-connected +
+    /// right-project precondition (<c>Sync/OpGuard</c>), so a read and a write can never disagree about the bridge.
+    /// <para>Called from inside an op, on the marshalled IDE thread, so an implementation MAY touch its object model
+    /// (CODESYS reads the primary project's path); it must not marshal again and must not throw.</para></summary>
+    string? ServedProjectName { get; }
     /// <summary>The IDE version, shown per-instance in the connector's project label. Not a wire top-level field.</summary>
     string? IdeVersion { get; }
     // NB: there is deliberately NO Connect() here. The startup attach is vendor-shaped (CODESYS: an in-proc snapshot
@@ -64,15 +76,16 @@ public interface IIdeSession
 
     /// <summary>DEBUG (read-only): each library signature's implemented interfaces + all property values, filtered
     /// by element name — introspects how the language model represents a DUT (alias/struct/enum/union). Empty on
-    /// drivers without a signature model (TwinCAT). Surfaced at <c>GET /debug?libsig=NAME</c>.</summary>
+    /// drivers without a signature model (TwinCAT). Surfaced by the debug dump (<c>Sync/DebugService</c>,
+    /// <c>libsig=NAME</c>) — the HTTP-era <c>GET /debug</c> is gone; the wire is a named pipe.</summary>
     IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter);
 
     /// <summary>DEBUG (read-only): the PLCopen export (our normal code-XML transport) for the item named
-    /// <paramref name="name"/>, or "" if unavailable. Surfaced at <c>GET /debug?xmlof=NAME</c>.</summary>
+    /// <paramref name="name"/>, or "" if unavailable. Surfaced by the debug dump (<c>xmlof=NAME</c>).</summary>
     string DebugItemXml(string name);
 
     /// <summary>DEBUG (read-only): reflect the change-detection surface of a target object model member (e.g.
     /// "project", "objmgr") — its type, interfaces, and change/version/event-named members — to investigate what
-    /// signal the IDE exposes. Empty when unsupported. Surfaced at <c>GET /debug?reflect=TARGET</c>.</summary>
+    /// signal the IDE exposes. Empty when unsupported. Surfaced by the debug dump (<c>reflect=TARGET</c>).</summary>
     string DebugReflect(string target);
 }
