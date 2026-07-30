@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { spawnSync } from "node:child_process"
+import { readdirSync } from "node:fs"
 import { bridge, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
@@ -37,11 +38,31 @@ function reopenIde(project: string): void {
 async function serving(): Promise<boolean> { return (await opErrorCode(() => bridge.refs())) === null }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** This test kills and reopens "the" IDE by project name, so it REQUIRES exactly one live XAE. With two open, the
+ *  kill/reopen and the harness's pipe pick race each other and the failures look like product bugs (they aren't).
+ *  Fail loud with the fix rather than quietly closing IDEs this test didn't open. */
+function liveXaePipes(): string[] {
+	try {
+		return readdirSync("\\\\.\\pipe\\").filter((n) => n.startsWith("volt.bridge.twincat."))
+	} catch {
+		return []
+	}
+}
+function requireSingleIde(): void {
+	const pipes = liveXaePipes()
+	if (pipes.length !== 1)
+		throw new Error(
+			`ide-restart needs EXACTLY ONE live TwinCAT XAE, found ${pipes.length} (${pipes.join(", ") || "none"}). ` +
+				`Reset with: pwsh scripts/twincat-instances.ps1 down; then up -Which 13`,
+		)
+}
+
 describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (${BASE})`, () => {
 	setDefaultTimeout(300_000) // a fresh IDE boot + build is minutes
 	let bound: Bound = {}
 
 	beforeAll(async () => {
+		requireSingleIde()
 		await requireHealthy()
 		const row = (await bridge.instances())?.[0]
 		bound = { project: row?.project }

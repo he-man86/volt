@@ -12,7 +12,7 @@ public class PushRequest
     public string? ExpectedProjectVersion { get; set; }
 
     /// <summary>Force: apply unconditionally — skip the per-item optimistic-concurrency (ifVersion) checks so
-    /// `push --force` clobbers the live IDE in ONE call (no pre-push /refs). The project-level
+    /// `push --force` clobbers the live IDE in ONE call (no pre-push <c>refs</c>). The project-level
     /// <see cref="ExpectedProjectVersion"/> gate still runs when set (that IS the --force-with-lease check).</summary>
     [JsonPropertyName("force")]
     public bool Force { get; set; }
@@ -96,7 +96,7 @@ public class PushResponse
     public Dictionary<string, string>? NewItems { get; set; }
 
     /// <summary>Full name → folder path for the post-apply state, so the client refreshes its sidecar
-    /// folder map from the push receipt instead of a follow-up /refs. Additive (nullable): an older client
+    /// folder map from the push receipt instead of a follow-up <c>refs</c>. Additive (nullable): an older client
     /// ignores it, so this needs no wire-version bump. Populated only on an accepted push.</summary>
     [JsonPropertyName("newFolders")]
     public Dictionary<string, string>? NewFolders { get; set; }

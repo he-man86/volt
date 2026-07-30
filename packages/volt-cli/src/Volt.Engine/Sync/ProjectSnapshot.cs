@@ -10,19 +10,24 @@ using Volt.Cli.Transport;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// One consistent walk of the project's tracked items into the version + folder maps that BOTH <c>/refs</c>
-/// and the <c>/push</c> receipt report. Having a SINGLE walk here is what guarantees those two agree
+/// One consistent walk of the project's tracked items into the version + folder maps that BOTH <c>refs</c>
+/// and the <c>push</c> receipt report. Having a SINGLE walk here is what guarantees those two agree
 /// byte-for-byte — a native rename rewrites the bodies of items OUTSIDE the pushed op set, so a receipt that
 /// reused pre-apply versions for "untouched" items reported a stale baseline, and the client (which persists
-/// the receipt as its IDE baseline, no follow-up <c>/refs</c>) then hit a spurious "pull first" on its next
-/// push. Re-materializing every item from the SAME walk <c>/refs</c> uses makes that drift impossible.
+/// the receipt as its IDE baseline, no follow-up <c>refs</c>) then hit a spurious "pull first" on its next
+/// push. Re-materializing every item from the SAME walk <c>refs</c> uses makes that drift impossible.
 ///
-/// The gates match <c>/refs</c> exactly: unmapped kinds, container-managers, and excluded-from-build items are
-/// skipped. <c>/fetch</c> keeps its own walk (it layers changed-body + onlyItems + library-signature logic on
-/// top) but is documented to produce the same version map for the same gates.
+/// The gates match <c>refs</c> exactly: unmapped kinds and container-managers are skipped (exclude-from-build is
+/// NOT modeled — an excluded object syncs as an ordinary file, see <see cref="Ide.ProjectItem"/>). <c>fetch</c>
+/// keeps its own walk (it layers changed-body + onlyItems + library-signature logic on top) but is documented to
+/// produce the same version map for the same gates.
 /// </summary>
 public sealed class ProjectSnapshot
 {
+    /// <summary><see cref="Walk"/> is the only producer — it is what computes the aggregate versions below, so a
+    /// snapshot can never exist with unhashed maps.</summary>
+    private ProjectSnapshot() { }
+
     /// <summary>Bare name → version — the aggregate-hash source (project/structure version).</summary>
     public Dictionary<string, string> Versions { get; } = new();
 
@@ -35,17 +40,19 @@ public sealed class ProjectSnapshot
     public int Unmapped { get; private set; }
     public int Unreadable { get; private set; }
 
-    public string ProjectVersion => Hasher.ComputeProjectVersion(Versions);
-    public string StructureVersion => Hasher.ComputeStructureVersion(Versions);
+    /// <summary>The aggregate versions over <see cref="Versions"/>, hashed ONCE at the end of the walk — they are
+    /// part of the snapshot, not recomputed (and re-sorted) per read.</summary>
+    public string ProjectVersion { get; private set; } = "";
+    public string StructureVersion { get; private set; } = "";
 
     /// <summary>The single gate that decides whether an item is TRACKED (counts toward the version maps + the
-    /// project/structure hash). Used by <see cref="Walk"/> AND by <c>/push</c>'s lease baseline so both hash the
+    /// project/structure hash). Used by <see cref="Walk"/> AND by <c>push</c>'s lease baseline so both hash the
     /// SAME item set — a divergent gate there would spuriously reject a push with "pull first". Skips: unmapped
     /// kinds and container-managers (folders, not items).</summary>
     public static bool IsTracked(int kindCode) =>
         ItemKind.Map(kindCode) != null && !ItemKind.IsContainerManager(kindCode);
 
-    /// <summary>Walk every tracked item once, applying the <c>/refs</c> gates. <paramref name="operation"/>
+    /// <summary>Walk every tracked item once, applying the <c>refs</c> gates. <paramref name="operation"/>
     /// labels the streamed progress frames + skip logs (e.g. "refs").</summary>
     public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs)
     {
@@ -72,6 +79,8 @@ public sealed class ProjectSnapshot
             if (mat != null) { snap.FullVersions[mat.FullName] = version; snap.Folders[mat.FullName] = it.Folder; }
             else snap.Unreadable++;
         }
+        snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
+        snap.StructureVersion = Hasher.ComputeStructureVersion(snap.Versions);
         return snap;
     }
 }

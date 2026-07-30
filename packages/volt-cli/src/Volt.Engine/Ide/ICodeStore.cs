@@ -28,5 +28,18 @@ public interface ICodeStore
     void WriteXml(ItemRef item, string xml);
 
     // ── Non-source kinds (libraries, tasks, …) ──
+    /// <summary>The item's MANIFEST: a canonical text body for a non-source item (library ref, task, device,
+    /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is
+    /// wire-observable twice over: <c>Materializer</c> writes it verbatim as the item's workspace file, and
+    /// <c>Hasher</c> takes the item's content version from it. So it is PARITY-CRITICAL — the same project must
+    /// yield byte-identical manifests on both vendors (see <c>Library/LibraryManifest</c>, the shared renderer for
+    /// <c>.library</c> refs). An item whose vendor exposes no metadata for this kind yields the canonical
+    /// kind-stamped body <c>"{kind}\n"</c> — never null, never empty, so the version basis stays stable.
+    /// Throws on real IDE failure; there is no silent fallback.</summary>
+    // ponytail: the "{kind}\n" literal is still hand-written in BOTH drivers (CodesysDriver.Code.cs /
+    // BeckhoffDriver.Code.cs) — pinning the contract here is the cheap half. Upgrade path: a Core helper
+    // (ItemKind.EmptyManifest(kind)) both drivers call, so a change to that value can't diverge per vendor.
+    // CODESYS additionally falls through to it for a kind whose descriptor reader was never written, which hides a
+    // missing implementation instead of failing — decide that loudly in the same pass.
     string ReadManifest(ItemRef item, string kind);
 }

@@ -7,29 +7,31 @@ namespace Volt.Engine.Sync;
 
 /// <summary>
 /// Canonical content-version hashing, shared by every bridge so the same project
-/// yields identical versions regardless of vendor. Adapters MUST route here rather
-/// than reimplement it — the wire protocol's change-detection depends on a single,
+/// yields identical versions regardless of vendor. Every driver/bridge MUST route here
+/// rather than reimplement it — the wire protocol's change-detection depends on a single,
 /// stable hash format.
 /// </summary>
 public static class Hasher
 {
     /// <summary>16-hex-char SHA-1 of the input (the building block for all versions).</summary>
-    public static string ComputeSha1Short(string? input)
+    private static string ComputeSha1Short(string input)
     {
         using var sha1 = SHA1.Create();
-        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(input ?? ""));
+        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(input));
         return ToHex(hash).Substring(0, 16);
     }
 
     /// <summary>Per-item content version: hash of the item's FOLDER + its MATERIALIZED workspace text
     /// (the exact assembled ST-text bytes the CLI writes for any writable source kind, or the manifest for
     /// non-source kinds). Content-addressed: same version ⇔ same file content, identical across both
-    /// bridges. Folder is included so a move re-versions the item.</summary>
-    public static string ComputeItemVersion(string? folderPath, string? materializedText)
+    /// bridges. Folder is included so a move re-versions the item. Both inputs are REQUIRED: a missing folder or
+    /// a missing body is a bug upstream, and defaulting it to "" would hash identically to a legitimately empty
+    /// one — silently drifting the version instead of surfacing the failure.</summary>
+    public static string ComputeItemVersion(string folderPath, string materializedText)
     {
         var sb = new StringBuilder();
-        sb.Append("folder=").Append(folderPath ?? "").Append('\0');
-        sb.Append("src=").Append(materializedText ?? "").Append('\0');
+        sb.Append("folder=").Append(folderPath).Append('\0');
+        sb.Append("src=").Append(materializedText).Append('\0');
         return ComputeSha1Short(sb.ToString());
     }
 

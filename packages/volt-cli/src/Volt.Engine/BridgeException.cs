@@ -17,12 +17,17 @@ public class BridgeException : Exception, ICodedError
     }
 
     /// <summary>The bridge is up but no IDE project is loaded — every project-touching op rejects with this until
-    /// a project is attached.</summary>
+    /// a project is attached.
+    /// <para>NB the code has a SECOND meaning today: <c>Wire/BridgePipeHost</c> also raises it for the tray's
+    /// deliberate pause gate, where nothing is "waiting for an IDE project" — so this canned message is wrong at
+    /// that call site (and a third message is built inline there). ARCH FOLLOW-UP: give the pause gate its own
+    /// factory with the same code; the message text is on the wire, so that is user-visible, not cosmetic.</para></summary>
     public static BridgeException PlcDisconnected() =>
         new(BridgeErrorCodes.PlcDisconnected, "Bridge is waiting for an IDE project");
 
     /// <summary>The bridge is serving a different project than the workspace is bound to — the op refuses rather
-    /// than touch the wrong IDE. Mirrors the wording the client's old pre-op binding check used.</summary>
+    /// than touch the wrong IDE. The client matches on the CODE alone (<c>Sync/Commands</c>); this text is what the
+    /// user reads.</summary>
     public static BridgeException WrongProject(string? bridgePlatform, string? bridgeName, string? boundPlatform, string? boundName) =>
         new(BridgeErrorCodes.WrongProject,
             $"the bridge is serving {bridgePlatform}/{bridgeName}, but this workspace is bound to {boundPlatform}/{boundName} — open the bound project in the IDE (or Reconnect)");

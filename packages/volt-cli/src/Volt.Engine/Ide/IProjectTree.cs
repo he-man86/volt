@@ -23,6 +23,13 @@ public interface IProjectTree
 
     int ChildCount(ItemRef item);
     ItemRef ChildAt(ItemRef parent, int index1Based);
+    /// <summary>The item's parent. Called only on an item the walk/lookup already found, and only rootward of it
+    /// (<c>PushService</c>'s delete + move-recreate), so the contract has no no-parent case.
+    /// <para>ARCH FOLLOW-UP: that is why it is non-nullable — and why both drivers launder a possibly-null native
+    /// handle into <see cref="ItemRef.Native"/>, so a call ON the tree root dies as a NullReferenceException inside
+    /// vendor reflection and reaches the client as INTERNAL_ERROR instead of a coded error. Make it honest
+    /// (<c>ItemRef?</c> the caller refuses on, or a coded NOT_FOUND in each driver) and reject a null native in the
+    /// <see cref="ItemRef"/> constructor so it cannot be laundered past the typed boundary.</para></summary>
     ItemRef Parent(ItemRef item);
     string Name(ItemRef item);
     /// <summary>The item's vendor-neutral kind code (see <c>ItemKind</c>).</summary>

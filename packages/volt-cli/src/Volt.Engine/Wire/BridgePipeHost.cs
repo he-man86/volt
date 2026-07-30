@@ -1,21 +1,18 @@
 using System;
 using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using Volt.Engine;
 using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
-using Volt.Engine.Wire;
 using Volt.Cli.Transport;
 
 namespace Volt.Engine.Wire;
 
 /// <summary>
-/// Hosts the Volt bridge protocol over a named pipe instead of HTTP — the SAME Core services (RefsService /
-/// FetchService / PushService / BuildService), reached by the CLI (and the connector) over a local pipe. This is the
-/// transport half of the volt-cli consolidation; the IDE-access half stays in Volt.Engine, and the op still runs on
-/// the driver's marshalled thread.
+/// Serves the bridge ops over the named pipe, for the CLI and the connector alike: maps each op to its Sync service
+/// (RefsService / FetchService / PushService / BuildService), marshals every project-touching call onto the driver's
+/// one IDE thread, streams progress frames, and is the single error boundary.
 /// </summary>
 public sealed class BridgePipeHost : IDisposable
 {
@@ -110,9 +107,9 @@ public sealed class BridgePipeHost : IDisposable
             case Ops.Refs:
                 return RunRead(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
             case Ops.Fetch:
-                return RunOp(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)), retry: true);
+                return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
             case Ops.Init:
-                return RunOp(() => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)), retry: true);
+                return RunRead(() => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
             case Ops.Push:
                 return RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
             case Ops.Build:
@@ -124,12 +121,12 @@ public sealed class BridgePipeHost : IDisposable
         }
     }
 
-    // Run a mutating op on the IDE thread. retry=true routes through RunRead (reads only — fetch/init; a push/build
-    // must NOT auto-retry, it could double-apply). A clean completion CONFIRMS the channel, so it clears any degraded
-    // flag — the counterpart to RunRead marking it on a transient, which together keep /health honest.
-    private object RunOp(Func<object> run, bool retry = false)
+    // Run a mutating op on the IDE thread. A clean completion CONFIRMS the channel, so it clears any degraded flag —
+    // the counterpart to RunRead marking it on a transient, which together keep `health` honest. A write must NOT
+    // auto-retry (it could double-apply), which is exactly why this is not RunRead: the read ops (refs/fetch/init)
+    // call RunRead directly, the writes (connect/push/build) come here.
+    private object RunOp(Func<object> run)
     {
-        if (retry) return RunRead(run);
         var r = _ide.RunOnStaThread(run);
         _ide.ClearDegraded();
         return r;
@@ -137,7 +134,7 @@ public sealed class BridgePipeHost : IDisposable
 
     // Run a READ op on the IDE thread, self-healing ONE transient failure. TwinCAT's out-of-process COM can drop a
     // call mid-flight (0x800706BA "RPC server unavailable") when the IDE re-registers / goes momentarily busy; the
-    // driver classifies that via ShouldMarkDegraded. On such a failure we MARK DEGRADED (so /health reflects the
+    // driver classifies that via ShouldMarkDegraded. On such a failure we MARK DEGRADED (so `health` reflects the
     // impaired channel instead of a stale "healthy"), Recover() (re-acquire the desired project by stable name, on
     // the IDE thread), and retry ONCE — a transient drop is invisible to the CALLER but visible in health. A clean
     // return clears degraded. Reads only: a write routed through here could double-apply. CODESYS is in-proc and never

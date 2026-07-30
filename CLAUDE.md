@@ -79,6 +79,7 @@ with `dotnet`; the TS e2e parity suite runs with `bun`:
 dotnet build Volt.Cli.sln -c Release                       # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                           # pipe transport + ported sync + black-box CLI
 dotnet test test/Volt.Engine.Tests/                      # shared engine (parsing/PLCopen/VG + push/fetch)
+dotnet test test/Volt.Cli.Connector.Tests/                 # connector core: session model, reconciler, TC supervisor
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```

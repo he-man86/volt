@@ -10,7 +10,8 @@ namespace Volt.Engine.Wire;
 /// The ambient-poll response, and it is nothing but a FLAT array of the projects this bridge can serve — one
 /// self-describing <see cref="ProjectEntry"/> per project (no nesting, no root fields). `health` is what the
 /// connector polls every ~4s (plus every control-plane `/status`); the connector concatenates every bridge's array
-/// into the ONE cross-vendor list it shows, and a frontend finds its own row by id. Everything is per-row because
+/// into the ONE cross-vendor list it shows, and a frontend finds its own row by vendor+name (the row carries no id —
+/// the connector mints the id it keys on). Everything is per-row because
 /// the merged list mixes vendors and states. Served from a CACHED snapshot, never a live walk on the request — a
 /// long op holds the single IDE thread, so a poll that marshalled onto it would stall the connector and read as a
 /// lost connection. Per-op results (refs/fetch/push/build) come back from those ops, not here.
@@ -35,10 +36,6 @@ public class HealthResponse
     /// <summary>The served project's name, or null.</summary>
     [JsonIgnore]
     public string? ProjectName => ServingProject?.Project;
-
-    /// <summary>The served project's unsaved-changes flag.</summary>
-    [JsonIgnore]
-    public bool ProjectDirty => ServingProject?.Dirty ?? false;
 
     /// <summary>The bridge's vendor. A bridge is one vendor, so any row's vendor answers — "" when empty.</summary>
     [JsonIgnore]

@@ -29,7 +29,7 @@ public class FetchRequest
     public List<string>? OnlyItems { get; set; }
 
     /// <summary>Bootstrap mode: return every item regardless of knownItems. Used by <c>volt init</c> to
-    /// seed the first workspace. A normal /fetch without knownItems AND without init=true is an error.</summary>
+    /// seed the first workspace. A normal <c>fetch</c> without knownItems AND without init=true is an error.</summary>
     [JsonPropertyName("init")]
     public bool Init { get; set; }
 
@@ -78,8 +78,8 @@ public class FetchResponse
     [JsonPropertyName("items")]
     public Dictionary<string, string> Items { get; set; } = new();
 
-    /// <summary>Full name → folder path map. Populated by /init and /fetch so the client
-    /// can reconstruct the tree without a separate /refs call.</summary>
+    /// <summary>Full name → folder path map. Populated by <c>init</c> and <c>fetch</c> so the client
+    /// can reconstruct the tree without a separate <c>refs</c> call.</summary>
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
 

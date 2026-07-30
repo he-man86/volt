@@ -9,9 +9,14 @@ namespace Volt.Engine.Library;
 /// language model exposes, produced deterministically so a library version hashes stably.</summary>
 public static class LibSignatureRenderer
 {
-    // Skip only compiler-internal (`__`-prefixed) names — a real declaration/member name is never usable as one.
+    // A renderable name must be a plain IEC identifier AND must not CONTAIN a double underscore anywhere —
+    // `__` marks a compiler-mangled/internal name (`__POOL`, `SysMem__Impl`), never something user code names.
     // (A single-letter name like a Point's `X`/`Y` is a VALID identifier and must NOT be dropped — the old
     // X/B/W/D/L "direct-address prefix" heuristic silently lost such struct fields.)
+    // ponytail: dropped names are not logged, and Block() tests emptiness on the UNFILTERED list, so an
+    // all-`__` pin set still emits a bare `VAR_INPUT`/`END_VAR` pair. Upgrade path: return the drop count so
+    // FetchService can tally it beside its lib-render-null/lib-unmatched lines, and filter before the count —
+    // both change rendered bytes, so they belong to a deliberate re-fetch, not a behavior-preserving pass.
     private static bool OkName(string n) =>
         Regex.IsMatch(n, "^[A-Za-z_][A-Za-z0-9_]*$") && !n.Contains("__");
 

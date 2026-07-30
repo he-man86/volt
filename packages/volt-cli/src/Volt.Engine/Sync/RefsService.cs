@@ -10,6 +10,10 @@ using Volt.Cli.Transport;
 
 namespace Volt.Engine.Sync;
 
+/// <summary><c>refs</c>: the project snapshot — the aggregate versions (<c>projectVersion</c>,
+/// <c>structureVersion</c>) plus the per-item version map and the folder map, for every tracked item.
+/// It comes from the ONE walk (<c>ProjectSnapshot</c>) the <c>push</c> receipt also uses, so the two can
+/// never drift. No source bodies — that is <c>fetch</c>.</summary>
 public static class RefsService
 {
     public static RefsResponse Handle(IIdeDriver ide, Action<ProgressFrame>? onProgress = null)
@@ -17,7 +21,6 @@ public static class RefsService
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
         var sw = Stopwatch.StartNew();
-        // /refs IS the project snapshot — the same walk the /push receipt uses, so the two never drift.
         var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs);
 
         var hit = new List<string>();

@@ -8,11 +8,14 @@ using Volt.Cli.Transport;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// <c>/debug?name=ITEM&amp;xml=1</c> (diagnostic, STRICTLY READ-ONLY) — the one bridge debug endpoint.
+/// The one bridge debug dump (diagnostic, STRICTLY READ-ONLY), driven by plain arguments — <c>name</c>,
+/// <c>includeBodies</c>, <c>libSig</c>, <c>xmlOf</c>, <c>reflect</c>. The HTTP-era <c>GET /debug?name=ITEM&amp;xml=1</c>
+/// went away with the HTTP wire, and no pipe op serves this today (recorded in openspec
+/// <c>audit-volt-cli-src/arch-notes.md</c>: restore a <c>debug</c> op or delete it, don't leave it half-wired).
 /// Returns <c>{ tree, [count, bodies] }</c>:
 ///   • <c>tree</c>: the raw IDE tree under <c>name</c> (whole PLC-project root if omitted) — each node's
 ///     name, kind code + kind string, type tags, and declaration/implementation text, recursively.
-///   • <c>count</c> + <c>bodies</c> (only with <c>xml=1</c>): every POU's raw PLCopen XML as a flat
+///   • <c>count</c> + <c>bodies</c> (only with <c>includeBodies</c>): every POU's raw PLCopen XML as a flat
 ///     <c>folder/name.ext → xml</c> map — the exact bytes the IDE emits, for corpus capture. This IS the
 ///     capture path (it folded in what used to be a separate <c>/raw</c> HTTP endpoint + harvest script).
 ///
@@ -26,13 +29,13 @@ public static class DebugService
 {
     public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null, string? xmlOf = null, string? reflect = null)
     {
-        // `?reflect=TARGET` (project|objmgr|object) → the change-detection surface of that object-model member.
+        // `reflect` = TARGET (project|objmgr|object) → the change-detection surface of that object-model member.
         if (!string.IsNullOrEmpty(reflect))
             return new Dictionary<string, object?> { ["reflect"] = ide.DebugReflect(reflect!) };
-        // `?xmlof=NAME` → the raw item-metadata XML (e.g. to inspect how a property lists its accessors).
+        // `xmlOf` = NAME → the raw item-metadata XML (e.g. to inspect how a property lists its accessors).
         if (!string.IsNullOrEmpty(xmlOf))
             return new Dictionary<string, object?> { ["xml"] = ide.DebugItemXml(xmlOf!) };
-        // `?libsig=NAME` (or `?libsig=*` for all): introspect the library signatures instead of the tree — the
+        // `libSig` = NAME (or `*` for all): introspect the library signatures instead of the tree — the
         // implemented interfaces + property values of each element, to see how a DUT (alias/struct/enum) is modeled.
         if (libSig != null)
         {

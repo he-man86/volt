@@ -4,9 +4,12 @@
  * for a 20s op must not stall the other's health OR its refs, and neither instance leaks into the other's project.
  * This is the real (two-process) counterpart to the FakeIde `Health_polls_across_two_bridges` unit test.
  *
- * Point it at the two per-pid pipes (from `codesys-pipe.ps1 up -Instance …` ×2), from packages/volt-cli:
+ * Point it at the two per-pid pipes (from `codesys-pipe.ps1 up -Instance …` ×2), from packages/volt-cli. The SLOW
+ * one must be the large committed fixture — that's what makes the 20s-op assertion mean anything:
+ *   codesys-pipe.ps1 up                                                        # CodesysTestProject  -> FAST
+ *   codesys-pipe.ps1 up -Instance b -Project test\Pro2193-94-95-96_COdesys.project   # 9.9 MB -> SLOW
  *   VOLT_PIPE_SLOW=volt.bridge.codesys.<bigPid> VOLT_PIPE_FAST=volt.bridge.codesys.<smallPid> \
- *     bun test test/e2e/stability/parallel-instances.test.ts --timeout 180000
+ *     bun test test/e2e/stability/parallel-instances.test.ts --timeout 300000
  * Skips cleanly when the two pipes aren't set (so the normal single-pipe suite is unaffected).
  */
 import { test, expect, describe, beforeAll } from "bun:test"
@@ -92,11 +95,18 @@ suite("live parallel: a slow instance must not stall the other", () => {
 		expect(maxFast).toBeLessThan(2000)
 	}, OP_TIMEOUT)
 
+	// NOTE: do NOT assert the two instances' projectVersions DIFFER. `projectVersion` is a pure CONTENT hash
+	// (Hasher: sorted name:itemVersion lines), and two distinct projects with identical content hash identically —
+	// which is correct, and a normal real-world case (copy a project as a template for the next machine; it stays
+	// byte-identical until someone edits it). Both committed small fixtures are the untouched stock "empty standard
+	// project", so they hash the same. Identity in Volt is vendor+name, never content — that's what the
+	// distinct-project assertion above tests, off `health`.
 	test("repeated refs on each instance are hash-stable and independent", async () => {
 		const s1 = await call(SLOW!, "refs"); const f1 = await call(FAST!, "refs")
 		const s2 = await call(SLOW!, "refs"); const f2 = await call(FAST!, "refs")
 		expect(s2.projectVersion).toBe(s1.projectVersion)   // slow instance stable
 		expect(f2.projectVersion).toBe(f1.projectVersion)   // fast instance stable
-		expect(s1.projectVersion).not.toBe(f1.projectVersion) // and the two projects are genuinely different
+		expect(Object.keys(s1.items).length).toBeGreaterThan(0) // each instance answered from its own walk
+		expect(Object.keys(f1.items).length).toBeGreaterThan(0)
 	}, OP_TIMEOUT)
 })

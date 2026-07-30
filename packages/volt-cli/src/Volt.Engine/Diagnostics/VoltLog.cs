@@ -18,11 +18,14 @@ public enum VoltLogLevel { Debug, Info, Warn, Error }
 /// </summary>
 public static class VoltLog
 {
+    // Gate guards the file append (and _dir, which only it and Init touch). _source/_level are read on every
+    // log call from any thread while Init may be writing them, so they are volatile instead — no lock needed to
+    // read a single field, and taking one on the hot path would serialize callers that aren't writing a file.
     private static readonly object Gate = new object();
     private static string _dir = DefaultDir();
-    private static string _source = "volt";
+    private static volatile string _source = "volt";
     private static bool _enabled;
-    private static VoltLogLevel _level = VoltLogLevel.Info;
+    private static volatile VoltLogLevel _level = VoltLogLevel.Info;
     private const int RetentionDays = 14;
 
     /// <summary>The durable log directory (<c>%LOCALAPPDATA%\Volt\logs</c>), the one place every component writes.</summary>
@@ -31,8 +34,8 @@ public static class VoltLog
     /// <summary>Minimum level emitted. Default <c>Info</c> — Debug lines are silent unless opted in.</summary>
     public static VoltLogLevel Level
     {
-        get { lock (Gate) return _level; }
-        set { lock (Gate) _level = value; }
+        get => _level;
+        set => _level = value;
     }
 
     /// <summary>Enable logging for this process under <paramref name="source"/> (e.g. "codesys", "twincat",
@@ -52,11 +55,11 @@ public static class VoltLog
         }
     }
 
-    public static void Debug(string message) => Write(VoltLogLevel.Debug, _source, message);
-    public static void Info(string message) => Write(VoltLogLevel.Info, _source, message);
-    public static void Warn(string message) => Write(VoltLogLevel.Warn, _source, message);
+    public static void Debug(string message) => Write(VoltLogLevel.Debug, message);
+    public static void Info(string message) => Write(VoltLogLevel.Info, message);
+    public static void Warn(string message) => Write(VoltLogLevel.Warn, message);
     public static void Error(string message, Exception? ex = null) =>
-        Write(VoltLogLevel.Error, _source, ex == null ? message : $"{message} :: {ex}");
+        Write(VoltLogLevel.Error, ex == null ? message : $"{message} :: {ex}");
 
     /// <summary>Append an already-produced line from a child process's stdout/stderr under its own source tag
     /// (so a supervised worker's output lands in the same durable store, timestamped).</summary>
@@ -66,9 +69,11 @@ public static class VoltLog
         WriteLine(source, $"[{Timestamp()}][{source}] {line}");
     }
 
-    private static void Write(VoltLogLevel level, string source, string message)
+    // This process's own source tag — only Raw() logs under someone else's (a supervised worker's).
+    private static void Write(VoltLogLevel level, string message)
     {
         if (level < _level) return;
+        var source = _source;
         WriteLine(source, $"[{Timestamp()}][{source}][{level.ToString().ToLowerInvariant()}] {message}");
     }
 

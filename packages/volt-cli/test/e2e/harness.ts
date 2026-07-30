@@ -18,12 +18,35 @@ export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codes
 // the same vendor.
 const PIPE_PREFIX = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
 
+/** Is the pid in `volt.bridge.<vendor>.<pid>` still a running process? A killed TwinCAT XAE's worker keeps serving
+ *  its pipe for up to ~15s until the connector reaps it, and that pipe answers PLC_DISCONNECTED ("waiting for an IDE
+ *  project") — so picking it looks exactly like a product bug. The pipe is NAMED after the IDE's pid, so liveness is
+ *  a cheap sync check. Un-suffixed / unparsable names are kept (nothing to check). Mirrors why the CLI has
+ *  BridgeResolver: never target a bridge that isn't serving. */
+function ideAlive(pipeName: string): boolean {
+	const pid = Number(pipeName.split(".").pop())
+	if (!Number.isInteger(pid) || pid <= 0) return true
+	try {
+		process.kill(pid, 0)
+		return true
+	} catch {
+		return false
+	}
+}
+
 /** The live per-pid pipe(s) matching the target (the VOLT_PIPE prefix, or any pipe of this vendor). */
 function livePipes(): string[] {
 	try {
-		return readdirSync("\\\\.\\pipe\\").filter(
+		const matching = readdirSync("\\\\.\\pipe\\").filter(
 			(n) => n === PIPE_PREFIX || n.startsWith(PIPE_PREFIX + ".") || n.startsWith(`volt.bridge.${VENDOR}.`),
 		)
+		// PREFER pipes whose IDE is still alive, so a stale worker is never picked while a live bridge exists. But if
+		// none is alive, still return the real pipes: a TwinCAT worker deliberately OUTLIVES its IDE (~15s until the
+		// connector reaps it) and must answer PLC_DISCONNECTED from that window — that is a product behavior the
+		// chaos suite exists to assert, not a state to hide. This is a choice among REAL pipes, not a fabricated
+		// result; the fabrication this file must never do is inventing a pipe name (see pipeCall).
+		const alive = matching.filter(ideAlive)
+		return alive.length > 0 ? alive : matching
 	} catch {
 		return []
 	}
@@ -48,6 +71,14 @@ export const FOLDER = "POUs"
  *  restarted with a new pid is followed; a connect error drops the cached pipe so the next call re-discovers. */
 function pipeCall(op: string, body?: unknown): Promise<any> {
 	const pipe = resolvePipe()
+	// Say what's actually wrong. Connecting to the bare prefix instead yields `ENOENT \\.\pipe\volt.bridge.codesys`,
+	// which reads as a bridge bug when the truth is "no IDE is up yet" — the exact trap that made a cold baseline run
+	// report 3 phantom failures.
+	if (!livePipes().includes(pipe))
+		throw new Error(
+			`no live ${PIPE_PREFIX}* pipe — is the IDE running and its project loaded? ` +
+				`(CODESYS: scripts/codesys-pipe.ps1 up · TwinCAT: scripts/twincat-instances.ps1 up, connector running)`,
+		)
 	return new Promise((resolve, reject) => {
 		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = ""

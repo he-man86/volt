@@ -1,7 +1,7 @@
 namespace Volt.Cli.Transport;
 
 /// <summary>The bridge pipe op names — the wire <c>op</c> field — defined once. The host dispatch
-/// (<c>BridgePipeHost</c>), every client (<c>BridgeClient</c>, the connector sources, <c>HealthProbe</c>), and the
+/// (<c>BridgePipeHost</c>), every client (<c>BridgeClient</c>, the connector's <c>PerPipeProjectSource</c>), and the
 /// progress/active-op labels that mirror these ops all reference these consts, so an op is spelled in exactly ONE
 /// place. The values travel on the wire as-is: name them freely, change them never.
 ///

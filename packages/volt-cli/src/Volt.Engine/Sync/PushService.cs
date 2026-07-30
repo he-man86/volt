@@ -286,8 +286,8 @@ public static class PushService
                 "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
                 "Rename or remove the duplicate.");
 
-        var decl = split.PouDeclaration ?? "";
-        var impl = split.PouImplementation ?? "";
+        var decl = split.PouDeclaration;
+        var impl = split.PouImplementation;
         var itemType = PouKindToCode(split.PouKind);
         // Only POUs (program/function/function_block) have an implementation-body slot. DUTs, GVLs and
         // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
@@ -319,8 +319,8 @@ public static class PushService
                 // Validate the VG body (parser + round-trip gate) BEFORE creating the item — otherwise a
                 // refused push leaves an orphaned, unlisted stub POU that blocks the next create.
                 GraphicalCode.Validate(impl);
-                var lang = VgBody.LanguageOf(impl) ?? "FBD";
-                pou = ide.CreateChild(targetParent, name, itemType, lang ?? "ST");
+                var lang = VgBody.LanguageOf(impl)!;   // Validate above proved an editable FBD/LD marker is present
+                pou = ide.CreateChild(targetParent, name, itemType, lang);
                 // A graphical POU's program-scope declaration is NOT carried by the body write —
                 // GraphicalCode.Write only writes the BODY and preserves the export's <interface>, which on a
                 // fresh create is empty, leaving the vars the contacts/coils reference undeclared. Write the
@@ -333,7 +333,7 @@ public static class PushService
                 pou = ide.CreateChild(targetParent, name, itemType);
                 // The COM reference from CreateChild is stale for interface items — re-find
                 // before writing anything. Without this, WriteText and child creation fail.
-                if (itemType == ItemKind.PlcItf && existing is null)
+                if (itemType == ItemKind.PlcItf)
                     pou = FindChild(ide, targetParent, name) ?? pou;
                 // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
                 // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
@@ -472,17 +472,9 @@ public static class PushService
     /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
     /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
     /// through and create a user folder beside it.</summary>
-    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name)
-    {
-        int count = ide.ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ide.ChildAt(parent, i);
-            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase) && !ItemKind.IsTopLevelCrud(ide.KindCode(child)))
-                return child;
-        }
-        return ide.CreateChild(parent, name, ItemKind.PlcFolder);
-    }
+    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+        FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
+            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
     // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
     private static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder)
@@ -494,30 +486,33 @@ public static class PushService
         return node;
     }
 
-    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name)
-    {
-        int count = ide.ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ide.ChildAt(parent, i);
-            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase) && ide.KindCode(child) == ItemKind.PlcFolder)
-                return child;
-        }
-        return ide.CreateChild(parent, name, ItemKind.PlcFolder);
-    }
+    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+        FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
+            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
-    private static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name)
+    private static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
+        FirstChild(ide, parent, c => NameIs(ide, c, name));
+
+    /// <summary>The one 1-based child scan every lookup here shares: first child matching
+    /// <paramref name="match"/>, or null. (<see cref="RemoveOrphanChildren"/> keeps its own loop on purpose —
+    /// it snapshots the whole level before mutating.)</summary>
+    private static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
     {
         int count = ide.ChildCount(parent);
         for (int i = 1; i <= count; i++)
         {
             var child = ide.ChildAt(parent, i);
-            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase)) return child;
+            if (match(child)) return child;
         }
         return null;
     }
 
-    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string decl, string impl, bool isInterface = false)
+    // Names are matched case-insensitively: IEC identifiers are case-insensitive, so Core never trusts the
+    // IDE's casing.
+    private static bool NameIs(IIdeDriver ide, ItemRef item, string name) =>
+        string.Equals(ide.Name(item), name, StringComparison.OrdinalIgnoreCase);
+
+    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string decl, string impl, bool isInterface)
     {
         var accessor = FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
         // An INTERFACE property accessor is a bodiless stub: it only declares that a getter/setter exists,
@@ -540,7 +535,7 @@ public static class PushService
     // The splitter only ever emits method/action/property as textual children; interface vs non-interface is
     // the isInterface flag (the parent's kind), NOT a distinct child-kind string — so there is no
     // "interface_method"/"interface_property" arm. An unknown kind throws rather than defaulting to action.
-    private static int ChildKindToCode(string kind, bool isInterface = false) => kind switch
+    private static int ChildKindToCode(string kind, bool isInterface) => kind switch
     {
         ItemKind.Kinds.Method => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
         ItemKind.Kinds.Action => ItemKind.PlcAction,

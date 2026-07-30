@@ -3,7 +3,6 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 
 namespace Volt.Cli.Transport;
@@ -14,7 +13,7 @@ namespace Volt.Cli.Transport;
 public delegate object PipeDispatch(PipeRequest request, Action<object> emitProgress);
 
 /// <summary>
-/// A newline-delimited-JSON RPC server over a Windows named pipe — the transport that replaces the HTTP server.
+/// A newline-delimited-JSON RPC server over a Windows named pipe.
 /// One request per connection: the client writes a <see cref="PipeRequest"/> line; the server streams zero or
 /// more <c>{"progress":…}</c> frames then exactly one <c>{"result":…}</c> or <c>{"error":…}</c>, and closes.
 /// Connections are served CONCURRENTLY (a fresh pipe instance is armed the moment one is accepted), so a health
@@ -22,16 +21,9 @@ public delegate object PipeDispatch(PipeRequest request, Action<object> emitProg
 /// </summary>
 public sealed class PipeServer : IDisposable
 {
-    private static readonly JsonSerializerOptions Json = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     private readonly string _pipeName;
     private readonly PipeDispatch _dispatch;
     private volatile bool _running;
-    private Thread? _acceptThread;
 
     public PipeServer(string pipeName, PipeDispatch dispatch)
     {
@@ -43,8 +35,7 @@ public sealed class PipeServer : IDisposable
     {
         if (_running) return;
         _running = true;
-        _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "volt-pipe-accept" };
-        _acceptThread.Start();
+        new Thread(AcceptLoop) { IsBackground = true, Name = "volt-pipe-accept" }.Start();
     }
 
     public void Stop()
@@ -86,7 +77,7 @@ public sealed class PipeServer : IDisposable
             {
                 var line = ReadLine(server);
                 if (line == null) return;
-                var req = JsonSerializer.Deserialize<PipeRequest>(line, Json) ?? new PipeRequest();
+                var req = JsonSerializer.Deserialize<PipeRequest>(line, PipeJson.Options) ?? new PipeRequest();
                 // Per-connection frames are written strictly in order (progress on the op thread, then the result
                 // after the op returns) — no concurrent writer on this stream, so no lock is needed.
                 var result = _dispatch(req, frame => WriteFrame(server, new PipeFrame { Progress = frame }));
@@ -122,7 +113,7 @@ public sealed class PipeServer : IDisposable
 
     private static void WriteFrame(Stream s, PipeFrame frame)
     {
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(frame, Json) + "\n");
+        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(frame, PipeJson.Options) + "\n");
         s.Write(bytes, 0, bytes.Length);
         s.Flush();
     }

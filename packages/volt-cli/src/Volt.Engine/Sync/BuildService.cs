@@ -10,8 +10,8 @@ using Volt.Cli.Transport;
 
 namespace Volt.Engine.Sync;
 
-/// <summary><c>/build</c>: compile the project and return success + typed diagnostics. A thrown build
-/// is reported as a failed BuildResponse (the client wants the diagnostics, not a 500).</summary>
+/// <summary><c>build</c>: compile the project and return success + typed diagnostics. A failed build is
+/// reported as <c>success:false</c> + diagnostics, not an error frame — the client wants the diagnostics.</summary>
 public static class BuildService
 {
     public static BuildResponse Handle(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null)

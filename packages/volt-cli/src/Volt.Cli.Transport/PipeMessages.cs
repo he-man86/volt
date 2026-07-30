@@ -3,9 +3,20 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Cli.Transport;
 
-/// <summary>A request on the pipe wire: an op name (<c>health|refs|fetch|init|push|build</c>) + an optional raw
-/// JSON body the host deserializes to the matching DTO. This collapses the old HTTP method+path+body to one
-/// framed line — the wire is otherwise identical (newline-delimited JSON frames).</summary>
+/// <summary>The ONE encoding of the pipe wire — camelCase field names, nulls omitted (so each frame serializes to a
+/// single key). Both directions share it (<see cref="PipeServer"/> and <see cref="PipeClient"/>), so the bytes one
+/// end writes can't drift from what the other end expects.</summary>
+internal static class PipeJson
+{
+    public static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+}
+
+/// <summary>A request on the pipe wire: an op name (see <see cref="Ops"/>) + an optional raw JSON body the host
+/// deserializes to the matching DTO — one framed line (newline-delimited JSON).</summary>
 public sealed class PipeRequest
 {
     [JsonPropertyName("op")] public string Op { get; set; } = "";

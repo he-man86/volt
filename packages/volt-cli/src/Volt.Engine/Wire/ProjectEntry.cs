@@ -7,7 +7,8 @@ namespace Volt.Engine.Wire;
 /// TwinCAT project has no child projects). Self-describing so the wire needs no nesting and no root fields: each
 /// bridge's <c>health</c> returns a FLAT list of these (all its own vendor), and the connector simply concatenates
 /// every bridge's list into the ONE cross-vendor array it shows (which is why <see cref="Vendor"/> is per-row). A
-/// frontend then finds its own row by id and reads that row's state.
+/// frontend then finds its own row by vendor+name and reads that row's state — the row carries no id; the connector
+/// mints the id it keys on (<c>DetectedProject.MakeId</c>) from exactly those two fields.
 /// <list type="bullet">
 ///   <item><see cref="Vendor"/> — "codesys" | "twincat" (per row: the merged array mixes vendors).</item>
 ///   <item><see cref="Project"/> — the row's IDENTITY and its `select` address. A project is identified by its
