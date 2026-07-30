@@ -26,11 +26,37 @@
 - [ ] 2.2 Ideally an e2e case with a real CFC method child in a fixture — the unit tests use `FakeIde`'s
       `BodyLang`, which is a model of the vendors' behaviour, not the behaviour itself.
 
-## 3. Bug 2 — a pushed item does not survive the IDE being killed (OPEN)
+## 3. Bug 2 — a pushed item does not survive the IDE being killed — ROOT CAUSE FOUND 2026-07-30
 
-- [ ] 3.1 **Separate "never saved" from "saved but not reloaded" first** — the cheapest decisive experiment: push an
-      item, then WITHOUT killing anything, check whether it exists on disk under `test/TwinCAT Project14/`. That one
-      observation eliminates half the candidate causes.
+**It is not a save failure. The content IS saved; the project REGISTRATION is not.** Evidence, straight off disk
+after the failing `ide-restart` run:
+
+- `test/TwinCAT Project14/TwinCAT Project14/Untitled2/POUs/VltE2E_restart_survives.TcPOU` — **exists**, 520 bytes.
+- `Untitled2/Untitled2.plcproj` — **does not reference it**. The only file mentioning the item is the POU file itself.
+
+So the pushed POU is an **orphan on disk**: its content was written, but the project that lists it never recorded it.
+A reopened XAE therefore does not contain the item (`item '…' not in fetch`), and the stray file pollutes the
+fixture — which is exactly the untracked `Untitled2/POUs/` directory that kept appearing in `git status`.
+
+**Mechanism:** `FlushPendingWrites` calls `_dte.Solution.Save()` then `_dte.Documents.SaveAll()`.
+In the VS DTE model `Solution.Save()` saves the **solution** file — that is the `TwinCAT Project14.tsproj` git keeps
+showing as modified — and NOT the projects inside it. `Documents.SaveAll()` wrote the `.TcPOU`. **Nothing ever saved
+the `.plcproj`.** The current code saves the two artifacts that don't matter for durability and misses the one that
+does.
+
+**This makes the fix and the §4 scoping the SAME change:** save the containing PLC **project**, instead of the whole
+solution plus every open editor. It is both narrower (never touches the engineer's unrelated tabs) and *more*
+correct (it persists the registration that was being lost).
+
+- [ ] 3.0 Implement it: from `_dte`, resolve the PLC project we are bound to and call `Save()` on it (TwinCAT nests
+      the PLC project inside the TwinCAT project, so `Solution.Projects` likely needs a walk into `ProjectItems` —
+      confirm against the live model, do not infer it). Keep the failure loud.
+- [ ] 3.0b Red-first is possible WITHOUT an IDE for the ordering/選択 part only; the real proof is live, below.
+- [ ] 3.0c Delete the orphan `Untitled2/POUs/VltE2E_restart_survives.TcPOU` (and any siblings) from the fixture, and
+      confirm a clean `git status` after a passing run — a green run must leave no stray files.
+
+- [x] 3.1 DONE — that one observation is what cracked it: the file was on disk, so "never saved" was wrong and the
+      registration was the missing piece.
 - [ ] 3.2 Check the push path's `FlushPendingWrites` call: is it invoked at all, and is it invoked AFTER the child
       writes rather than before? (`IIdeSession` documents "after applying a push".)
 - [ ] 3.3 Read `%LOCALAPPDATA%\Volt\logs\twincat-*.log` across a push + kill + reopen. With the health probe no
@@ -42,7 +68,51 @@
 - [ ] 3.6 **`ide-restart` to 2 pass / 0 fail**, assertions intact. It is currently 1 pass / 1 fail and stays red
       until this is fixed — do NOT weaken it.
 
-## 4. Scope the TwinCAT save to what Volt wrote (DECIDED 2026-07-30, not yet implemented)
+## 4. Does push need to save AT ALL? (decision REOPENED 2026-07-30 on new evidence)
+
+The §3 finding changes the premise of the earlier "scope the save" decision, so it is reopened deliberately rather
+than carried forward.
+
+**What the save actually achieves today: inconsistency, not durability.** With no save, killing the IDE discards
+both the tree change and the file — the item never existed. Consistent (work lost, nothing corrupted). With the
+current save we get a `.TcPOU` on disk that no `.plcproj` references: an orphan, and a name-shadowing hazard in a
+product whose identity IS the item name. So the save is not buying durability; it is manufacturing a broken state.
+
+**The only surviving argument for saving** is the sequencing claim in `FlushPendingWrites`'s own comment: tree ops
+(create/delete/rename) change structure on disk, so persisting avoids "a later rename colliding with stale files
+from async tree deletions". That is an empirical claim about TwinCAT, and it is the whole decision. Note the
+`ide-restart` durability assertion CANNOT be used as evidence for it — that test encodes the same unproven
+assumption.
+
+### 4.1 RESULT (2026-07-30): removing the save is NOT free — it HANGS
+
+Ran it: TwinCAT `FlushPendingWrites` made a no-op, worker rebuilt, live TC e2e suite. The suite **hung** (>580 s
+against a 191 s baseline) and had to be killed. Observed live: it gets stuck on a **property GET** operation.
+
+So the sequencing claim is NOT stale — something in the property-accessor path depends on the save having happened.
+That kills the "delete it, zero logic" option, which was the preferred one. The narrow save (save the containing
+PLC project, which is also what fixes the orphan) is now the leading candidate, but it must be re-tested against
+this hang, not just against the durability assertion.
+
+Caveat worth respecting: property accessors are independently flaky here (noted by the user), so before concluding
+"the save fixes the hang", isolate — run the property cases alone with and without the save. A hang that is really
+about accessor instability would otherwise be misattributed to the save policy and freeze the wrong design.
+
+- [ ] 4.1b Isolate the hang: run only the property/accessor e2e cases, save vs no-save, and confirm which one
+      actually changes the outcome. Do NOT delete the property cases to make the suite pass — the instability is a
+      finding in its own right and hiding it loses it.
+- [ ] 4.1c Then re-run the ORIGINAL experiment: make TwinCAT's `FlushPendingWrites` a no-op,
+      rebuild the worker, and run the full live TC e2e suite — it contains the create/rename/delete/move cases that
+      would trip the stale-file collision. Compare against the 90 pass / 0 fail baseline.
+      - all 90 still pass ⇒ the sequencing claim is stale; **delete the save**, and `ide-restart`'s durability
+        assertion must be retired as a deliberate decision (push means "the IDE has it"; the engineer saves).
+      - some fail ⇒ the claim is real; keep a save but make it the CORRECT and NARROW one: save the containing PLC
+        project (the `.plcproj`), which is what fixes the orphan AND never touches the engineer's other tabs.
+- [ ] 4.2 Either way, `Solution.Save()` + `Documents.SaveAll()` goes: it saves the solution file and every open
+      editor — the two artifacts that don't matter for registration — and misses the `.plcproj` that does.
+- [ ] 4.3 Whatever survives must keep failing LOUD, and a green run must leave the fixture clean (no orphan files).
+
+## 5. (superseded) Scope the TwinCAT save to what Volt wrote
 
 **Decision:** `push` stays durable — a push that reports success must be on disk — but it must NOT commit the
 engineer's unrelated work. `Solution.Save()` + `Documents.SaveAll()` saves every open editor, which is a side effect
