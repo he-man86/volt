@@ -1,7 +1,6 @@
 import * as vscode from "vscode"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { resolveOpencodeExe, hasOpencode } from "./agent.js"
 import { startLsp, stopLsp, registerLspCommands, markLspFailed } from "./lsp.js"
 import { registerCommands } from "./commands.js"
 import { hasVoltConfig, workspaceFolders } from "./workspace.js"
@@ -12,30 +11,16 @@ import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace
 
 // Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
 // launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
-// retro-fit it. The installer lays volt.exe down at a known place (…\Programs\Volt\current\bin), and points
-// OPENCODE_CONFIG_DIR at a sibling; try both, fall back to PATH (dev / non-default install) so cliScript still works.
+// retro-fit it. The installer lays volt.exe down at a known place (…\Programs\Volt\current\bin); fall back to PATH
+// (dev / non-default install) so cliScript still works.
 function resolveVoltCli(): string | undefined {
   const exe = process.platform === "win32" ? "volt.exe" : "volt"
-  const candidates: string[] = []
-  const cfg = process.env.OPENCODE_CONFIG_DIR // …\current\opencode-config
-  if (cfg) candidates.push(join(cfg, "..", "bin", exe))
-  if (process.env.LOCALAPPDATA) candidates.push(join(process.env.LOCALAPPDATA, "Programs", "Volt", "current", "bin", exe))
-  return candidates.find(existsSync)
+  if (!process.env.LOCALAPPDATA) return undefined
+  return [join(process.env.LOCALAPPDATA, "Programs", "Volt", "current", "bin", exe)].find(existsSync)
 }
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
-
-// opencode is missing — say so and point at opencode.ai; the user installs it themselves. Volt never installs
-// opencode. The rest of Volt works without it either way.
-async function promptInstallOpencode(): Promise<void> {
-	const get = "Get it from opencode.ai"
-	const pick = await vscode.window.showWarningMessage(
-		"The Volt agent is powered by the opencode CLI, which isn't installed. Sync, the language server and the IDE bridge work without it.",
-		get,
-	)
-	if (pick === get) void vscode.env.openExternal(vscode.Uri.parse("https://opencode.ai/download"))
-}
 
 export async function activate(context: vscode.ExtensionContext) {
 	// The `volt` CLI is the shipped C# binary the Volt installer lays down (a per-platform native exe is too heavy
@@ -45,37 +30,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	const voltCli = resolveVoltCli()
 	if (voltCli) setBundledCli(voltCli)
 
-	// "Volt: Open Agent" — open, or focus an already-open, agent terminal running opencode (which Volt makes
-	// PLC-aware via OPENCODE_CONFIG_DIR). New Session always starts a fresh one. opencode is a PREREQUISITE the
-	// extension doesn't bundle — if it's absent we prompt to install it (see agent.ts / promptInstallOpencode).
-	let agentTerm: vscode.Terminal | undefined
-	let opening = false // guard: the hasOpencode() await lets a second invocation race in and create a 2nd terminal
-	const openAgent = async (newSession: boolean): Promise<void> => {
-		if (!newSession && agentTerm !== undefined) {
-			agentTerm.show()
-			return
-		}
-		if (opening) return
-		opening = true
-		try {
-			if (!(await hasOpencode())) {
-				void promptInstallOpencode()
-				return
-			}
-			const cwd = workspaceFolders()[0]?.uri.fsPath
-			agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveOpencodeExe() })
-			agentTerm.show()
-		} finally {
-			opening = false
-		}
-	}
-	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.openAgent", () => void openAgent(false)),
-		vscode.commands.registerCommand("volt.newAgentSession", () => void openAgent(true)),
-		vscode.window.onDidCloseTerminal((t) => {
-			if (t === agentTerm) agentTerm = undefined
-		}),
-	)
+	// No agent command here. Volt does not launch, bundle or configure an AI agent — the user's agent (Claude Code,
+	// Cursor, Windsurf, anything with a terminal) reaches Volt through the `volt` CLI on PATH. See the host
+	// integration docs on the website.
 
 	const decorations = new VoltDecorations()
 	views = new VoltViews()

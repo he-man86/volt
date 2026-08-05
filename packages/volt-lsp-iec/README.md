@@ -5,8 +5,9 @@
 A single LSP 3.17 server that gives Structured Text navigation, diagnostics, completion, hover, signature
 help, and semantic tokens — driven by an embedded CODESYS language reference. **It infers types to make its
 diagnostics accurate, but it is not the type-checker:** the CODESYS/TwinCAT compiler stays authoritative for
-final type-checking and codegen. Shipped to opencode via `opencode-config` and exposed as the bare-name
-`volt-lsp-iec` binary.
+final type-checking and codegen. Shipped as the bare-name `volt-lsp-iec` binary on `PATH`, which each host
+registers through its own mechanism — the `volt-vscode` extension for the VS Code family, a plugin for
+Claude Code.
 
 ## Role in Volt
 

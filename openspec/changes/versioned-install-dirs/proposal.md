@@ -1,6 +1,6 @@
 ## Why
 
-Volt's installer overwrites files in a directory that is in use, so every update fights file locks — and loses in a way that is silent and total. A file held open (`bin/volt-lsp-iec.exe`, spawned by opencode and alive for the whole session) makes Inno retry, then default the suppressed Abort/Retry/Ignore box to **Abort**, and **roll back the entire install** with no visible error. Observed in the wild: the connector updated while `bin/volt.exe` — which sorts after the locked file, so the run never reached it — stayed several releases behind, the `[Run]` step never fired so the tray never restarted, and a shipped CLI feature (`volt pull --force`) looked broken for days.
+Volt's installer overwrites files in a directory that is in use, so every update fights file locks — and loses in a way that is silent and total. A file held open (`bin/volt-lsp-iec.exe`, started by an editor/agent and alive for the whole session) makes Inno retry, then default the suppressed Abort/Retry/Ignore box to **Abort**, and **roll back the entire install** with no visible error. Observed in the wild: the connector updated while `bin/volt.exe` — which sorts after the locked file, so the run never reached it — stayed several releases behind, the `[Run]` step never fired so the tray never restarted, and a shipped CLI feature (`volt pull --force`) looked broken for days.
 
 The current mitigation stops Volt's own processes in `PrepareToInstall`/`CurUninstallStepChanged`. It passes the full lifecycle gate, but it is a stopgap: it bets on the OS releasing handles inside a fixed sleep, and it depends on a **hardcoded image list** that someone must remember to extend. That list is exactly what failed — `volt-lsp-iec.exe` was missing from it. The next binary added under `{app}` breaks updates again, the same silent way.
 
@@ -26,7 +26,7 @@ The current mitigation stops Volt's own processes in `PrepareToInstall`/`CurUnin
 ## Impact
 
 - `installer/Volt.iss` — `[Files]` DestDir, `[Icons]`, `[Run]`, `[UninstallDelete]`, the `[Code]` junction management, and the migration of an existing flat install. The `PrepareToInstall` / `CurUninstallStepChanged` process-kill stays until the new layout is proven, then is removed.
-- `volt-scripts/build-installer.ts` / `build-payload.ts` — the stage layout gains the version-directory shape.
+- `scripts/build-installer.ts` / `build-payload.ts` — the stage layout gains the version-directory shape.
 - `packages/volt-cli/src/Volt.Cli.Connector` — `VoltEnv` (PATH + `OPENCODE_CONFIG_DIR` must target `current`), `LoginItem`, `Updater` (prune superseded `app-*` directories at startup; it already knows how to re-run Setup).
-- `volt-scripts/test-install-lifecycle.ts` — the gate that must prove the migration: it already asserts per-binary versions, rollback detection, extension registration and zero leftovers across install → uninstall → install → update → update → uninstall → install → uninstall.
+- `scripts/test-install-lifecycle.ts` — the gate that must prove the migration: it already asserts per-binary versions, rollback detection, extension registration and zero leftovers across install → uninstall → install → update → update → uninstall → install → uninstall.
 - No change to the `volt` CLI, the bridges, or either frontend: they resolve `volt` from `PATH`, which stays stable by design.

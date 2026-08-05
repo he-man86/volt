@@ -8,11 +8,13 @@ function viewOf(s: VoltStatus): WorkspaceView {
 	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot), boundProjectName: readBoundProject(s.workspaceRoot)?.projectName, ideChanged: s.ideChanged })
 }
 
-// The dedicated Volt activity-bar area. Four native tree views over one lightweight node model:
+// The dedicated Volt activity-bar area. THREE native tree views over one lightweight node model:
+//   Bridge      — the WHOLE connection lifecycle: which project, initialize, connect, disconnect
 //   IDE Sync    — incoming/outgoing drift, click-to-diff vs the last-synced baseline (was the SCM group)
 //   Diagnostics — a summary + per-file counts sourced from the LSP's published diagnostics; jumps to Problems
-//   Bridge      — the WHOLE connection lifecycle: which project, initialize, connect, disconnect
-//   Agent & Settings — the three launchers worth a click; everything else stays in the palette
+//
+// Three, matching the desktop app's three panel sections exactly — the two frontends deliberately surface the
+// same information (share the logic, not the pixels).
 //
 // The Sync/Bridge split is the load-bearing one: **Sync answers "what changed", Bridge answers "am I attached to
 // an IDE".** Init/Connect/Disconnect used to live in Sync's welcome markdown, which meant the connection state was
@@ -74,7 +76,6 @@ export class VoltViews implements vscode.Disposable {
 	private readonly sync = new TreeProvider()
 	private readonly diagnostics = new TreeProvider()
 	private readonly bridge = new TreeProvider()
-	private readonly reference = new TreeProvider()
 	private readonly disposables: vscode.Disposable[] = []
 	// Kept so the Bridge view can re-render when EITHER the bound statuses OR the connector's detected-project
 	// list changes (they arrive on separate events — status refresh vs the 10s bridge poll).
@@ -87,11 +88,9 @@ export class VoltViews implements vscode.Disposable {
 			this.sync,
 			this.diagnostics,
 			this.bridge,
-			this.reference,
 			vscode.window.registerTreeDataProvider("volt.views.sync", this.sync),
 			vscode.window.registerTreeDataProvider("volt.views.diagnostics", this.diagnostics),
 			vscode.window.registerTreeDataProvider("volt.views.bridge", this.bridge),
-			vscode.window.registerTreeDataProvider("volt.views.reference", this.reference),
 			// The Problems panel is the source of truth; the summary just jumps to it (filtered to Volt).
 			vscode.commands.registerCommand("volt.openProblems", () => {
 				void vscode.commands.executeCommand("workbench.actions.view.problems")
@@ -103,7 +102,6 @@ export class VoltViews implements vscode.Disposable {
 			// explicit button, matching the desktop's Diagnostics refresh).
 			vscode.commands.registerCommand("volt.refreshDiagnostics", () => this.refreshDiagnostics()),
 		)
-		this.reference.setRoots(referenceNodes())
 		this.refreshDiagnostics()
 	}
 
@@ -426,20 +424,7 @@ function detectedNode(p: DetectedProject): VoltNode {
 	}
 }
 
-// ── Agent & Settings (static launchers) ──────────────────────────────────────
-function referenceNodes(): VoltNode[] {
-	const item = (key: string, label: string, command: string, icon: string): VoltNode => ({
-		key,
-		label,
-		icon: new vscode.ThemeIcon(icon),
-		command: { command, title: label },
-	})
-	// Deliberately three. "New Agent Session" and "Open Language Reference" were dropped: the first is a variant of
-	// Open Agent that the agent terminal already offers, and the second opens a scaffolded skill file most users
-	// never touch. Both remain as palette commands — this view is the short list, not an index of everything.
-	return [
-		item("agent", "Open Agent", "volt.openAgent", "comment-discussion"),
-		item("settings", "Open Settings", "volt.openSettings", "settings-gear"),
-		item("config", "Open Workspace Config", "volt.openConfig", "gear"),
-	]
-}
+// There is deliberately NO fourth "Agent & Settings" view. It listed a launcher for opencode (an integration Volt
+// no longer has) beside two shortcuts into VS Code's own settings — which every VS Code user already knows how to
+// reach. What remained was a view that existed to hold a link. The commands survive in the palette; the three
+// views left are exactly the three the desktop app shows, so both frontends surface the same information.

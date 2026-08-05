@@ -170,7 +170,7 @@
       `pull`/`push`/`merge` and only a new binding is refused.
 - [ ] 5.4 Free path: fresh install, no key, 3 projects bind, the 4th is refused with a clear message —
       **on a machine with no internet at all**, since free must never contact the provider.
-- [ ] 5.5 `bun run compat`, `bun volt-scripts/check-wiring.ts`, typecheck and lint all green.
+- [ ] 5.5 `bun run check` (`bun scripts/check-wiring.ts`), typecheck and lint all green.
 - [ ] 5.6 Confirm the deleted services are gone from the bill — PlanetScale, Upstash, R2, Honeycomb, AWS.
 
 ## Open questions

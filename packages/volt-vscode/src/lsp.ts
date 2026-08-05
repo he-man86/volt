@@ -130,7 +130,7 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 		return []
 	}
 	// The one number that identifies which build is serving you: the extension version moves every build
-	// (<maj>.<min>.<commit-count>, see volt-scripts/version.ts), and the server bundle ships inside this
+	// (<maj>.<min>.<commit-count>, see scripts/version.ts), and the server bundle ships inside this
 	// extension — so extension version == server version, and the resolved module PATH names the exact folder.
 	const extVersion = (context.extension.packageJSON as { version?: string }).version ?? "unknown"
 
@@ -143,7 +143,7 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 		command: process.execPath,
 		// `--server-version` gives the server its true identity: running under the editor's node it executes the
 		// LSP's raw .js (not the stamped exe), so without this its serverInfo would report "(dev)". This is the
-		// extension version, which moves every build (see volt-scripts/version.ts).
+		// extension version, which moves every build (see scripts/version.ts).
 		args: [serverModule, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys", "--server-version", extVersion],
 		transport: TransportKind.stdio,
 		options: { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },

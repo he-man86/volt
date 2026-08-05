@@ -94,7 +94,7 @@ public static class ItemKind
     /// <summary>The vendor-neutral wire kind STRINGS, defined once. <see cref="Map"/>, the extension tables, and
     /// every consumer that compares a kind reference these — so a kind name is spelled in exactly ONE place. The
     /// VALUES are a cross-language wire contract (LSP / VS Code / control consume them, guarded by
-    /// <c>volt-scripts/check-wiring.ts</c>): name them freely, change them never.</summary>
+    /// <c>scripts/check-wiring.ts</c>): name them freely, change them never.</summary>
     public static class Kinds
     {
         public const string Folder = "folder";
@@ -203,7 +203,7 @@ public static class ItemKind
     // Every kind that materializes as a file, in output order, paired with its extension. This is THE single
     // source of truth for extensions: ExtFor, IsSourceKind, and the CLI's extension registry
     // (Volt.Cli.Sync.Extensions) all derive from it — no second hand-kept list — and
-    // volt-scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, opencode-config, control)
+    // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
     // .fb/.prg/.fun as a textual one (graphical detected by the NETWORK marker), a CFC/SFC body is that kind
     // extension too (materialized as an `(* @volt-graphical: LANG *)` comment). Kind is recovered from file

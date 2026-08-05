@@ -1,0 +1,19 @@
+{
+  "name": "volt-lsp",
+  "description": "IEC 61131-3 Structured Text intelligence from the installed Volt (volt-lsp-iec on PATH)",
+  "version": "0.1.0",
+  "lspServers": {
+    "volt-lsp-iec": {
+      "command": "volt-lsp-iec",
+      "args": ["--stdio"],
+      "extensionToLanguage": {
+        ".fb": "structured-text",
+        ".prg": "structured-text",
+        ".fun": "structured-text",
+        ".itf": "structured-text",
+        ".dut": "structured-text",
+        ".gvl": "structured-text"
+      }
+    }
+  }
+}

@@ -49,7 +49,7 @@ public static class FolderPath
             bool edgeSpace = c == ' ' && (i == 0 || i == name.Length - 1);
             // Leading dot: a hidden directory (Unix/git convention). Tooling that ignores dotfiles — including
             // the LSP's own file scan — would silently drop the folder's contents, and it risks colliding with
-            // .git/.opencode. Encode it so the folder is visible. (A trailing dot Windows also strips outright.)
+            // .git/.vscode. Encode it so the folder is visible. (A trailing dot Windows also strips outright.)
             bool edgeDot = c == '.' && (i == 0 || i == name.Length - 1);
             if (c == '%' || IsHostile(c) || edgeSpace || edgeDot)
                 sb.Append('%').Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));

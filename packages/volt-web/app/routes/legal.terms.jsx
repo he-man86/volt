@@ -62,7 +62,7 @@ const SECTIONS = [
   ],
   [
     "7. AI-assisted code generation",
-    "Volt can drive an AI coding agent (such as the open-source opencode) against your project using an AI provider key that you supply. The agent and the provider are third parties: you choose them, you contract with them, and their terms and pricing govern your use of them. AI output is provided on an “as-is” basis with no guarantee of correctness, completeness, safety or fitness for any purpose. It may contain errors or logical flaws, may not comply with applicable safety standards, may be unsuitable for safety-critical applications, and may misinterpret your intent. Everything in §6 applies with full force to code that an AI produced. Because we are not in the path of those requests, we cannot and do not review, filter, log or moderate what you send or what comes back.",
+    "Volt makes your project readable and drivable by an AI coding agent of your choosing. Volt supplies no agent and no model access: the agent and its AI provider are third parties, you choose them, you contract with them, and their terms and pricing govern your use of them. AI output is provided on an “as-is” basis with no guarantee of correctness, completeness, safety or fitness for any purpose. It may contain errors or logical flaws, may not comply with applicable safety standards, may be unsuitable for safety-critical applications, and may misinterpret your intent. Everything in §6 applies with full force to code that an AI produced. Because we are not in the path of those requests, we cannot and do not review, filter, log or moderate what you send or what comes back.",
   ],
   [
     "8. Your projects and your content",
@@ -74,7 +74,7 @@ const SECTIONS = [
   ],
   [
     "10. Third-party software",
-    "Volt interoperates with software we do not publish or control — CODESYS and TwinCAT/Beckhoff, the opencode agent, AI model providers, git, and your operating system. We do not supply, endorse or warrant them, we are not responsible for their behaviour, and your use of each is governed by its own terms. Volt does not install opencode for you; it makes your own installation PLC-aware if it is present.",
+    "Volt interoperates with software we do not publish or control — CODESYS and TwinCAT/Beckhoff, AI coding agents and model providers, code editors, git, and your operating system. We do not supply, endorse or warrant them, we are not responsible for their behaviour, and your use of each is governed by its own terms. Volt installs none of them and does not modify their configuration; it makes its own tools available on your PATH.",
   ],
   [
     "11. Updates",

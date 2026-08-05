@@ -4,7 +4,7 @@
 # commit's ci.yml is green), GATES it (downloads ITS OWN installer and runs the install/uninstall/lifecycle checks
 # against it), then flips its GitHub release prerelease -> latest. The stable channel updater then serves it.
 #
-# Trigger: `bun run release [version]` (volt-scripts/release.ts), or the Actions tab → this workflow → Run workflow.
+# Trigger: `bun run release [version]` (scripts/release.ts), or the Actions tab → this workflow → Run workflow.
 name: promote
 
 on:

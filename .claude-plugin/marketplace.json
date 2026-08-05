@@ -1,0 +1,5 @@
+{
+  "name": "volt",
+  "owner": { "name": "Volt" },
+  "plugins": [{ "name": "volt-lsp", "source": "./plugins/volt-lsp" }]
+}

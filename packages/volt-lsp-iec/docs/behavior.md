@@ -74,12 +74,12 @@ raises no `wrong-vendor` diagnostic.
 ### Requirement: The LSP is wired into the agent's session for a consumer PLC project
 
 The volt LSP SHALL be available to the AI agent when it edits Structured Text in an **end-user PLC
-project**, not only inside the Volt dev repo. The agent toolchain — LSP + `volt` tool + agent + theme
-+ permissions — SHALL be handed to opencode as one read-only config dir via the **`OPENCODE_CONFIG_DIR`**
-env var (set by the desktop shell and the `volt` binary), with that config's bin dir prepended to
-`PATH` so its bare-name `volt-lsp-iec` command resolves **outside the Volt repo** (published /
-global / bundled — never a repo-relative path). `volt init` SHALL NOT write a per-project `.opencode/`;
-it only binds the IDE project and installs vendor skills. An agent editing kind-named source in a bound PLC
+project**, not only inside the Volt dev repo. Volt SHALL NOT own a config directory inside any agent
+product; each host registers the server through its own mechanism (an editor extension for the VS Code
+family, a plugin for Claude Code), and the installer's only contribution is putting Volt's `bin` on
+`PATH` so the bare-name `volt-lsp-iec` command resolves **outside the Volt repo** (published / global /
+bundled — never a repo-relative path). `volt init` SHALL NOT write a per-project agent config; it only
+binds the IDE project and installs vendor skills. An agent editing kind-named source in a bound PLC
 project MUST receive the LSP's diagnostics through its tool loop.
 
 #### Scenario: Agent gets PLC diagnostics in a consumer project
@@ -87,8 +87,8 @@ project MUST receive the LSP's diagnostics through its tool loop.
 - **THEN** the volt LSP is running and its diagnostics are surfaced to the agent — it is not writing ST blind from training data
 
 #### Scenario: The command resolves by bare name, not a repo-relative path
-- **WHEN** opencode opens a PLC project whose directory is not the Volt repo
-- **THEN** the LSP command resolves via the `OPENCODE_CONFIG_DIR` bin on `PATH` (published/global/bundled), not via `./packages/volt-lsp-iec/...`
+- **WHEN** a host starts the server for a PLC project whose directory is not the Volt repo
+- **THEN** the LSP command resolves via Volt's `bin` on `PATH` (published/global/bundled), not via `./packages/volt-lsp-iec/...`
 
 ### Requirement: The LSP-3.17 conformance surface is declared and kept in capability↔handler parity
 

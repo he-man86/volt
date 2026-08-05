@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
  * Volt one-installer builder (Windows). Produces a single Inno Setup wizard for ALL Volt apps — desktop GUI +
- * `volt` CLI + LSP + tray connector + config, plus opt-in opencode CLI + the VS Code extension — whose
- * always-running C# connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
+ * `volt` CLI + LSP + tray connector, plus the opt-in VS Code-family extension — whose always-running C#
+ * connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
  *
- *   bun volt-scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
- *   bun volt-scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
- *   bun volt-scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
+ *   bun scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
+ *   bun scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
+ *   bun scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
- * Pipeline: build-payload.ts (CLI+LSP+connector+config+.vsix) → electron-builder --dir (the branded Electron app) →
- * assemble the payload (connector at root; bin/ opencode-config/ docs/ desktop/ + .vsix as siblings)
+ * Pipeline: build-payload.ts (CLI+LSP+connector+.vsix) → electron-builder --dir (the branded Electron app) →
+ * assemble the payload (connector at root; bin/ docs/ desktop/ + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
@@ -24,7 +24,7 @@ const repo = resolve(import.meta.dirname, "..")
 // install would falsely show "update available" on the dev channel. Never recompute here — version.ts is the source.
 const version =
   process.env.VOLT_VERSION ||
-  (spawnSync("bun", [resolve(repo, "volt-scripts/version.ts")], { cwd: repo, encoding: "utf8" }).stdout ?? "")
+  (spawnSync("bun", [resolve(repo, "scripts/version.ts")], { cwd: repo, encoding: "utf8" }).stdout ?? "")
     .split("\n")
     .find((l) => l.startsWith("version="))
     ?.slice("version=".length)
@@ -76,7 +76,7 @@ function publish(setupExe: string): void {
 if (uploadOnly) {
   const setupExe = resolve(release, "Volt-win-Setup.exe")
   if (!existsSync(setupExe)) {
-    console.error(`✗ ${setupExe} not found — run the build (bun volt-scripts/build-installer.ts) first`)
+    console.error(`✗ ${setupExe} not found — run the build (bun scripts/build-installer.ts) first`)
     process.exit(1)
   }
   publish(setupExe)
@@ -110,7 +110,7 @@ const iscc = [
   const requiredMarkers = [
     "volt: install ",
     "junction active ->",
-    "OPENCODE_CONFIG_DIR=",
+    "env published ->",
     "started the connector:",
     "reverting environment",
     "removed the junction and every version directory",
@@ -122,9 +122,9 @@ const iscc = [
   }
 }
 
-// 1. The Volt payload (CLI + LSP + connector + config + docs).
-if (!skipDist) run("bun", ["volt-scripts/build-payload.ts"])
-for (const dir of ["bin", "connector", "opencode-config", "docs"]) {
+// 1. The Volt payload (CLI + LSP + connector + docs).
+if (!skipDist) run("bun", ["scripts/build-payload.ts"])
+for (const dir of ["bin", "connector", "docs"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
     process.exit(1)
@@ -176,13 +176,12 @@ if (!existsSync(voltExe)) {
   process.exit(1)
 }
 
-// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ opencode-config/ docs/ desktop/ as siblings.
+// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ docs/ desktop/ as siblings.
 console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
 cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
-cpSync(resolve(payload, "opencode-config"), resolve(stage, "opencode-config"), { recursive: true })
 cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
 // No version.txt is shipped: every binary carries its version stamped in (FileVersion for the .NET exes, a
@@ -201,8 +200,8 @@ if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
   process.exit(1)
 }
 
-// 4. Compile the one installer (Inno Setup). The connector self-configures env + hosts auto-update at runtime,
-// so the .iss just lays down the payload + optional-component tasks (opencode / VS Code extension).
+// 4. Compile the one installer (Inno Setup). The connector self-configures its login item + shortcut and hosts
+// auto-update at runtime, so the .iss just lays down the payload + the VS Code-family extension tasks.
 console.log(`• ISCC → Volt ${version}`)
 rmSync(release, { recursive: true, force: true })
 mkdirSync(release, { recursive: true })

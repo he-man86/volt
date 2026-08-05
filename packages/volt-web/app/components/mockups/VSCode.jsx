@@ -1,7 +1,8 @@
 // Interactive VS Code mockup for the volt-vscode extension. The activity bar switches the sidebar between
 // Explorer (file tree), Source Control (git changes + commit), and Volt. The Volt container mirrors the real
-// extension's four tree views — IDE Sync, Diagnostics, Bridge, Agent & Settings (packages/volt-vscode/src/panel.ts).
-// The editor has drift coloring + a live IntelliSense completion; the bottom panel is a typeable agent CLI.
+// extension's three tree views — IDE Connection, IDE Sync, Diagnostics (packages/volt-vscode/src/panel.ts).
+// The editor has drift coloring + a live IntelliSense completion; the bottom panel is a typeable agent CLI —
+// whichever agent the user runs, reaching Volt through `volt` on PATH.
 // `zoom` scales the whole widget (CSS zoom → real reflow) so the landing page and the docs can size it differently.
 import { useEffect, useRef, useState } from "react"
 import { useAutoplay, useInView } from "../../reveal.jsx"
@@ -98,7 +99,7 @@ const EXPLORER = [
   },
 ]
 
-// Volt views — the four native tree views the extension registers in the Volt activity-bar container, rendered
+// Volt views — the three native tree views the extension registers in the Volt activity-bar container, rendered
 // here as collapsible sections (which is how VS Code stacks views in one container). Labels/rows match panel.ts.
 const VOLT_SECTIONS = [
   {
@@ -121,15 +122,10 @@ const VOLT_SECTIONS = [
   },
   // NOTE: the "IDE Connection" view leads the container (built dynamically in the component — interactive
   // connect ⇄ disconnect) and is prepended to these in `voltSections`.
-  {
-    id: "ref",
-    title: "Agent & Settings",
-    rows: [
-      { badge: "◆", cls: "muted", label: "Open Agent" },
-      { badge: "⚙", cls: "muted", label: "Open Settings" },
-      { badge: "⚙", cls: "muted", label: "Open Workspace Config" },
-    ],
-  },
+  //
+  // THREE views, no more. An "Agent & Settings" one used to follow these, holding a launcher for opencode plus
+  // two shortcuts into VS Code's own settings; both are gone, and these three now match the desktop app's three
+  // panel sections exactly.
 ]
 
 const runCmd = (raw) => {
@@ -168,8 +164,8 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   ])
   const [commitMsg, setCommitMsg] = useState("")
   const [term, setTerm] = useState([
-    { c: "dim", t: "~/MyMachine  volt agent" },
-    { c: "head", t: "● opencode · claude-opus-4-8" },
+    { c: "dim", t: "~/MyMachine" },
+    { c: "head", t: "● your AI agent · volt on PATH" },
     { c: "you", t: "› Add a running flag to FB_Conveyor" },
     { c: "act", t: "  ✎ edit FB_Conveyor.fb  +2" },
     { c: "ok", t: "  ⚙ build CODESYS  ✓ 0 errors" },

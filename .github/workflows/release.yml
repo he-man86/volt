@@ -6,11 +6,11 @@
 # .github/workflows/promote.yml (`bun run release [version]`): it gates that exact build's installer and flips its
 # GitHub release prerelease -> latest. Same 4-part version, no rebuild, no downgrade.
 #
-# The ONE version is computed from git (volt-scripts/version.ts) and INJECTED — stamped into every package.json +
-# passed as VOLT_VERSION — so no version is hand-maintained across files (sst/opencode#36232 is the bug that
-# happens when an artifact reads its own stored version instead of the injected one).
+# The ONE version is computed from git (scripts/version.ts) and INJECTED — stamped into every package.json +
+# passed as VOLT_VERSION — so no version is hand-maintained across files (the bug this avoids is an artifact
+# reading its own stored version instead of the injected one).
 #
-# Signing: intentionally PARKED — the installer ships unsigned (opencode signs via Azure Trusted Signing).
+# Signing: intentionally PARKED — the installer ships unsigned.
 name: release
 
 on:
@@ -52,7 +52,7 @@ jobs:
       - name: Compute the one version (git-derived)
         id: v
         shell: bash
-        run: bun volt-scripts/version.ts | tee -a "$GITHUB_OUTPUT"
+        run: bun scripts/version.ts | tee -a "$GITHUB_OUTPUT"
 
       # Inject the version into each package.json (vsce rejects a 4-part version, so both get a 3-part one; the
       # installer + connector get the full `version` via VOLT_VERSION). The electron app gets `base`; the EXTENSION
@@ -70,7 +70,7 @@ jobs:
       - name: Build the Volt installer
         env:
           VOLT_VERSION: ${{ steps.v.outputs.version }}
-        run: bun volt-scripts/build-installer.ts
+        run: bun scripts/build-installer.ts
 
       # No install gates here — every dev push builds, and the gates really install on the runner. They run at RELEASE
       # time instead (promote.yml), against the exact build being promoted, so what ships to stable is what was gated.
@@ -78,7 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VOLT_VERSION: ${{ steps.v.outputs.version }}
-        run: bun volt-scripts/build-installer.ts --upload-only --prerelease
+        run: bun scripts/build-installer.ts --upload-only --prerelease
 
       - name: Verify the installer was published
         shell: bash

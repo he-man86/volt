@@ -3,31 +3,31 @@ import { DesktopApp } from "../components/mockups/DesktopApp.jsx"
 import { VSCode } from "../components/mockups/VSCode.jsx"
 import { Button, Arrow } from "../components/ui.jsx"
 
-Volt ships two front ends over the same core: a **desktop app** and a **VS Code extension**. Same sync, same
-language server, same agent — different amounts of setup and control. Both come in the one installer, so this is a
-preference, not a purchase.
+Volt ships two front ends over the same core: a **desktop app** and an **editor extension**. Same sync, same
+language server, same workspace — they differ in whether you also get an editor around it. Both come in the one
+installer, so this is a preference, not a purchase.
 
 ## The short answer
 
-| | Desktop app | VS Code extension |
+| | Desktop app | Editor extension |
 | --- | --- | --- |
-| Setup | Install and go | A few minutes — VS Code + settings |
-| Editor | Volt's own, tuned for PLC work | Full VS Code (and Windsurf) |
-| Agent | Built into the window | In the integrated terminal |
-| IDE sync | Panel on the right | Volt views in the sidebar |
+| Setup | Install and go | A few minutes — install the extension |
+| Editor | None — it syncs, reports and diagnoses | VS Code, Cursor or Windsurf |
+| AI agent | Not here — use any agent on the same folder | Your editor's own, plus `volt` in its terminal |
+| IDE sync | The whole window | Volt views in the sidebar |
 | Git | Pull / push / build buttons | Your usual Source Control view |
-| Extensions | — | Everything you already use |
-| Best for | Automation engineers new to git-style tooling | Engineers already living in an editor |
+| Diffs | A popup per changed object | Native side-by-side, plus the merge editor |
+| Best for | Watching and driving sync, on a panel machine | Actually writing the code |
 
-**Not sure?** Start with the desktop app. Nothing is lost if you switch — both drive the same workspace, and you can
-run them side by side on the same project.
+**Not sure?** Run both. They share one workspace, so this is not a fork in the road — a common split is the
+desktop app on the machine next to the panel, and your editor at your desk.
 
 ## The desktop app
 
-One window with everything: the agent on the left, your project's IDE Connection, IDE Sync and Diagnostics on the
-right. No editor to configure, no extensions to pick, no terminal required.
+One window: IDE Connection, IDE Sync and Diagnostics for your project. Nothing to configure, no extensions to
+pick, no terminal required. It opens from the Start Menu or the Connector's tray icon.
 
-<Figure wide caption="The desktop app — agent, IDE sync and diagnostics in one window. Click the rail icons on the right to switch panels.">
+<Figure wide caption="The desktop app — connection, IDE sync and diagnostics in one window. Click the rail icons on the right to jump between sections.">
   <DesktopApp panel="sync" theme="light" autoplay />
 </Figure>
 
@@ -38,8 +38,8 @@ right. No editor to configure, no extensions to pick, no terminal required.
 - You'd rather click **Pull** / **Push** / **Build** than remember git commands.
 - You're evaluating Volt and want to see what it does without setting anything up.
 
-**What you give up** — the editor is deliberately simple. No third-party extensions, no custom keybindings, no
-multi-repo workspaces.
+**What you give up** — there is no editor here and no agent: it syncs, reports and diagnoses. Editing the code
+and talking to an AI about it happen in your editor or agent, on the same workspace folder.
 
 <div className="docs-cta">
   <Button kind="download" variant="primary" size="lg">Download for Windows</Button>
@@ -48,17 +48,19 @@ multi-repo workspaces.
 
 ## The VS Code extension
 
-The same PLC intelligence inside the editor you already have. Volt adds its own views — IDE Sync, Diagnostics,
-Bridge, Agent & Settings — plus Structured Text language support and drift coloring, which shows at a glance which
-files the IDE changed versus which ones you changed.
+The same PLC intelligence inside the editor you already have. Volt adds three views — IDE Connection, IDE Sync,
+Diagnostics, the same three the desktop app shows — plus Structured Text language support and drift coloring,
+which shows at a glance which files the IDE changed versus which ones you changed. It runs the same in VS Code,
+Cursor and Windsurf.
 
-<Figure wide caption="The VS Code extension — Explorer, Source Control and Volt's views side by side, with the agent in the integrated terminal.">
+<Figure wide caption="The VS Code extension — Explorer, Source Control and Volt's views side by side, with an agent in the integrated terminal.">
   <VSCode autoplay zoom={0.92} />
 </Figure>
 
 **Choose it when**
 
-- You already work in VS Code (or Windsurf) and want PLC code to behave like the rest of your code.
+- You already work in VS Code, Cursor or Windsurf and want PLC code to behave like the rest of your code.
+- You want your editor's own AI agent to see the project, with language intelligence and the `volt` CLI.
 - You want your own extensions, keybindings, themes and tasks.
 - You run git from the editor or the terminal and want Volt to stay out of the way.
 - Your repo holds more than the PLC project — docs, scripts, CI, a second project.
@@ -77,4 +79,4 @@ other is exactly the mess git is supposed to prevent.
 ## Next
 
 - **[Getting started](/docs)** — the ten-minute walkthrough, whichever surface you pick.
-- **[Pricing](/pricing)** — both front ends are in every plan, including Free.
+- **[Using Volt with your AI agent](/docs/agents)** — what each host needs (usually nothing).

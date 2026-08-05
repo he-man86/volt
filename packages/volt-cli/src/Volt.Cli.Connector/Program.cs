@@ -13,7 +13,7 @@ namespace Volt.Cli.Connector
         private static void Main(string[] args)
         {
             // Uninstall hook: the Inno uninstaller runs `VoltConnector.exe --uninstall` BEFORE deleting files, so
-            // we revert env (OPENCODE_CONFIG_DIR + PATH) and stop the running tray/workers here, then exit.
+            // we drop the login item + shortcut and stop the running tray/workers here, then exit.
             if (Array.IndexOf(args, "--uninstall") >= 0)
             {
                 VoltEnv.Uninstall();
@@ -43,7 +43,7 @@ namespace Volt.Cli.Connector
 
             // Self-configure on startup (idempotent, best-effort): create the Start Menu shortcut and register the
             // login item so the tray survives reboots. Runs right after the installer launches us, and every login.
-            // (Env — OPENCODE_CONFIG_DIR/PATH — is written by the installer, not here; see VoltEnv.)
+            // (Env — PATH — is written by the installer, not here; see VoltEnv.)
             VoltEnv.Install();
 
             Application.EnableVisualStyles();

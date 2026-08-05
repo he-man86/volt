@@ -1,10 +1,10 @@
 ; Volt one-installer — a full wizard (Welcome -> components -> install -> finish). ONE exe sets up both use
-; cases: the desktop app + (optionally) the opencode CLI and the VS Code-family extension.
+; cases: the desktop app + the CLI/LSP on PATH + (optionally) the VS Code-family extension.
 ; Per-user install (no admin/UAC): Volt's env vars + login item + Start Menu shortcut are all HKCU, so
 ; PrivilegesRequired=lowest. Auto-update is the connector's job (Updater.cs) — it downloads a newer Setup.exe and
 ; re-runs it /VERYSILENT, so Inno upgrades in place; CloseApplications lets that replace the running connector.
 ;
-; Defines are passed by volt-scripts/build-installer.ts:
+; Defines are passed by scripts/build-installer.ts:
 ;   AppVersion  the release version (X.Y.Z)   StageDir   the assembled payload (connector at root + bin/ etc.)
 ;   OutputDir   where Volt-win-Setup.exe lands  SetupIcon  the app .ico
 
@@ -41,23 +41,20 @@ SetupLogging=yes
 CloseApplications=no
 
 [Tasks]
-; Volt does NOT install opencode. opencode is a prerequisite the user provides themselves; the apps detect it and,
-; if it's missing, link to opencode.ai. (There used to be an opt-in winget task here; it was removed so Volt has no
-; opencode install path to own.) These tasks are the extension only — one per VS Code-family editor, each offered
-; only if its launcher is on PATH, each independently checkable: the wizard checkboxes interactively,
-; /TASKS="vscode,cursor" for a scripted install.
+; The extension only — one per VS Code-family editor, each offered only if its launcher is on PATH, each
+; independently checkable: the wizard checkboxes interactively, /TASKS="vscode,cursor" for a scripted install.
+; Volt installs NO agent and writes into no other vendor's configuration. Every AI agent reaches Volt through
+; the `volt` CLI this installer puts on PATH; the hosts that also want the language server register it
+; themselves (see the integration docs on the website). There was an opencode config layer here once — it was
+; the one place Volt installed itself INTO someone else's product, and it is gone.
 Name: "vscode";   Description: "Install the Volt extension into VS Code";  GroupDescription: "Optional components:"; Check: EditorOnPath('code')
 Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
 Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
 
-; NO [InstallDelete]. It ran here until this audit, and did nothing: four of its five entries named
-; {app}\current\opencode-config\*, but [InstallDelete] executes BEFORE the file copy and long before
-; ssPostInstall repoints the junction - so `current` still resolved to the OUTGOING version, which the connector
-; prunes anyway. The fifth named the flat {app}\opencode-config\node_modules, which RemoveFlatPayload
-; already removes. The leak they were meant to retire (a package.json in the config dir, which makes opencode
-; install deps at runtime) is prevented at the source by CFG_NEVER_SHIP in volt-scripts/build-payload.ts: the
-; payload cannot contain them at all. Deleted rather than kept "just in case" - unauditable entries are how this
-; file became untrustworthy.
+; NO [InstallDelete]. Its entries all named the retired opencode-config payload, and they did nothing even when
+; that payload shipped: [InstallDelete] executes BEFORE the file copy and long before ssPostInstall repoints the
+; junction, so `current` still resolved to the OUTGOING version, which the connector prunes anyway. Deleted
+; rather than kept "just in case" - unauditable entries are how this file became untrustworthy.
 
 [Files]
 ; NO restartreplace here, and it is worth knowing why before reaching for it. A file held open ABORTS AND ROLLS
@@ -77,12 +74,10 @@ Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdi
 ; bugs came from this ordering, so the launch moved rather than the path being nudged again.
 ;
 ; These entries name the VERSION directory for the same reason: `current` does not exist yet. That is not a
-; violation of the version-free invariant - that invariant governs values RECORDED OUTSIDE {app} (PATH,
-; OPENCODE_CONFIG_DIR, the shortcut, the login item), and a [Run] filename is transient and internal to this
-; install.
+; violation of the version-free invariant - that invariant governs values RECORDED OUTSIDE {app} (PATH, the
+; shortcut, the login item), and a [Run] filename is transient and internal to this install.
 ;
-; The only optional component is the VS Code-family extension (there is deliberately NO opencode install — Volt
-; doesn't own an opencode install path; the apps link to opencode.ai when it's missing).
+; The only optional component is the VS Code-family extension.
 ; The extension refresh MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
 ; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
 ; encodes both cases: interactive → honor the checkbox; silent → refresh only editors that ALREADY have it.
@@ -99,13 +94,13 @@ Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\app-{#AppVer
 Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
 
-; NO [UninstallDelete]. Its one entry named the flat {app}\opencode-config, a path the versioned layout never
-; creates - the config dir now lives inside each app-<version>\, and usPostUninstall removes every one of those
-; wholesale with rmdir /s /q. It was covering a layout that no longer exists.
+; NO [UninstallDelete]. Its one entry named a flat {app} subdirectory the versioned layout never creates -
+; everything now lives inside each app-<version>\, and usPostUninstall removes every one of those wholesale with
+; rmdir /s /q. It was covering a layout that no longer exists.
 
 [UninstallRun]
-; The connector's own uninstall hook. It does NOT revert env any more - PATH, OPENCODE_CONFIG_DIR and
-; VOLT_BRIDGE_DLL are reverted directly in CurUninstallStepChanged, because delegating that to a binary this same
+; The connector's own uninstall hook. It does NOT revert env any more - PATH and VOLT_BRIDGE_DLL are
+; reverted directly in CurUninstallStepChanged, because delegating that to a binary this same
 ; uninstall is deleting broke twice on ordering. What remains here is only what the connector knows and the
 ; installer does not: the login item, the Start Menu shortcut, and the copies of the CODESYS activation scripts
 ; published into Documents\Volt. Ordering against usUninstall is asserted from the log, not assumed.
@@ -212,12 +207,12 @@ begin
     Log('volt: no flat payload to migrate');
   Exec(ExpandConstant('{cmd}'),
     '/c rmdir /s /q "' + A + '\bin" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
-    ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' +
+    ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' + // opencode-config: retired, still removed from pre-existing flat installs
     ' & del /q "' + A + '\Volt*.exe" "' + A + '\version.txt" "' + A + '\volt-vscode.vsix" 2>nul',
     '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
-/// Publish PATH + OPENCODE_CONFIG_DIR from the INSTALLER, not from the connector.
+/// Publish PATH + VOLT_BRIDGE_DLL from the INSTALLER, not from the connector.
 ///
 /// These were written by VoltConnector on startup, which makes them depend on a process's lifetime — and that
 /// dependency caused four ordering bugs in a row: [Run] firing before the junction existed, uninstall cleanup
@@ -244,20 +239,23 @@ begin
 end;
 
 procedure PublishEnv(TargetDir: String);
-var PathVal, CurBin, CfgDir, DllPath: String;
+var PathVal, CurBin, DllPath: String;
 begin
-  CfgDir := ExpandConstant('{app}\current\opencode-config');
-  if RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR', CfgDir) then
-    Log('volt: OPENCODE_CONFIG_DIR=' + CfgDir)
-  else
-    Log('volt: FAILED to write OPENCODE_CONFIG_DIR');
+  // Retire OPENCODE_CONFIG_DIR from installs that predate the opencode removal. Volt no longer ships a config
+  // directory for opencode, so a value left behind here points at a path this install deletes - opencode would
+  // then fail to load a config dir that does not exist. Deleting it on INSTALL (not only on uninstall) is what
+  // makes the in-place upgrade clean; the value was always ours to remove.
+  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then
+  begin
+    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
+    Log('volt: removed the retired OPENCODE_CONFIG_DIR env var');
+  end;
   // Verify against the REAL directory, never through {app}\current. A reparse point is not reliably
   // resolvable by the process that just created it - measured: DirExists(current\bin) was FALSE 1ms after
   // mklink returned, while the same directory probed directly was TRUE, and the junction was perfect
   // seconds later. Checking through it made every verification here a coin flip and stopped the connector
   // from launching at all. The VALUE written to the registry stays the 'current' form - that is the
   // invariant; only the existence CHECK uses the path we just wrote the files to.
-  if not DirExists(TargetDir + '\opencode-config') then Log('volt: WARNING opencode-config missing in ' + TargetDir);
   DllPath := ExpandConstant('{app}\current\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll');
   if FileExists(TargetDir + '\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll') then
   begin
@@ -283,6 +281,10 @@ begin
   else
     Log('volt: PATH already contains ' + CurBin + ' - left unchanged');
   if not DirExists(TargetDir + '\bin') then Log('volt: WARNING bin missing in ' + TargetDir);
+  // UNCONDITIONAL, and that is the point: this is the marker the lifecycle gate asserts. The two branches above
+  // are both correct outcomes (fresh install appends, upgrade finds it already there), so neither of their log
+  // lines can serve as "the env step ran" - asserting one of them would fail every re-install.
+  Log('volt: env published -> ' + CurBin);
 end;
 
 /// Activate the version we just wrote — the LAST thing before [Run], so a failed copy never leaves `current`
@@ -332,12 +334,13 @@ begin
   // its files unlock before the copy. Runs on the "Preparing to Install" step, right before [Files] — no RM, no race.
   //   - /T on the connector also reaps its child bridge workers.
   //   - NOT codesys.exe: the CODESYS bridge runs IN-PROC inside the user's IDE — killing it would close their IDE.
-  //   - Volt.exe (Electron desktop + the CLI) without /T, so we don't tree-kill the opencode child (a different image).
-  //   - volt-lsp-iec.exe: the ONE that actually broke updates. opencode spawns it (the config registers it by bare
-  //     name) and it lives for the whole session, so it was almost always holding bin/volt-lsp-iec.exe. Missing it
-  //     here meant Inno hit its retry loop, defaulted the suppressed Abort/Retry/Ignore box to ABORT, and ROLLED
-  //     BACK the entire install — silently, exit 5. Everything sorting after it (notably bin/volt.exe) then stayed
-  //     releases behind while the connector moved on. opencode restarts it on demand, so closing it costs nothing.
+  //   - Volt.exe (Electron desktop + the CLI) without /T.
+  //   - volt-lsp-iec.exe: the ONE that actually broke updates. Whatever host started it (the editor extension, an
+  //     agent's language client) keeps it alive for the whole session, so it was almost always holding
+  //     bin/volt-lsp-iec.exe. Missing it here meant Inno hit its retry loop, defaulted the suppressed
+  //     Abort/Retry/Ignore box to ABORT, and ROLLED BACK the entire install — silently, exit 5. Everything sorting
+  //     after it (notably bin/volt.exe) then stayed releases behind while the connector moved on. The host
+  //     restarts it on demand, so closing it costs nothing.
   //     `restartreplace` on [Files] is NOT an alternative: it needs admin rights to schedule a reboot-time replace,
   //     and Volt installs per-user.
   Log('volt: stopping running Volt processes before the file copy (VoltConnector, VoltBridgeTwincat, Volt, volt, volt-lsp-iec)');
@@ -401,7 +404,7 @@ begin
     Sleep(1200); // let the OS release the handles before Inno starts deleting
   end;
   // AFTER Inno's own removal — not in usUninstall. [UninstallRun] runs `current\VoltConnector.exe --uninstall`
-  // to revert PATH + OPENCODE_CONFIG_DIR, and deleting the version directories any earlier destroys the exe
+  // to revert PATH, and deleting the version directories any earlier destroys the exe
   // before it can do that: the env was left pointing at a Volt that no longer existed. Unlink `current` with
   // rmdir (a recursive delete would delete the version directory THROUGH the junction), then take the versions.
   // Revert the environment HERE, in the uninstaller itself, rather than delegating to
@@ -412,8 +415,9 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     ULog('reverting environment');
-    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
     RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL');
+    // Retired, but still deleted here: an install predating the opencode removal may have left it set.
+    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Volt');
     // PATH is a list — strip only Volt's own entries, never rewrite the whole value.
     if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then

@@ -62,7 +62,7 @@ test("settleOutcome re-reads health after adopting the action's status", async (
 	}
 });
 
-// A disposed tracker must go quiet: the desktop rebinds the moment opencode switches project, and an in-flight
+// A disposed tracker must go quiet: the desktop rebinds the moment the user switches project, and an in-flight
 // auto-connect settles a beat later — that late refresh would walk the IDE for a workspace nobody is showing.
 test("a disposed VoltStatus stops refreshing", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "volt-disposed-"));

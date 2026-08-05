@@ -2,11 +2,10 @@
 <meta charset="utf-8" />
 <title>Volt</title>
 <style>
-  /* Volt shell chrome. opencode fills the left; a thin icon rail sits on the right (always visible, like
-     opencode's own activity bar) and the IDE panel expands beside it when a rail icon is clicked.
-     Tokens mirror opencode-config/themes/volt.json (the opencode theme) so the chrome and the embedded agent read
-     as one product, and follow the OS light/dark preference the same way opencode does. Light = the branded
-     www.volt palette (warm off-white, #e0651f accent); dark = the warm-dark counterpart. */
+  /* Volt shell chrome. The IDE panel IS the window — it fills everything left of a thin icon rail, which acts as
+     a section navigator (VS Code activity-bar style) rather than a show/hide toggle. Tokens follow the OS
+     light/dark preference. Light = the branded www.volt palette (warm off-white, #e0651f accent); dark = the
+     warm-dark counterpart. */
   :root {
     /* warm DARK (default) */
     --bg: #16120e; --surface: #201a14; --chrome: #2a2219; --border: #342b20;
@@ -15,7 +14,7 @@
     --hover: color-mix(in srgb, var(--text) 8%, transparent);
     --hover-strong: color-mix(in srgb, var(--text) 13%, transparent);
     --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
-    --rail-w: 46px; --panel-w: 320px;
+    --rail-w: 46px;
     --r-sm: 5px; --r-md: 7px; --r-lg: 9px;
   }
   @media (prefers-color-scheme: light) {
@@ -38,9 +37,9 @@
 
   .titlebar { position: relative; height: 40px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 6px 0 14px; background: var(--chrome); border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
-  /* Always-visible action progress — lives in the titlebar (the one DOM zone the opencode view never covers), so
-     a running pull/push/build/init is visible even with the panel closed. Same `busy`/onProgress feed as the panel
-     note; the 2px `tbar` is the determinate fill (indeterminate ops just spin the icon). */
+  /* Always-visible action progress — lives in the titlebar so a running pull/push/build/init is visible from any
+     section. Same `busy`/onProgress feed as the panel note; the 2px `tbar` is the determinate fill (indeterminate
+     ops just spin the icon). */
   .progress { display: none; align-items: center; gap: 7px; margin: 0 auto 0 16px; min-width: 0;
     color: var(--muted); font-size: 12px; font-weight: 550; font-variant-numeric: tabular-nums; }
   .progress.on { display: flex; }
@@ -80,10 +79,11 @@
     background: var(--muted); box-shadow: 0 0 0 2px var(--chrome); }
   .rail-status.ok { background: var(--green); } .rail-status.warn { background: var(--amber); } .rail-status.error { background: var(--red); }
 
-  /* the expandable panel */
-  #panel { position: fixed; top: 40px; right: var(--rail-w); bottom: 0; width: var(--panel-w);
-    background: var(--surface); border-left: 1px solid var(--border); display: none; overflow-y: auto; }
-  #panel.open { display: block; }
+  /* The panel — the window's content, not a drawer. It fills everything left of the rail; the sections stay in a
+     readable column rather than stretching to the full width of a resized window. */
+  #panel { position: fixed; top: 40px; left: 0; right: var(--rail-w); bottom: 0;
+    background: var(--bg); overflow-y: auto; }
+  #panel .inner { max-width: 640px; margin: 0 auto; padding-bottom: 28px; }
   #panel::-webkit-scrollbar { width: 9px; }
   #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 
@@ -197,11 +197,10 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, awaiting: true, bindStale: false, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
+  let snap = { bound: false, awaiting: true, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
-  let open = false
-  // Which rail tab is lit + scrolled to while the panel is open. Defaults to the connection: it's the first thing
-  // to set up, and the first thing to check when sync stops.
+  // Which rail tab is lit + scrolled to. Defaults to the connection: it's the first thing to set up, and the first
+  // thing to check when sync stops. Every section is always rendered — the rail navigates, it doesn't show/hide.
   let activeTab = "bridge"
   let busy = null // live progress text for the in-flight action (pull/push/build/connect/init), else null
   let busyAction = null // WHICH action is in flight ("pull"/"connect"/"rebind:<id>"/…) — spins THAT button until done
@@ -301,9 +300,9 @@
     else db.className = "rail-badge err hide"
     // IDE Connection tab — a corner status dot in the health tone (ok / warn / error).
     document.getElementById("bridgeStatus").className = "rail-status" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
-    // Active-tab highlight (VS Code activity-bar style): the rail stays, the open tab is lit.
+    // Active-tab highlight (VS Code activity-bar style): the section last navigated to is lit.
     for (const [t, id] of [["bridge", "railBridge"], ["sync", "railSync"], ["diag", "railDiag"]])
-      document.getElementById(id).classList.toggle("on", open && activeTab === t)
+      document.getElementById(id).classList.toggle("on", activeTab === t)
   }
 
   // The titlebar progress — updated on EVERY render (before the panel early-return), so an action is visible even
@@ -320,7 +319,6 @@
   function render() {
     renderProgress()
     renderRail()
-    if (!open) return
     const s = snap
     const n = s.incoming.length + s.outgoing.length
 
@@ -330,24 +328,22 @@
     // 1. IDE Connection — the WHOLE connection lifecycle: which project, set up, connect, disconnect. It leads the
     // panel because it's the first thing a new user must do and the first thing to check when sync stops. IDE Sync
     // below is only "what changed" — it never owns connecting (that split is mirrored in the VS Code extension).
-    // Unbound copy splits on `awaiting`: cold start (opencode's project not yet learned) reads "Connecting…" and
-    // resolves the moment the first signal lands; a known no-project state (home, or after leaving a project) reads
-    // the onboarding prompt. Reused across the three sections so they say the same thing.
-    const connectingNote = `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Connecting to opencode…</div>`
-    // The startup canary fired: opencode loaded but Volt never read an active project — most likely the binding is out
-    // of date with this opencode version. Make the otherwise-silent failure visible (replaces the endless spinner).
-    const staleNote = `<div class="note"><svg class="ico"><use href="#i-alert"/></svg>Couldn't read opencode's active project — the binding may be out of date with your opencode version. Sync still works once a project is detected; run Volt with <code>VOLT_BIND_DEBUG=1</code> to inspect, or report it.</div>`
-    const awaitingNote = s.bindStale ? staleNote : connectingNote
-    const unboundNote = s.awaiting ? awaitingNote : `<div class="note">Open a PLC project in opencode to begin.</div>`
+    // Unbound copy splits on `awaiting`: cold start (the connector hasn't answered yet) reads "Looking for…" and
+    // resolves on the first probe; after that it's a known empty state and the onboarding prompt applies. Reused
+    // across the three sections so they say the same thing.
+    const awaitingNote = `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Looking for open PLC projects…</div>`
+    const unboundNote = s.awaiting ? awaitingNote : `<div class="note">No workspace open — open one from IDE Connection above.</div>`
+    // Every empty state can also just OPEN an existing workspace. Without it the only offer is "create a new one",
+    // which strands a user whose workspace already exists on disk (a reinstall, a clone, a second machine).
+    const openExisting = `<div class="init-row">` +
+      btn("openWorkspace", "btn", "doOpenWorkspace()", `<svg class="ico"><use href="#i-folder"/></svg>`, "Open an existing Volt workspace…", "Pick a folder that was already set up with Volt.") + `</div>`
     // The "no active Volt workspace" body — offer to CREATE one from a detected IDE project, else guide based on WHY
-    // nothing's detected. ONE decision, shared by the unbound (home) state and the bound-but-uninitialized state (the
-    // latter also shows a folder row). This is the primary onboarding: create from home, no throwaway folder first;
-    // after creating, the desktop opens the new folder in opencode and the follow-binding picks it up.
+    // nothing's detected. ONE decision, shared by the unbound state and the bound-but-uninitialized state.
     const emptyStateBody = () =>
       s.awaiting ? awaitingNote
-      : s.onboarding === "choose-project" ? createSurface(s.surface)
-      : s.onboarding === "no-connector" ? `<div class="note">The Volt Connector isn't running — start Volt so it can find your open PLC projects.</div>`
-      : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`
+      : (s.onboarding === "choose-project" ? createSurface(s.surface)
+        : s.onboarding === "no-connector" ? `<div class="note">The Volt Connector isn't running — start it from the Start Menu so it can find your open PLC projects.</div>`
+        : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`) + openExisting
     let bridgeBody
     if (!s.bound) bridgeBody = emptyStateBody()
     // Bound to a folder that isn't a Volt workspace yet: same create/onboarding body as unbound. No folder row — the
@@ -439,7 +435,7 @@
     // PREVIOUS project's result (runDiagnostics returns without a new frame), so it must not render here.
     const diagActs = s.initialized ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
     let diagBody
-    if (!s.bound) diagBody = s.awaiting ? `<div class="note">Connecting to opencode…</div>` : `<div class="note">No project open.</div>`
+    if (!s.bound) diagBody = s.awaiting ? `<div class="note">Looking for open PLC projects…</div>` : `<div class="note">No workspace open.</div>`
     else if (!s.initialized) diagBody = `<div class="note">This folder isn't a Volt workspace yet — set it up in IDE Connection above.</div>`
     else if (!diag || diag.loading) diagBody = `<div class="note">Analyzing Structured Text…</div>`
     else if (diag.error) diagBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(diag.error)}</div>`
@@ -456,32 +452,25 @@
     const panelY = panel.scrollTop
     const scrollY = {}
     panel.querySelectorAll("[data-scroll]").forEach((el) => (scrollY[el.dataset.scroll] = el.scrollTop))
-    panel.innerHTML =
+    panel.innerHTML = `<div class="inner">` +
       section("bridge", "IDE Connection", bridgeActs, bridgeBody) +
       section("sync", "IDE Sync", syncActs, syncBody) +
-      section("diag", "Diagnostics", diagActs, diagBody)
+      section("diag", "Diagnostics", diagActs, diagBody) +
+      `</div>`
     panel.scrollTop = panelY
     panel.querySelectorAll("[data-scroll]").forEach((el) => { const y = scrollY[el.dataset.scroll]; if (y) el.scrollTop = y })
   }
 
-  // A rail tab: open the panel and jump to its section; clicking the already-open tab collapses (VS Code style).
+  // A rail tab: jump to its section (and expand it if the user had folded it away).
   function tab(name) {
-    if (open && activeTab === name) return setOpen(false)
     activeTab = name
     collapsed.delete(name) // jumping to a section always expands it — you clicked it to see it
-    setOpen(true)
+    render()
     document.getElementById("sect-" + name)?.scrollIntoView({ block: "start", behavior: "smooth" })
   }
 
   // Fold/unfold a section's body. Keyed by the section id ("bridge"/"sync"/"diag"); persists across re-renders.
   function toggleSect(key) { collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key); render() }
-
-  function setOpen(v) {
-    open = v
-    document.getElementById("panel").classList.toggle("open", open)
-    volt.togglePanel(open)
-    render()
-  }
 
   // Start an action: set its label and CLEAR any leftover % so the titlebar bar doesn't flash the prior run's fill
   // before the first progress frame arrives. The main process surfaces errors + clears progress itself (runGuarded).
@@ -504,6 +493,7 @@
   function doRefresh() { refreshing = true; render(); volt.refresh() }
   function doRefreshDiag() { diag = { loading: true }; render(); volt.refreshDiagnostics() }
   async function doInit(projectId) { begin("Initializing…", "init:" + projectId); await volt.initWorkspace(projectId) }
+  async function doOpenWorkspace() { await volt.openWorkspace() }
   function doDiff(root, path, name, dir) { volt.diff(root, path, name, dir) }
   function doTakeSide(path, side) { volt.mergeResolve(path, side) }
 

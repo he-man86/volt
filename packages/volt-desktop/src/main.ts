@@ -1,11 +1,11 @@
-// Volt desktop shell — entry point. Volt owns the frame (frameless window + titlebar + toolbar + right IDE
-// panel, see shell.html); opencode renders as the inner content pane in a WebContentsView. This file owns the
-// window and lifecycle; the concern-split siblings mirror the extension: `agent` (opencode), `panel` (the
-// IDE-sync data feed), `commands` (pull/push/init). The active workspace follows the project opencode's GUI
-// is on (read from its GUI route — see binding.ts), like VS Code binding to its open folder.
+// Volt desktop shell — entry point. A standalone Volt app: the frameless titlebar, the icon rail and the IDE
+// panel (see shell.html) ARE the window. It launches from its own executable or from the connector's tray, and
+// depends on nothing but the connector. This file owns the window and lifecycle; the concern-split siblings
+// mirror the extension: `panel` (the IDE-sync data feed), `commands` (pull/push/init), `recent` (which workspace
+// to come back to).
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join } from "node:path"
 import {
   setBundledCli,
   setLspServer,
@@ -14,46 +14,17 @@ import {
   shutdownSession,
   startConnectorFeed,
   onConnectorView,
-  voltLog,
   type DiffDirection,
 } from "@volt/control"
-import { READY, launchAgent, killServer } from "./agent.js"
-import { bindWorkspace, unbindWorkspace, refreshDetectedProjects, pushStatus } from "./panel.js"
-import { bindingAction, classifyRoute, type ActiveProject } from "./binding.js"
+import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
 import { registerCommands } from "./commands.js"
+import { readRecent, setRecentFile } from "./recent.js"
 import { diffHtml } from "./diff.js"
 import type { Shell } from "./context.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// Layout — keep in sync with shell.html. A thin icon rail is always reserved on the right; the panel expands
-// beside it. opencode fills whatever's left.
-const TITLEBAR_H = 40
-const RAIL_W = 46
-const PANEL_W = 320
 
-// ── selftest (before touching electron) ──────────────────────────────────────
-if (process.argv.includes("--selftest")) {
-  const cases: [string, string][] = [
-    ["opencode server listening on http://127.0.0.1:52345", "http://127.0.0.1:52345"],
-    ["  listening on http://0.0.0.0:4096 now", "http://127.0.0.1:4096"],
-  ]
-  for (const [line, want] of cases) {
-    const got = line.match(READY)?.[1].replace("0.0.0.0", "127.0.0.1")
-    if (got !== want) throw new Error(`selftest: ${line} → ${got} ≠ ${want}`)
-  }
-  console.log("selftest ok")
-  process.exit(0)
-}
-
-const { app, BrowserWindow, WebContentsView, ipcMain, shell: electronShell, dialog } = await import("electron")
-
-// Force the GUI language to English (VOLT_LOCALE overrides). opencode's serve GUI picks its locale CLIENT-SIDE
-// from navigator.languages — confirmed empirically: a machine with navigator.languages ["nl","nl-NL","tr"] came
-// up Turkish (opencode has no Dutch, so its client chose the Turkish that was in the list). The `--lang` switch
-// sets Chromium's language → navigator.languages → the client picks it; it must be applied BEFORE app-ready. This
-// is why the request-header approaches (setUserAgent, Accept-Language, x-opencode-locale) never took — the
-// selection isn't server-side here. VERIFIED: launching with --lang=en-US rendered the GUI in English.
-app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
+const { app, BrowserWindow, ipcMain, shell: electronShell, dialog } = await import("electron")
 
 // Windows taskbar identity. Without an explicit AppUserModelID the running app inherits Electron's, so the taskbar
 // shows the generic Electron icon (most visible in dev) and a pinned shortcut never merges with the live window.
@@ -61,21 +32,7 @@ app.commandLine.appendSwitch("lang", process.env.VOLT_LOCALE || "en-US")
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, view: null, status: null, boundRoot: undefined, awaitingOpencode: true, bindStale: false, panelOpen: false, projects: [], connectorUp: false }
-
-
-// Startup canary grace period. Loading the GUI fires a navigation immediately, so if we have classified NO route by
-// now while opencode IS loaded, its route scheme has almost certainly moved (its project pages are
-// `/<base64url(dir)>/…` — see binding.ts). We surface that instead of sitting silently on "Connecting…". Purely
-// observational: it reads our own flag, never opencode.
-const BIND_CANARY_MS = 20_000
-
-function layoutView() {
-  if (!shell.win || !shell.view) return
-  const [w, h] = shell.win.getContentSize()
-  const right = RAIL_W + (shell.panelOpen ? PANEL_W : 0) // rail is always visible; panel expands beside it
-  shell.view.setBounds({ x: 0, y: TITLEBAR_H, width: Math.max(0, w - right), height: Math.max(0, h - TITLEBAR_H) })
-}
+const shell: Shell = { win: null, status: null, boundRoot: undefined, awaiting: true, projects: [], connectorUp: false }
 
 // Point volt-control at the volt CLI + LSP. Packaged: the compiled .exe's sit beside the connector at the
 // install-dir root (…\Volt\bin), and this GUI runs from …\Volt\desktop\resources\app — so hop up to the install
@@ -94,58 +51,18 @@ function configureTools() {
   }
 }
 
-// Canonical form for comparing the active-project dir against the bound one. The same project can reach us in
-// varying string forms (separators / case / trailing slash), and a RAW `!==` would re-bind on every variation —
-// re-running the whole diagnostics crawl for nothing. Normalize so only a REAL project change re-binds: resolve()
-// canonicalizes separators + trailing slash, and Windows is case-insensitive, so fold case there.
-function sameDir(a: string | undefined, b: string | undefined): boolean {
-  if (a === undefined || b === undefined) return a === b
-  const norm = (d: string): string => (process.platform === "win32" ? resolve(d).toLowerCase() : resolve(d))
-  return norm(a) === norm(b)
-}
-
-// Apply one route signal through the pure reducer. The GUI's route IS the active project (binding.ts explains the
-// encoding and why this replaced the request sniff), so a navigation is the ONLY thing that moves the binding.
-function onActiveSignal(sig: ActiveProject): void {
-  const wasAwaiting = shell.awaitingOpencode
-  shell.awaitingOpencode = false // a classified route means opencode is up (clears the cold-start "Connecting…")
-  shell.bindStale = false // we read its route → retract any canary warning
-  const action = bindingAction(shell.boundRoot, sig, sameDir)
-  if (action.kind === "bind") return void bindWorkspace(shell, action.dir) // pushes
-  if (action.kind === "unbind") return unbindWorkspace(shell) // pushes
-  // Same project, or home while already unbound: nothing to do. Push only if this just cleared the cold-start state,
-  // so "Connecting…" flips to the bound / create-a-workspace view.
-  if (wasAwaiting) pushStatus(shell)
-}
-
-// The GUI's URL names the project: opencode's project pages are `/<base64url(directory)>/…` and its home is `/`.
-// Covers SPA client-side nav (did-navigate-in-page) and full loads. An unrecognised route classifies as undefined
-// and is ignored, so nothing unbinds on a route we don't know.
-function watchActiveProject() {
-  const onNav = (url: string): void => {
-    let pathname = "/"
-    try { pathname = new URL(url).pathname } catch { /* not a URL */ }
-    const sig = classifyRoute(pathname, existsSync)
-    // Always logged: "which project is Volt on, and why" is the first question of every support conversation, and
-    // it used to be answerable only via a dev-only env var printing to a console no installed app has.
-    voltLog("desktop", `nav ${pathname} → ${sig === undefined ? "ignored (unknown route — binding held)" : sig.kind === "dir" ? `project ${sig.dir}` : "home (no project)"}`)
-    if (sig !== undefined) onActiveSignal(sig)
-  }
-  shell.view!.webContents.on("did-navigate-in-page", (_e, url) => onNav(url))
-  shell.view!.webContents.on("did-navigate", (_e, url) => onNav(url))
-}
-
-async function startWorkspace() {
-  // An explicit override for dev; otherwise the workspace follows opencode's active project (watchActiveProject).
-  const root = process.env.VOLT_WORKSPACE
-  if (root && existsSync(root)) await bindWorkspace(shell, root)
+// Which workspace the app opens on. VOLT_WORKSPACE is the dev override; otherwise return to the last one bound
+// (see recent.ts for why that memory is load-bearing here). Neither is a guess: both are paths that were
+// explicitly chosen, and a missing one leaves the app unbound on the picker rather than binding something else.
+async function restoreWorkspace() {
+  const root = process.env.VOLT_WORKSPACE ?? readRecent()
+  if (root !== undefined && existsSync(root)) await bindWorkspace(shell, root)
 }
 
 registerCommands(ipcMain, dialog, shell)
 
 // Click a change row → a diff POPUP. The diff (which refs, the line diff) is @volt/control's loadDiff; here we
-// only open a child window and load the rendered HTML. A child BrowserWindow (not a DOM overlay) sidesteps the
-// opencode WebContentsView, which is layered above the shell DOM and would cover any in-page modal.
+// only open a child window and load the rendered HTML.
 let diffWin: InstanceType<typeof BrowserWindow> | null = null
 ipcMain.handle("volt:diff", async (_e, workspaceRoot: string, relPath: string, name: string, direction: DiffDirection) => {
   // A failed `volt show` (bridge down, unreadable ref) renders as an error page in the popup rather than throwing
@@ -174,19 +91,17 @@ ipcMain.handle("volt:openFile", async (_e, filePath: string) => {
   if (err) electronShell.showItemInFolder(filePath)
 })
 
-// window controls + IDE-panel toggle (window/layout concerns stay here; the volt: actions live in commands.ts)
+// window controls (the volt: actions live in commands.ts)
 ipcMain.on("win:minimize", () => shell.win?.minimize())
 ipcMain.on("win:maximize", () => (shell.win?.isMaximized() ? shell.win.unmaximize() : shell.win?.maximize()))
 ipcMain.on("win:close", () => shell.win?.close())
-ipcMain.on("volt:togglePanel", (_e, open: boolean) => {
-  shell.panelOpen = open
-  layoutView()
-})
 
 app.whenReady().then(async () => {
   shell.win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: 1100,
+    height: 820,
+    minWidth: 520,
+    minHeight: 480,
     frame: false, // Volt draws the titlebar (shell.html) — not the OS
     backgroundColor: "#16120e",
     icon: join(__dirname, "assets", "volt-icon.ico"), // Volt taskbar/window icon
@@ -194,45 +109,22 @@ app.whenReady().then(async () => {
   })
   await shell.win.loadFile(join(__dirname, "shell.html"))
 
-  // ponytail: boot smoke — the window + Volt shell loaded here (opencode/agent is optional and comes later), so
-  // exit before spawning it. Proves the electron entry, the frameless window, and shell.html actually render —
-  // the one thing the pure-logic unit tests can't. Driven by test/e2e/boot.test.ts.
+  // ponytail: boot smoke — proves the electron entry, the frameless window and shell.html actually render, the one
+  // thing the pure-logic unit tests can't. Driven by test/e2e/boot.test.ts.
   if (process.env.VOLT_SMOKE) {
     const ok = !shell.win.isDestroyed() && shell.win.webContents.getURL().endsWith("shell.html")
     app.exit(ok ? 0 : 1)
     return
   }
 
-  shell.view = new WebContentsView() // GUI language is forced by the --lang switch above, client-side (see there)
-  shell.win.contentView.addChildView(shell.view)
-  layoutView()
-  shell.win.on("resize", layoutView)
-  shell.view.webContents.setWindowOpenHandler(({ url }) => (electronShell.openExternal(url), { action: "deny" }))
-
   configureTools()
-  watchActiveProject() // the binding follows opencode's GUI route: a project page binds it, home releases it
-  void startWorkspace()
+  setRecentFile(join(app.getPath("userData"), "last-workspace.json"))
+  void restoreWorkspace()
 
   // The detected-project list rides the connector feed's ONE clock (no second timer here — this used to poll every
   // 10s for a value the session client had already fetched, so the list could be ~14s behind what it knew).
   onConnectorView.event(() => void refreshDetectedProjects(shell))
   void startConnectorFeed()
-
-  const agentUp = await launchAgent(shell.view)
-
-  // Arm the binding canary only when opencode actually launched (a missing opencode legitimately never signals — the
-  // install banner is showing, not a broken read). If we still haven't classified a route after the grace period,
-  // make the silent failure visible in the panel + logs. This never affects binding; it only reports.
-  if (agentUp) {
-    setTimeout(() => {
-      if (!shell.awaitingOpencode) return // a route was classified — the binding works
-      shell.bindStale = true
-      console.warn(
-        `[volt] opencode loaded but no route was classified in ${BIND_CANARY_MS / 1000}s — its route scheme may have changed in this opencode version. See the desktop log for the navigations it did classify.`,
-      )
-      pushStatus(shell)
-    }, BIND_CANARY_MS)
-  }
 })
 
 app.on("window-all-closed", () => app.quit())
@@ -249,7 +141,4 @@ app.on("before-quit", (e) => {
   const closed = (root !== undefined ? leaveWorkspace(root) : Promise.resolve()).then(() => shutdownSession())
   void Promise.race([closed, new Promise((r) => setTimeout(r, 1500))]).then(() => app.quit())
 })
-app.on("quit", () => {
-  shell.status?.dispose()
-  killServer()
-})
+app.on("quit", () => shell.status?.dispose())

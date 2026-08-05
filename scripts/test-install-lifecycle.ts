@@ -52,7 +52,7 @@ const setup = resolve(args.find((a) => !a.startsWith("--") && a !== args[olderId
 
 for (const [label, path] of [["installer", setup], ...(olderSetup ? [["older installer", olderSetup] as const] : [])] as const) {
   if (!existsSync(path)) {
-    console.error(`✗ ${label} not found: ${path}\n  build it first: bun volt-scripts/build-installer.ts`)
+    console.error(`✗ ${label} not found: ${path}\n  build it first: bun scripts/build-installer.ts`)
     process.exit(1)
   }
 }
@@ -150,7 +150,7 @@ function assertLog(step: string, prefix: string, required: string[]): void {
 /** THE assertion. Every shipped binary + version.txt must agree, or the install is half-applied. */
 function assertInstalled(step: string): void {
   // Everything the payload ships now lives under {app}\current (a junction to app-<version>), so the whole
-  // install is inspected THROUGH the junction — which is also how PATH, OPENCODE_CONFIG_DIR and the shortcut
+  // install is inspected THROUGH the junction — which is also how PATH and the shortcut
   // reach it. Checking the version directory directly would pass even if `current` were missing or stale, and a
   // broken junction is the one failure that makes an otherwise perfect install unreachable.
   const current = currentDir // the `{app}\current` junction — the shared source of truth (install-layout.ts)
@@ -218,8 +218,9 @@ function assertInstalled(step: string): void {
   }
   if (!existsSync(uninstaller)) fail(step, "uninstaller missing")
   if (reg(uninstallKey) === null) fail(step, "Add/Remove entry missing")
-  const env = reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR")
-  if (env === null || !env.toLowerCase().includes("volt")) fail(step, "OPENCODE_CONFIG_DIR not set to the Volt config")
+  // The retired opencode config var must be gone — PublishEnv deletes it, so an upgrade from a pre-removal
+  // install cannot leave a variable pointing at a directory this install no longer ships.
+  if (reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") !== null) fail(step, "OPENCODE_CONFIG_DIR was not retired")
 
   // THE invariant the whole versioned layout rests on: nothing recorded OUTSIDE {app} may name a version. If it
   // does, every update has to rewrite HKCU, and between the update and the new connector's first run those
@@ -231,7 +232,7 @@ function assertInstalled(step: string): void {
   // caught a developer's stale `...\Github\volt\dist\volt\connector\bin` from an earlier dev run: a real leftover,
   // but not one THIS installer wrote, so failing the gate on it tests the machine's history, not the install.
   const voltEntries = userPath.split(";").filter((p) => p.toLowerCase().startsWith(installDir.toLowerCase()))
-  for (const [name, value] of [["OPENCODE_CONFIG_DIR", env ?? ""], ...voltEntries.map((p) => ["Path", p] as const)] as const)
+  for (const [name, value] of voltEntries.map((p) => ["Path", p] as const))
     if (/app-\d+\.\d+\.\d+/i.test(value))
       fail(step, `${name} records a VERSIONED path — it must resolve through \current`)
 
@@ -239,15 +240,14 @@ function assertInstalled(step: string): void {
   // identical to the check above. A mangled backslash once shipped `...\Volt\currentin` on PATH — no version, so
   // this gate called the install clean while `volt` resolved to nothing at all. Every recorded path is resolved.
   if (voltEntries.length === 0) fail(step, "no Volt entry on PATH")
-  for (const p of [...voltEntries, env ?? ""])
-    if (!existsSync(p)) fail(step, `recorded path does not exist: ${p}`)
+  for (const p of voltEntries) if (!existsSync(p)) fail(step, `recorded path does not exist: ${p}`)
 
   // The install must not only END correct, it must have DONE each step and said so. These are the load-bearing
   // markers: junction activated, env published, connector launched — the three that were silently failing.
   assertLog(step, "install-", [
     "volt: install ",
     "junction active ->",
-    "OPENCODE_CONFIG_DIR=",
+    "env published ->",
     "started the connector:",
   ])
 }
@@ -274,8 +274,7 @@ function assertClean(step: string): void {
     else ok(`${step}: install dir empty`)
   } else ok(`${step}: install dir gone`)
   if (reg(uninstallKey) !== null) fail(step, "Add/Remove entry still present")
-  const env = reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR")
-  if (env !== null && env.toLowerCase().includes("volt")) fail(step, "OPENCODE_CONFIG_DIR still points at Volt")
+  if (reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") !== null) fail(step, "OPENCODE_CONFIG_DIR still present")
   const run = reg("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "Volt")
   if (run !== null) fail(step, "login item still present")
 

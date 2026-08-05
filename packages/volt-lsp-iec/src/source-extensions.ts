@@ -8,7 +8,7 @@
  * here — they are not writable source. Kept as a dependency-free leaf so lightweight consumers
  * (`detect-vendor`, used by `volt init` and the VS Code extension) don't transitively load the analysis
  * layer. The bridge/CLI own the on-disk layout (`ItemKind.ExtFor` in `volt-cli`); this mirrors its
- * writable-source rows and is cross-checked against every other copy by `volt-scripts/check-wiring.ts`.
+ * writable-source rows and is cross-checked against every other copy by `scripts/check-wiring.ts`.
  */
 export const SOURCE_EXTENSIONS: readonly string[] = [".fb", ".prg", ".fun", ".itf", ".dut", ".gvl"]
 

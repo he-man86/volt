@@ -218,9 +218,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
 
       // Pick a PARENT location; `volt init` CREATES a folder named after the IDE project inside it (git-clone
-      // semantics) and reports the path back. opencode's own UI can only ADD an existing project — it can't create
-      // a folder — so the user would otherwise hand-make an empty "New folder (2)" first. The picker + button IS
-      // the confirmation (no separate dialog).
+      // semantics) and reports the path back. The picker + button IS the confirmation (no separate dialog).
       const picked = await dialog.showOpenDialog(shell.win, {
         title: `Create a Volt workspace for “${project.displayName}”`,
         defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? join(shell.boundRoot, "..") : undefined,
@@ -232,15 +230,27 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       const out = await initFromProject(project, picked.filePaths[0], { onProgress: report })
       clearProgress()
       if (out.code === 0 && out.workspace) {
-        // Volt OWNS the folder it just created, so bind it DIRECTLY — the panel is synced instantly, and it stays
-        // bound with ZERO dependency on opencode (only a navigation moves the binding). To chat about it, the user
-        // opens the folder in opencode via
-        // Add project (opencode auto-registers then). We deliberately do NOT drive opencode ourselves: navigating it
-        // reloaded its GUI onto a stray global draft (opencode is session-scoped) for a one-click convenience — not
-        // worth the extra undocumented-API surface. See openspec/changes/archive/2026-07-29-desktop-connection-flow/observations.md.
+        // Volt OWNS the folder it just created, so bind it DIRECTLY — the panel is synced instantly, and the app
+        // reopens on it next launch (bindWorkspace records it).
         await bindWorkspace(shell, out.workspace)
-        notify("info", `Created and synced the Volt workspace at ${out.workspace}. To use it with the AI agent, open it in opencode (Add project → pick this folder).`)
+        notify("info", `Created and synced the Volt workspace at ${out.workspace}. Open that folder in your editor or AI agent to work on it.`)
       } else notify("error", `Initialize failed: ${firstLine(out.stderr) || (out.code === 0 ? "no workspace path reported" : `exit ${out.code}`)}. Open your PLC project and start its bridge from the Volt Connector (tray), then try again.`)
     }),
   )
+
+  // Open an EXISTING Volt workspace. Without opencode there is no external "current project" signal, so besides the
+  // remembered last workspace this is the only way back into a workspace that already exists — and the only way to
+  // switch between two of them. Binding a folder that isn't a Volt workspace is not an error: the panel says so and
+  // offers to set it up.
+  ipcMain.handle("volt:openWorkspace", async () => {
+    if (!shell.win) return
+    const picked = await dialog.showOpenDialog(shell.win, {
+      title: "Open a Volt workspace",
+      defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
+      properties: ["openDirectory"],
+      buttonLabel: "Open",
+    })
+    if (picked.canceled || picked.filePaths.length === 0) return
+    await bindWorkspace(shell, picked.filePaths[0])
+  })
 }

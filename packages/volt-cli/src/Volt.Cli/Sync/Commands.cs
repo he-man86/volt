@@ -23,7 +23,7 @@ public static class Commands
             return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
 
         // git-clone semantics: create <parent>/<project name>/ as the workspace. The user picks WHERE (a parent
-        // location) and Volt makes the named folder — so nobody hand-makes an empty "New folder" (opencode's UI
+        // location) and Volt makes the named folder — so nobody hand-makes an empty "New folder" (a typical agent UI
         // can't create one either) and the workspace is self-describing.
         var folder = SafeFolderName(health.ProjectName!);
         var root = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), folder);

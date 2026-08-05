@@ -12,6 +12,6 @@ if (!semver.satisfies(process.versions.bun, `^${expectedBunVersion}`)) {
   throw new Error(`This repo requires bun@^${expectedBunVersion}, but you are using bun@${process.versions.bun}`);
 }
 '
-# Typecheck the workspace + volt-scripts (not a workspace package, so typecheck it directly).
+# Typecheck the workspace + scripts (not a workspace package, so typecheck it directly).
 bun run --filter='*' typecheck
-bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+bunx tsgo --noEmit -p scripts/tsconfig.json

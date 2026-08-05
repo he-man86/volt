@@ -23,7 +23,7 @@ on:
   pull_request:
     branches: [dev]
 
-# Cancel a superseded run when a newer commit lands on the same ref (opencode convention).
+# Cancel a superseded run when a newer commit lands on the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -42,7 +42,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: |
           bun run --filter='*' typecheck
-          bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+          bunx tsgo --noEmit -p scripts/tsconfig.json
 
   lint:
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: bunx oxlint packages/volt-cli packages/volt-control packages/volt-desktop packages/volt-lsp-iec packages/volt-vscode volt-scripts
+      - run: bunx oxlint packages/volt-cli packages/volt-control packages/volt-desktop packages/volt-lsp-iec packages/volt-vscode scripts
 
   # Every Volt package's own unit suite, each run in its package dir (`--filter` sets the cwd, so the repo-root
   # `bun test` guard is never hit). `--filter='*' test` covers volt-lsp-iec + volt-control automatically — add a
@@ -72,9 +72,8 @@ jobs:
       - name: Volt package suites (lsp-iec offline + control)
         run: bun run --filter='*' test
 
-  # Build the volt binaries, then the key-free wiring check (config layer + bins + wire/product version parity).
-  # Key-free ON PURPOSE: this is the half of `bun run compat` that needs neither opencode nor a provider key,
-  # which is what lets it gate every PR. Its sibling verify-opencode.ts drives the real binary and can't run here.
+  # Build the volt binaries, then the wiring check (bins + source-extension parity + product version parity).
+  # Everything here is offline and key-free, which is what lets it run on every push.
   integration:
     runs-on: ubuntu-latest
     steps:
@@ -90,12 +89,12 @@ jobs:
           bun run --cwd packages/volt-lsp-iec build   # lsp-iec first (dependency order)
           bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
       - name: Wiring check (config layer + LSP/tool registration)
-        run: bun run volt-scripts/check-wiring.ts
+        run: bun run scripts/check-wiring.ts
       # The extension-install gate. A Linux runner has no editor, so this checks the half that does not need one —
       # that `bun run package` stamps the GIT-DERIVED version. That is the regression that actually shipped: a
       # constant 0.0.1 can never out-version an installed dev build, so every `--install-extension` silently
       # no-op'd and the editor kept running old code. The editor-side assertions stay a local gate (`bun run
-      # test:ext` on Windows), like verify-opencode.
+      # test:ext` on Windows).
       # NOTE: needs the job's `fetch-depth: 0`. With a shallow clone `git rev-list --count` is 1, so version.ts
       # computes exactly the base (0.0.1) that this gate exists to prove is NOT used, and it passes no matter
       # what. Vacuous gates are worse than none.

@@ -20,7 +20,7 @@ const repo = resolve(import.meta.dirname, "..")
 export const installDir = join(process.env.LOCALAPPDATA!, "Programs", "Volt")
 export const uninstaller = join(installDir, "unins000.exe")
 
-// The junction EVERY published path resolves through — PATH, OPENCODE_CONFIG_DIR, the shortcut. The payload lives
+// The junction EVERY published path resolves through — PATH, the shortcut. The payload lives
 // under a versioned `app-<version>` dir that `current` points at, so the whole install is inspected THROUGH this:
 // a version dir can exist and still be unreachable if `current` is missing/stale, and that is the one failure that
 // makes an otherwise-perfect install resolve to nothing. Never record a VERSIONED path anywhere outside {app} — it

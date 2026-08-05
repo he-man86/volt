@@ -2,10 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "bun",
-      "request": "attach",
-      "name": "opencode (attach)",
-      "url": "ws://localhost:6499/"
+      "type": "node",
+      "request": "launch",
+      "name": "volt-lsp-iec (stdio)",
+      "program": "${workspaceFolder}/packages/volt-lsp-iec/dist/src/bin.js",
+      "args": ["--stdio"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "extensionHost",
+      "request": "launch",
+      "name": "volt-vscode (extension host)",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/packages/volt-vscode"]
     }
   ]
 }

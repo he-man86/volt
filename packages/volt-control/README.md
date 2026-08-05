@@ -2,7 +2,7 @@
 
 > UI-agnostic core between the `volt` CLI / connector and the two Volt GUIs — one shared driver, two renderers.
 
-Both frontends — `volt-desktop` (the Electron shell around installed opencode) and `volt-vscode` (tree views) — go through this package. It spawns the `volt` CLI and parses its `--json` output into typed outcomes, holds the connector session that decides what the bridges serve, tracks per-workspace state, and shapes the presentation models both shells render. **No UI-framework code**: nothing here imports `electron` or `vscode`.
+Both frontends — `volt-desktop` (the standalone Electron app) and `volt-vscode` (tree views) — go through this package. It spawns the `volt` CLI and parses its `--json` output into typed outcomes, holds the connector session that decides what the bridges serve, tracks per-workspace state, and shapes the presentation models both shells render. **No UI-framework code**: nothing here imports `electron` or `vscode`.
 
 Where a behaviour is shared, it lives here — not in one shell with the other copying it. The two have drifted before (differently-worded outcomes, a connect flow that settled differently), which is why flows like `connectWorkspace` and wordings like `describePull` are exported as whole decisions rather than parts to reassemble.
 

@@ -12,9 +12,8 @@
  * one is BEHAVIOUR: it runs the installed CLIs (`--version`) rather than only checking files exist.
  *
  * Windows only; per-user install, reads HKCU. Best on a throwaway machine / CI runner — it really does install
- * and uninstall Volt. A /VERYSILENT install skips the opencode-winget step (Check: NotSilent in the .iss) but
- * NOT the extension sideload — that one is gated by WantExt, which on a silent run refreshes editors that already
- * have the extension. So a silent install DOES touch your editors, and this asserts it leaves them sane: an
+ * and uninstall Volt. A /VERYSILENT install still performs the extension sideload — that one is gated by WantExt,
+ * which on a silent run refreshes editors that already have the extension. So a silent install DOES touch your editors, and this asserts it leaves them sane: an
  * installer change once uninstalled the extension from every editor and skipped the reinstall (the uninstall step
  * flipped the very predicate the install step was gated on), and nothing here noticed.
  *
@@ -35,7 +34,7 @@ if (process.platform !== "win32") {
 const repo = resolve(import.meta.dirname, "..")
 const setup = resolve(process.argv[2] ?? resolve(repo, "dist/release/Volt-win-Setup.exe"))
 if (!existsSync(setup)) {
-  console.error(`✗ installer not found: ${setup}\n  build it first: bun volt-scripts/build-installer.ts`)
+  console.error(`✗ installer not found: ${setup}\n  build it first: bun scripts/build-installer.ts`)
   process.exit(1)
 }
 
@@ -43,7 +42,6 @@ if (!existsSync(setup)) {
 // flat at {app}. The Start Menu shortcut is the one artefact this gate checks that the lifecycle gate does not.
 const connector = join(currentDir, "VoltConnector" + EXE)
 const binDir = join(currentDir, "bin")
-const configDir = join(currentDir, "opencode-config")
 const vsix = join(currentDir, "volt-vscode.vsix")
 const shortcut = join(process.env.APPDATA!, "Microsoft", "Windows", "Start Menu", "Programs", "Volt.lnk")
 
@@ -58,9 +56,6 @@ const waitFor = async (pred: () => boolean, seconds: number): Promise<boolean> =
   for (let i = 0; i < seconds && !pred(); i++) await Bun.sleep(1000)
   return pred()
 }
-// Two paths naming the same location (case-insensitive, separator/format-normalised).
-const samePath = (a: string, b: string): boolean => resolve(a).toLowerCase() === resolve(b).toLowerCase()
-
 let failures = 0
 // soft = best-effort feature (per the connector's own "best-effort" comments): report but don't gate the release.
 // The load-bearing install checks + ALL cleanup checks stay hard — cleanliness is the guarantee.
@@ -108,20 +103,19 @@ if (inst.status !== 0) {
   process.exit(1)
 }
 
-// The installer publishes OPENCODE_CONFIG_DIR as part of the install — wait for it to appear, then verify.
+// PATH is the installer's whole environment contribution — wait for it to appear, then verify.
 console.log("• waiting for the installer to publish its environment…")
-await waitFor(() => reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") != null, 45)
+await waitFor(() => pathHasEntry(binDir), 45)
 
 console.log("• verifying install:")
 // The junction MUST resolve — a missing `current` makes an otherwise-perfect versioned payload unreachable, which
 // is the one failure that looks fine on disk (the app-<ver> dir is there) yet makes nothing work.
 check("{app}\\current junction resolves", existsSync(currentDir))
-// The env var opencode resolves through must point THROUGH `current` at a REAL config (its opencode.json — the file
-// that actually makes opencode PLC-aware), and NOT at a versioned path (which would break on the next update).
-const cfg = reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR")
-check("OPENCODE_CONFIG_DIR → current\\opencode-config", cfg != null && samePath(cfg, configDir))
-check("opencode-config is real (opencode.json present)", existsSync(join(configDir, "opencode.json")))
+// PATH must point THROUGH `current`, never at a versioned path (which would break on the next update). This is
+// the ONLY environment Volt publishes — every agent integration goes through the `volt` it makes resolvable.
 check("PATH has current\\bin", pathHasEntry(binDir))
+// The retired opencode config var must not survive an upgrade from a pre-removal install (PublishEnv deletes it).
+check("no OPENCODE_CONFIG_DIR left behind", reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") == null)
 // Behaviour, not just presence: the installed CLIs must actually RUN (a rolled-back install leaves a file that can't).
 check("volt CLI runs from the installed bin", runsOk(join(binDir, "volt" + EXE), ["--version"]))
 check("volt-lsp-iec CLI runs from the installed bin", runsOk(join(binDir, "volt-lsp-iec" + EXE), ["--version"]))
@@ -176,7 +170,6 @@ if (!dirClean) console.log(`    leftover in ${installDir}: ${leftover.slice(0, 8
 // AFTER the files go — so the file-removal above does NOT imply the env is reverted yet. Wait for it, symmetric with
 // the install-side wait for the env to appear. A never-reverted var still fails (the wait just exhausts) — this
 // tolerates the uninstall's timing without masking a real leftover.
-check("OPENCODE_CONFIG_DIR reverted", await waitFor(() => reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") == null, 15))
 check("PATH bin removed", await waitFor(() => !pathHasEntry(binDir), 15))
 check("Start Menu shortcut removed", !existsSync(shortcut))
 check("login item removed", reg(runKey, "VoltConnector") == null)

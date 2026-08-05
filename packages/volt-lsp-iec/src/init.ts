@@ -1,8 +1,9 @@
 /**
  * `volt-lsp-iec init` — copy the language reference corpus into a
  * user's project and install a SKILL.md so any AI session in that
- * project (opencode, Claude Code) auto-discovers the ST language
- * reference via the native skill mechanism.
+ * project (Claude Code and anything else that reads `.claude/skills/`)
+ * auto-discovers the ST language reference via the native skill
+ * mechanism.
  *
  * Why this exists: the LSP gives AI sessions reactive intelligence
  * (hover/diagnostics) but proactive knowledge — "when should I use
@@ -15,10 +16,8 @@
  * TC was forked from CODESYS) and `twincat-reference/` (the deltas)
  * are installed. CODESYS projects only get `codesys-reference/`.
  *
- * Why `.claude/skills/` and not `.opencode/skills/`: per opencode's
- * docs, `.claude/skills/` is the universal location — both opencode
- * and Claude Code discover skills from there. `.opencode/skills/`
- * would be opencode-only.
+ * Why `.claude/skills/`: it is the location agents converge on, so
+ * one directory serves every host rather than one per product.
  *
  * Workspace layout (everything stays under one folder):
  *

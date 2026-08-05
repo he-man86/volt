@@ -15,8 +15,10 @@ You need a Windows machine with **CODESYS** or **TwinCAT/Beckhoff** installed, a
 IDE. Volt sits *alongside* your IDE — it never replaces it, and the IDE stays the source of truth for build and
 codegen.
 
-For the AI agent, Volt uses [opencode](https://opencode.ai/download) — a separate, free install that Volt does not
-bundle or update. Everything else (git sync, Structured Text language intelligence) works without it.
+You do not need a particular AI agent. Volt ships none and installs itself into none — whichever agent you already
+use (Claude Code, Cursor, Windsurf, VS Code) reaches Volt through the `volt` command on your `PATH`. See
+**[Using Volt with your AI agent](/docs/agents)** for the per-host details. Git sync and Structured Text language
+intelligence work with no agent at all.
 
 ## Install Volt
 
@@ -48,10 +50,10 @@ For CODESYS you may need **Activate in CODESYS…** once, which installs Volt's 
 
 ## Connect the app to your IDE
 
-Open the Volt desktop app. The right-hand panel is where your project lives — **IDE Connection** at the top,
-then **IDE Sync**, then **Diagnostics**.
+Open the Volt desktop app — from the Start Menu, or from the Connector's tray icon. It is a standalone app with
+three sections: **IDE Connection** at the top, then **IDE Sync**, then **Diagnostics**.
 
-<Figure wide caption="The desktop app. Click the rail icons on the right to switch between IDE Connection, IDE Sync and Diagnostics — and try Disconnect / reconnect in the Connection panel.">
+<Figure wide caption="The desktop app. Click the rail icons on the right to jump between IDE Connection, IDE Sync and Diagnostics — and try Disconnect / reconnect in the Connection panel.">
   <DesktopApp panel="bridge" theme="light" autoplay />
 </Figure>
 
@@ -86,10 +88,10 @@ like any other code.
 
 ## Work with the agent
 
-With the project in text form, the agent can actually read it: your POUs, function blocks, referenced library
+With the project in text form, your agent can actually read it: your POUs, function blocks, referenced library
 signatures and the device tree — not a single file guessed at out of context.
 
-<Step n="5">Ask for something concrete in the chat pane. Good first prompts:</Step>
+<Step n="5">Open the workspace folder in your agent and ask for something concrete. Good first prompts:</Step>
 
 - *"Explain what `FB_ConveyorControl` does and where it's called from."*
 - *"Add a fault-latch output to `FB_Pump` and reset it on the rising edge of `bReset`."*
@@ -97,6 +99,9 @@ signatures and the device tree — not a single file guessed at out of context.
 
 Diagnostics run locally the whole time — go-to-definition, hover, completion and errors come from Volt's own IEC
 61131-3 language server, tuned against real CODESYS builds. Type-checking and codegen stay the IDE's job.
+
+Your agent can run the same `volt` verbs you do. Which hosts also get the language server, and what each one
+needs, is on **[Using Volt with your AI agent](/docs/agents)**.
 
 ## Push back to the IDE
 
@@ -116,13 +121,13 @@ volt build       # compile in the IDE, report errors back here
 If the IDE changed underneath you, `volt pull` merges first and you resolve conflicts with your normal git tools;
 `volt merge --continue` picks up where you left off.
 
-## Prefer VS Code?
+## Prefer your editor?
 
-Everything above also works from VS Code (and Windsurf) with the Volt extension, installed alongside the app.
-You get the same language intelligence plus drift coloring — files the IDE changed are colored differently from
-files you changed.
+Everything above also works from VS Code, Cursor and Windsurf with the Volt extension. You get the same language
+intelligence plus drift coloring — files the IDE changed are colored differently from files you changed — and your
+editor's own agent gets both the language server and the `volt` CLI.
 
-<Figure wide caption="The VS Code extension: Explorer, Source Control, and Volt's own views — IDE Sync, Diagnostics, Bridge, Agent & Settings. Switch views in the activity bar; type in the terminal.">
+<Figure wide caption="The VS Code extension: Explorer, Source Control, and Volt's own three views — IDE Connection, IDE Sync, Diagnostics. Switch views in the activity bar; type in the terminal.">
   <VSCode autoplay zoom={0.92} />
 </Figure>
 
@@ -142,6 +147,5 @@ The whole workflow is scriptable — the desktop app and the extension drive exa
 
 ## Where to go next
 
-- **[Pricing](/pricing)** — both plans bring your own model key; Pro lifts the 3-project limit.
-- **[FAQ](/faq)** — data handling, supported vendors, platform support.
-- **[Contact](/contact)** — something not working, or a vendor you need? Tell us.
+- **[Using Volt with your AI agent](/docs/agents)** — Claude Code, Cursor, Windsurf, VS Code, Claude Desktop.
+- **[Desktop app or VS Code extension?](/docs/desktop-vs-vscode)** — two front ends over the same core.

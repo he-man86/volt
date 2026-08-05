@@ -1,6 +1,6 @@
 ## Context
 
-Volt installs per-user (`PrivilegesRequired=lowest`) into `{localappdata}\Programs\Volt` via an Inno wizard, and the always-on connector drives auto-update by downloading a newer `Setup.exe` and re-running it `/VERYSILENT`. Four long-lived processes live under that directory — `VoltConnector.exe`, `VoltBridgeTwincat.exe`, the Electron `Volt.exe`, and `volt-lsp-iec.exe` (spawned by opencode, alive for the whole session) — and each self-contained .NET binary keeps its own runtime (`clrjit.dll`, `coreclr.dll`, `hostfxr.dll`) loaded while it runs.
+Volt installs per-user (`PrivilegesRequired=lowest`) into `{localappdata}\Programs\Volt` via an Inno wizard, and the always-on connector drives auto-update by downloading a newer `Setup.exe` and re-running it `/VERYSILENT`. Four long-lived processes live under that directory — `VoltConnector.exe`, `VoltBridgeTwincat.exe`, the Electron `Volt.exe`, and `volt-lsp-iec.exe` (started by an editor/agent, alive for the whole session) — and each self-contained .NET binary keeps its own runtime (`clrjit.dll`, `coreclr.dll`, `hostfxr.dll`) loaded while it runs.
 
 Overwriting that directory in place is therefore a fight with file locks, and Inno loses badly: a locked file produces a retry loop, then an Abort/Retry/Ignore box that `/SUPPRESSMSGBOXES` **defaults to Abort**, and the whole install **rolls back** — silently, exit 5. This shipped. `bin/volt.exe` sorts after `bin/volt-lsp-iec.exe`, so the run never reached it and the CLI sat several releases behind the connector while `volt pull --force` appeared broken.
 
@@ -15,7 +15,7 @@ What is in place today is `PrepareToInstall` + `CurUninstallStepChanged` termina
 **Goals:**
 - Remove the file-lock/rollback failure *class*, rather than mitigating it: an update must never write to a file any process holds open.
 - A failed update leaves the previous version intact and runnable.
-- Keep the Inno wizard and its component checkboxes (opencode via winget, per-editor extension).
+- Keep the Inno wizard and its component checkboxes (per-editor extension).
 - Keep every externally-recorded path stable, so an update never rewrites `PATH`, `OPENCODE_CONFIG_DIR`, the shortcut or the login item.
 - Stop terminating the user's running desktop app to install an update.
 - Prove the migration with the existing lifecycle gate, run with editors open.
@@ -32,7 +32,7 @@ What is in place today is `PrepareToInstall` + `CurUninstallStepChanged` termina
 ```
 {app}\
   current\              → junction to app-<version>
-  app-0.0.1.15810\      bin\ connector files, desktop\, opencode-config\, docs\, version.txt
+  app-0.0.1.15810\      bin\ connector files, desktop\, docs\
   app-0.0.1.15807\      previous — pruned by the connector at next start
   unins000.exe
 ```
@@ -44,7 +44,7 @@ What is in place today is `PrepareToInstall` + `CurUninstallStepChanged` termina
 
 **VERIFIED, not assumed** (this is the premise the design stands on, so it was tested before planning any of it): with `current\payload.txt` held open EXCLUSIVELY through the junction, `rmdir current` + `mklink /J current v2` succeeded, `current` immediately resolved to v2, and the pre-existing handle still read v1's content. No administrative rights were needed. So an update can activate a new version while every Volt process is running, and those processes continue against the old directory until they next start.
 
-**Everything external points at `current`, nothing at a version.** `PATH` gets `{app}\current\bin`, `OPENCODE_CONFIG_DIR` gets `{app}\current\opencode-config`, the shortcut and login item target `{app}\current\...`. This is what makes an update a no-op for the environment — and it is load-bearing: if any recorded path carried a version, every update would have to rewrite `HKCU` and we would have traded a file-lock race for a registry one.
+**Everything external points at `current`, nothing at a version.** `PATH` gets `{app}\current\bin`, the shortcut and login item target `{app}\current\...`. This is what makes an update a no-op for the environment — and it is load-bearing: if any recorded path carried a version, every update would have to rewrite `HKCU` and we would have traded a file-lock race for a registry one.
 
 **Pruning belongs to the connector, not the installer.** At install time the old version is by definition still in use (its processes are running, and the connector may itself be the process that launched setup). At connector startup nothing holds the superseded directory. Best-effort with a log line; never fatal. Retain 2.
 

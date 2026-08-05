@@ -6,7 +6,6 @@ contextBridge.exposeInMainWorld("volt", {
   maximize: () => ipcRenderer.send("win:maximize"),
   close: () => ipcRenderer.send("win:close"),
   // IDE panel
-  togglePanel: (open) => ipcRenderer.send("volt:togglePanel", open),
   onStatus: (cb) => ipcRenderer.on("volt:status", (_e, snap) => cb(snap)),
   pull: () => ipcRenderer.invoke("volt:pull"),
   push: () => ipcRenderer.invoke("volt:push"),
@@ -23,6 +22,7 @@ contextBridge.exposeInMainWorld("volt", {
   refreshDiagnostics: () => ipcRenderer.send("volt:refreshDiagnostics"),
   onDiagnostics: (cb) => ipcRenderer.on("volt:diagnostics", (_e, d) => cb(d)),
   initWorkspace: (projectId) => ipcRenderer.invoke("volt:init", projectId),
+  openWorkspace: () => ipcRenderer.invoke("volt:openWorkspace"),
   diff: (workspaceRoot, relPath, name, direction) => ipcRenderer.invoke("volt:diff", workspaceRoot, relPath, name, direction),
   openFile: (path) => ipcRenderer.invoke("volt:openFile", path),
   onProgress: (cb) => ipcRenderer.on("volt:progress", (_e, p) => cb(p)),

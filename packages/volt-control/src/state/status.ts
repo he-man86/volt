@@ -156,7 +156,7 @@ export class VoltStatus {
 
 	dispose(): void {
 		// Also makes every later refresh/health read a no-op. A workspace can be disposed with work in flight — the
-		// desktop rebinds the moment opencode switches project, and an in-flight connect settles a beat later — and
+		// desktop rebinds the moment the user switches project, and an in-flight connect settles a beat later — and
 		// that late work used to run against the DEAD tracker: a `volt status` (an IDE walk) for a workspace nobody
 		// is showing. One flag here beats an `is this still the bound one?` guard at each call site (they were
 		// individually correct and collectively easy to forget).

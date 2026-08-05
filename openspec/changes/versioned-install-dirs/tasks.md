@@ -1,7 +1,7 @@
 ## 1. Audit — how every installed feature responds to the new layout
 
 - [ ] 1.1 Enumerate every path Volt records **outside** `{app}`: `PATH`, `OPENCODE_CONFIG_DIR`, the Start Menu shortcut target, the login item command, the Add/Remove `UninstallString`/`DisplayIcon`, and anything `VoltEnv.cs`/`LoginItem.cs` writes. Record which ones today embed a path that would become version-scoped.
-- [ ] 1.2 Confirm each of those resolves correctly through a junction (spawn `volt` from `PATH`, have opencode load the config dir, launch the shortcut) before changing any layout — a junction that breaks one of these fails the design, not the implementation.
+- [ ] 1.2 Confirm each of those resolves correctly through a junction (spawn `volt` from `PATH`, launch the shortcut) before changing any layout — a junction that breaks one of these fails the design, not the implementation.
 - [ ] 1.3 Check the Electron desktop's resource resolution (it runs from inside the version directory) and the `.vsix` sideload source path in `[Run]`, which currently reads `{app}\volt-vscode.vsix`.
 - [ ] 1.4 Check the connector's own self-reference: `Updater` reads its version, `AppContext.BaseDirectory` is used for `version.txt`, and `BridgeSupervisor` spawns workers by path — all become version-scoped, which is correct but must be deliberate.
 - [ ] 1.5 Point the CODESYS activation path (`start_volt_codesys.py`, which the user pastes into their IDE's script runner) at `{app}\current\...` so it never goes stale after an update. DECIDED: displaying a `current`-based path is fine — a `[version]` placeholder is also understood by users if a version ever needs showing, so this is not a reason to keep a version-scoped path in user-facing text.
@@ -17,7 +17,7 @@
 
 ## 3. Stable paths
 
-- [ ] 3.1 Change `VoltEnv` to write `{app}\current\bin` to `PATH` and `{app}\current\opencode-config` to `OPENCODE_CONFIG_DIR`, and to migrate an existing version-free flat value to the `current` form exactly once.
+- [ ] 3.1 Change `VoltEnv` to write `{app}\current\bin` to `PATH`, and to migrate an existing version-free flat value to the `current` form exactly once.
 - [ ] 3.2 Change `LoginItem` and the Start Menu shortcut to target `{app}\current\...`.
 - [ ] 3.3 Assert the invariant that gives the design its value: no value written outside `{app}` may contain a version number. Add it to `installer/README.md` as a rule, not a note.
 

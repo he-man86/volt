@@ -62,7 +62,7 @@ const run = (cmd: string, args: string[]): { code: number; out: string } => {
 const onPath = (cli: string): boolean => editorsInspectable && run("where", [cli]).code === 0
 
 // ── the one version, from the one place ──────────────────────────────────────
-const expected = run("bun", [resolve(repo, "volt-scripts/version.ts"), "--vsix"]).out.trim()
+const expected = run("bun", [resolve(repo, "scripts/version.ts"), "--vsix"]).out.trim()
 if (!/^\d+\.\d+\.\d+$/.test(expected)) {
   console.error(`✗ version.ts --vsix produced '${expected}' — expected a bare X.Y.Z`)
   process.exit(1)

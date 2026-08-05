@@ -13,7 +13,11 @@ The UI is the **Volt** activity-bar container, which hosts four tree views (`src
 - **IDE Connection** (`volt.views.bridge`) — **the whole connection lifecycle, and the first view in the container**: the detected PLC projects **by name** (click one to set this folder up against it), then once bound the live health row and exactly one action — **Connect** or **Disconnect**, never both, never neither. The tray is never required. It still never *starts* a bridge (that's the connector's job); it selects, connects and disconnects one.
 - **IDE Sync** (`volt.views.sync`) — **only "what changed"**: two drift groups, **Incoming (IDE → pull)** and **Outgoing (push → IDE)**, each file a clickable `vscode.diff` against the last-synced baseline ref `refs/remotes/volt/ide` (`VOLTIDE`). Its welcomes never offer init/connect — they point at IDE Connection above, so connection state is described in exactly one place.
 - **Diagnostics** (`volt.views.diagnostics`) — the current build/LSP problems.
-- **Reference & Agent** (`volt.views.reference`) — links into the language reference + the agent.
+
+There is no fourth view. An "Agent & Settings" one used to sit here holding a launcher for opencode (an
+integration Volt no longer has) and two shortcuts into VS Code's own settings — a view that existed to hold a
+link. These three are exactly the desktop app's three panel sections, so both frontends surface the same
+information.
 
 Git history, conflict resolution, and discard are **delegated to the editor's built-in Git** — when a pull hits conflicts, Volt opens the files and tells you to resolve them with your normal merge tools, then pull again. Volt owns only the IDE axis git can't see; it adds no custom history or merge engine.
 
@@ -33,7 +37,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Context keys** (`extension.ts`). There is **no** Volt status-bar item — the activity-bar container is Volt's ambient presence, and the views carry the state. (`lsp.ts` owns the one status-bar item there is: the LSP version, so a stale build is visible at a glance.) `updateContextKeys` drives the menu when-clauses off the shared `aggregate()` display model, worst-state-wins: `volt.workspaceInitialized`, `volt.bridgeOnline` (gates pull/push/build), `volt.bridgeOffline`. Bridge *lifecycle* (spawning/activating) is **not** the extension's job — it's the tray connector's; the extension selects, connects, disconnects and initializes against a reachable bridge.
 
-**Agent** (`agent.ts`). The agent is the installed opencode — a prerequisite the extension resolves (bundled `volt`/opencode from the Volt install, else `volt` on PATH); it neither bundles nor downloads it. "Volt: Open Agent" opens/focuses an agent terminal.
+**Agents.** The extension launches none. Whatever AI agent you use — Claude Code, Cursor's, Windsurf's Cascade — reaches Volt through the `volt` CLI on PATH, in its own terminal. (There used to be a "Volt: Open Agent" command that opened opencode; Volt no longer integrates with opencode.) See the host integration docs on the website.
 
 ## Commands
 
@@ -71,12 +75,11 @@ Volt implements **21 of the ~66** dialog codes. The remaining 45 have no setting
 |---|---|
 | `src/extension.ts` | `activate`/`deactivate`; wires the tree views, decorations, content provider, context keys, the connector poll, and the per-workspace `VoltStatus`; starts the LSP. No `setBundledCli` — `volt` is a PATH prerequisite the installer provides. |
 | `src/commands.ts` | All `volt.*` command handlers — pull/push (with force confirmations), init, connect/disconnect, merge, build, refresh, open config/settings/reference. |
-| `src/panel.ts` | The four Volt tree views (IDE Connection / IDE Sync / Diagnostics / Reference & Agent); `bridgeRoots` = the connection surface (detected projects → connect/disconnect), `syncRoots` = Incoming/Outgoing drift, each item a `vscode.diff` against `refs/remotes/volt/ide`. |
+| `src/panel.ts` | The three Volt tree views (IDE Connection / IDE Sync / Diagnostics); `bridgeRoots` = the connection surface (detected projects → connect/disconnect), `syncRoots` = Incoming/Outgoing drift, each item a `vscode.diff` against `refs/remotes/volt/ide`. |
 | `src/content.ts` | `volt://` content provider; resolves a ref's file via `volt show`. |
 | `src/decorations.ts` | Explorer drift badges (`i`/`o`/`C`/`RO`) using the `volt.drift*` theme colors. |
 | `src/workspace.ts` | The genuinely VS Code-specific helpers only (`workspaceFolders`, `hasVoltConfig`). `VoltStatus` lives in `@volt/control`. |
 | `src/lsp.ts` | Starts the Volt LSP client for the ST-family languages. |
-| `src/agent.ts` | Resolves the agent (installed opencode) binary for "Volt: Open Agent". |
 | `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language config (ST/ITF/GVL/DUT) + `vg.injection.tmLanguage.json` — the injection that highlights VG `NETWORK` networks by content. |
 | `icons/` | File-kind icons and the `volt-icons` icon theme + activity-bar icon. |
 

@@ -5,17 +5,18 @@
 Volt SHALL NOT operate an LLM gateway. The product is the PLC toolchain, sold as a flat recurring subscription
 with no usage metering, no upstream provider keys held by Volt, and no model catalog.
 
-Users bring their own AI — an opencode install and their own provider key. `opencode-config` SHALL continue to
-ship the LSP registration, the `volt` tool and the permission gates, because those are what make opencode
-PLC-aware and they are independent of any gateway.
+Users bring their own AI — an agent of their choosing and their own provider key. Volt SHALL keep shipping the
+language server and the `volt` CLI, because those are what make a PLC project legible to any agent, and they are
+independent of any gateway.
 
 #### Scenario: no provider costs are fronted
 - **WHEN** a subscriber uses AI assistance alongside Volt
 - **THEN** their model usage is billed to them by their own provider, and Volt neither pays for nor meters it
 
 #### Scenario: the agent integration survives the gateway's removal
-- **WHEN** the gateway and its two client-side files are deleted
-- **THEN** `bun run compat` still passes — the LSP loads and the `volt` tool registers with its permission gate
+- **WHEN** the gateway is deleted
+- **THEN** the LSP and the `volt` CLI still ship and still reach an agent — the toolchain is what is sold, and it
+  never depended on the gateway
 
 ### Requirement: Volt operates no backend of its own
 

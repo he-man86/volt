@@ -4,7 +4,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Volt desktop shell — wraps the installed opencode's served GUI + the IDE panel (desktop sibling of volt-vscode).",
+  "description": "The Volt desktop app — connection, sync and diagnostics for a PLC workspace (desktop sibling of volt-vscode).",
   "main": "main.mjs",
   "scripts": {
     "build": "bun build src/main.ts --target=node --format=esm --outfile=main.mjs --external electron",

@@ -9,7 +9,7 @@ namespace Volt.Cli.Connector
     /// of the CODESYS activation scripts. Install() runs on every connector startup (idempotent); Uninstall() runs
     /// from the Inno uninstaller via `VoltConnector.exe --uninstall` (see Program.cs). Best-effort: never throws.
     ///
-    /// ENV VARS ARE NOT SET HERE. OPENCODE_CONFIG_DIR, PATH and VOLT_BRIDGE_DLL are published by the INSTALLER
+    /// ENV VARS ARE NOT SET HERE. PATH and VOLT_BRIDGE_DLL are published by the INSTALLER
     /// (PublishEnv in Volt.iss) and reverted by the uninstaller. They had two owners, and that is precisely what
     /// broke: the connector computes its paths from where its own exe sits, so when the installer launched it
     /// before {app}\current existed it published VERSION-SCOPED values — violating the one invariant the versioned
@@ -18,10 +18,10 @@ namespace Volt.Cli.Connector
     /// </summary>
     internal static class VoltEnv
     {
-        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and opencode-config\
-        // (the agent layer) as sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe
-        // so it survives wherever the user installed us.
-        // Every path published OUTSIDE {app} — PATH, OPENCODE_CONFIG_DIR, the Start Menu shortcut, the login
+        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and desktop\ as
+        // sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe so it survives wherever
+        // the user installed us.
+        // Every path published OUTSIDE {app} — PATH, the Start Menu shortcut, the login
         // item — MUST resolve through {app}\current, never through this version directory. That is the invariant
         // the versioned-install layout rests on: a published value naming a version would force every update to
         // rewrite HKCU (trading a file-lock race for a registry one) and would dangle between the install and the
@@ -55,9 +55,9 @@ namespace Volt.Cli.Connector
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Volt");
         internal static string VisibleScript => Path.Combine(VisibleScriptDir, "start_volt_codesys.py");
 
-        /// <summary>Install/update hook: set OPENCODE_CONFIG_DIR + add bin to PATH + register start-at-login +
-        /// a Start Menu "Volt" shortcut to the desktop GUI (the connector itself auto-starts via the login item,
-        /// so it needs no shortcut of its own — which is why the .iss lays down no [Icons]).</summary>
+        /// <summary>Install/update hook: register start-at-login + a Start Menu "Volt" shortcut to the desktop GUI
+        /// (the connector itself auto-starts via the login item, so it needs no shortcut of its own — which is why
+        /// the .iss lays down no [Icons]).</summary>
         public static void Install()
         {
             try
@@ -103,7 +103,7 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>Uninstall hook: stop the running processes so the uninstaller can delete their files, then
-        /// revert every env change (opencode returns to vanilla).</summary>
+        /// drop the login item, the shortcut and the published CODESYS scripts.</summary>
         public static void Uninstall()
         {
             try

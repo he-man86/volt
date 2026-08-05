@@ -1,8 +1,7 @@
-# volt-scripts
+# scripts
 
-**One job: ship + verify the whole product.** Everything here spans *all* the `volt-*` packages, or checks the
-integrated product against the installed opencode — so it can't live in any single package. Package-specific
-scripts live in that package's `scripts/` dir (map at the bottom).
+**One job: ship + verify the whole product.** Everything here spans *all* the `volt-*` packages — so it can't
+live in any single package. Package-specific scripts live in that package's `scripts/` dir (map at the bottom).
 
 Every script is listed here. If you add one, add a row — this file existing but being wrong is worse than it not
 existing at all.
@@ -14,7 +13,7 @@ existing at all.
 | `bun run build:installer` | `build-installer.ts` | **the product** → `dist/release/Volt-win-Setup.exe` |
 | `bun run test:install` | `test-install.ts` | install → verify → uninstall → verify clean |
 | `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (triggers `promote.yml`) |
-| `bun run compat` | (chains the 2 checkers below) | does Volt still load in the installed opencode? |
+| `bun run check` | `check-wiring.ts` | is everything shipped built + internally consistent? |
 
 That's the whole surface. Everything else here is a **step** of one of those, or infra.
 
@@ -22,7 +21,7 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 
 DEV BUILD — every push to `dev` (`release.yml`):
 ```
-build-payload.ts        →  dist/volt/     binaries + docs + .vsix + opencode-config + connector
+build-payload.ts        →  dist/volt/     binaries + docs + .vsix + connector
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
@@ -54,31 +53,22 @@ The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup,
 
 **`build-payload.ts` deliberately has no `bun run`.** It's a stage, not a destination — "the payload" is just
 everything the installer will contain. You want `build:installer`. Run it directly (`bun
-volt-scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
+scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
 
 Useful flags on `build-installer.ts`: `--skip-dist` (reuse the current `dist/volt`), `--rebuild-app` (force
 electron-builder), `--upload` / `--upload-only`.
 
-## The compat gate
+## The wiring check
 
-`bun run compat` — run this **when you bump the opencode binary**, not on Volt changes. It answers "does the
-current opencode still load Volt's config?", which only changes when *opencode* changes.
+`bun run check` (`check-wiring.ts`) — built binaries, product-version parity, and **source-extension parity across
+every runtime that declares the writable-source set** (C#, the LSP, volt-control, and four separate places in the
+VS Code extension manifest). Offline and key-free, so **CI runs it on every push/PR**.
 
-| Step | Script | Answers | Needs |
-|---|---|---|---|
-| 1. integration | `check-wiring.ts` | config layer, built binaries, wire-version + product-version parity, source-extension parity across all runtimes, model-catalog parity | nothing — **CI runs this on every push/PR** |
-| 2. opencode | `verify-opencode.ts` | does the **installed** opencode load the volt LSP **and** the `volt` tool via `OPENCODE_CONFIG_DIR`? | opencode + a configured provider |
-
-Step 2 is the reason the gate exists — it drives the real binary, and nothing else catches opencode changing its
-config/LSP/tool contract. Step 1 is included so a local run is complete, but it already gates every PR.
-
-It's a plain `&&` chain in `package.json`, not a script: "run these, stop at the first failure" is exactly what
-`&&` is. Each step is runnable alone when one fails, and `verify-opencode` runs both of its checks even if the
-first fails — a broken LSP shouldn't hide the tool's result.
-
-> **Known gap:** the verifiers point `OPENCODE_CONFIG_DIR` at the **source** `opencode-config/`, not the built copy in
-> `dist/volt/`. The shipped dir differs (the `volt` tool is bundled to `.js` and the `.ts` dropped), so a bundling
-> regression in `build-payload.ts` wouldn't be caught here.
+> This used to be `bun run compat`, a two-step gate whose real purpose was `verify-opencode.ts` — driving the
+> installed opencode binary to confirm it still loaded Volt's `opencode-config/` layer. Both are deleted along
+> with the integration they tested. Volt no longer ships configuration into any agent product, so there is no
+> third-party contract left to track: hosts register Volt through their own mechanisms, and the only thing the
+> installer publishes is `PATH`.
 
 ## Infra (not the Volt product)
 
@@ -103,7 +93,7 @@ first fails — a broken LSP shouldn't hide the tool's result.
 The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md` documenting every location Volt
 writes on disk.
 
-`tsconfig.json` typechecks every script here (pre-push hook + CI: `tsgo --noEmit -p volt-scripts/tsconfig.json`).
+`tsconfig.json` typechecks every script here (pre-push hook + CI: `tsgo --noEmit -p scripts/tsconfig.json`).
 
 ## `test-extension.ts` — the extension-install gate (`bun run test:ext`)
 

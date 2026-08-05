@@ -1,0 +1,119 @@
+import { Step } from "../components/DocsLayout.jsx"
+
+Volt is built to be driven by an AI agent — but it does not ship one, launch one, or install itself into one.
+Whatever agent you already use reaches Volt the same way you do: through the `volt` command.
+
+This page covers what each host needs.
+
+## The short version
+
+The installer puts `volt` and `volt-lsp-iec` on your `PATH`. That single step is the whole integration for any
+agent that can run a terminal command — **Claude Code, Cursor's agent, Windsurf's Cascade** and anything else with
+a shell. Open your Volt workspace, ask the agent to run `volt status`, and it works.
+
+Two things are optional on top:
+
+- **Language intelligence** — go-to-definition, hover and Structured Text diagnostics for the agent, not just for
+  you. This needs the host to run Volt's language server, which only editors and Claude Code can do.
+- **MCP** — for Claude Desktop, which has no terminal at all.
+
+<Step n="1">Install Volt and **restart your agent**. A program started before the installer ran captured the old
+`PATH` and will report `volt: command not found` until it is restarted.</Step>
+
+## VS Code, Cursor, Windsurf
+
+Install the **Volt extension** from your editor's extension pane. Cursor and Windsurf are VS Code forks, so all
+three run the same extension — it brings the language server, drift coloring, and the Volt views (IDE Connection,
+IDE Sync, Diagnostics).
+
+The editor's own agent — Copilot, Cursor's agent, Cascade — then has both: language intelligence from the
+extension, and the `volt` CLI in its terminal. Nothing else to configure.
+
+<Step n="2">Extensions → search **Volt** → Install. Then quit the editor completely and reopen it; a window reload
+is not enough to pick up a new extension version.</Step>
+
+## Claude Code
+
+Claude Code runs `volt` from `PATH` with no setup. To also give it Structured Text intelligence, install the Volt
+plugin — a plugin is Claude Code's only mechanism for registering a language server.
+
+```bash
+/plugin marketplace add he-man86/volt
+/plugin install volt-lsp@volt
+```
+
+That registers `volt-lsp-iec` for `.fb`, `.prg`, `.fun`, `.itf`, `.dut` and `.gvl`, so Claude sees the same
+diagnostics your editor does instead of writing Structured Text blind.
+
+It is worth gating the commands that write to your PLC. In your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(volt status:*)", "Bash(volt show:*)", "Bash(volt build:*)"],
+    "ask": ["Bash(volt init:*)", "Bash(volt pull:*)", "Bash(volt push:*)", "Bash(volt merge:*)"]
+  }
+}
+```
+
+Read-only verbs run freely; anything that touches the live IDE asks first.
+
+## Claude Desktop
+
+Claude Desktop has no terminal and no editor, so it reaches Volt over **MCP** — and cannot run the language
+server at all.
+
+Add Volt to `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "volt": {
+      "command": "volt",
+      "args": ["mcp", "--workspace", "C:\\projects\\MyMachine"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop completely. The Volt tools then appear under the connectors menu.
+
+Because Claude Desktop opens no folder, the workspace has to be named explicitly with `--workspace` — Volt will
+not guess which project you meant.
+
+## What Volt deliberately does not do
+
+Volt installs no agent, and writes into no other product's configuration. It will not edit your
+`~/.claude/settings.json`, your `~/.cursor/mcp.json` or anything like them — those files belong to their products,
+and a tool that silently rewrites them is a tool you cannot reason about. Everything above is either an extension
+you install from a registry or a snippet you paste yourself.
+
+The one thing the installer *does* publish is `PATH`, and uninstalling removes it.
+
+## Which agent should I use?
+
+Any of them. Volt's job is to make your PLC project into text an agent can read: one file per object, real
+diffs, real git history, and a language server that knows IEC 61131-3. Every host above gets that same project.
+
+The differences are only in reach:
+
+| Host | Runs `volt` | Language server | Needs |
+| --- | --- | --- | --- |
+| VS Code | ✓ | ✓ | the Volt extension |
+| Cursor | ✓ | ✓ | the Volt extension |
+| Windsurf | ✓ | ✓ | the Volt extension |
+| Claude Code | ✓ | ✓ | the Volt plugin |
+| Claude Desktop | via MCP | — | the MCP snippet above |
+
+## Troubleshooting
+
+**`volt: command not found`** — the agent was running before Volt was installed. Quit it fully and reopen.
+
+**The agent runs `volt` but sees no project** — it needs to be in the workspace folder, the one `volt init`
+created. Check with `volt status`.
+
+**No Structured Text diagnostics** — the language server is registered per host (extension or plugin). Confirm
+`volt-lsp-iec --version` runs in a terminal first; if that fails, the install is the problem, not the host.
+
+**The IDE isn't connected** — that is the Connector's job, not the agent's. Open the tray icon and check
+**Volt Status…**.

@@ -1,7 +1,7 @@
 # The Volt installer
 
 One Inno Setup wizard (`Volt.iss` → `Volt-win-Setup.exe`) for every Volt app. Built by
-`bun volt-scripts/build-installer.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
+`bun scripts/build-installer.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
 connector polls. **Per-user, no admin/UAC** — every location below is under the user's profile or HKCU.
 
 ## Every location Volt touches
@@ -15,11 +15,11 @@ the one invariant the whole layout rests on.
 
 | Location | What | Written by | Removed on uninstall? |
 |---|---|---|---|
-| `%LOCALAPPDATA%\Programs\Volt\app-<version>\` | one whole payload per version: connector at root, `bin\` (CLI+LSP), `opencode-config\`, `desktop\`, `docs\`, `codesys-scriptcommands\`, `volt-vscode.vsix` (no version.txt — every binary carries its version stamped in) | Inno (`[Files]` → `app-{#AppVersion}`) | **yes** — Inno owns it; uninstall removes every `app-*` |
+| `%LOCALAPPDATA%\Programs\Volt\app-<version>\` | one whole payload per version: connector at root, `bin\` (CLI+LSP), `desktop\`, `docs\`, `codesys-scriptcommands\`, `volt-vscode.vsix` (no version.txt — every binary carries its version stamped in) | Inno (`[Files]` → `app-{#AppVersion}`) | **yes** — Inno owns it; uninstall removes every `app-*` |
 | `%LOCALAPPDATA%\Programs\Volt\current` | junction → the active version directory; the only path anything outside `{app}` references | `[Code]` `SetCurrentJunction` (`rmdir`+`mklink /J`) | yes — `rmdir` unlinks it, then version dirs go |
 | `%LOCALAPPDATA%\Volt\logs\` | `connector-*.log`, `<vendor>-*.log`, `install-*.log`, `uninstall-*.log` — the shared log store the tray's Log window reads | connector (`Log.cs`), bridges (Core's `VoltLog`), Setup (`DeinitializeSetup` + `ULog`) | **no** — deliberate, see below |
 | `%APPDATA%\Microsoft\...\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → the desktop GUI | connector (`VoltEnv.CreateGuiShortcut`) | yes (`VoltEnv.Uninstall`) |
-| `HKCU\Environment` → `OPENCODE_CONFIG_DIR`, `Path`, `VOLT_BRIDGE_DLL` | points opencode at `current\opencode-config`; puts `current\bin` on PATH; names the CODESYS bridge DLL | **the installer** (`[Code]` `PublishEnv`) | yes (`[Code]` `CurUninstallStepChanged`) |
+| `HKCU\Environment` → `Path`, `VOLT_BRIDGE_DLL` | puts `current\bin` on PATH (the ONLY thing Volt publishes for agents); names the CODESYS bridge DLL. `PublishEnv` also deletes a stale `OPENCODE_CONFIG_DIR` left by an install predating the opencode removal | **the installer** (`[Code]` `PublishEnv`) | yes (`[Code]` `CurUninstallStepChanged`) |
 | `HKCU\...\CurrentVersion\Run` → `VoltConnector` | login item so the tray survives reboot | connector (`LoginItem.cs`) | yes (`CurUninstallStepChanged`) |
 | `HKCU\...\Uninstall\{AppId}_is1` | Add/Remove Programs entry | Inno | yes |
 | `%APPDATA%\Volt\` | Electron `userData` (caches, blob storage) | Electron, from `productName` in `volt-desktop/package.json` | no |
@@ -37,7 +37,7 @@ Not Volt's, but Volt-adjacent — **never** touched by the installer:
 | Location | Why it's not ours |
 |---|---|
 | `%ProgramData%\CODESYS\Script Commands\` | CODESYS's own dir. The bridge DLL is *offered* there (`codesys-scriptcommands\` in the install dir); the user copies it. We don't write into a vendor's install. |
-| opencode's data dir | opencode's auth/config. Volt is additive (one extra merged config dir) and never touches it — that's why uninstall reverts cleanly to vanilla opencode. |
+| Any AI agent's config (`~/.claude/`, `~/.cursor/`, `%APPDATA%\Claude\`) | Theirs. Volt installs into no agent and edits no agent's configuration — the installer publishes `PATH`, and every host integration is either a registry-published artifact or a snippet the user pastes. Volt once shipped an `opencode-config\` directory here via `OPENCODE_CONFIG_DIR`; it is gone. |
 
 `.volt/` (really `.git/volt`) is a per-project workspace binding inside the user's repo, not an install location.
 
@@ -54,12 +54,12 @@ from `app.getName()`, which reads `productName` before `name`; without it the na
 writes to a literal `%APPDATA%\@volt` folder. It is **not** a duplicate of the `productName` in
 `electron-builder.yml` (which only brands the packaged `.exe`).
 
-**`opencode-config` must never ship a `package.json`.** opencode installs a config dir's declared dependencies at
-runtime, so a stray `package.json` makes it create `opencode-config\node_modules` on first run and reach for a registry
-— on machines that may not have one. `build-payload.ts` refuses to copy config `package.json`/`node_modules`
-(`CFG_NEVER_SHIP`). With the versioned layout each `app-<version>\opencode-config` is written fresh by `[Files]` and
-removed wholesale at uninstall, so there is no accumulation to clean — the old `[InstallDelete]`/`[UninstallDelete]`
-entries that wiped a *flat* `{app}\opencode-config` were removed as dead code (they ran against the outgoing version).
+**No agent-config payload ships.** An `opencode-config\` directory used to, and its handling is the cautionary
+tale: it could not contain a `package.json`, because opencode installs a config dir's declared dependencies at
+*runtime* — on PLC machines that may have no registry — so `build-payload.ts` carried a `CFG_NEVER_SHIP` filter
+to guarantee the payload could never include one. That is the shape of maintaining a foothold inside someone
+else's product. The directory, the filter and the `[InstallDelete]`/`[UninstallDelete]` entries that chased it
+are all deleted.
 
 ## Versioned layout
 
@@ -81,8 +81,7 @@ that attributable.
 `[Files]` only adds, but because every install lands in its own `app-<version>`, "stale files from an older
 version" cannot shadow a new one — the junction points at exactly one version and PATH resolves through it.
 Uninstall removes the junction with `rmdir` (never a recursive delete, which would delete *through* it), then every
-`app-*` directory, so `{app}` ends up gone. Anything opencode creates inside a version dir post-install goes with
-that directory.
+`app-*` directory, so `{app}` ends up gone. Anything created inside a version dir post-install goes with it.
 
 ## Install diagnostics
 
@@ -103,9 +102,9 @@ An install, in order:
 volt: install <version> -> <dir>, mode=silent|interactive, existing=0|1   ← what this run is
 volt: junction active -> <dir>\app-<version>                              ← current repointed
 volt: probe direct  \bin exists=1   /  probe junction \bin exists=0|1     ← the reparse-visibility race, logged
-volt: OPENCODE_CONFIG_DIR=…\current\opencode-config                       ← env published by the installer
 volt: VOLT_BRIDGE_DLL=…            (or "not present" on a build without it)
 volt: appended to user PATH: …\current\bin   (or "already contains … - left unchanged")
+volt: env published -> …\current\bin                                      ← UNCONDITIONAL; the marker the gates assert
 volt: started the connector: …\app-<version>\VoltConnector.exe           ← the tray is up
 ```
 

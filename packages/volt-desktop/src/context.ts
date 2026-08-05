@@ -1,4 +1,4 @@
-import type { BrowserWindow, WebContentsView } from "electron"
+import type { BrowserWindow } from "electron"
 import type { VoltStatus, DetectedProject } from "@volt/control"
 
 /**
@@ -8,20 +8,12 @@ import type { VoltStatus, DetectedProject } from "@volt/control"
  */
 export interface Shell {
   win: BrowserWindow | null
-  view: WebContentsView | null
   status: VoltStatus | null
-  boundRoot: string | undefined // the project currently bound (from opencode's active dir / VOLT_WORKSPACE)
-  // True until opencode's active-project state is first learned (cold start). Splits the unbound panel between
-  // "Connecting to opencode…" (awaiting) and "Open a PLC project…" (a known no-project state). Set false the
-  // moment any active-project signal — a bind OR a release — is processed.
-  awaitingOpencode: boolean
-  // Set by the startup canary when opencode's GUI loaded but NO active-project signal was ever classified within the
-  // grace period — the sign its route scheme changed (its project pages are `/<base64url(dir)>/…`). Surfaced in
-  // the panel so a silent binding failure becomes visible; cleared the moment any signal finally arrives.
-  bindStale: boolean
-  panelOpen: boolean
-  // The detected projects across all IDEs (from the connector) — the init surface. The user picks one; there is
-  // no vendor button. Vendor rides along on each project as a badge.
+  boundRoot: string | undefined // the workspace currently bound (restored on launch, or picked by the user)
+  // True until the connector has been probed once. Splits the unbound panel between "Looking for open PLC
+  // projects…" (cold start) and a known empty state, so the first second doesn't claim the connector is down
+  // before we've actually asked it.
+  awaiting: boolean
   projects: DetectedProject[]
   // Whether the connector control plane answered at all — lets onboarding tell "connector not running" apart from
   // "connector up, no IDE project open" (both otherwise show an empty `projects`).

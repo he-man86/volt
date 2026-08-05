@@ -4,7 +4,6 @@ node_modules
 .sst
 .env*
 !.env.example
-.env.models
 .idea
 .vscode
 .codex
@@ -20,17 +19,8 @@ build
 .serena/
 **/.omo
 .omo/
-/result
-refs
-Session.vim
-/opencode.json
-a.out
-target
-.scripts
-.direnv/
 
 # Local dev files
-opencode-dev
 UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
@@ -38,13 +28,6 @@ tsconfig.tsbuildinfo
 
 # Local junction to shared Claude memory dir (see project-shared-memory-junctions)
 /memory
-
-# Scratch .st written by volt-scripts/verify-lsp.ts (cleaned up on exit; ignored in case a run is killed)
-/.volt-lsp-verify.st
-
-/rust/target/
-.opencode/opencode.json
-.opencode/tool/volt.ts
 
 # CODESYS per-user session files, generated when a test .project is opened (headless multi-instance smoke).
 # `.~u` is the open-by-<user@host> lock CODESYS writes beside the project and removes on a clean close.

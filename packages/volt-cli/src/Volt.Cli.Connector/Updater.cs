@@ -17,7 +17,7 @@ namespace Volt.Cli.Connector
     /// tray stops the workers + GUI, then LaunchInstallerAndExit runs it /VERYSILENT (Inno upgrades in place) and
     /// exits so files unlock; the installer relaunches us. The tray surface is CurrentVersion / PendingVersion /
     /// IsApplying.
-    /// No-op on dev/unmanaged runs (no version.txt beside the exe). Never touches opencode.
+    /// No-op on dev/unmanaged runs (no version.txt beside the exe). Updates Volt's own payload only.
     /// </summary>
     internal static class Updater
     {

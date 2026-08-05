@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Compute the ONE Volt version — the single source of truth CI injects into every artifact, so no version is ever
- * hand-maintained across files (opencode's lesson: compute once, inject; never let an artifact read its own stored
- * version — that's the exact bug behind sst/opencode#36232).
+ * hand-maintained across files. The rule: compute once, inject; never let an artifact read its own stored
+ * version — that is where the drift bugs come from.
  *
  * The split, and why:
  *   - The BUILD NUMBER is git — `git rev-list HEAD --count` (monotonic, always grows, e.g. 15940 → the LAST part).
@@ -13,7 +13,7 @@
  * separate "stable" number and no 4-part variant. (vsce only accepts 3-part, so the whole toolchain uses that ONE
  * format; the patch component is dropped — maj.min is the human knob, count is the build.) Every build is published
  * as a PRERELEASE; a RELEASE is that exact build PROMOTED to the stable channel (its GitHub prerelease flag flipped
- * to latest — see volt-scripts/release.ts + .github/workflows/promote.yml). So the released version is the same
+ * to latest — see scripts/release.ts + .github/workflows/promote.yml). So the released version is the same
  * number the dev channel used — monotonic (count always grows), and it names the exact build.
  *
  * Output (key=value lines — append to $GITHUB_OUTPUT) — version/base/vsix are now the SAME 3-part value; the three
@@ -23,9 +23,9 @@
  *   vsix       — same value; stamps the extension (vsce accepts it — it's 3-part)
  *   prerelease — always true: every BUILD ships as a prerelease; promotion (not the build) flips it to stable.
  *
- *   bun volt-scripts/version.ts                 # print the four lines
- *   bun volt-scripts/version.ts >> "$GITHUB_OUTPUT"
- *   bun volt-scripts/version.ts --vsix          # print ONLY the vsix version (for `vsce package <version>`)
+ *   bun scripts/version.ts                 # print the four lines
+ *   bun scripts/version.ts >> "$GITHUB_OUTPUT"
+ *   bun scripts/version.ts --vsix          # print ONLY the vsix version (for `vsce package <version>`)
  */
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"

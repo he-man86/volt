@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(volt status:*)", "Bash(volt show:*)", "Bash(volt build:*)"],
+    "ask": ["Bash(volt init:*)", "Bash(volt pull:*)", "Bash(volt push:*)", "Bash(volt merge:*)"]
+  }
+}

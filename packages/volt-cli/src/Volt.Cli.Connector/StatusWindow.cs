@@ -122,7 +122,7 @@ namespace Volt.Cli.Connector
         }
 
         // Refresh on every show — the window is hidden (not disposed) on close, so OnShown fires only the FIRST
-        // time; re-read on each open so a version change since last time (e.g. opencode just installed) shows up.
+        // time; re-read on each open so a version change since last time (e.g. an editor extension update) shows up.
         // Also gate the poll on visibility so it isn't ticking while hidden.
         protected override void OnVisibleChanged(EventArgs e)
         {
@@ -190,9 +190,6 @@ namespace Volt.Cli.Connector
                     if (v.Length > 0) list.Add(($"VS Code ext ({label})", v, Sync(v)));
                 }
 
-                var oc = Shim("opencode --version");
-                list.Add(("opencode", oc.Length > 0 ? oc : "not found", null)); // external — not sync-checked
-
                 return list;
             });
 
@@ -255,7 +252,7 @@ namespace Volt.Cli.Connector
             return Capture(new ProcessStartInfo(path, args));
         }
 
-        // Run a PATH command / shim (editors, opencode are .cmd on PATH) via cmd.exe.
+        // Run a PATH command / shim (the editor launchers are .cmd on PATH) via cmd.exe.
         private static string Shim(string commandline) =>
             Capture(new ProcessStartInfo("cmd.exe", "/c " + commandline));
 

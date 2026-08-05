@@ -12,7 +12,7 @@ export default {
   // Every URL that must exist as a file. A route missing here still works in the SPA, but has no HTML for
   // crawlers or a cold load — so this list IS the sitemap and must stay complete.
   // The feature pages are derived from content.js rather than typed out, so adding a feature can't 404.
-  // Reduced to the single holding page — every other route is gone from routes.js too, so there is nothing
-  // else to emit. This list IS the sitemap; restoring the site means restoring both.
-  prerender: ["/"],
+  // Reduced to the holding page + docs — the storefront routes are gone from routes.js too, so there is nothing
+  // else to emit. This list IS the sitemap; restoring the rest of the site means restoring both.
+  prerender: ["/", "/docs", "/docs/agents", "/docs/desktop-vs-vscode"],
 }

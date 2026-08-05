@@ -524,12 +524,6 @@
           "name": "Diagnostics",
           "icon": "$(warning)",
           "contextualTitle": "Volt — Diagnostics"
-        },
-        {
-          "id": "volt.views.reference",
-          "name": "Agent & Settings",
-          "icon": "$(book)",
-          "contextualTitle": "Volt — Agent & Settings"
         }
       ]
     },
@@ -545,18 +539,6 @@
         "title": "Volt: Refresh Diagnostics",
         "category": "Volt",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "volt.openAgent",
-        "title": "Volt: Open Agent",
-        "category": "Volt",
-        "icon": "icons/volt.svg"
-      },
-      {
-        "command": "volt.newAgentSession",
-        "title": "Volt: New Agent Session",
-        "category": "Volt",
-        "icon": "$(add)"
       },
       {
         "command": "volt.init",
@@ -680,12 +662,6 @@
       }
     ],
     "menus": {
-      "editor/title": [
-        {
-          "command": "volt.openAgent",
-          "group": "navigation@99"
-        }
-      ],
       "commandPalette": [
         {
           "command": "volt.takeIdeVersion",
@@ -799,7 +775,7 @@
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
     "test": "bun test",
-    "package": "bun run build && vsce package --no-dependencies --no-update-package-json $(bun ../../volt-scripts/version.ts --vsix)",
+    "package": "bun run build && vsce package --no-dependencies --no-update-package-json $(bun ../../scripts/version.ts --vsix)",
     "publish:vscode": "bun run build && vsce publish --no-dependencies",
     "publish:openvsx": "bun run package && ovsx publish volt-vscode-$npm_package_version.vsix"
   },

@@ -21,6 +21,7 @@ import {
   type ConnectOption,
   type OnboardingMode,
 } from "@volt/control"
+import { writeRecent } from "./recent.js"
 import type { Shell } from "./context.js"
 
 // The snapshot the renderer draws — the shared @volt/control view-model plus `bound` and the `surface`. The bound
@@ -32,9 +33,10 @@ import type { Shell } from "./context.js"
 // project carries its connect `action` (init / connect / rebind) so the picker knows what clicking it does.
 type LabeledProject = DetectedProject & { action: ConnectAction }
 type Surface = { kind: "create" | "reconnect"; create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
-// `awaiting` splits the unbound state: true = cold start, opencode's project not yet learned ("Connecting…");
-// false = a known no-project state ("Open a PLC project…"). Rides both bound/unbound so the renderer reads it flat.
-type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean; bindStale: boolean } & (
+// `awaiting` splits the unbound state: true = the connector hasn't been probed yet ("Looking for open PLC
+// projects…"); false = a known empty state. Without it the first second claims the connector is down before we
+// have asked it. Rides both bound/unbound so the renderer reads it flat.
+type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -50,13 +52,11 @@ export function snapshot(shell: Shell): Snap {
   const surface: Surface = { kind: s.kind, create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
   const connectorUp = shell.connectorUp
   const onboarding = onboardingMode(connectorUp, shell.projects.length)
-  const awaiting = shell.awaitingOpencode
-  const bindStale = shell.bindStale
-  if (!vs) return { bound: false, awaiting, bindStale, incoming: [], outgoing: [], surface, connectorUp, onboarding }
+  const awaiting = shell.awaiting
+  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, connectorUp, onboarding }
   return {
     bound: true,
     awaiting,
-    bindStale,
     surface,
     connectorUp,
     onboarding,
@@ -86,7 +86,11 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   const next = view?.projects ?? []
   const up = view !== undefined
   const key = (ps: DetectedProject[]): string => ps.map((p) => p.id).sort().join("|")
-  if (up === shell.connectorUp && key(next) === key(shell.projects)) return
+  // Clear the cold-start flag FIRST: on a machine with the connector down and no projects, nothing below changes,
+  // so an early return here would leave the panel spinning on "Looking for…" forever.
+  const wasAwaiting = shell.awaiting
+  shell.awaiting = false
+  if (!wasAwaiting && up === shell.connectorUp && key(next) === key(shell.projects)) return
   shell.projects = next
   shell.connectorUp = up
   pushStatus(shell)
@@ -123,9 +127,9 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
 }
 
 export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
-  voltLog("desktop", `binding workspace ${root} — opencode navigated into it`)
-  shell.boundRoot = root // set synchronously so the route watcher won't re-bind the same dir mid-flight
-  shell.awaitingOpencode = false // opencode's state is now known
+  voltLog("desktop", `binding workspace ${root}`)
+  shell.boundRoot = root // set synchronously so a second bind can't race this one mid-flight
+  writeRecent(root) // this is the workspace to come back to on the next launch
   shell.status?.dispose()
   shell.status = new VoltStatus(root)
   shell.status.onDidChange.event(() => pushStatus(shell))
@@ -145,15 +149,13 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   )
 }
 
-/** Release the binding when opencode navigates to its HOME route (`/`) — no project is open there, so the panel must
- *  not keep showing one. Tears down the status feed and pushes a `{bound:false}` snapshot; the IDE and the bridge are
- *  untouched (leaveWorkspace only drops THIS window's interest). */
+/** Release the binding — tears down the status feed and pushes a `{bound:false}` snapshot; the IDE and the bridge
+ *  are untouched (leaveWorkspace only drops THIS window's interest). */
 export function unbindWorkspace(shell: Shell): void {
   if (shell.boundRoot === undefined) return
   const root = shell.boundRoot
-  voltLog("desktop", `releasing workspace ${root} — opencode left it (home route)`)
+  voltLog("desktop", `releasing workspace ${root}`)
   shell.boundRoot = undefined
-  shell.awaitingOpencode = false // a known no-project state, not the cold-start unknown
   shell.status?.dispose()
   shell.status = null
   void leaveWorkspace(root) // the active project view owns the connection: we left it → disconnect the bridge

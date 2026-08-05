@@ -12,7 +12,7 @@ namespace Volt.Cli.Tests;
 /// <summary>
 /// The black-box CLI-entry contract: spawns the REAL `volt` binary against a live pipe host (connected FakeIde)
 /// via VOLT_PIPE, driving arg parsing → dispatch → pipe client → the `Program.Cmd*` rendering + EXIT CODES —
-/// the surface scripts and opencode's bash gate actually observe, which the `Commands.*` unit tests don't reach.
+/// the surface scripts and an agent's shell actually observe, which the `Commands.*` unit tests don't reach.
 /// Covers each verb's success AND error exit code (0 / 1 / 2), the `--json`/`--porcelain` shapes, and usage.
 /// </summary>
 public class BlackBoxTests

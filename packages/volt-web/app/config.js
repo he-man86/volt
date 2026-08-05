@@ -10,7 +10,7 @@
 /** Flip to false once the installer is published and the Polar checkout URL is set below. */
 export const COMING_SOON = true
 
-// The Volt desktop installer: the one-installer that volt-scripts/build-installer.ts publishes to GitHub
+// The Volt desktop installer: the one-installer that scripts/build-installer.ts publishes to GitHub
 // Releases (he-man86/volt). Windows-only — Volt's PLC tooling (bridges, CODESYS) is Windows-native.
 // `latest/download/...` always resolves to the newest release carrying the asset, so it never needs bumping
 // per release. Override with VITE_INSTALLER_URL if the release repo or asset name changes.

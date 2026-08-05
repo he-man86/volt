@@ -37,7 +37,7 @@ export default function Page() {
         points={[
           "Autocomplete, hover, go-to-definition, and signature help",
           "Refactoring and project-wide navigation across your Structured Text",
-          "Drift coloring + the opencode agent in the integrated terminal",
+          "Drift coloring + your own AI agent in the integrated terminal",
           "A few minutes of setup — bring your own editor",
         ]}
         link={{ href: "/docs/desktop-vs-vscode#the-vs-code-extension", label: "When to use the extension" }}
