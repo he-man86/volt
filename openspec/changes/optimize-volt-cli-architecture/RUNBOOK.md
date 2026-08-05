@@ -1,0 +1,129 @@
+# Runbook — run one phase in a clean context
+
+Read `proposal.md` for why, `design.md` for the five phases and the agent roles, this file to *execute*.
+Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes source, one move at a time.
+
+## 0. Non-negotiables (each one cost real time to learn — carried over from the audit)
+
+1. **`dotnet` on PATH is an x86 stub with no SDK.** Always `C:\Program Files\dotnet\dotnet.exe`.
+2. **A running headless CODESYS holds the net48 bridge DLLs — the build FAILS while it is up** (`MSB3027`).
+   The order is always **`codesys down` → build → unit tests → `codesys up` → e2e**.
+3. **There are THREE C# suites:** `Volt.Engine.Tests` (313), `Volt.Cli.Tests` (116),
+   `Volt.Cli.Connector.Tests` (76).
+4. **Never run e2e until the per-pid pipe exists.** Wait for `\\.\pipe\volt.bridge.<vendor>.<pid>`; a bare
+   `volt.bridge.codesys` with no pid suffix means nothing is up, and a cold run reports phantom failures.
+5. **Agents never run `dotnet build`/`dotnet test`.** Concurrent builds corrupt each other's `obj/bin`, and an
+   agent that gates itself rationalizes a red gate. The gate is serial, run by the main loop.
+6. **Stage explicitly.** The TwinCAT fixtures under `test/TwinCAT Project*/` are rewritten by the IDE whenever
+   it builds; `git commit -a` sweeps that churn in.
+7. **Known red, not a regression:** `ide-restart`'s second test. Root cause is the top entry of
+   `audit-volt-cli-src/arch-notes.md`. Do **not** "fix" the test, and do **not** fix the defect inside a move.
+
+## 1. The known-defects list every agent gets
+
+Paste this into every agent prompt, all five phases. These are *diagnosed* defects, out of scope by
+construction — **report and step around, never fix**:
+
+- the not-connected precondition has two answers (live in `RefsService`, cached in `OpGuard` via
+  `BuildHealthResponse`) — `audit-volt-cli-src/arch-notes.md` top entry;
+- `DriverBase.SingleFlight` swallows the health-probe failure;
+- `test/shared/FakeIde.cs` asserts `IsConnected` and `BuildHealthResponse().Connected` are the same signal —
+  an invariant the real TwinCAT driver breaks. **In this change that is a phase-2 finding** (a fake that must
+  lie names a misplaced seam), not something to patch in passing;
+- a CFC/SFC POU **child** body is flattened on push;
+- a pushed item does not survive the TwinCAT IDE being killed;
+- `DebugService` is unreachable from any client while `ARCHITECTURE.md` says otherwise.
+
+Keep it current as phase 2 finds more.
+
+## 2. Constraints every agent gets (verbatim, all phases)
+
+- `packages/volt-cli/ARCHITECTURE.md` §"Load-bearing asymmetries" and §"Conventions" are **constraints**, not
+  suggestions. A proposal that unifies an asymmetry or breaks a convention is disqualified, not debated.
+- **item-name-is-identity** — the whole wire is keyed by bare item name. Never propose a duplicate-name guard
+  that throws.
+- Static search does **not** prove code dead: reflection, `dynamic`, the IronPython entry point, COM and
+  string-keyed `Ops` dispatch all reach code with no compile-time reference.
+- No new dependencies. No DI container. No framework.
+- `ponytail:` comments are recorded decisions — carry them, never silently delete one.
+
+## 3. Phases 1–4 (analysis — nothing on disk but the working docs)
+
+| phase | workflow shape | agents | writes |
+|---|---|---|---|
+| 1 Map | `parallel(7 cartographers + 1 seam analyst)` | 8 | `map.md` |
+| 2 Diagnose | `parallel(7 lenses)` | 7 | `findings.md` |
+| 3 Design | `parallel(3 architects)` → `parallel(3 judges)` → 1 synthesizer | 7 | `target.md` |
+| 4 Refute | `pipeline(moves, refute×3)` | 3× moves | deferrals into `findings.md` |
+
+Cartographer groups = one per project, exactly as they exist today:
+
+| project | files | LOC |
+|---|---|---|
+| `Volt.Engine` | 52 | 6,686 |
+| `Volt.Cli` | 16 | 2,122 |
+| `Volt.Cli.Connector` | 11 | 1,816 |
+| `Volt.Cli.Ide.Codesys` | 8 | 1,799 |
+| `Volt.Cli.Ide.Twincat` | 10 | 1,311 |
+| `Volt.Cli.Connector.Core` | 12 | 1,129 |
+| `Volt.Cli.Transport` | 9 | 432 |
+
+The 8th agent is the **seam analyst**: `.csproj` refs + `Volt.Cli.sln` + every cross-project call site. It is
+the only agent that sees the whole graph, and its output is what phase 3 reasons over.
+
+**All agents return schema-forced JSON. The main loop writes the markdown** — N agents appending to one file
+concurrently corrupts it.
+
+**Phase 3 ends at a user checkpoint.** Read `target.md` whole before phase 4. Nothing has changed on disk.
+
+## 4. Phase 5 — per move
+
+```
+Workflow: pipeline([move], surgeon, verify)     # 2 agents; the surgeon writes only this move's files
+```
+
+Then, serially, in the main loop:
+
+```powershell
+# revert every must_revert hunk FIRST
+pwsh packages/volt-cli/scripts/codesys-pipe.ps1 down
+$d = "C:\Program Files\dotnet\dotnet.exe"; $r = "packages\volt-cli"
+& $d build "$r\Volt.Cli.sln" -c Release --nologo
+& $d test "$r\test\Volt.Engine.Tests"        -c Release --nologo   # expect 313
+& $d test "$r\test\Volt.Cli.Tests"           -c Release --nologo   # expect 116
+& $d test "$r\test\Volt.Cli.Connector.Tests" -c Release --nologo   # expect 76
+```
+
+Verdicts: `accept` → gate · `accept-with-reverts` → revert `mustRevert`, then gate · `reject` →
+`git checkout --` the move's files and re-queue with the objection. Then append to `ledger.md` (move, files,
+LOC before → after, verdict, gate result) and commit `refactor(cli): <move>`, staging explicitly.
+
+**Moves run one at a time.** Unlike the audit, a move touches two places by definition, so file-partitioning
+cannot make concurrency safe — serial execution is the safety property, and it is what keeps each commit
+independently revertable.
+
+## 5. e2e — before, mid, after
+
+```powershell
+pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up      # rebuilds the bridge first; ~45 s to serve
+# WAIT for \\.\pipe\volt.bridge.codesys.<pid>, then:
+cd packages/volt-cli; bun run test:e2e:codesys          # expect 92 pass / 8 skip / 0 fail
+
+pwsh scripts/twincat-instances.ps1 up ; bun run test:e2e:twincat   # expect 90 pass / 0 fail
+```
+
+Three runs, all three required: **before the first move** (0.2 — a red baseline invalidates everything after
+it), **after the last `Volt.Engine` move**, and **at close-out**. Close-out must match the baseline numbers
+exactly, with no test edited.
+
+`libcache` (2 tests) is skipped on TwinCAT **by design** — no signature-extraction surface there. It is a
+feature gap, not configuration; do not try to make it run. TwinCAT is best-effort COM: an XAE that is replaced
+gets a new pid → new worker → new pipe, and the old worker serves a dead pipe for ~15 s before the connector
+reaps it. Re-verify anything conclusive twice.
+
+## 6. State as of this writing
+
+Nothing run. `audit-volt-cli-src` is still in flight — **finish or park it before phase 5 starts**, because a
+line-by-line audit and a structural move competing for the same files will conflict, and the audit's ledger
+assumes files stay where they are. Phases 1–4 are safe to run alongside it (read-only), and its findings are
+input to phase 2.
