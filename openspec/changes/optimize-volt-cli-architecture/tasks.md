@@ -26,10 +26,10 @@
 
 ## 2. Phase 2 — Diagnose (read-only, 7 agents)
 
-- [ ] 2.1 `Workflow`: `parallel(7 lenses)` — layering, duplication, placement, abstraction fit, state & lifetime,
+- [x] 2.1 `Workflow`: `parallel(7 lenses)` — layering, duplication, placement, abstraction fit, state & lifetime,
       testability, contract fit.
-- [ ] 2.2 Main loop writes `findings.md`, deduped, sorted by `blast_radius` then by lens.
-- [ ] 2.3 Read the **testability** lens first and separately. A fake that has to lie names a misplaced seam —
+- [x] 2.2 Main loop writes `findings.md`, deduped, sorted by `blast_radius` then by lens.
+- [x] 2.3 Read the **testability** lens first and separately. A fake that has to lie names a misplaced seam —
       that is how the audit's most valuable finding surfaced.
 
 ## 3. Phase 3 — Design (7 agents) → **STOP**
