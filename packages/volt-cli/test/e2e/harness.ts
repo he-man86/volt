@@ -61,7 +61,15 @@ function resolvePipe(): string {
 	return cachedPipe
 }
 
-export const PIPE = resolvePipe() // for labels + one-shot callers; live calls re-resolve
+/** The live pipe, resolved AT CALL TIME. Anything that drives the bridge must use this, never `PIPE`: bun runs
+ *  every e2e file in ONE process, so a module-load snapshot is minutes-to-hours stale by the time a late suite
+ *  uses it, and `resolvePipe`'s cache is dropped on any socket error (see `pipeCall`). When both survive, a test
+ *  can hand `init` the snapshot (pipe A) while every other harness call drives the re-resolved cache (pipe B) —
+ *  it binds a workspace on one IDE and then operates against another, and the failure surfaces minutes later in
+ *  an unrelated test. One question, one answer. */
+export const currentPipe = (): string => resolvePipe()
+
+export const PIPE = resolvePipe() // LABEL ONLY — a stable name for describe() titles. To drive a bridge: currentPipe().
 export const BASE = `pipe ${PIPE}` // a label for describe() titles (the wire is the pipe, not a URL)
 export const PREFIX = "VltE2E"
 export const FOLDER = "POUs"

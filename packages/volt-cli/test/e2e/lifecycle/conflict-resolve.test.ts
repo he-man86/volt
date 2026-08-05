@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process"
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve, basename } from "node:path"
-import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, PIPE } from "../harness"
+import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, currentPipe } from "../harness"
 
 // Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with). Pick
 // the NEWEST of the candidates — a stale `dist/Cli/volt.exe` (an old shipped build) must not mask a fresh source
@@ -55,7 +55,7 @@ describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish
 	beforeAll(async () => {
 		await requireHealthy()
 		parent = mkdtempSync(join(tmpdir(), "volt-e2e-conflict-"))
-		const r = await init(parent, VENDOR, { pipe: PIPE })
+		const r = await init(parent, VENDOR, { pipe: currentPipe() })
 		expect(r.code).toBe(0)
 		root = r.workspace ?? parent // operate on the created workspace, NOT the parent (which has no .git/volt)
 	})
