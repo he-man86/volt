@@ -8,8 +8,19 @@ Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes s
 1. **`dotnet` on PATH is an x86 stub with no SDK.** Always `C:\Program Files\dotnet\dotnet.exe`.
 2. **A running headless CODESYS holds the net48 bridge DLLs — the build FAILS while it is up** (`MSB3027`).
    The order is always **`codesys down` → build → unit tests → `codesys up` → e2e**.
-3. **There are THREE C# suites:** `Volt.Engine.Tests` (313), `Volt.Cli.Tests` (116),
-   `Volt.Cli.Connector.Tests` (76).
+3. **There are THREE C# suites:** `Volt.Engine.Tests` (**324**), `Volt.Cli.Tests` (116),
+   `Volt.Cli.Connector.Tests` (76). (Engine was 313 before `audit-volt-cli-src` added 11 in flight.)
+3b. **`pwsh` is NOT installed on this machine.** Every doc that says `pwsh scripts/foo.ps1` means
+   `& "…\scripts\foo.ps1"` under Windows PowerShell 5.1. `pwsh` fails with `CommandNotFound`, and in a compound
+   command that failure is easy to read past.
+3c. **The connector spawns the INSTALLED worker, not your build.** `ConnectorSetup.ResolveWorker` prefers the
+   exe next to the connector, so a tray started from `%LOCALAPPDATA%\Programs\Volt\app-*` runs SHIPPED bridge
+   binaries and your `dotnet build` changes nothing you can observe. To test a repo build: stop the connector +
+   workers, build, then relaunch the connector with
+   `$env:VOLT_TWINCAT_BRIDGE = "<repo>\src\Volt.Cli.Ide.Twincat\bin\Release\net8.0-windows\VoltBridgeTwincat.exe"`.
+   Verify with `Get-Process VoltBridgeTwincat | Select Path` — this cost a whole misread baseline.
+3d. **`codesys-pipe.ps1 down` does not close an interactive CODESYS.** It manages only the headless instance it
+   started. A developer's own IDE keeps serving its pipe and will hold the net48 DLLs.
 4. **Never run e2e until the per-pid pipe exists.** Wait for `\\.\pipe\volt.bridge.<vendor>.<pid>`; a bare
    `volt.bridge.codesys` with no pid suffix means nothing is up, and a cold run reports phantom failures.
 5. **Agents never run `dotnet build`/`dotnet test`.** Concurrent builds corrupt each other's `obj/bin`, and an
@@ -115,6 +126,18 @@ pwsh scripts/twincat-instances.ps1 up ; bun run test:e2e:twincat   # expect 90 p
 Three runs, all three required: **before the first move** (0.2 — a red baseline invalidates everything after
 it), **after the last `Volt.Engine` move**, and **at close-out**. Close-out must match the baseline numbers
 exactly, with no test edited.
+
+**The baseline to match (2026-08-05):**
+
+| | |
+|---|---|
+| CODESYS | **92 pass / 8 skip / 0 fail** |
+| TwinCAT | **88 pass / 11 skip / 2 fail** — the 2 are `conflict-resolve`, parked with evidence in `ledger.md` |
+
+The 8 CODESYS skips are **5 real tests + 3 lifecycle hook entries**, from exactly two suites, both skipped by
+design: `lifecycle/ide-restart` (TwinCAT-only *and* opt-in via `VOLT_E2E_IDE_CHAOS`) and
+`stability/parallel-instances` (needs `VOLT_PIPE_SLOW` **and** `VOLT_PIPE_FAST`). Note the older RUNBOOK claimed
+`libcache` was among them — it is not; `libcache` is skipped on **TwinCAT** only and passes on CODESYS.
 
 `libcache` (2 tests) is skipped on TwinCAT **by design** — no signature-extraction surface there. It is a
 feature gap, not configuration; do not try to make it run. TwinCAT is best-effort COM: an XAE that is replaced
