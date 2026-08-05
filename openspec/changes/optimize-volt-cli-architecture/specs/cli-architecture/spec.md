@@ -29,6 +29,24 @@ identical before and after.
   the tree walk, and the host lifecycle difference — remain intact, and no per-vendor difference becomes
   observable to the CLI or connector
 
+### Requirement: A behavior change is a separate, red-first move
+
+Where a restructure also corrects a defect, the correction SHALL land as its own commit, separate from any
+shape-preserving move, and SHALL be demonstrated by a test that fails against the current behavior before the
+fix and passes after. The commit SHALL state the old behavior, the new behavior, and who can observe the
+difference. A shape-preserving move SHALL NOT alter behavior as a side effect, however desirable the alteration.
+
+#### Scenario: A shape move would incidentally fix a bug
+
+- **WHEN** applying a behavior-preserving move would also change an observable behavior for the better
+- **THEN** the move is split: the shape change lands preserving the defect, and the correction lands separately
+  with its own failing-first test
+
+#### Scenario: A fix has no test that fails first
+
+- **WHEN** a proposed correction cannot be demonstrated by a test that is red before it and green after
+- **THEN** it is not applied, because nothing distinguishes it from a change that alters behavior by accident
+
 ### Requirement: A seam exists because it is paid for
 
 Every interface, indirection layer and project boundary in `packages/volt-cli/src` SHALL be justified by a

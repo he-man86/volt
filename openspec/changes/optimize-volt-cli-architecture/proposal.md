@@ -41,9 +41,26 @@ tool in five phases (`design.md` has the roles):
    then gated by the main loop with a real build + all three unit suites. e2e checkpoints at the phase
    boundaries and at close-out.
 
-**The contract: observable behavior is identical; the shape is not.** This change is explicitly allowed to move
-types between projects, add or remove a seam, split or merge a file, and delete an abstraction — and explicitly
-forbidden from changing anything a client can see. The invariants that survive untouched:
+**The contract, as revised after phase 2 (user decision, 2026-08-05).** Phase 2 returned 49 findings, and a
+substantial minority are not shape defects at all — they are **behavior bugs** (a healthy TwinCAT worker reaped
+on a partial probe, most reference kinds materializing as a constant string, an unreachable
+`BeckhoffDriver.Disconnect`, a staleness demotion that can never fire). The original plan routed those to their
+own proposals. **They are now in scope here**, because several of them are *symptoms of the shape* — the
+per-vendor health divergence exists because the layer cycle forced `BuildHealthResponse` abstract — and fixing
+the shape while deliberately leaving the symptom is worse than doing both at once.
+
+So there are **two kinds of move**, and they are never mixed in one commit:
+
+- **shape moves** — behavior-preserving by construction. Everything a client observes is identical before and
+  after: wire bytes, `BridgeErrorCodes`, git object SHAs, `src/` layout, exit codes, stdout.
+- **fix moves** — a deliberate, named behavior change, each landing **red-first**: a test that fails against
+  today's behavior, then the fix that makes it pass. No fix move without one. A fix move states the old
+  behavior, the new behavior, and who can observe the difference.
+
+A move is one or the other. A shape move that "also fixes" something is a fix move wearing a costume, and the
+verifier rejects it.
+
+These invariants survive both kinds untouched:
 
 - the **pipe wire bytes** and `BridgeErrorCodes` for a given failure (the vendor parity boundary),
 - the **git object SHAs** produced for given content, and the `src/` working-tree layout the CLI writes,

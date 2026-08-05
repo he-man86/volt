@@ -34,13 +34,13 @@
 
 ## 3. Phase 3 — Design (7 agents) → **STOP**
 
-- [ ] 3.1 `Workflow`: `parallel(3 architects)` (minimal-move / seam-first / delete-first) →
+- [x] 3.1 `Workflow`: `parallel(3 architects)` (minimal-move / seam-first / delete-first) →
       `parallel(3 judges)` → 1 synthesizer.
-- [ ] 3.2 Main loop writes `target.md`: the target shape + the ordered move list (each move: rationale, files,
+- [x] 3.2 Main loop writes `target.md`: the target shape + the ordered move list (each move: rationale, files,
       blast radius, what it closes in `findings.md`, its gate).
-- [ ] 3.3 If the target is net-additive in LOC, `target.md` states why in as many words. Otherwise it is an
+- [x] 3.3 If the target is net-additive in LOC, `target.md` states why in as many words. Otherwise it is an
       architecture phase justifying its own existence.
-- [ ] 3.4 **Review the whole target with the user before phase 4.** Nothing on disk has changed yet but the
+- [x] 3.4 ~~Review the whole target with the user before phase 4.~~ **WAIVED by the user (2026-08-05): "i trust you. just continue till all refactored and tested."** The target is recorded in `target.md` and reported as it executes rather than gated on approval. Nothing on disk has changed yet but the
       working docs; this is the cheapest place to discover the target is wrong.
 
 ## 4. Phase 4 — Refute (3 agents per move, before any code is touched)

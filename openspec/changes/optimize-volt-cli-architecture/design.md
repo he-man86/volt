@@ -31,9 +31,12 @@ real defect), output because the target shape has to be written down or it will 
   mode here — see Risks.)
 - **No re-litigating `ARCHITECTURE.md`'s load-bearing asymmetries.** They are constraints. A candidate design
   that "unifies" the hosting models or strips Beckhoff's per-node `try/catch` is disqualified, not debated.
-- **No behavior-fixing.** The open defects in `audit-volt-cli-src/arch-notes.md` (the two-answer precondition,
-  the CFC/SFC child-body flatten, the pushed-item-lost-on-kill) are *separate proposals*. A restructure that
-  half-fixes one of them ships an unverified behavior delta hidden inside a shape change. Report and move on.
+- ~~No behavior-fixing.~~ **REVISED after phase 2 (user decision, 2026-08-05): the bugs are in scope.** They
+  land as **fix moves** — separate commits, each red-first (a test that fails against today's behavior, then the
+  fix), never folded into a shape move. What is still out of scope is fixing a bug *silently, inside* a shape
+  move; that is the failure this non-goal existed to prevent, and it is still the failure.
+  The pre-existing open defects in `audit-volt-cli-src/arch-notes.md` and `fix-push-data-loss` stay with their
+  own changes — this change adds no second owner for a bug that already has one.
 - Not the TS packages, not `test/e2e`'s own design, not the connector's UI.
 
 ## The five phases
