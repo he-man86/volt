@@ -416,14 +416,21 @@ internal sealed class TcObjectModel
         // save stays, because it is what makes `push` durable at all (CODESYS commits on write, so dropping it would
         // leave push durable on one vendor and not the other). Upgrade path in
         // openspec/changes/fix-push-data-loss tasks §4.
+        // `Solution.Save()` DOES NOT EXIST. EnvDTE's solution interface exposes SaveAs, not Save, so this line threw
+        // `'System.__ComObject' does not contain a definition for 'Save'` on EVERY push — and because it threw
+        // FIRST, `Documents.SaveAll()` never ran either. Under the old bare `catch { }` the whole method was a
+        // silent no-op, which is why a 90-pass TwinCAT baseline was recorded against a save that never happened;
+        // making the failure loud (838c4140e1) turned that into 63 red e2e tests, exactly the diagnostic that
+        // commit predicted. `File.SaveAll` is the shell command behind File > Save All: it persists open documents,
+        // every dirty PROJECT (including the `.plcproj` whose missing registration is the orphan bug,
+        // openspec/changes/fix-push-data-loss §3) and the solution, in one call that actually exists.
         try
         {
-            _dte.Solution.Save();
-            _dte.Documents.SaveAll();
+            _dte.ExecuteCommand("File.SaveAll");
         }
         catch (Exception ex)
         {
-            VoltLog.Warn($"SaveAll failed — applied writes may not be on disk: {ex.Message}");
+            VoltLog.Warn($"File.SaveAll failed — applied writes may not be on disk: {ex.Message}");
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"the IDE could not save the applied changes, so they are NOT committed to disk: {ex.Message}", ex);
         }

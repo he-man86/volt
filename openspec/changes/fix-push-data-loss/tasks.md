@@ -48,7 +48,39 @@ does.
 solution plus every open editor. It is both narrower (never touches the engineer's unrelated tabs) and *more*
 correct (it persists the registration that was being lost).
 
-- [ ] 3.0 Implement it: from `_dte`, resolve the PLC project we are bound to and call `Save()` on it (TwinCAT nests
+### 3.0-RESULT (2026-08-05) — the mechanism above is HALF right: `Solution.Save()` never ran at all
+
+Live evidence, two XAEs, worker built from this tree. Every push failed with:
+
+```
+INTERNAL_ERROR: the IDE could not save the applied changes, so they are NOT committed to disk:
+'System.__ComObject' does not contain a definition for 'Save'
+```
+
+**`EnvDTE`'s solution interface exposes `SaveAs`, not `Save`.** So `_dte.Solution.Save()` threw on every push
+since it was written — and because it threw FIRST, `_dte.Documents.SaveAll()` **never ran either**.
+`FlushPendingWrites` was a complete no-op under the old bare `catch { }`. Two things follow:
+
+- The recorded "90 pass / 0 fail" TwinCAT baseline was achieved with **no save happening at all**, so it is not
+  evidence that the save is needed. It is evidence the suite passes without one.
+- §3's "`Documents.SaveAll()` wrote the `.TcPOU`" is wrong: SaveAll never executed. The `.TcPOU` on disk was
+  written by the system manager itself. The orphan is therefore *not* a "saved the wrong artifacts" bug — it is
+  "nothing was ever saved, and the system manager writes content but not registration".
+- `838c4140e1` (fail loud) did exactly what its message promised: it turned the silent no-op into 63 red e2e
+  tests. That commit is what made this findable.
+
+**Fix applied:** `TcObjectModel.FlushPendingWrites` now calls `_dte.ExecuteCommand("File.SaveAll")` — the shell
+command behind File > Save All. It exists, and it persists open documents, every dirty PROJECT (including the
+`.plcproj`) and the solution, in one call. Failure stays loud.
+
+**Result:** TwinCAT e2e **24 pass / 63 fail → 88 pass / 2 fail** (the 2 are unrelated suite-ordering coupling,
+evidence in `openspec/changes/optimize-volt-cli-architecture/ledger.md`). Build + all three C# suites green.
+
+Still open below: this is the BROAD save (§4/§5 scoping still applies — it commits the engineer's unrelated
+dirty tabs), and `ide-restart`'s durability assertion has NOT been re-checked against it. Do that before
+calling bug 2 closed.
+
+- [ ] 3.0 Narrow it: from `_dte`, resolve the PLC project we are bound to and call `Save()` on it (TwinCAT nests
       the PLC project inside the TwinCAT project, so `Solution.Projects` likely needs a walk into `ProjectItems` —
       confirm against the live model, do not infer it). Keep the failure loud.
 - [ ] 3.0b Red-first is possible WITHOUT an IDE for the ordering/選択 part only; the real proof is live, below.
@@ -94,6 +126,14 @@ That kills the "delete it, zero logic" option, which was the preferred one. The 
 PLC project, which is also what fixes the orphan) is now the leading candidate, but it must be re-tested against
 this hang, not just against the durability assertion.
 
+> **§4.1's premise is now suspect (2026-08-05).** That experiment made `FlushPendingWrites` a no-op and saw a
+> hang — but per 3.0-RESULT the method was *already* a no-op, because `Solution.Save()` threw before
+> `Documents.SaveAll()` could run. If §4.1 predates `838c4140e1`, it changed nothing observable and the hang had
+> another cause (TcXaeShell instability is a live candidate — a fixture's shell closed and reopened by itself
+> during the 2026-08-05 session). Re-run it before treating "the sequencing claim is real" as established.
+> For the first time there is now a save that actually executes, so the comparison is finally meaningful: with
+> `File.SaveAll` in place the full TC suite ran 209-217 s, no hang.
+
 Caveat worth respecting: property accessors are independently flaky here (noted by the user), so before concluding
 "the save fixes the hang", isolate — run the property cases alone with and without the save. A hang that is really
 about accessor instability would otherwise be misattributed to the save policy and freeze the wrong design.
@@ -108,8 +148,9 @@ about accessor instability would otherwise be misattributed to the save policy a
         assertion must be retired as a deliberate decision (push means "the IDE has it"; the engineer saves).
       - some fail ⇒ the claim is real; keep a save but make it the CORRECT and NARROW one: save the containing PLC
         project (the `.plcproj`), which is what fixes the orphan AND never touches the engineer's other tabs.
-- [ ] 4.2 Either way, `Solution.Save()` + `Documents.SaveAll()` goes: it saves the solution file and every open
-      editor — the two artifacts that don't matter for registration — and misses the `.plcproj` that does.
+- [x] 4.2 **DONE (2026-08-05)** — `Solution.Save()` + `Documents.SaveAll()` is gone, replaced by
+      `ExecuteCommand("File.SaveAll")`. See 3.0-RESULT: the old pair never executed at all, so it missed the
+      `.plcproj` by never running rather than by saving the wrong things.
 - [ ] 4.3 Whatever survives must keep failing LOUD, and a green run must leave the fixture clean (no orphan files).
 
 ## 5. (superseded) Scope the TwinCAT save to what Volt wrote
