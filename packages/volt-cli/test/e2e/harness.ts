@@ -14,8 +14,10 @@ import { readdirSync } from "node:fs"
 export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
 // Both vendors serve ONE pipe per running IDE, keyed by pid (`volt.bridge.<vendor>.<pid>`). We target by prefix, not a
 // fixed pid, so a TwinCAT XAE (or CODESYS) that restarts with a new pid is picked up automatically. VOLT_PIPE (an
-// exact pid pipe, or a prefix) overrides the vendor default; even a dead-pid VOLT_PIPE resolves to the live pipe of
-// the same vendor.
+// exact pid pipe, or a prefix) REPLACES the vendor default — it is exclusive. It used to be advisory: a third filter
+// clause also matched `volt.bridge.<vendor>.*`, so with two IDEs of one vendor up, an explicit VOLT_PIPE silently ran
+// the whole suite against the OTHER one (a developer's live project instead of the headless fixture). Naming a pipe
+// means that pipe; if it isn't serving, pipeCall says so rather than retargeting.
 const PIPE_PREFIX = process.env.VOLT_PIPE || `volt.bridge.${VENDOR}`
 
 /** Is the pid in `volt.bridge.<vendor>.<pid>` still a running process? A killed TwinCAT XAE's worker keeps serving
@@ -34,12 +36,10 @@ function ideAlive(pipeName: string): boolean {
 	}
 }
 
-/** The live per-pid pipe(s) matching the target (the VOLT_PIPE prefix, or any pipe of this vendor). */
+/** The live per-pid pipe(s) matching the target — the VOLT_PIPE pipe/prefix, else every pipe of this vendor. */
 function livePipes(): string[] {
 	try {
-		const matching = readdirSync("\\\\.\\pipe\\").filter(
-			(n) => n === PIPE_PREFIX || n.startsWith(PIPE_PREFIX + ".") || n.startsWith(`volt.bridge.${VENDOR}.`),
-		)
+		const matching = readdirSync("\\\\.\\pipe\\").filter((n) => n === PIPE_PREFIX || n.startsWith(PIPE_PREFIX + "."))
 		// PREFER pipes whose IDE is still alive, so a stale worker is never picked while a live bridge exists. But if
 		// none is alive, still return the real pipes: a TwinCAT worker deliberately OUTLIVES its IDE (~15s until the
 		// connector reaps it) and must answer PLC_DISCONNECTED from that window — that is a product behavior the
