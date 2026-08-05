@@ -418,7 +418,10 @@ begin
     RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL');
     // Retired, but still deleted here: an install predating the opencode removal may have left it set.
     RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
-    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Volt');
+    // 'VoltConnector' — the value name LoginItem.cs actually writes (ValueName). This read 'Volt' and therefore
+    // deleted nothing: the fallback for a failed connector uninstall hook was dead. The hook itself
+    // (LoginItem.Unregister) always used the right name, which is why the login item still went away in practice.
+    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'VoltConnector');
     // PATH is a list — strip only Volt's own entries, never rewrite the whole value.
     if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then
     begin

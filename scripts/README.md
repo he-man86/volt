@@ -11,7 +11,7 @@ existing at all.
 | Command | Script | Does |
 |---|---|---|
 | `bun run build:installer` | `build-installer.ts` | **the product** → `dist/release/Volt-win-Setup.exe` |
-| `bun run test:install` | `test-install.ts` | install → verify → uninstall → verify clean |
+| `bun run test:install` | `test-install.ts` | install/uninstall/update ×N on a real machine, asserting after every step |
 | `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (triggers `promote.yml`) |
 | `bun run check` | `check-wiring.ts` | is everything shipped built + internally consistent? |
 
@@ -36,17 +36,29 @@ verify                 the build is a published prerelease AND its commit's ci.y
       ↓
 gh release download    that build's OWN Volt-win-Setup.exe
       ↓
-test-install.ts            install/uninstall smoke gate  ┐ gate the EXACT build being released, so
-test-install-lifecycle.ts  install/update/uninstall ×N   ┘ what ships to stable is what was tested
-      ↓
+test-install.ts        install/uninstall/update ×N — gates the EXACT build being released,
+      ↓                so what ships to stable is what was tested
 gh release edit --prerelease=false --latest     flips it to the stable channel
 ```
 
-Both install gates read the installer's on-disk contract (install dir, the `{app}\current` junction, the uninstall
-key, the reg reader) from **`install-layout.ts`** — ONE source of truth, so the smoke gate can't drift from the
-lifecycle gate the way it once did (it hardcoded the pre-junction flat layout and rotted unnoticed, because the
-install gates ran only at release and none had been cut — the first cut then failed on months-old wrong paths).
-`test-install.ts` adds BEHAVIOUR on top: it runs the installed CLIs (`--version`), not just file checks.
+**There is ONE install gate.** There were two — a smoke gate (one install, one uninstall) and this lifecycle
+gate, which *opens* with the same install/uninstall and then keeps going. The smoke gate was a strict subset, and
+weaker where they overlapped: it checked that files exist, while this one asks each binary for its stamped
+`FileVersion` and compares it to what the install claims. Running both cost a full extra install cycle on the
+release runner to re-prove what the next step re-proved.
+
+Merging them was not free of information, though, and that is the lesson worth keeping: the smoke gate held three
+assertions this one lacked (the tray process is running, the Start Menu shortcut and login item exist) and — the
+reason to be careful — it read the login-item registry value by its **real** name, `VoltConnector`, while this
+gate read `"Volt"` and could therefore never fail. Two gates asserting the same thing in two ways is how the
+wrong one hides. All four are folded in; `installer/Volt.iss` had the same wrong name in its uninstall fallback
+and is fixed too.
+
+The installer's on-disk contract (install dir, the `{app}\current` junction, the uninstall key, the reg reader)
+used to live in a separate `install-layout.ts` precisely so the two gates could not drift — they had each carried
+a private copy, and when the payload moved under the junction only one was updated, so the other spent months
+checking flat paths that no longer existed. With one gate that module had no one to share with; it is inlined at
+the top of `test-install.ts`, beside its only reader.
 
 `release.ts` is only a TRIGGER — it points a build at `promote.yml` (or you Run the workflow from the Actions tab).
 The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup, and never installs on your box.
@@ -114,10 +126,10 @@ HEAD's version — that moves with every commit — so it asserts the editors ag
 are a warning, not a failure: `--uninstall-extension` deregisters immediately but leaves the directory for the
 editor to delete at startup, so a machine that never quits its editor always has a few, and they are unregistered.
 
-## `test-install-lifecycle.ts` — the install LIFECYCLE gate (`bun run test:install:lifecycle`)
+## `test-install.ts` — the install gate (`bun run test:install`)
 
-`test:install` proves ONE install and ONE uninstall are clean. It cannot catch what actually shipped, because
-those failures need an install **over an existing one**, with files held open:
+Proving ONE install and ONE uninstall clean is not enough, which is why this runs a sequence. The failures that
+actually shipped need an install **over an existing one**, with files held open:
 
 - A silent update **aborted and rolled back** because a running editor held `bin\volt-lsp-iec.exe`. Inno retried,
   hit an Abort/Retry/Ignore box that `/SUPPRESSMSGBOXES` defaults to **Abort**, and reverted — silently, exit code

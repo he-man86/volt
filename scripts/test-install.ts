@@ -1,180 +1,421 @@
 #!/usr/bin/env bun
 /**
- * Install → verify → uninstall → verify-clean smoke test for the Volt installer. Silent-installs
- * dist/release/Volt-win-Setup.exe (or a path arg), asserts the install laid down its CONTRACT (env + payload under
- * the `current` junction + shortcut + login item + Add/Remove entry + tray process, and the CLIs actually RUN),
- * then silent-uninstalls and asserts every one is GONE. Exits non-zero on any failure or leftover — so a dirty
- * uninstall blocks a release (release.yml runs this between build and publish).
+ * THE install gate. Really installs and uninstalls Volt, several times, and asserts after every step.
  *
- * The install layout is NOT hardcoded here — it comes from ./install-layout.ts, the ONE source of truth both this
- * smoke gate and the deeper test-install-lifecycle.ts share, so the two can't drift (which is exactly what let this
- * gate rot against the old flat layout until the first stable cut ran it). What this gate adds over the lifecycle
- * one is BEHAVIOUR: it runs the installed CLIs (`--version`) rather than only checking files exist.
+ * Proving ONE install and ONE uninstall clean is not enough — that was a second, separate gate, and it was a
+ * strict subset of this one (weaker too: it checked that files exist where this asks each binary for its stamped
+ * version). It is merged in here. The failures that actually shipped appear only on the SECOND install (an update
+ * over an existing one, with files held open) and only in components a single-cycle gate never inspects:
  *
- * Windows only; per-user install, reads HKCU. Best on a throwaway machine / CI runner — it really does install
- * and uninstall Volt. A /VERYSILENT install still performs the extension sideload — that one is gated by WantExt,
- * which on a silent run refreshes editors that already have the extension. So a silent install DOES touch your editors, and this asserts it leaves them sane: an
- * installer change once uninstalled the extension from every editor and skipped the reinstall (the uninstall step
- * flipped the very predicate the install step was gated on), and nothing here noticed.
+ *   • A silent update ABORTED AND ROLLED BACK because a running editor held bin\volt-lsp-iec.exe: Inno retried,
+ *     hit an Abort/Retry/Ignore box that /SUPPRESSMSGBOXES defaults to Abort, and reverted — silently. Files that
+ *     sort AFTER the locked one (notably bin\volt.exe) stayed several releases behind while the connector moved
+ *     on, so a shipped CLI feature looked broken for days.
+ *   • version.txt is what the tray REPORTS as the installed version, and it is just a text file the installer
+ *     writes. It asserts nothing about the binaries beside it, so a half-applied install reports the version it
+ *     MEANT to be.
  *
- *   bun run test:install [path\to\Volt-win-Setup.exe]
+ * So this runs a realistic sequence and, after every step, asserts the whole install agrees with itself:
+ *
+ *   install → uninstall → install → update → update → uninstall → install → uninstall
+ *
+ * The load-bearing assertion measures the BINARIES, not the paperwork: build-cli.ps1 stamps VOLT_VERSION into
+ * every exe's FileVersion, so each one is asked what it actually is and compared against the version the install
+ * claims. A stale component is a hard failure instead of something you discover in a user's workspace. The
+ * extension is checked the same way — `--list-extensions --show-versions` is the editor's own answer, not a
+ * folder listing (the folders survived an uninstall that deregistered it, which is what made that bug invisible).
+ *
+ * Windows only; per-user install; this REALLY installs and uninstalls Volt several times. Best on a throwaway
+ * machine or a CI runner. Optionally point it at two builds to exercise a genuine upgrade:
+ *
+ *   bun run test:install [setup.exe] [--older <older-setup.exe>]
+ *
+ * With --older, the "update" steps install the newer build over the older one — the case that broke. Without it,
+ * the same build is reinstalled over itself, which still exercises the file-in-use path.
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { resolve, join } from "node:path"
-import { installDir, currentDir, uninstaller, uninstallKey, runKey, appId, reg, pathHasEntry } from "./install-layout.js"
+// ── the installer's on-disk contract ─────────────────────────────────────────
+// What `installer/Volt.iss` lays down, and where. This lived in its own `install-layout.ts` so the two install
+// gates could not drift — they had each carried a private copy, and when the payload moved under the
+// `{app}\current` junction only one was updated, so the other spent months checking flat `{app}\<file>` paths
+// that no longer existed. There is one gate now, so the sharing has no one to share with; it lives here, beside
+// its only reader.
 
-const EXE = ".exe" // Windows-only gate
+// {app} — Inno's DefaultDirName (a per-user install) — and the `unins000.exe` Inno drops there. Inno owns these
+// regardless of how the payload is arranged inside.
+const installDir = join(process.env.LOCALAPPDATA!, "Programs", "Volt")
+const uninstaller = join(installDir, "unins000.exe")
+
+// The junction EVERY published path resolves through — PATH, the shortcut. The payload lives under a versioned
+// `app-<version>` dir that `current` points at, so the whole install is inspected THROUGH this: a version dir can
+// exist and still be unreachable if `current` is missing/stale, and that is the one failure that makes an
+// otherwise-perfect install resolve to nothing. Never record a VERSIONED path anywhere outside {app} — it must go
+// through `current`, or every update has to rewrite HKCU (a registry race traded for a file-lock one).
+const currentDir = join(installDir, "current")
+
+const runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+
+/**
+ * `reg query`. With a value NAME, returns the VALUE (its data may itself contain spaces) — not `reg query`'s raw
+ * multi-line dump, which was survivable for `includes("volt")` checks but silently wrong the moment a check needed
+ * the value itself (e.g. to resolve a path). Without a name, returns the raw stdout (non-null iff the key exists),
+ * so `reg(key) != null` is a presence check. Null when absent.
+ */
+function reg(key: string, value?: string): string | null {
+  const r = spawnSync("reg", ["query", key, ...(value ? ["/v", value] : [])], { encoding: "utf8" })
+  if (r.status !== 0) return null
+  if (!value) return r.stdout
+  const line = (r.stdout ?? "").split("\n").find((l) => new RegExp(`^\\s+${value}\\s+REG_`, "i").test(l))
+  return line ? line.replace(new RegExp(`^\\s+${value}\\s+REG_\\w+\\s+`, "i"), "").trim() : null
+}
+
+/** Is <dir> one of the persisted user PATH ENTRIES? Exact per-entry match — a substring test would let a
+ *  superstring (…\Volt\current\bin-old) or a partial path spuriously pass. */
+function pathHasEntry(dir: string): boolean {
+  return (reg("HKCU\\Environment", "Path") ?? "").split(";").some((e) => e.trim().toLowerCase() === dir.toLowerCase())
+}
 
 if (process.platform !== "win32") {
   console.error("test:install is Windows-only (the installer + HKCU checks are Windows).")
   process.exit(1)
 }
 
-const repo = resolve(import.meta.dirname, "..")
-const setup = resolve(process.argv[2] ?? resolve(repo, "dist/release/Volt-win-Setup.exe"))
-if (!existsSync(setup)) {
-  console.error(`✗ installer not found: ${setup}\n  build it first: bun scripts/build-installer.ts`)
-  process.exit(1)
-}
-
-// The payload resolves through the `current` junction (see install-layout.ts). Only Inno's own unins000.exe sits
-// flat at {app}. The Start Menu shortcut is the one artefact this gate checks that the lifecycle gate does not.
-const connector = join(currentDir, "VoltConnector" + EXE)
-const binDir = join(currentDir, "bin")
-const vsix = join(currentDir, "volt-vscode.vsix")
+/** The connector's Start Menu shortcut (VoltEnv.CreateGuiShortcut). Resolved after the platform guard — APPDATA
+ *  only exists on Windows. */
 const shortcut = join(process.env.APPDATA!, "Microsoft", "Windows", "Start Menu", "Programs", "Volt.lnk")
 
-// Does this binary actually RUN (exit 0)? A behavioural check — proves the installed exe resolves + executes, which
-// existsSync alone never does (a truncated/rolled-back copy exists but can't run).
-const runsOk = (exe: string, args: string[]): boolean => {
-  try { return spawnSync(exe, args, { encoding: "utf8", timeout: 20_000 }).status === 0 } catch { return false }
-}
-const procRunning = (name: string): boolean =>
-  (spawnSync("tasklist", ["/FI", `IMAGENAME eq ${name}`, "/NH"], { encoding: "utf8" }).stdout ?? "").toLowerCase().includes(name.toLowerCase())
-const waitFor = async (pred: () => boolean, seconds: number): Promise<boolean> => {
-  for (let i = 0; i < seconds && !pred(); i++) await Bun.sleep(1000)
-  return pred()
-}
-let failures = 0
-// soft = best-effort feature (per the connector's own "best-effort" comments): report but don't gate the release.
-// The load-bearing install checks + ALL cleanup checks stay hard — cleanliness is the guarantee.
-const check = (label: string, ok: boolean, soft = false): void => {
-  console.log(`  ${ok ? "✓" : soft ? "⚠" : "✗"} ${label}${!ok && soft ? "  (best-effort — not gated)" : ""}`)
-  if (!ok && !soft) failures++
-}
+const repo = resolve(import.meta.dirname, "..")
 
-if (existsSync(installDir)) console.warn("⚠ Volt already installed — results reflect an upgrade-over-install, not a clean one.")
+// Inno's per-user uninstall subkey is {AppId}_is1 — read AppId from the .iss so this can't drift from the installer.
+const appId = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8").match(/AppId=\{\{([0-9A-Fa-f-]+)\}/)?.[1]
+const uninstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{${appId}}_is1`
 
-// Any Volt process running out of the install dir holds it locked, and Inno's Restart Manager can't close a tray
-// app (or an Electron window) under /VERYSILENT — Setup aborts with exit 5 before any check runs. The real
-// auto-update path never hits this: the connector Environment.Exit(0)s itself right after launching Setup
-// (Updater.cs). Match that here. No-op on CI, where nothing is running; this is what lets the gate run on a dev
-// box too. ALL THREE matter: Volt.exe (the Electron GUI) locks {app}\current\desktop, and omitting it left the gate
-// failing on exactly the machine most likely to run it. VoltBridgeTwincat.exe is the pipe worker the connector spawns.
-for (const name of ["Volt.exe", "VoltConnector.exe", "VoltBridgeTwincat.exe"]) {
-  if (procRunning(name)) {
-    console.log(`• stopping ${name} (it holds the install dir locked)`)
-    spawnSync("taskkill", ["/F", "/IM", name], { stdio: "ignore" })
+const args = process.argv.slice(2)
+const olderIdx = args.indexOf("--older")
+// Guard the index. With no `--older`, olderIdx is -1, so `args[olderIdx + 1]` is args[0] — the POSITIONAL setup
+// path — and the filter below then excluded the very argument the caller passed, silently falling back to the
+// default build. `bun run test:install <setup.exe>` therefore gated a different installer than the one named,
+// which for a release gate is the worst possible way to be wrong.
+const olderArg = olderIdx >= 0 ? args[olderIdx + 1] : undefined
+const olderSetup = olderArg !== undefined ? resolve(olderArg) : undefined
+const setup = resolve(args.find((a) => !a.startsWith("--") && a !== olderArg) ?? resolve(repo, "dist/release/Volt-win-Setup.exe"))
+
+for (const [label, path] of [["installer", setup], ...(olderSetup ? [["older installer", olderSetup] as const] : [])] as const) {
+  if (!existsSync(path)) {
+    console.error(`✗ ${label} not found: ${path}\n  build it first: bun scripts/build-installer.ts`)
+    process.exit(1)
   }
 }
 
-// Which editors had the Volt extension BEFORE the install. A silent run refreshes exactly those (WantExt), so
-// this is the baseline the post-install assertion compares against — captured here, before anything is touched.
-const hadExt = new Map<string, boolean>()
+// Captured ONCE, before anything is installed. `hadExtension` is the immutable original baseline — used only to
+// restore the machine at the end. `expectExt` is the EXPECTED-present state as it evolves through the run: it
+// starts equal to the baseline and every uninstall turns it off, because the gate's own uninstall strips the
+// extension and the silent installs that follow never re-add it (see the extension check for why).
+const hadExtension = new Map<string, boolean>()
 for (const cli of ["code", "windsurf", "cursor"]) {
   if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
-  hadExt.set(
+  hadExtension.set(
     cli,
-    spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout?.toLowerCase().includes("volt-ai.volt-vscode") === true,
+    (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "").toLowerCase().includes("volt-ai.volt-vscode"),
   )
 }
+const expectExt = new Map(hadExtension)
 
-// ── install ───────────────────────────────────────────────────────────────────
-console.log(`• installing ${setup} (/VERYSILENT)`)
-const inst = spawnSync(setup, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
-// A ROLLBACK is the failure mode that actually shipped: a file held open by a running editor made Inno abort and
-// revert, silently, leaving a half-old install. Inno still exits 0 in some abort paths, so the exit code alone is
-// not proof — the checks below are. Kept as an explicit note so nobody "simplifies" them away.
-if (inst.status !== 0) {
-  // 5 = Setup aborted during install; on a dev box that's almost always a Volt process it couldn't close.
-  const hint = inst.status === 5 ? " — a Volt process is holding the install dir (close Volt and retry)" : ""
-  console.error(`✗ installer exited ${inst.status}${hint}`)
-  process.exit(1)
+let failures = 0
+const fail = (step: string, msg: string): void => { failures++; console.error(`  ✗ [${step}] ${msg}`) }
+const ok = (msg: string): void => console.log(`  ✓ ${msg}`)
+/** Reported, never gated — for the connector's best-effort integrations (see assertInstalled). */
+const warn = (msg: string): void => console.log(`  ⚠ ${msg}`)
+
+const procRunning = (name: string): boolean =>
+  (spawnSync("tasklist", ["/FI", `IMAGENAME eq ${name}`, "/NH"], { encoding: "utf8" }).stdout ?? "")
+    .toLowerCase()
+    .includes(name.toLowerCase())
+
+/** Poll a predicate for up to `seconds`, SYNCHRONOUSLY — the assert* functions are sync, and the connector is
+ *  launched by setup's last step, so it can take a moment to appear after the installer returns. */
+function waitForSync(pred: () => boolean, seconds: number): boolean {
+  const idle = new Int32Array(new SharedArrayBuffer(4))
+  for (let i = 0; i < seconds && !pred(); i++) Atomics.wait(idle, 0, 0, 1000)
+  return pred()
 }
 
-// PATH is the installer's whole environment contribution — wait for it to appear, then verify.
-console.log("• waiting for the installer to publish its environment…")
-await waitFor(() => pathHasEntry(binDir), 45)
+/** The binary's OWN stamped version — the fact, as opposed to version.txt's claim. build-cli.ps1 stamps
+ *  FileVersion from VOLT_VERSION, so this is directly comparable to the release number. */
+const fileVersion = (exe: string): string | null => {
+  const r = spawnSync(
+    "powershell",
+    ["-NoProfile", "-Command", `(Get-Item '${exe}').VersionInfo.FileVersion`],
+    { encoding: "utf8" },
+  )
+  return r.status === 0 ? (r.stdout ?? "").trim() || null : null
+}
 
-console.log("• verifying install:")
-// The junction MUST resolve — a missing `current` makes an otherwise-perfect versioned payload unreachable, which
-// is the one failure that looks fine on disk (the app-<ver> dir is there) yet makes nothing work.
-check("{app}\\current junction resolves", existsSync(currentDir))
-// PATH must point THROUGH `current`, never at a versioned path (which would break on the next update). This is
-// the ONLY environment Volt publishes — every agent integration goes through the `volt` it makes resolvable.
-check("PATH has current\\bin", pathHasEntry(binDir))
-// The retired opencode config var must not survive an upgrade from a pre-removal install (PublishEnv deletes it).
-check("no OPENCODE_CONFIG_DIR left behind", reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") == null)
-// Behaviour, not just presence: the installed CLIs must actually RUN (a rolled-back install leaves a file that can't).
-check("volt CLI runs from the installed bin", runsOk(join(binDir, "volt" + EXE), ["--version"]))
-check("volt-lsp-iec CLI runs from the installed bin", runsOk(join(binDir, "volt-lsp-iec" + EXE), ["--version"]))
-check("VoltConnector.exe present", existsSync(connector))
-// The .vsix must ship, or the sideload tasks are no-ops on a real install.
-check("volt-vscode.vsix present", existsSync(vsix))
+/** Run a setup silently. Inno can exit 0 on some abort paths, so the caller must still verify the RESULT. */
+function runSetup(path: string, step: string): void {
+  const logFile = join(process.env.TEMP!, `volt-lifecycle-${Date.now()}.log`)
+  const r = spawnSync(path, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", `/LOG=${logFile}`], { stdio: "inherit" })
+  if (r.status !== 0) fail(step, `installer exited ${r.status}`)
+  // The rollback that shipped announced itself in the log and nowhere else — the process still finished and no
+  // error surfaced. Read the log rather than trusting the exit code.
+  if (existsSync(logFile)) {
+    const log = readFileSync(logFile, "utf8")
+    if (log.includes("Rolling back changes")) fail(step, `setup ROLLED BACK (see ${logFile})`)
+    const locked = log.match(/appears to be in use[\s\S]{0,400}?Defaulting to Abort/)
+    if (locked) fail(step, `a file was in use and setup aborted (see ${logFile})`)
+  }
+}
 
-// And every editor that HAD the extension must still report one afterwards. This is the assertion that was
-// missing when the installer started uninstalling the extension and skipping the reinstall: the folders were
-// still on disk (so a directory listing looked fine) while `--list-extensions` reported nothing at all.
-const EXT_ID = "volt-ai.volt-vscode"
-const editorReports = (cli: string): boolean =>
-  spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout?.toLowerCase().includes(EXT_ID) === true
-const editorsOnPath = ["code", "windsurf", "cursor"].filter(
-  (cli) => spawnSync("where", [cli], { encoding: "utf8", shell: true }).status === 0,
+function runUninstall(step: string): void {
+  if (!existsSync(uninstaller)) return fail(step, "uninstaller missing — cannot uninstall")
+  const r = spawnSync(uninstaller, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], { stdio: "inherit" })
+  if (r.status !== 0) fail(step, `uninstaller exited ${r.status}`)
+  // Uninstall runs [UninstallRun] `--uninstall-extension` on every editor, so the extension is now gone — and a
+  // following SILENT install won't re-add it. Reflect that so later steps don't expect what can't be there.
+  for (const cli of expectExt.keys()) expectExt.set(cli, false)
+  // Inno's uninstaller returns before it has finished deleting itself.
+  for (let i = 0; i < 30 && existsSync(uninstaller); i++) spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"])
+}
+
+const logStore = join(process.env.LOCALAPPDATA!, "Volt", "logs")
+
+/** Newest log matching a prefix, or null. The installer writes install-<ts>.log / uninstall-<date>.log there. */
+function newestLog(prefix: string): string | null {
+  if (!existsSync(logStore)) return null
+  const files = readdirSync(logStore)
+    .filter((f) => f.startsWith(prefix) && f.endsWith(".log"))
+    .map((f) => join(logStore, f))
+  if (files.length === 0) return null
+  return files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]!
+}
+
+/**
+ * Assert the LOG, not just the end state. The end state cannot tell "the step ran and was correctly a no-op" from
+ * "the step never ran" — those need different fixes and today look identical. Each expected marker must appear in
+ * order, and no marker signalling a failed action (WARNING / FAILED / MISSING) may appear. This is what converts
+ * the audit from a one-time read into something a removed step fails CI over, instead of a customer discovering it.
+ */
+function assertLog(step: string, prefix: string, required: string[]): void {
+  const file = newestLog(prefix)
+  if (file === null) return fail(step, `no ${prefix}*.log written — the installer logged nothing`)
+  const text = readFileSync(file, "utf8")
+  let from = 0
+  for (const marker of required) {
+    const at = text.indexOf(marker, from)
+    if (at < 0) return fail(step, `log marker missing or out of order: "${marker}" (in ${file})`)
+    from = at + marker.length
+  }
+  const bad = text
+    .split("\n")
+    .filter((l) => l.includes("volt:") && /\b(WARNING|FAILED|MISSING)\b/.test(l))
+  if (bad.length > 0) fail(step, `log records a failed action: ${bad.map((l) => l.split("volt:")[1]!.trim()).join(" | ")}`)
+  else ok(`${step}: log clean, ${required.length} markers in order`)
+}
+
+/** THE assertion. Every shipped binary + version.txt must agree, or the install is half-applied. */
+function assertInstalled(step: string): void {
+  // Everything the payload ships now lives under {app}\current (a junction to app-<version>), so the whole
+  // install is inspected THROUGH the junction — which is also how PATH and the shortcut
+  // reach it. Checking the version directory directly would pass even if `current` were missing or stale, and a
+  // broken junction is the one failure that makes an otherwise perfect install unreachable.
+  const current = currentDir // the `{app}\current` junction — the installer contract, defined at the top
+  if (!existsSync(current)) return fail(step, "{app}\current is missing — nothing resolves the install")
+  const versions = existsSync(installDir)
+    ? readdirSync(installDir, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith("app-")).map((d) => d.name)
+    : []
+  if (versions.length === 0) fail(step, "no app-<version> directory")
+  // Retain at most 2: the active one and (briefly) its predecessor, which the connector prunes at next start.
+  if (versions.length > 2) fail(step, `${versions.length} version directories retained: ${versions.join(", ")}`)
+  else ok(`${step}: ${versions.length} version dir(s), current → ${versions.join(", ")}`)
+
+  // The oracle is the version DIRECTORY Inno created — `app-<version>` — not a version.txt in the payload (that
+  // file is gone; every binary is stamped instead). This is strictly stronger: the directory name is what the
+  // installer actually laid down, so a binary whose own stamp disagrees with the directory it sits in did not get
+  // replaced. `versions` holds the active one (and briefly a predecessor); check against the one `current` points
+  // at, which readdir cannot distinguish, so take the newest by name — matching what the connector prunes to.
+  const claimed = versions.sort().at(-1)!.replace(/^app-/, "")
+
+  const exes = [
+    join(current, "VoltConnector.exe"),
+    join(current, "VoltBridgeTwincat.exe"),
+    join(current, "bin", "volt.exe"),
+  ]
+  const missing = exes.filter((e) => !existsSync(e))
+  for (const e of missing) fail(step, `${e.replace(installDir, "")} missing`)
+
+  // Each binary's OWN stamped version must equal the directory's. Checking binaries against EACH OTHER is not
+  // enough: an update that replaced none of them would be self-consistent and still stale.
+  const present = exes.filter(existsSync)
+  const reported = present.map((e) => [e.replace(installDir, ""), fileVersion(e)] as const)
+  const stale = reported.filter(([, v]) => v !== claimed)
+  if (stale.length > 0)
+    fail(step, `component(s) not at ${claimed}: ${stale.map(([n, v]) => `${n}=${v ?? "?"}`).join(", ")}`)
+  else ok(`${step}: every binary reports ${claimed}`)
+
+  // The LSP is bun-compiled, so it has no PE FileVersion — its version is baked in via a compile-time define and
+  // it can only be asked by running it. Ask: a `(dev)` here means the define silently failed to land (it did once,
+  // when cmd.exe stripped the quotes), which no FileVersion check could see.
+  const lsp = join(current, "bin", "volt-lsp-iec.exe")
+  if (!existsSync(lsp)) fail(step, "bin/volt-lsp-iec.exe missing")
+  else {
+    const lspv = (spawnSync(lsp, ["--version"], { encoding: "utf8" }).stdout ?? "").trim()
+    if (!lspv.includes(claimed)) fail(step, `volt-lsp-iec reports "${lspv}", not ${claimed} (compile-time version define did not land)`)
+    else ok(`${step}: volt-lsp-iec reports ${claimed}`)
+  }
+  if (!existsSync(join(current, "volt-vscode.vsix"))) fail(step, "volt-vscode.vsix missing")
+
+  // The EXTENSION, asked of the editor itself. A silent install only REFRESHES editors that already have it — it
+  // never re-adds one, by design (an auto-update must not push into an editor the user removed it from). So the
+  // gate checks presence against the EXPECTED state (expectExt), which every uninstall step turns off: once the
+  // gate's own uninstall has stripped the extension, the silent installs that follow correctly leave it absent,
+  // and asserting it present against the stale ORIGINAL baseline was the gate expecting what /VERYSILENT can't
+  // deliver. (Folder listings are not evidence either — they survived both an uninstall and a skipped install.)
+  for (const cli of ["code", "windsurf", "cursor"]) {
+    if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+    if (expectExt.get(cli) !== true) continue
+    const listed = (spawnSync(cli, ["--list-extensions", "--show-versions"], { encoding: "utf8", shell: true }).stdout ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.toLowerCase().startsWith("volt-ai.volt-vscode"))
+    if (listed.length === 0) fail(step, `${cli} no longer reports the Volt extension`)
+    else if (listed.length > 1) fail(step, `${cli} reports ${listed.length} copies: ${listed.join(", ")}`)
+    else ok(`${step}: ${cli} reports ${listed[0]!.trim()}`)
+  }
+  if (!existsSync(uninstaller)) fail(step, "uninstaller missing")
+  if (reg(uninstallKey) === null) fail(step, "Add/Remove entry missing")
+
+  // The connector's own per-user integration. These came from the retired smoke gate, which was the only place
+  // that checked the INSTALL side of them (this gate already asserted their REMOVAL, so a shortcut that was never
+  // created passed both halves). The tray is hard: nothing else notices if it silently fails to start, and it
+  // owns auto-update. The shortcut and login item stay SOFT — the connector calls them best-effort, and both
+  // behave differently in a headless session (a COM shortcut, a per-user Run key) — but their cleanup checks in
+  // assertClean remain hard, so a leftover is still a failure.
+  if (!waitForSync(() => procRunning("VoltConnector.exe"), 10)) fail(step, "tray process is not running")
+  else ok(`${step}: tray running`)
+  if (!existsSync(shortcut)) warn(`${step}: Start Menu shortcut absent (best-effort — not gated)`)
+  if (reg(runKey, "VoltConnector") === null) warn(`${step}: login item absent (best-effort — not gated)`)
+  // The retired opencode config var must be gone — PublishEnv deletes it, so an upgrade from a pre-removal
+  // install cannot leave a variable pointing at a directory this install no longer ships.
+  if (reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") !== null) fail(step, "OPENCODE_CONFIG_DIR was not retired")
+
+  // THE invariant the whole versioned layout rests on: nothing recorded OUTSIDE {app} may name a version. If it
+  // does, every update has to rewrite HKCU, and between the update and the new connector's first run those
+  // values point at a directory the pruner may already have removed — a registry race traded for a file-lock
+  // one. This assertion was written once and silently never applied (the edit did not match), so the gate went
+  // GREEN on an install that violated it. A gate that certifies a broken invariant is worse than no gate.
+  // The EXACT entry, not just "some Volt entry": PATH must carry `{app}\current\bin` verbatim. This came from the
+  // retired smoke gate and is the more precise half — the version/existence checks below prove whatever is
+  // recorded is sane, but only this proves the RIGHT directory is the one recorded.
+  if (!pathHasEntry(join(current, "bin"))) fail(step, `PATH does not contain ${join(current, "bin")}`)
+
+  const userPath = reg("HKCU\\Environment", "Path") ?? ""
+  // Match THIS install's entries — those under installDir — not any path containing "volt". The broad match also
+  // caught a developer's stale `...\Github\volt\dist\volt\connector\bin` from an earlier dev run: a real leftover,
+  // but not one THIS installer wrote, so failing the gate on it tests the machine's history, not the install.
+  const voltEntries = userPath.split(";").filter((p) => p.toLowerCase().startsWith(installDir.toLowerCase()))
+  for (const [name, value] of voltEntries.map((p) => ["Path", p] as const))
+    if (/app-\d+\.\d+\.\d+/i.test(value))
+      fail(step, `${name} records a VERSIONED path — it must resolve through \current`)
+
+  // Version-free is only half the invariant: a recorded path that does not EXIST is just as broken, and looks
+  // identical to the check above. A mangled backslash once shipped `...\Volt\currentin` on PATH — no version, so
+  // this gate called the install clean while `volt` resolved to nothing at all. Every recorded path is resolved.
+  if (voltEntries.length === 0) fail(step, "no Volt entry on PATH")
+  for (const p of voltEntries) if (!existsSync(p)) fail(step, `recorded path does not exist: ${p}`)
+
+  // The install must not only END correct, it must have DONE each step and said so. These are the load-bearing
+  // markers: junction activated, env published, connector launched — the three that were silently failing.
+  assertLog(step, "install-", [
+    "volt: install ",
+    "junction active ->",
+    "env published ->",
+    "started the connector:",
+  ])
+}
+
+/** After an uninstall NOTHING may remain — a leftover keeps {app} alive and poisons the next install. */
+function assertClean(step: string): void {
+  // Uninstall finishes ASYNCHRONOUSLY relative to the process we waited on. Inno's uninstaller relaunches itself
+  // from %TEMP% and deletes the original unins000.exe early, so waiting for that file to vanish (which is what
+  // runUninstall does) can return while usPostUninstall is still unlinking the junction and removing app-* dirs.
+  // The uninstall log proved this: it recorded "removed the junction and every version directory" AFTER the gate
+  // had already reported `current` as a leftover, and {app} was empty moments later. Poll instead of sampling once
+  // — a fixed sleep would be both slower and still a guess. A genuine leftover never disappears, so this cannot
+  // mask a real failure; it only stops the gate from reporting a cleanup that had not finished yet.
+  const deadline = Date.now() + 15_000
+  let left: string[] = []
+  while (Date.now() < deadline) {
+    if (!existsSync(installDir)) break
+    left = readdirSync(installDir)
+    if (left.length === 0) break
+    spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"])
+  }
+  if (existsSync(installDir)) {
+    if (left.length > 0) fail(step, `${left.length} leftover entr(ies) in ${installDir}: ${left.slice(0, 8).join(", ")}`)
+    else ok(`${step}: install dir empty`)
+  } else ok(`${step}: install dir gone`)
+  if (reg(uninstallKey) !== null) fail(step, "Add/Remove entry still present")
+  if (reg("HKCU\\Environment", "OPENCODE_CONFIG_DIR") !== null) fail(step, "OPENCODE_CONFIG_DIR still present")
+  // The value name is `VoltConnector` (LoginItem.cs `ValueName`), NOT "Volt". This check read "Volt" and so could
+  // never fail — a surviving login item passed it every time. The retired smoke gate had the right name; that is
+  // what surfaced this when the two were merged. Two gates asserting the same thing differently is how a wrong
+  // one hides.
+  if (reg(runKey, "VoltConnector") !== null) fail(step, "login item still present")
+
+  assertLog(step, "uninstall-", [
+    "reverting environment",
+    "PATH rewritten without Volt entries",
+    "removed the junction and every version directory",
+  ])
+}
+
+// ── the flow ─────────────────────────────────────────────────────────────────
+// Deliberately not just install→uninstall: the failures that shipped needed an install OVER an existing one.
+const steps: [string, () => void][] = [
+  ["1 install", () => { runSetup(olderSetup ?? setup, "1 install"); assertInstalled("1 install") }],
+  ["2 uninstall", () => { runUninstall("2 uninstall"); assertClean("2 uninstall") }],
+  ["3 install", () => { runSetup(olderSetup ?? setup, "3 install"); assertInstalled("3 install") }],
+  ["4 update", () => { runSetup(setup, "4 update"); assertInstalled("4 update") }],
+  ["5 update again", () => { runSetup(setup, "5 update again"); assertInstalled("5 update again") }],
+  ["6 uninstall", () => { runUninstall("6 uninstall"); assertClean("6 uninstall") }],
+  ["7 install", () => { runSetup(setup, "7 install"); assertInstalled("7 install") }],
+  ["8 uninstall", () => { runUninstall("8 uninstall"); assertClean("8 uninstall") }],
+]
+
+// The gate's uninstall steps run `<editor> --uninstall-extension` against the user's REAL editors (there is no
+// sandbox), and it ends on an uninstall — so left alone it strips the Volt extension from every editor that had
+// it and never puts it back. Restore the captured baseline: reinstall into exactly the editors that had it before
+// the run, from the repo's built vsix (the installed copy is gone after the final uninstall). Leaves the machine
+// as the gate found it. Best-effort and never affects pass/fail — this is courtesy, not an assertion.
+function restoreExtensionBaseline(): void {
+  const vsix = resolve(repo, "dist/volt/volt-vscode.vsix")
+  const toRestore = [...hadExtension].filter(([, had]) => had).map(([cli]) => cli)
+  if (toRestore.length === 0 || !existsSync(vsix)) return
+  console.log(`\n── restoring extension baseline ──`)
+  for (const cli of toRestore) {
+    if (spawnSync("where", [cli], { encoding: "utf8", shell: true }).status !== 0) continue
+    const has = (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "")
+      .toLowerCase()
+      .includes("volt-ai.volt-vscode")
+    if (has) { console.log(`  ✓ ${cli}: still present`); continue }
+    const r = spawnSync(cli, ["--install-extension", vsix, "--force"], { encoding: "utf8", shell: true })
+    console.log(r.status === 0 ? `  ✓ ${cli}: restored` : `  ⚠ ${cli}: restore failed (reinstall manually from ${vsix})`)
+  }
+}
+
+console.log(`• lifecycle: ${setup}${olderSetup ? `\n  upgrading from: ${olderSetup}` : "  (same build reinstalled — pass --older for a true upgrade)"}\n`)
+for (const [name, run] of steps) {
+  console.log(`── ${name} ──`)
+  run()
+}
+
+restoreExtensionBaseline()
+
+console.log(
+  failures === 0
+    ? "\n✓ install lifecycle clean at every step"
+    : `\n✗ ${failures} problem(s) across the lifecycle`,
 )
-for (const cli of editorsOnPath) {
-  // Only editors that had it before are refreshed on a silent run — an editor that never had it staying without
-  // it is correct, not a failure. `hadExt` is captured before the install (see above).
-  if (hadExt.get(cli) === true) check(`${cli} still reports the Volt extension`, editorReports(cli))
-}
-// Both best-effort per the connector's code, and both behave differently in a headless session (COM shortcut,
-// per-user Run key) — report but don't gate. Their CLEANUP checks below stay hard, so a leftover still fails.
-check("Start Menu shortcut", existsSync(shortcut), true)
-check("login item (Run\\VoltConnector)", reg(runKey, "VoltConnector") != null, true)
-check("Add/Remove entry", appId != null && reg(uninstallKey) != null)
-check("tray process running", await waitFor(() => procRunning("VoltConnector.exe"), 10))
-
-// ── uninstall ──────────────────────────────────────────────────────────────────
-console.log("• uninstalling (/VERYSILENT)")
-if (!existsSync(uninstaller)) {
-  console.error(`✗ uninstaller not found: ${uninstaller}`)
-  process.exit(1)
-}
-// Inno's uninstaller copies itself to %TEMP% and returns immediately, so poll for the whole {app} dir to vanish.
-spawnSync(uninstaller, ["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"], { stdio: "inherit" })
-
-console.log("• verifying cleanup:")
-// A clean uninstall leaves no CONTENTS — but Inno may leave the empty {app} dir SHELL: it removes the files, yet
-// the directory itself can linger (especially right after the async usPostUninstall unlinks the `current` junction
-// and takes the version dirs). Gone OR empty is clean; leftover ENTRIES are a real failure. Same tolerance the
-// lifecycle gate applies (assertClean) — the shared semantics, not just the shared paths.
-let leftover: string[] = []
-const dirClean = await waitFor(() => {
-  if (!existsSync(installDir)) return true
-  leftover = readdirSync(installDir)
-  return leftover.length === 0
-}, 60)
-check("install dir removed (no leftover contents)", dirClean)
-if (!dirClean) console.log(`    leftover in ${installDir}: ${leftover.slice(0, 8).join(", ")}`)
-// The env revert is ASYNC: the uninstaller returns immediately and reverts env in its FINAL phase (usPostUninstall),
-// AFTER the files go — so the file-removal above does NOT imply the env is reverted yet. Wait for it, symmetric with
-// the install-side wait for the env to appear. A never-reverted var still fails (the wait just exhausts) — this
-// tolerates the uninstall's timing without masking a real leftover.
-check("PATH bin removed", await waitFor(() => !pathHasEntry(binDir), 15))
-check("Start Menu shortcut removed", !existsSync(shortcut))
-check("login item removed", reg(runKey, "VoltConnector") == null)
-check("Add/Remove entry removed", reg(uninstallKey) == null)
-check("tray process stopped", await waitFor(() => !procRunning("VoltConnector.exe"), 10))
-
-console.log(failures === 0 ? "\n✓ install / uninstall clean" : `\n✗ ${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)

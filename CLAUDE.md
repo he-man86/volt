@@ -44,7 +44,7 @@ Standard workflows are root `bun run` scripts — prefer these over invoking `sc
 bun install                 # install workspace deps
 bun run build               # build the TS packages (bun --filter; the C# bridge builds in `dist`)
 bun run build:installer     # the product → dist/release/Volt-win-Setup.exe (payload + electron + Inno)
-bun run test:install        # install → verify → uninstall → verify-clean smoke gate (Windows)
+bun run test:install        # THE install gate: install/uninstall/update ×N on a real machine (Windows)
 bun run check               # wiring check: built binaries + source-extension + product-version parity
 bun run typecheck           # tsgo --noEmit across all volt packages
 bun run lint                # oxlint

@@ -106,7 +106,7 @@ const iscc = [
   }
   // The load-bearing log markers are a CONTRACT: the lifecycle gate asserts them and installer/README.md documents
   // them for support. If someone removes a Log() line while refactoring, the gate would fail on a machine — catch
-  // it here at build time instead. This list must match assertLog()'s in test-install-lifecycle.ts.
+  // it here at build time instead. This list must match assertLog()'s in test-install.ts.
   const requiredMarkers = [
     "volt: install ",
     "junction active ->",

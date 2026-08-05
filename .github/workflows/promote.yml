@@ -67,11 +67,12 @@ jobs:
           mkdir -p dist/release
           gh release download '${{ inputs.version }}' --repo "$GITHUB_REPOSITORY" --pattern "Volt-win-Setup.exe" --output dist/release/Volt-win-Setup.exe
 
-      - name: Gate — install / uninstall
-        run: bun run test:install
-
+      # ONE install gate. This used to be two steps — a smoke gate (one install/uninstall) followed by the
+      # lifecycle gate, which OPENS with the same install/uninstall and then keeps going. The smoke gate was a
+      # strict subset (weaker, too: existence checks where the lifecycle gate measures each binary's stamped
+      # version), so it cost a full extra install cycle on the runner to re-prove what the next step re-proved.
       - name: Gate — install lifecycle (install/uninstall/update x2, version + leftover checks)
-        run: bun run test:install:lifecycle
+        run: bun run test:install
 
       # Only now: flip the exact build we just gated to the stable channel. --latest makes it what the stable updater
       # (and GitHub's /releases/latest) serves; --prerelease=false takes it out of the dev channel.

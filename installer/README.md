@@ -93,7 +93,7 @@ history. `DeinitializeSetup` runs even on an **aborted** install, which is the c
 
 Every meaningful installer action logs a line prefixed `volt:`. When a customer sends a log, these are what to
 grep for. Their absence or an out-of-order sequence is a bug; a `WARNING`/`FAILED`/`MISSING` line names it. The
-list is enforced in two places — `test-install-lifecycle.ts` (`assertLog`) asserts the sequence on every run, and
+list is enforced in two places — `test-install.ts` (`assertLog`) asserts the sequence on every run, and
 `build-installer.ts` refuses to build a `Volt.iss` missing any of them — so it cannot silently rot.
 
 An install, in order:
