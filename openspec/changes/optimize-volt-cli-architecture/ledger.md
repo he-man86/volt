@@ -96,11 +96,22 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 |---|---|---|---|---|---|---|
 | 1 | `connector-test-orphans` (shape) | 2 | 803 → 800 | *(applied directly — 3 lines)* | build 0 err · 324/116/76 | `1299a6e1f1` |
 | 2 | `delete-debug-surface` (shape) | 11 | 2,655 → 2,353 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fb4c660fda` |
+| 3a | `delete-pou-to-xml` — the inert half (shape) | 1 | −92 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `79641dfd6d` |
+| 3b | `delete-pou-to-xml` — BodyLanguage fields (shape) | 3 | −5 | *(same verdict; split per amendment)* | build 0 err · 324/116/76 | `fc161d4f24` |
+| 4 | `one-st-emitter` (shape) | 8 | 1,044 → 870 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fadb86ab8f` |
 
 ## Test files moved mechanically
 
 _(the only permitted test edit: a test file following the type it covers. Anything else is a behavior change
 wearing a costume.)_
+
+| test file | move | what changed |
+|---|---|---|
+| `test/shared/FakeIde.cs` | 2 | three stubs deleted — they implemented interface members that no longer exist |
+| `test/Volt.Engine.Tests/FbdCorpusRoundTripTests.cs` | 2 | comment only: the corpus's provenance cited `DebugService.RawBodies` and promised a harvester that no longer ships |
+| `test/Volt.Engine.Tests/WireVocabularyGuardTests.cs` | 3b | allowlist entry for the deleted `PouToXml.cs` removed — the guard gets NARROWER; `[Fact]`, regex, vocabulary lists and `Assert` byte-identical |
+| `test/Volt.Engine.Tests/ChildDirectiveTests.cs` | 4 | ARRANGE repointed at the shipped emitter (premise "StAssembler is the format under test" was false — nothing ships it). Every pre-existing assertion unchanged; **gained** a golden `Assert.Equal` on the full emitted text |
+| `test/Volt.Engine.Tests/InterfaceRoundTripTests.cs` | 4 | same, same |
 
 ## Close-out (task 6)
 
