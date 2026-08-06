@@ -48,15 +48,5 @@ namespace Volt.Cli.Connector
 
             return (spawn, reap);
         }
-
-        /// <summary>The pids this supervisor currently believes have a live worker — for the reap-all on shutdown.</summary>
-        public IReadOnlyCollection<int> SpawnedPids
-        {
-            get { var r = new List<int>(); foreach (var kv in _workers) if (kv.Value.Spawned) r.Add(kv.Key); return r; }
-        }
-
-        /// <summary>Forget a pid's worker so the NEXT <see cref="Reconcile"/> treats it as new and spawns it again —
-        /// the "restart this worker" primitive (the caller kills the process, this clears the state).</summary>
-        public void Forget(int pid) => _workers.Remove(pid);
     }
 }

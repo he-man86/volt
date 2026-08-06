@@ -30,7 +30,6 @@ public class TwincatSupervisorTests
         var s = new TwincatSupervisor();
         var (spawn, _) = s.Reconcile(Pids(100, 200, 300));
         Assert.Equal(new[] { 100, 200, 300 }, spawn.OrderBy(x => x));
-        Assert.Equal(new[] { 100, 200, 300 }, s.SpawnedPids.OrderBy(x => x));
     }
 
     [Fact]
@@ -45,7 +44,6 @@ public class TwincatSupervisorTests
             Assert.Empty(reap);
             Assert.Empty(spawn);
         }
-        Assert.Contains(100, s.SpawnedPids);
     }
 
     [Fact]
@@ -57,7 +55,6 @@ public class TwincatSupervisorTests
 
         var (_, reap) = s.Reconcile(Pids()); // the Nth consecutive miss
         Assert.Equal(new[] { 100 }, reap);
-        Assert.DoesNotContain(100, s.SpawnedPids);
     }
 
     [Fact]
@@ -69,7 +66,6 @@ public class TwincatSupervisorTests
         s.Reconcile(Pids(100));     // present again → misses reset
         // Now it would take another full N absences to reap — a single subsequent miss must not.
         Assert.Empty(s.Reconcile(Pids()).Reap);
-        Assert.Contains(100, s.SpawnedPids);
     }
 
     [Fact]
@@ -78,23 +74,8 @@ public class TwincatSupervisorTests
         var s = new TwincatSupervisor();
         s.Reconcile(Pids(100));
         for (int i = 0; i < TwincatSupervisor.ReapAfterMisses; i++) s.Reconcile(Pids()); // reap it
-        Assert.DoesNotContain(100, s.SpawnedPids);
 
         var (spawn, _) = s.Reconcile(Pids(100));
         Assert.Equal(new[] { 100 }, spawn); // returning XAE → spawn anew
-    }
-
-    [Fact]
-    public void Forget_makes_a_still_present_xae_respawn_next_reconcile()
-    {
-        // The RestartWorker mechanism: the tray kills the worker and Forget()s the pid, so even though the XAE is
-        // STILL present, the next reconcile treats it as new and spawns a fresh worker (without Forget it would be
-        // seen as already-spawned and NOT respawned).
-        var s = new TwincatSupervisor();
-        Assert.Equal(new[] { 100 }, s.Reconcile(Pids(100)).Spawn);
-        Assert.Empty(s.Reconcile(Pids(100)).Spawn); // still present → not respawned...
-
-        s.Forget(100);                              // ...until we forget it (worker was killed for a restart)
-        Assert.Equal(new[] { 100 }, s.Reconcile(Pids(100)).Spawn);
     }
 }

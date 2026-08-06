@@ -163,10 +163,11 @@ namespace Volt.Cli.Connector
 
         private void RestartWorker(string id)
         {
-            // Per-XAE id is "twincat.<pid>": kill it and forget the pid so the next reconcile respawns a fresh worker.
+            // Kill it; the next reconcile respawns it. StopWorker drops the worker entry and ReconcileTwincatWorkers
+            // calls EnsureWorker for EVERY live XAE pid, so a still-present XAE gets a fresh worker on the next tick.
+            // (TwincatSupervisor.Forget was called here to force that respawn; it couldn't — its only effect was on the
+            // spawn list, which this tray discards. Deleted rather than left looking load-bearing.)
             _supervisor.StopWorker(id);
-            var dot = id.LastIndexOf('.');
-            if (dot >= 0 && int.TryParse(id.Substring(dot + 1), out var pid)) _twincatSupervisor.Forget(pid);
         }
 
         // ── notifications ──────────────────────────────────────────────────
