@@ -187,4 +187,47 @@ public class PerPipeProjectSourceTests
         Assert.Empty(scan.Projects);            // that host went away mid-scan — no rows
         Assert.True(scan.Reachable);            // ...but the pipe was discovered, so the source itself is reachable
     }
+
+    // ── Flatten's row-level behaviour, ported from the deleted WireContractParityTests ───────────────────
+    // That file existed to pin the connector's hand-written MIRROR of the health row against the bridge's
+    // declaration; the mirror is gone (one declaration now, in Volt.Cli.Transport.Wire) and with it the premise.
+    // These two assertions were never about the mirror — they are Flatten's own behaviour and live nowhere else:
+    // an explicitly idle row is not serving, and an unrecognised status word rides through verbatim (the
+    // forward-compat property under a version-skewed bridge). The DTO round-trip is replaced by the raw JSON a
+    // bridge puts on the wire, which is what Flatten actually receives.
+
+    private static JsonElement Health(string json) => JsonDocument.Parse(json).RootElement;
+
+    [Fact]
+    public void The_serving_and_status_bits_ride_onto_each_connector_row()
+    {
+        // The connector reads serving/status/dirty PER ROW (no separate probe): the served row must arrive
+        // serving=true with its degraded status, and a listed-but-not-served row serving=false.
+        var rows = WireProjects.Flatten(Health(
+            """
+            { "projects": [
+                { "vendor": "codesys", "version": "3.5", "project": "Other",  "status": "idle",     "dirty": false },
+                { "vendor": "codesys", "version": "3.5", "project": "MyProj", "status": "degraded", "dirty": true } ] }
+            """), "codesys", "volt.bridge.codesys");
+
+        var other = Assert.Single(rows, r => r.DisplayName == "Other");
+        Assert.False(other.Serving);
+        var served = Assert.Single(rows, r => r.DisplayName == "MyProj");
+        Assert.True(served.Serving);
+        Assert.Equal("degraded", served.Status);
+        Assert.True(served.Dirty);
+        Assert.Equal("3.5", served.IdeVersion); // the row's version rides onto the label
+    }
+
+    [Theory]
+    [InlineData("healthy")]
+    [InlineData("degraded")]
+    [InlineData("something-new")] // the raw status rides through verbatim; Aggregate maps it to the tray colour
+    public void A_rows_status_string_rides_through_verbatim(string rowStatus)
+    {
+        var json = $$"""
+            { "projects": [ { "vendor": "codesys", "version": "3.5", "project": "P", "status": "{{rowStatus}}", "dirty": false } ] }
+            """;
+        Assert.Equal(rowStatus, Assert.Single(WireProjects.Flatten(Health(json), "codesys", null)).Status);
+    }
 }

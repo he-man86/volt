@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire; // the health row itself — ONE declaration, shared with the bridge that writes it
 
 namespace Volt.Cli.Connector
 {
@@ -77,16 +78,26 @@ namespace Volt.Cli.Connector
     /// connection state is read off the row (no second health probe).</summary>
     public static class WireProjects
     {
+        // READ tolerance, deliberately not the pipe's WRITE options: the wire writes camelCase, this reads any casing.
+        // The pair is asymmetric on purpose, so this is NOT a stale hand-copy of `PipeJson.Options` waiting to be
+        // deduplicated — swapping it narrows what a version-skewed bridge can be parsed from, and needs its own move.
         private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
         public static List<DetectedProject> Flatten(JsonElement healthRoot, string vendor, string? pipe)
         {
-            WireHealth? parsed;
-            try { parsed = JsonSerializer.Deserialize<WireHealth>(healthRoot.GetRawText(), Json); }
+            HealthResponse? parsed;
+            try { parsed = JsonSerializer.Deserialize<HealthResponse>(healthRoot.GetRawText(), Json); }
             catch { return new List<DetectedProject>(); }
 
             var list = new List<DetectedProject>();
-            foreach (var p in parsed?.Projects ?? Enumerable.Empty<WireProjectRow>())
+            // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here:
+            // the caller's `vendor` is the identity source (`DetectedProject.MakeId`) and the pipe's own routing key.
+            // The row now carries a `Vendor` member of its own (it came down with the DTO) — leaving it unread is the
+            // rule, not an oversight: one question, one answer (Conventions #3).
+            // The row's ctor params are non-nullable ANNOTATIONS only (Conventions #2) — System.Text.Json still hands
+            // this record nulls for absent members, so the two guards below are runtime checks, not redundancy. Delete
+            // either and a bridge that omits `project`/`status` silently changes what the tray shows.
+            foreach (var p in parsed?.Projects ?? Enumerable.Empty<ProjectEntry>())
             {
                 if (p.Project is null) continue;
                 var attach = new ProjectRef(p.Project);
@@ -94,11 +105,5 @@ namespace Volt.Cli.Connector
             }
             return list;
         }
-
-        // ── the connector's view of the flat `health.projects` array (matching JSON) ──
-        // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here.
-        private sealed record WireHealth(List<WireProjectRow>? Projects);
-        private sealed record WireProjectRow(
-            string? Version, string? Project, string? Status, bool Dirty);
     }
 }
