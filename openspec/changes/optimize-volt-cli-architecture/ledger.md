@@ -267,6 +267,17 @@ Two rules added to the runbook (§0.6b): after committing a move, `git status --
 the move left; and any relocation stages both paths and verifies the committed content directly. Moves 1–5 were
 not exposed — none of them created a new path.
 
+## Repo-level gates at close-out
+
+Beyond the per-move build + three suites, the gates the whole repo declares — none of which was part of any
+move's stated gate, and all of which the change could have broken silently:
+
+| gate | result | what it would have caught |
+|---|---|---|
+| `bun run check` | **14 passed, 0 failed** | the writable-source extension set disagreeing across C#, the LSP, volt-control and four places in the VS Code manifest — i.e. a kind added in one runtime and missed in another |
+| `bun run lint` | **0 errors** (403 pre-existing warnings) | oxlint failures in the TS the moves touched (`test/e2e/harness.ts`, three `volt-lsp-iec` comments) |
+| `bun run typecheck` | **0 across all 5 packages** | a `volt-lsp-iec` or `volt-control` type break from move 4's comment repoint |
+
 ## Close-out (task 6)
 
 | | before | after |
