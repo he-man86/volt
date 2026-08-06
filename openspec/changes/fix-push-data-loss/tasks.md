@@ -194,6 +194,31 @@ about accessor instability would otherwise be misattributed to the save policy a
       `.plcproj` by never running rather than by saving the wrong things.
 - [ ] 4.3 Whatever survives must keep failing LOUD, and a green run must leave the fixture clean (no orphan files).
 
+## 4b. ASSESSMENT 2026-08-06 — the narrow save is LOW value and HIGH risk. Do not take it casually.
+
+Now that `File.SaveAll` has closed bug 2 (see 3.0-VERIFIED), the remaining §3.0/§5 work is narrowing the save to
+the containing PLC project. Weighed honestly:
+
+**What it buys:** `push` stops committing the engineer's unrelated dirty editors. That is a real courtesy — it is
+a side effect on data Volt does not own — but saving a file is not losing one. The cost is surprise, not damage.
+
+**What it risks:** re-opening the data-loss bug that was just closed. Durability now depends on the `.plcproj`
+registration reaching disk, and a narrower save that misses it puts the orphan straight back. The bug was open
+for weeks and took a live diagnostic run to find.
+
+**What it requires first, and this is the blocker:** §3.0 already says "confirm against the live model, do not
+infer it". That warning is now backed by evidence — `Solution.Save()` was written by inference, does not exist on
+EnvDTE's interface, and threw on every push for the life of the code without anyone noticing. The same inference
+risk applies to `_plcNode.NestedProject`: `PlcRoot()` uses it as a system-manager TREE NODE (it is passed to
+`CreateChild`), so assuming it is also an `EnvDTE.Project` with a `Save()` is exactly the guess that failed last
+time. Confirming it means a build-probe-read cycle against a live XAE — and **the surface that would have made
+that cheap, the `debug` op's `typeTags`, was deleted by `optimize-volt-cli-architecture` move 2.**
+
+**Recommendation: leave the broad save.** Take the narrowing only when someone (a) has a live XAE in front of
+them, (b) confirms the type of `_plcNode.NestedProject` by observation rather than reading, and (c) re-runs
+`ide-restart` (2 pass / 0 fail) as the acceptance gate — the same test that proved the broad save works. The
+`ponytail:` note in `FlushPendingWrites` already records the debt; it does not need to be paid now.
+
 ## 5. (superseded) Scope the TwinCAT save to what Volt wrote
 
 **Decision:** `push` stays durable — a push that reports success must be on disk — but it must NOT commit the
