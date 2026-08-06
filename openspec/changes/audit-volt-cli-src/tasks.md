@@ -26,7 +26,7 @@
 > `Volt.Cli.Transport/WorkerCli.cs`, `Volt.Cli.Transport/Polyfills.cs`, `Volt.Cli.Connector.Core/TwincatFleet.cs`.
 >
 > Also note the gate has moved: the three suites are now **337 / 122 / 77**, and the TwinCAT e2e baseline is
-> **90 / 11 / 0** *when pinned to a stable XAE* — see that change's `RUNBOOK.md` §0.6a/§5, which document two
+> **90 / 11 / 0** *when pinned to a stable XAE* — see `openspec/changes/archive/2026-08-06-optimize-volt-cli-architecture/RUNBOOK.md` §0.6a/§5, which document two
 > traps this plan predates (a stale-binary false green, and one fixture's XAE crashing mid-run).
 
 ## 0. Setup

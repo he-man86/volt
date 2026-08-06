@@ -69,7 +69,7 @@ bun test test/e2e/lifecycle/ide-restart.test.ts   ->   2 pass / 0 fail
 
 That is task **3.6** ("`ide-restart` to 2 pass / 0 fail, assertions intact") — met, with the assertions
 untouched. The test had been the standing known-red of this change and of
-`openspec/changes/optimize-volt-cli-architecture`'s runbook.
+`openspec/changes/archive/2026-08-06-optimize-volt-cli-architecture`'s runbook.
 
 **Task 3.0c is also met**: `git status --porcelain --untracked=all` shows **no `POUs/` directory** after a green
 run. The orphan signature — a `.TcPOU` on disk that no `.plcproj` references, which used to appear as an
@@ -116,7 +116,7 @@ command behind File > Save All. It exists, and it persists open documents, every
 `.plcproj`) and the solution, in one call. Failure stays loud.
 
 **Result:** TwinCAT e2e **24 pass / 63 fail → 88 pass / 2 fail** (the 2 are unrelated suite-ordering coupling,
-evidence in `openspec/changes/optimize-volt-cli-architecture/ledger.md`). Build + all three C# suites green.
+evidence in `openspec/changes/archive/2026-08-06-optimize-volt-cli-architecture/ledger.md`). Build + all three C# suites green.
 
 Still open below: this is the BROAD save (§4/§5 scoping still applies — it commits the engineer's unrelated
 dirty tabs), and `ide-restart`'s durability assertion has NOT been re-checked against it. Do that before

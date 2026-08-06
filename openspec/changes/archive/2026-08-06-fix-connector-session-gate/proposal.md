@@ -6,7 +6,7 @@ The original premise was that the two parked `lifecycle/conflict-resolve` e2e fa
 connector's session/gate model. They were not. Pinned to a stable XAE the TwinCAT suite is **90 pass / 11 skip /
 0 fail**; the failures came from one fixture's TcXaeShell crashing and respawning mid-run, which made `volt init`
 fail and produced a downstream assertion failure in an unrelated test. See
-`openspec/changes/optimize-volt-cli-architecture/ledger.md`.
+`openspec/changes/archive/2026-08-06-optimize-volt-cli-architecture/ledger.md`.
 
 So this change **loses its acceptance criterion and most of its urgency**, and is re-scoped down to the one
 finding that still has a demonstrable cost.
