@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -50,19 +51,19 @@ namespace Volt.Cli.Connector
                     try
                     {
                         Directory.Delete(dir, recursive: true);
-                        Log.Info($"pruned superseded version dir {Path.GetFileName(dir)}");
+                        VoltLog.Info($"pruned superseded version dir {Path.GetFileName(dir)}");
                     }
                     catch (Exception e)
                     {
                         // Locked (a process still holds a file, most often the desktop app). Leave it — the next
                         // startup retries. Never let cleanup break the connector.
-                        Log.Warn($"could not prune {Path.GetFileName(dir)} (in use), will retry next start: {e.Message}");
+                        VoltLog.Warn($"could not prune {Path.GetFileName(dir)} (in use), will retry next start: {e.Message}");
                     }
                 }
             }
             catch (Exception e)
             {
-                Log.Warn($"prune skipped: {e.Message}");
+                VoltLog.Warn($"prune skipped: {e.Message}");
             }
         }
 

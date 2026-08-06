@@ -119,7 +119,7 @@ namespace Volt.Cli.Connector
             await _gate.WaitAsync().ConfigureAwait(false);
             try { UpsertSession(id, Array.Empty<Interest>()); }
             finally { _gate.Release(); }
-            Log.Info($"session {Short(id)} opened (a client connected; lease {_leaseTtl.TotalSeconds:0}s)");
+            VoltLog.Info($"session {Short(id)} opened (a client connected; lease {_leaseTtl.TotalSeconds:0}s)");
             return (id, _leaseTtl.TotalSeconds);
         }
 
@@ -136,7 +136,7 @@ namespace Volt.Cli.Connector
                 if (_restored.Count > 0) _restored = new HashSet<string>(StringComparer.Ordinal); // a client spoke
                 var now = Describe(interests);
                 if (!_state.Sessions.TryGetValue(sessionId, out var prior) || Describe(prior.Interests) != now)
-                    Log.Info($"session {Short(sessionId)} declares {now}");
+                    VoltLog.Info($"session {Short(sessionId)} declares {now}");
                 UpsertSession(sessionId, interests);
                 await CycleCoreAsync().ConfigureAwait(false);
             }
@@ -158,7 +158,7 @@ namespace Volt.Cli.Connector
                 var s = _state;
                 if (s.Sessions.ContainsKey(sessionId))
                 {
-                    Log.Info($"session {Short(sessionId)} closed (client shut down cleanly)");
+                    VoltLog.Info($"session {Short(sessionId)} closed (client shut down cleanly)");
                     var next = new Dictionary<string, Session>(s.Sessions);
                     next.Remove(sessionId);
                     _state = s with { Sessions = next };
@@ -249,7 +249,7 @@ namespace Volt.Cli.Connector
                 var held = plan.ToUnbind.Where(p => _restored.Contains(p.Id)).ToList();
                 if (held.Count > 0)
                 {
-                    Log.Info($"reconcile: holding {held.Count} disconnect(s) — startup grace, waiting for clients to re-declare");
+                    VoltLog.Info($"reconcile: holding {held.Count} disconnect(s) — startup grace, waiting for clients to re-declare");
                     plan = plan with { ToUnbind = plan.ToUnbind.Where(p => !_restored.Contains(p.Id)).ToList() };
                 }
             }
@@ -258,8 +258,8 @@ namespace Volt.Cli.Connector
             {
                 // The decision, before it is applied — so a log read after the fact says what the connector INTENDED,
                 // and the serving-transition lines below say what actually came of it.
-                if (plan.ToBind.Count > 0) Log.Info($"reconcile: connecting {string.Join(", ", plan.ToBind.Select(p => p.Id))}");
-                if (plan.ToUnbind.Count > 0) Log.Info($"reconcile: disconnecting {string.Join(", ", plan.ToUnbind.Select(p => p.Id))} (no live session wants it)");
+                if (plan.ToBind.Count > 0) VoltLog.Info($"reconcile: connecting {string.Join(", ", plan.ToBind.Select(p => p.Id))}");
+                if (plan.ToUnbind.Count > 0) VoltLog.Info($"reconcile: disconnecting {string.Join(", ", plan.ToUnbind.Select(p => p.Id))} (no live session wants it)");
                 foreach (var p in plan.ToUnbind) await SafeUnbindAsync(p).ConfigureAwait(false);
                 foreach (var p in plan.ToBind) await SafeBindAsync(p).ConfigureAwait(false);
 
@@ -270,11 +270,11 @@ namespace Volt.Cli.Connector
                 foreach (var kv in _state.Serving)
                 {
                     before.TryGetValue(kv.Key, out var was);
-                    if (was != kv.Value) Log.Info($"{kv.Key} is now {(kv.Value ? "SERVING" : "gated")}");
+                    if (was != kv.Value) VoltLog.Info($"{kv.Key} is now {(kv.Value ? "SERVING" : "gated")}");
                 }
                 foreach (var p in plan.ToUnbind)
                     if (_state.Serving.TryGetValue(p.Id, out var still) && still)
-                        Log.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
+                        VoltLog.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
             if (!plan.Wanted.SequenceEqual(_state.Wanted)) SaveWanted(_wantedFile, plan.Wanted); // so a restart inherits the edge
@@ -318,14 +318,14 @@ namespace Volt.Cli.Connector
         {
             if (_byVendor.TryGetValue(p.Vendor, out var src))
                 try { await src.BindAsync(p).ConfigureAwait(false); }
-                catch (Exception e) { Log.Warn($"connect {p.Id} failed: {e.Message} (retried next cycle)"); }
+                catch (Exception e) { VoltLog.Warn($"connect {p.Id} failed: {e.Message} (retried next cycle)"); }
         }
 
         private async Task SafeUnbindAsync(DetectedProject p)
         {
             if (_byVendor.TryGetValue(p.Vendor, out var src))
                 try { await src.UnbindAsync(p).ConfigureAwait(false); }
-                catch (Exception e) { Log.Warn($"disconnect {p.Id} failed: {e.Message}"); }
+                catch (Exception e) { VoltLog.Warn($"disconnect {p.Id} failed: {e.Message}"); }
         }
 
         // The desired set, across restarts. Tiny and best-effort: losing it costs one stranded bridge (the old
@@ -352,7 +352,7 @@ namespace Volt.Cli.Connector
                 Directory.CreateDirectory(Path.GetDirectoryName(file)!);
                 File.WriteAllText(file, JsonSerializer.Serialize(wanted.ToArray()));
             }
-            catch (Exception e) { Log.Warn($"could not persist the desired set: {e.Message}"); }
+            catch (Exception e) { VoltLog.Warn($"could not persist the desired set: {e.Message}"); }
         }
 
         /// <summary>Drop sessions whose lease has lapsed (crash / lost connector). Reconcile ignores expired sessions
@@ -365,7 +365,7 @@ namespace Volt.Cli.Connector
             // A lapsed lease is a client that died without closing (crash, kill, machine sleep) — the difference
             // between "the app shut down" and "the app vanished" is exactly what a support log needs to show.
             foreach (var kv in s.Sessions.Where(kv => kv.Value.ExpiresAt <= now))
-                Log.Info($"session {Short(kv.Key)} lease lapsed after {(now - kv.Value.ExpiresAt + _leaseTtl).TotalSeconds:0}s — client gone without closing ({Describe(kv.Value.Interests)})");
+                VoltLog.Info($"session {Short(kv.Key)} lease lapsed after {(now - kv.Value.ExpiresAt + _leaseTtl).TotalSeconds:0}s — client gone without closing ({Describe(kv.Value.Interests)})");
             var next = s.Sessions.Where(kv => kv.Value.ExpiresAt > now).ToDictionary(kv => kv.Key, kv => kv.Value);
             _state = s with { Sessions = next };
         }

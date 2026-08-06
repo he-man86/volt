@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -37,7 +38,7 @@ namespace Volt.Cli.Connector
                 if (_workers.TryGetValue(w.Id, out var existing))
                 {
                     if (!existing.HasExited) return;
-                    Log.Warn($"worker {w.Id} crashed (exit {existing.ExitCode}) — restarting");
+                    VoltLog.Warn($"worker {w.Id} crashed (exit {existing.ExitCode}) — restarting");
                     existing.Dispose();
                     _workers.Remove(w.Id);
                 }
@@ -53,7 +54,7 @@ namespace Volt.Cli.Connector
                 };
                 Process? proc;
                 try { proc = Process.Start(psi); }
-                catch (Exception ex) { Log.Error($"spawn {w.Id} failed: {ex.Message}"); return; }
+                catch (Exception ex) { VoltLog.Error($"spawn {w.Id} failed: {ex.Message}"); return; }
                 if (proc == null) return;
 
                 // Tie the worker's lifetime to the connector's: if we die without a clean Dispose, the job closes and
@@ -62,12 +63,12 @@ namespace Volt.Cli.Connector
 
                 // Capture the worker's stdout/stderr into the shared store, tagged with its source (belt-and-
                 // suspenders: the worker self-logs via VoltLog too, but this catches anything it prints directly).
-                proc.OutputDataReceived += (_, e) => Log.Raw(w.Id, e.Data);
-                proc.ErrorDataReceived += (_, e) => Log.Raw(w.Id, e.Data);
+                proc.OutputDataReceived += (_, e) => VoltLog.Raw(w.Id, e.Data);
+                proc.ErrorDataReceived += (_, e) => VoltLog.Raw(w.Id, e.Data);
                 proc.BeginOutputReadLine();
                 proc.BeginErrorReadLine();
                 _workers[w.Id] = proc;
-                Log.Info($"started {Path.GetFileName(w.Exe)} for {w.Id} (pid {proc.Id})");
+                VoltLog.Info($"started {Path.GetFileName(w.Exe)} for {w.Id} (pid {proc.Id})");
             }
         }
 
@@ -85,7 +86,7 @@ namespace Volt.Cli.Connector
                     KillTree(proc);
                     proc.Dispose();
                     _workers.Remove(id);
-                    Log.Info($"stopped worker {id}");
+                    VoltLog.Info($"stopped worker {id}");
                 }
             }
         }

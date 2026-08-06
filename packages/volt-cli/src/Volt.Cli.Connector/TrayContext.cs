@@ -68,7 +68,7 @@ namespace Volt.Cli.Connector
                 closeSession: id => _conn.CloseSessionAsync(id),
                 port: port);
             _control.Start();
-            Log.Info($"connector started on :{port}; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
+            VoltLog.Info($"connector started on :{port}; sources: " + string.Join(", ", _conn.Sources.Select(s => s.Vendor)));
 
             _timer = new System.Windows.Forms.Timer { Interval = 4000 };
             _timer.Tick += async (_, _) => await TickAsync();
@@ -185,10 +185,10 @@ namespace Volt.Cli.Connector
             var stillWanted = _conn.Projects.Any(p => _conn.IsWantedProject(p.Id));
             if (!stillWanted)
             {
-                Log.Info("bridge disconnected on request (nothing is wanted any more)");
+                VoltLog.Info("bridge disconnected on request (nothing is wanted any more)");
                 return;
             }
-            Log.Warn("a bridge disconnected unexpectedly — still wanted, no longer served");
+            VoltLog.Warn("a bridge disconnected unexpectedly — still wanted, no longer served");
             _icon.ShowBalloonTip(5000, "Volt", "A bridge disconnected.", ToolTipIcon.Warning);
         }
 
@@ -217,7 +217,7 @@ namespace Volt.Cli.Connector
                 await _conn.SetForceOffAsync(projectId, forceOff);
                 await OnUiThread(() => _ = TickAsync()); // repaint the row's paused/connected state now
             }
-            catch (Exception ex) { Log.Error($"force-off toggle failed: {ex.Message}"); }
+            catch (Exception ex) { VoltLog.Error($"force-off toggle failed: {ex.Message}"); }
         }
 
         /// <summary>"Resume all Volt sync" — clear every supervisor force-off at once, so the frontends' sessions take
@@ -229,7 +229,7 @@ namespace Volt.Cli.Connector
                 await _conn.SetForceOffAsync(_conn.ForceOffIds.ToList(), false);
                 await OnUiThread(() => _ = TickAsync());
             }
-            catch (Exception ex) { Log.Error($"resume-all failed: {ex.Message}"); }
+            catch (Exception ex) { VoltLog.Error($"resume-all failed: {ex.Message}"); }
         }
 
         // ── menu ────────────────────────────────────────────────────────────

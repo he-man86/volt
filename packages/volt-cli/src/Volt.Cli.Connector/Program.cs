@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows.Forms;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -12,6 +13,10 @@ namespace Volt.Cli.Connector
         [STAThread]
         private static void Main(string[] args)
         {
+            // FIRST statement, deliberately: VoltLog is a no-op until Init, so anything logged above this line
+            // (the uninstall hook, Pruner, VoltEnv) would be silently dropped rather than merely unnoticed.
+            VoltLog.Init("connector");
+
             // Uninstall hook: the Inno uninstaller runs `VoltConnector.exe --uninstall` BEFORE deleting files, so
             // we drop the login item + shortcut and stop the running tray/workers here, then exit.
             if (Array.IndexOf(args, "--uninstall") >= 0)

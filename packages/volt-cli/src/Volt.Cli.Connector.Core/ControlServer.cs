@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -95,7 +96,7 @@ namespace Volt.Cli.Connector
                 _running = true;
                 _listener.BeginGetContext(OnContext, null);
             }
-            catch (Exception ex) { Log.Error($"control plane :{_port} failed: {ex.Message}"); }
+            catch (Exception ex) { VoltLog.Error($"control plane :{_port} failed: {ex.Message}"); }
         }
 
         private void OnContext(IAsyncResult ar)
@@ -114,7 +115,7 @@ namespace Volt.Cli.Connector
         private async Task HandleSafeAsync(HttpListenerContext ctx)
         {
             try { await Handle(ctx).ConfigureAwait(false); }
-            catch (Exception ex) { Log.Error($"control plane handler error: {ex.Message}"); try { ctx.Response.StatusCode = 500; ctx.Response.Close(); } catch { } }
+            catch (Exception ex) { VoltLog.Error($"control plane handler error: {ex.Message}"); try { ctx.Response.StatusCode = 500; ctx.Response.Close(); } catch { } }
         }
 
         private async Task Handle(HttpListenerContext ctx)

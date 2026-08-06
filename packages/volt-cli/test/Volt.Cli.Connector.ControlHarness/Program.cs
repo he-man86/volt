@@ -1,5 +1,11 @@
 using System.Text.Json;
 using Volt.Cli.Connector;
+using Volt.Cli.Transport;
+
+// ControlServer's two background-failure lines are its ONLY record; VoltLog is a no-op until Init, so the harness
+// opts in under the same source the tray uses (it wrote those lines unconditionally before the connector's private
+// logger was deleted).
+VoltLog.Init("connector");
 
 // VoltControlHarness <viewJsonPath> <port>
 // Runs the REAL ControlServer on <port>, serving the ConnectorView read from <viewJsonPath> (a JSON array of

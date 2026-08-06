@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -56,7 +57,7 @@ namespace Volt.Cli.Connector
                 Directory.CreateDirectory(Path.GetDirectoryName(ChannelFile)!);
                 File.WriteAllText(ChannelFile, Norm(channel));
             }
-            catch (Exception e) { Log.Warn($"updater: channel write failed: {e.Message}"); }
+            catch (Exception e) { VoltLog.Warn($"updater: channel write failed: {e.Message}"); }
             _pending = null; _setupUrl = null; // a channel switch re-evaluates from scratch
             CheckNow();
         }
@@ -64,7 +65,7 @@ namespace Volt.Cli.Connector
         /// <summary>Fire an off-cycle update check (after a channel toggle or a manual "Check now").</summary>
         public static void CheckNow() => _ = Task.Run(async () =>
         {
-            try { await CheckOnce(); } catch (Exception e) { Log.Warn($"updater: check failed: {e.Message}"); }
+            try { await CheckOnce(); } catch (Exception e) { VoltLog.Warn($"updater: check failed: {e.Message}"); }
         });
         private static readonly TimeSpan Every = TimeSpan.FromHours(6);
         private static readonly HttpClient Api = CreateClient(TimeSpan.FromSeconds(30));
@@ -113,7 +114,7 @@ namespace Volt.Cli.Connector
                 if (!string.IsNullOrEmpty(stamped) && stamped != "1.0.0.0" && Version.TryParse(stamped, out _))
                     CurrentVersion = stamped!;
             }
-            catch (Exception e) { Log.Warn($"updater: version read failed: {e.Message}"); }
+            catch (Exception e) { VoltLog.Warn($"updater: version read failed: {e.Message}"); }
 
             if (!Version.TryParse(CurrentVersion, out _)) return; // "(dev)" / unparseable — no update surface
 
@@ -124,7 +125,7 @@ namespace Volt.Cli.Connector
                 while (true)
                 {
                     try { await CheckOnce(); }
-                    catch (Exception e) { Log.Warn($"updater: check failed: {e.Message}"); }
+                    catch (Exception e) { VoltLog.Warn($"updater: check failed: {e.Message}"); }
                     await Task.Delay(Every);
                 }
             });
@@ -146,11 +147,11 @@ namespace Volt.Cli.Connector
             // Resolve the installer asset's real download URL from the release — don't reconstruct a path, which a
             // renamed asset or a v-prefixed tag would 404 on.
             var url = AssetUrl(r);
-            if (url == null) { Log.Warn($"updater: release {latest} has no {Asset} asset — skipping"); return; }
+            if (url == null) { VoltLog.Warn($"updater: release {latest} has no {Asset} asset — skipping"); return; }
 
             _setupUrl = url;
             _pending = latest;
-            Log.Info($"updater[{Channel}]: {latest} available (current {CurrentVersion})");
+            VoltLog.Info($"updater[{Channel}]: {latest} available (current {CurrentVersion})");
         }
 
         /// <summary>The latest FINAL release (excludes prereleases — GitHub's /releases/latest does this).</summary>
@@ -205,7 +206,7 @@ namespace Volt.Cli.Connector
             }
             catch (Exception e)
             {
-                Log.Warn($"updater: download failed: {e.Message}");
+                VoltLog.Warn($"updater: download failed: {e.Message}");
                 Interlocked.Exchange(ref _applying, 0); // failed — let the user retry
                 return null;
             }
@@ -223,7 +224,7 @@ namespace Volt.Cli.Connector
             }
             catch (Exception e)
             {
-                Log.Warn($"updater: launch failed: {e.Message}");
+                VoltLog.Warn($"updater: launch failed: {e.Message}");
                 Interlocked.Exchange(ref _applying, 0); // failed before exit — let the user retry
             }
         }
@@ -235,7 +236,7 @@ namespace Volt.Cli.Connector
                 foreach (var f in Directory.GetFiles(Path.GetTempPath(), "Volt-*-Setup.exe"))
                     try { File.Delete(f); } catch { /* locked / in use — skip */ }
             }
-            catch (Exception e) { Log.Warn($"updater: temp cleanup failed: {e.Message}"); }
+            catch (Exception e) { VoltLog.Warn($"updater: temp cleanup failed: {e.Message}"); }
         }
     }
 }

@@ -63,7 +63,7 @@ public static class VoltLog
 
     /// <summary>Append an already-produced line from a child process's stdout/stderr under its own source tag
     /// (so a supervised worker's output lands in the same durable store, timestamped).</summary>
-    public static void Raw(string source, string line)
+    public static void Raw(string source, string? line)
     {
         if (string.IsNullOrEmpty(line)) return;
         WriteLine(source, $"[{Timestamp()}][{source}] {line}");

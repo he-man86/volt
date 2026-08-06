@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -41,7 +42,7 @@ namespace Volt.Cli.Connector
             _level.SelectedIndex = 0;
 
             var openFolder = new Button { Text = "Open folder", AutoSize = true };
-            openFolder.Click += (_, _) => TryOpen(Log.Dir);
+            openFolder.Click += (_, _) => TryOpen(VoltLog.Dir);
 
             var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(6, 8, 6, 8) };
             top.Controls.AddRange(new Control[] { _source, _level, _search, openFolder });
@@ -164,14 +165,14 @@ namespace Volt.Cli.Connector
             var rows = new List<Row>();
             try
             {
-                if (!Directory.Exists(Log.Dir)) return rows;
+                if (!Directory.Exists(VoltLog.Dir)) return rows;
                 // This window is the CONNECTOR's runtime surface: it shows the structured "{source}-{date}.log"
                 // files (connector, twincat, codesys). The installer/uninstaller also drop their logs in this same
                 // folder for the support bundle — Setup's own free-form 400KB+ log as install-*.log, and the
                 // uninstall summary as uninstall-*.log — but those are install-time records in a different format;
                 // they belong in the folder (which "Open logs" opens), not as rows here where they'd render broken
                 // and crowd out the live logs. Skip both prefixes.
-                var files = Directory.GetFiles(Log.Dir, "*.log")
+                var files = Directory.GetFiles(VoltLog.Dir, "*.log")
                     .Where(f => !Path.GetFileName(f).StartsWith("install-", StringComparison.OrdinalIgnoreCase))
                     .Where(f => !Path.GetFileName(f).StartsWith("uninstall-", StringComparison.OrdinalIgnoreCase))
                     .ToArray();
