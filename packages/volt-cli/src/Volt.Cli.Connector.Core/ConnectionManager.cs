@@ -141,7 +141,13 @@ namespace Volt.Cli.Connector
             {
                 // Log the DECLARATION, not the poll: a client re-declares the same set every few seconds, so only a
                 // real change is worth a line. This is the "who asked for what" half of every connection question.
-                if (_restored.Count > 0) _restored = new HashSet<string>(StringComparer.Ordinal); // a client spoke
+                // "A client spoke" must mean a client CLAIMED something, not merely that one polled. The live
+                // clients open the connector feed BEFORE any workspace has declared (volt-desktop's and
+                // volt-vscode's startConnectorFeed race restoreWorkspace), and volt-control's session sync posts
+                // unconditionally — with an EMPTY interest array. Treating that as "the clients are back"
+                // disarmed the 20 s grace hold on the very first poll, so the next reconcile gated the restored
+                // project immediately: precisely the stranded-bridge case the hold exists to prevent.
+                if (_restored.Count > 0 && interests.Count > 0) _restored = new HashSet<string>(StringComparer.Ordinal);
                 var now = Describe(interests);
                 if (!_state.Sessions.TryGetValue(sessionId, out var prior) || Describe(prior.Interests) != now)
                     VoltLog.Info($"session {Short(sessionId)} declares {now}");
