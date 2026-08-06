@@ -170,7 +170,31 @@ the move's src files and running the new test alone — not taken from the surge
 |---|---|---|---|
 | baseline (task 0) | 92 / 8 / 0 | 88 / 11 / 2 | a red baseline invalidates every verdict after it |
 | after move 13 | 92 / 8 / 0 | 88 / 11 / 2 | move 13 rewrote BOTH drivers' health path, and **no C# test project references an Ide project** — the 514 green unit tests execute zero lines of it. The live run IS the gate, not a supplement |
-| **CLOSE-OUT (all 24)** | **92 / 8 / 0** | **88 / 11 / 2** (best of 3; see below) | the change's stated contract |
+| **CLOSE-OUT (all 24)** | **92 / 8 / 0** | **90 / 11 / 0** — see below; the "parked" failures were never real | the change's stated contract |
+
+### THE TWO PARKED FAILURES WERE NEVER A PRODUCT DEFECT
+
+**Resolved 2026-08-06, after all 24 moves.** Pinned to a stable XAE, the full TwinCAT suite is
+**90 pass / 11 skip / 0 fail**, twice. Not 88/11/2. There was never a defect to find.
+
+The cause: **one fixture's XAE repeatedly crashes and is respawned.** Observed pids for TwinCAT Project13 across
+this session — 7040 -> 6848 -> 13940 -> 1488 — while Project14 (18420) never moved. When the harness resolved to
+the dying one, `volt init` failed, and the test's `pull` assertion at `conflict-resolve.test.ts:72` then failed
+as a DOWNSTREAM SYMPTOM of a workspace that was never created. The test asserts only `.kind`, so the message —
+`not a Volt workspace — run 'volt init' first` — was invisible. A five-line repro that printed the discarded
+`message` field found it in one run.
+
+This retroactively explains every anomaly recorded above: the 66/11/24 outlier (the unstable XAE died mid-run),
+the varying test COUNT (101 / 101 / 98), and why the revert experiment showed the same spread with and without
+moves 15 and 23 — the variable was never the code.
+
+**It also vindicates a fix made early on independent grounds.** `VOLT_PIPE` was made EXCLUSIVE (commit
+`334b568a66`) because a defensive fallback silently retargeted the suite — "one question, one answer". Without
+that fix there was no way to pin the suite to one XAE, and this could not have been diagnosed at all.
+
+**Method note, and it is the lesson of the whole change:** the failure was diagnosed by printing the field the
+test threw away, not by reasoning about the session model. Two phases of analysis had it filed under "the
+disconnect gate has two owners".
 
 ### The TwinCAT close-out took five runs, and the reason is recorded
 

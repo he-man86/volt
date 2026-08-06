@@ -177,7 +177,13 @@ exactly, with no test edited.
 | | |
 |---|---|
 | CODESYS | **92 pass / 8 skip / 0 fail** |
-| TwinCAT | **88 pass / 11 skip / 2 fail** — the 2 are `conflict-resolve`, parked with evidence in `ledger.md` |
+| TwinCAT | **90 pass / 11 skip / 0 fail** — but ONLY when pinned to a stable XAE (see below) |
+
+**PIN THE TWINCAT SUITE TO ONE STABLE XAE.** `$env:VOLT_PIPE="volt.bridge.twincat.<pid>"`, not the bare prefix.
+One fixture's TcXaeShell (Project13) crashes and respawns repeatedly — its pid moved four times in one session
+while Project14's never did. With the bare prefix the harness can resolve to the dying instance mid-run, and you
+get `volt init` failures that surface as unrelated assertion failures downstream, plus a varying test COUNT.
+Every "parked" TwinCAT failure in this change turned out to be that, and nothing else.
 
 The 8 CODESYS skips are **5 real tests + 3 lifecycle hook entries**, from exactly two suites, both skipped by
 design: `lifecycle/ide-restart` (TwinCAT-only *and* opt-in via `VOLT_E2E_IDE_CHAOS`) and
