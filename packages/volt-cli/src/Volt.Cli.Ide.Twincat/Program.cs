@@ -15,7 +15,7 @@ VoltLog.Init(Vendors.Twincat);
 // enumeration RAN (empty output = "no XAE open"); exit 1 = it FAILED, so the connector can tell a real "no XAE"
 // (reap workers) from a probe failure (leave the fleet alone) — see TwincatXaeProbe.
 foreach (var a in args)
-    if (a == "--list-xae-pids")
+    if (a == WorkerCli.ListXaePids)
     {
         int rc = 0;
         var probe = new Thread(() =>
@@ -33,7 +33,7 @@ foreach (var a in args)
 // and attaches to that window by pid; there is no all-XAE fallback (the connector's supervisor always spawns per pid).
 int xaePid = 0;
 for (int i = 0; i + 1 < args.Length; i++)
-    if (args[i] == "--xae-pid" && int.TryParse(args[i + 1], out var p)) xaePid = p;
+    if (args[i] == WorkerCli.XaePid && int.TryParse(args[i + 1], out var p)) xaePid = p;
 if (xaePid == 0)
 {
     Console.Error.WriteLine("VoltBridgeTwincat requires --xae-pid <pid> (or --list-xae-pids).");

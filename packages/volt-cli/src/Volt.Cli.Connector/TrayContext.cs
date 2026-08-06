@@ -154,7 +154,7 @@ namespace Volt.Cli.Connector
             if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
             var (_, reap) = _twincatSupervisor.Reconcile(pids);
             foreach (var pid in pids)
-                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), _twincatExe, $"--xae-pid {pid}"));
+                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), _twincatExe, $"{WorkerCli.XaePid} {pid}"));
             foreach (var pid in reap)
                 _supervisor.StopWorker(TwincatWorkerId(pid));
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -26,7 +27,7 @@ namespace Volt.Cli.Connector
                 var psi = new ProcessStartInfo
                 {
                     FileName = workerExe,
-                    Arguments = "--list-xae-pids",
+                    Arguments = WorkerCli.ListXaePids,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
