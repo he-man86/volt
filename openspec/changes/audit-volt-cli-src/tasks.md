@@ -170,7 +170,7 @@ Per batch: revert every `mustRevert` → **stop CODESYS/connector/workers** → 
       before → after, net delta.
 - [x] 13.4 Finalize `arch-notes.md` and split it into concrete follow-up proposals (each note = a `## Why` a
       future change can start from). Nothing behavior-changing was implemented here.
-- [ ] 13.5 Fold the settled conventions into `packages/volt-cli/ARCHITECTURE.md` (0.1's section, revised by what
+- [x] 13.5 Fold the settled conventions into `packages/volt-cli/ARCHITECTURE.md` (0.1's section, revised by what
       the audit actually learned) and fix any `CLAUDE.md`/`ARCHITECTURE.md` drift the audit surfaced.
-- [ ] 13.6 Decide (and record) whether any convention is worth mechanizing as an analyzer/`.editorconfig` rule
+- [x] 13.6 Decide (and record) whether any convention is worth mechanizing as an analyzer/`.editorconfig` rule
       in CI — a rule a human has to remember is a rule that rots. Out of scope to implement here.

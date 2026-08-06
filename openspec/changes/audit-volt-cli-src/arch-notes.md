@@ -1216,3 +1216,34 @@ the file.
 
 - `ConnectionManager`: "the first reconcile destroys the restored edge and truncates `wanted.json`" —
   `The_startup_hold_does_not_DESTROY_the_restored_edge` PASSES. Recorded as a claim, not a bug.
+
+---
+
+# TASK 13.6 — SHOULD ANY CONVENTION BE MECHANIZED? Decision: NO, with two exceptions already in place.
+
+Reviewed all 15 conventions against the 366 findings. The recommendation is **do not add an analyzer or
+`.editorconfig` rule**, for a reason the findings themselves make plain: **almost none of these are syntactic.**
+
+- "Resolve the object you NAMED" (11) — `doc.Descendants(ns + "FBD").FirstOrDefault()` is correct in a
+  single-POU document and wrong in a children-bearing one. No rule can see which it is.
+- "A name is not a path" (12) — both are `string`/`HashSet<string>`. A analyzer would need types that do not
+  exist. (Introducing them is a real option, and a bigger change than this audit.)
+- "Classifier total, parser partial" (13) — depends on the CALLER's catch topology.
+- "A reflective miss is a version mismatch" (14) — the closest to mechanizable: "a method whose body is a
+  reflection loop must not `return null` on no-match". Still needs to know the method is a dispatcher.
+- "A guard only the tests reach" (15) — needs reachability analysis under an env var. Not a lint rule.
+- "No fallbacks / fail loud" (1) — a bare-`catch` analyzer would fire on the legitimate ones too (Beckhoff's
+  per-node walk catch is LOAD-BEARING, `DriverBase`'s probe catch is deliberate). The false-positive rate would
+  train people to suppress it, which is worse than nothing.
+
+**The two guards that DO work are already here, and they are text scans, not analyzers:**
+`WireVocabularyGuardTests` (a centralized spelling re-spelt outside its home file) and `VendorParityGuardTests`
+(a vendor literal in Core). Both mechanize a rule that IS syntactic, both carry a per-file allowlist, and
+`WireVocabularyGuardTests` caught a real regression during batch 1. That is the shape worth copying — a targeted
+scan with an allowlist — and only when a rule is genuinely textual.
+
+**One thing IS worth mechanizing and is not a convention:** the coverage gap itself. No test csproj can
+reference either IDE host, so ~3,100 LOC of driver code has zero automated coverage and nothing says so at build
+time. A `check-wiring` assertion that every `src/` project is either referenced by a test project or explicitly
+listed as live-e2e-only would have made that visible for free. Recorded as a follow-up rather than done here —
+it belongs to `scripts/check-wiring.ts`, not to this change.

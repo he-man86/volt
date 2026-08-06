@@ -275,6 +275,31 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     code's current behaviour. Beware the double: `FakeIde` asserted that `IsConnected` and
     `BuildHealthResponse().Connected` were the same signal — an invariant the real TwinCAT driver breaks — so 500+
     green unit tests could not see the divergence.
+11. **Resolve the object you NAMED, never the first match in the document.** `ReadXml` returns a POU *and its
+    children* on both vendors, so `doc.Descendants(ns + "FBD").FirstOrDefault()` can return a METHOD's body — and
+    `SpliceFbdLdBody` then writes the root's new body into it, destroying the method's. The same mistake appears
+    three times in `PlcOpenDocument` (`FindFbdLd`, `InlineInsert`, `GraphicalBodyLang`) and once more in
+    `DeclFromExport`, which is why `PlcOpenPouParser` exists. Scope to the root `<pou>`'s DIRECT child.
+12. **A name is not a path.** Wire item names are bare (`Foo.fb`); workspace entries are src-relative paths
+    (`Folder/Foo.fb`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
+    the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors
+    found this independently from opposite sides of the call. If a set crosses that boundary, convert at the
+    boundary and name the variable for what it holds.
+13. **A classifier must be TOTAL; a parser may be partial.** `RefinePou` returns a code for every input because
+    it runs inside the CODESYS tree walk, whose `try/catch` wraps only `GetChildren` — a throw there aborts
+    `WalkItems` and with it every fetch/refs/init/push for the project. `CodeHelper.ParseCodeHeader` throws by
+    design. When the two must share logic, share the TOTAL half (`CodeHelper.HeaderLine`) and let the strict
+    caller add the throw.
+14. **A reflective miss is a version mismatch, not a no-op.** `CodesysObjectModel.InvokeMethod` returned null when
+    no overload matched, and every mutating call routes through it — so a renamed object-model method turns
+    `SetObject(meta, true, null)` into a silent no-op: push reports success and the edit is gone. Its siblings
+    `InvokeWithOptionals`/`CreateNamed` throw "object-model version mismatch". Reflection must fail loud, and a
+    `default:` arm in a kind switch must throw naming the kind rather than substituting a different one.
+15. **A guard only the tests reach is not a guard.** All four "not a Volt workspace — run `volt init` first"
+    refusals are unreachable in production: `BridgeResolver` reads the config eagerly and `Program` evaluates
+    `Bridge()` as a call ARGUMENT, so an uninitialised workspace dies with a raw `FileNotFoundException` first.
+    They fire only under `VOLT_PIPE` — which is how every test drives the CLI. A green suite that takes a path
+    users never take is evidence about the suite, not the product.
 
 ## Build, run, test
 
