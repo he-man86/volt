@@ -25,11 +25,14 @@ public static class Commands
     /// yet bundled with volt-cli — the workspace is fully functional without it; corpus stays 0 until then.</summary>
     public static InitResult Init(string parent, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
-        // The cheap friendly pre-check, and NOTHING else: "is a project open at all", answered instantly so the
-        // common mistake doesn't cost a full project walk. It deliberately does NOT decide identity — health is
-        // served from a per-vendor THROTTLED snapshot (~5s on TwinCAT), while every op after init validates against
-        // LIVE state, so binding from it named the workspace after whatever was open 5s ago and every later pull
-        // then refused WRONG_PROJECT forever. Identity comes from the fetch's echo below. One question, one answer.
+        // The cheap friendly pre-check, and NOTHING else: "is this bridge SERVING a project", answered instantly so
+        // the common mistake doesn't cost a full project walk. `HealthResponse.ProjectName` is the SERVING row only,
+        // so a bridge with the project OPEN but not yet selected (a per-XAE TwinCAT worker before the connector
+        // binds it) is refused here too. It deliberately does
+        // NOT decide identity — health is served from a per-vendor THROTTLED snapshot (~5s on TwinCAT), while every
+        // op after init validates against LIVE state, so binding from it named the workspace after whatever was open
+        // 5s ago and every later pull then refused WRONG_PROJECT forever. Identity comes from the fetch's echo
+        // below. One question, one answer.
         if (string.IsNullOrEmpty(bridge.GetHealth().ProjectName))
             return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
 
@@ -63,8 +66,9 @@ public static class Commands
             return InitResult.Error($"“{folder}” already exists here and isn't empty — choose a different location, or open that folder to sync it");
         Directory.CreateDirectory(root);
 
-        var gitCreated = !Git.IsRepoRoot(root);
-        if (gitCreated) Git.GitInit(root);
+        // init ALWAYS creates the repo: the guard above refuses any root that exists and holds ANY entry, and `.git`
+        // is such an entry — so the folder reached here is new or empty and can never already be a repo.
+        Git.GitInit(root);
         Files.EnsureGitattributes(root);
 
         Config.SaveConfig(root, new WorkspaceConfig
@@ -78,7 +82,7 @@ public static class Commands
         const int corpus = 0; // TODO: bundle + install the ST reference corpus (currently a TS/@volt/lsp-iec dep)
         var project = $"{platform}/{projectName}";
 
-        if (gitCreated) Git.CommitAll(root, $"volt init: {projectName}");
+        Git.CommitAll(root, $"volt init: {projectName}");
 
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var gitDir = Git.ResolveGitDir(root);
@@ -95,7 +99,7 @@ public static class Commands
         Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
 
         Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders });
-        return InitResult.Ok(project, root, gitCreated, ideFiles.Count, scaffold.Created.Count, corpus);
+        return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus);
     }
 
     /// <summary>volt rebind — re-point an EXISTING workspace's binding to a different/renamed project. Rewrites
@@ -129,7 +133,7 @@ public static class Commands
 
     /// <summary>volt status — fetch the live bridge snapshot (health + refs) and render it through the shared
     /// status model.</summary>
-    /// <param name="localOnly">Skip the IDE walk. `/refs` enumerates the ENTIRE project on the IDE's single
+    /// <param name="localOnly">Skip the IDE walk. `refs` enumerates the ENTIRE project on the IDE's single
     /// STA thread — seconds of frozen CODESYS on a big project — and it is needed for exactly one thing: the
     /// INCOMING set. Outgoing and merge state are pure git (see StatusModel), so a refresh triggered by a LOCAL
     /// edit has no reason to touch the IDE at all. The cheap health call still runs, so online/mismatch stay
@@ -187,7 +191,7 @@ public static class Commands
             snap = new BridgeSnapshot { Online = false, Detail = ex.Message };
         }
         var data = StatusModel.BuildStatusData(root, snap);
-        // Only a real /refs can tell us what the IDE has. Say when we didn't ask, so nobody reads the empty
+        // Only a real `refs` can tell us what the IDE has. Say when we didn't ask, so nobody reads the empty
         // Incoming as "the IDE has no changes for you".
         data.IncomingStale = localOnly && snap.Online && snap.ProjectMismatch is null;
         return data;
@@ -212,7 +216,7 @@ public static class Commands
         var cfg = Config.LoadConfig(root);
         var sidecar = Sidecar.LoadIdeRefs(root);
 
-        // ONE path for dry-run and real pull. Always /fetch (incremental), compute incoming, then the up-to-date
+        // ONE path for dry-run and real pull. Always `fetch` (incremental), compute incoming, then the up-to-date
         // short-circuit; dry-run returns the preview, the real pull falls through to the merge. The fetch carries
         // the bound project so the bridge guards it in-op (no pre-op health round-trip), and runs as the first of
         // three streamed phases (fetch → import objects → merge; materialize is folded, the merge is indeterminate).
@@ -271,9 +275,13 @@ public static class Commands
         else if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
             return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
 
-        // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree). After a --force
-        // discard there is nothing left to commit, so the IDE's state wins the merge outright — which is the
-        // documented promise ("overwrites them with the IDE's state").
+        // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree). --force discards
+        // only UNCOMMITTED src/ edits (Git.DiscardSrc is worktree-scoped), so after one there is usually nothing
+        // left to commit and the IDE's state wins. It is NOT an unconditional "IDE wins": a local edit that an
+        // earlier pull/push already auto-committed survives the discard and still goes through this ordinary 3-way
+        // merge — which can return a CONFLICT. Honouring the button's "cannot be undone" promise literally would be
+        // a separate, deliberate change (merge with -X theirs, or reset the branch to volt/ide under force), and the
+        // <param name="force"> doc above has to be rewritten with it.
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders };
@@ -428,7 +436,7 @@ public static class Commands
             return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
         }
 
-        // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up /refs).
+        // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up `refs`).
         Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = resp.NewProjectVersion!, Items = resp.NewItems!, Folders = resp.NewFolders! });
         Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
 

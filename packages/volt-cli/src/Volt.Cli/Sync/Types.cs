@@ -53,8 +53,8 @@ public sealed class Merging
 }
 
 /// <summary>The status the text renderer + the --json contract use. The subset {initialized, merging, incoming,
-/// outgoing, pathByName, projectMismatch, summary} matches @volt/control's StatusJson; online/detail/recommend
-/// are extras the CLI's pretty output uses.</summary>
+/// outgoing, pathByName, projectMismatch, summary, incomingStale} matches @volt/control's StatusJson;
+/// online/detail/recommend are extras the CLI's pretty output uses.</summary>
 public sealed class StatusData
 {
     public bool Initialized { get; set; }
@@ -64,15 +64,16 @@ public sealed class StatusData
     public Dictionary<string, string> PathByName { get; set; } = new();
     public ProjectMismatch? ProjectMismatch { get; set; }
     public string Summary { get; set; } = "";
+    /// <summary>TRUE when this status skipped the IDE walk (`volt status --local`), so <see cref="Incoming"/> was
+    /// not computed. An empty Incoming then means "we didn't ask", NOT "the IDE has nothing for you" — a client
+    /// must keep showing the last known incoming rather than clearing it. ON the wire (@volt/control's
+    /// <c>status.ts</c> depends on it) — it belongs ABOVE the JsonIgnore'd block below, not inside it.</summary>
+    public bool IncomingStale { get; set; }
     // Pretty-output extras — NOT part of the --json contract (@volt/control's StatusJson doesn't carry them), so
     // JsonIgnore'd and `status --json`/`pull --json` serialize StatusData directly instead of a hand-kept subset.
     [JsonIgnore] public bool Online { get; set; }
     [JsonIgnore] public string Detail { get; set; } = "";
     [JsonIgnore] public string? Recommend { get; set; }
-    /// <summary>TRUE when this status skipped the IDE walk (`volt status --local`), so <see cref="Incoming"/> was
-    /// not computed. An empty Incoming then means "we didn't ask", NOT "the IDE has nothing for you" — a client
-    /// must keep showing the last known incoming rather than clearing it.</summary>
-    public bool IncomingStale { get; set; }
 }
 
 /// <summary>The pull outcome (mirrors the TS client's PullResult / @volt/control's PullOutcome). Nullable fields +

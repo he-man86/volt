@@ -1,6 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Volt.Cli.Transport;
 
@@ -23,7 +21,10 @@ internal static class Program
     /// every binary from VOLT_VERSION, so this is the shipped version and cannot drift from the binary the way a
     /// version.txt beside it could. "(dev)" when run from a build tree that carries no stamp — that is BOTH .NET's
     /// unset default "1.0.0.0" (an unstamped local/dev build — same sentinel Updater.cs treats as dev) and the rare
-    /// "0.0.0.0". A real release is always a stamped X.Y.Z.count, so no genuine version collides with these.</summary>
+    /// "0.0.0.0". A real release is always a stamped X.Y.Z.count, so no genuine version collides with these.
+    /// A FAILED probe (no ProcessPath, GetVersionInfo throws) reports "(dev)" too — the reading is best-effort and
+    /// a version string is never worth failing the command over, so "(dev)" means "not a stamped release, or we
+    /// could not read the stamp".</summary>
     private static string ShippedVersion()
     {
         try
@@ -58,14 +59,16 @@ internal static class Program
             return a.Verb switch
             {
                 "init" => CmdInit(Bridge(), a),
-                "rebind" => CmdRebind(root, a),
+                "rebind" => CmdRebind(root, vendor, a),
                 "pull" => CmdPull(root, Bridge(), a),
                 "push" => CmdPush(root, Bridge(), a),
                 "status" => CmdStatus(root, Bridge(), a),
                 "build" => CmdBuild(root, Bridge(), a),
                 "show" => CmdShow(root, Bridge(), a),
                 "merge" => CmdMerge(root, a),
-                "help" or "--help" => Emit(Usage, 0),
+                // No "--help" arm: ParseArgs routes every `--`-prefixed token into Flags/Values and never into
+                // positional, so a.Verb can never BE "--help". `volt --help` lands on the `_` arm with Verb null ⇒ 0.
+                "help" => Emit(Usage, 0),
                 _ => Emit(Usage, a.Verb is null ? 0 : 1),
             };
         }
@@ -99,9 +102,8 @@ internal static class Program
     }
 
     // volt rebind — re-point an existing workspace's binding (config only, no bridge, no content change).
-    private static int CmdRebind(string root, Args a)
+    private static int CmdRebind(string root, string vendor, Args a)
     {
-        var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? Vendors.Codesys;
         var err = Commands.Rebind(root, vendor, a.Value("--project-name") ?? "");
         if (err != null) { Console.Error.WriteLine(err); return 1; }
         Console.WriteLine("rebound");
@@ -144,7 +146,9 @@ internal static class Program
         }
         if (a.Has("--json"))
         {
-            EmitJson(s); // Online/Detail/Recommend are [JsonIgnore]'d, so the type serializes to exactly the --json contract
+            // Online/Detail/Recommend are the pretty-output-only extras and are [JsonIgnore]'d, so the type
+            // serializes to exactly the --json contract — incomingStale INCLUDED (volt-control reads it).
+            EmitJson(s);
             return 0;
         }
         Console.WriteLine($"bridge: {(s.Online ? "connected" : "offline")} — {s.Detail}");
@@ -194,7 +198,10 @@ internal static class Program
 
     // ── arg parsing ──────────────────────────────────
 
-    private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--limit", "--resolve", "--timeout", "--force-with-lease" };
+    // The flags that take a SEPARATE value token (`--flag <v>`); `--flag=<v>` works for anything. Every entry here
+    // has a reader — "--limit" and "--timeout" sat here with no consumer anywhere in src/, so a `--limit 5` was
+    // silently eaten instead of landing in the operands where an unknown value belongs.
+    private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--resolve", "--force-with-lease" };
 
     private sealed class Args
     {
@@ -245,14 +252,15 @@ internal static class Program
 
     private const string Usage =
         "volt <command> [args] — git-native Volt CLI (C#, over named pipe)\n\n" +
-        "  init     bind to the bridge, git-init the project, first pull\n" +
+        "  init     bind to the bridge, git-init the project, first pull            [--json]\n" +
         "  rebind   re-point a workspace to a different/renamed project (config only)   --project-name <name>\n" +
-        "  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run]\n" +
-        "  push     workspace → IDE → fast-forward volt/ide          [--force] [--dry-run] [--force-with-lease=<v>]\n" +
-        "  status   incoming / outgoing / merge state                [--json] [--porcelain]\n" +
+        "  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run] [--json]\n" +
+        "  push     workspace → IDE → fast-forward volt/ide          [--force] [--dry-run] [--force-with-lease=<v>] [--json]\n" +
+        "  status   incoming / outgoing / merge state                [--json] [--porcelain] [--local]\n" +
         "  build    build via the IDE; returns diagnostics           [--full] [--json]\n" +
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
-        "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n\n" +
+        "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
+        "  version  this binary's own stamped version   (also: --version, -v)\n\n" +
         "  flags: --workspace <dir>  --vendor <codesys|twincat>";
 }

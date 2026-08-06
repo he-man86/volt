@@ -733,3 +733,149 @@ against a running XAE touches any of it.
 
 **Fix.** Split the two failures and reject a non-positive pid: find the flag first, then parse it, erroring with the offending value when the parse fails or `p <= 0`. Fail loud on the value you were actually given (Conventions #1) instead of collapsing it into the missing-argument message.
 
+
+---
+
+## BATCH 9 ESCALATIONS — `Volt.Cli` core (2026-08-06)
+
+47 findings, 28 behaviour-changing. This is the git-native CLI: `Git.cs` is where every git object SHA in a
+user's repo comes from, and `Volt.Cli.Tests` exercises the command surface, not the blob-writing path.
+
+### `Program.cs:197` — bug (group 9.3)
+
+**Claim.** `--project-name` is missing from `ValueFlags`, so the space-separated form `--project-name <name>` — the ONLY form the usage text documents and the ONLY form @volt/control emits — is parsed as a bare flag and its value falls into the positionals. `volt rebind` is therefore broken for every real caller: it always answers "rebind needs --project-name" and exits 1. Only `--project-name=<name>` works, and nothing in the repo uses that form.
+
+**Fix.** Add "--project-name" and "--pipe" to `ValueFlags`, and add a BlackBoxTests case that spawns the real binary with `rebind --project-name X` and asserts the config was rewritten.
+
+### `Program.cs:73` — bug (group 9.3)
+
+**Claim.** `catch (IOException) { return Unreachable(); }` blanket-maps every file-system failure to "bridge is not reachable". Combined with `Bridge()` being evaluated as a switch ARGUMENT (before the command body runs), running any bridge verb in a git repo that isn't a Volt workspace makes `BridgeResolver.Resolve` → `Config.LoadConfig` → `File.ReadAllText` throw `FileNotFoundException` (an IOException) and the user is told the IDE bridge is down. The friendly `"not a Volt workspace — run `volt init` first"` refusals in Commands.Pull/Push/Build are dead for this path.
+
+**Fix.** Narrow the catch to the transport's own failure (or wrap PipeClient's IO in PipeCallException), and check `Config.ConfigExists(root)` in Main before evaluating `Bridge()` so the workspace refusal wins over the bridge refusal.
+
+### `Program.cs:53` — bug (group 9.3)
+
+**Claim.** `--pipe` is read with `a.Value("--pipe")` but is not in `ValueFlags`, so `volt --pipe <name> <verb>` silently swallows the verb: the pipe name becomes positional[0] and IS the verb. The comment on line 50 ("an explicit --pipe / VOLT_PIPE wins (dev + tests)") and BridgeResolver's doc both describe an option that only works in the `--pipe=` form.
+
+**Fix.** Add "--pipe" to `ValueFlags`.
+
+### `Types.cs:47` — defensive-fallback (group 9.3)
+
+**Claim.** `Conflict.Kind` and `Conflict.Reason` are never anything but the hardcoded literals "text" and "both-modified" — the sole construction site stamps them on EVERY unmerged path. That is a lie for structural conflicts (modify/delete, add/add), which the CLI itself knows are different: `Commands.Merge` refuses `--continue` on `Git.StructuralConflictFiles` precisely because they carry no markers. So `status --json` tells volt-control every conflict is a text both-modified one, including the ones that must be resolved explicitly.
+
+**Fix.** Derive Kind/Reason from the unmerged stage bits git already reports (`Git.StructuralConflictFiles` vs `Git.ConflictMarkerFiles`), or delete the two fields from `Conflict` and `StatusJson` if no consumer needs them — but do not keep constants that assert a fact the code elsewhere contradicts.
+
+### `Program.cs:246` — bug (group 9.3)
+
+**Claim.** `Console.OutputEncoding` is never set, so every non-ASCII character the CLI prints (— → “ ” …) is best-fit-mangled or DROPPED on a default Windows console (codepage 850/437). The em dash becomes '-', the arrow vanishes entirely, leaving a double space. This hits the usage text, every refusal reason on stderr (which volt-control surfaces to the user via `firstLine(r.stderr)`), and `status --porcelain` paths containing non-ASCII characters.
+
+**Fix.** Set `Console.OutputEncoding = System.Text.Encoding.UTF8;` at the top of `Main` (guarded for a redirected handle), or restrict the CLI's own strings to ASCII.
+
+### `Program.cs:54` — defensive-fallback (group 9.3)
+
+**Claim.** `?? Vendors.Codesys` silently guesses the vendor when neither `--vendor` nor a config vendor is present — and `Config.ConfiguredVendor` itself swallows every exception to null, so a MALFORMED config also lands on CODESYS rather than on `LoadConfig`'s explicit "config.json is malformed — re-run `volt init`". On a TwinCAT-only machine a bare `volt init` therefore fails with "no CODESYS bridge is running", naming a vendor the user never chose (Conventions §1).
+
+**Fix.** For `init` with no `--vendor` and no binding, refuse with a message naming the choice ("pass --vendor codesys|twincat") instead of defaulting; and let `ConfiguredVendor` propagate the malformed-config error rather than catching it into the same silent default.
+
+### `Git.cs:132` — bug (group 9.2)
+
+**Claim.** Every path-emitting git invocation in this file runs with git's DEFAULT core.quotePath=true, so any path containing a non-ASCII byte comes back C-quoted and octal-escaped — and all four parsers here (ListTree, ParseDiffRows, UnmergedPaths, DirtySrc) treat that quoted token as a literal path. Verified in this environment; it corrupts the volt/ide tree on pull and silently EMPTIES the item on push.
+
+**Fix.** One place: prepend `"-c", "core.quotePath=false"` to psi.ArgumentList in Run() (Git.cs:61) so every git child emits raw UTF-8 paths. That covers ls-tree, diff --name-status, diff --name-only and status --porcelain at once, and leaves StreamPath's leading-quote branch for the genuinely-quoted (embedded quote/newline) case it was written for.
+
+### `Commands.cs:354` — defensive-fallback (group 9.2)
+
+**Claim.** HeadSrc turns "the blob I asked for was not in the batch" into an EMPTY source body and pushes it. This is the Convention-1 defensive default in its most expensive form: the masked upstream bug (a missing spec) is converted into deleting the engineer's code in the live PLC, with no error and no log line.
+
+**Fix.** Drop the `: ""`. Throw a coded failure naming the spec — `blobs.TryGetValue(k, out var b) ? Encoding.UTF8.GetString(b) : throw new InvalidOperationException($"{k} missing at HEAD")` — so the push fails loud instead of clearing the item. (ReadBlobsBatch may keep omitting misses; the caller is what must refuse.)
+
+### `Git.cs:228` — bug (group 9.2)
+
+**Claim.** AutoCommitSrc is documented and named as src-only, but `git commit` is run with NO pathspec, so it commits the entire index — sweeping the engineer's already-staged files from anywhere in the workspace into a commit titled "volt: N working change(s)", where N counted only src/. This is the same over-broad-save shape as the known TwinCAT File.SaveAll issue, but on the git side and not yet recorded anywhere.
+
+**Fix.** Add the pathspec to the commit: `Run(new[] { "-C", root, "commit", "-q", "-m", msg, "--", "src" })`. `git commit -- <paths>` commits HEAD plus those paths only and leaves the rest of the index staged, which is exactly the documented contract.
+
+### `Git.cs:116` — bug (group 9.2)
+
+**Claim.** The fast-import throwaway ref is a FIXED name deleted only in a `finally` that sits after the import. If the process dies between the import and the cleanup (Ctrl-C, crash, reboot), the stale ref permanently breaks every later `volt pull` and `volt init` in that repo — fast-import refuses the non-fast-forward ref update and exits 1, so Run throws, so the finally that would have cleaned it up is never reached again. Nothing in Volt recovers; the user must run `git update-ref -d` by hand.
+
+**Fix.** Delete the ref before the import instead of only after: insert `Run(new[]{"--git-dir", gitDir, "update-ref", "-d", tmpRef}, allowFail: true);` immediately before Git.cs:116 (keeping the finally). Passing `--force` to fast-import also clears the symptom but hides a leftover rather than removing it.
+
+### `Git.cs:417` — bug (group 9.2)
+
+**Claim.** MergeContinue and GitMerge stamp the ENGINEER's own merge commits — on the engineer's own branch — with the synthetic IDE identity and a 1970 epoch. The class doc's justification for DetEnv ("IDE commits use a FIXED author/committer + epoch so the same IDE state yields the same SHA") does not apply to a merge commit whose first parent is the user's non-deterministic HEAD, and it directly contradicts AutoCommitSrc's stated rule for the same class of commit. No test asserts this identity, so nothing is protecting it.
+
+**Fix.** Drop `env: DetEnv` from both Git.cs:417 and Git.cs:429 so the merge the engineer resolved is authored by the engineer, at the real time. DetEnv stays where its rationale holds: CommitTree (Git.cs:176), which builds refs/remotes/volt/ide.
+
+### `Git.cs:243` — defensive-fallback (group 9.2)
+
+**Claim.** DiscardSrc swallows the failure of the one step that actually restores tracked files, then still returns dirty.Count as "how many paths were discarded". A locked/failed checkout therefore reports "discarded N local change(s); workspace now matches the IDE" while the changes are still there — precisely the silent-no-op failure the method's own doc says it was added to fix.
+
+**Fix.** allowFail is there only for the "src/ has no tracked files at HEAD" pathspec error. Make that case explicit and let every other failure throw: `if (Run(new[]{"-C",root,"ls-files","--","src"}).StdOut.Trim().Length > 0) Run(new[]{"-C",root,"checkout","--","src"});` — no allowFail.
+
+### `Git.cs:253` — defensive-fallback (group 9.2)
+
+**Claim.** CommitAll conflates "nothing to commit" with "the commit failed" behind one allowFail, and its single production caller then discards the boolean entirely — so a commit that failed for a real reason (no user.identity configured, a rejecting pre-commit hook) leaves `volt init` continuing against a repo with no HEAD, silently producing a volt/ide tree with no scaffold in it.
+
+**Fix.** Distinguish the two: keep allowFail but treat only git's "nothing to commit" exit (1 with an empty `git status --porcelain`) as false, and rethrow the GitError otherwise. Then have Commands.Init check the result — `if (gitCreated && !Git.CommitAll(...)) return InitResult.Error(...)` — instead of discarding it.
+
+### `Git.cs:341` — defensive-fallback (group 9.2)
+
+**Claim.** DiffWorktree — a pure read used by `volt status`, `volt push`'s pre-check and UnpushedCount — CREATES a directory inside the user's workspace as a side effect, and never removes it. The write exists only to stop `git add -- src` from erroring on a pathspec that matches nothing; it fixes a git-invocation problem by mutating the engineer's tree.
+
+**Fix.** Drop the CreateDirectory and let git handle the empty case: `Run(new[] { "-C", root, "add", "-A", "--", pathspec }, env: env, allowFail: true)` — an add whose pathspec matches nothing is exactly the no-op the comment wants, without writing to the workspace.
+
+### `Commands.cs:283` — bug (group 9.1)
+
+**Claim.** Pull feeds the fetch's `Removed` list (item NAMES) into a parameter that is matched against src-relative PATHS, so an item the engineer deletes in the IDE is never dropped from volt/ide unless it sits in the project ROOT folder — the workspace file survives the pull forever.
+
+**Fix.** Map names→paths at the call site before passing them: resolve each removed name through the sidecar's Folders map (`sidecar.Folders`) to `folder.Length > 0 ? folder + "/" + name : name`, or change BuildVoltIdeTree to compare `Extensions.FullNameFromPath(rel)` against the name set. Either way, add an IdeTreeTests case with the removed item in a SUBFOLDER — the existing `Removed_items_are_dropped_from_the_new_tree` uses "B.fb" at the root, which is exactly the one case that passes today.
+
+### `Commands.cs:333` — bug (group 9.1)
+
+**Claim.** `volt push --dry-run` mutates the user's git history: it auto-commits the whole working tree before the dry-run branch returns, so a command advertised as a preview leaves a `volt: N working change(s)` commit behind. Pull's dry-run deliberately returns BEFORE its auto-commit.
+
+**Fix.** Hoist the dry-run preview above the commit: compute `rows` for the dry-run from `Git.DiffWorktree(root, IdeTree.Range, "src")` (which already backs the `foreign` guard and StatusModel's outgoing set) and return before `AutoCommitSrc`. If the commit is genuinely required to preview accurately, say so in the docstring and in the returned message instead of leaving it silent.
+
+### `Commands.cs:389` — bug (group 9.1)
+
+**Claim.** A renamed item whose old name has no baseline version throws a raw `InvalidOperationException` out of `Push` instead of returning `PushResult.Rejected` — under `--json` that produces an empty stdout and exit 1, which is precisely the two-carriers-one-refusal split the file's own header comment claims was unified.
+
+**Fix.** Replace the throw with `return PushResult.Rejected($"renamed item '{o.Value.Name}' has no known IDE version — run `volt pull` first");`. The surrounding `foreach` is a plain loop in the method body, so an early return is legal there.
+
+### `Commands.cs:432` — defensive-fallback (group 9.1)
+
+**Claim.** An accepted push writes the sidecar through three null-forgiving `!` operators on wire fields the DTO explicitly documents as nullable/additive; a bridge that accepts without `newFolders` writes `"folders": null` into ide-refs.json, and every later command then throws "malformed" until the file is deleted by hand.
+
+**Fix.** Guard before persisting (Conventions 1/2 — an annotation is not enforcement): if any of NewProjectVersion/NewItems/NewFolders is null on an accepted response, return `PushResult.Rejected("the bridge accepted the push but returned no post-apply state — run `volt pull`")` instead of `!`-suppressing and writing a sidecar that can never be loaded again.
+
+### `Commands.cs:146` — bug (group 9.1)
+
+**Claim.** `Status` computes the project mismatch from a health response even when nothing is being served, so a reachable-but-idle bridge (no project attached, or paused by `disconnect`) reports `projectMismatch { bridgeReports: { projectName: "" } }` and the summary "project mismatch — open the bound project in the IDE" instead of an offline/idle state.
+
+**Fix.** Only compute the mismatch when the bridge is serving: `var mismatch = online && cfg is not null ? Config.ProjectMismatch(cfg, health) : null;`. An unattached bridge is an offline/idle state, not a mismatch — and "bridgeReports.projectName = ''" is not a fact worth putting on the --json contract.
+
+### `Commands.cs:525` — bug (group 9.1)
+
+**Claim.** `volt merge --resolve <path>` with NEITHER side flag silently resolves the file by taking OURS, and the `useOurs` parameter is never read — a defensive default that discards one side of a conflict without being asked (Conventions 1), plus a dead parameter the compiler cannot warn about.
+
+**Fix.** Read the parameter and refuse when neither is given: `if (!useOurs && !useTheirs) return (1, "merge --resolve needs --use-ours or --use-theirs");` then `var side = useTheirs ? "theirs" : "ours";`. Also refuse when BOTH are set rather than silently preferring theirs.
+
+### `Commands.cs:478` — defensive-fallback (group 9.1)
+
+**Claim.** `UnpushedCount` swallows every exception and answers 0, so a real git failure is reported to the user as "you have nothing unpushed" — the note that exists to stop them building the wrong code just disappears (Conventions 1/4).
+
+**Fix.** Narrow the catch to the one expected condition — not a repo / no baseline — which the two lines above already handle explicitly, and let a GitError propagate to Program's handler. At minimum log it through VoltLog rather than returning a number the caller cannot distinguish from the truth.
+
+### `Commands.cs:377` — bug (group 9.1)
+
+**Claim.** Push silently skips tracked-but-unpushable paths (the `.gitkeep` folder markers it materializes itself), so a locally deleted or added folder marker leaves the workspace permanently "1 outgoing" while every push answers "nothing to push" — a stuck state with no way out from the CLI.
+
+**Fix.** Make the skip visible: collect the skipped-but-tracked paths and, when `ops.Count == 0` while such paths exist, return `PushResult.Rejected` naming them ("folder-only changes can't be pushed — <paths>") instead of asserting the IDE already matches. Alternatively exclude folder markers from StatusModel's outgoing set so the two verbs agree.
+
+### `Commands.cs:371` — bug (group 9.1)
+
+**Claim.** When git reports a move as delete+add rather than a rename (content changed past the 50% similarity threshold), Push emits a `DeleteItemOp` and a `SetItemOp` for the SAME item name in one batch, ordered by git's path sort — if the new path sorts first the delete runs last and the item ends up deleted in the IDE.
+
+**Fix.** Reconcile per name before sending: if a batch contains a DeleteItemOp and a SetItemOp for the same `Name`, collapse them into the single SetItemOp (with `ToFolder` set from the new path) — that is exactly the rename/move op the wire already models. Failing that, sort deletes before sets so the surviving state is the added file, never the deleted one.
+

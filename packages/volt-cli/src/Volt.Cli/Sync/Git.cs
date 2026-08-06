@@ -142,6 +142,9 @@ public static class Git
     }
 
     /// <summary>Build a tree from a flat entry list (handles nested paths via a throwaway index).</summary>
+    // ponytail: no production caller BY DESIGN — IdeTree writes trees via WriteTreeViaFastImport. BuildTree survives as
+    // the differential ORACLE that GitTests.FastImport_tree_matches_hash_object_plus_BuildTree checks the fast-import
+    // writer against. It is not a second live answer to "how do we build a tree"; deleting it deletes the golden gate.
     public static string BuildTree(string gitDir, IReadOnlyList<IndexEntry> entries)
     {
         if (entries.Count == 0) return EmptyTree;
@@ -213,7 +216,8 @@ public static class Git
 
     public static bool IsMerging(string root) => File.Exists(Path.Combine(ResolveGitDir(root), "MERGE_HEAD"));
 
-    /// <summary>Porcelain status lines for <c>src/</c> only. Internal — only <see cref="AutoCommitSrc"/> reads it.</summary>
+    /// <summary>Porcelain status lines for <c>src/</c> only. Internal — read by <see cref="AutoCommitSrc"/> (how many
+    /// changes it committed) and <see cref="DiscardSrc"/> (how many it discarded); both report that count to the user.</summary>
     private static List<string> DirtySrc(string root) =>
         Run(new[] { "-C", root, "status", "--porcelain", "--", "src" }).StdOut
             .Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).ToList();
@@ -266,7 +270,7 @@ public static class Git
     /// what stops a half-resolved file from being committed with its <c>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</c> markers.</summary>
     public static List<string> ConflictMarkerFiles(string root)
     {
-        var srcDir = System.IO.Path.Combine(root, "src");
+        var srcDir = Path.Combine(root, "src");
         var hits = new List<string>();
         if (!Directory.Exists(srcDir)) return hits;
         foreach (var f in Directory.EnumerateFiles(srcDir, "*", SearchOption.AllDirectories))
@@ -275,7 +279,7 @@ public static class Git
             {
                 foreach (var line in File.ReadLines(f))
                     if (line.StartsWith("<<<<<<< ", StringComparison.Ordinal) || line.StartsWith(">>>>>>> ", StringComparison.Ordinal))
-                    { hits.Add(System.IO.Path.GetRelativePath(root, f).Replace('\\', '/')); break; }
+                    { hits.Add(Path.GetRelativePath(root, f).Replace('\\', '/')); break; }
             }
             catch { /* unreadable/binary — not a text conflict */ }
         }
@@ -304,7 +308,7 @@ public static class Git
     /// merge under way is the one `volt pull` started (MERGE_HEAD == volt/ide) before adopting its stashed baseline.</summary>
     public static string? MergeHead(string root)
     {
-        var r = Run(new[] { "-C", root, "rev-parse", "--verify", "-q", "MERGE_HEAD" }, allowFail: true);
+        var r = Run(new[] { "-C", root, "rev-parse", "--verify", "--quiet", "MERGE_HEAD" }, allowFail: true);
         return r.Code == 0 && r.StdOut.Trim().Length > 0 ? r.StdOut.Trim() : null;
     }
 
@@ -350,8 +354,9 @@ public static class Git
     public static byte[]? GitShowBytes(string root, string @ref, string repoPath)
     {
         var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
-        foreach (var a in new[] { "-C", root, "show", $"{@ref}:{repoPath}" }) psi.ArgumentList.Add(a);
-        using var p = Process.Start(psi)!;
+        var args = new[] { "-C", root, "show", $"{@ref}:{repoPath}" };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, "could not start git");
         using var ms = new MemoryStream();
         var errTask = p.StandardError.BaseStream.CopyToAsync(Stream.Null);
         p.StandardOutput.BaseStream.CopyTo(ms);
@@ -371,11 +376,13 @@ public static class Git
 
         var psi = new ProcessStartInfo("git")
         { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, UseShellExecute = false };
-        foreach (var a in new[] { "-C", root, "cat-file", "--batch" }) psi.ArgumentList.Add(a);
-        using var p = Process.Start(psi)!;
+        var args = new[] { "-C", root, "cat-file", "--batch" };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, "could not start git");
         using var outMs = new MemoryStream();
+        using var errMs = new MemoryStream();
         var copyTask = p.StandardOutput.BaseStream.CopyToAsync(outMs);
-        var errTask = p.StandardError.BaseStream.CopyToAsync(Stream.Null);
+        var errTask = p.StandardError.BaseStream.CopyToAsync(errMs); // kept, so a failure reports WHY (not an empty colon)
         var stdin = Encoding.UTF8.GetBytes(string.Join("\n", specs) + "\n");
         p.StandardInput.BaseStream.Write(stdin, 0, stdin.Length);
         p.StandardInput.BaseStream.Flush();
@@ -383,7 +390,7 @@ public static class Git
         p.WaitForExit();
         copyTask.GetAwaiter().GetResult();
         errTask.GetAwaiter().GetResult();
-        if (p.ExitCode != 0) throw new GitError("cat-file --batch", p.ExitCode, "");
+        if (p.ExitCode != 0) throw new GitError("cat-file --batch", p.ExitCode, Encoding.UTF8.GetString(errMs.GetBuffer(), 0, (int)errMs.Length));
 
         var buf = outMs.GetBuffer();
         var len = (int)outMs.Length;
