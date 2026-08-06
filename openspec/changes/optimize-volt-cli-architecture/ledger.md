@@ -109,6 +109,11 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 11 | `one-health-row` (shape) | 5 | 460 → 390 | **accept**, 0 must-revert | build 0 err · 325/117/**72** | `a91588e956` |
 | 12 | `fake-ide-derives-driverbase` (shape) | 1 | 288 → 321 | **accept**, 0 must-revert | build 0 err · 325/117/72 | `c9de6471fa` |
 | 13 | `health-compose-in-core` (shape) | 6 | 968 → 1,022 | **accept**, 0 must-revert | build 0 err · 325/117/72 · **LIVE: CODESYS 92/8/0 + TwinCAT 88/11/2, one session** | `7467ddb0d7` |
+| 14 | `unify-probe-throttle` (**fix**) | 4 | 539 → 618 | **accept**, 0 must-revert | build 0 err · **326**/117/72 · **red-first verified** | `3625f51471` |
+| 16 | `connect-verifies-served-project` (**fix**, wire) | 3 | 591 → 655 | **accept**, 0 must-revert | build 0 err · 326/**119**/72 · **red-first + isolated** | `c332ee3121` |
+| 17 | `manifest-name-descriptor-parity` (**fix → reclassified shape**) | 4 | +30/−4 | **accept**, 0 must-revert | build 0 err · 326/119/72 · isolated | `546be89920` |
+| 19 | `one-refusal-carrier` (**fix**) | 2 | +34/−6 | **accept**, 0 must-revert | build 0 err · 326/**120**/72 · **red-first + isolated** | `d81e1713cd` |
+| 22 | `worker-cli-const-table` (shape) | 5 | +61/−12 | **accept**, 0 must-revert | build 0 err · 326/120/**73** · isolated | `3a4b32e722` |
 
 ## Test files moved mechanically
 
@@ -149,6 +154,24 @@ the move's src files and running the new test alone — not taken from the surge
 | bug | found by | fixed in |
 |---|---|---|
 | `VoltLog.Prune()` deleted every component's logs, not its own — destroying Setup's `install-*.log` that the support bundle surfaces and `scripts/test-install.ts` reads. Pre-existing; move 9 turned it from rare (a bridge activates) into certain (every tray start) | move 9's verifier, from the card's own unheeded `riskiestPart` | `9b`, red-first, immediately — not deferred to "before the next release" |
+
+## Wave execution — parallelising the agents, not the gates
+
+From move 14 on, moves whose file sets are **pairwise disjoint** run their surgeon+verifier pairs concurrently
+in one workflow, then are committed **one at a time with the others stashed**, each with its own gate. The
+expensive half (≈10 min of agent work per move) parallelises; the cheap half (≈1.5 min gate) stays ordered, so
+"every move builds and passes on its own" survives intact.
+
+| wave | moves | agents | wall clock | note |
+|---|---|---|---|---|
+| A | 16, 17, 19, 22 | 8 | ~9 min | vs ~40 min serial |
+| B | 15, 18, 20, 23, 24 | 10 | — | 23 depends on 22's const table, landed in A |
+| C | 21 | 2 | — | conflicts with 16, 19 AND 20 — must be last |
+
+**A scheduling error worth recording:** move 14 was already running as a single-move workflow when it was ALSO
+put into wave A. The wave was stopped immediately; the tree turned out to hold move 14 applied exactly once
+only because the wave's surgeons were still in their reading phase. That was timing, not design — a wave must
+exclude anything already in flight.
 
 ## Verifier saves — what the adversarial pass caught that the gate would have
 

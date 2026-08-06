@@ -2,7 +2,7 @@
 
 ## ▶ RESUME HERE
 
-**Next move: 14 of 24** (`unify-probe-throttle`) — a `fix`, and it deletes the `ProbeThrottleMs` knob move 13 introduced.
+**Next: wave B** (15, 18, 20, 23, 24), then wave C (21), then close-out.
 
 To continue in a fresh session, from the repo root:
 
@@ -25,7 +25,7 @@ uncommitted tree that `git checkout --` discards. Workflow agent results are jou
 `resumeFromRunId` replays the finished ones from cache and re-runs only the failures (phase 4 lost 7 of 55
 skeptics to a session limit and kept the other 47).
 
-Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport` · **7** `unsilence-the-accept-loop` · **8** `bridge-drops-go-to-voltlog` · **9** `one-log-path` · **9b** `prune-only-your-own-logs` · **10** `wire-row-down-to-transport` · **11** `one-health-row` · **12** `fake-ide-derives-driverbase` · **13** `health-compose-in-core`.
+Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport` · **7** `unsilence-the-accept-loop` · **8** `bridge-drops-go-to-voltlog` · **9** `one-log-path` · **9b** `prune-only-your-own-logs` · **10** `wire-row-down-to-transport` · **11** `one-health-row` · **12** `fake-ide-derives-driverbase` · **13** `health-compose-in-core` · **14** `unify-probe-throttle` · **16** `connect-verifies-served-project` · **17** `manifest-name-descriptor-parity` · **19** `one-refusal-carrier` · **22** `worker-cli-const-table`.
 
 
 Read `proposal.md` for why, `design.md` for the five phases and the agent roles, this file to *execute*.
@@ -56,6 +56,11 @@ Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes s
    agent that gates itself rationalizes a red gate. The gate is serial, run by the main loop.
 6. **Stage explicitly.** The TwinCAT fixtures under `test/TwinCAT Project*/` are rewritten by the IDE whenever
    it builds; `git commit -a` sweeps that churn in.
+6a. **TEAR DOWN BEFORE THE BUILD, NOT AFTER THE E2E.** This produced a false green TWICE: `dotnet test
+   --no-build` happily passes on STALE binaries while the build itself failed with MSB3021/MSB3027, because a
+   live headless CODESYS or a running TwinCAT worker holds the DLLs. Kill CODESYS + VoltConnector +
+   VoltBridgeTwincat **immediately before every build**, and read the build's own `Error(s)` line — never infer
+   the build from the test result.
 6b. **THE GATE TESTS THE WORKING TREE, THE COMMIT IS A SUBSET OF IT.** This bit on move 6 and produced a
    commit that did not compile while the gate was green. A relocation creates a NEW path, and
    `git add src/Volt.Engine` cannot reach a file that now lives in `src/Volt.Cli.Transport` — so the new path
