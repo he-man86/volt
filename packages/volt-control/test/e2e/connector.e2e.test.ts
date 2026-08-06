@@ -1,9 +1,12 @@
 /**
  * REAL cross-language e2e: volt-control's actual clients (src/bridge/connector.ts + session.ts) driven against the
- * REAL C# ControlServer (the production HTTP wire), via a small harness that serves a scriptable ConnectorView and a
- * simple interest→serving reconcile. No mocked fetch — this is the one test that proves the C#-serialized wire and
- * the TS-parsed wire AGREE, for the session API (declare interest → reconcile → serving) AND the ambient GET /status
- * read (the connect picker), for one IDE and for MULTIPLE IDE instances across vendors.
+ * REAL C# ControlServer (the production HTTP wire) over the REAL ConnectionManager/Reconciler — a harness fakes only
+ * the DATA (a scriptable IProjectSource over the JSON file below), never the interest→serving DECISION, so the
+ * shipped semantics apply here: bind is level-triggered, unbind is EDGE-triggered (a project no session ever wanted
+ * keeps whatever it was serving; only a wanted→unwanted edge gates one). No mocked fetch — this is the one test that
+ * proves the C#-serialized wire and the TS-parsed wire AGREE, for the session API (declare interest → reconcile →
+ * serving) AND the ambient GET /status read (the connect picker), for one IDE and for MULTIPLE IDE instances across
+ * vendors.
  *
  * Run from packages/volt-control:  bun test test/e2e   (or `bun run test:e2e`)
  * Skips cleanly when the .NET SDK / harness can't be built, so it never blocks a machine without dotnet.
@@ -87,7 +90,9 @@ suite("volt-control ↔ real ControlServer (session model)", () => {
 			"codesys:::MachineA:", "codesys:::MachineB:", "twincat:::Line1:", "twincat:::Line2:",
 		])
 		expect(new Set(projects.map(p => p.pipe)).size).toBe(4) // per-pid pipes — no collapsing across instances
-		expect(projects.some(isServing)).toBe(false) // nothing wanted yet → nothing serving
+		// These rows are SCRIPTED idle and nothing has ever wanted them, so the (edge-triggered) reconciler leaves
+		// them alone — untouched, not gated. A row scripted as already-serving would stay serving here, by design.
+		expect(projects.some(isServing)).toBe(false)
 	})
 
 	// ── the session API: declare interest → reconcile → serving ──
@@ -108,6 +113,28 @@ suite("volt-control ↔ real ControlServer (session model)", () => {
 
 		const p = (await detectedProjects()).find(x => x.id === "codesys:::MyMachine:")!
 		expect(isServing(p)).toBe(false)
+	})
+
+	// THE CASE THE HARNESS USED TO MAKE UNTESTABLE. Every other fixture here scripts `status: "idle"`, so the old
+	// harness's level-triggered "serving iff wanted" agreed with the product on all of them and stayed green while
+	// modelling the opposite rule. It differs on exactly one input: a bridge ALREADY SERVING that no session has ever
+	// wanted — a loaded CODESYS in-proc host serves its project without anyone asking. `Reconciler` leaves it alone
+	// ("bind is level-triggered; unbind is edge-triggered … a project no session has ever wanted is left untouched"),
+	// because gating it would break standalone `volt push` and would gate a neighbour the moment you connect
+	// something else. The old harness idled it.
+	test("a bridge already serving a project nobody declared keeps serving — connecting a neighbour does not gate it", async () => {
+		const serving = { ...cs("Untouched", 1003), status: "healthy" } // serving by default, never wanted
+		writeView([serving, cs("MachineA", 1001)])
+
+		// 1. ambient read, no session at all: the pre-serving row is NOT gated.
+		const before = (await detectedProjects()).find(p => p.id === "codesys:::Untouched:")!
+		expect(isServing(before)).toBe(true)
+
+		// 2. connect something ELSE: still not gated (the wanted->unwanted edge never fired for it).
+		await declareInterest(boundWorkspace("codesys", "MachineA"))
+		const after = await detectedProjects()
+		expect(isServing(after.find(p => p.id === "codesys:::Untouched:")!)).toBe(true)
+		expect(isServing(after.find(p => p.id === "codesys:::MachineA:")!)).toBe(true)
 	})
 
 	test("two workspaces declare two interests across vendors; both serve; dropping one leaves the other", async () => {

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Volt.Cli.Connector;
 using Volt.Cli.Transport;
 
@@ -8,61 +7,57 @@ using Volt.Cli.Transport;
 VoltLog.Init("connector");
 
 // VoltControlHarness <viewJsonPath> <port>
-// Runs the REAL ControlServer on <port>, serving the ConnectorView read from <viewJsonPath> (a JSON array of
-// ProjectView rows) — re-read on every read, so an e2e can change the scenario (single → multi-instance) by rewriting
-// the file. It exercises the production control-plane wire (serialization, routes, camelCasing) against the
-// volt-control TS client — no mock:
+// Runs the REAL ControlServer over the REAL ConnectionManager/Reconciler on <port>, with the detected projects read
+// from <viewJsonPath> (a JSON array of ProjectView rows) by a fake IProjectSource — re-read on every scan, so an e2e
+// can change the scenario (single → multi-instance) by rewriting the file. It exercises the production control-plane
+// wire (serialization, routes, camelCasing) AND the production connection decision against the volt-control TS
+// client — no mock:
 //   • GET /status — the ambient read of the detected-project list (the connect picker).
-//   • the SESSION plane — POST /session, /session/{id}/sync (declare interests), DELETE /session — with a simple
-//     interest→serving reconcile that mirrors the live connector (a row a live session declares interest in serves).
+//   • the SESSION plane — POST /session, /session/{id}/sync (declare interests), DELETE /session.
+// ONLY the data is faked. The interest→serving reconcile is the shipped Reconciler, whose bind is level-triggered
+// and whose unbind is EDGE-triggered; the inline reconcile that used to live here was level-triggered both ways
+// ("serve iff wanted") — the behaviour the product deliberately rejects, pinned green by this very e2e.
 if (args.Length < 2 || !int.TryParse(args[1], out var port))
 {
     Console.Error.WriteLine("usage: VoltControlHarness <viewJsonPath> <port>");
     return 2;
 }
 var viewPath = args[0];
-var json = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-var gate = new object();
-var sessions = new Dictionary<string, List<Interest>>(); // id → the FULL interest set it last declared
-
-List<ProjectView> Raw() => JsonSerializer.Deserialize<List<ProjectView>>(File.ReadAllText(viewPath), json) ?? new();
-
-ConnectorView Snapshot()
-{
-    lock (gate)
+// One source per vendor, exactly as ConnectorSetup.Sources() wires the product (ConnectionManager keys sources by
+// vendor, and routes each bind/unbind to the owning one).
+var conn = new ConnectionManager(
+    new IProjectSource[]
     {
-        // A row SERVES (idle → healthy) iff a live session declares interest in it, by vendor + the binding name
-        // (projectName ?? displayName) — the union the real reconciler computes.
-        var wanted = sessions.Values
-            .SelectMany(list => list)
-            .Select(i => (i.Vendor, i.ProjectName))
-            .ToHashSet();
-        var rows = Raw().ConvertAll(p =>
-        {
-            var name = p.ProjectName ?? p.DisplayName;
-            var serving = wanted.Contains((p.Vendor, name));
-            return p with { Status = serving ? (p.Status == "degraded" ? "degraded" : "healthy") : "idle" };
-        });
-        return new ConnectorView(rows);
-    }
+        new FileProjectSource(Vendors.Codesys, Vendors.CodesysDisplay, viewPath),
+        new FileProjectSource(Vendors.Twincat, Vendors.TwincatDisplay, viewPath),
+    },
+    // Beside the scenario file (the e2e mkdtemps a fresh directory per run) so this NEVER reads or writes the
+    // machine's real %LOCALAPPDATA%\Volt\wanted.json — inheriting a live run's desired set is how two unit tests
+    // failed, and here it would fabricate unbind edges out of the engineer's own session.
+    wantedFile: viewPath + ".wanted.json");
+
+// The unified, self-describing project list — the same projection TrayContext.Snapshot() ships.
+ConnectorView View() => new(conn.Projects
+    .Select(p => new ProjectView(p.Id, p.DisplayName, p.Vendor, p.Dirty, p.Status, p.Attach.Project, p.Pipe, p.IdeVersion))
+    .ToList());
+
+// The ambient read refreshes UNCONDITIONALLY (the product's 1s staleness floor is a load shield for many polling
+// clients; here a test rewrites the scenario file and reads it back in the same millisecond).
+async Task<ConnectorView> SnapshotAsync()
+{
+    await conn.RefreshAsync();
+    return View();
 }
 
 using var server = new ControlServer(
-    snapshot: () => Task.FromResult(Snapshot()),
+    snapshot: SnapshotAsync,
     restart: _ => { },
-    openSession: () =>
-    {
-        var id = Guid.NewGuid().ToString("N");
-        lock (gate) { sessions[id] = new(); }
-        return Task.FromResult((id, 15.0));
-    },
-    sync: (id, interests) =>
-    {
-        lock (gate) { sessions[id] = interests.ToList(); } // declare the FULL set (idempotent replace)
-        return Task.FromResult(Snapshot());                // declare + read in one round-trip, reconciled
-    },
-    closeSession: id => { lock (gate) { sessions.Remove(id); } return Task.CompletedTask; },
+    openSession: () => conn.OpenSessionAsync(),
+    // Declare the FULL set + renew + read, one round-trip: SyncAsync reconciles and re-scans before it returns, so
+    // the view already reflects what the bridges now serve.
+    sync: async (id, interests) => { await conn.SyncAsync(id, interests); return View(); },
+    closeSession: id => conn.CloseSessionAsync(id),
     port: port);
 server.Start();
 Console.WriteLine($"READY {port}"); // the e2e waits for this line
