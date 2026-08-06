@@ -6,6 +6,36 @@ matters, and what it would cost.
 
 Nothing in this file is a commitment. A note that stays unwritten-up is a note that wasn't worth it.
 
+---
+
+# ⚠ STATUS SWEEP 2026-08-06 — most of the OPEN entries below are now CLOSED
+
+This file was written during batches 1-4. `optimize-volt-cli-architecture` (23 moves) and `fix-push-data-loss`
+have since landed. **Read this table before acting on any entry below** — several notes describe defects that no
+longer exist, and one describes a defect that never existed.
+
+| entry | status now | evidence |
+|---|---|---|
+| the not-connected precondition has TWO answers | **CLOSED** | `1082190f0b` decided it from live driver state, not the cached snapshot |
+| `ide-restart` recovery fails | **CLOSED** | **2 pass / 0 fail**, twice, on a single XAE. The `File.SaveAll` fix closed it — `fix-push-data-loss` §3.0-VERIFIED |
+| a CFC/SFC POU **child** body flattened on push | **FIXED, NOT COVERED LIVE** | guard shipped (bug 1); the live e2e guards a ROOT body, so it is proven only against `FakeIde`. Needs a hand-authored CFC-child fixture — `fix-push-data-loss` §2.2 |
+| a pushed item does not survive the IDE being killed | **CLOSED** | the orphan is gone; no `POUs/` dir remains after a green run |
+| `DebugService` unreachable while ARCHITECTURE.md says otherwise | **CLOSED by deletion** | move 2 deleted the whole surface and corrected the doc. **Cost worth knowing: its `typeTags` was the cheap way to introspect the live COM model, and two later investigations wanted it** |
+| health's cache+throttle moving into Core — "the throttle asymmetry must survive" | **HONOURED** | move 13 moved composition into `DriverBase` and kept `ProbeThrottleMs` virtual; move 14 set CODESYS to 1000 ms, below the fastest client poll. The asymmetry survived exactly as this note demanded |
+| `Volt.Cli.Connector.Tests` not in the documented gate | **CLOSED** | it is in every gate now, and at 77 tests |
+| e2e harness resolves the per-pid pipe once, then falls back to the bare prefix | **CLOSED** | `334b568a66` made `VOLT_PIPE` exclusive. That fix later proved load-bearing: without it the crashing-XAE diagnosis was impossible |
+| the TwinCAT supervisor reaps correctly (evidence, not a defect) | still true | — |
+| `Hasher`'s "required inputs" is documentation, not enforcement | **STILL OPEN** | untouched by either change |
+| stale pre-rename assemblies in `bin/` | **STILL OPEN** | untouched |
+| a failed restore-after-failed-import tells the log, not the user | **STILL OPEN** | untouched, and still on the data-loss path |
+
+**One correction that is not in the table**, because it is about method rather than a defect: the two parked
+`conflict-resolve` e2e failures were filed here and elsewhere as a session/gate-model problem. They were a
+fixture XAE crashing and respawning mid-run. Pinned to a stable XAE the TwinCAT suite is **90 / 11 / 0**. Twice
+in this programme, analysis confidently located a defect that measurement could not find.
+
+---
+
 ## ROOT CAUSE (bridge defect) — the not-connected precondition has TWO answers: live for reads, cached for writes
 **Where:** `Volt.Engine/Sync/OpGuard.cs:20-21` vs `Volt.Engine/Sync/RefsService.cs:17`; cache in
 `Volt.Cli.Ide.Twincat/Driver/BeckhoffDriver.cs:46-59` + `BuildProjects()`; masked by `DriverBase.cs:117-122`;
