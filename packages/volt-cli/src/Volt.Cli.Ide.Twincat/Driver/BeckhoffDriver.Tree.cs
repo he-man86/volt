@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Volt.Engine.Diagnostics;
+using Volt.Cli.Transport;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;

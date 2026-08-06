@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Volt.Cli.Transport;
 using Volt.Engine;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Volt.Engine.Diagnostics;
+namespace Volt.Cli.Transport;
 
 public enum VoltLogLevel { Debug, Info, Warn, Error }
 

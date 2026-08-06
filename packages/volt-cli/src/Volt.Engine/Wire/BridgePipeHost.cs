@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using Volt.Engine;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 using Volt.Cli.Transport;

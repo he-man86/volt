@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Wire;
 
 using Volt.Cli.Transport;

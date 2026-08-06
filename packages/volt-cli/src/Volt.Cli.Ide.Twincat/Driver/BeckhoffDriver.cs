@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Graphical;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;

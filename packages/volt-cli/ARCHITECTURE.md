@@ -8,8 +8,14 @@ wire, not the driver.
 ## The projects (bridge side)
 
 ```
-src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) — decouples the tray from
-                                          the engine + vendor code
+src/Volt.Cli.Transport   netstandard2.0   the pipe wire (PipeServer/Client/frames) + the shared vocabulary
+                                          (Ops/BridgeErrorCodes/Vendors) and VoltLog — decouples the tray from
+                                          the engine + vendor code. VoltLog writes ONE line format to
+                                          %LOCALAPPDATA%\Volt\logs\<source>-<date>.log, rotates daily, prunes
+                                          at 14 days, and never throws into its caller. It lives HERE, not in
+                                          the engine, because Engine references Transport and never the reverse
+                                          — so above it PipeServer's accept loop could not log at all. It has
+                                          no framework dependency, so it loads in the net48 in-proc host too.
 src/Volt.Engine        netstandard2.0   shared engine (no vendor refs) + Wire/BridgePipeHost (serves it)
 src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge — driver + PipeHost, loaded IN-PROCESS by the IDE
 src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM
@@ -85,7 +91,6 @@ A strict layer stack; each layer depends only on the ones above it. Read top-dow
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text. The canonical ST layout has exactly ONE owner per direction: `PouToStText` assembles a `PouData` into it, `SourceText/StSplitter` parses it back (sharing `CodeHelper`). The dict-based `SourceText/StAssembler` was a second, production-unreachable copy of the assemble half that had already diverged in failure policy; it is DELETED and the round-trip tests certify `PouToStText`. `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `PouToStText`, `SourceText/StSplitter` |
 | **`Graphical/`** | **Graphical materialization** — PlcOpen XML ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` and `Vg/VgParser`/`Vg/VgWriter` are the two ends. | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `Vg/VgParser`, `Vg/VgWriter` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body + hash basis), `LibSignature`/`LibSignatureRenderer` (verbose-fetch signatures under the Library Manager). | `LibraryManifest`, `LibSignature`, `LibSignatureRenderer` |
-| **`Diagnostics/`** | `VoltLog` — a zero-dependency durable logger (timestamped/leveled/source-tagged) to `%LOCALAPPDATA%\Volt\logs`, daily files pruned after 14 days. netstandard2.0 with no framework dep so it loads in the net48 in-proc host too. | `VoltLog` |
 
 ### Protocol invariant: the item **name** is the identity
 
@@ -118,7 +123,7 @@ guard that throws** — real projects legitimately repeat these names, and throw
   set (a documented parity gap).
 - **Round-trips are lossless** — push→fetch returns byte-identical `sourceText`/`folder`/`name`; an **emptied body
   is cleared, not silently retained**. A vendor divergence is a parity defect.
-- **Skipped/errored items are logged, never silently dropped** (`Diagnostics/VoltLog`) with `name` + reason.
+- **Skipped/errored items are logged, never silently dropped** (`Volt.Cli.Transport/VoltLog`) with `name` + reason.
 - **The wire is a local named pipe, never a network socket** — there is no listening port and no browser-reachable
   surface, so a web page can't drive `push` (the HTTP-era cross-origin guard is moot).
 
@@ -232,7 +237,7 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
    failure must not fault `health`) but logs and marks degraded. A bare `catch` there once left health repeating a
    stale "nothing serving" indefinitely with no log line to read.
 5. **One error channel, one log path.** Only `BridgeException`/`BridgeErrorCodes` cross the wire — a driver must not
-   leak a vendor exception. All logging goes through `Diagnostics/VoltLog`.
+   leak a vendor exception. All logging goes through `Volt.Cli.Transport/VoltLog`.
 6. **Parity-critical decisions live in Core, once.** Anything a pipe client can observe is decided in
    `Wire/BridgePipeHost` or a `Sync/` service; drivers supply only irreducible primitives (attach, walk, code r/w).
    See "Load-bearing asymmetries" above for what is *legitimately* per-vendor — do not unify those for symmetry.

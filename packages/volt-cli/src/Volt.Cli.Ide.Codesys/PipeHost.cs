@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
 

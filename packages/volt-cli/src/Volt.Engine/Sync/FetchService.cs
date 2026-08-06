@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Volt.Engine.Diagnostics;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Wire;

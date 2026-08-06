@@ -1,4 +1,4 @@
-using Volt.Engine.Diagnostics;
+using Volt.Cli.Transport;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 
