@@ -6,7 +6,7 @@ namespace Volt.Engine.Sync;
 
 /// <summary>The precondition every project-touching op checks itself, instead of the client doing a pre-op health
 /// round-trip. Because the guard runs INSIDE the op (on the IDE's marshalled thread, via BridgePipeHost's
-/// <c>Busy</c>/<c>RunOnStaThread</c>), it is atomic with the op's work — a concurrent <c>select</c> (which also
+/// <c>RunOp</c>/<c>RunRead</c> → <c>RunOnStaThread</c>), it is atomic with the op's work — a concurrent <c>select</c> (which also
 /// marshals) can't slip between the check and the op, which a separate pre-op health call structurally cannot
 /// guarantee. When the caller supplies no expected identity (init/discovery, or an older client) only the
 /// connected check runs.</summary>

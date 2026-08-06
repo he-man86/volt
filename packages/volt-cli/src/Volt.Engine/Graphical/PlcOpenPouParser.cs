@@ -57,7 +57,9 @@ public static class PlcOpenPouParser
             children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
         }
 
-        // CODESYS proprietary: <method>/<action> inside <addData> (lowercase in CODESYS exports)
+        // Vendor addData children: <Method>/<Action> (TwinCAT, and CODESYS's synthesized interface export) and
+        // lowercase <method>/<action> (CODESYS POU exports). BOTH capitalizations are load-bearing — the
+        // capital-case arms are what TwinCAT method extraction depends on; do not drop them as CODESYS legacy.
         foreach (var e in rootPou.Descendants().Where(e =>
             e.Name.LocalName is "Method" or "Action" or "method" or "action"))
         {
@@ -65,8 +67,9 @@ public static class PlcOpenPouParser
             if (string.IsNullOrEmpty(childName)) continue;
             var local = e.Name.LocalName.ToLowerInvariant();
             var pouType = local == "method" ? "method" : "action";
-            var childDecl = DeclFromElement(e)
-                ?? (pouType == "action" ? $"ACTION {childName}" : $"METHOD {childName}");
+            // No synthesized "ACTION x"/"METHOD x" fallback here: the Materializer already owns that decision
+            // for the <pou>-child path above and must keep owning it for BOTH. One question, one answer.
+            var childDecl = DeclFromElement(e);
             var (childLang, childEl) = FindBodyChild(e);
             children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
         }
@@ -77,29 +80,24 @@ public static class PlcOpenPouParser
     private static (string? language, XElement? element) FindBody(XElement pou, XNamespace ns)
     {
         var bodyEl = pou.Element(ns + "body");
-        if (bodyEl == null) return default;
-        return FindBodyLang(bodyEl, ns);
+        return bodyEl == null ? default : LangIn(bodyEl);
     }
 
     /// <summary>For CODESYS addData children, the body element may not use the PLCopen namespace.</summary>
     private static (string? language, XElement? element) FindBodyChild(XElement parent)
     {
         var bodyEl = parent.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
-        if (bodyEl == null) return default;
-        // CODESYS addData bodies may not be in the PLCopen namespace
-        foreach (var lang in new[] { "ST", "IL", "FBD", "LD", "CFC", "SFC" })
-        {
-            var langEl = bodyEl.Elements().FirstOrDefault(e => e.Name.LocalName == lang);
-            if (langEl != null) return (lang, langEl);
-        }
-        return default;
+        return bodyEl == null ? default : LangIn(bodyEl);
     }
 
-    private static (string? language, XElement? element) FindBodyLang(XElement bodyEl, XNamespace ns)
+    /// <summary>The ONE body-language lookup, matched by LOCAL name so it serves both callers — CODESYS
+    /// addData bodies may not be in the PLCopen namespace, and the namespaced case matches by local name
+    /// too. Keeping the six-language list in one place is the point: it was edited in two.</summary>
+    private static (string? language, XElement? element) LangIn(XElement bodyEl)
     {
         foreach (var lang in new[] { "ST", "IL", "FBD", "LD", "CFC", "SFC" })
         {
-            var langEl = bodyEl.Element(ns + lang);
+            var langEl = bodyEl.Elements().FirstOrDefault(e => e.Name.LocalName == lang);
             if (langEl != null) return (lang, langEl);
         }
         return default;

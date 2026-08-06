@@ -411,3 +411,93 @@ these are the ones classified `bug` or `defensive-fallback`.
 
 **Fix.** Exclude `StCode` blocks from the naming loop (they have no value output — only ENO), and make `Render` resolve an `ENO` connection to an Execute box that has no EN wire explicitly rather than falling through to `names`/`Definition`. If a no-EN Execute box's ENO genuinely cannot be expressed in VG, refuse it with a coded error instead of emitting a dangling name.
 
+
+---
+
+## BATCH 6 ESCALATIONS (2026-08-06) — behaviour-CHANGING, NOT applied
+
+42 findings across 3 groups; 15 behaviour-changing. The `bug`/`defensive-fallback` ones follow.
+
+**The headline, and it is data loss on the push path:** three members of `PlcOpenDocument` scope to the
+WHOLE document instead of the root POU's own `<body>` — `FindFbdLd`, `InlineInsert` and `GraphicalBodyLang`.
+`ReadXml` returns a children-bearing export on BOTH vendors, so for a POU whose own body is LD with an FBD
+method, `SpliceFbdLdBody` writes the root's new body into the METHOD's body element: the edit lands on the
+wrong object and the method's graphical body is destroyed. The surgeon FIXED `GraphicalBodyLang` and the
+verifier correctly forced it reverted — this pass is behaviour-preserving. The reverted site now carries an
+inline NB naming the defect and pointing here, so it is not re-discovered from scratch.
+
+**Note the coverage shape:** this is exactly the class of defect the e2e cannot reach, because it needs a
+graphical CHILD — the same fixture gap `fix-push-data-loss` §2.2 is blocked on.
+
+### `PlcOpenDocument.cs:200` — bug (group 6.1)
+
+**Claim.** FindFbdLd locates "the POU's graphical body" by scanning the WHOLE document and preferring any <FBD> over any <LD>, but the XML it is handed contains child method/action bodies too — so for a POU whose own body is LD and which has an FBD method, SpliceFbdLdBody replaces the METHOD's body with the root's new LD body: the edit is written to the wrong object and the method's graphical body is destroyed.
+
+**Fix.** Resolve the root <pou> the same way PlcOpenPouParser.Parse does and take its DIRECT body child: `rootPou.Element(ns+"body")` then `body.Element(ns+"FBD") ?? body.Element(ns+"LD")`. Never `doc.Descendants`, and never an FBD-before-LD priority that ignores document position.
+
+### `PlcOpenDocument.cs:208` — bug (group 6.1)
+
+**Claim.** InstanceTypes silently loses FB instances that the writer then imports with an EMPTY typeName: the regex captures only the LAST name of a multi-name declaration (`t1, t2 : TON;` yields only `t2`), matches nothing when the declaration has an initializer (`tmr : TON := (PT := T#1S);`), and the map uses StringComparer.Ordinal although IEC identifiers are case-insensitive.
+
+**Fix.** Capture the whole name list (`([\w\s,]+?)\s*:\s*([\w\.]+)` then split on ',') and stop at `:=`/`;` rather than requiring `;` immediately after the type; build the map with StringComparer.OrdinalIgnoreCase. Separately, a resolveType miss should raise a coded BridgeException naming the instance instead of `?? ""` (Conventions 1).
+
+### `PlcOpenDocument.cs:165` — bug (group 6.1)
+
+**Claim.** InlineInsert picks the first <body> ANYWHERE in the document rather than the root POU's own body, so on the first-write path against a children-bearing export it can wipe and replace a child method's body instead of the POU's — the same document-scoping defect as FindFbdLd, in the other branch of the same method.
+
+**Fix.** Resolve the root <pou> once (shared with the FindFbdLd fix) and use `rootPou.Element(ns + "body")`, throwing the same coded error when the ROOT has no body element.
+
+### `PlcOpenDocument.cs:148` — defensive-fallback (group 6.1)
+
+**Claim.** The EN/ENO carve-out in the multi-output guard is wider than the comment that justifies it: the comment describes a box with "an EN input and two outputs", but the code exempts ANY EN-bearing block from the multi-output check regardless of output count — so a stateless function with an EN pin and three or more real outputs, which VG cannot represent, is accepted for overwrite instead of refused.
+
+**Fix.** Keep keying off the EN input (that part is correct) but bound the exemption to what the comment claims: exempt only when the output count is exactly 2, i.e. change the EN clause to also require `outputs == 2` so a 3-output EN box still refuses. Otherwise fix the comment to state that any EN box is exempt and why that is safe.
+
+### `FetchService.cs:159` — bug (group 6.3)
+
+**Claim.** An item whose body momentarily fails to materialize is reported to the client as REMOVED, so `volt pull` deletes the still-existing file from src/. `versions` records the item with the UNREADABLE sentinel (so the aggregate hash is right, as the comment promises), but `fullVersions` never gets it — and `removed` is derived from `fullVersions`, not from `versions`.
+
+**Fix.** Record the unreadable item in `fullVersions`/`folders` under a name derived from `it.Name + "." + ItemKind.ExtFor(kind)` with the `Versioning.Unreadable` sentinel, so it stays in `Items` (unchanged versus the client's baseline) and out of `removed`. Alternatively compute `removed` against the union of readable and unreadable full names. Note `Versioning.SafeVersion` swallows ANY exception including a transient COM drop, and `BridgePipeHost.RunRead`'s retry-once never sees it — so a one-off RPC hiccup on a single item currently reads as a deletion.
+
+### `FetchService.cs:100` — bug (group 6.3)
+
+**Claim.** `Items`, `Folders` and `Removed` are all computed from `fullVersions`, which the onlyItems filter excludes items from — so an onlyItems fetch that also carries knownItems reports every unselected known item as removed, and returns an `Items` map that disagrees with the `projectVersion` hashed from the full `versions` map in the same response.
+
+**Fix.** Move `fullVersions[fullName] = version; folders[fullName] = folder;` ABOVE the onlyItems `continue` (the same reasoning the comment already gives for `versions`: onlyItems restricts which BODIES ship, not which items exist). Only the `changed.Add` below should be gated by onlyItems. Live callers escape today only by accident — Commands.Show sends a one-key knownItems and the e2e harness always sends `knownItems: {}` — so nothing catches this.
+
+### `FetchService.cs:39` — bug (group 6.3)
+
+**Claim.** The no-baseline guard asks a different question than the rest of the method: it tests the RAW `request.OnlyItems` for null, while everything below uses the normalized `onlyItems`, which is null when the list is present-but-EMPTY. A request of `{"onlyItems": []}` with no knownItems therefore slips past the guard and runs a full fetch — every item marked changed — plus the full library precompile the guard's own comment says a directed preview must never pay.
+
+**Fix.** Compute `onlyItems` first and guard on it: `if (!isInit && request.KnownItems == null && onlyItems == null) throw …`. One question, one answer.
+
+### `FetchService.cs:103` — bug (group 6.3)
+
+**Claim.** For a `.library` item the SAME response answers "which folder does this file live in" two different ways: `Changed[].Folder` is the nested library folder (`Library Manager/<lib>`) while `Folders[fullName]` is the raw walk folder (`Library Manager`). The CLI writes the file from `Changed[].Folder` but persists `Folders` into the sidecar and builds `volt status`'s PathByName from it, so a library shows up in the UI at a path that does not exist on disk.
+
+**Fix.** Compute the effective folder once (`var effFolder = kind == ItemKind.Kinds.Library ? LibraryFolder(folder, it.Name) : folder;`) and use it for BOTH `folders[fullName]` and `FetchedItem.Folder`. Consumer proof: StatusModel.cs:69 `var folder = snap.Folders.TryGetValue(name, out var fo) ? fo : "";` then `pathByName[name] = $"{folder}/{name}"`, versus FetchExclusionTests asserting `Assert.Equal("Library Manager/Standard", stub.Folder)`. Note this changes nothing about the item VERSION (still hashed from the walk folder), so the library-change optimization is unaffected.
+
+### `IdeTree.cs:50` — bug (group 6.3)
+
+**Claim.** `BuildVoltIdeTree` matches the fetch's `Removed` entries — which are bare full NAMES (`FB_Motor.fb`) — against src-relative PATHS (`POUs/FB_Motor.fb`). A deleted item that lives in any folder therefore never matches, is carried forward from the parent volt/ide tree as "unchanged", and is never dropped. Only root-folder deletions actually propagate.
+
+**Fix.** Compare on the NAME, not the path: `!removed.Contains(Extensions.FullNameFromPath(rel) ?? rel)`. The producer is FetchService.cs:159 (`knownItems.Keys` are `WorkspaceItem.FullName` = `name.ext`, no folder — see WorkspaceItem.cs). Also document the units on `FetchResponse.Removed` in RefsFetch.cs, which currently carries no doc at all. FetchIncrementalTests.Removed_reports_a_known_name_that_no_longer_exists deletes a POU in folder "POUs" and asserts only on the wire field, so it passes while the client-side drop silently does nothing.
+
+### `OpGuard.cs:29` — bug (group 6.3)
+
+**Claim.** `expectedPlatform` is only ever compared when `expectedName` is non-empty — it is nested inside that condition. A caller that supplies the platform alone gets no vendor check at all and the op proceeds silently, even though `RefsRequest` documents both fields as independently optional.
+
+**Fix.** Check each supplied field on its own: refuse when `!string.IsNullOrEmpty(expectedPlatform) && !string.Equals(ide.Vendor, expectedPlatform, OrdinalIgnoreCase)`, and separately when `!string.IsNullOrEmpty(expectedName) && !string.Equals(served, expectedName, Ordinal)`. OpGuardTests only covers both-set and both-null; no test sends platform alone.
+
+### `FetchService.cs:220` — defensive-fallback (group 6.3)
+
+**Claim.** When `sig.LibraryPath` is empty (or is just a comma), `Split(',')[0].Trim()` sanitizes to "" and `LibraryFolder` appends an empty segment, producing a folder ending in "/" — which the CLI's JoinPath then turns into a workspace path with an empty component (`Library Manager/(unresolved)//SOMEFB.fb`). The `(unresolved)` branch is explicitly the "fail loud" path, but this sub-case fails silently into a malformed path.
+
+**Fix.** Guard the leaf segment: fall back to a named marker (e.g. `(no-resolution)`) when the sanitized head is empty, or have `LibraryFolder` return `folder` unchanged when `name` sanitizes to empty rather than emitting a trailing separator.
+
+### `GraphModel.cs:21` — bug (group 6.2)
+
+**Claim.** `GraphNetwork.Label` and `GraphNetwork.Disabled` survive the VG text leg but are silently dropped by the PLCopen leg, so a pushed `NETWORK 0 FBD "title" DISABLED` loses both — and BOTH of GraphicalCode.Validate's gates are structurally blind to it, violating ARCHITECTURE's "Round-trips are lossless — push→fetch returns byte-identical sourceText".
+
+**Fix.** Either make the PLCopen leg carry them (network title / disabled state) so the round-trip is genuinely lossless, or — the smaller, fail-loud change consistent with Conventions 1 — refuse them in `GraphicalCode.Validate` with a coded `VgParseException` (`VG_UNSUPPORTED_NETWORK_ATTRIBUTE`) so the author is told the attribute cannot be pushed rather than having it vanish. Do not leave the model fields writable-but-unwritten.
+

@@ -5,8 +5,9 @@ using System.Linq;
 namespace Volt.Engine.Graphical;
 
 /// <summary>
-/// The single canonical table of FBD/LD operator boxes and their infix ST/VG symbols, shared by
-/// every reader/writer/transpiler so a new operator is added in exactly one place. The box
+/// The single canonical table of FBD/LD operator boxes and their infix ST/VG symbols, shared by the
+/// VG parser and writer (the two ends of the infix rendering) so a new operator is added in exactly
+/// one place. (PlcOpenReader/Writer carry <c>typeName</c> verbatim and never consult it.) The box
 /// <see cref="TypeName"/> is the PLCopen/CODESYS operator type (OR, ADD, GT…); the
 /// <see cref="Symbol"/> is how it renders infix in ST/VG (OR, +, &gt;…).
 /// </summary>

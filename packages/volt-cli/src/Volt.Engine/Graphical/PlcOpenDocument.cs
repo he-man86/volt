@@ -7,12 +7,22 @@ using System.Xml.Linq;
 namespace Volt.Engine.Graphical
 {
     /// <summary>
-    /// Helpers shared by BOTH bridges for the PLCopenXML graphical round-trip — locating and
-    /// replacing the <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body inside an exported POU document, and
-    /// recovering FB instance→type names from a declaration (VG omits them). Keeping this in Core
-    /// keeps CODESYS and TwinCAT byte-identical on the read/write transform; only the vendor's
-    /// PLCopen-string transport differs (CODESYS object-model ExportXmlString/ImportXmlString,
-    /// in-memory; TwinCAT ITcPlcIECProject PlcOpenExport/PlcOpenImport, via a temp file).
+    /// PLCopenXML document helpers for the graphical round-trip. Which of them BOTH bridges use differs
+    /// per member — do not read this class as a uniformly shared surface:
+    /// <list type="bullet">
+    /// <item><description><see cref="FindFbdLdBody"/> / <see cref="SpliceFbdLdBody"/> / <see cref="InstanceTypes"/>
+    /// are the genuinely SHARED read/write transform (locating and replacing the <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
+    /// body, and recovering the FB instance→type names VG omits). Keeping them in Core is what keeps CODESYS and
+    /// TwinCAT byte-identical here; only the vendor's PLCopen-string transport differs (CODESYS object-model
+    /// ExportXmlString/ImportXmlString, in-memory; TwinCAT ITcPlcIECProject PlcOpenExport/PlcOpenImport, via a
+    /// temp file).</description></item>
+    /// <item><description><see cref="GraphicalBodyLang"/> is the CODESYS path ONLY — TwinCAT sniffs the language
+    /// out of its vendor NWL archive (<c>TcPouReader.LanguageOf</c>), which has no CODESYS counterpart.</description></item>
+    /// <item><description><see cref="InterfacePropertyAccessors"/> is the TwinCAT path ONLY — CODESYS enumerates
+    /// the accessor COM children itself (<c>CodesysDriver.Tree</c>).</description></item>
+    /// <item><description><see cref="DeclFromExport"/> is called by NEITHER bridge; the live declaration read is
+    /// <see cref="PlcOpenPouParser"/>'s.</description></item>
+    /// </list>
     /// </summary>
     public static class PlcOpenDocument
     {
@@ -34,6 +44,10 @@ namespace Volt.Engine.Graphical
         {
             // Parse throws on a malformed export — surfaced, never masked as "textual" (the body of the
             // prior stale-read bug). A well-formed textual POU returns null below.
+            // NB: this is a WHOLE-DOCUMENT scan, so on a children-bearing export it can report a child
+            // method's language as the POU's. That is a real defect and it is deliberately NOT fixed here —
+            // the audit is behaviour-preserving. Escalated to arch-notes.md with the two sibling cases
+            // (FindFbdLd, InlineInsert) that share the same document-scoping mistake.
             var doc = XDocument.Parse(xml);
             var ns = doc.Root!.GetDefaultNamespace();
             foreach (var name in new[] { "FBD", "LD", "CFC", "SFC" })
@@ -168,10 +182,6 @@ namespace Volt.Engine.Graphical
             pouBody.Add(newBody);
         }
 
-        /// <summary>Network index lives in the high digits of every localId (mirrors
-        /// <see cref="PlcOpenReader"/>'s grouping: network index = localId / 10^10).</summary>
-        private const long NetworkStride = 10_000_000_000L;
-
         /// <summary>Elements safe to discard when REPLACING an existing FBD/LD body, because the VG editor
         /// either represents them explicitly (inVariable, outVariable, block) or regenerates them on write.
         /// <c>vendorElement</c> is editor rendering info. <c>leftPowerRail</c>, <c>rightPowerRail</c>,
@@ -180,7 +190,7 @@ namespace Volt.Engine.Graphical
         /// real <c>contact</c>/<c>coil</c> inside an <c>&lt;LD&gt;</c> body — TwinCAT does NOT wrap LD in
         /// <c>&lt;FBD&gt;</c>, as once assumed). Adding a genuinely structural element here without VG support
         /// would silently drop functional logic — every entry must be affirmatively confirmed as cosmetic.</summary>
-        private static readonly System.Collections.Generic.HashSet<string> SafeToDrop =
+        private static readonly HashSet<string> SafeToDrop =
             new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement",
                     "leftPowerRail", "rightPowerRail", "contact", "coil" };
 

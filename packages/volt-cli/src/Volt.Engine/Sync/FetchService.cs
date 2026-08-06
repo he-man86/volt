@@ -81,6 +81,9 @@ public static class FetchService
             // emitting it; this is the Core backstop so the invariant holds for EVERY vendor structurally, not
             // per-driver — a stray manager can never materialize as a stub file.
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
+            // The two skips above == ProjectSnapshot.IsTracked(it.KindCode) — kept expanded here (as in
+            // ProjectSnapshot.Walk) for the per-reason counters/logs. A third skip added to either walk must be
+            // added to the other, or fetch and refs stop producing the same version map (EndpointParityTests).
 
             // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
             // can't be materialized), never throw for the whole batch.
@@ -100,15 +103,15 @@ public static class FetchService
             if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
 
             fullVersions[fullName] = version;
-            folders[fullName] = it.Folder ?? "";
+            folders[fullName] = folder;
 
             if (kind == ItemKind.Kinds.Library)
             {
                 // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
                 // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
                 // its `.library` file.
-                var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
-                if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
+                var res = ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
+                if (res.Length > 0) libByResolution[res] = (folder, it.Name);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
                 // resolved name+version); collect it to decide whether the signatures need re-extracting.
                 liveLibVersions[fullName] = version;
@@ -122,7 +125,7 @@ public static class FetchService
                 // A `.library` ref is nested INTO its own library folder so `<lib>.library` sits beside the
                 // signatures it describes (`Library Manager/<lib>/<lib>.library`). Only the FOLDER changes; the
                 // item NAME (the protocol identity) is untouched, and library refs are read-only (no push impact).
-                Folder = kind == ItemKind.Kinds.Library ? LibraryFolder(it.Folder, it.Name) : it.Folder,
+                Folder = kind == ItemKind.Kinds.Library ? LibraryFolder(folder, it.Name) : folder,
                 Version = version,
                 SourceText = mat.Text,
             });
@@ -186,8 +189,8 @@ public static class FetchService
     /// Manager folder. Takes the signatures <c>Handle</c> already extracted up front (so their count folds into the
     /// one progress total); renders them, ticking the shared bar. TwinCAT returns none. The version is a content
     /// hash — read-only, never a push target.</summary>
-    /// <summary>Returns (renderNull, unmatched): how many element signatures couldn't be rendered, and how many
-    /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</summary>
+    /// <returns>(renderNull, unmatched): how many element signatures couldn't be rendered, and how many
+    /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</returns>
     private static (int RenderNull, int Unmatched) AppendLibrarySignatures(
         IReadOnlyList<LibSignature> sigs, Dictionary<string, (string Folder, string Name)> libByResolution,
         List<FetchedItem> changed, Action<ProgressFrame>? onProgress, int startDone, int total)
@@ -233,14 +236,18 @@ public static class FetchService
         return (renderNull, unmatched);
     }
 
-    /// <summary>True when the referenced-library set is unchanged versus the client's <paramref name="knownItems"/>:
-    /// every live <c>.library</c> version matches what the client already has, AND no <c>.library</c> the client
-    /// knows has been removed. An add, a version bump, or a removal all make it false ⇒ re-extract. Reuses the same
-    /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
     // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
     // in the client's knownItems (only .library keys are relevant to the library-change decision).
     private static readonly string LibraryExt = "." + ItemKind.ExtFor(ItemKind.Kinds.Library);
 
+    // The RESOLUTION line of a `.library` manifest (written by LibraryManifest.Build). Hoisted to a static so it
+    // isn't recompiled per library item on every walk.
+    private static readonly Regex ResolutionLine = new Regex(@"^RESOLUTION (.+)$", RegexOptions.Multiline);
+
+    /// <summary>True when the referenced-library set is unchanged versus the client's <paramref name="knownItems"/>:
+    /// every live <c>.library</c> version matches what the client already has, AND no <c>.library</c> the client
+    /// knows has been removed. An add, a version bump, or a removal all make it false ⇒ re-extract. Reuses the same
+    /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
     public static bool LibrariesUnchanged(IReadOnlyDictionary<string, string> liveLibVersions, IReadOnlyDictionary<string, string> knownItems)
     {
         foreach (var kv in liveLibVersions)

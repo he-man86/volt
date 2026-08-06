@@ -2,8 +2,10 @@ using System.Collections.Generic;
 
 namespace Volt.Engine.Graphical
 {
-    /// <summary>Network index is encoded in the high digits of every <c>localId</c> as
-    /// <c>network index = localId / 10^10</c>. Shared by every component in the graphical pipeline.</summary>
+    /// <summary>FBD encodes the network index in the high digits of each <c>localId</c>
+    /// (<c>index = localId / 10^10</c>). LD does NOT stride — its networks are delimited by
+    /// <c>vendorElement(networktitle)</c> markers and share one power-rail pair; the stride is the
+    /// FBD-only fallback in <c>PlcOpenReader.SplitNetworks</c>.</summary>
     public static class GraphConstants
     {
         public const long NetworkStride = 10_000_000_000L;
@@ -13,8 +15,10 @@ namespace Volt.Engine.Graphical
     /// A faithful, position-free projection of a PLCopenXML FBD/LD body. Every node maps 1:1 to a
     /// PLCopenXML element; wiring is by <c>localId</c> / <c>refLocalId</c> / <c>formalParameter</c>
     /// taken verbatim from the XML — nothing is inferred. This is the lossless pivot between
-    /// PLCopenXML and the VG text language; it sits ALONGSIDE the lossy <see cref="FbdBody"/>
-    /// (which stays the one-way ST-oracle), never replacing it.
+    /// PLCopenXML and the VG text language, and the only projection of a graphical body.
+    /// Structural equality is NOT provided: this is a <c>record</c>, but its collection members
+    /// compare by REFERENCE, so two structurally identical graphs are never equal. Compare rendered
+    /// VG (<c>VgWriter.Write</c>), never graphs.
     /// </summary>
     public sealed record GraphBody(string Language, IReadOnlyList<GraphNetwork> Networks);
 
@@ -78,7 +82,9 @@ namespace Volt.Engine.Graphical
 
     /// <summary>A node kind the FBD reader recognises but does not model yet (contact, coil,
     /// connector, continuation, power rails, comment, vendorElement). Preserved opaquely so the
-    /// reader stays TOTAL over the XSD and the writer can round-trip it.</summary>
+    /// reader stays TOTAL over the XSD and <c>PlcOpenWriter</c> can re-emit it verbatim; <c>VgWriter</c>
+    /// has no VG spelling for it, so it is DROPPED from VG and from any pushed body (see the
+    /// <c>ponytail:</c> note in VgWriter).</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);
 }
