@@ -101,7 +101,7 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 4 | `one-st-emitter` (shape) | 8 | 1,044 → 870 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fadb86ab8f` |
 | 5 | `delete-dead-spawn-plan` (shape, **narrowed**) | 3 | 650 → 622 | **accept**, 0 must-revert | build 0 err · 324/116/**75** | `9396b2ded1` |
 | 6 | `voltlog-down-to-transport` (shape, **relocation**) | 18 | 3,175 → 3,163 | **accept**, 0 must-revert | build 0 err · 324/116/75 · **+ HEAD built in a clean worktree** | `726f4959e8` |
-| 7 | `unsilence-the-accept-loop` (**fix**) | 3 | 470 → 529 | **accept**, 0 must-revert | build 0 err · 324/**117**/75 · **red-first verified** | `bd8e0f6b` |
+| 7 | `unsilence-the-accept-loop` (**fix**) | 3 | 470 → 529 | **accept**, 0 must-revert | build 0 err · 324/**117**/75 · **red-first verified** | `e687b78c28` |
 
 ## Test files moved mechanically
 
