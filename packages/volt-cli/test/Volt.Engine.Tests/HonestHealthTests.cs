@@ -63,6 +63,65 @@ public class HonestHealthTests
         Assert.Equal(1, driver.Probes);
     }
 
+    /// <summary>The <c>DriverBase</c> contract <c>BeckhoffDriver.TriggerAsyncProbe</c> now leans on: a probe closure
+    /// that FAILS reaches <c>OnProbeFailed</c> (log + degraded) and does NOT stamp the freshness clock on the way,
+    /// because the round-trip that stamps it (<c>StaDispatcher.Run</c>) is the worker's own in-process queue and never
+    /// consults the XAE.
+    /// <para>HONEST LABEL — this is a PIN, not the red-first proof for <c>dead-ide-marks-degraded</c>. It is GREEN
+    /// against the pre-move tree: the base machinery it exercises was already right; what was wrong was the TwinCAT
+    /// driver READING AND DISCARDING its liveness verdict, so this closure could never fail and the one ambient writer
+    /// of <c>_lastOkTick</c> re-stamped it against a dead XAE forever. That driver is reachable from no C# suite (no
+    /// test project references <c>Volt.Cli.Ide.Twincat</c>; it is net8.0-windows over live COM), so the only real
+    /// check for the driver half is the e2e against a running XAE. What this test does buy: move the stamp in
+    /// <c>RunOnStaThread</c> ahead of the marshalled call, or re-swallow the probe failure, and the TwinCAT fix dies
+    /// silently — here it goes red.</para></summary>
+    [Fact]
+    public void A_probe_whose_IDE_does_not_answer_demotes_the_served_row_to_degraded_and_does_not_restamp_freshness()
+    {
+        var driver = new DeadIdeDriver();
+
+        driver.TriggerAsyncProbe();
+        Assert.True(SpinWait.SpinUntil(() => driver.IsDegraded, 5_000), "a failed probe must mark the session degraded");
+        Assert.Equal(HealthStatus.Degraded, driver.BuildHealthResponse().Status);
+
+        // Freshness, observed without a clock seam: clear the flag the probe just set, and the served row must STILL
+        // read degraded — no IDE response was ever CONFIRMED, so the staleness branch (age = long.MaxValue) decides.
+        // Had the failing round-trip stamped _lastOkTick on its way through, this would read healthy.
+        driver.ClearDegraded();
+        Assert.Equal(HealthStatus.Degraded, driver.BuildHealthResponse().Status);
+    }
+
+    /// <summary>A driver whose IDE does not answer, shaped like <c>BeckhoffDriver</c> after the fix: the snapshot
+    /// publishes its rows (stamping the cache + throttle clock) and the probe closure THEN fails with the coded
+    /// error. The throttle is parked far above the test's own duration so only the explicit
+    /// <c>TriggerAsyncProbe</c> ever probes — no second probe can be in flight while the row is read.</summary>
+    private sealed class DeadIdeDriver : DriverBase
+    {
+        protected override long ProbeThrottleMs => 600_000;
+
+        protected override void SnapshotHealth() =>
+            PublishRows(new List<ProjectEntry> { new("fake", "0", "P", HealthStatus.Healthy, false) });
+
+        public override void TriggerAsyncProbe() =>
+            RunProbeOnce(() => RunOnStaThread<int>(() =>
+            {
+                SnapshotHealth();
+                throw new BridgeException(BridgeErrorCodes.PlcDisconnected, "the IDE did not answer the liveness probe");
+            }));
+
+        protected override T MarshalToIdeThread<T>(Func<T> fn) => fn();
+        public override bool IsConnected => true;
+        public override string Vendor => "fake";
+        public override string? ServedProjectName => "P";
+        public override string? IdeVersion => "0";
+        public override void Disconnect() { }
+        public override bool ShouldMarkDegraded(Exception ex) => false;
+        public override void SelectProject(ConnectRequest sel) { }
+        public override void FlushPendingWrites() { }
+        public override bool Build() => true;
+        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
+    }
+
     /// <summary>The minimum DriverBase subclass: it counts probes and publishes an empty row list (which is what
     /// stamps the throttle clock). Everything else is inert — no IDE, no marshalling.</summary>
     private sealed class ProbeCountingDriver : DriverBase
