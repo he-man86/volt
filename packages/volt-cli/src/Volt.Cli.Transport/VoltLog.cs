@@ -98,8 +98,13 @@ public static class VoltLog
     {
         try
         {
+            // ONLY this source's own files. The store is SHARED — Setup drops install-*.log / uninstall-*.log
+            // here, LogWindow puts them in the support bundle and scripts/test-install.ts reads them, and
+            // nothing re-creates them. A `*.log` glob made every component the retention policy for its
+            // neighbours: whichever process Init'd first destroyed the record of the install a support case is
+            // about. Filenames are `{source}-{date}.log` (see PathFor), so the source prefix IS the ownership key.
             var cutoff = DateTime.Now.AddDays(-RetentionDays);
-            foreach (var f in Directory.GetFiles(_dir, "*.log"))
+            foreach (var f in Directory.GetFiles(_dir, _source + "-*.log"))
                 if (File.GetLastWriteTime(f) < cutoff) { try { File.Delete(f); } catch { /* ignore */ } }
         }
         catch { /* best effort */ }
