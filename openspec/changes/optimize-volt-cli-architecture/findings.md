@@ -1189,3 +1189,48 @@ has to lie names a seam in the wrong place, and two of them currently do.
 - **The serializer-options "duplication"** — `PipeJson`'s camelCase-write vs case-insensitive-read is a
   deliberate asymmetric pair, not drift. Publishing it invites a swap that silently empties `PushRequest` and
   nulls `BuildRequest.expectedProjectName` through `Body<T>`'s `?? new T()`.
+
+---
+
+## Move 18 (`pou-refinement-uses-the-core-parser`) — DEFERRED, not applied
+
+Five independent grounds, any one sufficient. Recorded in full because the card reads convincingly and someone
+will propose it again.
+
+1. **The premise is unverified and may be fiction.** The card's headline is that a pragma- or comment-headed
+   INTERFACE is misclassified, sending it down the wrong export primitive. But `CodesysTypeMap.CodeForObject`
+   reaches `RefinePou` only via `IPOUObject` (:46), while an interface is classified via `IInterfaceObject`
+   (:56). `CodesysObjectModel.cs:677-678` states that CODESYS's `export_xml` "only works for `IPOUObject`, not
+   `IInterfaceObject` — callers must use `ExportInterfaceXml` for interfaces", i.e. the two are distinct object
+   types. If they are disjoint, a real interface never reaches `RefinePou`, its `INTERFACE` branch is dead, and
+   the entire "wrong export primitive" story does not exist.
+2. **The live check that would settle it was deleted by our own move 2.** The prescribed verification was the
+   `debug` op's `typeTags` against a real INTERFACE object — `DebugService`/`CodesysDriver.TypeTags`, removed as
+   unreachable-from-any-client. That deletion was correct, and this is its real cost: a diagnostic surface that
+   was unreachable from the WIRE was still reachable by a developer with a live IDE. Worth remembering before
+   deleting the next one.
+3. **As carded it does not compile.** It deletes `CodesysTypeMap.NeedsDeclaration`, whose only caller is
+   `CodesysDriver.Tree.cs:150` — a file absent from the move's `files`. First error: CS0117.
+4. **It substitutes a THROWING parser for a TOTAL one.** `RefinePou` returns a code for every input;
+   `CodeHelper.ParseCodeHeader` throws `BridgeException(InvalidCodeHeader)` on empty input, on a header line it
+   cannot find, and on an unrecognized keyword. Its input is `ReadAspectText(…, "Interface")`, which returns
+   `""` whenever the aspect is absent. On the WALK path that throw is unguarded — `Tree.cs`'s `try/catch` wraps
+   only `GetChildren` — so it would abort `WalkItems`, i.e. every `fetch`/`refs`/`init`/`push` for the whole
+   project. Containing it means either a swallowing `catch` (forbidden by Conventions 1) or a silent default.
+5. **Its gate cannot detect its own risk.** No test csproj references `Volt.Cli.Ide.Codesys` (net48; all three
+   suites are net8.0), so "build + 3 suites" is structurally incapable of failing for this change. The named
+   red-first test targets `ItemKind.CodeForDeclaration`, which does not exist today — it does not compile before
+   the fix, so it is green-on-arrival against new code, not a pin on the defect.
+
+### What IS real, and what it would take
+
+Stripped of the interface story, one narrow defect survives: for a **pragma- or doc-comment-headed PROGRAM or
+FUNCTION**, `LeadingKeyword` reads `""` from a raw `TrimStart` and `RefinePou` falls to its `PlcPouFb` default,
+so **`refs`/`fetch` report `function_block`** for it. The workspace file is unaffected — `Materializer` takes the
+extension from `build.Kind` (`CodeHelper`), not from the driver — and the body content is unaffected, since both
+kinds take the same export branch. So this is a **wire-`kind` defect only**, not the data-loss-shaped one the
+card describes.
+
+Fixing it honestly requires making the classifier reachable from a test first — `InternalsVisibleTo`, or moving
+refinement into Core deliberately as its own change. Doing it as a drive-by inside this move is what produced
+all five problems above.
