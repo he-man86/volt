@@ -21,9 +21,13 @@ public sealed partial class CodesysDriver
     public string? BodyLanguage(ItemRef item) =>
         item.Native is LibRefNode ? null : PlcOpenDocument.GraphicalBodyLang(_om.ExportXmlString(item.Native));
 
+    // No LibRefNode arm here, unlike the textual readers above: `library` is not a source kind, so Materializer
+    // routes a library reference to ReadManifest and never here. The arm that used to sit here GUARDED the synthetic
+    // node by handing it to the object-model exporter — the very call it was guarding against, which wraps it into an
+    // IExtendedObject<IScriptObject> and throws. If one ever does reach this, it fails loud there rather than
+    // returning a manifest dressed up as PLCopen XML.
     public string ReadXml(ItemRef item)
     {
-        if (item.Native is LibRefNode) return _om.ExportXmlString(item.Native);
         if (KindCodeOf(item.Native) == ItemKind.PlcItf) return _om.ExportInterfaceXml(item.Native);
         return _om.ExportXmlWithChildren(item.Native);
     }

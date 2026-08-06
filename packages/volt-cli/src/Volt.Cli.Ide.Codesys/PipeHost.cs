@@ -11,9 +11,8 @@ namespace Volt.Cli.Ide.Codesys;
 
 /// <summary>
 /// The entry point the CODESYS script command calls: <c>PipeHost.Start(projects, system, online)</c>. Builds the
-/// REAL <see cref="CodesysDriver"/> and serves it over the NAMED PIPE (<see cref="BridgePipeHost"/>) — the pipe
-/// replacement for the backup's <c>Host.cs</c> + <c>BridgeHttpServer</c>. All bridge logic stays in Core; the
-/// IronPython side is only a launcher. (Cannot be unit-tested off a live CODESYS — validated by the black-box net
+/// REAL <see cref="CodesysDriver"/> and serves it over the NAMED PIPE (<see cref="BridgePipeHost"/>). All bridge
+/// logic stays in Core; the IronPython side is only a launcher. (Cannot be unit-tested off a live CODESYS — validated by the black-box net
 /// against a headless IDE.)
 /// </summary>
 public static class PipeHost
@@ -31,8 +30,9 @@ public static class PipeHost
     /// was loaded from. CODESYS loads us via <c>clr.AddReferenceToFileAndPath</c> (Assembly.LoadFile), which does NOT
     /// add that folder to the CLR probe path — so a dependency the host process can't already satisfy fails to load.
     /// This bit only: <c>health</c> serializes <see cref="HealthResponse"/>, whose [JsonPropertyName]/[JsonIgnore]
-    /// attributes force an exact System.Text.Json 8.0.0.0 bind; without this handler that throws and the connector
-    /// (which gates Connect on health) can't attach — even though discovery (instances) works. Install once.</summary>
+    /// attributes force an exact System.Text.Json 8.0.0.0 bind; without this handler that throws — and since `health`
+    /// is ALSO how a client discovers this bridge's project (the flat row list; there is no separate `instances` op),
+    /// the connector then has nothing to offer and can't attach. Install once.</summary>
     private static void EnsureDependencyResolver()
     {
         if (Interlocked.Exchange(ref _resolverInstalled, 1) != 0) return;

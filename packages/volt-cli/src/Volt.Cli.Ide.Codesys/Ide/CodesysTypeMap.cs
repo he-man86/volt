@@ -30,11 +30,14 @@ namespace Volt.Cli.Ide.Codesys
             // grouping node whose ITaskObject children surface as individual `task`s.
             if (Has(ifaces, "IApplicationObject")) return ItemKind.Application;
             if (Has(ifaces, "IPlcLogicObject")) return ItemKind.PlcLogic;
+            // A device is BOTH: the walk emits a read-only `.device` descriptor for it AND recurses its
+            // subtree (Driver/CodesysDriver.Tree.cs) — it is the one code here that does not mean "never emit".
             if (Has(ifaces, "IDeviceObject")) return ItemKind.Device;
             if (Has(ifaces, "ITaskConfigObject")) return ItemKind.TaskConfig;
 
-            // Inlined in a POU/interface source (collected by SourceAssembler). Each
-            // gets its own code — SourceAssembler keys on the distinct values
+            // Inlined in a POU/interface source: ItemKind.IsInlinedInPou reads these codes to make the tree
+            // walk skip them, and the child text is assembled by Workspace/PouToStText (fed on CODESYS by the
+            // PlcOpen export, ExportXmlWithChildren). Each gets its own distinct code
             // (interface_method/transition/interface_property), matching TwinCAT.
             if (Has(ifaces, "IInterfaceMethodObject")) return ItemKind.PlcItfMeth;
             if (Has(ifaces, "IPOUMethodObject")) return ItemKind.PlcMethod;
@@ -134,14 +137,18 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →
         /// fb/func/prog/itf). A DUT is NOT refined on a read (it is one wire kind `dut`), so it does not need
-        /// the declaration here. This predicate MUST stay in sync with the RefinePou branch in
-        /// <see cref="CodeForObject"/> — keeping both here makes that a single-file invariant.</summary>
+        /// the declaration here. This is a SUPERSET of the RefinePou branch in <see cref="CodeForObject"/>: that
+        /// branch sits behind ten earlier returns, so a node carrying IPOUObject alongside an earlier-matching
+        /// interface reads a declaration that classification then ignores — safe, but not free. Keeping the predicate
+        /// in this file is what stops it drifting BELOW the branch (the failure that matters: a POU whose kind
+        /// then refines from a null declaration).</summary>
         public static bool NeedsDeclaration(HashSet<string> ifaces) =>
             Has(ifaces, "IPOUObject");
 
-        /// <summary>Containers we recurse into but never emit.</summary>
+        /// <summary>Containers we recurse into but never emit. Device is deliberately NOT here: the walk
+        /// handles it earlier and EMITS a `.device` descriptor as well as recursing.</summary>
         public static bool IsRecurseOnlyContainer(int code) =>
-            code is ItemKind.Application or ItemKind.PlcLogic or ItemKind.Device or ItemKind.TaskConfig
+            code is ItemKind.Application or ItemKind.PlcLogic or ItemKind.TaskConfig
                 or ItemKind.GenericContainer;
 
         /// <summary>True when the node carries NO classifying object interface — only the universal base
@@ -162,10 +169,11 @@ namespace Volt.Cli.Ide.Codesys
         private static int RefinePou(string? decl)
         {
             var k = LeadingKeyword(decl);
-            if (k.StartsWith("FUNCTION_BLOCK")) return ItemKind.PlcPouFb;
-            if (k.StartsWith("INTERFACE")) return ItemKind.PlcItf;
-            if (k.StartsWith("FUNCTION")) return ItemKind.PlcPouFunc;
-            if (k.StartsWith("PROGRAM")) return ItemKind.PlcPouProg;
+            // Ordinal like the rest of this file — these are IEC keywords, never culture-sensitive text.
+            if (k.StartsWith("FUNCTION_BLOCK", StringComparison.Ordinal)) return ItemKind.PlcPouFb;
+            if (k.StartsWith("INTERFACE", StringComparison.Ordinal)) return ItemKind.PlcItf;
+            if (k.StartsWith("FUNCTION", StringComparison.Ordinal)) return ItemKind.PlcPouFunc;
+            if (k.StartsWith("PROGRAM", StringComparison.Ordinal)) return ItemKind.PlcPouProg;
             return ItemKind.PlcPouFb; // default
         }
 

@@ -12,8 +12,11 @@ namespace Volt.Cli.Ide.Codesys;
 /// <summary>
 /// The CODESYS IDE driver: implements the Core <see cref="IIdeDriver"/> over the live project reached
 /// in-process through the .NET object model (<see cref="CodesysObjectModel"/>, reflection-only — no
-/// CODESYS assembly references). Every object-model touch is marshalled onto the CODESYS primary thread
-/// via <see cref="RunOnStaThread{T}"/> (the HTTP server wraps each handler in it). Split across partial
+/// CODESYS assembly references). Object-model touches are marshalled onto the CODESYS primary thread via
+/// <see cref="RunOnStaThread{T}"/>: Core's <c>Wire/BridgePipeHost</c> wraps every project-touching op in it
+/// (its <c>RunOp</c>/<c>RunRead</c>). The two exceptions are <see cref="Connect"/> and
+/// <see cref="SelectProject"/>, which call <see cref="SnapshotHealth"/> directly because they already run ON
+/// that thread. Split across partial
 /// files by interface facet: this file is the session; <c>.Tree</c> and <c>.Code</c> are the others.
 /// </summary>
 public sealed partial class CodesysDriver : DriverBase, IIdeDriver
@@ -75,7 +78,10 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// enumeration — the connector concatenates both into the same unified list. A project is identified by its NAME;
     /// two running CODESYS on the same-named project reach the same wire identity (the per-pid PIPE, not a row field,
     /// is what still routes each). The one project is always `serving` when connected (the in-proc host is bound to
-    /// it); CODESYS never degrades (in-proc).</summary>
+    /// it). CODESYS never AUTO-degrades from an op exception (<see cref="ShouldMarkDegraded"/> is always false), but a
+/// failing ambient probe still marks it degraded — <c>DriverBase.OnProbeFailed</c> calls <c>MarkDegraded</c> for
+/// every vendor, and a degraded row IS wire-visible. That is why <see cref="Disconnect"/> and
+/// <see cref="SnapshotHealth"/> still call <c>ClearDegraded()</c>.</summary>
     private List<ProjectEntry> BuildProjects(bool serving)
     {
         var name = _om.ProjectName;
@@ -98,11 +104,14 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // probe, and this driver takes Core's default floor (DriverBase.DefaultProbeThrottleMs) instead of overriding it.
     // The in-proc snapshot is cheap, but it still runs on the engineer's PRIMARY thread, and it used to run once per
     // poll per frontend — tray + every VS Code workspace + the desktop window, each on its own 4s clock. NB the floor
-    // is well BELOW that 4s: _hasProject (the OpGuard precondition, written only by this probe) is refreshed by every
-    // client poll exactly as before, so its staleness stays bounded by the slowest client's poll, not by the floor —
-    // which is why the number is 1000 and not TwinCAT's 5000. Cached list, live verdict: CODESYS never marks degraded
-    // (in-proc), but a hung/closed IDE stops responding to the probe, so staleness demotes it from a frozen "healthy"
-    // — see DriverBase.OverlayLiveHealth.
+    // is well BELOW that 4s: _hasProject (the OpGuard precondition, written by SnapshotHealth — the ambient probe plus
+    // the on-thread Connect/SelectProject refreshes) is refreshed by every client poll exactly as before, so its
+    // staleness stays bounded by the slowest client's poll, not by the floor — which is why the number is 1000 and not
+    // TwinCAT's 5000. Cached list, live verdict: CODESYS never AUTO-degrades from an op (ShouldMarkDegraded => false),
+    // and a CLOSED project makes the next probe publish an empty row list. A HUNG primary thread is NOT demoted today:
+    // the probe marshals through RunOnStaThread too, so it pins DriverBase._opInFlight above 0 and DeriveServedStatus
+    // keeps answering "healthy" — that is DriverBase's open _opInFlight ARCH FOLLOW-UP, not a guarantee this driver
+    // gets. See DriverBase.OverlayLiveHealth.
 
     public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 

@@ -501,3 +501,95 @@ graphical CHILD — the same fixture gap `fix-push-data-loss` §2.2 is blocked o
 
 **Fix.** Either make the PLCopen leg carry them (network title / disabled state) so the round-trip is genuinely lossless, or — the smaller, fail-loud change consistent with Conventions 1 — refuse them in `GraphicalCode.Validate` with a coded `VgParseException` (`VG_UNSUPPORTED_NETWORK_ATTRIBUTE`) so the author is told the attribute cannot be pushed rather than having it vanish. Do not leave the model fields writable-but-unwritten.
 
+
+---
+
+## BATCH 7 ESCALATIONS — `Volt.Cli.Ide.Codesys` (2026-08-06)
+
+50 findings, 20 behaviour-changing. **Nothing here has unit coverage**: no test csproj can reference this net48
+assembly, so the three suites execute zero lines of it. These were found by reading only.
+
+### `CodesysDispatcher.cs:49` — bug (group 7.2)
+
+**Claim.** The reflection invoke is never unwrapped, so a failure of the IDE's own marshalling surfaces to the client as INTERNAL_ERROR with the useless message "Exception has been thrown by the target of an invocation" — a reflection-specific exception type leaking as an expected condition, which ARCHITECTURE forbids.
+
+**Fix.** Wrap the invoke: `try { _invoke.Invoke(...); } catch (TargetInvocationException tie) when (tie.InnerException != null) { throw tie.InnerException; }` (or ExceptionDispatchInfo on the inner), so the real reason — not the reflection wrapper's boilerplate — reaches the error frame.
+
+### `CodesysObjectModel.cs:647` — bug (group 7.1)
+
+**Claim.** CreateChild has no case for the four property-accessor kind codes (PlcPropGet 613 / PlcPropSet 614 / PlcItfPropGet 654 / PlcItfPropSet 655), so a push that must (re)create a Get or Set accessor silently falls into the `default:` arm and creates a FUNCTION BLOCK named "Get"/"Set" instead. TwinCAT passes the same kindCode straight through to its native CreateChild and creates the real accessor — a vendor divergence a pipe client can observe, which ARCHITECTURE calls a bug by construction.
+
+**Fix.** Add explicit `case ItemKind.PlcPropGet: case ItemKind.PlcItfPropGet: return Create(MemberContainer(parent), "create_accessor_get"/the correct scripting factory, name);` (likewise for Set), and replace `default:` with a throw naming the unhandled itemType — mirroring PushService.PouKindToCode's stated policy ("No fallback: an unrecognized top-level kind is a bug ... not a Program").
+
+### `CodesysObjectModel.cs:939` — defensive-fallback (group 7.1)
+
+**Claim.** InvokeMethod returns null instead of throwing when no overload of that name/arity exists. Every mutating call in this file routes through it, so a CODESYS version that renames or re-arities a method turns a WRITE into a silent no-op: `SetObject(meta, true, null)` never commits (push reports success, edit lost), `ExecuteCommand` never builds (Build() then sees no errors and returns true), `rename`/`remove` silently do nothing. Everywhere else in this same file a missing member throws with an explicit 'object-model version mismatch' message.
+
+**Fix.** Make the no-match path throw `MissingMethodException`/`InvalidOperationException($"CODESYS: no '{name}' overload taking {args.Length} args on {o.GetType().FullName}")`, matching InvokeWithOptionals/CreateNamed which already do exactly that. If any call site genuinely wants best-effort, add a separate `TryInvokeMethod` and use it there explicitly.
+
+### `CodesysObjectModel.cs:140` — defensive-fallback (group 7.1)
+
+**Claim.** GetLibraryRefs drops library references on three bare `catch` arms with no log line, violating the stated invariant 'Skipped/errored items are logged, never silently dropped (Volt.Cli.Transport/VoltLog) with name + reason'. A dropped .library ref removes its whole signature set from the fetch, and the workspace just shows fewer files with nothing to read.
+
+**Fix.** Replace each bare `catch` with `catch (Exception ex) { VoltLog.Warn($"library ref '{nm}' skipped: {ex.Message}"); ... }` (Volt.Cli.Transport is already referenced by this assembly — CodesysDriver.Tree.cs uses VoltLog).
+
+### `CodesysObjectModel.cs:708` — bug (group 7.1)
+
+**Claim.** ExportInterfaceXml skips folders instead of recursing into them, so an interface method/property that the engineer filed inside a folder under the interface is silently omitted from the synthesized PLCopen document — and therefore from the materialized interface source. The sibling POU path (CollectPouChildren) recurses folders, and Materializer.BuildFolderMap also recurses folders for the same parent, so it expects foldered children to exist.
+
+**Fix.** Extract the per-child emission into a local function and recurse on folders instead of `continue`, exactly as CollectPouChildren does.
+
+### `CodesysObjectModel.cs:96` — defensive-fallback (group 7.1)
+
+**Claim.** ReadObject falls back to returning the IMetaObject itself when `.Object` resolves to null. That silently substitutes the wrong object for every downstream consumer: ObjectInterfaceNames then enumerates IMetaObject's interfaces (misclassification → the item is dropped as unknown by CodesysTypeMap.IsSkipped) and ReadAspectText finds no "Interface"/"Implementation" aspect and returns "" (an item materializes with empty source). The comment on the very same line asserts `.Object` is always there.
+
+**Fix.** `return GetMember(meta, "Object") ?? throw new InvalidOperationException("CODESYS: IMetaObject.Object was null — object-model version mismatch");`
+
+### `CodesysObjectModel.cs:450` — bug (group 7.1)
+
+**Claim.** Build() decides success by scanning the ENTIRE persistent MessageStorage — every category, never cleared, no timestamp/generation filter — so it reports errors it did not produce. ExtractLibrarySignatures deliberately runs a build it EXPECTS to fail immediately beforehand ('even a FAILING app build ... still precompiles'), which seeds that store with error messages; the next `volt build` then returns success:false plus those stale diagnostics.
+
+**Fix.** Clear the message store (or snapshot its message count per category) immediately before `ExecuteCommand` and report only messages added after that point; alternatively restrict the enumeration to the build/compile category rather than `Categories` wholesale.
+
+### `CodesysObjectModel.cs:75` — defensive-fallback (group 7.1)
+
+**Claim.** The three identity accessors all default silently on a failed read: GetName returns "", GuidOf returns Guid.Empty, HandleOf returns 0. Since 'the item NAME is the identity', a ""-named item enters the walk, the version map and the workspace layout; and (0, Guid.Empty) is then handed to GetObjectToRead/GetObjectToModify, i.e. a read or a WRITE aimed at an unresolved object. ARCHITECTURE Convention 1: 'If data is required, say so and guard it.'
+
+**Fix.** Throw on the miss: `?? throw new InvalidOperationException("CODESYS: node exposes no get_name")`, and likewise for guid/handle. At minimum guard WriteSourceText: refuse to open a modify transaction when HandleOf(node)==0 && GuidOf(node)==Guid.Empty.
+
+### `CodesysObjectModel.cs:237` — defensive-fallback (group 7.1)
+
+**Claim.** SetAspectText has TWO silent returns but the comment justifies only the first. A missing ASPECT (`aspect == null`) is the documented, contract-sanctioned no-op (ICodeStore: 'CODESYS silently no-ops it'). A missing TextDocument on an aspect that DOES exist is an unexplained silent drop of a real write — WriteSourceText then commits an empty transaction via SetObject and the push reports success, contradicting ICodeStore's 'Every method throws on real IDE failure; there is no silent fallback.'
+
+**Fix.** Keep the `aspect == null` no-op (it is the documented contract) and make the second case loud: `var doc = GetMember(aspect, "TextDocument") ?? throw new InvalidOperationException($"CODESYS: {aspectName} aspect has no TextDocument");`
+
+### `CodesysObjectModel.cs:496` — defensive-fallback (group 7.1)
+
+**Claim.** The best-effort precompile swallows its exception with no log at all. A build that throws (rather than merely failing) means the subsequent AllPrecompiledSignatures call returns near-nothing, and the engineer sees a fetch with silently missing library signatures and no line to read. ARCHITECTURE Convention 4: 'Never swallow a background failure' — best-effort for the request, but log it.
+
+**Fix.** `catch (Exception ex) { VoltLog.Debug($"library precompile build threw (signatures may be incomplete): {ex.Message}"); }` — keeps the best-effort semantics, ends the silence.
+
+### `CodesysDriver.Code.cs:40` — bug (group 7.3)
+
+**Claim.** WriteXml's restore copy is captured with ExportXmlString (the node ALONE) while the XML being written was built from ExportXmlWithChildren (node + methods/actions/properties). If the import fails, PlcOpenTransport restores a POU stripped of every child — silent data loss on exactly the data-safety path that exists to prevent it. The Beckhoff driver uses the SAME primitive (ExportPouXml) for both legs, so this is also a vendor divergence in a load-bearing policy.
+
+**Fix.** Capture the restore copy with the same primitive the write leg reads with: `exportOriginal: () => _om.ExportXmlWithChildren(node)`.
+
+### `CodesysDriver.Code.cs:41` — defensive-fallback (group 7.3)
+
+**Claim.** The `if (par != null)` guard silently turns a missing parent into a SKIPPED delete, after which the import runs with `into: null` — which CodesysObjectModel resolves to the project root. The POU is then relocated out of its folder and collides by name with the copy that was never deleted. It also falsifies the recorded assumption ImportXmlString relies on ("the only caller DELETES the existing object before importing, so there is no name conflict"), which is what makes its 2-arg fall-through safe.
+
+**Fix.** Drop the guard and fail loud: `var par = _om.ParentOf(node) ?? throw new InvalidOperationException($"CODESYS: '{nm}' has no parent — cannot re-import in place");` (PLCopenXML carries no folder membership, so there is no correct root-import behaviour to fall back to).
+
+### `CodesysDriver.cs:71` — defensive-fallback (group 7.3)
+
+**Claim.** When the dispatcher could not be created, MarshalToIdeThread runs the closure on the CALLING thread instead of the CODESYS primary thread. Every op is already refused in that state (IsConnected is false), so the only thing this fallback enables is the ambient health probe executing SnapshotHealth's object-model reflection on a ThreadPool thread against thread-affine scripting objects — the one thing this file says everywhere must never happen. Worse, the fallback returns normally, so DriverBase.RunOnStaThread stamps _lastOkTick ("the IDE responded") when no IDE thread was ever reached.
+
+**Fix.** Throw instead of running off-thread: `=> _dispatcher?.Run(fn) ?? throw new BridgeException(BridgeErrorCodes.PlcDisconnected, "CODESYS primary-thread dispatcher unavailable")` (a coded error keeps the one-error-channel rule; the probe's failure then reaches OnProbeFailed and is logged instead of silently corrupting IDE state).
+
+### `CodesysDriver.Tree.cs:108` — defensive-fallback (group 7.3)
+
+**Claim.** HasChildren swallows every exception and reports "leaf", 70 lines below a sibling guard on the SAME call that explicitly invokes the no-fallback policy and logs to both sinks. The swallow is not cosmetic: it decides whether the device descriptor is emitted at `Dev/Dev.device` or `Dev.device`, i.e. a wire-visible `folder` change and a file rename in the user's git repo, with nothing in the log to explain it.
+
+**Fix.** Log the same two sinks as the Walk guard before returning false (`catch (Exception ex) { VoltLog.Warn($"device '{name}': child probe failed, treating as a leaf: {ex.Message}"); return false; }`), or better, hoist the single GetChildren call the walk already needs and derive both `hasChildren` and the recursion from it under the existing logged guard.
+

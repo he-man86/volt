@@ -1,13 +1,15 @@
 using System;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Ide.Codesys
 {
     /// <summary>
     /// Marshals work onto the CODESYS primary (UI/scripting) thread. The scripting
-    /// objects are thread-affine, so every read/write must run there — but the HTTP
-    /// server runs on background ThreadPool threads. This is the CODESYS analogue of
-    /// the Beckhoff bridge's STA queue: it wraps the IDE's own
+    /// objects are thread-affine, so every read/write must run there — but
+    /// BridgePipeHost serves each pipe connection on a background ThreadPool thread.
+    /// This is the CODESYS analogue of the Beckhoff bridge's STA queue: it wraps the IDE's own
     /// <c>IEngine.InvokeInPrimaryThread(delegate, args, bAsync)</c>.
     ///
     /// Obtained by reflection from the already-loaded <c>SystemInstances.Engine</c>
@@ -27,11 +29,27 @@ namespace Volt.Cli.Ide.Codesys
         public static CodesysDispatcher? TryCreate()
         {
             var siType = Reflection.FindType("_3S.CoDeSys.Core.SystemInstances");
-            var engine = siType?.GetProperty("Engine", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
-            if (engine == null) return null;
+            if (siType == null) return Unavailable("_3S.CoDeSys.Core.SystemInstances is not loaded in this AppDomain");
+
+            var engine = siType.GetProperty("Engine", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            if (engine == null) return Unavailable("SystemInstances.Engine (public static) is absent or null");
 
             var invoke = FindInvoke(engine);
-            return invoke == null ? null : new CodesysDispatcher(engine, invoke);
+            if (invoke == null)
+                return Unavailable($"InvokeInPrimaryThread(Delegate, object[], bool) not found on {engine.GetType().FullName} or its interfaces");
+
+            return new CodesysDispatcher(engine, invoke);
+        }
+
+        /// <summary>A null dispatcher leaves the driver permanently unable to reach the IDE thread, which the
+        /// client only ever sees as PLC_DISCONNECTED — so say WHY, to both sinks exactly as the tree walk does:
+        /// VoltLog is the only one an engineer can read after a pull (CODESYS.exe is a GUI process with no
+        /// console attached), stderr is what the headless dev loop (codesys-pipe.ps1) still captures.</summary>
+        private static CodesysDispatcher? Unavailable(string reason)
+        {
+            Console.Error.WriteLine($"[bridge] CODESYS primary-thread dispatcher unavailable: {reason}");
+            VoltLog.Warn($"CODESYS primary-thread dispatcher unavailable: {reason}");
+            return null;
         }
 
         /// <summary>Run <paramref name="fn"/> on the primary thread, block for its
@@ -47,7 +65,9 @@ namespace Volt.Cli.Ide.Codesys
             };
             // bAsync = false → synchronous: returns once the delegate has run.
             _invoke.Invoke(_engine, new object?[] { action, null, false });
-            if (error != null) throw error;
+            // Capture().Throw() rather than `throw error;` — a bare rethrow resets the stack trace to this line,
+            // so every failure inside the IDE work item would look like the marshal threw it.
+            if (error != null) ExceptionDispatchInfo.Capture(error).Throw();
             return result;
         }
 

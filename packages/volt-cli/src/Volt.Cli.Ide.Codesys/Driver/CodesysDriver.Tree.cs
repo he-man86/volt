@@ -112,6 +112,12 @@ public sealed partial class CodesysDriver
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.GetChildren(parent.Native)[index1Based - 1]);
     public ItemRef Parent(ItemRef item) => new(_om.ParentOf(item.Native)!);
     public string Name(ItemRef item) => item.Native is LibRefNode lib ? lib.Name : _om.GetName(item.Native);
+    // ponytail: KindCode answers the RAW classification, so a device node reads as ItemKind.Device (692, the
+    // recurse-only spine) here while Walk() emits that same node as ItemKind.PlcDevice (695, the read-only
+    // descriptor it materializes). The split is ItemKind's own (see its comment on PlcDevice), not drift — but it
+    // does mean one node has two codes depending on which member you ask. Nothing consumes both today; a caller that
+    // needs the EMITTED kind must apply the same Device→PlcDevice promotion Walk does, or ItemKind.Map() will hand
+    // it the null it deliberately maps 692 to.
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
 
     // CODESYS enumerates an interface property's accessor children safely (in-process, no COM-RPC crash) —

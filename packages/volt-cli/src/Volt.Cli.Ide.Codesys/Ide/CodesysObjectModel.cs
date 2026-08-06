@@ -16,17 +16,19 @@ namespace Volt.Cli.Ide.Codesys
     ///   IObject o = ObjectMgr.GetObjectToRead(handle, guid).Object;
     ///   decl = o.Interface.TextDocument.Text;   impl = o.Implementation.TextDocument.Text;
     /// </code>
-    /// The IronPython scripting objects (<c>projects</c>) are used ONLY to enumerate
-    /// the tree (their <c>get_children</c>/<c>get_name</c>/<c>guid</c>/<c>handle</c>
-    /// are real .NET members); ALL source-text I/O and kind classification go through
-    /// the object model. NO IronPython-injected members (e.g. <c>textual_declaration</c>),
-    /// NO export/serialization. Reflection-only, so this one binary loads in any 3.5.x.
+    /// ALL source-text I/O and kind classification go through the object model. The
+    /// scripting objects (<c>projects</c>) carry everything else: tree enumeration
+    /// (<c>get_children</c>/<c>get_name</c>/<c>guid</c>/<c>handle</c>), CRUD
+    /// (<c>create_*</c>/<c>rename</c>/<c>remove</c>), the PLCopen <c>export_xml</c>/
+    /// <c>import_xml</c> transport, and the read-only descriptors read off their
+    /// <c>Extender</c> facets — all real .NET members. NO IronPython-injected members
+    /// (e.g. <c>textual_declaration</c>). Reflection-only, so this one binary loads in any 3.5.x.
     /// </summary>
     internal sealed class CodesysObjectModel
     {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        // Placeholder type CODESYS requires at create-time for a function (return_type) / alias (baseType);
+        // Placeholder type CODESYS requires at create-time for a function (return_type);
         // immaterial because WriteSourceText immediately sets the real declaration (and type) afterward.
         private const string SeedType = "INT";
 
@@ -240,31 +242,25 @@ namespace Volt.Cli.Ide.Codesys
 
         // ── structural ─────────────────────────────────────────────────────────
         /// <summary>The Application node — default parent for new POUs.</summary>
-        public object? FindApplication() => FindByObjectInterface(PrimaryProject, "IApplicationObject", 0);
+        public object? FindApplication() =>
+            FindFirst(PrimaryProject, c => !IsFolder(c) && ObjectInterfaceNames(ReadObject(c)).Contains("IApplicationObject"), 0);
 
-        public object? FindByName(string name) => FindByName(PrimaryProject, name, 0);
+        // A transient/hidden object with this name is never returned (no fallback to one).
+        public object? FindByName(string name) =>
+            FindFirst(PrimaryProject, c => string.Equals(GetName(c), name, StringComparison.Ordinal) && !IsTransient(c), 0);
 
-        private object? FindByName(object? node, string name, int depth)
+        // Depth cap shared by the tree walks (both carried the same literal): a guard against a
+        // cyclic / pathologically nested tree, not a limit any real project reaches.
+        private const int MaxTreeDepth = 14;
+
+        /// <summary>Depth-first search for the first descendant matching <paramref name="match"/>.</summary>
+        private object? FindFirst(object? node, Func<object, bool> match, int depth)
         {
-            if (node == null || depth > 14) return null;
+            if (node == null || depth > MaxTreeDepth) return null;
             foreach (var child in GetChildren(node))
             {
-                // Prefer a real (non-transient) object with this name.
-                if (string.Equals(GetName(child), name, StringComparison.Ordinal) && !IsTransient(child))
-                    return child;
-                var hit = FindByName(child, name, depth + 1);
-                if (hit != null) return hit;
-            }
-            return null;
-        }
-
-        private object? FindByObjectInterface(object? node, string ifaceName, int depth)
-        {
-            if (node == null || depth > 14) return null;
-            foreach (var child in GetChildren(node))
-            {
-                if (!IsFolder(child) && ObjectInterfaceNames(ReadObject(child)).Contains(ifaceName)) return child;
-                var hit = FindByObjectInterface(child, ifaceName, depth + 1);
+                if (match(child)) return child;
+                var hit = FindFirst(child, match, depth + 1);
                 if (hit != null) return hit;
             }
             return null;
@@ -353,8 +349,6 @@ namespace Volt.Cli.Ide.Codesys
                 Line("Watchdog", "off");
 
             // The POUs this task calls each cycle (ScriptPouObjectList yields the POU names, in call order).
-            // (helper below appends the unit only when the value is a bare number — an interval already
-            //  rendered as a TIME literal like `t#20ms` carries its own unit and is left untouched.)
             if (GetMember(f, "pous") is IEnumerable pous)
             {
                 var names = new List<string>();
@@ -407,7 +401,8 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>Render a node's read-only descriptor from ONE scripting facet's scalar properties as
         /// aligned `Label: value` lines (empty values omitted). Shared by the project-info / trace / symbol
-        /// descriptors — the device descriptor stays bespoke (it reads two facets).</summary>
+        /// descriptors; device (two facets), task (nested watchdog + POU list) and recipe (variable list)
+        /// render bespoke because their fields are not flat scalars.</summary>
         private string FacetDescriptor(object node, string facetName, params (string Label, string Prop)[] fields)
         {
             var f = Facet(node, facetName);
@@ -596,7 +591,11 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>Create a child object under <paramref name="parent"/> via the IEC
         /// container's typed scripting factory (create_pou/create_dut/…). Returns the
-        /// new node; the caller writes its text via <see cref="WriteSourceText"/>.</summary>
+        /// new node; the caller writes its text via <see cref="WriteSourceText"/>.
+        /// <paramref name="language"/> is UNUSED here — CODESYS's <c>create_pou</c> has no
+        /// implementation-language parameter, so a graphical POU is created as ST and its language is set
+        /// afterwards by the PLCopen import (see PushService / GraphicalCode.Write). The parameter stays
+        /// for the IProjectTree signature, which TwinCAT does honour.</summary>
         public object CreateChild(object parent, string name, int itemType, string? language = null)
         {
             // Folders are created on the tree object itself. The object create_folder
@@ -719,14 +718,11 @@ namespace Volt.Cli.Ide.Codesys
                     sb.Append("<body><ST>").Append(System.Net.WebUtility.HtmlEncode(impl)).Append("</ST></body>");
                     sb.Append("</Method>");
                 }
-                else if (ifaces.Contains("IInterfacePropertyObject"))
-                {
-                    sb.Append("<Property name=\"").Append(System.Net.WebUtility.HtmlEncode(childName)).Append("\">");
-                    sb.Append("<InterfaceAsPlainText><xhtml>")
-                      .Append(System.Net.WebUtility.HtmlEncode(ReadDeclaration(child)))
-                      .Append("</xhtml></InterfaceAsPlainText>");
-                    sb.Append("</Property>");
-                }
+                // Interface PROPERTIES are deliberately not emitted: PlcOpenPouParser only turns
+                // Method/Action elements into children, and the Materializer reads interface properties
+                // (and their GET/SET shape) over COM via CollectPropertyChildren /
+                // IProjectTree.InterfacePropertyAccessors. A <Property> element here would be written and
+                // never read.
             }
             sb.Append("</pou>");
             return sb.ToString();
