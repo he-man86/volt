@@ -48,6 +48,37 @@ does.
 solution plus every open editor. It is both narrower (never touches the engineer's unrelated tabs) and *more*
 correct (it persists the registration that was being lost).
 
+### 3.0-VERIFIED (2026-08-06) — BUG 2 IS FIXED. `ide-restart` is 2 pass / 0 fail.
+
+The `File.SaveAll` fix closed it. Run live against a single XAE (Project14), `VOLT_E2E_IDE_CHAOS=1`, **twice**:
+
+```
+bun test test/e2e/lifecycle/ide-restart.test.ts   ->   2 pass / 0 fail
+```
+
+That is task **3.6** ("`ide-restart` to 2 pass / 0 fail, assertions intact") — met, with the assertions
+untouched. The test had been the standing known-red of this change and of
+`openspec/changes/optimize-volt-cli-architecture`'s runbook.
+
+**Task 3.0c is also met**: `git status --porcelain --untracked=all` shows **no `POUs/` directory** after a green
+run. The orphan signature — a `.TcPOU` on disk that no `.plcproj` references, which used to appear as an
+untracked dir after every run — is gone. The three modified files under `test/TwinCAT Project14/` are the IDE's
+own saves of `.tsproj`/`.TcPOU`/`.tmc`, which is the expected fixture churn, not an orphan.
+
+**Why it works, restated against §3's mechanism:** the orphan existed because nothing saved the `.plcproj` that
+REGISTERS the item. `DTE.ExecuteCommand("File.SaveAll")` persists every dirty PROJECT as well as the documents
+and the solution, so the registration lands and a reopened XAE contains the item.
+
+**What is still open, and it is NOT durability:** §3.0's narrow form (save only the containing PLC project) and
+§5's scoping. `File.SaveAll` is BROAD — it also commits the engineer's unrelated dirty tabs, which is a side
+effect on data Volt does not own. That is the remaining task here, and it is now an ergonomics/scope refinement
+rather than a data-loss fix. The `ponytail:` note in `TcObjectModel.FlushPendingWrites` still records it.
+
+**§4 is answered.** "Does push need to save at all?" — yes. With a save that actually executes, the durability
+assertion passes; the earlier "removing the save HANGS" experiment (§4.1) was run against a method that was
+already a silent no-op, so it changed nothing observable and its hang had another cause. Do not re-run §4.1c on
+that premise.
+
 ### 3.0-RESULT (2026-08-05) — the mechanism above is HALF right: `Solution.Save()` never ran at all
 
 Live evidence, two XAEs, worker built from this tree. Every push failed with:
@@ -84,8 +115,7 @@ calling bug 2 closed.
       the PLC project inside the TwinCAT project, so `Solution.Projects` likely needs a walk into `ProjectItems` —
       confirm against the live model, do not infer it). Keep the failure loud.
 - [ ] 3.0b Red-first is possible WITHOUT an IDE for the ordering/選択 part only; the real proof is live, below.
-- [ ] 3.0c Delete the orphan `Untitled2/POUs/VltE2E_restart_survives.TcPOU` (and any siblings) from the fixture, and
-      confirm a clean `git status` after a passing run — a green run must leave no stray files.
+- [x] 3.0c **DONE 2026-08-06** — no `POUs/` directory remains after a green run; the orphan signature is gone.
 
 - [x] 3.1 DONE — that one observation is what cracked it: the file was on disk, so "never saved" was wrong and the
       registration was the missing piece.
@@ -97,8 +127,8 @@ calling bug 2 closed.
       the item's containing artifact; the reopened XAE loads a cached copy; the kill races the save.
 - [ ] 3.5 Fix, with a red-first test. Prefer a unit-level test on the call ORDER if the cause is ordering — that is
       cheap and does not need an IDE.
-- [ ] 3.6 **`ide-restart` to 2 pass / 0 fail**, assertions intact. It is currently 1 pass / 1 fail and stays red
-      until this is fixed — do NOT weaken it.
+- [x] 3.6 **DONE 2026-08-06 — `ide-restart` is 2 pass / 0 fail**, assertions untouched, verified twice. See
+      3.0-VERIFIED above.
 
 ## 4. Does push need to save AT ALL? (decision REOPENED 2026-07-30 on new evidence)
 
