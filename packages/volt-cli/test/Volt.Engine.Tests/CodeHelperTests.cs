@@ -84,4 +84,42 @@ public class CodeHelperTests
     {
         Assert.Throws<BridgeException>(() => CodeHelper.ParseCodeHeader("NONSENSE Foo\n x := 1;"));
     }
+
+    // ── HeaderLine: the TOTAL half, extracted so a classifier that must not throw can share it ──
+    // The CODESYS driver found its keyword with a bare TrimStart() + first-token read, which returns "" for any
+    // declaration opening with a non-word character. A PROGRAM behind a pragma therefore fell to RefinePou's
+    // FUNCTION_BLOCK default and was reported as `function_block` on refs/fetch. These pin the shared answer.
+
+    [Theory]
+    [InlineData("{attribute 'qualified_only'}\nPROGRAM Main\nVAR\nEND_VAR", "PROGRAM Main")]
+    [InlineData("// what this does\nFUNCTION Add : INT\nVAR_INPUT\nEND_VAR", "FUNCTION Add : INT")]
+    [InlineData("(* doc\n   spanning lines *)\nINTERFACE ITest", "INTERFACE ITest")]
+    [InlineData("\n\n   \nPROGRAM Spaced", "PROGRAM Spaced")]
+    [InlineData("PROGRAM Plain", "PROGRAM Plain")]
+    public void HeaderLine_skips_pragmas_comments_and_blanks_to_the_real_header(string decl, string expected)
+    {
+        Assert.Equal(expected, CodeHelper.HeaderLine(decl));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   \n\t\n")]
+    [InlineData("{attribute 'x'}\n// only skippable lines\n(* and a comment *)")]
+    public void HeaderLine_is_TOTAL_returning_empty_rather_than_throwing(string? decl)
+    {
+        // Load-bearing: the CODESYS tree walk's try/catch wraps only GetChildren, so a throw from the classifier
+        // would abort WalkItems and with it every fetch/refs/init/push for the whole project.
+        Assert.Equal("", CodeHelper.HeaderLine(decl));
+    }
+
+    [Fact]
+    public void HeaderLine_and_ParseCodeHeader_agree_on_which_line_is_the_header()
+    {
+        // One question, one answer: the strict parser must select the SAME line the total helper does, or the
+        // driver's classification and the workspace's materialization can disagree about the same declaration.
+        const string decl = "{attribute 'qualified_only'}\n// note\nPROGRAM Main\nVAR\nEND_VAR";
+        Assert.Equal("PROGRAM Main", CodeHelper.HeaderLine(decl));
+        Assert.Equal(("program", "Main"), Parse(decl));
+    }
 }

@@ -13,13 +13,20 @@ public static class CodeHelper
     // export form). Child-level metadata (method return types etc.) is parsed separately in StSplitter.
     public record CodeHeader(string Type, string? Name);
 
-    public static CodeHeader ParseCodeHeader(string code)
+    /// <summary>The first line of a declaration that is actually a HEADER — skipping blank lines, `{…}` pragmas,
+    /// `//` comments and `(* … *)` blocks. Returns <c>""</c> when there is none.
+    /// <para><b>TOTAL by contract: it never throws.</b> That is what lets a classifier consume it. The CODESYS
+    /// driver used to find its keyword with a bare <c>TrimStart()</c> + first-token read, which yields <c>""</c>
+    /// for any declaration opening with a pragma or a doc comment — so a `PROGRAM` behind
+    /// <c>{attribute 'qualified_only'}</c> fell to the FUNCTION_BLOCK default and was reported as
+    /// <c>function_block</c> on the wire. Two ways to find a header line is one too many; this is the one.
+    /// <see cref="ParseCodeHeader"/> is the strict caller — it turns "no header" into a coded throw — and a
+    /// classifier that must stay total calls this directly instead.</para></summary>
+    public static string HeaderLine(string? code)
     {
-        if (string.IsNullOrWhiteSpace(code))
-            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "Empty code");
+        if (string.IsNullOrWhiteSpace(code)) return "";
 
-        var lines = code.Split('\n');
-        string headerLine = "";
+        var lines = code!.Split('\n');
         bool inBlockComment = false;
         for (int i = 0; i < lines.Length; i++)
         {
@@ -37,9 +44,17 @@ public static class CodeHelper
                 if (!trimmed.Contains("*)")) inBlockComment = true;
                 continue;
             }
-            headerLine = trimmed;
-            break;
+            return trimmed;
         }
+        return "";
+    }
+
+    public static CodeHeader ParseCodeHeader(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "Empty code");
+
+        var headerLine = HeaderLine(code);
 
         if (headerLine.Length == 0)
             throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "No header line found");

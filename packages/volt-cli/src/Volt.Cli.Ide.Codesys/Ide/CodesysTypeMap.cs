@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Volt.Cli.Transport;
 using Volt.Engine.Workspace;
+using Volt.Engine.Workspace.SourceText;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -171,10 +172,18 @@ namespace Volt.Cli.Ide.Codesys
         private static int RefineAccessor(string? name) =>
             string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase) ? ItemKind.PlcPropSet : ItemKind.PlcPropGet;
 
+        /// <summary>The declaration's leading keyword, read from the line Core says is the HEADER — not from a
+        /// bare <c>TrimStart()</c>. That distinction is the whole fix: a declaration opening with
+        /// <c>{attribute 'qualified_only'}</c> or a doc comment starts with a non-word character, so the old
+        /// first-token read returned <c>""</c> and <see cref="RefinePou"/> fell to its FUNCTION_BLOCK default —
+        /// reporting a PROGRAM as <c>function_block</c> on refs/fetch.
+        /// <para><see cref="CodeHelper.HeaderLine"/> is TOTAL, so this stays total and RefinePou keeps its
+        /// default arm. The classifier must never throw mid-walk: the CODESYS tree walk's try/catch wraps only
+        /// GetChildren, so a throw here would abort every fetch/refs/init/push for the whole project.</para></summary>
         private static string LeadingKeyword(string? decl)
         {
-            if (string.IsNullOrEmpty(decl)) return "";
-            var s = decl!.TrimStart();
+            var s = CodeHelper.HeaderLine(decl);
+            if (s.Length == 0) return "";
             int end = 0;
             while (end < s.Length && (char.IsLetterOrDigit(s[end]) || s[end] == '_')) end++;
             return s.Substring(0, end).ToUpperInvariant();
