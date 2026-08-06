@@ -17,7 +17,7 @@ public static class VgBody
     private static readonly Regex NetworkHeader = new(@"^NETWORK\s+\d+\s+([A-Za-z]\w*)", RegexOptions.Compiled);
 
     /// <summary>The text is an editable graphical VG body — it opens with a <c>NETWORK n …</c> block (FBD/LD).</summary>
-    public static bool Is(string? impl) => impl != null && NetworkHeader.IsMatch(impl.TrimStart());
+    public static bool Is(string? impl) => LanguageOf(impl) != null;
 
     /// <summary>The body's language ("FBD"/"LD" from the NETWORK marker), or null if not a VG body.</summary>
     public static string? LanguageOf(string? impl)

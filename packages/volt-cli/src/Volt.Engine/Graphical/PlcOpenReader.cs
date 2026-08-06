@@ -12,13 +12,11 @@ namespace Volt.Engine.Graphical
     /// </summary>
     public static class PlcOpenReader
     {
-        // CODESYS/TwinCAT have no <network> wrapper in the flat PLCopenXML body; instead they encode
-        // the engineer's network index in the high digits of every localId (localId / 10^10 = the
-        // network it belongs to). We split on that so the VG mirrors the editor's networks 1:1.
-        private const long NetworkStride = 10_000_000_000L;   // 10^10
-
-        /// <param name="language">Override the language read from the element name — TwinCAT wraps LD in an FBD
-        /// wrapper, so the COM body-language is more trustworthy than the wrapper element name.</param>
+        /// <param name="language">Override the language read from the element name — TwinCAT creates an LD POU
+        /// as FBD (the ladder view lives as DefaultViewMode metadata in the NWL archive, see
+        /// <c>TcObjectModel.CreateChild</c>), so a not-yet-populated LD body exports inside an
+        /// <c>&lt;FBD&gt;</c> element; the COM body-language is authoritative. (A POPULATED TwinCAT LD body does
+        /// export as <c>&lt;LD&gt;</c> with real contacts/coils — it is not wrapped in <c>&lt;FBD&gt;</c>.)</param>
         public static GraphBody ReadBody(XElement fbdOrLd, string? language = null)
         {
             var ns = fbdOrLd.Name.Namespace;
@@ -43,13 +41,13 @@ namespace Volt.Engine.Graphical
                 var ladder = logic.Any(e => e.Name.LocalName is "contact" or "coil" or "leftPowerRail" or "rightPowerRail");
                 List<GraphNode> nodes;
                 if (ladder)
-                    nodes = LowerLadder(logic, ns, (long)index * NetworkStride + 500_000_000L);
+                    nodes = LowerLadder(logic, ns, (long)index * GraphConstants.NetworkStride + 500_000_000L);
                 else
                 {
                     nodes = logic.Select(e => ReadNode(e, ns)).ToList();
                     // FBD blocks embed a non-boolean output assignment in the pin too (TC's form for a timer's
                     // ET) — read it after the regular nodes, else it's silently dropped like it was on LD.
-                    long embId = (long)index * NetworkStride + 500_000_000L;
+                    long embId = (long)index * GraphConstants.NetworkStride + 500_000_000L;
                     foreach (var el in logic.Where(e => e.Name.LocalName == "block"))
                         nodes.AddRange(EmbeddedOutputs(el, (long?)el.Attribute("localId") ?? 0, ns, () => embId++));
                 }
@@ -79,7 +77,7 @@ namespace Volt.Engine.Graphical
                     starts.Add(i > 0 && elements[i - 1].Name.LocalName == "comment" ? i - 1 : i);
 
             if (starts.Count == 0)
-                return elements.GroupBy(e => ((long?)e.Attribute("localId") ?? 0) / NetworkStride)
+                return elements.GroupBy(e => ((long?)e.Attribute("localId") ?? 0) / GraphConstants.NetworkStride)
                                .OrderBy(g => g.Key).Select(g => ((int)g.Key, g.ToList())).ToList();
 
             var groups = new List<(int, List<XElement>)>();
@@ -256,7 +254,7 @@ namespace Volt.Engine.Graphical
             var neg = a.Negated ^ b.Negated;
             var edge = a.Edge != EdgeMod.None ? a.Edge : b.Edge;
             var stor = a.Storage != StorageMod.None ? a.Storage : b.Storage;
-            return (!neg && edge == EdgeMod.None && stor == StorageMod.None) ? Mods.None : new Mods(neg, edge, stor);
+            return new Mods(neg, edge, stor);   // Mods is a record: an all-default one already EQUALS Mods.None
         }
 
         /// <summary>A comment box's text, taken from ALL its text content regardless of the
@@ -328,7 +326,7 @@ namespace Volt.Engine.Graphical
             bool neg = (bool?)el.Attribute("negated") ?? false;
             var edge = (string?)el.Attribute("edge") switch { "rising" => EdgeMod.Rising, "falling" => EdgeMod.Falling, _ => EdgeMod.None };
             var stor = (string?)el.Attribute("storage") switch { "set" => StorageMod.Set, "reset" => StorageMod.Reset, _ => StorageMod.None };
-            return new Mods(neg, edge, stor) is { IsNone: true } ? Mods.None : new Mods(neg, edge, stor);
+            return new Mods(neg, edge, stor);   // value equality — no need to canonicalize onto Mods.None
         }
 
         /// <summary>An inVariable's negation rides in the EXPRESSION TEXT (`NOT x`), since TwinCAT drops the
@@ -345,7 +343,7 @@ namespace Volt.Engine.Graphical
                 expr = expr.Substring(4).TrimStart();
                 mods = mods with { Negated = true };
             }
-            return new InVar(id, order, expr, mods.IsNone ? Mods.None : mods);
+            return new InVar(id, order, expr, mods);
         }
 
         /// <summary>CODESYS hint (functionblock / function / operator) from the fbdcalltype addData.</summary>

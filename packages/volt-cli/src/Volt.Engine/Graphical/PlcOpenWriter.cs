@@ -7,15 +7,16 @@ namespace Volt.Engine.Graphical
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to a PLCopenXML <c>&lt;FBD&gt;</c> / <c>&lt;LD&gt;</c> body
     /// element — the inverse of <see cref="PlcOpenReader"/>. Positions are SYNTHESIZED (a fixed grid;
-    /// CODESYS re-lays-out on import), localIds come from the model, and opaque nodes round-trip
-    /// verbatim. FB-call <c>typeName</c> is not carried by VG, so the caller supplies a resolver
+    /// CODESYS re-lays-out on import) and localIds come from the model. Opaque nodes round-trip
+    /// verbatim on the FBD path ONLY; the LD path has no opaque arm and DROPS them — its per-network
+    /// vendorElement(networktitle) marker is regenerated instead.
+    /// FB-call <c>typeName</c> is not carried by VG, so the caller supplies a resolver
     /// (instanceName → type) from the POU declaration; operators/functions carry their own type.
     /// </summary>
     public static class PlcOpenWriter
     {
         public static readonly XNamespace Ns = "http://www.plcopen.org/xml/tc6_0200";
         private static readonly XNamespace Xhtml = "http://www.w3.org/1999/xhtml";
-        private const long NetworkStride = 10_000_000_000L;   // network index = localId / 10^10 (mirrors PlcOpenReader)
 
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
@@ -47,21 +48,7 @@ namespace Volt.Engine.Graphical
             // lists a block's CALL but not its output pins, so a parsed FB block has no OutputPins; without
             // this the `inst.Q` connection would name a pin the block doesn't declare and the IDE would
             // DROP it on import (the `out := ;` bug). Emit these as the block's outputVariables too.
-            var refPins = new Dictionary<long, List<string>>();
-            void NoteRef(Conn? c)
-            {
-                if (c?.FormalParameter == null) return;
-                if (!refPins.TryGetValue(c.RefLocalId, out var list)) refPins[c.RefLocalId] = list = new List<string>();
-                if (!list.Contains(c.FormalParameter)) list.Add(c.FormalParameter);
-            }
-            foreach (var n in body.Networks.SelectMany(x => x.Nodes))
-                switch (n)
-                {
-                    case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break;
-                    case OutVar o: NoteRef(o.Source); break;
-                    case Jump j: NoteRef(j.Condition); break;
-                    case Return r: NoteRef(r.Condition); break;
-                }
+            var refPins = CollectRefPins(body.Networks.SelectMany(x => x.Nodes));
 
             int row = 0;
             int commentSeq = 0;
@@ -74,8 +61,8 @@ namespace Volt.Engine.Graphical
                     // an out-of-range localId) makes CODESYS reject the whole import. Use the network's
                     // authoritative Order (not the first node's localId, which is absent for an
                     // empty/comment-only network → would wrongly land the comment in network 0).
-                    long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
-                    long commentId = netIndex * NetworkStride + 9_000_000L + commentSeq++;
+                    long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / GraphConstants.NetworkStride : 0);
+                    long commentId = netIndex * GraphConstants.NetworkStride + 9_000_000L + commentSeq++;
                     root.Add(new XElement(Ns + "comment",
                         new XAttribute("localId", commentId), new XAttribute("height", 0), new XAttribute("width", 0),
                         Pos(row++),
@@ -86,6 +73,28 @@ namespace Volt.Engine.Graphical
                     root.Add(WriteNode(node, resolveType, OutPin, refPins, row++));
             }
             return root;
+        }
+
+        /// <summary>Output pins REFERENCED by a connection's <c>formalParameter</c> (see the call sites).
+        /// ONE rule for both writers — FBD collects over the whole body, LD per network.</summary>
+        private static Dictionary<long, List<string>> CollectRefPins(IEnumerable<GraphNode> nodes)
+        {
+            var refPins = new Dictionary<long, List<string>>();
+            void NoteRef(Conn? c)
+            {
+                if (c?.FormalParameter == null) return;
+                if (!refPins.TryGetValue(c.RefLocalId, out var list)) refPins[c.RefLocalId] = list = new List<string>();
+                if (!list.Contains(c.FormalParameter)) list.Add(c.FormalParameter);
+            }
+            foreach (var n in nodes)
+                switch (n)
+                {
+                    case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break;
+                    case OutVar o: NoteRef(o.Source); break;
+                    case Jump j: NoteRef(j.Condition); break;
+                    case Return r: NoteRef(r.Condition); break;
+                }
+            return refPins;
         }
 
         private static XElement WriteNode(GraphNode node, System.Func<string, string?>? resolveType,
@@ -155,8 +164,10 @@ namespace Volt.Engine.Graphical
                         Pos(row), rt.Condition != null ? ConnIn(rt.Condition, outPin) : null);
 
                 default:
-                    return new XElement(Ns + "inVariable", IdAttrs(node), Pos(row),
-                        new XElement(Ns + "expression", ""));
+                    // Every GraphNode subtype is matched above. A new one must get its own arm here —
+                    // emitting a placeholder would ship a silently-wrong body (see WriteBody).
+                    throw new System.NotSupportedException(
+                        $"PlcOpenWriter: no writer for graph node '{node.GetType().Name}' (localId {node.LocalId}).");
             }
         }
 
@@ -198,7 +209,10 @@ namespace Volt.Engine.Graphical
         }
 
         // ── LD ladder generation — ONE recursion, the exact inverse of PlcOpenReader.LowerLadder ─────────────
-        // A rung is leftPowerRail → the boolean spine → coil → rightPowerRail. The spine (see LdCtx.EmitPower) is
+        // A rung is leftPowerRail → the boolean spine → coil. The right rail is emitted ONCE per body as an
+        // UNCONNECTED terminator (empty connectionPointIn; no coil is wired to it, and a coil's own
+        // connectionPointOut is left dangling) — it is this form, not a wired one, that the live round-trip
+        // below was verified with. The spine (see LdCtx.EmitPower) is
         // contacts (series = AND), parallel branches (OR), and FB/operator blocks whose primary output continues
         // it; a block's typed data inputs are variable boxes (LdCtx.EmitData), and a non-boolean output assigned
         // to a variable embeds in its pin. Negated / Set / Reset coils and normally-closed / edge contacts carry
@@ -219,7 +233,7 @@ namespace Volt.Engine.Graphical
                 new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
             foreach (var net in body.Networks)
             {
-                long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
+                long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / GraphConstants.NetworkStride : 0);
                 var ctx = new LdCtx(root, net, resolveType, netIndex);
                 root.Add(NetworkTitle(ctx.Mint(), Pos(row++)));   // delimits this network — the reader splits here
                 foreach (var node in net.Nodes)
@@ -276,7 +290,6 @@ namespace Volt.Engine.Graphical
             private readonly Dictionary<(long, string), string> _embed = new Dictionary<(long, string), string>();
             private readonly HashSet<long> _emitted = new HashSet<long>();   // a block / data box is emitted once
             private long _nextId;
-            public readonly long BaseId;
             public int Row;
             public readonly System.Func<long, string?> OutPin;
             public readonly Dictionary<long, List<string>> RefPins;
@@ -285,24 +298,9 @@ namespace Volt.Engine.Graphical
             {
                 _root = root; _resolveType = resolveType;
                 _byId = net.Nodes.ToDictionary(n => n.LocalId);
-                BaseId = netIndex * NetworkStride;
-                _nextId = (net.Nodes.Count > 0 ? net.Nodes.Max(n => n.LocalId) : BaseId) + 1;
+                _nextId = (net.Nodes.Count > 0 ? net.Nodes.Max(n => n.LocalId) : netIndex * GraphConstants.NetworkStride) + 1;
 
-                var refPins = new Dictionary<long, List<string>>();
-                void NoteRef(Conn? c)
-                {
-                    if (c?.FormalParameter == null) return;
-                    if (!refPins.TryGetValue(c.RefLocalId, out var l)) refPins[c.RefLocalId] = l = new List<string>();
-                    if (!l.Contains(c.FormalParameter)) l.Add(c.FormalParameter);
-                }
-                foreach (var n in net.Nodes)
-                    switch (n)
-                    {
-                        case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break;
-                        case OutVar o: NoteRef(o.Source); break;
-                        case Jump j: NoteRef(j.Condition); break;
-                        case Return r: NoteRef(r.Condition); break;
-                    }
+                var refPins = CollectRefPins(net.Nodes);
                 RefPins = refPins;
                 // a block's PRIMARY output pin: its first declared output, else the first one a connection names.
                 OutPin = id => _byId.TryGetValue(id, out var n) && n is Block bl
@@ -359,7 +357,7 @@ namespace Volt.Engine.Graphical
 
                     default:
                         throw new System.NotSupportedException(
-                            $"this ladder rung uses '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "an unsupported element"}', " +
+                            $"this ladder rung uses '{prod?.GetType().Name ?? "an unsupported element"}', " +
                             "which can't be authored as ladder — edit this POU in the IDE.");
                 }
             }

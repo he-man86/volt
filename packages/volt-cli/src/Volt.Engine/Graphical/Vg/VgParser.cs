@@ -11,19 +11,14 @@ namespace Volt.Engine.Graphical.Vg
     /// sub-expressions, inline literals/variables as operands, multi-operator statements, unresolved
     /// references) throws <see cref="VgParseException"/> and the push is rejected. (Preventing such
     /// input is the LSP's job; the bridge only checks and errors.) Every node is its own statement:
-    /// a <c>VAR_TEMP</c>-declared <c>i*</c> := … is a leaf <c>inVariable</c>; a named <c>g*</c> := op
-    /// /call is a block; a bare <c>name</c> := ref is an <c>outVariable</c> sink. The per-network
-    /// <c>VAR_TEMP</c> block is consumed (names only — types ignored) and produces no nodes, so it is
-    /// stripped on push. FB-call type names are NOT in VG (they live in the POU declaration) — left
-    /// empty here and resolved by the writer.
+    /// an internal wire is introduced INLINE as <c>LET &lt;name&gt; := …</c> — a leaf <c>i*</c> is an
+    /// <c>inVariable</c>, a named <c>g*</c> is an operator/call block — and a bare <c>name</c> := ref
+    /// is an <c>outVariable</c> sink. There is no per-network <c>VAR_TEMP</c> block: a leftover one is
+    /// not part of the grammar and is refused as a malformed statement. FB-call type names are NOT in
+    /// VG (they live in the POU declaration) — left empty here and resolved by the writer.
     /// </summary>
     public static class VgParser
     {
-        // localIds must encode the network index (index = localId / 10^10), mirroring PlcOpenReader,
-        // so a multi-network body's nodes don't collide across networks (they would otherwise all
-        // restart at 1 → duplicate localIds → networks collapse / import breaks on push).
-        private const long NetworkStride = 10_000_000_000L;
-
         // Canonical operator table (symbol ↔ type) lives in FbdOperators, shared with the writer.
         public static GraphBody Parse(string text)
         {
@@ -51,13 +46,16 @@ namespace Volt.Engine.Graphical.Vg
                     Flush();
                     continue;
                 }
-                if (line.StartsWith("NETWORK"))
+                if (line.StartsWith("NETWORK", StringComparison.Ordinal))
                 {
                     if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED");
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
-                    // localIds index*10^10+1…, mirroring PlcOpenReader); the next word is the body
-                    // language (FBD/LD), carried here instead of a separate %LANG header.
+                    // localIds index*GraphConstants.NetworkStride+1…, mirroring PlcOpenReader, so a
+                    // multi-network body's nodes don't collide across networks — they would otherwise
+                    // all restart at 1 → duplicate localIds → networks collapse / import breaks on
+                    // push); the next word is the body language (FBD/LD), carried here instead of a
+                    // separate %LANG header.
                     var header = line.Substring("NETWORK".Length).Trim();
                     var nm = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
                     int order = nm.Groups[1].Success ? int.Parse(nm.Groups[1].Value) : ordinal;
@@ -65,12 +63,12 @@ namespace Volt.Engine.Graphical.Vg
                         throw new VgParseException($"network index {order} appears more than once — indices must be unique (their localIds would collide)", "VG_DUPLICATE_NETWORK");
                     if (nm.Groups[2].Success) lang = nm.Groups[2].Value;
                     cur = new NetworkBuilder(nm.Success ? header.Substring(nm.Length) : header,
-                        order, order * NetworkStride + 1);
+                        order, order * GraphConstants.NetworkStride + 1);
                     ordinal++;
                     continue;
                 }
                 if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
-                if (line.StartsWith("//")) { cur.AddComment(line.Substring(2).Trim()); continue; }
+                if (line.StartsWith("//", StringComparison.Ordinal)) { cur.AddComment(line.Substring(2).Trim()); continue; }
 
                 // Execute box (standard CODESYS ST-in-FBD/LD): a multi-line `IF <en> THEN` guard (EN handled
                 // like every other block) wrapping `EXECUTE … END_EXECUTE` around VERBATIM ST. Captured whole
@@ -196,7 +194,7 @@ namespace Volt.Engine.Graphical.Vg
                 if (_temps.Contains(lhs))                     // declared temp → a NAMED producer
                 {
                     Declare(lhs);
-                    if (rhs.StartsWith("(") || IsCall(rhs))   // operator / function block → name its result
+                    if (rhs.StartsWith("(", StringComparison.Ordinal) || IsCall(rhs))   // operator / function block → name its result
                         _blockByName[lhs] = ParseCore(rhs).RefLocalId;
                     else                                      // an OPAQUE leaf the writer couldn't inline (it has spaces/operators)
                     {
@@ -246,7 +244,7 @@ namespace Volt.Engine.Graphical.Vg
 
                 string typeName, callType;
                 List<(Conn Conn, Mods Mods)> operands;
-                if (rhs.StartsWith("("))
+                if (rhs.StartsWith("(", StringComparison.Ordinal))
                 {
                     var (op, ops) = SplitTopLevelOperator(rhs.Substring(1, rhs.Length - 2));
                     typeName = FbdOperators.SymbolToType[op]; callType = "operator";
@@ -377,11 +375,6 @@ namespace Volt.Engine.Graphical.Vg
                 return new Conn(id, null);
             }
 
-            /// <summary>A leaf is a real SOURCE — a literal or a real variable — never an alias/modifier of a
-            /// temp. A temp is a graph node, so a leaf whose text cites one is not a valid FBD node: a NOT/edge
-            /// modifier rides on the CONSUMER (<c>out := NOT g1</c>, not <c>g2 := NOT g1</c>), and an expression
-            /// over temps is written inline at its consumer. Emitting it would produce XML referencing temp names
-            /// (stripped on push) and CORRUPT the IDE on import — refuse it here.</summary>
             /// <summary>Record a defined name (wire result, leaf, FB instance, EN wire, label) and refuse a
             /// duplicate: two nodes with one name is ambiguous structure — the second silently orphans the first
             /// and corrupts what the IDE re-imports.</summary>
@@ -391,6 +384,11 @@ namespace Volt.Engine.Graphical.Vg
                     throw new VgParseException($"'{name}' is defined more than once in this network — each wire, result, instance, and label name must be unique", "VG_DUPLICATE_NAME");
             }
 
+            /// <summary>A leaf is a real SOURCE — a literal or a real variable — never an alias/modifier of a
+            /// temp. A temp is a graph node, so a leaf whose text cites one is not a valid FBD node: a NOT/edge
+            /// modifier rides on the CONSUMER (<c>out := NOT g1</c>, not <c>g2 := NOT g1</c>), and an expression
+            /// over temps is written inline at its consumer. Emitting it would produce XML referencing temp names
+            /// (stripped on push) and CORRUPT the IDE on import — refuse it here.</summary>
             private void EnsureLeafIsSource(string core, string display)
             {
                 foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
@@ -527,7 +525,7 @@ namespace Volt.Engine.Graphical.Vg
             private static (string name, string inner) SplitCall(string s)
             {
                 var open = s.IndexOf('(');
-                if (open < 0 || !s.EndsWith(")")) throw new VgParseException("expected a call: " + s);
+                if (open < 0 || !s.EndsWith(")", StringComparison.Ordinal)) throw new VgParseException("expected a call: " + s);
                 return (s.Substring(0, open).Trim(), s.Substring(open + 1, s.Length - open - 2));
             }
 

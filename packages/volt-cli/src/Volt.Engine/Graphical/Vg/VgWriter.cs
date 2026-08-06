@@ -8,13 +8,15 @@ namespace Volt.Engine.Graphical.Vg
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text-LIKE
     /// dialect that is ISOMORPHIC to the PLCopen node graph: each network is a delimited block
-    /// <c>NETWORK &lt;index&gt; &lt;LANG&gt; … END_NETWORK</c>, and EVERY node is its own named statement
-    /// (inVariable leaves <c>i*</c>, operator/function results <c>g*</c>, FB instances keep their real
-    /// name, outVariables keep their target), operands are ONLY names or literals — never a nested
-    /// sub-expression. Per-network synthetic temps are declared in a <c>VAR_TEMP</c> block (a VG-only
-    /// construct, stripped on push, regenerated on pull). This shrinks the VG⊄FBD gap to ~zero and
-    /// makes round-trip identical in all cases (fan-out preserved by shared names). Pin modifiers are
-    /// VG EXTENSIONS, not standard ST: <c>NOT operand</c> (negation — valid ST), and the suffixes
+    /// <c>NETWORK &lt;index&gt; &lt;LANG&gt; … END_NETWORK</c>, and every node is EITHER <b>named</b> — an
+    /// inline <c>LET &lt;name&gt; := …</c> for opaque leaves <c>i*</c>, fan-out operator/function results
+    /// <c>g*</c> and EN/ENO wires <c>en*</c>; FB instances keep their real name and outVariables their
+    /// target — OR <b>inlined</b> into its consumer's fully-parenthesised expression (simple leaves and
+    /// single-use operator/function results), so an operand may be a nested sub-expression. There is no
+    /// <c>VAR_TEMP</c> block: a wire is introduced at its definition and its type is inferred downstream.
+    /// This shrinks the VG⊄FBD gap to ~zero and makes round-trip identical in all cases (fan-out
+    /// preserved by shared names). Pin modifiers are VG EXTENSIONS, not standard ST: <c>NOT operand</c>
+    /// (negation — valid ST), and the suffixes
     /// <c>RISING</c>/<c>FALLING</c> (edge) and <c>SET</c>/<c>RESET</c> (storage), which keep the
     /// modifier visible at the pin rather than synthesizing hidden R_TRIG/SR instances. Round-trippable
     /// (<c>VgParser</c> reverses it); emission is deterministic so VG→graph→VG is a fixed point.
@@ -26,13 +28,14 @@ namespace Volt.Engine.Graphical.Vg
         public static string Write(GraphBody body)
         {
             var sb = new StringBuilder();
-            int seq = 0;
-            foreach (var net in body.Networks) { WriteNetwork(sb, net, net.Order ?? seq, body.Language); seq++; }
+            // Order is the REAL PLCopen network index and every producer supplies it; there is no
+            // positional fallback — an invented index can duplicate a real one, which VgParser refuses.
+            foreach (var net in body.Networks) WriteNetwork(sb, net, net.Order!.Value, body.Language);
             return sb.ToString();
         }
 
-        // A network is a delimited block — NETWORK <index> <LANG> … END_NETWORK — with a VAR_TEMP
-        // decl section and an impl section, mirroring a POU. <index> is the REAL PLCopen network index
+        // A network is a delimited block — NETWORK <index> <LANG> … END_NETWORK — holding only
+        // statements (no decl section; wires are introduced inline). <index> is the REAL PLCopen network index
         // (localId / 10^10), so gapped bodies (e.g. networks 1,2,4) round-trip without re-numbering;
         // <LANG> (FBD/LD) carries the body language, so there's no separate %LANG header.
         private static void WriteNetwork(StringBuilder sb, GraphNetwork net, int index, string language)
@@ -50,7 +53,19 @@ namespace Volt.Engine.Graphical.Vg
             var ordered = TopoOrder(blocks, byId);
 
             bool IsEnEno(Block b) => b.Inputs.Any(p => p.FormalParameter == "EN");
-            string? ResultPin(Block b) => IsEnEno(b) ? "Out2" : null;   // EN/ENO result is the Out2 pin; an operator's is unnamed
+
+            // The wires a node CONSUMES — the ONE spelling of that relation in this file: both the
+            // use-count below and the EN/ENO into-sink search read it.
+            // ponytail: GraphicalCode.Sources and PlcOpenWriter's NoteRef loops answer the same question
+            // with their own switches; the relation belongs on GraphNode, which is a wider change than this.
+            IEnumerable<Conn> Consumed(GraphNode n) => n switch
+            {
+                Block bb => bb.Inputs.Where(p => p.Source != null).Select(p => p.Source!),
+                OutVar o => o.Source != null ? new[] { o.Source } : Enumerable.Empty<Conn>(),
+                Jump j => j.Condition != null ? new[] { j.Condition } : Enumerable.Empty<Conn>(),
+                Return r => r.Condition != null ? new[] { r.Condition } : Enumerable.Empty<Conn>(),
+                _ => Enumerable.Empty<Conn>(),
+            };
 
             // Consumer count per (producer, output pin) — the basis for inline-vs-name: a wire used ONCE is
             // inlined into its consumer's expression; a wire that fans out (2+) keeps a name (else inlining it
@@ -64,27 +79,18 @@ namespace Volt.Engine.Graphical.Vg
                 byId.TryGetValue(id, out var p) && p is Block pb && IsOperatorOrFunction(pb) && !IsEnEno(pb) ? null : pin;
             void Count(Conn? c) { if (c != null) { var k = (c.RefLocalId, OutKey(c.RefLocalId, c.FormalParameter)); uses[k] = Get(k) + 1; } }
             foreach (var n in net.Nodes)
-                switch (n)
-                {
-                    case Block bb: foreach (var p in bb.Inputs) Count(p.Source); break;
-                    case OutVar o: Count(o.Source); break;
-                    case Jump j: Count(j.Condition); break;
-                    case Return r: Count(r.Condition); break;
-                }
-            int ResultUses(Block b) => Get((b.LocalId, ResultPin(b)));
+                foreach (var c in Consumed(n))
+                    Count(c);
+            // Keyed on the UNNAMED result pin, which OutKey normalises a plain operator/function's single
+            // output to. An EN/ENO box never reaches this count as the deciding term: unsunk, the left
+            // disjunct below already names it; sunk, it has exactly ONE non-ENO consumer, so no pin key
+            // can reach 2. (Its result pin is "Out2" — a keying detail no current decision depends on.)
+            int ResultUses(Block b) => Get((b.LocalId, null));
 
             // EN/ENO into-sink readability: when an operator/function EN/ENO box's result feeds EXACTLY one
             // OutVar (and nothing else, and that sink has no modifier), write the sink straight inside the IF
             // (`IF en THEN out := (expr)`) instead of naming a `g*` result + a separate `out := g*`. The box's
             // `en*` ENO wire is untouched — it can still chain downstream.
-            IEnumerable<Conn> Consumed(GraphNode n) => n switch
-            {
-                Block bb => bb.Inputs.Where(p => p.Source != null).Select(p => p.Source!),
-                OutVar o => o.Source != null ? new[] { o.Source } : Enumerable.Empty<Conn>(),
-                Jump j => j.Condition != null ? new[] { j.Condition } : Enumerable.Empty<Conn>(),
-                Return r => r.Condition != null ? new[] { r.Condition } : Enumerable.Empty<Conn>(),
-                _ => Enumerable.Empty<Conn>(),
-            };
             var enenoSink = new Dictionary<long, OutVar>();
             var suppressedSinks = new HashSet<long>();
             foreach (var b in ordered.Where(b => IsEnEno(b) && IsOperatorOrFunction(b)))
@@ -212,6 +218,13 @@ namespace Volt.Engine.Graphical.Vg
                 if (!suppressedSinks.Contains(ov.LocalId))   // an EN/ENO into-sink target is written inside its IF
                     sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
 
+            // ponytail: OpaqueNode is DELIBERATELY absent from this switch — contacts/coils, connectors,
+            // continuations, power rails, comments and vendorElements have no VG spelling, so they are
+            // DROPPED from VG (and therefore from a pushed body). Pinned by VgWriterTests
+            // .Real_CONFIG_fb_call_renders_as_a_call_with_named_pins, whose input carries a <vendorElement>
+            // the expected VG has no trace of. PlcOpenWriter's `case OpaqueNode` consequently serves only
+            // the reader→writer path, NOT push — GraphModel's OpaqueNode summary ("the writer can
+            // round-trip it") is true of PlcOpenWriter alone, not of VG.
             foreach (var node in net.Nodes)
                 switch (node)
                 {

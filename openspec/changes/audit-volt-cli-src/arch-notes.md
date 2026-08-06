@@ -276,3 +276,138 @@ a bounded wait before giving up. Never connect to a prefix.
 **Batch:** N
 
 -->
+
+---
+
+## BATCH 5 ESCALATIONS (2026-08-06) — behaviour-CHANGING findings, NOT applied
+
+The audit is behaviour-preserving by construction, so these were found and deliberately left in place.
+Each is quoted from the auditor's own evidence. **27 of the batch's 51 findings were behaviour-changing**;
+these are the ones classified `bug` or `defensive-fallback`.
+
+### `PlcOpenWriter.cs:226` — bug (group 5.2)
+
+**Claim.** WriteLadderBody's per-node switch has no default case, so any Block (including an EXECUTE box) or OpaqueNode that is not reachable from a coil's spine is SILENTLY DROPPED from the generated <LD> body — the push succeeds and the logic disappears from the PLC.
+
+**Fix.** Add a default arm that throws (loud, with the node kind + network index) for anything not emitted, and explicitly emit Blocks that no coil pulled — `_emitted` in LdCtx already records which blocks were drawn, so after the loop any Block whose LocalId is not in `_emitted` is a drop and must either be emitted or refused.
+
+### `PlcOpenWriter.cs:220` — bug (group 5.2)
+
+**Claim.** WriteLadderBody never emits net.Comment. WriteFbdBody does. An LD network's comment is read back by PlcOpenReader, carried through VG as `// …`, and then silently deleted on push — and PlcOpenDocument.SafeToDrop lists "comment", so the splice removes the existing one first.
+
+**Fix.** Emit the same `<comment>` element WriteFbdBody builds (xhtml content, in-network localId) before the networktitle marker — PlcOpenReader.SplitNetworks already expects `a vendorElement(networktitle), optionally preceded by a comment`, so the marker-preceding position is the one it parses back.
+
+### `PlcOpenWriter.cs:348` — bug (group 5.2)
+
+**Claim.** EmitPower discards its `extraMods` argument on the AND, OR and Block branches — only the InVar branch merges it. A negation on an intermediate result (`(NOT g1 AND c)` where g1 is an operator/FB) is silently dropped from the generated ladder, inverting the rung's logic. The same three branches also discard `source.FormalParameter`, so a spine fed from a non-primary block output is rewired to the primary one by ConnTo's `outPin(r)`.
+
+**Fix.** Merge extraMods into each recursion (`MergeMods(pin.Mods, extraMods)` on the AND/OR arms) and, for the Block arm, refuse or represent a non-none extraMods rather than dropping it — a negated block result has no contact to carry it, so it must become an explicit NOT node or a loud refusal. Neither GraphicalCode.Validate check sees this: `once` and `twice` both lose the mod, and VG_NOT_CANONICAL compares VG to VG, never touching the ladder writer's output.
+
+### `PlcOpenWriter.cs:116` — defensive-fallback (group 5.2)
+
+**Claim.** An unresolvable FB instance type falls back to the empty string, emitting `<block typeName="">` instead of failing loud and naming the item — exactly the `?? ""` pattern Conventions 1 exists to forbid.
+
+**Fix.** Throw when the resolver returns null for an instance that has no TypeName, naming the instance and the POU — the caller (GraphicalCode.Write) builds the resolver from PlcOpenDocument.InstanceTypes(declaration), so a miss means the instance is not declared and the push must be refused, not shipped as a typeless block.
+
+### `PlcOpenWriter.cs:141` — bug (group 5.2)
+
+**Claim.** The STCode addData is nested inside the `if (!string.IsNullOrEmpty(b.CallType))` guard, so an Execute box read from XML that carries `stcode` without an `fbdcalltype` loses its inline ST on write-back — violating the ARCHITECTURE invariant that Execute boxes hold their ST verbatim and are 'never a bare call that drops the ST'. PlcOpenReader.ReadStCode reads the two independently.
+
+**Fix.** Emit the addData when `b.CallType` is non-empty OR `b.StCode != null`, mirroring the reader's independence of the two.
+
+### `PlcOpenWriter.cs:220` — bug (group 5.2)
+
+**Claim.** Neither writer emits GraphNetwork.Label or GraphNetwork.Disabled, so a VG header `NETWORK 0 FBD "Title" DISABLED` — which VgParser parses and VgWriter re-emits — is silently discarded on push. No gate catches it: VG_NOT_CANONICAL compares VG against VG (both keep it) and the PLCopen convergence check compares two post-writer forms (both lost it).
+
+**Fix.** Either emit label/disabled into the body (and read them back in PlcOpenReader so the round-trip closes) or refuse them in GraphicalCode.Validate with a coded diagnostic — silently accepting and dropping is the one option Conventions 1 rules out. Whichever is chosen, add a `ponytail:` note on GraphNetwork.Label/Disabled recording that the PLCopen leg does not carry them.
+
+### `VgParser.cs:83` — bug (group 5.1)
+
+**Claim.** An EXECUTE whose END_EXECUTE is missing or misspelled does not stop at the network boundary — the scan runs over END_NETWORK and every following NETWORK header, swallowing the rest of the body into one Execute box's verbatim ST. This shape survives GraphicalCode.Validate's canonical gate (the ST is re-emitted verbatim), so a typo silently collapses N networks into 1 and pushes VG structure into the IDE as ST.
+
+**Fix.** Bound the scan: stop and throw the existing "EXECUTE without a closing END_EXECUTE" (VG_PARSE, Line = the EXECUTE line) as soon as a scanned line Trim()s to END_NETWORK or matches the NETWORK header — an Execute box's ST can never legally contain a network delimiter.
+
+### `VgParser.cs:38` — bug (group 5.1)
+
+**Claim.** pendingEn is a body-wide latch that is never cleared at a network boundary: a multi-line `IF <en> THEN` not followed by an EXECUTE is silently discarded when the network closes, and its enable name leaks into the NEXT network, where it can bind that network's EXECUTE to a guard the author wrote elsewhere.
+
+**Fix.** Make the latch network-scoped: in the END_NETWORK and NETWORK branches, throw the existing dangling-guard VG_PARSE if pendingEn != null (a guard must be closed inside its own network), and reset it to null when a new NetworkBuilder is opened.
+
+### `VgParser.cs:63` — bug (group 5.1)
+
+**Claim.** The NETWORK index is parsed with an unguarded int.Parse and then multiplied by the stride with no range check: a large index throws OverflowException (not a coded VgParseException, so the push conflict carries Code=null/Line=null), and an index above ~9.2e8 silently overflows the long localId base into negative ids.
+
+**Fix.** Use int.TryParse and range-check the index (0 .. long.MaxValue / NetworkStride), throwing VgParseException("network index …", "VG_PARSE") with the header's line so every format failure keeps a stable code + line like the rest of the parser.
+
+### `VgParser.cs:66` — bug (group 5.1)
+
+**Claim.** The NETWORK header's language token is neither validated nor per-network: `DISABLED` in the language position is captured AS the language and consumed out of the header, so the network's disabled flag is silently lost; and `lang` is one body-wide variable, so the LAST network's token becomes the whole GraphBody's language.
+
+**Fix.** Reject an unknown language token in the parser (accept FBD/LD, per VgBody.IsEditable) and treat DISABLED as the flag it is, so the disabled bit is never eaten; refuse a second network whose language token differs from the first rather than letting the last write win on the single body-wide `lang`.
+
+### `VgParser.cs:162` — bug (group 5.1)
+
+**Claim.** AddExecute accepts a `line` argument and throws it away, so an Execute box has no recorded source line — the pass-3 execute diagnostics escape Build with Line unset and get stamped with the END_NETWORK line by the outer catch, pointing the author at the wrong line.
+
+**Fix.** Store the line in _executes (make it (string? En, string StCode, int Line)) and wrap the pass-3 loop the same way pass 2 is wrapped: catch (VgParseException ex) { ex.Line ??= _executes[e].Line; throw; }.
+
+### `VgParser.cs:111` — bug (group 5.1)
+
+**Claim.** The unclosed-network diagnostic reports rawLines.Length as its line, which is one past the last real line for the normal case of a body ending in a newline (Split leaves a trailing empty element).
+
+**Fix.** Point at the NETWORK header that was left open (record its line in NetworkBuilder) — that is the line the author must fix — or, minimally, use the index of the last non-empty line.
+
+### `PlcOpenReader.cs:176` — bug (group 5.3)
+
+**Claim.** The reader models an Execute box inside an LD body, but PlcOpenWriter.WriteLadderBody only emits blocks that a coil's power spine pulls in — so a terminal Execute box (nothing consumes its ENO) is emitted by nothing and its inline ST is SILENTLY dropped on push, violating the ARCHITECTURE invariant "Execute boxes round-trip as VG EXECUTE … END_EXECUTE holding their ST verbatim … never a bare call that drops the ST".
+
+**Fix.** In PlcOpenWriter.WriteLadderBody's node switch, add `case Block b when b.StCode != null: ctx.EmitStandalone(b); break;` (a thin wrapper over the existing private EmitBlock) so an Execute box with no downstream consumer is still emitted into the <LD> root. Cover it with an LD analogue of GraphicalCodeTests' FBD Execute round-trip — no test in test/Volt.Engine.Tests exercises EXECUTE in an LD network today (grep for EXECUTE hits only GraphicalCodeTests' FBD fixtures and the e2e roundtrip).
+
+### `PlcOpenReader.cs:147` — bug (group 5.3)
+
+**Claim.** LowerLadder treats a coil as an absolute sink, so anything wired from a coil's connectionPointOut resolves to the rail identity and silently loses everything upstream of the coil — an IDE-authored rung with a mid-rung coil comes back as unconditional logic.
+
+**Fix.** Make a coil pass power through: keep emitting the OutVar, but return the coil's INPUT value rather than the identity — `r = (inp.Conn, inp.Mods);` — so a contact downstream of a coil keeps the series AND. If instead a mid-rung coil is deliberately out of scope, it must be REFUSED, not silently reshaped: add "coil" to the PlcOpenDocument.ValidateExisting blind list when any coil's localId is referenced by another element's connection. Either way this needs a fixture — LadderRoundTripTests only ever generates coils from VG (never chains off one), so no existing test can see it.
+
+### `PlcOpenReader.cs:118` — defensive-fallback (group 5.3)
+
+**Claim.** A missing `localId` is silently defaulted to 0 when building the ladder lookup — but 0 is a REAL id in the writer's own shared-rail LD form, so an id-less element overwrites the left power rail in `byId`, and two id-less elements collapse onto each other. Conventions 1 ("No fallbacks. Fail loud with a coded error").
+
+**Fix.** Read the attribute once and skip/raise instead of defaulting: `var idAttr = (long?)e.Attribute("localId"); if (idAttr is null) continue;` — an element with no localId cannot be the target of a connection, so it has no business in the lookup at all. (The same `?? 0` appears at lines 54, 82, 222, 247 and 269; the dictionary at 118 is the one where the default actually collides with a live id, so fix that one first rather than churning all six.)
+
+### `VgWriter.cs:100` — bug (group 5.4)
+
+**Claim.** The `reserved` set that `Mint` avoids contains ONLY FB instance names, so a synthetic `i*`/`g*`/`en*` wire can be minted with the same name as a real PLC variable read in the same network — and every read of that real variable is then silently rewired to the synthetic wire. This corrupts the graph on PULL, before push or any validation gate runs.
+
+**Fix.** Seed `reserved` with every identifier the network already uses, not just FB instance names: the base identifier of each `InVar.Expression` and `OutVar.Expression`, plus `Label.Name` and `Jump.Target` (the parser's `Declare` puts labels in the same namespace). One extra pass over `net.Nodes` before the three `Mint` call sites; the doc comment on `Mint` ("so a temp can never shadow an FB instance of the same name") must widen with it.
+
+### `VgWriter.cs:155` — bug (group 5.4)
+
+**Claim.** `Definition` renders a stateless FUNCTION box positionally and throws its pin names away, so every function box in an FBD/LD body is pushed back with its formal parameters renamed to IN1..INn. The Pin name is even captured on line 151 and then used only in the FB-instance branch.
+
+**Fix.** Render a function call with named pins exactly like an FB instance call (`LIMIT(MN := lo, IN := v, MX := hi)`) and teach `VgParser.ParseFunctionExpr` to bind `pin := value` args by name (it already does this in `ParseFbCall`), falling back to IN1..INn only when the args are bare. That fixes both the rename and the unconnected-gap shift with one change.
+
+### `VgWriter.cs:153` — bug (group 5.4)
+
+**Claim.** An operator box with fewer than two CONNECTED inputs renders as `(x)` (or `()` with none), which `VgParser` refuses — so `volt pull` writes a body file that `volt push` can never accept, even unmodified.
+
+**Fix.** In `Definition`, when an operator box has fewer than two connected operands, emit the call form `b.TypeName + "(" + args + ")"` (which `VgParser` accepts and `PlcOpenWriter` re-emits as the same typeName) instead of a degenerate `(x)`. Note the residual: the parser will label it fbdcalltype=function rather than operator, so if that matters, the alternative is to throw a coded VG error at write time rather than emit text the parser rejects — silently emitting unparseable VG is the one option that is wrong either way.
+
+### `VgWriter.cs:41` — bug (group 5.4)
+
+**Claim.** The network label and `DISABLED` flag are written into the VG header and parsed back, but `PlcOpenWriter` never emits either — so a network label or DISABLED marker an author writes is accepted by push and silently gone on the next pull. Neither gate in `GraphicalCode.Validate` can see it, because the loss happens in the first PLCopen hop and the convergence check compares hop 1 against hop 2.
+
+**Fix.** Pick one end and make it honest: either carry Label/Disabled through `PlcOpenWriter`/`PlcOpenReader` (a `<comment>`/vendorElement attribute round-trip), or have `VgParser` refuse a label/DISABLED header with a coded error so the author is told instead of silently losing it. Leaving a writer that emits a field nothing downstream stores is the current defect.
+
+### `VgWriter.cs:133` — defensive-fallback (group 5.4)
+
+**Claim.** `Render` has three silent `return ""` paths — a null wire, a dangling `refLocalId`, and a source node kind VG doesn't model — each producing `out := ;`, which re-parses into a PHANTOM empty `inVariable` node that is then imported into the IDE. Convention 1: a silent default that manufactures a node out of missing data.
+
+**Fix.** Make the unconnected sink explicit rather than empty: skip emitting a sink whose `Source` is null (an unconnected outVariable carries no logic), and throw a coded VG error for the dangling-ref and unmodelled-source cases instead of returning "". If a sink with no source must survive, give it a syntax the parser maps back to `Source = null` rather than to a fabricated leaf.
+
+### `VgWriter.cs:165` — bug (group 5.4)
+
+**Claim.** The Execute-box branch `continue`s past the naming logic the very same loop just applied to that block, so an Execute box with no EN pin whose ENO is consumed emits either a reference to a `g*` name that is never defined (2+ consumers) or an operand like `EXECUTE()`/`()` (1 consumer). An EN-guarded Execute box also burns a `g*` mint it never uses.
+
+**Fix.** Exclude `StCode` blocks from the naming loop (they have no value output — only ENO), and make `Render` resolve an `ENO` connection to an Execute box that has no EN wire explicitly rather than falling through to `names`/`Definition`. If a no-EN Execute box's ENO genuinely cannot be expressed in VG, refuse it with a coded error instead of emitting a dangling name.
+
