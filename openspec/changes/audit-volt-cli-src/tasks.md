@@ -168,7 +168,7 @@ Per batch: revert every `mustRevert` → **stop CODESYS/connector/workers** → 
       and `dotnet build`/both suites one final time on the squashed result.
 - [x] 13.3 Finalize `ledger.md`: totals — files audited, issues found by kind, fixed vs skipped, LOC
       before → after, net delta.
-- [ ] 13.4 Finalize `arch-notes.md` and split it into concrete follow-up proposals (each note = a `## Why` a
+- [x] 13.4 Finalize `arch-notes.md` and split it into concrete follow-up proposals (each note = a `## Why` a
       future change can start from). Nothing behavior-changing was implemented here.
 - [ ] 13.5 Fold the settled conventions into `packages/volt-cli/ARCHITECTURE.md` (0.1's section, revised by what
       the audit actually learned) and fix any `CLAUDE.md`/`ARCHITECTURE.md` drift the audit surfaced.

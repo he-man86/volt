@@ -1169,3 +1169,50 @@ asserting it targets only the Electron shell is therefore false too.
 
 **Fix.** `if (!File.Exists(GuiExe)) return;` before creating the shortcut.
 
+
+---
+
+# TRIAGE OF THE 168 ESCALATIONS (task 13.4, 2026-08-06)
+
+They are NOT 168 proposals. Triaged by what a user loses:
+
+## Tier 1 — SILENT WRITE LOSS → `openspec/changes/fix-silent-write-loss`
+
+Seven findings where a write is lost or lands on the wrong object **and Volt reports success**. Lifted out of
+this file into their own change because they are one class, need one live verification session, and each fails
+with no error, no log line and no red test. See that proposal for the table and the ordering (offline-testable
+first, so the untestable driver changes are made against a tree that has already proven the method).
+
+## Tier 2 — LOUD FAILURES AND WRONG ANSWERS (stay here, worth a change each when someone has appetite)
+
+- `BridgeResolver` reads the workspace config eagerly and `Program` evaluates `Bridge()` as an ARGUMENT, so in
+  an uninitialised workspace every command dies with a raw `FileNotFoundException` before its own "not a Volt
+  workspace" refusal runs. **All four of those refusals are unreachable in production** — they fire only under
+  `VOLT_PIPE`, which is how every test drives the CLI. The tests pass because they take a path users never take.
+- `volt push --dry-run` auto-commits the working tree before the dry-run branch returns; pull's dry-run
+  deliberately returns first.
+- A renamed item with no baseline throws a raw exception out of `Push` instead of returning `Rejected` — empty
+  stdout, exit 1, under `--json`.
+- `Build()` on TwinCAT: a failed `LastBuildInfo` read defaults to 0 ("zero failed projects") so an unreadable
+  result reports SUCCESS; and the outer bare `catch` returns false with no diagnostic where CODESYS throws and
+  `BuildService` produces success:false PLUS a reason.
+- `BindAndResolve` tests the FIELD `_dte` rather than the freshly obtained `dte`, so a failed bind with an older
+  handle held leaves `IsConnected` true against the PREVIOUS project.
+- `GuardEmptyItems` re-answers "is an IDE attached" from the throttled health cache after the op answered it
+  from live state (Conventions 3) — its only reachable state is now a false positive, and its pinning test says
+  so in its own comment.
+- Clicking the "A bridge disconnected." toast starts an update install (one `BalloonTipClicked` for all balloons).
+- `TrayContext.OnUiThread` does not marshal until the tray menu has been opened once (lazy `ContextMenuStrip`
+  handle), which is precisely the collision its doc says it prevents; and `TickAsync` has no error boundary, so
+  the same throw either kills the tray (async void from the timer) or vanishes (discarded Task).
+
+## Tier 3 — DOC-DRIFT AND DEAD CODE (83 + 39 findings)
+
+Mostly applied already where behaviour-preserving. What remains is escalated only because deleting it changes
+behaviour or crosses a group boundary. Not worth a change of its own; fold into whatever change next touches
+the file.
+
+## NOT A DEFECT — measured and refuted
+
+- `ConnectionManager`: "the first reconcile destroys the restored edge and truncates `wanted.json`" —
+  `The_startup_hold_does_not_DESTROY_the_restored_edge` PASSES. Recorded as a claim, not a bug.
