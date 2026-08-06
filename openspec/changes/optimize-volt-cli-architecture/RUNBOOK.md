@@ -2,7 +2,7 @@
 
 ## ▶ RESUME HERE
 
-**Next move: 7 of 24** (`unsilence-the-accept-loop`) — the first `fix` move, so it lands RED-FIRST. Phases 1–4 are complete; execution is under way.
+**Next move: 8 of 24** (`bridge-drops-go-to-voltlog`). Phases 1–4 are complete; execution is under way.
 
 To continue in a fresh session, from the repo root:
 
@@ -15,15 +15,17 @@ is that it passes `{order}` ONLY, and the agents read the card from
 `openspec/changes/optimize-volt-cli-architecture/moves.json`. That indirection is deliberate: hand-transcribing
 cards into workflow args dropped files and cost ~20 phase-4 skeptics.
 
-Then: revert any `mustRevert` → gate (§4) → append to `ledger.md` → commit `refactor(cli): move N/24 — <title>`
-→ bump the number above.
+Then: revert any `mustRevert` → **if the move is a `fix`, PROVE RED-FIRST** (`git stash` its src files, run the
+new test alone, confirm it fails for the right reason, `git stash pop`) → gate (§4) → append to `ledger.md` →
+commit (`refactor(cli):` for a shape move, `fix(cli):` for a fix move) `move N/24 — <title>` → bump the number
+above, and check §0.6b.
 
 **Nothing is lost if a session dies.** Every landed move is its own gated commit; an interrupted move leaves an
 uncommitted tree that `git checkout --` discards. Workflow agent results are journaled per agent, so
 `resumeFromRunId` replays the finished ones from cache and re-runs only the failures (phase 4 lost 7 of 55
 skeptics to a session limit and kept the other 47).
 
-Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport`.
+Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport` · **7** `unsilence-the-accept-loop`.
 
 
 Read `proposal.md` for why, `design.md` for the five phases and the agent roles, this file to *execute*.
@@ -34,7 +36,7 @@ Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes s
 1. **`dotnet` on PATH is an x86 stub with no SDK.** Always `C:\Program Files\dotnet\dotnet.exe`.
 2. **A running headless CODESYS holds the net48 bridge DLLs — the build FAILS while it is up** (`MSB3027`).
    The order is always **`codesys down` → build → unit tests → `codesys up` → e2e**.
-3. **There are THREE C# suites:** `Volt.Engine.Tests` (**324**), `Volt.Cli.Tests` (116),
+3. **There are THREE C# suites:** `Volt.Engine.Tests` (**324**), `Volt.Cli.Tests` (**117** — +1 from move 7),
    `Volt.Cli.Connector.Tests` (**75** — was 76 until move 5 deleted a test with its subject). Engine was 313
    before `audit-volt-cli-src` added 11 in flight. **A count that drops without a ledger row is a regression.**
 3b. **`pwsh` is NOT installed on this machine.** Every doc that says `pwsh scripts/foo.ps1` means

@@ -101,6 +101,7 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 4 | `one-st-emitter` (shape) | 8 | 1,044 → 870 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fadb86ab8f` |
 | 5 | `delete-dead-spawn-plan` (shape, **narrowed**) | 3 | 650 → 622 | **accept**, 0 must-revert | build 0 err · 324/116/**75** | `9396b2ded1` |
 | 6 | `voltlog-down-to-transport` (shape, **relocation**) | 18 | 3,175 → 3,163 | **accept**, 0 must-revert | build 0 err · 324/116/75 · **+ HEAD built in a clean worktree** | `726f4959e8` |
+| 7 | `unsilence-the-accept-loop` (**fix**) | 3 | 470 → 529 | **accept**, 0 must-revert | build 0 err · 324/**117**/75 · **red-first verified** | `bd8e0f6b` |
 
 ## Test files moved mechanically
 
@@ -115,6 +116,15 @@ wearing a costume.)_
 | `test/Volt.Engine.Tests/ChildDirectiveTests.cs` | 4 | ARRANGE repointed at the shipped emitter (premise "StAssembler is the format under test" was false — nothing ships it). Every pre-existing assertion unchanged; **gained** a golden `Assert.Equal` on the full emitted text |
 | `test/Volt.Engine.Tests/InterfaceRoundTripTests.cs` | 4 | same, same |
 | `test/Volt.Cli.Connector.Tests/TwincatSupervisorTests.cs` | 5 | **coverage DELETED, not adapted**: one case + five assertions drove `Forget`/`SpawnedPids`, the members this move removes. Suite **76 → 75**. Every surviving case keeps its behavioural assertion; no assertion text or expected value changed |
+
+## Fix moves — the red-first proof
+
+A `fix` move's whole warrant is that a test failed against the OLD behaviour. That is verified here by stashing
+the move's src files and running the new test alone — not taken from the surgeon's report.
+
+| # | move | the test | RED against HEAD said |
+|---|---|---|---|
+| 7 | `unsilence-the-accept-loop` | `PipeTransportTests.A_bridge_whose_pipe_cannot_be_bound_fails_Start_instead_of_reporting_ready` | `Assert.ThrowsAny() Failure: No exception was thrown` — i.e. `Start()` returned normally while the pipe never bound |
 
 ## Process defects found while executing
 
