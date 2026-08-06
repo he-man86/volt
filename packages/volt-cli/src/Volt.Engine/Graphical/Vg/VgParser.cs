@@ -80,8 +80,21 @@ namespace Volt.Engine.Graphical.Vg
                 {
                     var stLines = new List<string>();
                     int j = i + 1;
-                    for (; j < rawLines.Length && !rawLines[j].Trim().Equals("END_EXECUTE", StringComparison.OrdinalIgnoreCase); j++)
+                    // BOUNDED at the network boundary. An Execute box's ST can never legally contain END_NETWORK
+                    // or a NETWORK header, and without this the scan ran to end-of-input: a missing or misspelled
+                    // END_EXECUTE swallowed every following network into ONE box's verbatim ST, whenever a LATER
+                    // network had an END_EXECUTE for it to stop at. It survived GraphicalCode.Validate too — that
+                    // ST is re-emitted verbatim — so a single typo pushed the whole body to the IDE as flat ST
+                    // with no error anywhere.
+                    for (; j < rawLines.Length; j++)
+                    {
+                        var t = rawLines[j].Trim();
+                        if (t.Equals("END_EXECUTE", StringComparison.OrdinalIgnoreCase)) break;
+                        if (t.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase) ||
+                            t.StartsWith("NETWORK", StringComparison.OrdinalIgnoreCase))
+                            throw new VgParseException("EXECUTE without a closing END_EXECUTE", "VG_PARSE") { Line = lineNum };
                         stLines.Add(rawLines[j]);
+                    }
                     if (j >= rawLines.Length) throw new VgParseException("EXECUTE without a closing END_EXECUTE", "VG_PARSE") { Line = lineNum };
                     cur.AddExecute(pendingEn, string.Join("\n", stLines), lineNum);
                     i = j;   // consume through END_EXECUTE

@@ -186,4 +186,25 @@ public class VgStrictFormTests
         Assert.Throws<VgParseException>(() => VgParser.Parse(
             "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"));
     }
+
+    /// <summary>An EXECUTE whose END_EXECUTE is missing or misspelled must be REFUSED, not allowed to swallow the
+    /// rest of the body. The scan used to run to end-of-input, straight over END_NETWORK and every following
+    /// NETWORK header, collapsing N networks into one Execute box's verbatim ST — and it SURVIVED
+    /// GraphicalCode.Validate's canonical gate, because that ST is re-emitted verbatim. So a single typo pushed
+    /// the whole body into the IDE as flat ST with no error anywhere. An Execute box's ST can never legally
+    /// contain a network delimiter, which is what makes the boundary a safe place to stop.</summary>
+    [Fact]
+    public void An_EXECUTE_missing_its_END_EXECUTE_is_refused_and_does_not_swallow_later_networks()
+    {
+        // The trigger needs a LATER END_EXECUTE for the runaway scan to find: with none anywhere the scan hits
+        // end-of-input and already throws. Here network 0's EXECUTE is unterminated and network 2's is not, so
+        // the scan runs from network 0 across END_NETWORK, the NETWORK 1 header, all of network 1, and stops at
+        // network 2's END_EXECUTE — three networks silently collapsed into one Execute box.
+        var vg = "NETWORK 0 FBD\n  EXECUTE\n    x := 1;\nEND_NETWORK\n" +
+                 "NETWORK 1 FBD\n  q := a;\nEND_NETWORK\n" +
+                 "NETWORK 2 FBD\n  EXECUTE\n    y := 2;\n  END_EXECUTE\nEND_NETWORK\n";
+
+        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(vg));
+        Assert.Equal("VG_PARSE", ex.Code);
+    }
 }
