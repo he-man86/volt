@@ -1,3 +1,34 @@
+> ## ⚠ RECONCILE BEFORE RESUMING — `optimize-volt-cli-architecture` landed underneath this plan
+>
+> Batches 5–12 were written against the tree as it stood on 2026-08-05. Twenty-three structural moves have
+> landed since, so **re-derive each remaining batch's file list and LOC before running it.** Concretely:
+>
+> **Named here but DELETED** — a group that lists them will find nothing:
+> - `DebugService.cs` (+ `IDebugIntrospect.cs`, the three `IIdeSession.Debug*` members and their four vendor
+>   implementations) — move 2. **Batch 3.3 and batch 6.3 both need rewriting.**
+> - `PouToXml.cs` — move 3a. **Batch 6.3 is now `FbdOperators.cs` alone.**
+> - `SourceText/StAssembler.cs` — move 4. **Batch 4.2 loses its largest file.**
+> - `Volt.Cli.Connector.Core/Log.cs` — move 9. **Batch 11.3 shrinks.**
+>
+> **RELOCATED** — still audit them, but not where this plan says:
+> - `VoltLog.cs`: `Volt.Engine/Diagnostics/` → `Volt.Cli.Transport/` (move 6). Batch 2.3's `Diagnostics/` group
+>   no longer exists; the file belongs to batch 1's project now.
+> - `ProjectEntry.cs` + `HealthResponse.cs`: `Volt.Engine/Wire/` → `Volt.Cli.Transport/Wire/` (move 10), and
+>   `ConnectRequest.cs` is now its own file. **Batch 2.2 must be re-scoped.**
+> - `BridgeSupervisor.cs`: `Volt.Cli.Connector/` → `Volt.Cli.Connector.Core/` (move 24), plus a new
+>   `TwincatFleet.cs`. **Batches 11 and 12 both shift.**
+>
+> **SUBSTANTIALLY REWRITTEN since being planned** — audit the current text, not the remembered one:
+> `DriverBase.cs` (now composes the whole health response), both drivers' `SnapshotHealth`,
+> `CodesysTypeMap.cs`, `BridgePipeHost.cs`, `Commands.cs`, `RefsService.cs`, `PipeServer.cs`.
+>
+> **New files that did not exist when this plan was written** and are therefore in NO batch:
+> `Volt.Cli.Transport/WorkerCli.cs`, `Volt.Cli.Transport/Polyfills.cs`, `Volt.Cli.Connector.Core/TwincatFleet.cs`.
+>
+> Also note the gate has moved: the three suites are now **337 / 122 / 77**, and the TwinCAT e2e baseline is
+> **90 / 11 / 0** *when pinned to a stable XAE* — see that change's `RUNBOOK.md` §0.6a/§5, which document two
+> traps this plan predates (a stale-binary false green, and one fixture's XAE crashing mid-run).
+
 ## 0. Setup
 
 - [x] 0.1 Write the conventions the audit enforces into `packages/volt-cli/ARCHITECTURE.md` (a short
