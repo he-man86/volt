@@ -23,8 +23,15 @@ namespace Volt.Cli.Tests;
 /// the IDE out from under the workspace (the push-conflict scenario), use <see cref="MutateImplementation"/> /
 /// <see cref="AddItem"/> / <see cref="RemoveItem"/>, which change the walked state so the recomputed versions
 /// (and thus the projectVersion lease) diverge from the workspace's baseline.
+///
+/// It derives from <see cref="DriverBase"/> — the same base both shipped drivers derive from — so the shared
+/// machinery a fake used to hand-stub away (the degraded state machine, the IDE-thread liveness bracketing in
+/// <c>RunOnStaThread</c>, and the single-flight ambient probe) actually RUNS under test. The vendor-shaped members
+/// are supplied here: <see cref="MarshalToIdeThread{T}"/> is the fake's one work thread, and
+/// <see cref="TriggerAsyncProbe"/> routes through <c>RunProbeOnce</c> so a probe that throws reaches
+/// <c>OnProbeFailed</c> (log + MarkDegraded) exactly as it would on a real driver.
 /// </summary>
-public sealed class FakeIde : IIdeDriver
+public sealed class FakeIde : DriverBase, IIdeDriver
 {
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
@@ -51,7 +58,8 @@ public sealed class FakeIde : IIdeDriver
     private readonly List<Item> _items;
     public FakeIde(params Item[] items) => _items = items.ToList();
 
-    // Opt-in: serialize RunOnStaThread onto ONE background worker, modelling the real IDE's single primary/STA thread.
+    // Opt-in: serialize MarshalToIdeThread onto ONE background worker, modelling the real IDE's single primary/STA
+    // thread (DriverBase.RunOnStaThread brackets every call to it, exactly as it does for a shipped driver).
     // With this on, a blocked op (ExtractBlock) HOLDS that thread — so a poll-path op that marshals onto it deadlocks,
     // while one served from cache answers. This is what makes the "poll ops answer while the IDE is busy" test real.
     public FakeIde(bool serializeSta, params Item[] items) : this(items)
@@ -103,6 +111,16 @@ public sealed class FakeIde : IIdeDriver
     // Default non-null so a bare `new FakeIde(...)` models a connected bridge WITH a project loaded (serving). A test
     // that wants "connected to the IDE but no project" sets this to null explicitly (then nothing serves).
     public string? HealthProjectName { get; init; } = "FakeProject";
+    // The name on the CACHED health row, independent of the LIVE served name above. Defaults to HealthProjectName (the
+    // two agree, as they normally do), and is settable APART so a test can model the snapshot naming a DIFFERENT
+    // project than the one actually served — the mis-binding that was unrepresentable while one knob fed both.
+    private string? _healthSnapshotProjectName;
+    private bool _healthSnapshotProjectNameSet;
+    public string? HealthSnapshotProjectName
+    {
+        get => _healthSnapshotProjectNameSet ? _healthSnapshotProjectName : HealthProjectName;
+        init { _healthSnapshotProjectName = value; _healthSnapshotProjectNameSet = true; }
+    }
     // Force the CACHED health snapshot to show NOTHING serving while the live signals still say connected — exactly
     // what TwinCAT's ~5s-throttled snapshot does for a moment after a reconnect. Default false: the two agree.
     public bool StaleHealthSnapshot { get; init; }
@@ -221,16 +239,26 @@ public sealed class FakeIde : IIdeDriver
     // sources here, because they are separate on a real driver: TwinCAT serves health from a ~5s-throttled snapshot
     // while IsConnected is a live state read, so the two CAN disagree. This double used to assert they were the same
     // signal, which made the divergence unrepresentable — and hid a real bug. `StaleHealthSnapshot` models it.
-    public bool IsConnected => HealthConnected && _attached;
-    public string Vendor => HealthPlatform;
+    public override bool IsConnected => HealthConnected && _attached;
+    public override string Vendor => HealthPlatform;
     /// <summary>The LIVE served-project name — what the in-op guard reads. Independent of the health snapshot.</summary>
-    public string? ServedProjectName => IsConnected ? HealthProjectName : null;
-    public string? IdeVersion => "0";
-    public void Disconnect() { }
-    public bool IsDegraded => false;
-    public void MarkDegraded(string reason) { }
-    public void ClearDegraded() { }
-    public HealthResponse BuildHealthResponse()
+    public override string? ServedProjectName => IsConnected ? HealthProjectName : null;
+    public override string? IdeVersion => "0";
+    public override void Disconnect() { }
+    // IsDegraded / MarkDegraded / ClearDegraded / Recover are NOT stubbed here any more: DriverBase's real ones run,
+    // so the degraded state machine is under test. Nothing flips it by default, so today's answers are unchanged.
+    /// <summary>The ambient probe, routed through <c>DriverBase.RunProbeOnce</c> like both shipped drivers — so the
+    /// single-flight skip and the <c>OnProbeFailed</c> path (log + MarkDegraded) are reachable from a test for the
+    /// first time. <see cref="ProbeAction"/> is the probe body; unset, it is an inert successful probe. Nothing calls
+    /// this by default (the fake's <see cref="BuildHealthResponse"/> serves the configured rows directly), so it costs
+    /// the existing suites nothing.</summary>
+    public Action? ProbeAction { get; init; }
+    public override void TriggerAsyncProbe() =>
+        RunProbeOnce(() => RunOnStaThread(() => { ProbeAction?.Invoke(); return 0; }));
+    // NB move 13 (health-compose-in-core) removes this override in favour of DriverBase's composed body. When it does,
+    // PipeTransportTests' two deadlock guards start going through OverlayLiveHealth for the first time — re-read them
+    // there rather than assuming their "not idle" assertions still mean what they mean today.
+    public override HealthResponse BuildHealthResponse()
     {
         // Each configured row only actually serves (non-idle status) while IsConnected — so a select that fails to
         // attach, or HealthConnected=false, forces every row to `idle`, like a real driver. When no rows are
@@ -239,13 +267,18 @@ public sealed class FakeIde : IIdeDriver
         // `StaleHealthSnapshot` = the cached list has no serving row even though the live signals say connected.
         var serving = IsConnected && !StaleHealthSnapshot;
         var rows = Projects.Select(p => p with { Status = serving ? p.Status : HealthStatus.Idle }).ToList();
-        if (rows.Count == 0 && serving && !string.IsNullOrEmpty(HealthProjectName))
-            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthProjectName!, HealthStatus.Healthy, false));
+        if (rows.Count == 0 && serving && !string.IsNullOrEmpty(HealthSnapshotProjectName))
+            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthSnapshotProjectName!, HealthStatus.Healthy, false));
         return new HealthResponse { Projects = rows };
     }
-    public bool ShouldMarkDegraded(Exception ex) => false;
-    public void Recover() { }   // in-memory fake never drops a channel
-    public T RunOnStaThread<T>(Func<T> fn)
+    /// <summary>Whether an op exception counts as a transient the host should self-heal — the filter on
+    /// <c>BridgePipeHost.RunRead</c>'s mark-degraded → Recover → retry-once branch. Default false: today's answer, and
+    /// CODESYS's in-proc answer. Settable so that branch stops being unreachable under test.</summary>
+    public bool TransientErrorsAreDegraded { get; init; }
+    public override bool ShouldMarkDegraded(Exception ex) => TransientErrorsAreDegraded;
+    /// <summary>The fake's one IDE thread. <c>DriverBase.RunOnStaThread</c> wraps every call to this with the
+    /// in-flight/freshness bracketing, so the fake gets the real liveness signals for free.</summary>
+    protected override T MarshalToIdeThread<T>(Func<T> fn)
     {
         if (_sta == null) return fn();   // default: inline, no serialization
         T result = default!; Exception? error = null;
@@ -259,15 +292,15 @@ public sealed class FakeIde : IIdeDriver
     // ── project rows / connect knobs — the flat connectable-projects list rides on the health response ──
     public List<ProjectEntry> Projects { get; set; } = new();
     public ConnectRequest? Selected { get; private set; }
-    public void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
+    public override void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
-    public void FlushPendingWrites() { }
+    public override void FlushPendingWrites() { }
 
     // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
     public bool BuildSucceeds { get; init; } = true;
     public IReadOnlyList<BridgeDiagnostic> BuildDiagnostics { get; init; } = new List<BridgeDiagnostic>();
-    public bool Build() => BuildSucceeds;
-    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => BuildDiagnostics;
+    public override bool Build() => BuildSucceeds;
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => BuildDiagnostics;
 
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning
     /// library's folder(s). Set per-test; empty by default.</summary>
@@ -278,7 +311,7 @@ public sealed class FakeIde : IIdeDriver
     public ManualResetEventSlim? ExtractBlock { get; init; }
     /// <summary>How many times extraction (the precompile) ran — lets a test prove a directed fetch skips the build.</summary>
     public int ExtractCalls;
-    public IReadOnlyList<LibSignature> ExtractLibrarySignatures()
+    public override IReadOnlyList<LibSignature> ExtractLibrarySignatures()
     {
         ExtractCalls++;
         ExtractEntered?.Set();
