@@ -23,7 +23,7 @@ export interface LanguageTest {
   feature: string
   /** Self-contained workspace file content — POU + sibling children
    *  in the canonical assembled ST layout the bridge's StSplitter
-   *  reads (and StAssembler emits on /fetch). */
+   *  reads (and PouToStText emits on /fetch). */
   source: string
   /** Anchor in the reference doc. Format: `<filename>#<section>` or `<filename>:L<line>`. */
   fromDoc: string

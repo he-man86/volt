@@ -7,8 +7,13 @@ using Volt.Cli.Transport;
 
 namespace Volt.Engine.Workspace;
 
-/// <summary>Assembles a <see cref="PouData"/> into canonical workspace Structured Text.
-/// Replaces the dict-based <c>StAssembler</c>.</summary>
+/// <summary>Assembles a <see cref="PouData"/> into canonical workspace Structured Text — the inverse of
+/// <c>SourceText/StSplitter</c>, and the SOLE owner of that format.
+/// <para>The dict-based <c>SourceText/StAssembler</c> that used to share this format is DELETED, retiring its
+/// `ponytail:` note (which prescribed exactly this once the two round-trip tests stopped driving it): it had no
+/// production call site, and it had already diverged here — it invented `END_&lt;KIND&gt;` where this throws
+/// <c>INVALID_CODE_HEADER</c>. ChildDirectiveTests and InterfaceRoundTripTests now certify THIS emitter, against
+/// a golden of the whole emitted text.</para></summary>
 public static class PouToStText
 {
     public static string Convert(PouData pou)

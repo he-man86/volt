@@ -65,7 +65,7 @@ export function parseProperty(c: Cursor): Property | undefined {
       }
     }
     // The bridge prepends a `%FOLDER <path>` directive to a child body when the item lives in a
-    // sub-folder (StAssembler). It sits before the accessors — skip it (LSP doesn't need the folder).
+    // sub-folder (PouToStText). It sits before the accessors — skip it (LSP doesn't need the folder).
     if (skipFolderDirective(c)) continue
     const accessor = parseInlineAccessor(c)
     if (accessor !== undefined) {
