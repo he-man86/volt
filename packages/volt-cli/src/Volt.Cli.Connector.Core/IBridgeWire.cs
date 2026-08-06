@@ -15,9 +15,10 @@ namespace Volt.Cli.Connector
         Task<JsonElement> CallAsync(string op, object? body = null);
     }
 
-    /// <summary>The production <see cref="IBridgeWire"/>: one named pipe (`volt.bridge.&lt;vendor&gt;`). Connect is
-    /// blocking, so calls run off the caller's thread; a short connect timeout maps "nothing listening" to a
-    /// thrown call (which the source treats as unreachable → empty list / Unreachable health).</summary>
+    /// <summary>The production <see cref="IBridgeWire"/>: one discovered per-instance pipe
+    /// (`volt.bridge.&lt;vendor&gt;.&lt;pid&gt;`). Connect is blocking, so calls run off the caller's thread; a short
+    /// connect timeout maps "nothing listening" to a thrown call (which the source isolates to that one pipe — no
+    /// rows from it).</summary>
     public sealed class PipeBridgeWire : IBridgeWire
     {
         private readonly string _pipeName;

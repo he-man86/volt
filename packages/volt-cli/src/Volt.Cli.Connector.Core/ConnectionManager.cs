@@ -12,9 +12,11 @@ namespace Volt.Cli.Connector
     /// <summary>
     /// The core of the connection model. Owns the merged, vendor-agnostic list of detected projects across every
     /// <see cref="IProjectSource"/>, the client <b>sessions</b> and their declared <b>interests</b>, the tray's
-    /// force-off overrides, and the <b>reconcile loop</b> that binds/unbinds bridges so a project serves iff a live
-    /// session wants it and it is not force-off. The tray and the control plane are thin views over this — neither
-    /// branches on vendor.
+    /// force-off overrides, and the <b>reconcile loop</b> that binds/unbinds bridges. That loop is deliberately NOT
+    /// "serves iff wanted": it RESUMES any wanted-but-idle project (level-triggered) but GATES only a project that was
+    /// wanted last pass and no longer is (the leave edge), plus anything the tray force-offs — a project no session has
+    /// ever declared is left untouched, which is exactly what keeps a standalone <c>volt push</c> working (see
+    /// <see cref="Reconciler"/>). The tray and the control plane are thin views over this — neither branches on vendor.
     ///
     /// <para><b>Declared desired-state, the only model.</b> A client (a desktop instance, a VS Code window) opens a
     /// <see cref="Session"/> and, on every sync, declares the FULL set of projects it is currently using.
@@ -26,7 +28,11 @@ namespace Volt.Cli.Connector
     /// <para><b>Concurrency.</b> Everything observable lives in ONE immutable <see cref="State"/> behind a single
     /// volatile field; writers build a new State and publish it with one assignment, readers answer from one local
     /// copy. Detection, session mutation and reconcile all run under the single <see cref="_gate"/> (a read-modify-write
-    /// of the sessions map — never a lock-free swap — so two syncs landing together cannot lose one's interests).</para>
+    /// of the sessions map — never a lock-free swap — so two syncs landing together cannot lose one's interests).
+    /// TWO fields sit outside that State by exception, and both are WRITTEN only under the gate: <c>_restored</c> (the
+    /// startup-grace set) and <c>_lastRefreshUtc</c>. <c>_lastRefreshUtc</c> is additionally READ un-gated on the fast
+    /// path of <see cref="RefreshIfStaleAsync"/>; that staleness is accepted, because the double-check under the gate
+    /// is what actually decides whether to refresh.</para>
     /// </summary>
     public sealed class ConnectionManager
     {
@@ -78,7 +84,9 @@ namespace Volt.Cli.Connector
             _byVendor = sources.ToDictionary(s => s.Vendor);
             _leaseTtl = leaseTtl == default ? TimeSpan.FromSeconds(15) : leaseTtl;
             _gateHoldUntil = DateTime.UtcNow + GateHold;
-            _restored = new HashSet<string>(LoadWanted(_wantedFile), StringComparer.Ordinal);
+            // ONE read, ONE answer: the hold set and the restored edge set must be the same generation of the file.
+            var restored = LoadWanted(_wantedFile);
+            _restored = new HashSet<string>(restored, StringComparer.Ordinal);
             _state = new State(
                 Array.Empty<DetectedProject>(),
                 new Dictionary<string, bool>(),
@@ -87,7 +95,7 @@ namespace Volt.Cli.Connector
                 // connector that starts blank has no edge for anything it was serving before — and an auto-update
                 // restarts us mid-session. Field incident 2026-07-28: after an update a project sat `healthy` with
                 // every client closed, and nothing could ever gate it again. Restoring the set restores the edge.
-                LoadWanted(_wantedFile),
+                restored,
                 Array.Empty<string>(),
                 AnyReachable: false);
         }
@@ -259,7 +267,15 @@ namespace Volt.Cli.Connector
                 // The decision, before it is applied — so a log read after the fact says what the connector INTENDED,
                 // and the serving-transition lines below say what actually came of it.
                 if (plan.ToBind.Count > 0) VoltLog.Info($"reconcile: connecting {string.Join(", ", plan.ToBind.Select(p => p.Id))}");
-                if (plan.ToUnbind.Count > 0) VoltLog.Info($"reconcile: disconnecting {string.Join(", ", plan.ToUnbind.Select(p => p.Id))} (no live session wants it)");
+                // Split the unbinds by CAUSE. There are two, and calling a deliberate tray pause "no live session
+                // wants it" sends a support read after the wrong half of the system.
+                if (plan.ToUnbind.Count > 0)
+                {
+                    var paused = plan.ToUnbind.Where(p => s.ForceOff.Contains(p.Id)).Select(p => p.Id).ToList();
+                    var left = plan.ToUnbind.Where(p => !s.ForceOff.Contains(p.Id)).Select(p => p.Id).ToList();
+                    if (paused.Count > 0) VoltLog.Info($"reconcile: disconnecting {string.Join(", ", paused)} (paused from the tray)");
+                    if (left.Count > 0) VoltLog.Info($"reconcile: disconnecting {string.Join(", ", left)} (no live session wants it)");
+                }
                 foreach (var p in plan.ToUnbind) await SafeUnbindAsync(p).ConfigureAwait(false);
                 foreach (var p in plan.ToBind) await SafeBindAsync(p).ConfigureAwait(false);
 
@@ -277,7 +293,11 @@ namespace Volt.Cli.Connector
                         VoltLog.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
-            if (!plan.Wanted.SequenceEqual(_state.Wanted)) SaveWanted(_wantedFile, plan.Wanted); // so a restart inherits the edge
+            // Compare as a SET, not a sequence: both sides are unordered (plan.Wanted is filled in session-enumeration
+            // order, _state.Wanted starts life as the array LoadWanted returned), so a sequence compare rewrote the
+            // file on the 4s tick every time a session reordered without the desired set changing at all.
+            if (!plan.Wanted.ToHashSet(StringComparer.Ordinal).SetEquals(_state.Wanted))
+                SaveWanted(_wantedFile, plan.Wanted); // so a restart inherits the edge
             _state = _state with { Wanted = plan.Wanted };
         }
 
@@ -330,6 +350,10 @@ namespace Volt.Cli.Connector
 
         // The desired set, across restarts. Tiny and best-effort: losing it costs one stranded bridge (the old
         // behaviour), never correctness, so it must never throw or block a reconcile.
+        // ponytail: the temp-dir fallback is deliberate and mirrors VoltLog.DefaultDir exactly — it covers the one case
+        // where LocalApplicationData does not resolve (a service/SYSTEM context with no loaded user profile). Keeping
+        // the SAME root resolution as the log means the desired set and the log a support session reads never land in
+        // different trees. Do not "fix" it to fail loud without changing VoltLog too.
         private static string DefaultWantedFile =>
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) is { Length: > 0 } d ? d : Path.GetTempPath(),
@@ -340,9 +364,13 @@ namespace Volt.Cli.Connector
             try
             {
                 if (!File.Exists(file)) return Array.Empty<string>();
-                return JsonSerializer.Deserialize<string[]>(File.ReadAllText(file)) ?? Array.Empty<string>();
+                var read = JsonSerializer.Deserialize<string[]>(File.ReadAllText(file));
+                // Losing the set is silent otherwise, and its whole job is to survive a restart — the one log a
+                // support session reads has to say when the restore edge went missing (SaveWanted already does).
+                if (read == null) VoltLog.Warn($"the desired set at {file} is empty JSON — starting with no restore edge");
+                return read ?? Array.Empty<string>();
             }
-            catch { return Array.Empty<string>(); }
+            catch (Exception e) { VoltLog.Warn($"could not read the desired set: {e.Message}"); return Array.Empty<string>(); }
         }
 
         private static void SaveWanted(string file, IReadOnlyCollection<string> wanted)

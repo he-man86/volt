@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
@@ -35,6 +36,10 @@ namespace Volt.Cli.Connector
                 using var proc = Process.Start(psi);
                 if (proc == null) return null;
                 var stdout = proc.StandardOutput.ReadToEndAsync(); // drain async so a big write can't deadlock WaitForExit
+                // The two failure returns below abandon that read while `using` disposes the stream under it, so it can
+                // fault after we're gone. Observe it here or every failed probe leaks an unobserved faulted Task — on a
+                // path the design makes RECURRENT (a persistently failing probe fires every tick, forever).
+                stdout.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
                 if (!proc.WaitForExit((int)timeout.TotalMilliseconds))
                 {
                     try { proc.Kill(entireProcessTree: true); } catch { /* already gone */ }

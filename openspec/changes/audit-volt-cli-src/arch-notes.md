@@ -879,3 +879,80 @@ user's repo comes from, and `Volt.Cli.Tests` exercises the command surface, not 
 
 **Fix.** Reconcile per name before sending: if a batch contains a DeleteItemOp and a SetItemOp for the same `Name`, collapse them into the single SetItemOp (with `ToFolder` set from the new path) — that is exactly the rename/move op the wire already models. Failing that, sort deletes before sets so the surviving state is the added file, never the deleted one.
 
+
+---
+
+## BATCH 11 ESCALATIONS — `Volt.Cli.Connector.Core` (2026-08-06)
+
+47 findings, 12 behaviour-changing. **Two of them were then MEASURED**, because unlike the drivers this project
+IS reachable from a test and `wantedFile` is injectable. A new `ConnectionManagerRestoreTests` pins the path the
+auditor found had zero coverage:
+
+| traced finding | measurement |
+|---|---|
+| an EMPTY sync disarms the startup grace hold | **CONFIRMED — test fails** |
+| the first reconcile DESTROYS the restored edge (truncates `wanted.json`) | **NOT reproduced — test passes**; the id survives on disk in this scenario |
+
+That is the third time in this programme an audit trace over-reached where measurement did not follow. The
+confirmed half is fixed red-first in its own commit; the unreproduced half stays here as a claim, not a defect.
+
+### `ConnectionManager.cs:280` — bug (group 11.1)
+
+**Claim.** The restored desired-set is destroyed by the very first reconcile, so a HELD disconnect can never fire afterwards and the on-disk `wanted.json` is truncated before any client re-declares — reinstating the exact 2026-07-28 stranded-bridge incident the restore exists to prevent. The comment claiming otherwise is false.
+
+**Fix.** When a disconnect is held, keep the held ids in the plan's desired set so the leave-edge survives to the next pass: `plan = plan with { ToUnbind = …, Wanted = plan.Wanted.Concat(held.Select(p => p.Id)).ToHashSet(StringComparer.Ordinal) }`. That also stops the persisted file being rewritten to `[]` during the grace window (SaveWanted then sees an unchanged set). Trace of the current code: ctor sets `Wanted = {A}` (restored) and `_restored = {A}`; the first tray tick calls Plan with `previouslyWanted={A}`, no sessions → `wanted={}`, `toUnbind=[A]`; the hold strips A from ToUnbind, then line 280 writes `[]` to disk and line 281 sets `Wanted={}`. On every later pass `previouslyWanted` is `{}`, so `lost` is empty and A is never in `toUnbind` again — A serves forever with no client, and a second restart inside the window has no edge to restore either.
+
+### `ConnectionManager.cs:136` — bug (group 11.1)
+
+**Claim.** The startup grace hold is disarmed by ANY sync, including a sync that declares NOTHING — so the first client to poll (which in practice declares an empty interest set) cancels the protection for every other client that has not re-declared yet.
+
+**Fix.** Only treat a NON-EMPTY declaration as "the clients are back", and remove only what that client declared: `if (interests.Count > 0) foreach (var i in interests) _restored.Remove(...)` (or simply `if (interests.Count > 0) _restored = new HashSet<string>(...)`). Live path that breaks it today: `volt-desktop/src/main.ts:127 void startConnectorFeed()` and `volt-vscode/src/extension.ts:60 void startConnectorFeed()` both start the feed BEFORE any workspace has declared (`restoreWorkspace()` / `addWorkspace` race it), and `volt-control/src/bridge/session.ts` syncs unconditionally — `body: JSON.stringify({ interests: uniqueInterests() })` with an empty array. The connector sees "a client spoke", clears `_restored`, and the next reconcile gates the restored project immediately, which is precisely what the 20s window was added to prevent.
+
+### `ConnectionManagerTests.cs:62` — bug (group 11.1)
+
+**Claim.** This suite's helper still constructs a ConnectionManager with the DEFAULT wanted file, so the unit tests read AND overwrite the developer's real `%LOCALAPPDATA%\Volt\wanted.json` with `[]` — destroying the live connector's restore edge on every test run. The sibling file was fixed for exactly this hazard; this one was missed.
+
+**Fix.** Give this helper the same temp path the sibling suite uses: `new(sources, wantedFile: TempWanted())` (hoist `TempWanted()` out of `ConnectionManagerSessionTests` into a shared helper). Every `RefreshAsync()` in this file runs `CycleCoreAsync`, and with no sessions `plan.Wanted` is empty while `_state.Wanted` is whatever the machine's real file held, so line 280 fires `SaveWanted(<real file>, [])`. The recorded intent is explicit: `openspec/changes/archive/2026-08-06-fix-connector-session-gate/tasks.md:2.2` — "`wantedFile` at a temp path — load-bearing, not hygiene".
+
+### `ControlServer.cs:148` — defensive-fallback (group 11.2)
+
+**Claim.** An unparseable or malformed `/session/{id}/sync` body is silently downgraded to "this client declares nothing", which makes the reconciler GATE every project that client was holding. A parse failure must not be indistinguishable from a deliberate empty declaration.
+
+**Fix.** Distinguish the three cases: no/blank body → empty set (a legitimate "I want nothing"); malformed JSON → `WriteJson(ctx, 400, …)` and do not call `_sync`; an interest missing vendor/projectName → 400 rather than a silent `.Where` drop. The empty-set path is already pinned by `Sync_with_an_empty_set_declares_no_interests`, so only the failure path changes.
+
+### `ControlServer.cs:106` — bug (group 11.2)
+
+**Claim.** If `EndGetContext` throws while the server is still running, the accept loop is never re-armed — the control plane stops accepting connections permanently, with no log line. Every client then renders "Volt Connector not running" until the tray is restarted.
+
+**Fix.** In the `EndGetContext` catch, when `_running` is still true, log the exception and re-arm (`try { _listener.BeginGetContext(OnContext, null); } catch { }`) before returning. The `!_running` early-return already covers the Dispose path, so this catch is by construction the still-running case.
+
+### `BridgeSupervisor.cs:42` — bug (group 11.3)
+
+**Claim.** BridgeSupervisor has no disposed guard, so a spawn that lands after Dispose() creates exactly the un-jobbed orphan worker the KILL_ON_JOB_CLOSE guard exists to prevent — and the tray's mitigating comment ("Stop the timer FIRST so it can't respawn a worker we're about to kill") does not cover an already-in-flight async tick.
+
+**Fix.** Add `private bool _disposed;` set under `_gate` in Dispose(), and make EnsureWorker `if (_disposed) return;` as its first statement inside the lock. Then a tick that resumes after ApplyUpdate's Dispose() spawns nothing, and Environment.Exit(0) cannot strand a worker outside the job.
+
+### `BridgeSupervisor.cs:76` — bug (group 11.3)
+
+**Claim.** The worker's captured stdout/stderr is logged under the worker ID (`twincat.<pid>`), but VoltLog treats its `source` argument as the log FILENAME key while pruning only the calling process's own source prefix — so every XAE pid mints a permanent `twincat.<pid>-<date>.log` series that nothing ever prunes, and the worker's story is split across two files.
+
+**Fix.** Pass the vendor tag as the log source and keep the worker id in the line text: `VoltLog.Raw(Vendors.Twincat, ...)` is wrong here too (BridgeSupervisor is vendor-neutral), so give WorkerSpec a `LogSource` (the vendor) alongside `Id` and call `VoltLog.Raw(w.LogSource, $"[{w.Id}] {e.Data}")`. The worker's own `twincat-<date>.log` then absorbs the capture and the existing 14-day prune covers it.
+
+### `DetectedProject.cs:24` — defensive-fallback (group 11.3)
+
+**Claim.** `Pipe` is required by every production path yet declared optional with a null default purely so unit fixtures can omit it — and both consumers respond to null by silently doing nothing, which is the Conventions #1 shape: a bind that reports success without binding, and a reconcile that invents a fake host key.
+
+**Fix.** Make `Pipe` a required positional `string Pipe` (no default) and have the one test helper pass a synthetic pipe name. The `?? p.Id` in Reconciler and the silent-return in PerPipeProjectSource.BindAsync then go away; a genuinely absent pipe becomes a coded failure instead of a bind that quietly no-ops. Same argument applies to `Status = HealthStatus.Idle` (line 27), which no caller ever takes.
+
+### `TwincatFleet.cs:31` — bug (group 11.3)
+
+**Claim.** `Tick` keeps mutable reconcile state (`TwincatSupervisor._workers` miss counters, `BridgeSupervisor._workers`) but has no re-entrancy guard, while its caller is a WinForms timer that does not serialize overlapping async handlers — two overlapping Ticks double-count misses and can reap a healthy worker after ~2 intervals instead of 3.
+
+**Fix.** Guard Tick with a single in-flight flag: `if (Interlocked.Exchange(ref _ticking, 1) == 1) return;` with a `try/finally { Volatile.Write(ref _ticking, 0); }`. The clock stays the tray's; the fleet enforces that only one pass is ever in flight — which is what "every decision about which workers exist is here" already implies.
+
+### `BridgeSupervisor.cs:44` — defensive-fallback (group 11.3)
+
+**Claim.** A missing worker binary returns silently with no log line, so "TwinCAT never gets a bridge because the exe isn't where the connector looked" is invisible in the durable log — while the two other failure modes in the same method both log. The test that pins this behaviour only asserts it does not throw, which a log line does not violate.
+
+**Fix.** Log once per id before returning (a `HashSet<string> _warnedMissing` under `_gate` keeps the 12s reconcile from spamming): `VoltLog.Warn($"worker {w.Id}: binary not found at {w.Exe} — no bridge for this IDE");`. The test keeps passing.
+

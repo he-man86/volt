@@ -12,8 +12,10 @@ namespace Volt.Cli.Connector
     /// <summary>One project the connector detected, flattened for the control plane / any first-party client.
     /// <c>Pipe</c> is the bridge pipe serving it (per-pid for CODESYS) — the shells set it as <c>VOLT_PIPE</c> for
     /// <c>volt init</c>; <c>IdeVersion</c> disambiguates same-named projects across IDE versions. <c>ProjectName</c>
-    /// is the name the workspace BINDING matches on (the vendor's <c>health.ProjectName</c> = the TwinCAT project /
-    /// the CODESYS project) — NOT <c>DisplayName</c>, which for TwinCAT is the PLC sub-project.</summary>
+    /// is the name the workspace BINDING matches on, and on EVERY row it is the same value as <c>DisplayName</c>:
+    /// both come from the one <c>health</c> row field (<c>ProjectEntry.Project</c>), which is the row's identity and
+    /// its <c>connect</c> address. Detection is identity-only on both vendors — it never reaches into PLC
+    /// applications, so there is no TwinCAT "PLC sub-project" variant here.</summary>
     /// <param name="Status">GROUND TRUTH: the row's full connection state — "idle" (detected, not served) | "healthy"
     /// (served, channel OK) | "degraded" (served, recent errors). Clients render connection state from THIS (serving =
     /// <c>status != "idle"</c>), never from the project merely appearing in the list — a disconnected bridge stays
@@ -31,7 +33,8 @@ namespace Volt.Cli.Connector
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension (and the desktop app) can
     /// see the connection state and act on it, without the user touching the tray. The data plane is the per-vendor
-    /// named pipe (`volt.bridge.&lt;vendor&gt;`, where PLC code flows); this control API is purely orchestration.
+    /// named pipe (`volt.bridge.&lt;vendor&gt;.&lt;pid&gt;` — one per running IDE, where PLC code flows; the bare
+    /// `volt.bridge.&lt;vendor&gt;` is a discovery PREFIX and is never served); this control API is purely orchestration.
     /// Localhost only.
     ///
     /// <para>The primary surface is the <b>session</b> API — a client declares the projects it is using and the
@@ -69,15 +72,17 @@ namespace Volt.Cli.Connector
 
         private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
-        /// <param name="port">Defaults to <see cref="ControlPort"/> — the ONE port every client knows. Overridden
-        /// only by tests, which must not fight the connector already listening on 8550 on a dev box.</param>
+        /// <param name="port">Required, never defaulted: production passes <see cref="ConfiguredPort"/> (the ONE port
+        /// every client knows, unless <c>VOLT_CONTROL_PORT</c> overrides it) so the single-instance mutex and this
+        /// listener are read from the same place; the test tiers pass their own port, which must not fight the
+        /// connector already listening on 8550 on a dev box.</param>
         public ControlServer(
             Func<Task<ConnectorView>> snapshot,
             Action<string> restart,
             Func<Task<(string SessionId, double LeaseSeconds)>> openSession,
             Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>> sync,
             Func<string, Task> closeSession,
-            int port = ControlPort)
+            int port)
         {
             _snapshot = snapshot;
             _restart = restart;
@@ -120,8 +125,10 @@ namespace Volt.Cli.Connector
 
         private async Task Handle(HttpListenerContext ctx)
         {
-            // CSRF guard (same rule as the bridge data plane): reject cross-origin browser requests. First-party
-            // callers (the VS Code extension's Node fetch, the desktop app) never send an `Origin` header.
+            // CSRF guard: reject cross-origin browser requests. This HTTP listener is the ONE browser-reachable
+            // surface in the product — the bridge data plane is a named pipe with no origin and no port, so it needs
+            // no such check and has none. First-party callers (the VS Code extension's Node fetch, the desktop app)
+            // never send an `Origin` header.
             var origin = ctx.Request.Headers["Origin"];
             if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{_port}", StringComparison.OrdinalIgnoreCase))
             {

@@ -5,9 +5,9 @@ namespace Volt.Cli.Connector
     /// <summary>
     /// Decides which per-XAE TwinCAT workers to spawn and reap so there is exactly ONE worker per running XAE window.
     /// This is the PURE decision — no COM, no processes, no timers — so the flicker/reap policy is unit-tested with no
-    /// live IDE. The tray drives it: each tick it enumerates the live XAE pids (a light ROT walk, off the UI thread)
-    /// and hands them here; the returned <c>Spawn</c>/<c>Reap</c> lists tell it which <c>VoltBridgeTwincat --xae-pid</c>
-    /// processes to start and which to kill.
+    /// live IDE. <see cref="TwincatFleet"/> drives it: each <c>Tick</c> hands it the pids returned by
+    /// <see cref="TwincatXaeProbe"/> (a COM-isolated subprocess, never a tray-side ROT walk), and the returned
+    /// <c>Reap</c> list names the <c>VoltBridgeTwincat --xae-pid</c> workers whose XAE has been gone long enough to stop.
     ///
     /// <para>Why per-XAE: TwinCAT automation is out-of-process COM, so (unlike CODESYS's forced in-proc host) a worker
     /// can own ONE window, attach by its stable process id, and serve <c>volt.bridge.twincat.&lt;pid&gt;</c> — giving

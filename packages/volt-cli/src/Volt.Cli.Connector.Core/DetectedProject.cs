@@ -4,7 +4,8 @@ namespace Volt.Cli.Connector
 {
     /// <summary>
     /// The attach reference a <see cref="IProjectSource"/> needs to bind a project: its NAME. A project is identified
-    /// by name (with the vendor) on both vendors — `select` re-resolves it on whichever live instance has it open.
+    /// by name (with the vendor) on both vendors — the `connect` wire op re-resolves it on the live instance that has
+    /// it open (the source targets that instance's own pipe).
     /// Only the owning source reads it back — the UI never does. Identity-only: no PLC-application coordinate — which
     /// PLC app to sync is a content concern, not connect.
     /// </summary>

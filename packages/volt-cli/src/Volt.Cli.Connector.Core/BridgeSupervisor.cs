@@ -36,9 +36,10 @@ namespace Volt.Cli.Connector
         private readonly object _gate = new();
         private readonly SafeJobHandle _job = SafeJobHandle.CreateKillOnClose();
 
-        /// <summary>Ensure the worker is running (spawn if absent or crashed). No-op when the binary can't be
-        /// found. The worker starts unattached and soft-attaches to the running IDE; the user picks the project
-        /// via the `select` wire op (no target env, no respawn).</summary>
+        /// <summary>Ensure the worker is running (spawn if absent, respawn if it exited). No-op when the binary
+        /// can't be found. The spawn args name the ONE IDE instance the worker owns (`--xae-pid &lt;pid&gt;`, which
+        /// the worker refuses to run without); which PROJECT it serves is a wire op (`connect`), never a
+        /// respawn.</summary>
         public void EnsureWorker(WorkerSpec w)
         {
             if (string.IsNullOrEmpty(w.Exe) || !File.Exists(w.Exe)) return;

@@ -27,9 +27,14 @@ namespace Volt.Cli.Connector
     /// standalone <c>volt push</c> and gating a neighbour the moment you connect something else. Instead: RESUME any
     /// wanted-but-idle project (level), but only GATE a project the connector was already serving on a client's
     /// behalf and that the LAST interested session has now left (the wanted→unwanted edge), plus anything the tray
-    /// force-offs. A project no session has ever wanted is left untouched. Edge-gating also makes a startup grace
-    /// window unnecessary: after a connector restart <paramref name="previouslyWanted"/> is empty, so there are no
-    /// leave-edges and nothing serving is gated while clients re-declare.</para>
+    /// force-offs. A project no session has ever wanted is left untouched.</para>
+    ///
+    /// <para>Edge-gating alone is NOT what covers a connector restart: <see cref="ConnectionManager"/> RESTORES
+    /// <paramref name="previouslyWanted"/> from <c>wanted.json</c>, so the set is not empty after a restart (field
+    /// incident 2026-07-28 — an empty set after an auto-update left a project serving that nothing could ever gate
+    /// again). Because that restored set would otherwise gate everything in the seconds before clients re-declare,
+    /// the manager holds unbinds of the RESTORED ids for a short startup grace window. Both live there; this
+    /// function stays pure and knows nothing about either.</para>
     /// </summary>
     public static class Reconciler
     {
@@ -43,7 +48,10 @@ namespace Volt.Cli.Connector
             IReadOnlyList<DetectedProject> detected,
             DateTime nowUtc)
         {
-            var forceOffSet = forceOff as ISet<string> ?? new HashSet<string>(forceOff, StringComparer.Ordinal);
+            // Always rebuild with the Ordinal comparer — never adopt the caller's set as-is: a project id is compared
+            // ordinally everywhere else here, and an incoming OrdinalIgnoreCase set would silently make force-off the
+            // one case-insensitive match in the function. It is a handful of ids; the allocation is irrelevant.
+            var forceOffSet = new HashSet<string>(forceOff, StringComparer.Ordinal);
 
             // desired IDENTITIES: union of interests over non-expired sessions, each resolved to a detected project by
             // vendor+name (matchesBinding), minus force-off. An interest whose project isn't detected right now
@@ -95,8 +103,10 @@ namespace Volt.Cli.Connector
         /// <summary>Resolve a durable interest to the currently-detected project by vendor+name — the same match
         /// <c>boundStatus</c>/<c>reconnectBound</c> use. Null when that project isn't detected (its IDE is closed);
         /// the interest then waits until it reappears. Same-name collapse upstream makes this a lookup, not an
-        /// ambiguity — at most one detected row per (vendor, name).</summary>
+        /// ambiguity — at most one detected row per (vendor, name). Matched against <see cref="DetectedProject.Attach"/>
+        /// — the BINDING name the interest is declared from (the same field the TS client's <c>matchesBinding</c> and
+        /// the control plane's <c>ProjectView.ProjectName</c> use), not the display label.</summary>
         private static DetectedProject? Resolve(Interest i, IReadOnlyList<DetectedProject> detected) =>
-            detected.FirstOrDefault(p => p.Vendor == i.Vendor && p.DisplayName == i.ProjectName);
+            detected.FirstOrDefault(p => p.Vendor == i.Vendor && p.Attach.Project == i.ProjectName);
     }
 }

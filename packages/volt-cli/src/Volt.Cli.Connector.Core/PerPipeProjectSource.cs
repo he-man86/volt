@@ -49,25 +49,36 @@ namespace Volt.Cli.Connector
             var perPipe = await Task.WhenAll(pipes.Select(async pipe =>
             {
                 try { return WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe); }
-                catch { return new List<DetectedProject>(); } // that host went away mid-scan — skip it
+                catch (Exception e)
+                {
+                    // Usually that host went away mid-scan — but a hung IDE or a version-skewed frame lands here too,
+                    // and then the project vanishes from the tray, /status and every workspace's status. Skipping is
+                    // right; skipping SILENTLY is the invisibility Conventions #4 exists to prevent.
+                    VoltLog.Warn($"health on {pipe} failed, skipping that host this scan: {e.Message}");
+                    return new List<DetectedProject>();
+                }
             }));
             return new SourceScan(perPipe.SelectMany(x => x).ToList(), Reachable: pipes.Count > 0);
         }
 
         public Task BindAsync(DetectedProject project)
         {
-            // `select` is a refresh/confirm of the one project the pipe already serves (the pipe IS the instance) —
-            // harmless, and keeps the wire uniform. Target the project's own pipe.
+            // `select` NAMES the project this pipe should serve — it is not merely a confirm: on a per-pid CODESYS
+            // host it is a no-op refresh, on a shared TwinCAT worker (several projects, one pipe) it RETARGETS the
+            // worker, and on a gated bridge it is the verb that resumes serving. That is why the reconciler groups
+            // bind candidates one-per-host. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
             return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { project = project.Attach.Project });
         }
 
         public async Task UnbindAsync(DetectedProject project)
         {
-            // Best-effort `deselect` on the project's own pipe. Any failure (no pipe, IDE gone) is a no-op — the
-            // reconciler re-derives from the bridge's actual serving state next cycle.
+            // `deselect` on the project's own pipe. A row with no pipe has nothing to gate. A FAILURE is deliberately
+            // NOT caught here: ConnectionManager.SafeUnbindAsync already treats unbind as best-effort AND logs it, so
+            // swallowing it here would make that log line unreachable — one question, one answer (Conventions #3/#4).
+            // The reconciler re-derives from the bridge's actual serving state next cycle either way.
             if (string.IsNullOrEmpty(project.Pipe)) return;
-            try { await _wireFor(project.Pipe!).CallAsync(Ops.Disconnect); } catch { }
+            await _wireFor(project.Pipe!).CallAsync(Ops.Disconnect);
         }
     }
 
@@ -87,7 +98,12 @@ namespace Volt.Cli.Connector
         {
             HealthResponse? parsed;
             try { parsed = JsonSerializer.Deserialize<HealthResponse>(healthRoot.GetRawText(), Json); }
-            catch { return new List<DetectedProject>(); }
+            catch (Exception e)
+            {
+                // One bad payload drops a whole bridge's rows; say so, or the bridge just disappears with no trace.
+                VoltLog.Warn($"unreadable health payload from {pipe ?? vendor}, dropping its rows: {e.Message}");
+                return new List<DetectedProject>();
+            }
 
             var list = new List<DetectedProject>();
             // Vendor is stamped from the caller's own `vendor` param, not the wire, so it is not read back here:
