@@ -183,6 +183,13 @@ public static class ItemKind
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
     public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
 
+    /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
+    /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this
+    /// (see <c>ICodeStore.ReadManifest</c>): the value is wire-observable twice over (<c>Materializer</c> writes it
+    /// verbatim into the workspace, <c>Hasher</c> takes the content version from it), so it is PARITY-CRITICAL and
+    /// must not be able to diverge per vendor — which a literal hand-written in each driver could.</summary>
+    public static string EmptyManifest(string kind) => $"{kind}\n";
+
     /// <summary>A "manager" node that is a PURE CONTAINER — a library / recipe / visualization manager. It only
     /// GROUPS its children (library references, recipes, visualizations) and has no content of its own (a bare
     /// stub manifest), so it is represented by a FOLDER holding those children, NEVER a file. Both drivers treat

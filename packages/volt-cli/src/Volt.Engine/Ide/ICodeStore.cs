@@ -34,12 +34,18 @@ public interface ICodeStore
     /// <c>Hasher</c> takes the item's content version from it. So it is PARITY-CRITICAL — the same project must
     /// yield byte-identical manifests on both vendors (see <c>Library/LibraryManifest</c>, the shared renderer for
     /// <c>.library</c> refs). An item whose vendor exposes no metadata for this kind yields the canonical
-    /// kind-stamped body <c>"{kind}\n"</c> — never null, never empty, so the version basis stays stable.
-    /// Throws on real IDE failure; there is no silent fallback.</summary>
-    // ponytail: the "{kind}\n" literal is still hand-written in BOTH drivers (CodesysDriver.Code.cs /
-    // BeckhoffDriver.Code.cs) — pinning the contract here is the cheap half. Upgrade path: a Core helper
-    // (ItemKind.EmptyManifest(kind)) both drivers call, so a change to that value can't diverge per vendor.
-    // CODESYS additionally falls through to it for a kind whose descriptor reader was never written, which hides a
-    // missing implementation instead of failing — decide that loudly in the same pass.
+    /// kind-stamped body <c>ItemKind.EmptyManifest(kind)</c> — never null, never empty, so the version basis stays
+    /// stable. CODESYS falls through to that SAME body for a kind it tracks but has no descriptor reader for, and
+    /// LOGS the missing reader once per session. Throws on real IDE failure; there is no silent fallback.</summary>
+    // ponytail (half retired): the "{kind}\n" literal is no longer hand-written per driver — it is
+    // ItemKind.EmptyManifest(kind), which BOTH drivers call, so that value can no longer diverge per vendor.
+    // ponytail: the CODESYS fall-through for a kind with no descriptor reader is now decided loudly only in the
+    // LOG. The BYTES are deliberately left alone: naming the item in the body (Name=<name>) would make the two
+    // vendors select this constant by DIFFERENT predicates — CODESYS kind-keyed, TwinCAT "ProduceXml returned
+    // empty" — i.e. a new vendor-detectable manifest divergence in exactly the kinds it targets, bought with a
+    // one-time rewrite of every .visualization/.text_list/.image_pool file in every existing workspace, after
+    // which the item's CONTENT would still be unversioned. The real fix is the missing descriptor readers
+    // (visualization, image pool, text list, class diagram); write those and this body stops being reachable
+    // for a tracked kind.
     string ReadManifest(ItemRef item, string kind);
 }

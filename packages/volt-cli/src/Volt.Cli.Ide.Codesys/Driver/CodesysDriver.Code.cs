@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using Volt.Cli.Transport;
 using Volt.Engine.Graphical;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
@@ -41,6 +44,11 @@ public sealed partial class CodesysDriver
     }
 
     // ── non-source manifest ──
+    /// <summary>Kinds this SESSION has already reported as having no descriptor reader. Instance-scoped, not
+    /// static: the DLL outlives a PipeHost.Stop()/Start() inside a running IDE, and a support session that
+    /// restarts the bridge must get the warning again rather than inherit a silenced process.</summary>
+    private readonly HashSet<string> _kindsWithoutReader = new HashSet<string>(StringComparer.Ordinal);
+
     public string ReadManifest(ItemRef item, string kind) =>
         item.Native is LibRefNode lib ? lib.Manifest
         : kind == ItemKind.Kinds.Device ? _om.DeviceDescriptor(item.Native)
@@ -49,5 +57,19 @@ public sealed partial class CodesysDriver
         : kind == ItemKind.Kinds.Recipe ? _om.RecipeDescriptor(item.Native)
         : kind == ItemKind.Kinds.SymbolConfig ? _om.SymbolConfigDescriptor(item.Native)
         : kind == ItemKind.Kinds.Task ? _om.TaskDescriptor(item.Native)
-        : $"{kind}\n";
+        : NoDescriptorReader(kind);
+
+    /// <summary>A kind CODESYS classifies as a TRACKED item but for which no descriptor reader was ever written
+    /// (visualization, image pool, text list, class diagram …). The manifest is the canonical empty one — the same
+    /// bytes TwinCAT emits for an item with no metadata — and the gap is now NAMED in the log instead of being
+    /// invisible. It is still a gap: every item of the kind hashes identically, so an edit to one of them cannot
+    /// show up in `volt status`. The fix is the missing reader, and this line is what points at it.</summary>
+    private string NoDescriptorReader(string kind)
+    {
+        bool first;
+        lock (_kindsWithoutReader) first = _kindsWithoutReader.Add(kind);
+        if (first)
+            VoltLog.Warn($"no descriptor reader for kind '{kind}' — its items materialize as the empty manifest and all hash identically");
+        return ItemKind.EmptyManifest(kind);
+    }
 }

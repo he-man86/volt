@@ -44,9 +44,10 @@ public sealed partial class BeckhoffDriver
     public string ReadManifest(ItemRef item, string kind)
     {
         // No silent catch: ProduceXml failing is a real error. An item that genuinely produces no XML
-        // yields a stable, kind-stamped manifest (deterministic version basis).
+        // yields the canonical, kind-stamped empty manifest (deterministic version basis) — the SAME Core
+        // helper CODESYS falls through to, so the two vendors cannot drift on those bytes.
         string xml = _om.ProduceXml(item.Native);
-        if (string.IsNullOrEmpty(xml)) return $"{kind}\n";
+        if (string.IsNullOrEmpty(xml)) return ItemKind.EmptyManifest(kind);
 
         // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
         if (kind == ItemKind.Kinds.Library) return LibraryManifestFromXml(xml);
