@@ -157,7 +157,10 @@ namespace Volt.Cli.Connector
             var lines = new List<string>(selected.Count);
             foreach (ListViewItem item in selected)
                 lines.Add(string.Join("\t", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text)));
-            Clipboard.SetText(string.Join(Environment.NewLine, lines));
+            // Another process holding the clipboard makes SetText throw — routine on Windows, and unguarded it
+            // surfaces as the WinForms crash dialog on the always-running tray. Log it; the rows stay selected.
+            try { Clipboard.SetText(string.Join(Environment.NewLine, lines)); }
+            catch (Exception e) { VoltLog.Warn($"logwindow: clipboard copy failed: {e.Message}"); }
         }
 
         private static List<Row> ReadRows()
@@ -168,8 +171,8 @@ namespace Volt.Cli.Connector
                 if (!Directory.Exists(VoltLog.Dir)) return rows;
                 // This window is the CONNECTOR's runtime surface: it shows the structured "{source}-{date}.log"
                 // files (connector, twincat, codesys). The installer/uninstaller also drop their logs in this same
-                // folder for the support bundle — Setup's own free-form 400KB+ log as install-*.log, and the
-                // uninstall summary as uninstall-*.log — but those are install-time records in a different format;
+                // folder — Setup's own free-form 400KB+ log as install-*.log, and the uninstall summary as
+                // uninstall-*.log — but those are install-time records in a different format;
                 // they belong in the folder (which "Open logs" opens), not as rows here where they'd render broken
                 // and crowd out the live logs. Skip both prefixes.
                 var files = Directory.GetFiles(VoltLog.Dir, "*.log")
@@ -199,13 +202,21 @@ namespace Volt.Cli.Connector
             return rows.Count > MaxLines ? rows.GetRange(rows.Count - MaxLines, MaxLines) : rows;
         }
 
+        // A REAL tail: seek to the last maxLines-worth of bytes instead of reading the file whole. VoltLog rotates by
+        // DAY, not by size, so a per-source file is unbounded — and this runs per file on every 1.5s repaint.
         private static string[] ReadTail(string path, int maxLines)
         {
             using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var budget = Math.Max(64L * 1024, (long)maxLines * 512); // 512B/line is generous for this line format
+            var seeked = fs.Length > budget;
+            if (seeked) fs.Seek(fs.Length - budget, SeekOrigin.Begin);
             using var sr = new StreamReader(fs);
-            var all = sr.ReadToEnd().Split('\n');
-            var start = all.Length > maxLines ? all.Length - maxLines : 0;
-            return all.Skip(start).Select(s => s.TrimEnd('\r')).ToArray();
+            if (seeked) sr.ReadLine(); // the seek landed mid-line (and mid UTF-8 sequence) — discard that fragment
+            var lines = new List<string>();
+            string? line;
+            while ((line = sr.ReadLine()) != null) lines.Add(line);
+            var start = lines.Count > maxLines ? lines.Count - maxLines : 0;
+            return lines.GetRange(start, lines.Count - start).ToArray();
         }
 
         private static void TryOpen(string path)

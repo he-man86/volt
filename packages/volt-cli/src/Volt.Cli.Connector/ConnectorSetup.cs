@@ -11,7 +11,7 @@ namespace Volt.Cli.Connector
     public static class ConnectorSetup
     {
         /// <summary>One <see cref="PerPipeProjectSource"/> per vendor — BOTH now discover a pipe per running IDE
-        /// (<c>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</c>) and fan out. They speak the same instances/select/health
+        /// (<c>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</c>) and fan out. They speak the same health/connect/disconnect
         /// wire, so the connector never branches on vendor — the vendor difference is entirely behind the pipe.</summary>
         public static IReadOnlyList<IProjectSource> Sources() => new IProjectSource[]
         {

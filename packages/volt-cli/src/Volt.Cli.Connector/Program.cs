@@ -25,7 +25,7 @@ namespace Volt.Cli.Connector
                 return;
             }
 
-            // --silent: launched by the installer/login/extension rather than a user double-click.
+            // --silent: launched by the installer, the login item, or a test harness rather than a user double-click.
             var silent = Array.IndexOf(args, "--silent") >= 0;
 
             // One connector PER CONTROL PORT. The production instance owns the classic name, so double-clicking the
@@ -54,7 +54,7 @@ namespace Volt.Cli.Connector
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
-            Updater.Start(); // always-on auto-update (no-op on dev builds without a version.txt)
+            Updater.Start(); // always-on auto-update (no-op on an unstamped build — FileVersion 1.0.0.0 → "(dev)")
             Application.Run(new TrayContext());
 
             GC.KeepAlive(_single);

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
@@ -60,13 +61,11 @@ namespace Volt.Cli.Connector
         /// the .iss lays down no [Icons]).</summary>
         public static void Install()
         {
-            try
-            {
-                LoginItem.EnsureRegistered();
-                CreateGuiShortcut();
-                PublishCodesysScript();
-            }
-            catch { /* hooks are best-effort — never block install */ }
+            // No outer catch: each hook already swallows its own failure (and logs it), so a guard here could only
+            // ever hide a throw with no line to read.
+            LoginItem.EnsureRegistered();
+            CreateGuiShortcut();
+            PublishCodesysScript();
         }
 
         // Copy the shipped start/stop scripts into the visible Documents\Volt folder (idempotent — overwrite so a
@@ -83,7 +82,8 @@ namespace Volt.Cli.Connector
                     if (File.Exists(src)) File.Copy(src, Path.Combine(VisibleScriptDir, name), overwrite: true);
                 }
             }
-            catch { /* best-effort — CODESYS activation falls back to the install-dir scripts */ }
+            // Best-effort — CODESYS activation falls back to the install-dir scripts — but never silent.
+            catch (Exception e) { VoltLog.Warn($"could not publish the CODESYS scripts to Documents\\Volt: {e.Message}"); }
         }
 
         private static void CreateGuiShortcut()
@@ -99,7 +99,8 @@ namespace Volt.Cli.Connector
                 lnk.Description = "Volt";
                 lnk.Save();
             }
-            catch { /* best-effort — the app still runs from the tray/CLI without a shortcut */ }
+            // Best-effort — the app still runs from the tray/CLI without a shortcut — but never silent.
+            catch (Exception e) { VoltLog.Warn($"could not create the Start Menu shortcut: {e.Message}"); }
         }
 
         /// <summary>Uninstall hook: stop the running processes so the uninstaller can delete their files, then

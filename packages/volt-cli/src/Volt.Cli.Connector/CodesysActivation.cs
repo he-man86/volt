@@ -56,8 +56,9 @@ namespace Volt.Cli.Connector
                 "  2.  Tools → Scripting → Execute Script File…\n" +
                 $"  3.  Choose:  {primary ?? "start_volt_codesys.py  (shipped beside the connector)"}\n" +
                 backupLine +
-                "\nVolt then detects the project here — pick it from “Connect to”.\n" +
-                "To disconnect later: run stop_volt_codesys.py the same way, or “Disconnect” in the tray.\n" +
+                "\nVolt then detects the project — connect to it from the Volt app or VS Code.\n" +
+                "To disconnect later: do it there, or run stop_volt_codesys.py the same way.\n" +
+                "(The tray only pauses a project that is already serving, via its row.)\n" +
                 "(“Copy script path” puts the primary path on your clipboard for the file dialog.)";
         }
     }

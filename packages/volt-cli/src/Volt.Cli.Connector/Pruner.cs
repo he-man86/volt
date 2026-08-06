@@ -40,10 +40,8 @@ namespace Volt.Cli.Connector
                     .Take(Retain)
                     .ToList();
                 if (!keep.Any(d => PathEquals(d, active)) && Directory.Exists(active))
-                {
-                    if (keep.Count >= Retain) keep[keep.Count - 1] = active; // swap the oldest kept for the active one
-                    else keep.Add(active);
-                }
+                    keep[keep.Count - 1] = active; // swap the oldest kept for the active one (the early return
+                                                   // above guarantees Take(Retain) yielded exactly Retain entries)
 
                 foreach (var dir in versionDirs)
                 {

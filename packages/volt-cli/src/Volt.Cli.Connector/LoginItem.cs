@@ -1,14 +1,16 @@
 using System;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
     /// <summary>
     /// Start-at-login registration via the per-user Run key. Best-effort and
-    /// idempotent — it never throws into startup. The installer can register the
-    /// connector too; this lets a portable/standalone copy self-register so the
-    /// tray is always there to supervise the bridges after a reboot.
+    /// idempotent — it never throws into startup. This class is the ONLY writer of
+    /// the Run value; the installer only REMOVES it on uninstall (a fallback for a
+    /// failed connector hook). A portable/standalone copy therefore self-registers
+    /// too, so the tray is always there to supervise the bridges after a reboot.
     /// </summary>
     internal static class LoginItem
     {
@@ -27,7 +29,9 @@ namespace Volt.Cli.Connector
                 if (!string.Equals(current, desired, StringComparison.OrdinalIgnoreCase))
                     key.SetValue(ValueName, desired);
             }
-            catch { /* registration is best-effort */ }
+            // Best-effort — never block startup — but never silent either: a missing login item is why the tray
+            // is gone after a reboot, and that needs a line to read.
+            catch (Exception e) { VoltLog.Warn($"login-item registration failed: {e.Message}"); }
         }
 
         public static void Unregister()

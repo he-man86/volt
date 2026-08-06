@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Volt.Cli.Connector
 {
     /// <summary>
-    /// The "Volt — Status" window: the installed version + update channel/action, and a live view of EVERY installed
-    /// part's version so you can confirm they're all in sync (a ✓/⚠ per Volt component vs the expected version — a
-    /// drifted LSP or a stale sideloaded extension lights up). Opened from the tray. Replaces the old
-    /// collect-diagnostics zip with a live view; closing hides it (reopening is instant).
+    /// The "Volt — Status" window: the installed version + update channel/action, and a live view of the three parts
+    /// it can probe — the CLI, the LSP and the editor extension — so you can confirm they're all in sync (a ✓/⚠ per
+    /// Volt component vs the expected version — a drifted LSP or a stale sideloaded extension lights up). The bundled
+    /// Electron desktop app is staged into the same payload but has NO row here: nothing below probes its version.
+    /// Opened from the tray. Replaces the old collect-diagnostics zip with a live view; closing hides it (reopening
+    /// is instant).
     /// </summary>
     internal sealed class StatusWindow : Form
     {
@@ -220,16 +221,20 @@ namespace Volt.Cli.Connector
         /// <summary>A Volt component is in sync when its build matches the connector's. See <see cref="BuildId"/>.</summary>
         private static bool? Sync(string version)
         {
-            if (string.IsNullOrWhiteSpace(version) || Expected == "(dev)") return null;
+            // Dev-ness has ONE owner (Updater.IsDev) — re-deriving it by string-comparing a doubly-transformed
+            // version against the "(dev)" sentinel made Sync depend on BuildId/Base round-tripping a non-version.
+            if (string.IsNullOrWhiteSpace(version) || Updater.IsDev) return null;
             return BuildId(version) == Expected;
         }
 
         /// <summary>
         /// The drift discriminator. On dev/prerelease builds it's the git build number (the large monotonic commit
         /// count) — the connector/CLI/LSP carry it as the 4th segment (<c>0.0.1.842</c>), the extension as its patch
-        /// (<c>0.0.842</c>, since a vsix can't be 4-part). On tagged stable builds there is no build segment, so we
-        /// fall back to the X.Y.Z base. Comparing THIS, not the base, is what lets a stale sideloaded extension light
-        /// up: every component shares base 0.0.1, so only the build number actually differs when one drifts.
+        /// (<c>0.0.842</c>, since a vsix can't be 4-part). A stable RELEASE carries the same 4-part build — promotion
+        /// flips a dev build's channel, it does not re-tag it 3-part — so the X.Y.Z fallback below now only covers
+        /// unstamped/dev strings and the pre-1000 build-count era. Comparing THIS, not the base, is what lets a stale
+        /// sideloaded extension light up: every component shares base 0.0.1, so only the build number actually
+        /// differs when one drifts.
         /// (Heuristic ceiling: a trailing segment ≥ 1000 is treated as a build count, never a human patch number.)
         /// </summary>
         private static string BuildId(string v)
@@ -278,9 +283,13 @@ namespace Volt.Cli.Connector
             {
                 using var p = Process.Start(psi);
                 if (p == null) return "";
-                var outp = p.StandardOutput.ReadToEnd();
+                // Drain BOTH pipes concurrently, before waiting. Reading stdout to EOF while stderr fills its ~4KB
+                // buffer deadlocks the child: it blocks writing stderr, so it never closes stdout, ReadToEnd never
+                // returns and the timeout on the next line is never reached (these probe third-party editor CLIs).
+                var outTask = p.StandardOutput.ReadToEndAsync();
+                _ = p.StandardError.ReadToEndAsync(); // drained only so the child can't block on it; content unused
                 if (!p.WaitForExit(4000)) { try { p.Kill(); } catch { } return ""; }
-                return outp.Trim();
+                return outTask.Result.Trim();
             }
             catch { return ""; }
         }

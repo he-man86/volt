@@ -1059,3 +1059,113 @@ deleted in the IDE never leaves `volt/ide` unless it sits in the project ROOT.
 
 **Fix.** Don't overwrite an existing entry for the removed side: `if (!pathByName.ContainsKey(name)) pathByName[name] = path;` when placing into `Removed`, or key the removed row by its old path. (A folder move genuinely produces one name in two buckets; the map can only hold one path for it.)
 
+
+---
+
+## BATCH 12 ESCALATIONS — `Volt.Cli.Connector` (2026-08-06) — THE LAST BATCH
+
+48 findings, 21 behaviour-changing. This is the install/update surface, and the sharpest finding is a
+cross-process kill:
+
+**`CloseDesktopGui` force-kills the `volt` CLI.** `Process.GetProcessesByName("Volt")` matches
+ordinal-ignore-case, and the installed CLI is `<app>inolt.exe` — ProcessName `volt`. A console process has
+no MainWindowHandle, so `CloseMainWindow()` returns false and the next expression `Kill()`s it. **An in-flight
+`volt push` — mid-write to the live PLC and to the git repo — is killed by an auto-update.** The doc comment
+asserting it targets only the Electron shell is therefore false too.
+
+### `LogWindow.cs:81` — bug (group 12.2)
+
+**Claim.** LogWindow's 1.5s tail timer is started in the constructor and never stopped when the window is hidden, so the always-running tray re-reads and re-parses every log file on disk every 1.5 seconds forever after the user closes the window once. StatusWindow, in the same group, explicitly does the opposite and documents why.
+
+**Fix.** Give LogWindow the same `OnVisibleChanged` override StatusWindow has: `_timer.Start()` when Visible, `_timer.Stop()` otherwise, and drop `_timer.Start()` from the constructor (keep the eager `Repaint()` so the first show is populated).
+
+### `LogWindow.cs:147` — bug (group 12.2)
+
+**Claim.** SyncSourceDropdown mutates _source from inside Repaint, and _source's SelectedIndexChanged handler calls Repaint — so each time a new log source appears the code re-enters Repaint twice (once with SelectedIndex == -1 after Clear, once after the restore), and the -1 pass paints the UNFILTERED list, visibly flashing every source before the user's filter is restored.
+
+**Fix.** Detach the handler around the mutation (`_source.SelectedIndexChanged -= h; ... ; _source.SelectedIndexChanged += h;` with `h` a named field), or set a `_syncing` bool the handler early-returns on. Either removes the re-entrancy and the flash.
+
+### `LogWindow.cs:122` — bug (group 12.2)
+
+**Claim.** Every repaint clears and rebuilds the whole ListView, which destroys the user's selection. Since the timer repaints whenever any line is appended anywhere, on a live log the Ctrl+A / Ctrl+C copy path the window ships is unusable — the selection the user just made is wiped before they can copy it.
+
+**Fix.** Cheapest correct fix: skip the timer-driven repaint while `_list.SelectedItems.Count > 0` (a user with a selection is reading, not tailing). Alternatively append only the new rows instead of Clear+rebuild, keyed off the already-computed row count.
+
+### `StatusWindow.cs:251` — defensive-fallback (group 12.2)
+
+**Claim.** A component binary that is MISSING from the install returns "" from Exe, which Sync maps to null, which renders as a blank "In sync" cell and an em-dash version — indistinguishable from "we couldn't determine it". A missing volt.exe or volt-lsp-iec.exe is precisely the install damage this window exists to surface, and it is the one state that shows neither ✓ nor ⚠.
+
+**Fix.** Distinguish the two: have Exe return a sentinel (or have the caller check File.Exists itself) so a missing required binary renders "⚠ missing" in Firebrick, while only the optional editor-extension probes are allowed the blank/unknown state.
+
+### `StatusWindow.cs:161` — bug (group 12.2)
+
+**Claim.** The update row reports state it does not have. "● Up to date" in green is shown whenever no pending version is known — including before the first check has completed, and on a dev build where Updater.Start() returns before ever starting the poll loop so a check can never succeed. "Check now" compounds it: the button re-enables on elapsed time, not on the check's outcome, and its comment misstates even the timing.
+
+**Fix.** Two parts. (a) Fix or delete the false "a couple ticks" comment. (b) Have Updater expose the check outcome (e.g. `LastCheckUtc` / `LastCheckError`) and drive both the label and the button off it: "● Checking…" until the first check returns, "● Update checks unavailable (development build)" when Updater.IsDev, "● Check failed" on error, green "● Up to date" only after a check actually succeeded. Using _checkBtn.Text as the in-flight state machine goes away with it.
+
+### `LogWindow.cs:198` — bug (group 12.2)
+
+**Claim.** The merge sort has two defects. Rows the regex did not match get Ts == "", which sorts them to the TOP of the merged list — detached from the lines they follow — and makes them the first casualties of the tail truncation, which keeps the LAST MaxLines. And List<T>.Sort is unstable, so lines sharing a millisecond stamp within one file are reordered relative to how they were written.
+
+**Fix.** Carry a per-file sequence number on Row and sort by `(Ts, file, seq)` — that makes the sort stable within a file and lets an unmatched line inherit the previous row's timestamp so it stays with its context instead of migrating to the top.
+
+### `TrayContext.cs:56` — bug (group 12.1)
+
+**Claim.** Clicking the "A bridge disconnected." warning toast starts an update download + silent reinstall. NotifyIcon has ONE BalloonTipClicked event for every balloon, and the handler never checks WHICH balloon was clicked — only that an update happens to be pending.
+
+**Fix.** Track which balloon is on screen: set a `_balloonIsUpdate = true` immediately before the ShowBalloonTip in ShowUpdateIfReady and `false` before the one in OnAggregateChanged; gate the click handler on it (`if (_balloonIsUpdate && …) ApplyUpdate();`).
+
+### `TrayContext.cs:190` — bug (group 12.1)
+
+**Claim.** OnUiThread does NOT marshal until the user has opened the tray menu at least once. ContextMenuStrip is a top-level control whose handle is created only when it is first shown; until then Control.InvokeRequired returns false even off the UI thread (no created handle anywhere up the parent chain), so the guard falls into the inline branch and runs the action — and the whole TickAsync it starts — on the caller's thread pool thread. That is exactly the collision the doc says it prevents.
+
+**Fix.** Capture a real marshaling target in the constructor instead of relying on the menu's lazy handle — e.g. keep the `SynchronizationContext.Current` captured at construction (the ctor runs under Application.Run on the UI thread) and `Post` to it, falling back to inline only when it is null. Every consequence follows from this one seam: `_reconcileTick++`, `_headerItem.Text`, `RebuildProjectItems`' ToolStrip mutation and StatusIcons' static `Cache` dictionary are all then genuinely single-threaded.
+
+### `TrayContext.cs:404` — bug (group 12.1)
+
+**Claim.** If LaunchInstallerAndExit fails to start the installer, the connector is left permanently zombified: the 4s timer is already stopped and the fleet already disposed, so there is no further tick, no reconcile, no worker supervision and no respawn — yet the tray icon stays up claiming to work. Updater's own catch resets `_applying` "let the user retry", but a retry can never restore the timer or the fleet.
+
+**Fix.** Make LaunchInstallerAndExit report success (return bool), and on failure restart the timer, replace `_fleet` with a fresh TwincatFleet and restore the update item's text/enabled state — or, minimally, call ExitThreadCore() so the tray dies visibly instead of silently ceasing to supervise.
+
+### `TrayContext.cs:417` — bug (group 12.1)
+
+**Claim.** CloseDesktopGui force-kills the `volt` CLI as well as the Electron shell. Process.GetProcessesByName matches the friendly name ordinal-ignore-case, and the installed CLI is `<app>\bin\volt.exe` (ProcessName "volt") — so it matches "Volt". A console process usually has no MainWindowHandle, so CloseMainWindow() returns false and the very next expression Kills it. An `volt push` in flight (writing the live PLC and the git repo) is killed mid-op. The doc comment asserting the opposite is therefore also false.
+
+**Fix.** Filter by full path, not by friendly name: skip any process whose MainModule.FileName is not the Electron shell under the install root (`Path.Combine(AppContext.BaseDirectory, "Volt.exe")`), and update the comment to say the match is case-insensitive on the bare name.
+
+### `TrayContext.cs:73` — bug (group 12.1)
+
+**Claim.** TickAsync — the tray's only heartbeat — has no error boundary, and its two callers treat a throw in opposite ways: from the timer it is an `async void` handler, so an escaped exception faults the WinForms message loop and takes the tray (and with it the supervisor and control plane) down; from OnUiThread the Task is discarded with `_ =`, so the identical failure is swallowed with no log line. The file itself documents the async-void hazard for the two force-off handlers but leaves the one handler that runs every 4 seconds unguarded.
+
+**Fix.** Wrap TickAsync's body in try/catch(Exception ex) { VoltLog.Error($"tray tick failed: {ex.Message}"); } — one boundary that makes both call paths behave the same and keeps the tick alive.
+
+### `TrayContext.cs:166` — bug (group 12.1)
+
+**Claim.** The disconnect notification only fires from Connected, so losing a DEGRADED bridge is silent — no toast and no log line at all, because the guard returns before both. Degraded is reachable for a wanted+serving project (Aggregate returns it when the row's status is degraded), and a flaky channel degrading just before the IDE dies is the likeliest route into a real loss.
+
+**Fix.** Treat Degraded as a connected state on the leaving edge: `if (prev is not (BridgeStatus.Connected or BridgeStatus.Degraded) || now is not (…)) return;`.
+
+### `LoginItem.cs:25` — bug (group 12.3)
+
+**Claim.** The login item is registered with a VERSION-SCOPED exe path, violating the one invariant the whole versioned-install layout is documented to rest on — the same invariant VoltEnv's own header names the login item in.
+
+**Fix.** Register `Path.Combine(VoltEnv.ConnectorDir, "VoltConnector.exe")` (make `ConnectorDir` internal) instead of `Application.ExecutablePath`, so the Run value reads `{app}\current\VoltConnector.exe` exactly like the Start Menu shortcut and PATH do.
+
+### `Updater.cs:145` — bug (group 12.3)
+
+**Claim.** `_pending`/`_setupUrl` are never cleared once set — a check that finds nothing newer returns early without invalidating them — so a pulled or unpublished release leaves the tray permanently offering "Restart to update to X" against a URL that will 404.
+
+**Fix.** Clear `_pending`/`_setupUrl` on the up-to-date and no-release paths of `CheckOnce` (guarded by `!IsApplying`, so an in-flight apply isn't torn out from under `DownloadPendingAsync`).
+
+### `CodesysActivation.cs:36` — defensive-fallback (group 12.3)
+
+**Claim.** An explicitly-set `VOLT_CODESYS_SCRIPT` pointing at a missing file is silently ignored and the search falls through to the shipped copies — the user is then told to run a script they did not configure, with no line saying why (Conventions 1).
+
+**Fix.** If the env var is set but the file is missing, `VoltLog.Warn` naming the path (and still fall through, or surface it in `Steps()`), so a typo'd override is visible instead of silently overruled.
+
+### `VoltEnv.cs:96` — defensive-fallback (group 12.3)
+
+**Claim.** CreateGuiShortcut writes a Start Menu "Volt.lnk" without checking the target exists, so any dev/flat run of the connector leaves a permanent broken shortcut in the user's Start Menu (the desktop payload only exists in an installed layout).
+
+**Fix.** `if (!File.Exists(GuiExe)) return;` before creating the shortcut.
+

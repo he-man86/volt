@@ -11,11 +11,12 @@ namespace Volt.Cli.Connector
 {
     /// <summary>
     /// The one tray app, rebuilt over the <see cref="ConnectionManager"/>. A single NotifyIcon whose colour is
-    /// the aggregate connection state, and a context menu that is a thin STATUS view over the model: the detected
-    /// projects across all vendors listed at the ROOT (each tagged with its platform, the connected one marked), a
-    /// force-<b>Disconnect</b>, a guided CODESYS activation affordance, and logs/diagnostics/exit.
+    /// the aggregate connection state, and a context menu that is a thin STATUS view over the model: the update
+    /// item, the detected projects across all vendors listed at the ROOT (each tagged with its platform, the
+    /// serving one marked), "Resume all Volt sync", then Volt Status…, Show logs, Activate in CODESYS…, Exit.
     /// <para>Connecting is driven from the UI (desktop / VS Code) over the control plane — the tray no longer offers
-    /// a "Connect to" action. It still shows what's detected and lets the user force a Disconnect when the UI can't.
+    /// a "Connect to" action. It is the supervisor ESCAPE HATCH: a serving row is clickable to force-off that
+    /// project, a paused row to resume it, and "Resume all Volt sync" clears every force-off at once.
     /// No per-vendor lanes, no IDE launch — the vendor difference lives entirely behind the wire.</para>
     /// </summary>
     public sealed class TrayContext : ApplicationContext
@@ -29,13 +30,12 @@ namespace Volt.Cli.Connector
         private readonly ControlServer _control;
 
         private ToolStripMenuItem _headerItem = null!;
-        private ToolStripMenuItem _disconnectItem = null!;
+        private ToolStripMenuItem _resumeAllItem = null!;
         private ToolStripMenuItem _updateItem = null!;
         private ToolStripSeparator _updateSeparator = null!;
         // The detected-project rows live at the ROOT and are rebuilt each tick; tracked so they can be removed and
-        // re-inserted (just above the Disconnect item) without rebuilding the whole menu.
+        // re-inserted (just above the resume-all item) without rebuilding the whole menu.
         private readonly List<ToolStripItem> _projectItems = new();
-        private ToolStripSeparator _projectsSeparator = null!;
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
@@ -142,8 +142,9 @@ namespace Volt.Cli.Connector
         }
 
         // The tray owns the CLOCK for the TwinCAT fleet and nothing else — which workers exist is TwincatFleet.Tick,
-        // in Connector.Core where it is testable. The exe guard stays here because the shell is what resolves the
-        // path (ConnectorSetup.TwincatExe), and it precedes the cadence counter exactly as before.
+        // in Connector.Core where it is testable. The exe guard below is a DUPLICATE of the fleet's own first line and
+        // changes nothing observable (without an exe the fleet returns immediately); it is kept only so a no-op pass
+        // doesn't advance the cadence counter.
         private async Task ReconcileTwincatWorkers()
         {
             if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
@@ -199,7 +200,8 @@ namespace Volt.Cli.Connector
 
         /// <summary>Toggle the supervisor force-off for one project (a clickable row). Force-off keeps the project's
         /// bridge unbound regardless of any session's interest until cleared — the escape hatch for a stuck bridge.
-        /// Never throws (async void handler — an escaped exception would take the tray down).</summary>
+        /// Never throws — it is awaited from an <c>async void</c> ToolStrip click handler, where an escaped exception
+        /// would take the tray down.</summary>
         private async Task ToggleForceOff(string projectId, bool forceOff)
         {
             try
@@ -211,8 +213,9 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>"Resume all Volt sync" — clear every supervisor force-off at once, so the frontends' sessions take
-        /// over serving again. Never throws (async void handler).</summary>
-        private async Task DisconnectFromTray()
+        /// over serving again. Never throws — it is awaited from an <c>async void</c> ToolStrip click handler, where an
+        /// escaped exception would take the tray down.</summary>
+        private async Task ResumeAllFromTray()
         {
             try
             {
@@ -236,21 +239,21 @@ namespace Volt.Cli.Connector
             {
                 Visible = false,
                 ForeColor = VoltAccent,
-                Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold),
+                Font = BoldMenuFont,
             };
             _updateSeparator = new ToolStripSeparator { Visible = false };
             menu.Items.Add(_updateItem);
             menu.Items.Add(_updateSeparator);
 
             // Detected projects are shown at the ROOT (status only — connecting is done from the UI). The rows are
-            // inserted just above the Disconnect item on each tick by RebuildProjectItems.
-            _disconnectItem = new ToolStripMenuItem("Disconnect", Glyph(0xE7E8), async (_, _) => await DisconnectFromTray()) // PowerButton
+            // inserted just above the resume-all item on each tick by RebuildProjectItems, which also drives its
+            // text/visibility from there on — it is shown only while something is force-off'd.
+            _resumeAllItem = new ToolStripMenuItem("Resume all Volt sync", Glyph(0xE7E8), async (_, _) => await ResumeAllFromTray()) // PowerButton
             {
-                Enabled = false, // no active connection until the UI connects one
+                Visible = false,
             };
-            menu.Items.Add(_disconnectItem);
-            _projectsSeparator = new ToolStripSeparator();
-            menu.Items.Add(_projectsSeparator);
+            menu.Items.Add(_resumeAllItem);
+            menu.Items.Add(new ToolStripSeparator());
 
             menu.Items.Add(new ToolStripMenuItem("Volt Status…", Glyph(0xE946), (_, _) => ShowStatus())); // Info
             menu.Items.Add(new ToolStripMenuItem("Show logs", Glyph(0xE7C3), (_, _) => ShowLogs())); // Page
@@ -264,6 +267,17 @@ namespace Volt.Cli.Connector
 
         // Volt's accent (blue), used to tint the help glyph so it reads as a help affordance.
         private static readonly Color VoltAccent = Color.FromArgb(0x2F, 0x7C, 0xF6);
+
+        // Built ONCE and kept for the app lifetime (like StatusIcons' cache). SystemFonts.MenuFont hands back a FRESH
+        // Font the caller owns, so building this per tick leaked two GDI+ handles per serving row — ~21600 tick
+        // generations a day in an always-on tray.
+        private static readonly Font BoldMenuFont = BuildBoldMenuFont();
+
+        private static Font BuildBoldMenuFont()
+        {
+            using var menuFont = SystemFonts.MenuFont ?? new Font("Segoe UI", 9f);
+            return new Font(menuFont, FontStyle.Bold);
+        }
 
         /// <summary>Menu icon by Segoe MDL2 codepoint (e.g. 0xE777) — avoids embedding raw glyph chars in source.</summary>
         private static Image Glyph(int codepoint, Color? color = null) => Glyph(char.ConvertFromUtf32(codepoint), color);
@@ -284,17 +298,17 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>Repopulate the ROOT-level detected-project rows (status only — connecting is done from the UI)
-        /// and set the Disconnect item's enabled state. Rows are inserted just above <see cref="_disconnectItem"/>,
-        /// the connected one marked with a check. Removes the previous rows first so a tick can't accumulate them.</summary>
+        /// and set the resume-all item's state. Rows are inserted just above <see cref="_resumeAllItem"/>,
+        /// the connected one marked with a check. Removes (and DISPOSES) the previous rows first so a tick can't
+        /// accumulate them or their GDI+ handles.</summary>
         private void RebuildProjectItems()
         {
-            var menu = _disconnectItem.Owner as ContextMenuStrip;
-            if (menu == null) return;
+            var menu = _icon.ContextMenuStrip!;
 
-            foreach (var it in _projectItems) menu.Items.Remove(it);
+            foreach (var it in _projectItems) { menu.Items.Remove(it); it.Dispose(); }
             _projectItems.Clear();
 
-            int at = menu.Items.IndexOf(_disconnectItem);   // insert rows directly above Disconnect
+            int at = menu.Items.IndexOf(_resumeAllItem);   // insert rows directly above the resume-all item
 
             void AddRow(ToolStripItem item) { menu.Items.Insert(at++, item); _projectItems.Add(item); }
 
@@ -304,8 +318,9 @@ namespace Volt.Cli.Connector
             }
             else
             {
-                // When a vendor has more than one live instance, show the IDE version so same-named projects (e.g.
-                // the same project open in two CODESYS versions) are distinguishable.
+                // When a vendor has more than one live IDE, show which version each project is open in. (It can't
+                // disambiguate two same-NAMED projects — identity is vendor+name, so those collapse into one row
+                // upstream in ConnectionManager; see the name-identity limit in ARCHITECTURE.md.)
                 var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
                 foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
                 {
@@ -324,16 +339,15 @@ namespace Volt.Cli.Connector
                         Enabled = actionable,
                         Checked = serving && !paused,
                     };
-                    if (serving && !paused) row.Font = new Font(SystemFonts.MenuFont ?? new Font("Segoe UI", 9f), FontStyle.Bold);
+                    if (serving && !paused) row.Font = BoldMenuFont;
                     AddRow(row);
                 }
             }
 
-            // The "Disconnect" item is now the supervisor "resume everything" shortcut — shown only while some project
-            // is force-off'd (per-project pause/resume happens on the rows above).
-            _disconnectItem.Text = "Resume all Volt sync";
-            _disconnectItem.Visible = _conn.ForceOffIds.Count > 0;
-            _disconnectItem.Enabled = _conn.ForceOffIds.Count > 0;
+            // The supervisor "resume everything" shortcut — shown only while some project is force-off'd (per-project
+            // pause/resume happens on the rows above).
+            _resumeAllItem.Visible = _conn.ForceOffIds.Count > 0;
+            _resumeAllItem.Enabled = _conn.ForceOffIds.Count > 0;
         }
 
         private void ShowCodesysActivation()
