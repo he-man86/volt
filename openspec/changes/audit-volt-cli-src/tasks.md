@@ -100,65 +100,65 @@ Per batch: revert every `mustRevert` → **stop CODESYS/connector/workers** → 
 
 ### 5. Graphical I — 4 groups, 1,694 LOC
 
-- [ ] 5.1 `Graphical/Vg/VgParser.cs` (562)
-- [ ] 5.2 `Graphical/PlcOpenWriter.cs` (432)
-- [ ] 5.3 `Graphical/PlcOpenReader.cs` (372)
-- [ ] 5.4 `Graphical/Vg/VgWriter.cs` + `Graphical/VgBody.cs` (328)
-- [ ] 5.5 Gate + ledger + commit.
+- [x] 5.1 `Graphical/Vg/VgParser.cs` (562)
+- [x] 5.2 `Graphical/PlcOpenWriter.cs` (432)
+- [x] 5.3 `Graphical/PlcOpenReader.cs` (372)
+- [x] 5.4 `Graphical/Vg/VgWriter.cs` + `Graphical/VgBody.cs` (328)
+- [x] 5.5 Gate + ledger + commit.
 
 ### 6. Graphical II + the batch-3 deferrals — 3 groups, 963 LOC
 
-- [ ] 6.1 `Graphical/PlcOpenDocument.cs` + `Graphical/PlcOpenPouParser.cs` (340)
-- [ ] 6.2 `Graphical/GraphicalCode.cs` + `GraphModel.cs` + `GraphicalRoundTrip.cs` + `FbdOperators.cs` (306)
-- [ ] 6.3 `Sync/FetchService.cs` (282) + `Sync/OpGuard.cs` (35) — deferred from batch 3; both have since been
+- [x] 6.1 `Graphical/PlcOpenDocument.cs` + `Graphical/PlcOpenPouParser.cs` (340)
+- [x] 6.2 `Graphical/GraphicalCode.cs` + `GraphModel.cs` + `GraphicalRoundTrip.cs` + `FbdOperators.cs` (306)
+- [x] 6.3 `Sync/FetchService.cs` (282) + `Sync/OpGuard.cs` (35) — deferred from batch 3; both have since been
       rewritten by moves 13/16/21, so audit the CURRENT text
-- [ ] 6.4 Gate + ledger + commit. **`Volt.Engine` is then fully audited** → e2e checkpoint, both vendors.
+- [x] 6.4 Gate + ledger + commit. **`Volt.Engine` is then fully audited** → e2e checkpoint, both vendors.
 
 ### 7. `Volt.Cli.Ide.Codesys` — 3 groups, 1,712 LOC
 
-- [ ] 7.1 `Ide/CodesysObjectModel.cs` (980 — largest file in the repo, own group)
-- [ ] 7.2 `Ide/CodesysTypeMap.cs` + `Ide/CodesysDispatcher.cs` + `Ide/Reflection.cs` (280)
-- [ ] 7.3 `Driver/CodesysDriver.cs` + `.Tree.cs` + `.Code.cs` + `PipeHost.cs` (452)
-- [ ] 7.4 Gate + ledger + commit. **Reflection / `dynamic` / IronPython live here — static search cannot prove a
+- [x] 7.1 `Ide/CodesysObjectModel.cs` (980 — largest file in the repo, own group)
+- [x] 7.2 `Ide/CodesysTypeMap.cs` + `Ide/CodesysDispatcher.cs` + `Ide/Reflection.cs` (280)
+- [x] 7.3 `Driver/CodesysDriver.cs` + `.Tree.cs` + `.Code.cs` + `PipeHost.cs` (452)
+- [x] 7.4 Gate + ledger + commit. **Reflection / `dynamic` / IronPython live here — static search cannot prove a
       deletion safe. Only the live e2e really checks 7.x.**
 
 ### 8. `Volt.Cli.Ide.Twincat` — 3 groups, 1,386 LOC
 
-- [ ] 8.1 `Ide/TcObjectModel.cs` (494)
-- [ ] 8.2 `Ide/RotInstances.cs` + `ComMessageFilter.cs` + `StaDispatcher.cs` + `TcPlcOpen.cs` + `TcPouReader.cs` (358)
-- [ ] 8.3 `Driver/BeckhoffDriver.cs` + `.Tree.cs` + `.Code.cs` + `Program.cs` (534)
-- [ ] 8.4 Gate + ledger + commit. **`BeckhoffDriver.Tree.cs`'s per-node `try/catch` STAYS** — it is the single
+- [x] 8.1 `Ide/TcObjectModel.cs` (494)
+- [x] 8.2 `Ide/RotInstances.cs` + `ComMessageFilter.cs` + `StaDispatcher.cs` + `TcPlcOpen.cs` + `TcPouReader.cs` (358)
+- [x] 8.3 `Driver/BeckhoffDriver.cs` + `.Tree.cs` + `.Code.cs` + `Program.cs` (534)
+- [x] 8.4 Gate + ledger + commit. **`BeckhoffDriver.Tree.cs`'s per-node `try/catch` STAYS** — it is the single
       most likely "helpful" regression in the whole audit.
 
 ### 9. `Volt.Cli` core — 3 groups, 1,403 LOC
 
-- [ ] 9.1 `Sync/Commands.cs` (570)
-- [ ] 9.2 `Sync/Git.cs` (435)
-- [ ] 9.3 `Program.cs` + `Sync/Types.cs` (398)
-- [ ] 9.4 Gate + ledger + commit.
+- [x] 9.1 `Sync/Commands.cs` (570)
+- [x] 9.2 `Sync/Git.cs` (435)
+- [x] 9.3 `Program.cs` + `Sync/Types.cs` (398)
+- [x] 9.4 Gate + ledger + commit.
 
 ### 10. `Volt.Cli` support — 2 groups, 784 LOC
 
-- [ ] 10.1 `Sync/StatusModel.cs` + `Config.cs` + `BridgeClient.cs` + `Extensions.cs` + `IdeTree.cs` + `BridgeResolver.cs` (493)
-- [ ] 10.2 `Sync/Sidecar.cs` + `Scaffold.cs` + `PhaseProgress.cs` + `Reporter.cs` + `Files.cs` + `Materialize.cs` (291)
-- [ ] 10.3 Gate + ledger + commit.
+- [x] 10.1 `Sync/StatusModel.cs` + `Config.cs` + `BridgeClient.cs` + `Extensions.cs` + `IdeTree.cs` + `BridgeResolver.cs` (493)
+- [x] 10.2 `Sync/Sidecar.cs` + `Scaffold.cs` + `PhaseProgress.cs` + `Reporter.cs` + `Files.cs` + `Materialize.cs` (291)
+- [x] 10.3 Gate + ledger + commit.
 
 ### 11. `Volt.Cli.Connector.Core` — 3 groups, 1,297 LOC
 
-- [ ] 11.1 `ConnectionManager.cs` (387)
-- [ ] 11.2 `ControlServer.cs` + `PerPipeProjectSource.cs` + `Reconciler.cs` (421)
-- [ ] 11.3 `BridgeSupervisor.cs` + `TwincatFleet.cs` + `TwincatXaeProbe.cs` + `TwincatSupervisor.cs` +
+- [x] 11.1 `ConnectionManager.cs` (387)
+- [x] 11.2 `ControlServer.cs` + `PerPipeProjectSource.cs` + `Reconciler.cs` (421)
+- [x] 11.3 `BridgeSupervisor.cs` + `TwincatFleet.cs` + `TwincatXaeProbe.cs` + `TwincatSupervisor.cs` +
       `IProjectSource.cs` + `DetectedProject.cs` + `IBridgeWire.cs` + `Session.cs` + `BridgeStatus.cs` (489)
-- [ ] 11.4 Gate + ledger + commit. **`BridgeSupervisor` + `TwincatFleet` are NEW here** (move 24 brought them out
+- [x] 11.4 Gate + ledger + commit. **`BridgeSupervisor` + `TwincatFleet` are NEW here** (move 24 brought them out
       of the WinForms assembly) and have never been audited.
 
 ### 12. `Volt.Cli.Connector` — 3 groups, 1,649 LOC
 
-- [ ] 12.1 `TrayContext.cs` (479)
-- [ ] 12.2 `StatusWindow.cs` + `LogWindow.cs` (504)
-- [ ] 12.3 `Updater.cs` + `VoltEnv.cs` + `Pruner.cs` + `CodesysActivation.cs` + `Program.cs` +
+- [x] 12.1 `TrayContext.cs` (479)
+- [x] 12.2 `StatusWindow.cs` + `LogWindow.cs` (504)
+- [x] 12.3 `Updater.cs` + `VoltEnv.cs` + `Pruner.cs` + `CodesysActivation.cs` + `Program.cs` +
       `ConnectorSetup.cs` + `LoginItem.cs` (666)
-- [ ] 12.4 Gate + ledger + commit, then the close-out e2e on both vendors.
+- [x] 12.4 Gate + ledger + commit, then the close-out e2e on both vendors.
 
 ## 13. Close-out
 
