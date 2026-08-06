@@ -207,7 +207,10 @@ public abstract class DriverBase : IIdeSession
     }
 
     /// <summary>Kick the ambient refresh — <see cref="SnapshotHealth"/> on the vendor's IDE thread, single-flight,
-    /// off the request path. Identical on both vendors, so it is not theirs to write.</summary>
+    /// off the request path. The BODY is shared, so neither vendor writes it; the LIVENESS VERDICT is not.
+    /// TwinCAT overrides this to FAIL the probe when its cross-process XAE stops answering, so the failure
+    /// reaches <c>OnProbeFailed</c> and freshness is not restamped. CODESYS is in-proc and has no channel that
+    /// can drop, so it inherits.</summary>
     public virtual void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
 
     /// <summary>Read the vendor's TOP-LEVEL state on ITS IDE thread and hand the rows to <see cref="PublishRows"/>,
