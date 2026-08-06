@@ -162,11 +162,11 @@ Per batch: revert every `mustRevert` → **stop CODESYS/connector/workers** → 
 
 ## 13. Close-out
 
-- [ ] 13.1 **e2e checkpoint 2 (the acceptance gate)** — full `bun test test/e2e` against headless CODESYS on the
+- [x] 13.1 **e2e checkpoint 2 (the acceptance gate)** — full `bun test test/e2e` against headless CODESYS on the
       final tree. Green = the audit preserved behavior end to end.
-- [ ] 13.2 `bun run typecheck` + `bun run lint` (the TS e2e harness and scripts are in scope for staying green),
+- [x] 13.2 `bun run typecheck` + `bun run lint` (the TS e2e harness and scripts are in scope for staying green),
       and `dotnet build`/both suites one final time on the squashed result.
-- [ ] 13.3 Finalize `ledger.md`: totals — files audited, issues found by kind, fixed vs skipped, LOC
+- [x] 13.3 Finalize `ledger.md`: totals — files audited, issues found by kind, fixed vs skipped, LOC
       before → after, net delta.
 - [ ] 13.4 Finalize `arch-notes.md` and split it into concrete follow-up proposals (each note = a `## Why` a
       future change can start from). Nothing behavior-changing was implemented here.

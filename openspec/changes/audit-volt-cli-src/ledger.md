@@ -300,3 +300,64 @@ pipeline caught a real regression rather than confirming a clean diff.
 - `path/file.cs:123` — <kind> — what it was, why it mattered, what replaced it.
 
 -->
+
+---
+
+# TOTALS — batches 5-12 (2026-08-06)
+
+The remaining ~10,570 LOC of `packages/volt-cli/src`, audited in 8 batches / 22 groups by 66 agents
+(auditor -> surgeon -> verifier per group, groups concurrent, gates serial).
+
+| batch | slice | findings | behaviour-CHANGING | applied | skipped |
+|---|---|---|---|---|---|
+| 5 | `Graphical` I | 51 | 27 | 21 | 33 |
+| 6 | `Graphical` II + Sync deferrals | 42 | 15 | 24 | 20 |
+| 7 | `Ide.Codesys` | 50 | 20 | 24 | 28 |
+| 8 | `Ide.Twincat` | 51 | 24 | 25 | 25 |
+| 9 | `Volt.Cli` core | 47 | 28 | 17 | 31 |
+| 10 | `Volt.Cli` support | 30 | 21 | 5 | 25 |
+| 11 | `Connector.Core` | 47 | 12 | 25 | 25 |
+| 12 | `Connector` | 48 | 21 | 23 | 26 |
+| **total** | | **366** | **168** | **164** | **213** |
+
+**By kind:** bug 108 · doc-drift 83 · inconsistency 54 · defensive-fallback 52 · dead-code 39 · legacy 16 ·
+style 14.
+
+**Zero behaviour deltas shipped.** All 168 behaviour-changing findings are escalated to `arch-notes.md` with the
+auditors' quoted evidence; only the 164 behaviour-preserving ones were applied. Two `mustRevert`s were raised by
+verifiers and both were applied — in each case the surgeon had made a change that was arguably RIGHT (a scoped
+`GraphicalBodyLang`; an unconditional COM release with a ref-count argument) but that a behaviour-preserving pass
+does not get to make.
+
+## Acceptance gate (task 13.1-13.2)
+
+| gate | result |
+|---|---|
+| build | 0 errors |
+| `Volt.Engine.Tests` / `Volt.Cli.Tests` / `Volt.Cli.Connector.Tests` | **337 / 122 / 80** |
+| **e2e CODESYS** | **92 pass / 8 skip / 0 fail** |
+| **e2e TwinCAT** | **90 pass / 11 skip / 0 fail** (pinned to a stable XAE) |
+| `bun run check` | 14 passed, 0 failed |
+| `bun run typecheck` | 0 across all 5 packages |
+| `bun run lint` | 0 errors (405 pre-existing warnings) |
+
+The live runs are the only real gate for batches 7, 8 and 12: **no test csproj can reference either IDE host**,
+so the three C# suites execute zero lines of ~3,100 audited LOC. Both vendors came back at baseline.
+
+## What the audit is actually worth — read this before commissioning another
+
+The 108 `bug` findings are the product, and the ones that matter share a shape: **they live where no automated
+gate can see them.** The three most serious — `CreateChild` making a FUNCTION BLOCK named "Get" instead of a
+property accessor; `InvokeMethod` turning a failed write into a silent no-op that still reports success;
+`CloseDesktopGui` force-killing an in-flight `volt push` mid-write to a live PLC — are all in code the suites
+cannot reach.
+
+Two counterweights, recorded because they are the honest half:
+
+1. **Three audit traces did not survive measurement** in this programme (the crashing XAE filed as a
+   session-model defect; move 18's wire-`kind` story; and finding 11.1's "the first reconcile destroys the
+   restored edge"). Where a finding CAN be measured, measure it before acting — batch 11's confirmed half became
+   a red-first fix in one commit, and its unconfirmed half stayed a claim.
+2. **Two findings were corroborated independently** (`IdeTree`'s name-vs-path bug, found by batch 9 reading the
+   caller and batch 10 reading the callee, neither seeing the other). Independent corroboration is the strongest
+   signal this method produces, and it is free — it comes from partitioning by file rather than by concern.
