@@ -12,7 +12,7 @@ before the gate.
 | build | **0 errors, 18 warnings** (Release, 2026-08-05) |
 | `Volt.Engine.Tests` | **324 pass / 0 fail** (RUNBOOK said 313 — `audit-volt-cli-src` added 11 in flight) |
 | `Volt.Cli.Tests` | **116 pass / 0 fail** |
-| `Volt.Cli.Connector.Tests` | **76 pass / 0 fail** |
+| `Volt.Cli.Connector.Tests` | **76 pass / 0 fail** → **75 from move 5** (a test deleted with its subject; see the table below) |
 | **e2e CODESYS (before)** | **92 pass / 8 skip / 0 fail** (headless fixture, pid 31104, after the harness fix) |
 | **e2e TwinCAT (before)** | **88 pass / 11 skip / 2 fail** — was 24/11/63; the save defect was fixed first, see below |
 | known red | `ide-restart` recovery test — diagnosed, out of scope, not a regression |
@@ -99,6 +99,7 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 3a | `delete-pou-to-xml` — the inert half (shape) | 1 | −92 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `79641dfd6d` |
 | 3b | `delete-pou-to-xml` — BodyLanguage fields (shape) | 3 | −5 | *(same verdict; split per amendment)* | build 0 err · 324/116/76 | `fc161d4f24` |
 | 4 | `one-st-emitter` (shape) | 8 | 1,044 → 870 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fadb86ab8f` |
+| 5 | `delete-dead-spawn-plan` (shape, **narrowed**) | 3 | 650 → 622 | **accept**, 0 must-revert | build 0 err · 324/116/**75** | `9396b2ded1` |
 
 ## Test files moved mechanically
 
@@ -112,6 +113,7 @@ wearing a costume.)_
 | `test/Volt.Engine.Tests/WireVocabularyGuardTests.cs` | 3b | allowlist entry for the deleted `PouToXml.cs` removed — the guard gets NARROWER; `[Fact]`, regex, vocabulary lists and `Assert` byte-identical |
 | `test/Volt.Engine.Tests/ChildDirectiveTests.cs` | 4 | ARRANGE repointed at the shipped emitter (premise "StAssembler is the format under test" was false — nothing ships it). Every pre-existing assertion unchanged; **gained** a golden `Assert.Equal` on the full emitted text |
 | `test/Volt.Engine.Tests/InterfaceRoundTripTests.cs` | 4 | same, same |
+| `test/Volt.Cli.Connector.Tests/TwincatSupervisorTests.cs` | 5 | **coverage DELETED, not adapted**: one case + five assertions drove `Forget`/`SpawnedPids`, the members this move removes. Suite **76 → 75**. Every surviving case keeps its behavioural assertion; no assertion text or expected value changed |
 
 ## Close-out (task 6)
 
