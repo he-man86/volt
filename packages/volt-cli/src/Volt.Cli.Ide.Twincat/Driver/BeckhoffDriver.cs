@@ -23,10 +23,6 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     private readonly TcObjectModel _om = new();
     private readonly StaDispatcher _dispatcher = new();
 
-    private readonly object _cacheLock = new();
-    private List<ProjectEntry> _cachedProjects = new(); // served off the STA thread in the health response; refreshed in SnapshotHealth
-    private long _cachedAtMs;
-
     public override bool IsConnected => _om.IsConnected;
 
     public override string Vendor => Vendors.Twincat;
@@ -48,22 +44,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(func);
 
     // ── health ──────────────────────────────────────────────────────
-    public override HealthResponse BuildHealthResponse()
-    {
-        List<ProjectEntry> projects; long? ageMs;
-        lock (_cacheLock)
-        {
-            projects = _cachedProjects;
-            ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
-        }
-        // Throttle the (heavier) STA refresh to ~5s: a burst of polls answers from cache and only one probe runs.
-        if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        // The cache carries the project LIST; the served row's status is overlaid LIVE so a channel that dropped
-        // since the snapshot never reports a stale "healthy".
-        return new HealthResponse { Projects = OverlayLiveHealth(projects) };
-    }
-
-    public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
+    // DriverBase composes the response (cached list + live overlay) and owns the probe; the only vendor-shaped part
+    // left is the cadence: throttle the (heavier) STA refresh to ~5s, so a burst of polls answers from cache and only
+    // one probe runs. CODESYS's in-proc snapshot is cheap and keeps the unthrottled default.
+    protected override long ProbeThrottleMs => 5000;
 
     /// <summary>Refresh the cached health snapshot from the live DTE. MUST run on the STA thread (it reads the DTE):
     /// the async probe calls it via <see cref="RunOnStaThread{T}"/>; <see cref="Connect"/> / <see cref="SelectProject"/>
@@ -72,21 +56,16 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// <para>NO PLC-APP TOUCH: it reads only top-level state — the bound DTE/solution liveness and, for THIS worker's
     /// own XAE window, its project names/dirty (<c>OwnSolution</c>, the rows that ride in the health response). No ROT
     /// walk (that moved to the connector's <c>--list-xae-pids</c> probe) and never the PLC application (no node, no
-    /// LookupTreeItem, no tree walk), throttled to ~5s by <see cref="BuildHealthResponse"/> and single-flight, so a
+    /// LookupTreeItem, no tree walk), throttled to ~5s by <see cref="ProbeThrottleMs"/> and single-flight, so a
     /// user who isn't syncing never has Volt slow or crash their IDE. Recovery — re-binding the desired project + resolving the PLC
     /// app after a close / re-registration / RPC drop — is DEFERRED to the content ops (where RunRead re-acquires on a
     /// transient) or a re-select; it NEVER happens on this poll.</para></summary>
-    private void SnapshotHealth()
+    protected override void SnapshotHealth()
     {
         _om.EnsureAttached();   // re-acquire our XAE by pid if the held DTE died (bare — keeps the project list live)
         bool ideAlive = _om.ProbeIdeAlive();
         if (_om.HasSelection && _om.IsConnected && ideAlive && IsDegraded) ClearDegraded();
-        var projects = BuildProjects();
-        lock (_cacheLock)
-        {
-            _cachedProjects = projects;
-            _cachedAtMs = Environment.TickCount64;
-        }
+        PublishRows(BuildProjects());   // stamps the throttle clock; the rows stay readable OFF the COM apartment
     }
 
     // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs; those (and only those)

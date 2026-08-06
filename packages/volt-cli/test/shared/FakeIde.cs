@@ -255,9 +255,20 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public Action? ProbeAction { get; init; }
     public override void TriggerAsyncProbe() =>
         RunProbeOnce(() => RunOnStaThread(() => { ProbeAction?.Invoke(); return 0; }));
-    // NB move 13 (health-compose-in-core) removes this override in favour of DriverBase's composed body. When it does,
-    // PipeTransportTests' two deadlock guards start going through OverlayLiveHealth for the first time — re-read them
-    // there rather than assuming their "not idle" assertions still mean what they mean today.
+
+    /// <summary>Never reached in practice: the fake overrides <see cref="TriggerAsyncProbe"/> (it runs
+    /// <see cref="ProbeAction"/>, not a snapshot) and <see cref="BuildHealthResponse"/> (it serves the live knobs),
+    /// so nothing drives <c>DriverBase</c>'s row cache. Publishes the configured rows anyway, so the base cache is
+    /// truthful the moment anything does.</summary>
+    protected override void SnapshotHealth() => PublishRows(Projects.ToList());
+
+    // This override STAYS after health-compose-in-core, deliberately. DriverBase now composes health from a cache
+    // that only a SnapshotHealth publication fills — and nothing would ever fill the fake's: it has no Connect()
+    // (BridgePipeHost never connects; the two production seeds are CodesysDriver.Connect / BeckhoffDriver.Connect),
+    // and every health knob below is an `init` property assigned AFTER the ctor runs, so a ctor-time snapshot would
+    // cache the defaults for the dozen call sites that set them. Serving the knobs directly keeps every existing
+    // assertion meaning what it meant. The cost, stated rather than hidden: the fake does NOT exercise DriverBase's
+    // composed body — the two shipped drivers do, and only the live e2e sees it.
     public override HealthResponse BuildHealthResponse()
     {
         // Each configured row only actually serves (non-idle status) while IsConnected — so a select that fails to

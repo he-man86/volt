@@ -90,7 +90,12 @@ public static class PipeHost
         {
             if (_host is null) return "Volt bridge was not running";
             _host.Stop();
-            _driver?.Disconnect(); // drop change-event handlers from the singleton ObjectManager (no leak on restart)
+            // The in-proc detach. It clears the degraded flag and nothing else — there is nothing to release:
+            // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager, contrary to what
+            // this comment used to claim. Kept because this is the ONE production caller of IIdeSession.Disconnect():
+            // the in-proc host is stopped by an IronPython script and must detach, while the TwinCAT worker dies with
+            // its process — that asymmetric reachability IS the InIdeLoad/ExternalAttach lifecycle difference.
+            _driver?.Disconnect();
             _host = null;
             _driver = null;
             return "Volt bridge stopped";

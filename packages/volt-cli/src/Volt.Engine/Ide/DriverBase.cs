@@ -10,14 +10,15 @@ using Volt.Cli.Transport.Wire;
 namespace Volt.Engine.Ide;
 
 /// <summary>Shared base for a vendor driver: <see cref="IIdeSession"/>'s degraded-state machine, the IDE-thread
-/// liveness bracketing (<see cref="RunOnStaThread{T}"/>), the single-flight ambient health probe, and the health
-/// verdict helpers (<see cref="RowStatus"/> / <see cref="DeriveServedStatus"/> / <see cref="OverlayLiveHealth"/>) —
-/// the logic identical across vendors. A concrete driver overrides the abstract members for genuine IDE access
-/// (connect, tree, code, build), supplies its own <see cref="IdeVersion"/>, and composes its own
-/// <see cref="BuildHealthResponse"/> rows.
-/// <para>ARCH FOLLOW-UP: because <c>BuildHealthResponse</c> is abstract, the wire-visible health shape is composed
-/// TWICE (once per vendor) — against "parity-critical decisions live in Core, once". It belongs here (cache read +
-/// throttle + <see cref="OverlayLiveHealth"/>) with the vendor supplying only the row snapshot.</para></summary>
+/// liveness bracketing (<see cref="RunOnStaThread{T}"/>), the single-flight ambient health probe, the health
+/// verdict helpers (<see cref="RowStatus"/> / <see cref="DeriveServedStatus"/> / <see cref="OverlayLiveHealth"/>)
+/// and the COMPOSITION of the whole health response — the logic identical across vendors. A concrete driver
+/// overrides the abstract members for genuine IDE access (connect, tree, code, build), supplies its own
+/// <see cref="IdeVersion"/>, and supplies only the row SNAPSHOT via <see cref="SnapshotHealth"/>.
+/// <para>ARCH FOLLOW-UP RETIRED (health-compose-in-core): <c>BuildHealthResponse</c> used to be abstract, so the
+/// wire-visible health shape was composed TWICE, once per vendor — against "parity-critical decisions live in Core,
+/// once", and a vendor could silently skip <see cref="OverlayLiveHealth"/> entirely. It is composed here now (cache
+/// read + throttle + overlay); a vendor no longer returns a <see cref="HealthResponse"/> at all.</para></summary>
 public abstract class DriverBase : IIdeSession
 {
     private volatile bool _isDegraded;
@@ -41,6 +42,16 @@ public abstract class DriverBase : IIdeSession
     // The one ambient-poll refresher. `health` (liveness + the instances list) is refreshed off the request path,
     // single-flight, so a poll never marshals onto the busy IDE thread and a busy IDE never reads as a lost connection.
     private readonly SingleFlight _healthProbe = new();
+
+    // ── the cached project ROWS (the slow-changing half of `health`) ──
+    // The vendor reads them on ITS IDE thread in SnapshotHealth and publishes them here; `health` is answered off
+    // that thread from this cache, so a poll never marshals. Only the LIST is cached — the served row's verdict is
+    // overlaid LIVE at read time (see OverlayLiveHealth).
+    private readonly object _cacheLock = new();
+    private List<ProjectEntry> _rows = new();
+    private int _publishedAtTick;   // Environment.TickCount at the last PublishRows. An int, not TickCount64 —
+    private bool _everPublished;    // netstandard2.0 has neither, and a 0 sentinel collides with a real tick, so
+                                    // "never published" gets its own flag (same idiom as _lastOkTick/_everOk above).
 
     public bool IsDegraded => _isDegraded;
 
@@ -69,8 +80,6 @@ public abstract class DriverBase : IIdeSession
     // No abstract Connect(): startup attach is vendor-shaped (CODESYS Connect() vs TwinCAT Connect(int xaePid)), each
     // driver declares its own and its own host calls it — Core never connects. See IIdeSession.
     public abstract void Disconnect();
-    public abstract void TriggerAsyncProbe();
-    public abstract HealthResponse BuildHealthResponse();
     public abstract bool ShouldMarkDegraded(Exception ex);
     /// <summary>Default no-op: an in-proc driver (CODESYS) has no cross-process channel to re-acquire. TwinCAT
     /// overrides to re-establish the desired binding by stable name.</summary>
@@ -146,6 +155,55 @@ public abstract class DriverBase : IIdeSession
             });
         }
     }
+
+    /// <summary>Publish the vendor's freshly-read row snapshot and stamp the throttle clock. The LAST statement of
+    /// every <see cref="SnapshotHealth"/> — anything the vendor must make visible ALONGSIDE the rows (CODESYS's
+    /// connectedness flag) has to be written BEFORE this call, because this is the instant the rows become readable
+    /// on the poll thread.</summary>
+    protected void PublishRows(List<ProjectEntry> rows)
+    {
+        lock (_cacheLock) { _rows = rows; _publishedAtTick = Environment.TickCount; _everPublished = true; }
+    }
+
+    /// <summary>Minimum gap between ambient health probes, in ms; <c>0</c> means NO throttle — probe on every poll.
+    /// It exists only to reproduce each vendor's EXISTING cadence byte-for-byte now that composition lives here:
+    /// CODESYS probed unconditionally (in-proc, cheap), TwinCAT throttles the heavier STA round-trip to ~5s.
+    /// <para>ARCH FOLLOW-UP: `unify-probe-throttle` collapses the two cadences into one Core-owned number and deletes
+    /// this knob — there is deliberately no per-vendor throttle to keep.</para></summary>
+    protected virtual long ProbeThrottleMs => 0;
+
+    /// <summary>The ambient poll response, composed ONCE for both vendors: serve the cached row list, kick the
+    /// off-request single-flight refresh when the cache is older than <see cref="ProbeThrottleMs"/>, and overlay the
+    /// LIVE served-row verdict. A vendor supplies rows (<see cref="SnapshotHealth"/>) and never a
+    /// <see cref="HealthResponse"/>, so it cannot forget <see cref="OverlayLiveHealth"/> — the invariant that stops
+    /// `health` reporting green over a channel that dropped since the snapshot.
+    /// <para><c>virtual</c> for the in-memory test double alone: it has no IDE to snapshot and no Connect() to seed
+    /// the cache, so it answers from its live knobs instead.</para></summary>
+    public virtual HealthResponse BuildHealthResponse()
+    {
+        List<ProjectEntry> rows; long ageMs; bool published;
+        lock (_cacheLock)
+        {
+            rows = _rows;
+            published = _everPublished;
+            // unchecked int subtraction is correct across TickCount wraparound; TickCount64 is not on netstandard2.0.
+            ageMs = (long)unchecked(Environment.TickCount - _publishedAtTick);
+        }
+        // `<= 0` is the UNTHROTTLED case spelled out rather than left to `age > 0`: TickCount has ~15.6ms granularity,
+        // so two polls landing in one tick would skip a probe an unconditional vendor fires every time.
+        if (ProbeThrottleMs <= 0 || !published || ageMs > ProbeThrottleMs) TriggerAsyncProbe();
+        return new HealthResponse { Projects = OverlayLiveHealth(rows) };
+    }
+
+    /// <summary>Kick the ambient refresh — <see cref="SnapshotHealth"/> on the vendor's IDE thread, single-flight,
+    /// off the request path. Identical on both vendors, so it is not theirs to write.</summary>
+    public virtual void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
+
+    /// <summary>Read the vendor's TOP-LEVEL state on ITS IDE thread and hand the rows to <see cref="PublishRows"/>,
+    /// which must be the last statement. The vendor decides what a ROW is; it never decides how `health` is composed.
+    /// Called by <see cref="TriggerAsyncProbe"/> (marshalled) and directly by each driver's own connect/select, which
+    /// already run on that thread — so a new binding shows in health at once.</summary>
+    protected abstract void SnapshotHealth();
 
     /// <summary>Marks a project row as served (non-idle) or idle. The actual served-row verdict (healthy vs degraded)
     /// is NOT frozen here — it is overlaid LIVE by <see cref="OverlayLiveHealth"/> at /health time, so a cached row

@@ -38,7 +38,10 @@ public interface IIdeSession
     void MarkDegraded(string reason);
     void ClearDegraded();
     /// <summary>The ambient poll response: the flat <see cref="HealthResponse.Projects"/> array (liveness + the
-    /// connectable-projects list, per row) from the CACHED snapshot — NEVER a live walk on the request.</summary>
+    /// connectable-projects list, per row) from the CACHED snapshot — NEVER a live walk on the request.
+    /// <para>The one member here that looks like wire POLICY and is not: it is composed ONCE, in
+    /// <c>DriverBase</c> (cache read + probe throttle + the live served-row overlay). A vendor supplies only the row
+    /// snapshot and cannot return a <see cref="HealthResponse"/> at all, so the seam rule above holds.</para></summary>
     HealthResponse BuildHealthResponse();
     /// <summary>Should this transport/RPC exception flip the session to degraded? (TwinCAT: dead-COM
     /// HRESULTs; CODESYS in-proc: never.)</summary>

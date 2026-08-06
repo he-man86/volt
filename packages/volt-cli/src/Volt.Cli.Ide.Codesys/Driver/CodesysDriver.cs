@@ -21,8 +21,6 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     private readonly CodesysObjectModel _om;
     private readonly CodesysDispatcher? _dispatcher;
 
-    private readonly object _cacheLock = new();
-    private List<ProjectEntry> _projects = new(); // cached from the primary thread; served off-thread in the health response
     private volatile bool _hasProject; // cached from the primary thread (HasPrimaryProject); read off-thread by IsConnected
 
     public CodesysDriver(object? projects)
@@ -51,15 +49,22 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <see cref="RunOnStaThread{T}"/>. So a new binding shows in health at once. Parallels the TwinCAT driver's
     /// SnapshotHealth. Cheap here (the one in-proc primary project), so the instances list rides along with health;
     /// on TwinCAT the same snapshot carries the heavier ROT walk.</summary>
-    private void SnapshotHealth()
+    protected override void SnapshotHealth()
     {
         bool has = _om.HasPrimaryProject;
         // `serving` must reflect THIS snapshot's freshly-read state, not the cached _hasProject (still the old value
-        // until the lock below). Reading IsConnected inside BuildProjects would lag one cycle on the project-open
-        // transition — reporting serving=false for ~4s after Connect and bouncing a pull/push with PLC_DISCONNECTED.
+        // until the publication below). Reading IsConnected inside BuildProjects would lag one cycle on the
+        // project-open transition — reporting serving=false for ~4s after Connect and bouncing a pull/push with
+        // PLC_DISCONNECTED.
         bool connected = _dispatcher != null && has && _om.HasObjectManager;
         var projects = BuildProjects(connected);
-        lock (_cacheLock) { _hasProject = has; _projects = projects; }
+        // _hasProject FIRST, THEN the rows. The row cache lives in DriverBase now, so these are two publication
+        // instants where they used to be one lock scope — and the order is not free. Publishing rows first opens
+        // exactly the window the comment above records: a row visible as `serving` while IsConnected still reads
+        // false, i.e. OpGuard bouncing a pull/push with PLC_DISCONNECTED. This order can only make IsConnected
+        // early, never late. (_hasProject is volatile, so the write is its own release.)
+        _hasProject = has;
+        PublishRows(projects);
         if (has && IsDegraded) ClearDegraded();
     }
 
@@ -89,17 +94,10 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // In-process: no transport that can die mid-call, so never auto-degrade.
     public override bool ShouldMarkDegraded(Exception ex) => false;
 
-    public override HealthResponse BuildHealthResponse()
-    {
-        List<ProjectEntry> projects;
-        lock (_cacheLock) { projects = _projects; }
-        TriggerAsyncProbe();
-        // Cached list, live verdict: CODESYS never marks degraded (in-proc), but a hung/closed IDE stops responding
-        // to the probe, so staleness demotes it from a frozen "healthy" — see OverlayLiveHealth.
-        return new HealthResponse { Projects = OverlayLiveHealth(projects) };
-    }
-
-    public override void TriggerAsyncProbe() => RunProbeOnce(() => RunOnStaThread(() => { SnapshotHealth(); return 0; }));
+    // No BuildHealthResponse/TriggerAsyncProbe here: DriverBase composes both. This driver keeps ProbeThrottleMs at
+    // its default 0 — the in-proc snapshot is cheap, so it probes on EVERY poll, exactly as it did when it owned the
+    // response. Cached list, live verdict: CODESYS never marks degraded (in-proc), but a hung/closed IDE stops
+    // responding to the probe, so staleness demotes it from a frozen "healthy" — see DriverBase.OverlayLiveHealth.
 
     public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 
