@@ -114,6 +114,11 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 17 | `manifest-name-descriptor-parity` (**fix → reclassified shape**) | 4 | +30/−4 | **accept**, 0 must-revert | build 0 err · 326/119/72 · isolated | `546be89920` |
 | 19 | `one-refusal-carrier` (**fix**) | 2 | +34/−6 | **accept**, 0 must-revert | build 0 err · 326/**120**/72 · **red-first + isolated** | `d81e1713cd` |
 | 22 | `worker-cli-const-table` (shape) | 5 | +61/−12 | **accept**, 0 must-revert | build 0 err · 326/120/**73** · isolated | `3a4b32e722` |
+| 15 | `dead-ide-marks-degraded` (**fix**, no red-first — see note) | 2 | 240 → 342 | **accept**, 0 must-revert | build 0 err · **327**/120/73 · isolated | `1f23c9bfdd` |
+| 18 | `pou-refinement-uses-the-core-parser` | — | — | **DEFERRED — premise may be fiction** | not applied; see findings.md | `—` |
+| 20 | `cli-identity-from-the-echo` (**fix**) | 2 | +40/−9 | **accept**, 0 must-revert | build 0 err · 327/**121**/73 · **red-first verified** | `d2164e5bbf` |
+| 23 | `probe-partial-enumeration-fails` (**fix**, no red-first — see note) | 2 | +31/−8 | **accept**, 0 must-revert | build 0 err · 327/121/73 · isolated | `47a0bb83bb` |
+| 24 | `bridge-supervisor-to-core` (shape, **relocation**) | 6 | +241/−25 | **accept**, 0 must-revert | build 0 err · 327/121/**77** · §0.6b applied | `e8b502c9a0` |
 
 ## Test files moved mechanically
 
@@ -130,6 +135,22 @@ wearing a costume.)_
 | `test/Volt.Cli.Connector.Tests/{WireContractParityTests,WireContractTests}.cs` | 11 | **premise died, behaviour ported first**: with one declaration of the health row there is nothing left to pin. 3 tests deleted, 2 ported into `PerPipeProjectSourceTests` as raw-JSON cases with byte-identical assertions, 9 untouched. Suite **75 → 72**. The surgeon also found an assertion the amendments missed — the only check that a row's `version` reaches `IdeVersion` — and folded it in, so the deletion is coverage-neutral |
 | `test/shared/FakeIde.cs` | 12 | the fake becomes a real `DriverBase` subclass. **No assertion anywhere added, removed or changed**; every new knob defaults to today's exact answer. All 514 tests now execute `DriverBase`'s liveness bracketing and `ClearDegraded` for the first time — and still pass |
 | `test/Volt.Cli.Connector.Tests/TwincatSupervisorTests.cs` | 5 | **coverage DELETED, not adapted**: one case + five assertions drove `Forget`/`SpawnedPids`, the members this move removes. Suite **76 → 75**. Every surviving case keeps its behavioural assertion; no assertion text or expected value changed |
+
+## Fix moves that shipped WITHOUT a red-first proof
+
+This is a real weakening of the gate, recorded as such rather than reclassified away. Both live in
+`net8.0-windows` TwinCAT code behind live COM; **no test csproj references `Volt.Cli.Ide.Twincat`**, and neither
+the DTE nor the COM Running Object Table can be faked without a seam that does not exist.
+
+| # | move | what stands in for the proof |
+|---|---|---|
+| 15 | `dead-ide-marks-degraded` | a GREEN pin (`HonestHealthTests`) on the `DriverBase` contract the driver override leans on — a failing probe closure reaches `OnProbeFailed` and skips the freshness stamp. Labelled as such in its own doc. Move the stamp ahead of the marshalled call, or re-swallow the probe failure, and it goes red |
+| 23 | `probe-partial-enumeration-fails` | nothing offline. Verification is the live TwinCAT e2e at close-out: two XAEs up, one made busy, and the busy one's worker must survive |
+
+**Recorded consequence of 23**, from its phase-4 objection: a permanently unanswering XAE now permanently fails
+the probe, so no worker is reaped while it stays that way and dead workers accumulate behind it. Deliberate
+trade — reaping a healthy worker loses a live bridge; keeping a dead one costs a process — but it is a NEW
+failure mode.
 
 ## Fix moves — the red-first proof
 
