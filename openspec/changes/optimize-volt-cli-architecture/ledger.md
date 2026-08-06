@@ -137,6 +137,12 @@ the move's src files and running the new test alone — not taken from the surge
 |---|---|---|
 | `VoltLog.Prune()` deleted every component's logs, not its own — destroying Setup's `install-*.log` that the support bundle surfaces and `scripts/test-install.ts` reads. Pre-existing; move 9 turned it from rare (a bridge activates) into certain (every tray start) | move 9's verifier, from the card's own unheeded `riskiestPart` | `9b`, red-first, immediately — not deferred to "before the next release" |
 
+## Verifier saves — what the adversarial pass caught that the gate would have
+
+| move | what the surgeon did | consequence had it landed |
+|---|---|---|
+| 10 | replaced `using Volt.Engine.Wire;` instead of adding, on the claim the moved types were the file's only ones from it | `CS0246` on `ConnectRequest` (deliberately left behind) — `Volt.Cli.Connector.Tests` would not compile, so **a third of the gate could not run at all**. The surgeon disclosed it could not build; the verifier ran it |
+
 ## Process defects found while executing
 
 **Move 6 — the gate tests the working tree; the commit is a subset of it.** The first commit of move 6 did NOT
