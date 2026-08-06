@@ -1141,3 +1141,51 @@ _Filled in by phase 4. Each entry: the move as proposed, which skeptics refuted 
 would have to be true for it to become viable. A deferral without a testable condition is a deletion — say so
 and delete it._
 
+
+---
+
+## What this change does NOT close — and how to close it
+
+The moves close **31 of 49** findings. The rest are recorded here rather than quietly dropped, split by what
+should happen to them.
+
+### The cluster — one subsystem, and the next change's whole scope
+
+These three are the same defect wearing three faces, and they are the standing suspect for the two parked
+`conflict-resolve` e2e failures:
+
+1. **The wire `disconnect` gate has two owners.** Any pipe client can set `_paused` on the host; the connector's
+   reconcile loop un-sets it within ~4 s by re-`connect`ing any project a live session wants.
+2. **`ControlHarness` re-implements the interest→serving reconcile inline** instead of driving `Reconciler` —
+   with the OPPOSITE trigger semantics — so the volt-control e2e asserts behaviour the product deliberately
+   rejects.
+3. **Two systems answer "is this project served".** A project serves iff a live client session declares
+   interest, but the CLI opens the pipe directly and never consults the connector.
+
+**How to attack it — deliberately NOT the way this change was run.** Start by reproducing the parked failure,
+not by mapping. In this change the two highest-value defects (the TwinCAT save that never ran, the e2e harness
+targeting the wrong IDE) came from *running the baseline in the first hour*; ~120 analysis agents produced
+narrowing and correction. The map and the findings already exist with quoted evidence — what these gaps lack is
+a DECISION, not discovery. Go straight to design → refute → execute on the three questions above, ~10 agents,
+after moves 13/22/24 have landed (all three touch this subsystem, so analysing it before them means analysing
+it twice).
+
+### The ground floor: two fakes that lie
+
+`FakeIde` asserts that `IsConnected` and `BuildHealthResponse().Connected` are the same signal — an invariant
+the real TwinCAT driver breaks. `ControlHarness` implements the opposite trigger semantics from `Reconciler`.
+**Every unit test in this repo is only as trustworthy as those two files.** Move 12 starts on `FakeIde`; the
+harness is untouched by any move in this change. If one thing is fixed from the bottom, it is this — a fake that
+has to lie names a seam in the wrong place, and two of them currently do.
+
+### Deliberately left alone, with the argument (do not re-litigate without new evidence)
+
+- **`Volt.Cli.Transport` is two things** — the wire, plus vocabulary (`Ops`, `BridgeErrorCodes`, `HealthStatus`,
+  `Vendors`) owned by layers above it. Real gap; moving the file fixes nothing, because `Volt.Cli` references
+  BOTH projects and could still spell a wire code for a pre-wire refusal the morning after.
+- **The `Volt.Engine` layer cycle** (`Ide → Wire → Sync → Workspace → Graphical → Ide`). A `using` loop inside
+  ONE assembly: no compile cost, no build-order cost, no test cost. Note the phase-2 claim that it is why
+  `BuildHealthResponse` is abstract is **false** — `DriverBase` already imports `Wire`.
+- **The serializer-options "duplication"** — `PipeJson`'s camelCase-write vs case-insensitive-read is a
+  deliberate asymmetric pair, not drift. Publishing it invites a swap that silently empties `PushRequest` and
+  nulls `BuildRequest.expectedProjectName` through `Body<T>`'s `?? new T()`.
