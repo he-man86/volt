@@ -1,3 +1,18 @@
+> ## ⚠ HISTORICAL SNAPSHOT — phase 1, before any move landed
+>
+> **This is not the current map.** It is the structure as it stood at the START of
+> `optimize-volt-cli-architecture`, kept as the evidence the design was reasoned from. The 24 moves that
+> followed moved `VoltLog` and the health row into `Volt.Cli.Transport`, moved `BridgeSupervisor` into
+> `Volt.Cli.Connector.Core`, deleted `DebugService`/`PouToXml`/`StAssembler`/`Connector.Core.Log`, and made
+> `DriverBase` compose the health response.
+>
+> **The live map is `packages/volt-cli/ARCHITECTURE.md`**, which every move updated as it landed. Where this
+> file and that one disagree, that one is right. Two maps that can disagree is the thing to avoid; this one is
+> dated on purpose so it cannot be mistaken for the other.
+>
+> The lenses also returned 35 corrections to this file, recorded at the end of each section of `findings.md` —
+> read those before trusting any row here.
+
 # Structural map — `packages/volt-cli/src`
 
 Phase 1 output of `optimize-volt-cli-architecture`. Written by the main loop from 7 cartographers + 1 seam

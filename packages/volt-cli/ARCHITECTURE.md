@@ -25,9 +25,16 @@ src/Volt.Engine        netstandard2.0   shared engine (no vendor refs) + Wire/Br
 src/Volt.Cli.Ide.Codesys     net48 library    CODESYS bridge — driver + PipeHost, loaded IN-PROCESS by the IDE
 src/Volt.Cli.Ide.Twincat    net8 exe         TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM
 src/Volt.Cli.Connector.Core  net8 library     the connector's UI-free connection model (DetectedProject /
-                                          IProjectSource / ConnectionManager + the pipe-backed source) — unit-tested
-src/Volt.Cli.Connector   net8 exe         tray supervisor + Volt-branded window over the model. Spawns the
-                                          ExternalAttach workers; CODESYS is user-activated in-proc (never launched)
+                                          IProjectSource / ConnectionManager + the pipe-backed source) AND the
+                                          TwinCAT worker fleet (BridgeSupervisor + TwincatFleet: de-dup,
+                                          crash-restart, the KILL_ON_JOB_CLOSE orphan guard). The fleet lives
+                                          HERE, not in the tray, because none of it needs WinForms and putting
+                                          it in a net8.0-windows assembly made the policy that actually runs
+                                          untestable — the suite asserted on a spawn plan production discarded.
+                                          All of it is unit-tested
+src/Volt.Cli.Connector   net8 exe         tray + Volt-branded window over the model. Owns the WinForms shell and
+                                          the user-facing lifecycle; the worker fleet it drives is Core's.
+                                          CODESYS is user-activated in-proc (never launched)
 ```
 
 (The `volt` CLI — `src/Volt.Cli`, the pipe *client* — is documented in `README.md`.)
@@ -90,7 +97,12 @@ A strict layer stack; each layer depends only on the ones above it. Read top-dow
 
 | Layer | Does | Key types |
 |---|---|---|
-| **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` provides the shared degraded-state machine + single-flight health probe. `ItemRef` is the opaque per-vendor handle that keeps native objects out of Core; `ProjectItem` carries name/folder/`ExcludeFromBuild`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `ItemRef`, `ProjectItem` |
+| **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` provides the shared degraded-state machine, the single-flight health probe, **and the whole health
+response** — it owns the row cache, the publication, the throttle predicate and the composition, so a vendor
+supplies only `protected override void SnapshotHealth()` ending in `PublishRows`. `BuildHealthResponse` used to
+be abstract, which put a WIRE-VISIBLE shape behind the vendor seam and let the two drivers diverge unseen (they
+had). `ProbeThrottleMs` stays `virtual` because the cadences legitimately differ: CODESYS is in-proc, TwinCAT
+attaches cross-process — that is a reached-differently difference, which is exactly what a vendor may keep. `ItemRef` is the opaque per-vendor handle that keeps native objects out of Core; `ProjectItem` carries name/folder/`ExcludeFromBuild`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `ItemRef`, `ProjectItem` |
 | **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest`). The `health` row itself (`ProjectEntry`/`HealthResponse`) lives one layer DOWN in `Volt.Cli.Transport/Wire/`, because the connector may not reference the engine and still has to read it. The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Wire/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest` |
 | **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`. `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. **There is no debug service** — `DebugService`, `IDebugIntrospect` and the three `IIdeSession.Debug*` members were DELETED (deliberately, resolving the "restore an op or delete them" note that stood here): they had no `Ops` const and no `BridgePipeHost.Dispatch` case, so no client could reach them after the HTTP `GET /debug?…` went away. Restoring live introspection means a real `Ops` const **and** a `Dispatch` case — never a half-wired service. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text. The canonical ST layout has exactly ONE owner per direction: `PouToStText` assembles a `PouData` into it, `SourceText/StSplitter` parses it back (sharing `CodeHelper`). The dict-based `SourceText/StAssembler` was a second, production-unreachable copy of the assemble half that had already diverged in failure policy; it is DELETED and the round-trip tests certify `PouToStText`. `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `PouToStText`, `SourceText/StSplitter` |

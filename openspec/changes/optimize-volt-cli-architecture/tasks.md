@@ -4,7 +4,7 @@
       `dotnet build Volt.Cli.sln -c Release` + all three suites (`Volt.Engine.Tests` 313 ·
       `Volt.Cli.Tests` 116 · `Volt.Cli.Connector.Tests` 76). Use `C:\Program Files\dotnet\dotnet.exe` — the
       `dotnet` on PATH is an x86 stub with no SDK.
-- [ ] 0.2 **e2e green BEFORE anything moves** — this is the user-stated gate. `codesys-pipe.ps1 up`, wait for
+- [x] 0.2 **e2e green BEFORE anything moves** — this is the user-stated gate. `codesys-pipe.ps1 up`, wait for
       `\\.\pipe\volt.bridge.codesys.<pid>`, then `bun run test:e2e:codesys` (expect 92 pass / 0 fail) and
       `bun run test:e2e:twincat` (expect 90 pass / 0 fail, needs the connector up). Record the exact numbers at
       the top of `ledger.md`.
@@ -45,11 +45,11 @@
 
 ## 4. Phase 4 — Refute (3 agents per move, before any code is touched)
 
-- [ ] 4.1 `Workflow`: `pipeline(moves, refute×3)` with the `design.md` §Phase 4 checklist.
-- [ ] 4.2 Drop every move ≥2 of 3 skeptics refute into `findings.md` under "Deferred", with the objection.
-- [ ] 4.3 Decompose any survivor that cannot land alone and green until it can — or defer it. There is no
+- [x] 4.1 `Workflow`: `pipeline(moves, refute×3)` with the `design.md` §Phase 4 checklist.
+- [x] 4.2 Drop every move ≥2 of 3 skeptics refute into `findings.md` under "Deferred", with the objection.
+- [x] 4.3 Decompose any survivor that cannot land alone and green until it can — or defer it. There is no
       temporarily-red state in this change.
-- [ ] 4.4 Re-order the surviving moves bottom-up by dependency (`Transport` → `Engine` → IDE hosts → `Cli` →
+- [x] 4.4 Re-order the surviving moves bottom-up by dependency (`Transport` → `Engine` → IDE hosts → `Cli` →
       `Connector.Core` → `Connector`) so a lower layer is settled before its callers move.
 
 ## 5. Phase 5 — Execute (one move at a time)
@@ -66,27 +66,27 @@ Per-move loop — repeat for every surviving move, in order:
 5. Commit `refactor(cli): <move>`, **staging explicitly** — the TwinCAT fixtures under `test/TwinCAT Project*/`
    are rewritten whenever the IDE builds and must never be swept in by `git commit -a`.
 
-- [ ] 5.1 Moves in `Volt.Cli.Transport`
-- [ ] 5.2 Moves in `Volt.Engine`
-- [ ] 5.3 **e2e checkpoint 1** — after the last `Volt.Engine` move, so a round-trip regression is localized to
+- [x] 5.1 Moves in `Volt.Cli.Transport`
+- [x] 5.2 Moves in `Volt.Engine`
+- [x] 5.3 **e2e checkpoint 1** — after the last `Volt.Engine` move, so a round-trip regression is localized to
       ~7k LOC instead of 15k.
-- [ ] 5.4 Moves in `Volt.Cli.Ide.Codesys` / `Volt.Cli.Ide.Twincat` (both vendors checked for every move — shared
+- [x] 5.4 Moves in `Volt.Cli.Ide.Codesys` / `Volt.Cli.Ide.Twincat` (both vendors checked for every move — shared
       Core, parity boundary is the wire)
-- [ ] 5.5 Moves in `Volt.Cli`
-- [ ] 5.6 Moves in `Volt.Cli.Connector.Core` / `Volt.Cli.Connector`
-- [ ] 5.7 Any cross-project move (a type changing owner, a project boundary moving, `.csproj`/`.sln` edits) —
+- [x] 5.5 Moves in `Volt.Cli`
+- [x] 5.6 Moves in `Volt.Cli.Connector.Core` / `Volt.Cli.Connector`
+- [x] 5.7 Any cross-project move (a type changing owner, a project boundary moving, `.csproj`/`.sln` edits) —
       last, because it is the least revertable.
 
 ## 6. Close-out
 
-- [ ] 6.1 **e2e green AFTER, with no test edited to accommodate a move**: `bun run test:e2e:codesys` and
+- [x] 6.1 **e2e green AFTER, with no test edited to accommodate a move**: `bun run test:e2e:codesys` and
       `bun run test:e2e:twincat` back to the exact baseline numbers from 0.2. Any delta is a regression until
       proven otherwise.
-- [ ] 6.2 Rewrite `packages/volt-cli/ARCHITECTURE.md` to describe the shape that now exists — the project map,
+- [x] 6.2 Rewrite `packages/volt-cli/ARCHITECTURE.md` to describe the shape that now exists — the project map,
       the layer stack, the seams and what each earns. Keep §"Load-bearing asymmetries" and §"Conventions"; they
       were paid for in real defects.
-- [ ] 6.3 Update `CLAUDE.md`'s package map if any project boundary moved.
-- [ ] 6.4 Fold `map.md` into `ARCHITECTURE.md` if it earns its place there, or keep it in the change as the
+- [x] 6.3 Update `CLAUDE.md`'s package map if any project boundary moved.
+- [x] 6.4 Fold `map.md` into `ARCHITECTURE.md` if it earns its place there, or keep it in the change as the
       record. Do not leave two maps that can disagree.
-- [ ] 6.5 Move everything still in `findings.md` under "Deferred" that is worth doing into its own proposal, and
+- [x] 6.5 Move everything still in `findings.md` under "Deferred" that is worth doing into its own proposal, and
       delete the rest. A note nobody will write up is a note that wasn't worth keeping.
