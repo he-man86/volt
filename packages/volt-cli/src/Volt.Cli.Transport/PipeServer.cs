@@ -34,8 +34,15 @@ public sealed class PipeServer : IDisposable
     public void Start()
     {
         if (_running) return;
+        // Bind the FIRST pipe instance HERE, synchronously, and let the failure reach the caller. Created inside the
+        // accept thread instead (as it was), a name collision or an ACL denial killed the loop with nobody watching
+        // while the caller reported success — CODESYS's PipeHost.Start returned "Volt bridge started on pipe …" into
+        // the IDE message window and wrote "bridge ready" to the log, over a pipe nothing was listening on. Both hosts
+        // already have a catch arm around this call; the reason now reaches it.
+        var first = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
+            NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         _running = true;
-        new Thread(AcceptLoop) { IsBackground = true, Name = "volt-pipe-accept" }.Start();
+        new Thread(() => AcceptLoop(first)) { IsBackground = true, Name = "volt-pipe-accept" }.Start();
     }
 
     public void Stop()
@@ -49,23 +56,48 @@ public sealed class PipeServer : IDisposable
 
     public void Dispose() => Stop();
 
-    private void AcceptLoop()
+    // <paramref name="first"/> is the instance Start() already bound — its failure was the caller's to see. Every
+    // later instance is armed here, and failing to arm one ENDS the loop: record it (this fires at most once per
+    // Start, so it cannot spin the log) and clear _running, so the server stops claiming to listen and a later
+    // Start() can bind again instead of being a permanent no-op. The WaitForConnection catch below stays UNLOGGED
+    // precisely because it `continue`s — a line there would append to a file under a process-global lock once per
+    // failing iteration, inside the always-on in-proc CODESYS host.
+    private void AcceptLoop(NamedPipeServerStream first)
     {
-        while (_running)
+        NamedPipeServerStream? pending = first;
+        try
         {
-            NamedPipeServerStream server;
-            try
+            while (_running)
             {
-                server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
-                    NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                NamedPipeServerStream server;
+                if (pending != null) { server = pending; pending = null; }
+                else
+                {
+                    try
+                    {
+                        server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
+                            NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    }
+                    catch (Exception ex)
+                    {
+                        VoltLog.Warn($"pipe {_pipeName}: accept loop stopped — could not arm another instance: {ex.Message}");
+                        _running = false;
+                        break;
+                    }
+                }
+
+                try { server.WaitForConnection(); }
+                catch { server.Dispose(); if (!_running) break; continue; }
+
+                if (!_running) { try { server.Dispose(); } catch { } break; }
+                ThreadPool.QueueUserWorkItem(_ => Handle(server));
             }
-            catch { break; }
-
-            try { server.WaitForConnection(); }
-            catch { server.Dispose(); if (!_running) break; continue; }
-
-            if (!_running) { try { server.Dispose(); } catch { } break; }
-            ThreadPool.QueueUserWorkItem(_ => Handle(server));
+        }
+        finally
+        {
+            // A Stop() landing between the synchronous bind and this thread's first iteration would otherwise leak
+            // the bound instance — and hold the NAME — until finalization.
+            if (pending != null) { try { pending.Dispose(); } catch { } }
         }
     }
 

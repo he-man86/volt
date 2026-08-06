@@ -58,7 +58,16 @@ sta.SetApartmentState(ApartmentState.STA);
 sta.Start();
 
 using var host = new BridgePipeHost(driver, pipe);
-host.Start();
+// The bind is synchronous (PipeServer.Start), so a name collision or an ACL denial faults HERE. Die with the reason
+// in the log and a non-zero exit — the supervisor logs the exit and restarts — instead of printing a tidy "serving"
+// line over a pipe nothing is listening on. CODESYS's PipeHost.Start has the symmetric catch arm.
+try { host.Start(); }
+catch (Exception ex)
+{
+    VoltLog.Error($"twincat bridge FAILED to start on pipe {pipe} (xae pid {xaePid}): {ex.Message}");
+    cts.Cancel();
+    return 3;
+}
 VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid})");
 
 // Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.

@@ -161,6 +161,24 @@ public class PipeTransportTests
         Assert.True(op.Wait(15_000), "the long op did not complete after release");
     }
 
+    /// <summary>A bridge whose pipe cannot be BOUND must fail <c>Start()</c>, not report ready. The first pipe
+    /// instance is created SYNCHRONOUSLY in <c>PipeServer.Start</c>, so the reason reaches the caller — CODESYS's
+    /// <c>PipeHost.Start</c> turns it into "Volt bridge FAILED to start: …" through its existing catch arm, and the
+    /// TwinCAT worker exits non-zero. Armed on the accept thread instead (as it was), a name collision or an ACL
+    /// denial killed the loop unobserved while the caller returned "Volt bridge started on pipe …" and the log said
+    /// "ready": a success message, an invisible dead bridge, and nothing anywhere to read.
+    /// <para>"anonymous" is the BCL's reserved anonymous-pipe name: the ONE bind failure forcible offline on any
+    /// machine (<c>MaxAllowedServerInstances</c> is 255, so a same-name second listener does not fail). It faults the
+    /// same <c>NamedPipeServerStream</c> construction a collision or a denial does, which is what this pins.</para></summary>
+    [Fact]
+    public void A_bridge_whose_pipe_cannot_be_bound_fails_Start_instead_of_reporting_ready()
+    {
+        using var host = new BridgePipeHost(
+            new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), "anonymous");
+
+        Assert.ThrowsAny<ArgumentException>(() => host.Start());
+    }
+
     [Fact]
     public void A_coded_bridge_error_reaches_the_client_as_its_real_code_not_INTERNAL_ERROR()
     {
