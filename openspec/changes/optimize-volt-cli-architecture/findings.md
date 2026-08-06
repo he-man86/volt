@@ -1234,3 +1234,21 @@ card describes.
 Fixing it honestly requires making the classifier reachable from a test first — `InternalsVisibleTo`, or moving
 refinement into Core deliberately as its own change. Doing it as a drive-by inside this move is what produced
 all five problems above.
+
+### RESOLVED 2026-08-06 — and the residual defect is NOT observable either
+
+The narrow form all three skeptics prescribed landed: the header-line SELECTION is now
+`CodeHelper.HeaderLine(string?)`, TOTAL, shared by `ParseCodeHeader` (which keeps its coded throw) and
+`CodesysTypeMap.LeadingKeyword` (which keeps `RefinePou` total). +10 unit tests.
+
+**But the wire-`kind` defect described above does not reproduce.** Probed live on CODESYS, pushing a PROGRAM
+whose declaration opens with `{attribute 'qualified_only'}`, then fetching — **with and without the fix the item
+comes back as `VltE2E_pragma_prog.prg`, identically.** Three reasons, all checkable:
+
+- the item's name/extension comes from `Materializer` via `CodeHelper`'s kind, not from the driver's classifier;
+- `refs` carries no kind field at all — `Items` is name → version;
+- `program` / `function` / `function_block` are all source POU kinds, routed identically downstream.
+
+So the ENTIRE move-18 finding — headline and residue — is unobservable today. The consolidation was kept only on
+the "two answers to one question" ground, and the commit says so. Worth remembering as calibration: a phase-2
+finding, quoted evidence and all, described a defect that does not exist at the wire.
