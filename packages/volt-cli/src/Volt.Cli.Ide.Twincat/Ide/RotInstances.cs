@@ -7,7 +7,7 @@ namespace Volt.Cli.Ide.Twincat;
 
 /// <summary>
 /// Reaches running DTE instances (TcXaeShell / Visual Studio) through the COM Running Object Table. Two callers:
-/// the connector's <c>--list-xae-pids</c> probe (<see cref="EnumeratePids"/> → the XAE window pids to supervise),
+/// the connector's <c>--list-xae-pids</c> probe (<see cref="TryEnumeratePids"/> → the XAE window pids to supervise),
 /// and a per-XAE worker binding its ONE window (<see cref="BindByPid"/>). Identity is the window PROCESS id
 /// (<see cref="PidOf"/>) — stable for the process lifetime, unlike the ephemeral ROT moniker TcXaeShell re-registers.
 ///
@@ -52,17 +52,34 @@ internal static class RotInstances
 
     /// <summary>The window pids of every running XAE — the LIGHT enumeration the connector's supervisor uses to decide
     /// which per-XAE workers to spawn/reap. Pids ONLY: it never walks a project's PLC tree (that can fault a fragile
-    /// XAE in its own process) and holds no DTE (each proxy is released immediately). MUST run on an STA thread.</summary>
-    public static List<int> EnumeratePids()
+    /// XAE in its own process) and holds no DTE (each proxy is released immediately). MUST run on an STA thread.
+    /// <para>Returns FALSE when the enumeration was INCOMPLETE: a DTE we were holding would not tell us its window
+    /// (<see cref="PidOf"/> returned 0). That is the busy-XAE case — one pinned by a <c>volt push</c> or a full
+    /// <c>volt build</c> for tens of seconds does not answer the cross-process <c>MainWindow.HWnd</c> call even after
+    /// <see cref="ComMessageFilter"/>'s retries, and its catch turns that into a 0 that is INDISTINGUISHABLE from
+    /// "no such window". Such an XAE is simply ABSENT from the list, and "absent" is precisely what the connector's
+    /// supervisor reaps on — three misses at ~12s apiece killed a perfectly healthy worker mid-push. A partial list is
+    /// therefore NOT ground truth about which XAE are gone; the caller must not let it drive a reap. The pids that
+    /// WERE readable are still returned (correct, merely partial) so a human running the probe by hand still sees them.
+    /// </para>
+    /// <para>The verdict is bounded to DTEs we actually got hold of — a NON-DTE moniker is not evidence of anything.
+    /// KNOWN GAP: a moniker whose <c>GetDisplayName</c> read fails in <see cref="EnumRunningDtesOnce"/> is dropped
+    /// BEFORE <see cref="IsDteMoniker"/> can classify it, so it can never be counted as a missing DTE and that drop
+    /// stays silent. Closing it means widening the verdict to every unreadable ROT entry — on a machine carrying one
+    /// stale moniker EVERY probe would then be incomplete and the fleet would stall permanently. The DTE bound is the
+    /// deliberate trade, not an oversight.</para></summary>
+    public static bool TryEnumeratePids(out List<int> pids)
     {
-        var pids = new List<int>();
+        pids = new List<int>();
+        var unreadable = 0;
         foreach (var dte in RunningDtes())
         {
             var pid = PidOf(dte);
-            if (pid != 0 && !pids.Contains(pid)) pids.Add(pid);
+            if (pid == 0) unreadable++;                            // a DTE that would not answer — a DROP, not an absence
+            else if (!pids.Contains(pid)) pids.Add(pid);
             Release(dte); // pids only — never hold a DTE
         }
-        return pids;
+        return unreadable == 0;
     }
 
     private static void Release(object comObj) { try { Marshal.ReleaseComObject(comObj); } catch { /* already gone */ } }

@@ -12,15 +12,37 @@ VoltLog.Init(Vendors.Twincat);
 // `--list-xae-pids`: one-shot XAE discovery for the connector's supervisor — print each running XAE window's
 // process id (one per line) and exit. The COM ROT walk runs in THIS short-lived process so a hang dies with it and
 // the always-on tray never holds a COM apartment (the isolation the supervisor design requires). Exit 0 = the
-// enumeration RAN (empty output = "no XAE open"); exit 1 = it FAILED, so the connector can tell a real "no XAE"
-// (reap workers) from a probe failure (leave the fleet alone) — see TwincatXaeProbe.
+// enumeration ran AND EVERY live XAE answered (empty output = "no XAE open"); exit 1 = it FAILED **or came back
+// PARTIAL**, so the connector can tell a real "no XAE" (reap workers) from a list it must not trust (leave the fleet
+// alone) — see TwincatXaeProbe. A partial result used to exit 0 with the missing XAE silently dropped, which is a
+// LIE in exactly the shape the reap policy consumes: a busy XAE — pinned by a `volt push` or a full `volt build` for
+// tens of seconds, the normal case on a large project — vanished from the list and its healthy worker was reaped
+// after ~36s, taking the pipe out from under the very push that was holding the IDE.
+//
+// COST, deliberately accepted and monotone in the reap direction only: TrayContext reads a non-zero probe as "leave
+// the fleet as-is" BEFORE the spawn loop as well as the reap loop, so for as long as one XAE stays unreadable a
+// NEWLY-OPENED XAE gets no worker and a CRASHED worker is not restarted — undebounced, from the first failed probe,
+// where the reap it now prevents cost three. The narrower answer is exit 2 = "partial: do not reap, but DO spawn",
+// which needs a third verdict in TwincatXaeProbe.ListPids (today `IReadOnlyList<int>?` — two states, it cannot carry
+// one) plus the matching arm in TrayContext. Take that if the spawn stall is ever observed in the field; the symptom
+// to watch for is XAE B opened during a long build in XAE A never getting `volt.bridge.twincat.<pidB>`.
 foreach (var a in args)
     if (a == WorkerCli.ListXaePids)
     {
         int rc = 0;
         var probe = new Thread(() =>
         {
-            try { ComMessageFilter.Register(); foreach (var id in RotInstances.EnumeratePids()) Console.WriteLine(id); }
+            try
+            {
+                ComMessageFilter.Register();
+                var complete = RotInstances.TryEnumeratePids(out var pids);
+                foreach (var id in pids) Console.WriteLine(id); // print the readable half either way — it is correct, just partial
+                if (!complete)
+                {
+                    Console.Error.WriteLine("list-xae-pids: a running XAE did not answer — enumeration INCOMPLETE, do not reap");
+                    rc = 1;
+                }
+            }
             catch (Exception ex) { Console.Error.WriteLine($"list-xae-pids: {ex.Message}"); rc = 1; }
         });
         probe.SetApartmentState(ApartmentState.STA);
