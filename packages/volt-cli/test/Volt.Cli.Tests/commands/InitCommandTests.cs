@@ -80,6 +80,38 @@ public class InitCommandTests
         finally { TestUtil.ForceDelete(dir); }
     }
 
+    /// <summary>The whole workspace identity — the folder name AND the written binding — comes from the identity the
+    /// init FETCH echoed (the live served project, checked atomically by the in-op guard), never from the health
+    /// snapshot, which TwinCAT serves from a ~5s throttled cache. With the two disagreeing, init used to name the
+    /// folder and write the binding from the CACHE while the files it seeded were the other project's — so init
+    /// exited 0 and every later op refused WRONG_PROJECT for the life of the workspace.</summary>
+    [Fact]
+    public void Init_binds_the_project_the_fetch_walked_not_the_one_the_cache_named()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"))
+        {
+            HealthConnected = true,
+            HealthPlatform = "codesys",
+            HealthProjectName = "Line2",          // the LIVE served project — what the fetch walks and echoes
+            HealthSnapshotProjectName = "Line1",  // the STALE cached row init used to bind from
+        };
+        var (host, client) = HostFor(ide, out _);
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
+        try
+        {
+            var r = Commands.Init(parent, client);
+            Assert.Equal("ok", r.Kind);
+            Assert.Equal(Path.Combine(parent, "Line2"), r.Workspace);
+            Assert.False(Directory.Exists(Path.Combine(parent, "Line1"))); // the stale name names nothing on disk
+            Assert.Equal("codesys/Line2", r.Project);
+            var cfg = Config.LoadConfig(r.Workspace!);
+            Assert.Equal("Line2", cfg.Project.ProjectName);
+            Assert.Equal("codesys", cfg.Project.Platform);
+            Assert.Equal("codesys", cfg.Bridge.Vendor);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(parent); }
+    }
+
     [Fact]
     public void Init_refuses_when_the_bridge_has_no_project_loaded()
     {

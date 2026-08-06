@@ -25,14 +25,39 @@ public static class Commands
     /// yet bundled with volt-cli — the workspace is fully functional without it; corpus stays 0 until then.</summary>
     public static InitResult Init(string parent, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
-        var health = bridge.GetHealth();
-        if (string.IsNullOrEmpty(health.ProjectName))
+        // The cheap friendly pre-check, and NOTHING else: "is a project open at all", answered instantly so the
+        // common mistake doesn't cost a full project walk. It deliberately does NOT decide identity — health is
+        // served from a per-vendor THROTTLED snapshot (~5s on TwinCAT), while every op after init validates against
+        // LIVE state, so binding from it named the workspace after whatever was open 5s ago and every later pull
+        // then refused WRONG_PROJECT forever. Identity comes from the fetch's echo below. One question, one answer.
+        if (string.IsNullOrEmpty(bridge.GetHealth().ProjectName))
             return InitResult.Error("the bridge has no PLC project loaded — open a project in the IDE before `volt init`");
+
+        // Seed the workspace with the IDE's files — init seeds the whole IDE (no prior volt/ide tree). Each long
+        // pole gets its own phase so the bar/label never freezes on a silent git step: fetch → import objects (one
+        // fast-import stream: blobs + tree) → write files → finalize (git index). (Materialize is negligible — a
+        // fast in-memory transform — so it gets no phase of its own.)
+        //
+        // The fetch runs FIRST, before anything touches the disk, because the project it echoes is what names the
+        // folder, the README, the init commit AND the binding — one identity, one source. Two costs, stated rather
+        // than hidden: the "already exists and isn't empty" refusal below now lands AFTER the (possibly slow) walk
+        // instead of instantly, and on a bridge whose live name differs from its cached one the created folder and
+        // commit message change. The alternative — folder from the cache, binding rewritten afterwards — leaves a
+        // workspace whose folder and README name a different project than its binding, which is the worse half.
+        var progress = new PhaseProgress(onProgress, Ops.Init, 4);
+        progress.Enter(0, "Fetching from IDE"); // label up front — Init's fetch stays silent through its precompile+walk
+        var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
+        // The echo is the LIVE identity OpGuard checked, atomic with the walk it describes. It is nullable so an
+        // older bridge can omit it — refuse loud rather than bind the workspace to an empty vendor/name for life.
+        if (string.IsNullOrEmpty(fetched.Platform) || string.IsNullOrEmpty(fetched.ProjectName))
+            return InitResult.Error("the bridge didn't report which project it walked — refusing to bind this workspace to an unidentified project (update the IDE-side Volt bridge)");
+        var platform = fetched.Platform!;
+        var projectName = fetched.ProjectName!;
 
         // git-clone semantics: create <parent>/<project name>/ as the workspace. The user picks WHERE (a parent
         // location) and Volt makes the named folder — so nobody hand-makes an empty "New folder" (a typical agent UI
         // can't create one either) and the workspace is self-describing.
-        var folder = SafeFolderName(health.ProjectName!);
+        var folder = SafeFolderName(projectName);
         var root = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), folder);
         if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any())
             return InitResult.Error($"“{folder}” already exists here and isn't empty — choose a different location, or open that folder to sync it");
@@ -44,24 +69,17 @@ public static class Commands
 
         Config.SaveConfig(root, new WorkspaceConfig
         {
-            Bridge = new() { Vendor = health.Platform },
-            Project = new() { Platform = health.Platform, ProjectName = health.ProjectName! },
+            Bridge = new() { Vendor = platform },
+            Project = new() { Platform = platform, ProjectName = projectName },
             LinkedAt = DateTime.UtcNow.ToString("o"),
         });
 
-        var scaffold = Scaffold.WriteWorkspaceScaffold(root, health.ProjectName!);
+        var scaffold = Scaffold.WriteWorkspaceScaffold(root, projectName);
         const int corpus = 0; // TODO: bundle + install the ST reference corpus (currently a TS/@volt/lsp-iec dep)
-        var project = $"{health.Platform}/{health.ProjectName}";
+        var project = $"{platform}/{projectName}";
 
-        if (gitCreated) Git.CommitAll(root, $"volt init: {health.ProjectName}");
+        if (gitCreated) Git.CommitAll(root, $"volt init: {projectName}");
 
-        // Seed the workspace with the IDE's files — init seeds the whole IDE (no prior volt/ide tree). Each long
-        // pole gets its own phase so the bar/label never freezes on a silent git step: fetch → import objects (one
-        // fast-import stream: blobs + tree) → write files → finalize (git index). (Materialize is negligible — a
-        // fast in-memory transform — so it gets no phase of its own.)
-        var progress = new PhaseProgress(onProgress, Ops.Init, 4);
-        progress.Enter(0, "Fetching from IDE"); // label up front — Init's fetch stays silent through its precompile+walk
-        var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var gitDir = Git.ResolveGitDir(root);
         var head = Git.HeadCommit(root);
