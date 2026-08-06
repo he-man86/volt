@@ -189,6 +189,32 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>THE bug: one refusal, two carriers, opposite consequences. <c>BridgeClient.GuardEmptyItems</c> raises
+    /// a <c>BridgeError</c> (PLC_DISCONNECTED) when a walk comes back empty and it cannot confirm an IDE is attached
+    /// — and <c>BridgeError</c> matched no catch in <see cref="Commands"/>, so it escaped `Commands.Pull` entirely
+    /// and landed on Program's top-level handler: message on stderr, exit 1, EMPTY stdout. The sibling carrier for
+    /// the very same code (a <c>PipeCallException</c> from the bridge's own in-op guard) became a clean
+    /// <c>refused</c> result. Under `--json` that split kills the contract — volt-control parses stdout, so one
+    /// situation renders as `{kind:"refused"}` and the indistinguishable other as `{kind:"error"}`. Now both carriers
+    /// land on the same result, which `Program.CmdPull` emits as `{"kind":"refused"}` on stdout with exit 2 (its
+    /// `--json` mapping is `Ok ? 0 : 2`, unchanged by this fix).
+    /// <para>The modelled state is the real one: the bridge is LIVE, so the fetch op's own guard passes and the walk
+    /// legitimately returns zero items, while the CACHED health snapshot the guard re-probes shows nothing serving —
+    /// TwinCAT's ~5s-throttled snapshot in the moment right after a reconnect.</para></summary>
+    [Fact]
+    public void Pull_refuses_when_the_bridge_walks_zero_items_it_cannot_confirm()
+    {
+        var ide = new FakeIde() { HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo", StaleHealthSnapshot = true };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            var r = Commands.Pull(root, client);
+            Assert.Equal("refused", r.Kind);
+            Assert.Contains("refusing to treat an empty project as truth", r.Reason);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Pull_refuses_outside_a_workspace()
     {

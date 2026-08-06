@@ -9,9 +9,16 @@ namespace Volt.Cli.Sync;
 public static class Commands
 {
     /// <summary>An op's in-op precondition failure (the bridge guarding "connected + right project") — mapped by
-    /// each command to its own clean refusal result instead of a thrown error. Uses the code the wire now carries.</summary>
-    private static bool IsPreconditionRefusal(PipeCallException e) =>
-        e.Code == BridgeErrorCodes.WrongProject || e.Code == BridgeErrorCodes.PlcDisconnected;
+    /// each command to its own clean refusal result instead of a thrown error. Uses the code the wire now carries.
+    /// <para>It takes the bare CODE, not an exception type, because the SAME refusal reaches a command on two
+    /// carriers: <see cref="PipeCallException"/> (the bridge refused the op) and <see cref="BridgeError"/> (the
+    /// client's own <c>GuardEmptyItems</c> refusing an empty walk it could not confirm). Both are caught beside each
+    /// other below, so one code space produces one outcome. <see cref="BridgeResolver.AmbiguousBridge"/> is
+    /// deliberately NOT a member: a resolver refusal is thrown while <c>Bridge()</c> is evaluated as an ARGUMENT in
+    /// Program's dispatch switch, so it can never reach a catch inside a command — the two-open-IDEs case stays a
+    /// stderr error, and listing the code here would be a test that cannot fire.</para></summary>
+    private static bool IsPreconditionRefusal(string code) =>
+        code == BridgeErrorCodes.WrongProject || code == BridgeErrorCodes.PlcDisconnected;
 
     /// <summary>volt init — bind to the bridge, git-init the project, scaffold the workspace (README + VS Code
     /// settings), do the first (init) fetch and seed <c>src/</c>. NOTE: the ST language-reference corpus is not
@@ -172,7 +179,8 @@ public static class Commands
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, progress.Wrap(0, "Fetching from IDE"));
         }
-        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PullResult.Refused(e.Message); }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return PullResult.Refused(e.Message); }
+        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return PullResult.Refused(e.Message); }
 
         // Confirm we fetched the bound project BEFORE merging. The bridge enforced the guard server-side and echoes
         // what it walked (confirm it — cheap; Platform is always stamped, so no version-skew fallback is possible).
@@ -357,7 +365,8 @@ public static class Commands
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, onProgress);
         }
-        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return PushResult.Rejected(e.Message); }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
+        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
         if (!resp.Accepted)
         {
             if (resp.Conflicts?.Any(c => c.Name == "<project>") == true)
@@ -401,7 +410,8 @@ public static class Commands
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, onProgress);
         }
-        catch (PipeCallException e) when (IsPreconditionRefusal(e)) { return BuildResult.Refuse(e.Message); }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return BuildResult.Refuse(e.Message); }
+        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return BuildResult.Refuse(e.Message); }
         return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
     }
 
