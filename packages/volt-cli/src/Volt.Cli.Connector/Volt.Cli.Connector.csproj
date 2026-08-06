@@ -17,7 +17,7 @@
          no vendor code — so referencing it keeps that decoupling. -->
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\volt-cli\src\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
     <!-- The UI-free connection model (DetectedProject / IProjectSource / ConnectionManager + pipe-backed vendor
          sources). Same `Volt.Cli.Connector` namespace, so the WinForms shell uses it without extra usings. -->
     <ProjectReference Include="..\Volt.Cli.Connector.Core\Volt.Cli.Connector.Core.csproj" />

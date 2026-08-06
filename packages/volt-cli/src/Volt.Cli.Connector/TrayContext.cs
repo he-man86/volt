@@ -22,8 +22,7 @@ namespace Volt.Cli.Connector
     {
         private readonly NotifyIcon _icon;
         private readonly System.Windows.Forms.Timer _timer;
-        private readonly BridgeSupervisor _supervisor = new();
-        private readonly TwincatSupervisor _twincatSupervisor = new(); // decides which per-XAE TwinCAT workers to run
+        private readonly TwincatFleet _fleet = new(); // probe → reconcile → spawn/reap, all of it in Connector.Core
         private readonly string? _twincatExe = ConnectorSetup.TwincatExe();
         private int _reconcileTick; // throttles the (subprocess) XAE probe to ~every 3rd tick
         private readonly ConnectionManager _conn = new(ConnectorSetup.Sources());
@@ -142,32 +141,23 @@ namespace Volt.Cli.Connector
             return Snapshot();
         }
 
-        // TwinCAT is per-XAE: probe the live XAE window pids (a COM-isolated subprocess, off the UI thread), then keep
-        // exactly one worker per XAE — spawn/respawn one for each live pid (EnsureWorker is idempotent AND respawns a
-        // crashed one, so this also covers a worker that died while its XAE lived), and reap workers whose XAE has been
-        // gone long enough (the supervisor debounces a transient probe miss). CODESYS is in-proc — never spawned.
+        // The tray owns the CLOCK for the TwinCAT fleet and nothing else — which workers exist is TwincatFleet.Tick,
+        // in Connector.Core where it is testable. The exe guard stays here because the shell is what resolves the
+        // path (ConnectorSetup.TwincatExe), and it precedes the cadence counter exactly as before.
         private async Task ReconcileTwincatWorkers()
         {
             if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
             if (_reconcileTick++ % 3 != 0) return;                         // ~every 3rd tick: XAE churn isn't sub-10s-sensitive
-            var pids = await Task.Run(() => TwincatXaeProbe.ListPids(_twincatExe, TimeSpan.FromSeconds(6)));
-            if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
-            var (_, reap) = _twincatSupervisor.Reconcile(pids);
-            foreach (var pid in pids)
-                _supervisor.EnsureWorker(new WorkerSpec(TwincatWorkerId(pid), _twincatExe, $"{WorkerCli.XaePid} {pid}"));
-            foreach (var pid in reap)
-                _supervisor.StopWorker(TwincatWorkerId(pid));
+            await _fleet.Tick(_twincatExe, TimeSpan.FromSeconds(6));
         }
-
-        private static string TwincatWorkerId(int pid) => $"{Vendors.Twincat}.{pid}";
 
         private void RestartWorker(string id)
         {
-            // Kill it; the next reconcile respawns it. StopWorker drops the worker entry and ReconcileTwincatWorkers
+            // Kill it; the next reconcile respawns it. StopWorker drops the worker entry and TwincatFleet.Tick
             // calls EnsureWorker for EVERY live XAE pid, so a still-present XAE gets a fresh worker on the next tick.
             // (TwincatSupervisor.Forget was called here to force that respawn; it couldn't — its only effect was on the
             // spawn list, which this tray discards. Deleted rather than left looking load-bearing.)
-            _supervisor.StopWorker(id);
+            _fleet.StopWorker(id);
         }
 
         // ── notifications ──────────────────────────────────────────────────
@@ -414,7 +404,7 @@ namespace Volt.Cli.Connector
             // Stop the timer FIRST so it can't respawn a worker we're about to kill, then drop everything under {app}:
             // the bridge-worker child tree (supervisor) and the Electron GUI. Now the installer replaces free files.
             _timer.Stop();
-            _supervisor.Dispose();
+            _fleet.Dispose();
             CloseDesktopGui();
             Updater.LaunchInstallerAndExit(installer); // Process.Start(Setup) + Environment.Exit(0)
         }
@@ -440,7 +430,7 @@ namespace Volt.Cli.Connector
             _logWindow?.Dispose();
             _statusWindow?.Dispose();
             _icon.Visible = false;
-            _supervisor.Dispose();
+            _fleet.Dispose();
             _icon.Dispose();
             base.ExitThreadCore();
         }

@@ -7,6 +7,12 @@ using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
+    /// <summary>A headless bridge worker the connector spawns + supervises — an ExternalAttach vendor that
+    /// attaches to a running IDE over its external API (TwinCAT COM/DTE, later Siemens/Allen-Bradley). CODESYS is
+    /// NOT one: it loads in-proc via user activation and is never spawned (see <c>CodesysActivation</c> in the
+    /// tray shell).</summary>
+    public sealed record WorkerSpec(string Id, string? Exe, string Args = "");
+
     /// <summary>
     /// Owns the lifecycle of the headless bridge WORKER processes (the ExternalAttach vendors: TwinCAT, later
     /// Siemens/Allen-Bradley). Spawns, supervises (respawns on crash), and tears them down. It does NOT launch or
@@ -19,6 +25,10 @@ namespace Volt.Cli.Connector
     /// terminates every worker. Without it, orphaned <c>VoltBridgeTwincat</c> processes would survive and, on the
     /// next connector start, a fresh worker would collide with the orphan on the same <c>volt.bridge.twincat.&lt;pid&gt;</c>
     /// pipe (two COM attachments to one XAE). CODESYS needs none of this — its host is in-proc and dies with the IDE.</para>
+    ///
+    /// <para>Lives in Connector.Core, NOT the WinForms shell: nothing here touches a UI (System.Diagnostics/IO/
+    /// InteropServices only), and while it sat in the net8.0-windows assembly the de-dup, the crash-restart path and
+    /// the orphan guard above were unreachable from any test project — the tested policy was not the one that ran.</para>
     /// </summary>
     public sealed class BridgeSupervisor : IDisposable
     {

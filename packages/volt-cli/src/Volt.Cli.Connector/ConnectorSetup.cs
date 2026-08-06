@@ -5,11 +5,6 @@ using Volt.Cli.Transport;
 
 namespace Volt.Cli.Connector
 {
-    /// <summary>A headless bridge worker the connector spawns + supervises — an ExternalAttach vendor that
-    /// attaches to a running IDE over its external API (TwinCAT COM/DTE, later Siemens/Allen-Bradley). CODESYS is
-    /// NOT one: it loads in-proc via user activation and is never spawned (see <see cref="CodesysActivation"/>).</summary>
-    public sealed record WorkerSpec(string Id, string? Exe, string Args = "");
-
     /// <summary>Wires the connector's two halves in one place: the pipe-backed project SOURCES (the connection
     /// model the tray/window/control-plane view) and the worker exe (spawned per-XAE by the supervisor). Adding a
     /// vendor is a source here + — for an ExternalAttach vendor — its worker exe; nothing else.</summary>
