@@ -103,6 +103,8 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 6 | `voltlog-down-to-transport` (shape, **relocation**) | 18 | 3,175 → 3,163 | **accept**, 0 must-revert | build 0 err · 324/116/75 · **+ HEAD built in a clean worktree** | `726f4959e8` |
 | 7 | `unsilence-the-accept-loop` (**fix**) | 3 | 470 → 529 | **accept**, 0 must-revert | build 0 err · 324/**117**/75 · **red-first verified** | `e687b78c28` |
 | 8 | `bridge-drops-go-to-voltlog` (**fix → reclassified shape-adjacent ADD**) | 2 | +12/−2 | **accept**, 0 must-revert | build 0 err · 324/117/75 | `787a84cc40` |
+| 9 | `one-log-path` (**fix → reclassified shape**) | 11 | 2,065 → 2,032 | **accept**, 0 must-revert | build 0 err · 324/117/75 | `8b904728a8` |
+| 9b | `prune-only-your-own-logs` (**fix**, unplanned — forced by 9) | 2 | +12/−2 | *(main loop; red-first verified)* | build 0 err · **325**/117/75 | `7fe9c1ccc9` |
 
 ## Test files moved mechanically
 
@@ -126,7 +128,14 @@ the move's src files and running the new test alone — not taken from the surge
 | # | move | the test | RED against HEAD said |
 |---|---|---|---|
 | 7 | `unsilence-the-accept-loop` | `PipeTransportTests.A_bridge_whose_pipe_cannot_be_bound_fails_Start_instead_of_reporting_ready` | `Assert.ThrowsAny() Failure: No exception was thrown` — i.e. `Start()` returned normally while the pipe never bound |
+| 9b | `prune-only-your-own-logs` | `VoltLogTests.Retention_prunes_only_this_sources_own_files` | `retention deleted a file this source does not own` — `Prune()` globbed `*.log` and swept Setup's `install-*.log`, which `LogWindow` bundles for support and `scripts/test-install.ts` reads |
 | 8 | `bridge-drops-go-to-voltlog` | **none, and none owed** | the amendments turned a substitution into a pure ADD; an ADD corrects nothing, so there is no old behaviour to be red against. Reclassified out of `fix` rather than granted an exemption. (A test could not reach these sites regardless: `Volt.Cli.Ide.Codesys` is net48, every test csproj is net8.0.) |
+
+## Bugs found and fixed while executing (not on the phase-3 list)
+
+| bug | found by | fixed in |
+|---|---|---|
+| `VoltLog.Prune()` deleted every component's logs, not its own — destroying Setup's `install-*.log` that the support bundle surfaces and `scripts/test-install.ts` reads. Pre-existing; move 9 turned it from rare (a bridge activates) into certain (every tray start) | move 9's verifier, from the card's own unheeded `riskiestPart` | `9b`, red-first, immediately — not deferred to "before the next release" |
 
 ## Process defects found while executing
 
