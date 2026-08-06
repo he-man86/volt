@@ -3,9 +3,11 @@ using Volt.Engine.Wire;
 namespace Volt.Cli.Sync;
 
 /// <summary>
-/// Composes a multi-phase CLI operation's progress into ONE monotonic stream. A command like `pull`/`init` runs
-/// several sequential phases — the bridge fetch, then the local materialize, then git — each with its OWN
-/// <c>done/total</c>. The bridge only knows its own fetch, so phase composition can't live there; it lives here,
+/// Composes a multi-phase CLI operation's progress into ONE monotonic stream. The real sequences are
+/// <c>pull</c> = fetch → import objects → merge, and <c>init</c> = fetch → import objects → write files →
+/// finalize. (Materialize is folded into its caller — a fast in-memory transform gets no phase of its own.) A
+/// phase either streams its own <c>done/total</c> or is indeterminate (<c>Enter</c>).
+/// The bridge only knows its own fetch, so phase composition can't live there; it lives here,
 /// where the command orchestrates the phases. Every frame is stamped with the phase label + its
 /// <c>index</c>/<c>count</c>, so the frontend folds them into one 0–100 bar — <c>(index + done/total) / count</c> —
 /// while the human CLI still sees the real per-phase counts. Single-phase commands don't need this: their frames

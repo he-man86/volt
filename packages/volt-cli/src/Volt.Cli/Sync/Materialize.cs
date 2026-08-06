@@ -11,15 +11,16 @@ public static class Materialize
 {
     private static string JoinPath(params string[] parts) => string.Join("/", parts.Where(p => p.Length > 0));
 
-    /// <summary>IDE item → src-relative workspace file(s). A folder item (extension "") becomes a `.gitkeep`.</summary>
+    /// <summary>IDE item → src-relative workspace file(s).</summary>
     public static IReadOnlyList<MaterializedFile> MaterializeItem(FetchedItem item)
     {
         var folder = item.Folder ?? "";
         var name = item.Name; // includes extension
-        var def = Extensions.DefFromName(name)
-            ?? throw new InvalidOperationException($"unrecognized extension in \"{name}\" — add it to Extensions.cs");
-        if (def.Ext.Length == 0)
-            return new[] { new MaterializedFile(JoinPath(folder, name, Extensions.FolderMarker), "") };
+        // Every extension derives from ItemKind.FileExtensions and none is empty (a folder is a path SEGMENT, never
+        // an item), so there is no folder-marker arm — legacy `.gitkeep` files are only READ back
+        // (Extensions.FullNameFromPath / IsTrackedPath), never produced here.
+        if (Extensions.DefFromName(name) is null)
+            throw new InvalidOperationException($"unrecognized extension in \"{name}\" — add it to Extensions.cs");
         return new[] { new MaterializedFile(JoinPath(folder, name), item.SourceText) };
     }
 

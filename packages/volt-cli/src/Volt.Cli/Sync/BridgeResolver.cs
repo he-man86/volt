@@ -9,10 +9,12 @@ namespace Volt.Cli.Sync;
 /// Resolves WHICH bridge the CLI talks to — the data-safety seam for multiple live IDEs. An explicit
 /// <c>--pipe</c>/<c>VOLT_PIPE</c> always wins (dev, tests, and the shells set it for <c>volt init</c>). BOTH vendors
 /// run one host per open IDE, each on its own <c>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</c> pipe (CODESYS in-proc,
-/// TwinCAT a per-XAE worker), so this discovers them by the vendor prefix and picks the one whose IDE has the BOUND
-/// project open — and on 0 or an ambiguous match it REFUSES loudly rather than guess, so <c>push</c> can never land
-/// in the wrong IDE. There is NO per-vendor branch here (that was the pre-per-XAE special case) — both go through the
-/// same discovery, so a new vendor is a prefix, nothing else.
+/// TwinCAT a per-XAE worker), so this discovers them by the vendor prefix. With exactly ONE live pipe that pipe is
+/// used UNPROBED (it saves a health round-trip, and the bridge's own WRONG_PROJECT guard — not this resolver — is what
+/// refuses a project mismatch there); the BOUND project name only arbitrates between two or more, and on 0 or an
+/// ambiguous match it REFUSES loudly rather than guess, so <c>push</c> can never land in the wrong IDE. There is NO
+/// per-vendor branch here (that was the pre-per-XAE special case) — both go through the same discovery, so a new
+/// vendor is a prefix, nothing else.
 /// </summary>
 public static class BridgeResolver
 {

@@ -956,3 +956,106 @@ confirmed half is fixed red-first in its own commit; the unreproduced half stays
 
 **Fix.** Log once per id before returning (a `HashSet<string> _warnedMissing` under `_gate` keeps the 12s reconcile from spamming): `VoltLog.Warn($"worker {w.Id}: binary not found at {w.Exe} — no bridge for this IDE");`. The test keeps passing.
 
+
+---
+
+## BATCH 10 ESCALATIONS — `Volt.Cli` support (2026-08-06)
+
+30 findings, **21 behaviour-changing** — the highest ratio of any batch. This slice is mostly real defects
+rather than cleanups, which is why only 5 were applied.
+
+**`IdeTree`'s name-vs-path bug is now CONFIRMED TWICE, independently.** Batch 9's auditor found it reading the
+CALLER (`Commands.Pull` passes `fetched.Removed`); batch 10's found it reading the CALLEE (`BuildVoltIdeTree`
+compares against `rel`). Neither saw the other's report. Two auditors, different evidence, same defect — an item
+deleted in the IDE never leaves `volt/ide` unless it sits in the project ROOT.
+
+### `IdeTree.cs:50` — bug (group 10.2)
+
+**Claim.** BuildVoltIdeTree matches the IDE's REMOVED set (item NAMES) against src-relative PATHS, so an item deleted (or moved) inside a folder is never dropped from the volt/ide tree — the protocol identity is the name, but this comparison is path-keyed.
+
+**Fix.** Compare by item name, not path, for the parent-tree carry: `var name = Extensions.FullNameFromPath(rel); if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel) && name is not null && !removed.Contains(name) && !replacedNames.Contains(name))`, where `replacedNames` is `ideFiles.Select(f => Extensions.FullNameFromPath(f.Path))`. Add an IdeTreeTests case with a NESTED removed item and a moved item — the existing test `Removed_items_are_dropped_from_the_new_tree` only uses root-level `"B.fb"`, which is why this is green.
+
+### `Materialize.cs:16` — defensive-fallback (group 10.2)
+
+**Claim.** `item.Folder ?? ""` silently materializes an item with a missing folder at the src root — indistinguishable from a legitimately root-level item. This is exactly the defect ARCHITECTURE Conventions §1 records being fixed in Hasher.ComputeItemVersion ("no longer defaults a missing folder to \"\", because that hashed identically to a legitimately empty folder").
+
+**Fix.** Fail loud like FetchService does: `var folder = item.Folder ?? throw new InvalidOperationException($"bridge returned item \"{item.Name}\" with no folder");`. A null folder is a bridge bug; writing the file at the root buries it and strands the item at a path the IDE will never match.
+
+### `Sidecar.cs:28` — bug (group 10.2)
+
+**Claim.** The comment claims the guard catches "missing fields", but every property has an initializer, so System.Text.Json leaves the default when a field is ABSENT — the guard only ever fires on an explicit JSON `null`. A sidecar missing `items` loads as an EMPTY baseline and pull then reports the whole project as incoming while push loses every ifVersion guard.
+
+**Fix.** Make absence detectable instead of documenting a guard that can't fire: drop the initializers (`public Dictionary<string,string> Items { get; set; } = null!;` or make them `required`) so a missing field deserializes to null and the existing guard actually catches it — or annotate with `[JsonRequired]`. Either way the comment and the code must agree.
+
+### `Sidecar.cs:58` — defensive-fallback (group 10.2)
+
+**Claim.** LoadPendingIdeRefs' comment says a corrupt/partial stash is treated as "no stash", but unparseable JSON throws out of Deserialize (never reaching the return) and a partial one passes the same non-firing guard as above. What the null-return actually buys is a SILENT failure: `volt merge --continue` reports "merge completed" and leaves the IDE baseline stale.
+
+**Fix.** Share one validated load with LoadIdeRefs and let it throw (Conventions §1: fail loud with a message naming the file), or — if the stash really is optional — keep returning null but log the reason through VoltLog and say so in the `merge --continue` message, so "baseline not advanced" is visible rather than inferred from a missing suffix.
+
+### `Files.cs:12` — bug (group 10.2)
+
+**Claim.** StripSrcPrefix silently returns a non-src path unchanged, and StatusModel feeds it `Git.UnmergedPaths`, which is NOT pathspec-scoped to src — so a conflict outside src/ is reported as if it were a src item, and `volt merge --resolve` then targets the wrong path.
+
+**Fix.** Scope the query: `Run(new[] { "-C", root, "diff", "--name-only", "--diff-filter=U", "--", "src" })`, matching DirtySrc/StageSrc/StructuralConflictFiles. (ConflictMarkerFiles and StructuralConflictFiles are already src-scoped, so this is also the odd one out.)
+
+### `Scaffold.cs:32` — legacy (group 10.2)
+
+**Claim.** The scaffolded `.vscode/settings.json` is inert in both worlds: with volt-vscode installed the six source extensions are already bound to the `structured-text` language by the manifest, and without it `structured-text` is not a registered language id at all, so the association resolves to nothing.
+
+**Fix.** Drop the file from the scaffold (and the `files` tuple array collapses to just the README). If the intent is really "colour ST without the extension", the association must point at a language id that exists without volt-vscode — which is the extension's job, not init's.
+
+### `IdeTree.cs:38` — bug (group 10.1)
+
+**Claim.** `removedNames` are bare wire item NAMES but are matched against src-relative PATHS, so an item deleted in the IDE inside any folder is never dropped from the volt/ide tree — `volt pull` silently leaves it in the workspace forever.
+
+**Fix.** Compare on the file-name segment, not the whole path: hoist `var baseName = rel.Substring(rel.LastIndexOf('/') + 1);` and test `!removed.Contains(baseName)`. (Equivalently, resolve each removed name to its path via the sidecar's Folders map before building the set.) Rename the parameter or the local so the name/path distinction is visible at the comparison site.
+
+### `BridgeResolver.cs:28` — bug (group 10.1)
+
+**Claim.** `Resolve` reads the workspace config eagerly, and `Program` evaluates `Bridge()` as a call ARGUMENT — so in an uninitialized workspace every command dies with a raw `FileNotFoundException`/`GitError` before its own "not a Volt workspace" refusal can run. All four of those refusals are unreachable in production (they only fire under VOLT_PIPE, which is how every test drives the CLI).
+
+**Fix.** Guard in `Resolve` before touching the config: `if (!isInit && !Config.ConfigExists(root)) throw new BridgeError(BridgeErrorCodes.PlcDisconnected, "not a Volt workspace — run `volt init` first");` so the one refusal message reaches the user on every path, and add a black-box test that runs a verb WITHOUT VOLT_PIPE in a bare repo.
+
+### `BridgeClient.cs:65` — legacy (group 10.1)
+
+**Claim.** `GuardEmptyItems` re-answers "is an IDE attached" from the THROTTLED health cache after the op already answered it from LIVE driver state — the exact pattern Conventions #3 forbids. Since refs/fetch/init all run `OpGuard.RequireBoundProject` first, an empty body can only come back from a genuinely connected bridge, so the only state this guard can now fire in is a false positive: a live bridge with a legitimately empty project and a stale health row.
+
+**Fix.** Delete `GuardEmptyItems` and its three call sites; the in-op OpGuard is the single live answer. This changes a pinned test (`Pull_refuses_when_the_bridge_walks_zero_items_it_cannot_confirm`), so escalate rather than edit it — the test's premise, not the code, is what Conventions #3 contradicts. If the refusal is still wanted, it must be decided by the bridge inside the op, not by the client off the cache.
+
+### `StatusModel.cs:40` — bug (group 10.1)
+
+**Claim.** `Git.ResolveGitDir` is called before the `initialized` check, so `volt status` in a directory that is not a git repo throws a raw git error instead of reporting `initialized:false` / "not initialized" — the summary branch that exists for exactly this case is unreachable there. `Config.ConfigExists` guards the same situation two lines later.
+
+**Fix.** Compute `initialized` first and return the not-initialized StatusData before resolving the git dir (or resolve it lazily inside the `IdeTree.VoltIdeHead` / merging blocks, which are the only consumers).
+
+### `StatusModel.cs:44` — bug (group 10.1)
+
+**Claim.** When the bridge is offline, `Incoming` is substituted with an empty set and nothing records that it was never computed — so `status --json` is byte-indistinguishable from "in sync", and volt-control replaces its cached incoming list with the empty one. That is the precise failure `IncomingStale` was introduced to prevent, but the flag is only set for `--local`.
+
+**Fix.** Set `IncomingStale = true` inside `BuildStatusData` on the same condition that skips the computation (`!(snap.Online && snap.ProjectMismatch is null)`), and have `CountSummary` not return "in sync with the IDE" when incoming was never computed. Then `Commands.Status`'s separate `data.IncomingStale = localOnly && ...` line becomes a second answer to the same question and should OR into it rather than overwrite it.
+
+### `StatusModel.cs:69` — bug (group 10.1)
+
+**Claim.** The path for an incoming-REMOVED item is looked up in the LIVE folder map, which by definition no longer contains it — so every deleted item falls back to a bare name and volt-control gets `"B.fb"` instead of `"POUs/B.fb"`. The baseline folder map that does hold it is already loaded five lines above.
+
+**Fix.** Fall back to the baseline before defaulting to empty: `var folder = snap.Folders.TryGetValue(name, out var fo) ? fo : (sidecar?.Folders.TryGetValue(name, out var bo) == true ? bo : "");`
+
+### `Config.cs:87` — defensive-fallback (group 10.1)
+
+**Claim.** `ConfiguredVendor` swallows every exception, so a malformed `config.json` — the case `LoadConfig` deliberately fails loud on — is turned into `null` and `Program` silently defaults to CODESYS. A TwinCAT workspace with a corrupt binding then reports "no CODESYS bridge is running" instead of "config.json is malformed".
+
+**Fix.** Narrow the catch to "no workspace yet" — return null only when `!Config.ConfigExists(root)` and let a malformed config propagate: `if (!ConfigExists(root)) return null; return LoadConfig(root).Bridge.Vendor;`
+
+### `BridgeResolver.cs:68` — defensive-fallback (group 10.1)
+
+**Claim.** `DisplayOf` maps every vendor that is not exactly "twincat" to "CODESYS", so a typo'd or unknown `--vendor`/binding produces a refusal naming the wrong IDE ("no CODESYS bridge is running — open the project in CODESYS") while discovery actually searched `volt.bridge.<typo>.` and could never match.
+
+**Fix.** Make it a total map over the two known ids and fail loud otherwise: `codesys => CodesysDisplay, twincat => TwincatDisplay, _ => throw new BridgeError(BridgeErrorCodes.BadRequest, $"unknown vendor '{vendor}' — expected {Vendors.Codesys} or {Vendors.Twincat}")`.
+
+### `StatusModel.cs:54` — bug (group 10.1)
+
+**Claim.** `Place` keys `pathByName` by item name, so a rename that only moves an item between folders (same name) overwrites the removed side's path with the added side's — `volt status --porcelain` then prints the NEW path for both the `oD` and the `oA` row.
+
+**Fix.** Don't overwrite an existing entry for the removed side: `if (!pathByName.ContainsKey(name)) pathByName[name] = path;` when placing into `Removed`, or key the removed row by its old path. (A folder move genuinely produces one name in two buckets; the map can only hold one path for it.)
+

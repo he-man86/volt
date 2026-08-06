@@ -3,13 +3,14 @@ using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Sync;
 
-public sealed record ScaffoldReport(List<string> Created, List<string> Skipped);
+public sealed record ScaffoldReport(List<string> Created);
 
 /// <summary>Workspace scaffold — seeds a Volt-bound directory with a README describing the sync workflow and
-/// VS Code file associations for the ST kinds. Idempotent: existing files are kept unless <c>force</c>.</summary>
+/// VS Code file associations for the ST kinds. Never overwrites: an existing file is kept. (`volt init` refuses a
+/// non-empty root, so that belt-and-braces check never actually fires — hence no "skipped" report.)</summary>
 public static class Scaffold
 {
-    public static ScaffoldReport WriteWorkspaceScaffold(string root, string projectName, bool force = false)
+    public static ScaffoldReport WriteWorkspaceScaffold(string root, string projectName)
     {
         var files = new (string Path, string Content)[]
         {
@@ -17,16 +18,15 @@ public static class Scaffold
             ("README.md", Readme(projectName)),
         };
         var created = new List<string>();
-        var skipped = new List<string>();
         foreach (var (path, content) in files)
         {
             var abs = System.IO.Path.Combine(root, path);
-            if (!force && File.Exists(abs)) { skipped.Add(path); continue; }
+            if (File.Exists(abs)) continue;
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(abs)!);
             File.WriteAllText(abs, content);
             created.Add(path);
         }
-        return new ScaffoldReport(created, skipped);
+        return new ScaffoldReport(created);
     }
 
     private static string VscodeSettings()

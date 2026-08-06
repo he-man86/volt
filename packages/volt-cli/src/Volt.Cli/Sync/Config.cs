@@ -3,7 +3,7 @@ using Volt.Cli.Transport.Wire;
 
 namespace Volt.Cli.Sync;
 
-public sealed record WorkspacePaths(string Root, string StateDir, string ConfigPath, string IdeRefsPath);
+public sealed record WorkspacePaths(string StateDir, string ConfigPath, string IdeRefsPath);
 
 public sealed class WorkspaceConfig
 {
@@ -34,7 +34,7 @@ public static class Config
     public static WorkspacePaths Paths(string root)
     {
         var stateDir = System.IO.Path.Combine(Git.ResolveGitDir(root), "volt");
-        return new WorkspacePaths(System.IO.Path.GetFullPath(root), stateDir,
+        return new WorkspacePaths(stateDir,
             System.IO.Path.Combine(stateDir, "config.json"), System.IO.Path.Combine(stateDir, "ide-refs.json"));
     }
 
