@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Volt.Cli.Transport;
 using Volt.Engine.Workspace;
 
 namespace Volt.Cli.Ide.Codesys
@@ -121,7 +122,13 @@ namespace Volt.Cli.Ide.Codesys
             bool isNew;
             lock (_loggedUnknown) isNew = _loggedUnknown.Add(sig);
             if (isNew)
+            {
+                // Both sinks, as DriverBase does for a degrade: VoltLog is the only one an engineer can read
+                // after a pull (CODESYS.exe is a GUI process with no console attached), stderr is what the
+                // headless dev loop (codesys-pipe.ps1) still captures.
                 Console.Error.WriteLine($"[bridge] unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
+                VoltLog.Warn($"unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
+            }
         }
 
         /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →

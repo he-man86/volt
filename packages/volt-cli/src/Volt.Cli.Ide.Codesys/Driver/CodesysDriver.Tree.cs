@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Volt.Cli.Transport;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 
@@ -27,10 +28,12 @@ public sealed partial class CodesysDriver
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
-        // Surface the failure (no-fallback policy) rather than swallowing it silently.
+        // Surface the failure (no-fallback policy) rather than swallowing it silently — to BOTH sinks, as
+        // DriverBase does for a degrade: VoltLog is the only one an engineer can read after a pull (CODESYS.exe
+        // is a GUI process with no console attached), stderr is what the headless dev loop still captures.
         IReadOnlyList<object> children;
         try { children = _om.GetChildren(node); }
-        catch (Exception ex) { Console.Error.WriteLine($"[bridge] could not read children of a node (subtree skipped): {ex.Message}"); return; }
+        catch (Exception ex) { Console.Error.WriteLine($"[bridge] could not read children of a node (subtree skipped): {ex.Message}"); VoltLog.Warn($"could not read children of a node (subtree skipped): {ex.Message}"); return; }
         foreach (var child in children)
         {
             var name = _om.GetName(child);
