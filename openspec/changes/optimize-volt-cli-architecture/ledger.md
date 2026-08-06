@@ -118,6 +118,8 @@ wearing a costume.)_
 | `test/Volt.Engine.Tests/WireVocabularyGuardTests.cs` | 3b | allowlist entry for the deleted `PouToXml.cs` removed — the guard gets NARROWER; `[Fact]`, regex, vocabulary lists and `Assert` byte-identical |
 | `test/Volt.Engine.Tests/ChildDirectiveTests.cs` | 4 | ARRANGE repointed at the shipped emitter (premise "StAssembler is the format under test" was false — nothing ships it). Every pre-existing assertion unchanged; **gained** a golden `Assert.Equal` on the full emitted text |
 | `test/Volt.Engine.Tests/InterfaceRoundTripTests.cs` | 4 | same, same |
+| `test/Volt.Cli.Connector.Tests/{WireContractParityTests,WireContractTests}.cs` | 11 | **premise died, behaviour ported first**: with one declaration of the health row there is nothing left to pin. 3 tests deleted, 2 ported into `PerPipeProjectSourceTests` as raw-JSON cases with byte-identical assertions, 9 untouched. Suite **75 → 72**. The surgeon also found an assertion the amendments missed — the only check that a row's `version` reaches `IdeVersion` — and folded it in, so the deletion is coverage-neutral |
+| `test/shared/FakeIde.cs` | 12 | the fake becomes a real `DriverBase` subclass. **No assertion anywhere added, removed or changed**; every new knob defaults to today's exact answer. All 514 tests now execute `DriverBase`'s liveness bracketing and `ClearDegraded` for the first time — and still pass |
 | `test/Volt.Cli.Connector.Tests/TwincatSupervisorTests.cs` | 5 | **coverage DELETED, not adapted**: one case + five assertions drove `Forget`/`SpawnedPids`, the members this move removes. Suite **76 → 75**. Every surviving case keeps its behavioural assertion; no assertion text or expected value changed |
 
 ## Fix moves — the red-first proof

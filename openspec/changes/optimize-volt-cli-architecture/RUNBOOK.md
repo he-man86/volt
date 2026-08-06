@@ -2,7 +2,7 @@
 
 ## ▶ RESUME HERE
 
-**Next move: 11 of 24** (`one-health-row`). Phases 1–4 are complete; execution is under way.
+**Next move: 13 of 24** (`health-compose-in-core`) — carries a trap marked inline in FakeIde: deleting its `BuildHealthResponse` override routes `PipeTransportTests`' two deadlock guards through `OverlayLiveHealth` for the first time. Phases 1–4 are complete; execution is under way.
 
 To continue in a fresh session, from the repo root:
 
@@ -25,7 +25,7 @@ uncommitted tree that `git checkout --` discards. Workflow agent results are jou
 `resumeFromRunId` replays the finished ones from cache and re-runs only the failures (phase 4 lost 7 of 55
 skeptics to a session limit and kept the other 47).
 
-Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport` · **7** `unsilence-the-accept-loop` · **8** `bridge-drops-go-to-voltlog` · **9** `one-log-path` · **9b** `prune-only-your-own-logs` · **10** `wire-row-down-to-transport`.
+Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport` · **7** `unsilence-the-accept-loop` · **8** `bridge-drops-go-to-voltlog` · **9** `one-log-path` · **9b** `prune-only-your-own-logs` · **10** `wire-row-down-to-transport` · **11** `one-health-row` · **12** `fake-ide-derives-driverbase`.
 
 
 Read `proposal.md` for why, `design.md` for the five phases and the agent roles, this file to *execute*.
@@ -37,7 +37,7 @@ Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes s
 2. **A running headless CODESYS holds the net48 bridge DLLs — the build FAILS while it is up** (`MSB3027`).
    The order is always **`codesys down` → build → unit tests → `codesys up` → e2e**.
 3. **There are THREE C# suites:** `Volt.Engine.Tests` (**325** — +1 from move 9b), `Volt.Cli.Tests` (**117** — +1 from move 7),
-   `Volt.Cli.Connector.Tests` (**75** — was 76 until move 5 deleted a test with its subject). Engine was 313
+   `Volt.Cli.Connector.Tests` (**72** — was 76 until move 5 deleted a test with its subject). Engine was 313
    before `audit-volt-cli-src` added 11 in flight. **A count that drops without a ledger row is a regression.**
 3b. **`pwsh` is NOT installed on this machine.** Every doc that says `pwsh scripts/foo.ps1` means
    `& "…\scripts\foo.ps1"` under Windows PowerShell 5.1. `pwsh` fails with `CommandNotFound`, and in a compound
