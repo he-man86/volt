@@ -20,11 +20,22 @@
 
 ## 2. Verify bug 1 on the other vendor
 
-- [ ] 2.1 Live TwinCAT e2e (`bun run test:e2e:twincat`) — Core is shared so the guard is vendor-neutral, but the
-      `BodyLanguage` read goes through `TcPouReader`, so prove it on a real XAE. **Point the connector at a freshly
-      built worker via `VOLT_TWINCAT_BRIDGE`** or you will be testing the stale installed one.
-- [ ] 2.2 Ideally an e2e case with a real CFC method child in a fixture — the unit tests use `FakeIde`'s
-      `BodyLang`, which is a model of the vendors' behaviour, not the behaviour itself.
+- [x] 2.1 **DONE 2026-08-06 — and the answer is that it does NOT prove the child guard.** The full TwinCAT e2e
+      was run against a freshly built worker (`VOLT_TWINCAT_BRIDGE`): **90 pass / 11 skip / 0 fail**. But
+      `graphical/roundtrip.test.ts`'s two guard cases (`refuses to overwrite a graphical body with textual ST`,
+      `refuses a malformed graphical body`) both provision a **ROOT** body — `fid(name, "prg")`, a top-level
+      PROGRAM with an FBD body. Bug 1 was the **CHILD** guard (`PushService.RequireChildFormatWritable`). No e2e
+      case pushes textual ST at a graphical METHOD/ACTION child, so the live suite is silent on it.
+      **Bug 1's child guard remains proven only against `FakeIde.BodyLang` — a model of the vendors' behaviour,
+      not the behaviour.**
+- [ ] 2.2 **BLOCKED ON A HUMAN-AUTHORED FIXTURE, and here is exactly why.** The e2e provisions POU children as
+      TEXT inside the parent's ST body (`fixtures.ts`'s `METHOD(...)`/`ACTION(...)` blocks). A CFC/SFC child
+      cannot be authored that way — that it has no textual form is the entire premise of the guard. So the case
+      needs a committed fixture containing a real CFC (or SFC) method child, created by hand in the IDE once.
+      Until that exists the guard cannot be exercised live on either vendor.
+      Suggested shape once the fixture lands: fetch the child, confirm its body carries the graphical marker,
+      push textual ST at it, assert `accepted == false` with "graphical" in the conflict, then re-fetch and
+      assert the body is byte-identical.
 
 ## 3. Bug 2 — a pushed item does not survive the IDE being killed — ROOT CAUSE FOUND 2026-07-30
 
