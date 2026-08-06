@@ -29,9 +29,12 @@ public sealed class BridgeClient
 
     public HealthResponse GetHealth() => De<HealthResponse>(_pipe.Call(Ops.Health));
 
-    public RefsResponse GetRefs(Action<ProgressFrame>? onProgress = null)
+    /// <summary>The project snapshot. Pass the workspace's bound identity in <paramref name="req"/> so the bridge
+    /// guards it IN the op (WRONG_PROJECT) like every other project-touching op; null asks without an identity —
+    /// discovery, and callers that only want the shape back.</summary>
+    public RefsResponse GetRefs(RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
     {
-        var refs = De<RefsResponse>(_pipe.Call(Ops.Refs, onProgress: Forward(onProgress)));
+        var refs = De<RefsResponse>(_pipe.Call(Ops.Refs, req, Forward(onProgress)));
         GuardEmptyItems(refs.Items.Count);
         return refs;
     }

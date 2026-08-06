@@ -3,6 +3,23 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Engine.Wire;
 
+/// <summary>The <c>refs</c> request — the bound identity, and nothing else. Both fields are OPTIONAL and the whole
+/// BODY is optional: a body-less <c>refs</c> (discovery, the e2e harness, an older client) behaves exactly as it
+/// always has, with only the connected check running. When they ARE set, <c>refs</c> guards identity in-op through
+/// <see cref="Volt.Engine.Sync.OpGuard"/> like every other project-touching op, instead of the CLI compensating
+/// with a pre-op read of the throttled health cache.</summary>
+public class RefsRequest
+{
+    /// <summary>The project this workspace is bound to. When set, the op refuses (WRONG_PROJECT) unless the live
+    /// bridge is serving it — the in-op, race-free replacement for a pre-op health check. Null = no identity check
+    /// (discovery, or an older client). Same pair of fields, same meaning, as <see cref="FetchRequest"/>.</summary>
+    [JsonPropertyName("expectedPlatform")]
+    public string? ExpectedPlatform { get; set; }
+
+    [JsonPropertyName("expectedProjectName")]
+    public string? ExpectedProjectName { get; set; }
+}
+
 public class RefsResponse
 {
     [JsonPropertyName("projectVersion")]

@@ -45,8 +45,8 @@ public sealed class BridgePipeHost : IDisposable
     {
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.PlcDisconnected();
         // NOTE: the not-connected precondition for the project ops (refs/fetch/init/push/build) is NOT here — it is
-        // each handler's first act, on the marshalled STA thread: RefsService guards itself, and FetchService /
-        // PushService / BuildService go through OpGuard. That placement is deliberate (see OpGuard): checking INSIDE
+        // each handler's first act, on the marshalled STA thread: RefsService / FetchService / PushService /
+        // BuildService all go through OpGuard. That placement is deliberate (see OpGuard): checking INSIDE
         // the op is atomic with the work, so a concurrent `select` can't slip between check and op — a pre-marshal
         // check here structurally can't guarantee that. Both vendors refuse a not-connected bridge IDENTICALLY
         // because those guards live in shared Core, keyed off the same IsConnected signal.
@@ -119,7 +119,7 @@ public sealed class BridgePipeHost : IDisposable
                 _paused = true;
                 return new { ok = true };
             case Ops.Refs:
-                return RunRead(() => (object)RefsService.Handle(_ide, f => onProgress(f)));
+                return RunRead(() => (object)RefsService.Handle(_ide, Body<RefsRequest>(req), f => onProgress(f)));
             case Ops.Fetch:
                 return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
             case Ops.Init:

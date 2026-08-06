@@ -15,9 +15,13 @@ namespace Volt.Engine.Sync;
 /// never drift. No source bodies — that is <c>fetch</c>.</summary>
 public static class RefsService
 {
-    public static RefsResponse Handle(IIdeDriver ide, Action<ProgressFrame>? onProgress = null)
+    public static RefsResponse Handle(IIdeDriver ide, RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        // Connected + right-project guard, the same one every other project-touching op runs — atomic with the walk.
+        // `req` (and each of its fields) is optional: a body-less refs checks only connected, exactly as before, so
+        // discovery and older clients are unaffected. A BOUND caller no longer has to answer "is the bridge on my
+        // project?" for itself from the throttled health cache — refs was the last op that made it do that.
+        OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
         var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs);

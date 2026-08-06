@@ -145,9 +145,42 @@ public static class Commands
             var online = health.Connected;
             var mismatch = cfg is not null ? Config.ProjectMismatch(cfg, health) : null;
             var detail = online ? $"{health.Platform}/{health.ProjectName ?? "?"}" : (health.Status ?? "offline");
-            snap = online && mismatch is null && !localOnly
-                ? BuildSnap(online, detail, mismatch, bridge.GetRefs())
-                : new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch };
+            if (!(online && mismatch is null && !localOnly))
+                snap = new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch };
+            else if (cfg is null)
+                snap = BuildSnap(online, detail, null, bridge.GetRefs()); // no binding → no identity to guard against
+            else
+            {
+                // The walk CARRIES the binding, so the bridge decides identity against its LIVE served project
+                // (OpGuard, in-op) instead of this command deciding it from `health` — a per-vendor THROTTLED
+                // snapshot (~5s on TwinCAT) that, right after a rebind/reopen, still names the OLD project. Inside
+                // that window status walked the OTHER project and rendered every tracked file as incoming-removed
+                // and every foreign file as incoming-added — a full-project phantom diff, in the same second
+                // `volt pull` refused WRONG_PROJECT. The pre-op `Config.ProjectMismatch` above stays: it is what
+                // reports a mismatch the snapshot CAN see (and the only source of the structured pair below).
+                var bound = new ProjectId(cfg.Project.Platform, cfg.Project.ProjectName);
+                try
+                {
+                    snap = BuildSnap(online, detail, null, bridge.GetRefs(
+                        new RefsRequest { ExpectedPlatform = bound.Platform, ExpectedProjectName = bound.ProjectName }));
+                }
+                catch (PipeCallException e) when (e.Code == BridgeErrorCodes.WrongProject)
+                {
+                    // Refused live — the same verdict `volt pull` gives, rendered through the SAME structured
+                    // mismatch path (so `status --json` keeps its projectMismatch and Online stays true) instead of
+                    // degrading into a generic error. DiffFields is empty ON PURPOSE: we only reach here when the
+                    // health snapshot's fields all AGREED with the binding, so the snapshot has no disagreement to
+                    // list — the refusal is the evidence, and its message names the live pair. Carrying that pair
+                    // structurally would need identity on the error frame, which the wire does not have yet.
+                    snap = new BridgeSnapshot
+                    {
+                        Online = online,
+                        Detail = detail,
+                        ProjectMismatch = new ProjectMismatch(
+                            bound, new ProjectId(health.Platform, health.ProjectName ?? ""), Array.Empty<string>()),
+                    };
+                }
+            }
         }
         catch (Exception ex)
         {

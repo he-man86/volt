@@ -63,6 +63,36 @@ public class StatusCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>REGRESSION — the mismatch verdict must come from the LIVE bridge, not from the throttled health
+    /// snapshot. `refs` used to be the ONE project-touching op carrying no identity on the wire, so `volt status`
+    /// answered "is the bridge on my project?" for itself out of `health` — a per-vendor cache (~5s on TwinCAT) that
+    /// still names the OLD project right after a rebind. Inside that window status walked the OTHER project and
+    /// rendered every foreign item as incoming-added (and every tracked one as incoming-removed) while `volt pull`,
+    /// guarded in-op, refused WRONG_PROJECT in the same second.</summary>
+    [Fact]
+    public void Status_refuses_instead_of_walking_the_other_project_when_the_live_served_name_differs_from_the_binding()
+    {
+        var ide = new FakeIde(Prg())
+        {
+            HealthConnected = true, HealthPlatform = "codesys",
+            HealthProjectName = "SomethingElse",      // what the bridge is LIVE serving
+            HealthSnapshotProjectName = "Demo",       // ...while the cached health row still says the bound one
+        };
+        var (root, host, client) = Bound(ide); // bound to "Demo"
+        try
+        {
+            Assert.Null(Config.ProjectMismatch(Config.LoadConfig(root), client.GetHealth())); // the snapshot agrees…
+
+            var s = Commands.Status(root, client);
+
+            Assert.NotNull(s.ProjectMismatch);                                   // …the live bridge does not
+            Assert.Equal("project mismatch — open the bound project in the IDE", s.Summary);
+            Assert.True(s.Online);                   // a mismatch is not an outage — it must not read as offline
+            Assert.Empty(s.Incoming.Added);          // and NOT one phantom incoming-add per foreign item
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Status_reports_merging_after_a_conflicted_pull()
     {
