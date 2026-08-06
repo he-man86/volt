@@ -35,7 +35,13 @@ public static class IdeTree
 
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
-        var removed = new HashSet<string>(removedNames);
+        // BARE WIRE NAMES ("Foo.fb"), not paths — the fetch reports what the IDE deleted, and an item's identity
+        // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
+        // one needed the distinction spelt out: comparing names against src-relative paths silently matched
+        // nothing for any item in a folder, so a deletion in the IDE never reached the workspace unless the item
+        // sat in the project root.
+        var removedNamesSet = new HashSet<string>(removedNames);
+        static string NameOf(string rel) { var i = rel.LastIndexOf('/'); return i < 0 ? rel : rel.Substring(i + 1); }
 
         // Changed IDE items — fresh content from the fetch, streamed INLINE into git objects (no temp file, no
         // per-file hash-object). Added first so they win the `seen` de-dup over any same-path parent/scaffold entry.
@@ -47,7 +53,7 @@ public static class IdeTree
             foreach (var e in Git.ListTree(gitDir, parentIde))
             {
                 var rel = SrcRel(e.Path);
-                if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel) && !removed.Contains(rel))
+                if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel) && !removedNamesSet.Contains(NameOf(rel)))
                     AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }
 

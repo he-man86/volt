@@ -80,6 +80,33 @@ public class IdeTreeTests
         finally { TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>The same thing for an item in a FOLDER — which is the case that mattered and the one the test
+    /// above could not see. `removedNames` carries bare wire NAMES (`B.fb`), while the tree walk compares against
+    /// src-relative PATHS (`Machine/B.fb`), so a folder made the two never match and the deleted item stayed in
+    /// the workspace forever. The root-level test passes precisely because a root item's name IS its path.</summary>
+    [Fact]
+    public void Removed_items_are_dropped_even_when_they_live_in_a_folder()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/Machine/A.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/Machine/Deep/B.fb"),
+            }), Array.Empty<string>(), "parent");
+
+            // The IDE deleted B, which lives two folders down. The wire reports the bare name.
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                Array.Empty<MaterializedFile>(), new[] { "B.fb" });
+
+            Assert.True(Has(root, tree, "src/Machine/A.fb"));       // untouched, carried from parent
+            Assert.False(Has(root, tree, "src/Machine/Deep/B.fb")); // removed → dropped, folder or not
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Paths_with_spaces_round_trip_into_the_tree()
     {
