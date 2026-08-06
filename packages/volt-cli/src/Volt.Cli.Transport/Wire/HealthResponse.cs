@@ -2,9 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-using Volt.Cli.Transport;
-
-namespace Volt.Engine.Wire;
+namespace Volt.Cli.Transport.Wire;
 
 /// <summary>
 /// The ambient-poll response, and it is nothing but a FLAT array of the projects this bridge can serve — one
@@ -17,7 +15,8 @@ namespace Volt.Engine.Wire;
 /// lost connection. Per-op results (refs/fetch/push/build) come back from those ops, not here.
 /// <para>The wire carries only <see cref="Projects"/>. The properties below are C#-only conveniences (never
 /// serialized) so CLI callers read one intention-revealing value off the SERVING row instead of scanning the list —
-/// they cannot drift from it.</para>
+/// they cannot drift from it. They are for the CLI only: the connector has its own <c>DetectedProject</c> model and
+/// must keep reading <see cref="Projects"/> with its own guards.</para>
 /// </summary>
 public class HealthResponse
 {

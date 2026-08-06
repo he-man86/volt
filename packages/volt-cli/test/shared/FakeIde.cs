@@ -7,6 +7,7 @@ using Volt.Engine.Library;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 
 namespace Volt.Cli.Tests;
 

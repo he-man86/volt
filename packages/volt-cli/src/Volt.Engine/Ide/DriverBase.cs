@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Volt.Engine.Wire;
 
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 
 namespace Volt.Engine.Ide;
 

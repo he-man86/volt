@@ -3,7 +3,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Volt.Cli.Connector;
-using Volt.Engine.Wire;
+using Volt.Cli.Transport.Wire; // the health row (ProjectEntry/HealthResponse)
+using Volt.Engine.Wire;        // ConnectRequest — deliberately NOT moved down with the row
 using Xunit;
 
 namespace Volt.Cli.Connector.Tests;

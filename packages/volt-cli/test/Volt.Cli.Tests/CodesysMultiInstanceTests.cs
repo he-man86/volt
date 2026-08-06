@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 using Volt.Cli.Sync;
 using Xunit;
 

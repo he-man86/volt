@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Volt.Cli.Connector;
-using Volt.Engine.Wire;
+using Volt.Cli.Transport.Wire;
 using Xunit;
 
 namespace Volt.Cli.Connector.Tests;

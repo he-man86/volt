@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace Volt.Engine.Wire;
+namespace Volt.Cli.Transport.Wire;
 
 /// <summary>
 /// One connectable project — a leaf, the unit the connector shows as ONE row in its project picker (a CODESYS or
@@ -23,18 +21,13 @@ namespace Volt.Engine.Wire;
 ///   <item><see cref="Dirty"/> — the project has unsaved changes in the IDE.</item>
 /// </list>
 /// Detection is identity-only: the top-level project, never the PLC applications inside it (a content concern the
-/// sync ops resolve lazily).</summary>
+/// sync ops resolve lazily).
+/// <para>The ctor params are non-nullable ANNOTATIONS only (Conventions #2): System.Text.Json still hands this
+/// record nulls for absent members, so every reader keeps its own runtime guard on <c>Project</c>/<c>Status</c>.
+/// Do not "clean up" a downstream null check because the type says non-null.</para></summary>
 public sealed record ProjectEntry(
     string Vendor,
     string? Version,
     string Project,
     string Status,
     bool Dirty);
-
-/// <summary>The <c>connect</c> request: which project the connector picked, by NAME. May be null (a soft/refresh
-/// select); the driver binds what it can. No vendor field — the connector routes to the right bridge/pipe by the
-/// row's vendor before sending this. No PLC-app field — connecting is identity-only.</summary>
-public sealed class ConnectRequest
-{
-    public string? Project { get; set; }
-}

@@ -5,6 +5,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 
 namespace Volt.Cli.Ide.Codesys;
 

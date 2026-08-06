@@ -2,6 +2,7 @@ using System.IO;
 using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 using Xunit;
 
 namespace Volt.Cli.Tests;

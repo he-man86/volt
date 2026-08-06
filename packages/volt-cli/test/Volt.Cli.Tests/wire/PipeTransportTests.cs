@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Volt.Engine.Library;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 using Xunit;
 
 namespace Volt.Cli.Tests;
