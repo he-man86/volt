@@ -1,60 +1,59 @@
 ## Why
 
-`optimize-volt-cli-architecture` closed 31 of 49 structural findings. Three of the ones it left are the same
-defect wearing three faces, and they are the standing suspect for the two `conflict-resolve` e2e failures that
-change parked with evidence:
+**Read this first: the evidence that motivated this change was disproved before it started.**
 
-1. **The wire `disconnect` gate has two owners.** Any pipe client can set `_paused` on the host; the connector's
-   reconcile loop un-sets it within ~4 s by re-`connect`ing any project a live session wants. Whether a bridge
-   stays gated depends on which of the two spoke last.
-2. **Two systems answer "is this project served".** A project serves iff a live client session declares
-   interest — but the CLI opens the pipe directly and never consults the connector. `volt push` cannot be gated
-   by the connector's selection, by design; yet the connector's reconcile can un-gate a bridge the CLI paused.
-3. **`test/Volt.Cli.Connector.ControlHarness` re-implements the interest→serving reconcile inline** instead of
-   driving `Reconciler`, **with the opposite trigger semantics**. So the volt-control e2e asserts behaviour the
-   product deliberately rejects — a fake that does not merely simplify but *contradicts*.
+The original premise was that the two parked `lifecycle/conflict-resolve` e2e failures were caused by the
+connector's session/gate model. They were not. Pinned to a stable XAE the TwinCAT suite is **90 pass / 11 skip /
+0 fail**; the failures came from one fixture's TcXaeShell crashing and respawning mid-run, which made `volt init`
+fail and produced a downstream assertion failure in an unrelated test. See
+`openspec/changes/optimize-volt-cli-architecture/ledger.md`.
 
-(3) is the ground floor. `ARCHITECTURE.md` §Conventions 10 already records why: a fake that encodes an invariant
-the implementation breaks is worse than no fake, and 500+ green tests then assert a world where the divergence
-cannot exist. That is exactly how the `IsConnected` / `BuildHealthResponse().Connected` divergence survived.
+So this change **loses its acceptance criterion and most of its urgency**, and is re-scoped down to the one
+finding that still has a demonstrable cost.
+
+### What survives, and why
+
+**`test/Volt.Cli.Connector.ControlHarness` re-implements the interest→serving reconcile inline instead of
+driving `Reconciler` — with the OPPOSITE trigger semantics.** This is verifiable by reading, needs no live IDE,
+and its cost is concrete: the `@volt/control` e2e can pass against behaviour the product deliberately rejects.
+`ARCHITECTURE.md` §Conventions 10 already records why that class of defect matters — a fake that encodes an
+invariant the implementation breaks is worse than no fake, because a green suite then asserts a world where the
+divergence cannot exist. That is exactly how the `IsConnected` / `BuildHealthResponse().Connected` divergence
+survived 500+ green tests.
+
+It is also the last of the two "fakes that lie" identified as the ground floor. `FakeIde` was addressed by
+moves 12 and 13 of the previous change; this is the other one.
+
+### What is DEMOTED, not fixed
+
+These remain true observations with **no demonstrated failure** behind them. They are recorded in
+`optimize-volt-cli-architecture/findings.md` and should not be acted on until something concrete fails:
+
+- the wire `disconnect` gate has two owners (a client sets `_paused`; the connector's reconcile can clear it);
+- the CLI and the connector can both answer "is this project served", and the CLI never consults the connector.
+
+Both were filed as the suspect for a failure that turned out to be a crashing IDE. Touching the gate that
+decides whether a live PLC accepts writes, on the strength of a design smell with no failing test, is not a
+trade worth making. **A finding whose cost cannot be stated as a concrete scenario is a preference.**
 
 ## What Changes
 
-**Start by reproducing the failure, not by mapping.** This is the explicit method correction from the previous
-change: its two highest-value defects — the TwinCAT save that never ran, and an e2e harness silently targeting
-the wrong IDE — were both found in the first hour of running the baseline, while ~120 analysis agents produced
-narrowing and correction. The map and the findings already exist with quoted evidence. What these gaps lack is a
-**decision**, not discovery.
-
-So: no phase 1, no phase 2. Reproduce, then design → refute → execute on the three questions above, ~10 agents.
-
-- **Reproduce first.** The two parked `conflict-resolve` failures pass alone and fail in suite order, and
-  `volt pull` fails at RESOLUTION (a `BridgeError`, never a wire refusal) rather than being refused. Move 19
-  turned that distinction into a contract, so the signal is now reliable. Find which earlier suite leaves the
-  bridge in the state, and whether the gate or the session model is what leaves it.
-- **Decide who owns the gate**, and write it down: pause is a host fact and the connector must not silently
-  resume it, OR pause is a session fact and the CLI must participate. One answer, not two.
-- **Make `ControlHarness` drive `Reconciler`** so the e2e cannot agree with a reconcile the product does not run.
-- Anything that turns out to be a behaviour change lands **red-first**, as its own commit.
-
-**Explicitly NOT in scope**, with the arguments already recorded in the previous change's `findings.md` — do not
-re-litigate without new evidence: relocating `Ops`/`BridgeErrorCodes`/`HealthStatus`/`Vendors` out of
-`Volt.Cli.Transport` (moving the file enforces nothing, since `Volt.Cli` references both projects); the
-`Volt.Engine` `using` cycle (no compile, build-order or test cost); and publishing `PipeJson.Options` (its
-camelCase-write / case-insensitive-read asymmetry is deliberate, and a swap silently empties `PushRequest`).
+- **`ControlHarness` drives `Reconciler`** instead of its own inline copy, so the e2e cannot agree with a
+  reconcile the product does not run.
+- If that surfaces a real behavioural disagreement, it lands **red-first** as its own commit.
+- Nothing else. The gate is not touched.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `connector-session-gate`: who owns the disconnect gate, what "served" means when two systems can answer it,
-  and the requirement that a test harness drive the product's own reconciler rather than its own copy.
+- `connector-test-integrity`: a harness that exists to make an end-to-end test non-mock must exercise the
+  product's own decision code, not a second implementation of it.
 
 ## Impact
 
-- **Code:** `Volt.Engine/Wire/BridgePipeHost` (the `_paused` gate), `Volt.Cli.Connector.Core`
-  (`ConnectionManager`, `Reconciler`, `PerPipeProjectSource`), and `test/Volt.Cli.Connector.ControlHarness`.
-- **Tests:** the two parked `conflict-resolve` e2e failures are the acceptance criterion. If the change is right
-  they go green without being edited; if they need editing, the change is wrong.
-- **Risk:** the gate decides whether a live PLC accepts writes. Every behaviour change lands red-first and is
-  verified on both vendors live, because no C# suite reaches a real driver.
+- **Code:** `test/Volt.Cli.Connector.ControlHarness` only, unless driving the real `Reconciler` exposes a
+  product defect — in which case that lands separately and red-first.
+- **Tests:** `packages/volt-control`'s e2e must stay green, and must now be green for the right reason.
+- **Risk:** low, and deliberately so. The high-risk half of the original proposal is demoted above with its
+  reasoning, rather than carried along because it was already written down.
