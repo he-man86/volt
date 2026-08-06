@@ -46,7 +46,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // ── health ──────────────────────────────────────────────────────
     // DriverBase composes the response (cached list + live overlay) and owns the probe; the only vendor-shaped part
     // left is the cadence: throttle the (heavier) STA refresh to ~5s, so a burst of polls answers from cache and only
-    // one probe runs. CODESYS's in-proc snapshot is cheap and keeps the unthrottled default.
+    // one probe runs. This stays an OVERRIDE after unify-probe-throttle: Core's floor (DriverBase's 1s default, which
+    // CODESYS takes) bounds a few in-proc reflection reads, while this snapshot is EnsureAttached + ProbeIdeAlive +
+    // OwnSolution across the COM apartment boundary. Tightening it to Core's floor would speed up exactly the
+    // cross-process round-trip the throttle was written to keep off a working engineer's XAE.
     protected override long ProbeThrottleMs => 5000;
 
     /// <summary>Refresh the cached health snapshot from the live DTE. MUST run on the STA thread (it reads the DTE):

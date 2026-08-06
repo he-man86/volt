@@ -165,12 +165,23 @@ public abstract class DriverBase : IIdeSession
         lock (_cacheLock) { _rows = rows; _publishedAtTick = Environment.TickCount; _everPublished = true; }
     }
 
-    /// <summary>Minimum gap between ambient health probes, in ms; <c>0</c> means NO throttle — probe on every poll.
-    /// It exists only to reproduce each vendor's EXISTING cadence byte-for-byte now that composition lives here:
-    /// CODESYS probed unconditionally (in-proc, cheap), TwinCAT throttles the heavier STA round-trip to ~5s.
-    /// <para>ARCH FOLLOW-UP: `unify-probe-throttle` collapses the two cadences into one Core-owned number and deletes
-    /// this knob — there is deliberately no per-vendor throttle to keep.</para></summary>
-    protected virtual long ProbeThrottleMs => 0;
+    /// <summary>Core's floor on ambient health probing: no vendor probes more often than this, whatever its cadence
+    /// would otherwise be. Every Volt frontend polls `health` on its own 4s clock — the connector's tray timer,
+    /// volt-control's session poll (one per open workspace, in VS Code AND the desktop window), plus every
+    /// control-plane status call — and a driver with no floor marshalled a full <see cref="SnapshotHealth"/> onto the
+    /// engineer's IDE thread for EVERY one of them, i.e. back-to-back object-model reads for as long as any frontend
+    /// was running. The floor is deliberately FAR below that 4s poll, so no client's own cadence is aliased: a poll a
+    /// second or more after the last probe still probes, and only a burst that lands together collapses to one.
+    /// <para><c>0</c> still means NO throttle (see <see cref="BuildHealthResponse"/>); no shipped driver asks for it.</para>
+    /// <para>ARCH FOLLOW-UP RETIRED (unify-probe-throttle) — and NOT as it was written. The plan was to collapse both
+    /// cadences into one <c>const</c> and delete this knob. The knob STAYS <c>virtual</c> and TwinCAT keeps its 5000,
+    /// because the two numbers are not the same quantity: CODESYS's snapshot is a handful of in-proc reflection reads,
+    /// TwinCAT's is EnsureAttached + ProbeIdeAlive + OwnSolution across a COM apartment boundary — a difference
+    /// downstream of the in-proc-vs-external hosting asymmetry ARCHITECTURE.md marks irreducible. Unifying UPWARD at
+    /// 5000 would also have put CODESYS's <c>IsConnected</c> — which only this probe writes — behind a window that
+    /// aliases against the 4s poll to ~8s, widening the very precondition staleness Conventions #3 forbids.</para></summary>
+    internal const long DefaultProbeThrottleMs = 1000;
+    protected virtual long ProbeThrottleMs => DefaultProbeThrottleMs;
 
     /// <summary>The ambient poll response, composed ONCE for both vendors: serve the cached row list, kick the
     /// off-request single-flight refresh when the cache is older than <see cref="ProbeThrottleMs"/>, and overlay the

@@ -94,10 +94,15 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // In-process: no transport that can die mid-call, so never auto-degrade.
     public override bool ShouldMarkDegraded(Exception ex) => false;
 
-    // No BuildHealthResponse/TriggerAsyncProbe here: DriverBase composes both. This driver keeps ProbeThrottleMs at
-    // its default 0 — the in-proc snapshot is cheap, so it probes on EVERY poll, exactly as it did when it owned the
-    // response. Cached list, live verdict: CODESYS never marks degraded (in-proc), but a hung/closed IDE stops
-    // responding to the probe, so staleness demotes it from a frozen "healthy" — see DriverBase.OverlayLiveHealth.
+    // No BuildHealthResponse/TriggerAsyncProbe/ProbeThrottleMs here: DriverBase composes the response and owns the
+    // probe, and this driver takes Core's default floor (DriverBase.DefaultProbeThrottleMs) instead of overriding it.
+    // The in-proc snapshot is cheap, but it still runs on the engineer's PRIMARY thread, and it used to run once per
+    // poll per frontend — tray + every VS Code workspace + the desktop window, each on its own 4s clock. NB the floor
+    // is well BELOW that 4s: _hasProject (the OpGuard precondition, written only by this probe) is refreshed by every
+    // client poll exactly as before, so its staleness stays bounded by the slowest client's poll, not by the floor —
+    // which is why the number is 1000 and not TwinCAT's 5000. Cached list, live verdict: CODESYS never marks degraded
+    // (in-proc), but a hung/closed IDE stops responding to the probe, so staleness demotes it from a frozen "healthy"
+    // — see DriverBase.OverlayLiveHealth.
 
     public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 

@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using Volt.Cli.Transport;
+using Volt.Cli.Transport.Wire;
 using Volt.Engine.Ide;
+using Volt.Engine.Wire;
 using Xunit;
 
 namespace Volt.Engine.Tests;
@@ -29,5 +34,60 @@ public class HonestHealthTests
     public void DeriveServedStatus_reflects_the_live_link(bool degraded, bool opInFlight, long ageMs, string expected)
     {
         Assert.Equal(expected, DriverBase.DeriveServedStatus(degraded, opInFlight, ageMs));
+    }
+
+    /// <summary>Core throttles the ambient probe for EVERY driver, so a driver that declares no cadence of its own
+    /// (CODESYS) can no longer marshal a snapshot onto the engineer's IDE thread once per poll per frontend. Each poll
+    /// JOINS the probe it may have started before the next goes out — without that, <c>DriverBase.SingleFlight</c>
+    /// would coalesce the polls by itself and this would pass whatever the throttle was.</summary>
+    [Fact]
+    public void N_health_polls_inside_one_throttle_window_trigger_exactly_one_probe()
+    {
+        // 4 x 100ms = ~0.4s, comfortably inside DriverBase.DefaultProbeThrottleMs (1s). The number is NOT read from
+        // that const on purpose: this test has to COMPILE against the pre-fix tree to be run red first, and the const
+        // arrives with the fix. Lower the floor below ~0.5s and shorten this loop with it.
+        const int polls = 4, joinMs = 100;
+        var driver = new ProbeCountingDriver();
+
+        // The first poll always probes: nothing has been published, so there is no cache to serve.
+        driver.BuildHealthResponse();
+        Assert.True(driver.Probed.Wait(5_000), "the first poll must kick a probe");
+
+        for (var i = 0; i < polls; i++)
+        {
+            driver.Probed.Reset();
+            driver.BuildHealthResponse();
+            driver.Probed.Wait(joinMs);   // let a probe, if one started, finish before the next poll goes out
+        }
+
+        Assert.Equal(1, driver.Probes);
+    }
+
+    /// <summary>The minimum DriverBase subclass: it counts probes and publishes an empty row list (which is what
+    /// stamps the throttle clock). Everything else is inert — no IDE, no marshalling.</summary>
+    private sealed class ProbeCountingDriver : DriverBase
+    {
+        private int _probes;
+        public int Probes => Volatile.Read(ref _probes);
+        public ManualResetEventSlim Probed { get; } = new(false);
+
+        protected override void SnapshotHealth()
+        {
+            Interlocked.Increment(ref _probes);
+            PublishRows(new List<ProjectEntry>());
+            Probed.Set();
+        }
+
+        protected override T MarshalToIdeThread<T>(Func<T> fn) => fn();
+        public override bool IsConnected => true;
+        public override string Vendor => "fake";
+        public override string? ServedProjectName => null;
+        public override string? IdeVersion => "0";
+        public override void Disconnect() { }
+        public override bool ShouldMarkDegraded(Exception ex) => false;
+        public override void SelectProject(ConnectRequest sel) { }
+        public override void FlushPendingWrites() { }
+        public override bool Build() => true;
+        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
     }
 }
