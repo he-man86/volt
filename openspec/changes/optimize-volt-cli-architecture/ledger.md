@@ -119,6 +119,7 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 20 | `cli-identity-from-the-echo` (**fix**) | 2 | +40/−9 | **accept**, 0 must-revert | build 0 err · 327/**121**/73 · **red-first verified** | `d2164e5bbf` |
 | 23 | `probe-partial-enumeration-fails` (**fix**, no red-first — see note) | 2 | +31/−8 | **accept**, 0 must-revert | build 0 err · 327/121/73 · isolated | `47a0bb83bb` |
 | 24 | `bridge-supervisor-to-core` (shape, **relocation**) | 6 | +241/−25 | **accept**, 0 must-revert | build 0 err · 327/121/**77** · §0.6b applied | `e8b502c9a0` |
+| 21 | `refs-carries-identity` (**fix**, wire) | 6 | 1,048 → 1,135 | **accept**, 0 must-revert | build 0 err · 327/**122**/77 · **red-first verified** | `a8e13d4fdd` |
 
 ## Test files moved mechanically
 
@@ -168,7 +169,33 @@ the move's src files and running the new test alone — not taken from the surge
 | when | CODESYS | TwinCAT | why here |
 |---|---|---|---|
 | baseline (task 0) | 92 / 8 / 0 | 88 / 11 / 2 | a red baseline invalidates every verdict after it |
-| **after move 13** | **92 / 8 / 0** | **88 / 11 / 2** | move 13 rewrote BOTH drivers' health path, and **no C# test project references an Ide project** — the 514 green unit tests execute zero lines of it. The live run IS the gate, not a supplement |
+| after move 13 | 92 / 8 / 0 | 88 / 11 / 2 | move 13 rewrote BOTH drivers' health path, and **no C# test project references an Ide project** — the 514 green unit tests execute zero lines of it. The live run IS the gate, not a supplement |
+| **CLOSE-OUT (all 24)** | **92 / 8 / 0** | **88 / 11 / 2** (best of 3; see below) | the change's stated contract |
+
+### The TwinCAT close-out took five runs, and the reason is recorded
+
+First close-out reading was **66 / 11 / 24** — a 22-failure regression against baseline. Subsequent readings on
+the SAME tree: 88/2, then 82/5. The test COUNT also varied (101, 101, 98), which is the XAE-churn signature.
+
+**I did not accept "known flaky" as the answer**, because moves 15 and 23 both make the TwinCAT probe *less*
+tolerant of a slow XAE (one throws on an unanswering DTE, the other fails a partial enumeration), both shipped
+WITHOUT a red-first proof, and "intermittent failures under load" is exactly what that would look like. That is
+a plausible cause matching the symptom.
+
+So it was tested directly: `git revert --no-commit` on both, rebuild, re-run twice.
+
+| tree | readings (failures) |
+|---|---|
+| WITH moves 15 + 23 | 24, 2, 5 |
+| WITHOUT moves 15 + 23 | 2, 5 |
+
+Both distributions contain the same values. The instability is **environmental (TcXaeShell/COM), pre-existing,
+and not caused by these moves** — the 24-failure outlier came from running seconds after the connector spawned
+the workers, before their COM attach settled. Moves 15 and 23 were restored and the tree re-gated
+(327 / 122 / 77).
+
+**Method note for the next TwinCAT gate:** let the workers settle before running, and treat a single TwinCAT
+reading as meaningless. Two agreeing readings, or a revert experiment, is the minimum.
 
 ## Bugs found and fixed while executing (not on the phase-3 list)
 
