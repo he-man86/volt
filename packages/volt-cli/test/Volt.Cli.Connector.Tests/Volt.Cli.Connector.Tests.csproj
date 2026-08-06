@@ -15,7 +15,5 @@
     <!-- Also the bridge Core, ONLY so a contract test can prove the bridge's `instances` shape and the
          connector's parser agree (the production connector deliberately does NOT reference Core). -->
     <ProjectReference Include="..\..\src\Volt.Engine\Volt.Engine.csproj" />
-    <!-- The shared in-memory IDE fake, so a live-pipe integration test can stand up real bridge hosts. -->
-    <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
   </ItemGroup>
 </Project>

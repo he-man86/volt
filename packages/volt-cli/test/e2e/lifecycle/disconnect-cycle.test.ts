@@ -3,8 +3,9 @@
  * while tearing NOTHING down — on CODESYS the in-proc host stays loaded inside the running IDE (the
  * `start_volt_codesys.py` activation survives), on TwinCAT the worker keeps its COM attach.
  *
- * Why this needs a live bridge at all: `test/Volt.Cli.Connector.Tests/DisconnectLifecycleTests.cs` already proves
- * the GATE over real pipes with a faked IDE (and does it in CI, in milliseconds). What it cannot prove is the part
+ * Why this needs a live bridge at all: `test/Volt.Cli.Tests/wire/PipeTransportTests.cs` already proves the GATE
+ * over real pipes with a faked IDE — `Disconnect_refuses_sync_until_the_next_connect_but_leaves_the_host_serving_health`
+ * (and does it in CI, in milliseconds). What it cannot prove is the part
  * that only a real driver can answer — that a real IDE session survives a deselect/reselect cycle **unchanged**:
  * same process serving, same project, byte-identical version hashes, no reload, no lost edits. That is what this
  * file tests, and it is vendor-neutral: a pass on one bridge and a fail on the other is a real parity bug.
