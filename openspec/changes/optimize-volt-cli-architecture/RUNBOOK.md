@@ -2,7 +2,7 @@
 
 ## ▶ RESUME HERE
 
-**Next move: 6 of 24** (`voltlog-down-to-transport`) — the first structural relocation. Phases 1–4 are complete; execution is under way.
+**Next move: 7 of 24** (`unsilence-the-accept-loop`) — the first `fix` move, so it lands RED-FIRST. Phases 1–4 are complete; execution is under way.
 
 To continue in a fresh session, from the repo root:
 
@@ -23,7 +23,7 @@ uncommitted tree that `git checkout --` discards. Workflow agent results are jou
 `resumeFromRunId` replays the finished ones from cache and re-runs only the failures (phase 4 lost 7 of 55
 skeptics to a session limit and kept the other 47).
 
-Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan`.
+Landed so far: **1** `connector-test-orphans` · **2** `delete-debug-surface` · **3a/3b** `delete-pou-to-xml` · **4** `one-st-emitter` · **5** `delete-dead-spawn-plan` · **6** `voltlog-down-to-transport`.
 
 
 Read `proposal.md` for why, `design.md` for the five phases and the agent roles, this file to *execute*.
@@ -54,6 +54,17 @@ Phases 1–4 write only `map.md` / `findings.md` / `target.md`. Phase 5 writes s
    agent that gates itself rationalizes a red gate. The gate is serial, run by the main loop.
 6. **Stage explicitly.** The TwinCAT fixtures under `test/TwinCAT Project*/` are rewritten by the IDE whenever
    it builds; `git commit -a` sweeps that churn in.
+6b. **THE GATE TESTS THE WORKING TREE, THE COMMIT IS A SUBSET OF IT.** This bit on move 6 and produced a
+   commit that did not compile while the gate was green. A relocation creates a NEW path, and
+   `git add src/Volt.Engine` cannot reach a file that now lives in `src/Volt.Cli.Transport` — so the new path
+   was committed with its ORIGINAL content (old namespace) while every `using` of it was deleted. Two rules,
+   both cheap:
+   - after committing a move, run `git status --porcelain` and confirm **nothing of the move is left** — a
+     leftover means the commit is incomplete, whatever the gate said;
+   - for any move that renames or relocates, `git add -A <old-path> <new-path>`, and verify the committed
+     content directly: `git show HEAD:<new-path> | head`.
+   For a relocation it is worth proving the COMMIT builds, not just the tree:
+   `git worktree add --detach %TEMP%\volt-headcheck HEAD` → build there → `git worktree remove --force`.
 7. **Known red, not a regression:** `ide-restart`'s second test. Root cause is the top entry of
    `audit-volt-cli-src/arch-notes.md`. Do **not** "fix" the test, and do **not** fix the defect inside a move.
 

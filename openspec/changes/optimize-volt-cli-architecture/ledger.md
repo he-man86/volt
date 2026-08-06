@@ -100,6 +100,7 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 3b | `delete-pou-to-xml` — BodyLanguage fields (shape) | 3 | −5 | *(same verdict; split per amendment)* | build 0 err · 324/116/76 | `fc161d4f24` |
 | 4 | `one-st-emitter` (shape) | 8 | 1,044 → 870 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fadb86ab8f` |
 | 5 | `delete-dead-spawn-plan` (shape, **narrowed**) | 3 | 650 → 622 | **accept**, 0 must-revert | build 0 err · 324/116/**75** | `9396b2ded1` |
+| 6 | `voltlog-down-to-transport` (shape, **relocation**) | 18 | 3,175 → 3,163 | **accept**, 0 must-revert | build 0 err · 324/116/75 · **+ HEAD built in a clean worktree** | `726f4959e8` |
 
 ## Test files moved mechanically
 
@@ -114,6 +115,22 @@ wearing a costume.)_
 | `test/Volt.Engine.Tests/ChildDirectiveTests.cs` | 4 | ARRANGE repointed at the shipped emitter (premise "StAssembler is the format under test" was false — nothing ships it). Every pre-existing assertion unchanged; **gained** a golden `Assert.Equal` on the full emitted text |
 | `test/Volt.Engine.Tests/InterfaceRoundTripTests.cs` | 4 | same, same |
 | `test/Volt.Cli.Connector.Tests/TwincatSupervisorTests.cs` | 5 | **coverage DELETED, not adapted**: one case + five assertions drove `Forget`/`SpawnedPids`, the members this move removes. Suite **76 → 75**. Every surviving case keeps its behavioural assertion; no assertion text or expected value changed |
+
+## Process defects found while executing
+
+**Move 6 — the gate tests the working tree; the commit is a subset of it.** The first commit of move 6 did NOT
+compile, while the gate was green. A relocation creates a new path, and `git add src/Volt.Engine` cannot reach a
+file now living in `src/Volt.Cli.Transport` — so the new path was committed with its ORIGINAL content (old
+namespace) while every `using` of it was deleted. The working tree was correct throughout, which is exactly why
+the gate passed.
+
+Caught by reading `git show --stat`, noticing the relocated file reported **0 changed lines** when it should have
+reported one, and then checking `git show HEAD:<path>`. Fixed by amend (nothing was pushed) and verified by
+building **HEAD itself** in a detached worktree rather than the working tree.
+
+Two rules added to the runbook (§0.6b): after committing a move, `git status --porcelain` must show nothing of
+the move left; and any relocation stages both paths and verifies the committed content directly. Moves 1–5 were
+not exposed — none of them created a new path.
 
 ## Close-out (task 6)
 
