@@ -162,8 +162,4 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
     // TwinCAT has no resolved-library-signature surface yet — it inherits DriverBase's empty defaults
     // (empty fingerprint + empty extraction), so the cache is a harmless no-op here (parity boundary is the wire).
-    // DEBUG (read-only): the PLCopen export (ExportPouXml — our normal code-XML transport) of a named item,
-    // to inspect e.g. whether an interface property's Get/Set accessors survive the export.
-    public override string DebugItemXml(string name) =>
-        Lookup(name) is { } r ? _om.ExportPouXml(r.Native) : "";
 }

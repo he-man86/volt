@@ -106,56 +106,6 @@ namespace Volt.Cli.Ide.Codesys
             return set;
         }
 
-        // ── DEBUG: reflect the change-detection surface (read-only investigation) ──
-        /// <summary>Dump the type / interfaces / change-related members of a target object-model member, to see
-        /// what "changed" signal CODESYS exposes (a modification stamp, a version, a change event). READ-ONLY.</summary>
-        public string ReflectMembers(string target)
-        {
-            object? obj = target switch
-            {
-                "objmgr" => _objMgr,
-                "object" => SampleObject(),
-                _ => PrimaryProject,
-            };
-            if (obj == null) return $"<null target: {target}>";
-            var t = obj.GetType();
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"TARGET {target}");
-            sb.AppendLine($"TYPE {t.FullName}");
-            foreach (var i in t.GetInterfaces()) sb.AppendLine($"IFACE {i.FullName}");
-            foreach (var e in t.GetEvents()) sb.AppendLine($"EVENT {e.Name} : {e.EventHandlerType?.Name}");
-            foreach (var p in t.GetProperties()) if (Relevant(p.Name)) sb.AppendLine($"PROP {p.Name} : {p.PropertyType.Name}");
-            foreach (var m in Distinct(t.GetMethods())) if (Relevant(m)) sb.AppendLine($"METHOD {m}");
-            foreach (var i in t.GetInterfaces())
-            {
-                foreach (var e in i.GetEvents()) sb.AppendLine($"IFACE-EVENT {i.Name}.{e.Name}");
-                foreach (var p in i.GetProperties()) if (Relevant(p.Name)) sb.AppendLine($"IFACE-PROP {i.Name}.{p.Name}");
-                foreach (var m in Distinct(i.GetMethods())) if (Relevant(m)) sb.AppendLine($"IFACE-METHOD {i.Name}.{m}");
-            }
-            return sb.ToString();
-        }
-
-        private object? SampleObject()
-        {
-            var p = PrimaryProject;
-            if (p == null) return null;
-            var kids = GetChildren(p);
-            return kids.Count > 0 ? ReadObject(kids[0]) : null;
-        }
-
-        private static System.Collections.Generic.IEnumerable<string> Distinct(System.Reflection.MethodInfo[] ms)
-        {
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var m in ms) if (seen.Add(m.Name)) yield return m.Name;
-        }
-
-        private static bool Relevant(string n)
-        {
-            foreach (var k in new[] { "change", "modif", "dirty", "version", "timestamp", "date", "event", "listen", "subscribe", "notify", "stamp", "revision", "save" })
-                if (n.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            return false;
-        }
-
         // ── library references (LibManObject → ILibManItem[]) ──────────────────
         /// <summary>The top-level library references managed by a Library Manager
         /// object. These are NOT tree <c>IObject</c>s (no handle/guid/source) — they
@@ -610,76 +560,6 @@ namespace Volt.Cli.Ide.Codesys
                     baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags, methods));
             }
             return result;
-        }
-
-        /// <summary>DEBUG (read-only): dump every library signature's implemented COM interfaces + all property
-        /// values, optionally filtered by element name. Lets us see how the live language model represents a DUT
-        /// (alias vs struct vs enum vs union) and where an alias's base type lives — the ground truth for fixing
-        /// the signature renderer. Not part of pull/push.</summary>
-        public List<Dictionary<string, string>> DebugLibrarySignatures(string? nameFilter)
-        {
-            var app = FindApplication();
-            if (app != null) { try { Build(app); } catch { /* a failed build still precompiles the libraries */ } }
-            var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr");
-            var outList = new List<Dictionary<string, string>>();
-            if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs) return outList;
-            // `?libsig=summary` → count of precompiled signatures per owning LibraryPath (which libs have NO sigs).
-            var summary = string.Equals(nameFilter, "summary", StringComparison.OrdinalIgnoreCase);
-            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in sigs)
-            {
-                if (s == null) continue;
-                if (GetMember(s, "Name") is not string name || name.Length == 0) continue;
-                if (summary)
-                {
-                    var lp = GetMember(s, "LibraryPath") as string ?? "(none)";
-                    counts[lp] = counts.TryGetValue(lp, out var c) ? c + 1 : 1;
-                    continue;
-                }
-                if (!string.IsNullOrEmpty(nameFilter) && !name.Equals(nameFilter, StringComparison.OrdinalIgnoreCase)) continue;
-                var d = new Dictionary<string, string>
-                {
-                    ["Name"] = name,
-                    ["<interfaces>"] = string.Join(", ", s.GetType().GetInterfaces().Select(i => i.Name)),
-                };
-                var seen = new HashSet<string>();
-                foreach (var t in new[] { s.GetType() }.Concat(s.GetType().GetInterfaces()))
-                    foreach (var p in t.GetProperties())
-                    {
-                        if (p.GetIndexParameters().Length > 0 || !seen.Add(p.Name)) continue;
-                        try { d[p.Name] = p.GetValue(s)?.ToString() ?? "null"; }
-                        catch (Exception e) { d[p.Name] = "<err:" + e.GetType().Name + ">"; }
-                    }
-                // Expand the variable collections as name:type — the alias base / struct fields / enum members
-                // live here, so we can see what `OkName` drops and where a base type is carried.
-                foreach (var coll in new[] { "AllVariables", "Inputs", "Outputs", "InOuts", "Locals" })
-                {
-                    if (GetMember(s, coll) is not IEnumerable vs) continue;
-                    var parts = new List<string>();
-                    foreach (var v in vs)
-                        parts.Add($"{GetMember(v, "Name")}:{GetMember(v, "Type")}");
-                    d[coll + "[]"] = string.Join(", ", parts);
-                }
-                // Dump the FIRST member's full property map — the enum-member VALUE (init) lives here somewhere.
-                if (GetMember(s, "AllVariables") is IEnumerable avs)
-                    foreach (var v in avs)
-                    {
-                        if (v == null) continue;
-                        var mp = new List<string>();
-                        var mseen = new HashSet<string>();
-                        foreach (var t in new[] { v.GetType() }.Concat(v.GetType().GetInterfaces()))
-                            foreach (var p in t.GetProperties())
-                                if (p.GetIndexParameters().Length == 0 && mseen.Add(p.Name))
-                                { try { mp.Add($"{p.Name}={p.GetValue(v)}"); } catch { } }
-                        d["member0.props"] = string.Join(" | ", mp);
-                        break;
-                    }
-                outList.Add(d);
-            }
-            if (summary)
-                return counts.OrderByDescending(kv => kv.Value)
-                    .Select(kv => new Dictionary<string, string> { ["lib"] = kv.Key, ["count"] = kv.Value.ToString() }).ToList();
-            return outList;
         }
 
         private static string SeverityToString(object? sev)

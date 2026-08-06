@@ -73,19 +73,4 @@ public interface IIdeSession
     /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT returns none for
     /// now (no equivalent surface yet).</summary>
     IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
-
-    /// <summary>DEBUG (read-only): each library signature's implemented interfaces + all property values, filtered
-    /// by element name — introspects how the language model represents a DUT (alias/struct/enum/union). Empty on
-    /// drivers without a signature model (TwinCAT). Surfaced by the debug dump (<c>Sync/DebugService</c>,
-    /// <c>libsig=NAME</c>) — the HTTP-era <c>GET /debug</c> is gone; the wire is a named pipe.</summary>
-    IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter);
-
-    /// <summary>DEBUG (read-only): the PLCopen export (our normal code-XML transport) for the item named
-    /// <paramref name="name"/>, or "" if unavailable. Surfaced by the debug dump (<c>xmlof=NAME</c>).</summary>
-    string DebugItemXml(string name);
-
-    /// <summary>DEBUG (read-only): reflect the change-detection surface of a target object model member (e.g.
-    /// "project", "objmgr") — its type, interfaces, and change/version/event-named members — to investigate what
-    /// signal the IDE exposes. Empty when unsupported. Surfaced by the debug dump (<c>reflect=TARGET</c>).</summary>
-    string DebugReflect(string target);
 }

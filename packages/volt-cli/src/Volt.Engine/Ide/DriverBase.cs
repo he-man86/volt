@@ -108,16 +108,6 @@ public abstract class DriverBase : IIdeSession
     public virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
         Array.Empty<Library.LibSignature>();
 
-    // Debug-only introspection; drivers without a signature model (TwinCAT) inherit this empty default.
-    public virtual IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
-        Array.Empty<IReadOnlyDictionary<string, string>>();
-
-    // Debug-only raw item XML; drivers without one (CODESYS) inherit the empty default.
-    public virtual string DebugItemXml(string name) => "";
-
-    // Debug-only reflection of the change-detection surface; overridden by CODESYS to inspect its object model.
-    public virtual string DebugReflect(string target) => "";
-
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). A probe failure never faults the /health request — but
     /// it is never swallowed either: see <see cref="OnProbeFailed"/>.</summary>

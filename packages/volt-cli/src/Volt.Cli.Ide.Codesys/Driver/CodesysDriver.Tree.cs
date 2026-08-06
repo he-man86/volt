@@ -8,19 +8,8 @@ namespace Volt.Cli.Ide.Codesys;
 /// <summary>CODESYS driver — the <see cref="IProjectTree"/> facet: walk the object-model tree and
 /// classify/CRUD nodes. <see cref="ItemRef"/> wraps a raw object-model node (or a synthetic
 /// <c>LibRefNode</c> for a library reference).</summary>
-public sealed partial class CodesysDriver : IDebugIntrospect
+public sealed partial class CodesysDriver
 {
-    /// <summary>Diagnostic (/debug): the IObject interface names a node implements — the exact basis
-    /// <c>CodesysTypeMap.CodeForObject</c> classifies on, so an Unknown node can be diagnosed from ground truth.</summary>
-    public IReadOnlyList<string> TypeTags(ItemRef item)
-    {
-        if (item.Native is LibRefNode) return new[] { "LibRefNode" };
-        var iobj = _om.ReadObject(item.Native);
-        var names = new List<string>(_om.ObjectInterfaceNames(iobj));
-        names.Sort(StringComparer.Ordinal);
-        return names;
-    }
-
     public IReadOnlyList<ProjectItem> WalkItems()
     {
         var items = new List<ProjectItem>();

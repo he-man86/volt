@@ -12,7 +12,7 @@ namespace Volt.Cli.Tests;
 
 /// <summary>
 /// Coverage harness over a REAL captured corpus: each <c>fixtures/corpus/*.xml</c> is raw PLCopenXML
-/// harvested from a live project (the bridge's read-only debug body-dump — see <c>DebugService</c>). For
+/// captured from a live project. For
 /// every &lt;FBD&gt;/&lt;LD&gt; body it asserts the invariant that must hold at any coverage level:
 ///
 ///     a body either round-trips with all its constructs preserved, or its push is REFUSED —
@@ -20,16 +20,20 @@ namespace Volt.Cli.Tests;
 ///
 /// "Round-trips" means structural equivalence (positions/localIds are non-goals): same VG fixed point
 /// and the same set of top-level constructs survive. The test prints which constructs are still
-/// refused — that IS the live to-do list toward 100%. Empty corpus → nothing to check (passes); it
-/// activates as real bodies are harvested. No authoring required: open a project, run the harvester.
+/// refused — that IS the live to-do list toward 100%. Empty corpus → nothing to check (passes).
+/// <para>NO HARVESTER SHIPS TODAY. The bridge's read-only debug body-dump (<c>DebugService.RawBodies</c>) was the
+/// one capture path and it was deleted with the rest of the unreachable debug surface — it had no wire op, so no
+/// client could invoke it. The corpus is therefore FROZEN at the fixtures committed under <c>fixtures/</c> plus
+/// whatever a developer harvested locally before. Extending it needs a new capture path (a real <c>Ops</c> const
+/// + <c>BridgePipeHost.Dispatch</c> case), not a revived half-wired service.</para>
 /// </summary>
 public class FbdCorpusRoundTripTests
 {
     private readonly ITestOutputHelper _out;
     public FbdCorpusRoundTripTests(ITestOutputHelper o) => _out = o;
 
-    // Two sources: a COMMITTED set of representative bodies (runs in CI), plus the LOCAL harvested
-    // corpus (gitignored — real captured projects, runs when you've harvested).
+    // Two sources: a COMMITTED set of representative bodies (runs in CI), plus a LOCAL corpus dir
+    // (gitignored — real captured projects, from before the capture path was deleted; see the class doc).
     private static readonly string[] CorpusDirs =
     {
         Path.Combine(AppContext.BaseDirectory, "fixtures", "roundtrip"),
@@ -40,7 +44,7 @@ public class FbdCorpusRoundTripTests
     public void Captured_bodies_round_trip_or_are_refused_never_silently_dropped()
     {
         var files = CorpusDirs.Where(Directory.Exists).SelectMany(d => Directory.GetFiles(d, "*.xml")).ToArray();
-        if (files.Length == 0) { _out.WriteLine("no fixtures — add to fixtures/roundtrip or harvest a project"); return; }
+        if (files.Length == 0) { _out.WriteLine("no fixtures — add one to fixtures/roundtrip (no harvester ships)"); return; }
 
         int bodies = 0, covered = 0, refused = 0;
         var refusedConstructs = new SortedSet<string>();

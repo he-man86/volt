@@ -109,12 +109,6 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
-    public override IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
-        _om.DebugLibrarySignatures(nameFilter);
-
-    // DEBUG (read-only): reflect the object model's change-detection surface (runs on the primary thread).
-    public override string DebugReflect(string target) => _om.ReflectMembers(target);
-
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
         _om.GetBuildDiagnostics().Select(d =>
         {

@@ -285,8 +285,4 @@ public sealed class FakeIde : IIdeDriver
         ExtractBlock?.Wait();
         return LibSignatures;
     }
-    public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
-        Array.Empty<IReadOnlyDictionary<string, string>>();
-    public string DebugItemXml(string name) => "";
-    public string DebugReflect(string target) => "";
 }
