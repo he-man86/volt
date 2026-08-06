@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 /// FIELD name that happens to equal a vocabulary word (e.g. the <c>degraded</c> bool, the <c>init</c> flag) is a
 /// different thing from the vocabulary VALUE. The per-vocabulary allowlist names the files where the same word is a
 /// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and VG
-/// sublanguages (<c>PlcOpenPouParser</c>/<c>PouToXml</c>/<c>VgParser</c> — "program"/"function"/"method"), and the
+/// sublanguages (<c>PlcOpenPouParser</c>/<c>VgParser</c> — "program"/"function"/"method"), and the
 /// TwinCAT menu-name match (<c>TcObjectModel</c> — Contains("TwinCAT")).
 /// </summary>
 public class WireVocabularyGuardTests
@@ -56,8 +56,8 @@ public class WireVocabularyGuardTests
                     "property_get", "property_set", "interface_method", "interface_property",
                     "interface_property_get", "interface_property_set", "project_info", "trace", "recipe",
                     "symbol_config" },
-            // The PLCopen-XML parser/writer and the VG sublanguage share these words as their OWN vocabularies.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenPouParser.cs", "PouToXml.cs", "VgParser.cs" }),
+            // The PLCopen-XML parser and the VG sublanguage share these words as their OWN vocabularies.
+            new HashSet<string> { "ItemKind.cs", "PlcOpenPouParser.cs", "VgParser.cs" }),
     };
 
     [Fact]

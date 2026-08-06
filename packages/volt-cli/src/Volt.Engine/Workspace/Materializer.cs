@@ -55,7 +55,7 @@ public static class Materializer
 
         var decl = ide.ReadDeclaration(item);
         var header = CodeHelper.ParseCodeHeader(decl);
-        return new PouData(header.Type, decl.TrimEnd(), null, null, new());
+        return new PouData(header.Type, decl.TrimEnd(), null, new());
     }
 
     private static PouData BuildPouFromXml(IIdeDriver ide, ItemRef item)
@@ -77,7 +77,6 @@ public static class Materializer
                 Name: c.Name,
                 Declaration: c.Declaration?.Trim()
                     ?? (c.PouType == ItemKind.Kinds.Action ? $"ACTION {c.Name}" : $"METHOD {c.Name}"),
-                BodyLanguage: c.BodyLanguage,
                 BodyText: impl,
                 Folder: folderMap.TryGetValue(c.Name, out var f) && f is { Length: > 0 } ? f : null,
                 GetterCode: null,
@@ -90,8 +89,7 @@ public static class Materializer
         children.AddRange(CollectPropertyChildren(ide, item));
 
         var body = VgBodyOf(parsed.BodyLanguage, parsed.BodyElement);
-        return new PouData(kind, declaration.Trim(),
-            parsed.BodyLanguage ?? "ST", body, children);
+        return new PouData(Kind: kind, Declaration: declaration.Trim(), BodyText: body, Children: children);
     }
 
     private static string? VgBodyOf(string? lang, XElement? bodyEl)
@@ -158,7 +156,7 @@ public static class Materializer
 
             var folder = string.IsNullOrEmpty(folderPath) ? null : folderPath;
             children.Add(new ChildData(ItemKind.Kinds.Property, childName,
-                ide.ReadDeclaration(child).Trim(), null, null,
+                ide.ReadDeclaration(child).Trim(), null,
                 folder, getterCode, setterCode, getterDecl, setterDecl));
         }
         return children;
