@@ -37,13 +37,15 @@ internal sealed class TcObjectModel
     // The DESIRED selection — the project name the user last explicitly picked (the connector's `select`). Recovery
     // (ReattachProject, after a project close / re-registration / RPC drop) re-establishes THIS, by its stable
     // NAME, instead of resolving the first-available. Without it, any hiccup silently flipped a two-XAE setup to the
-    // other project. Set only by an explicit project select; cleared by Disconnect.
+    // other project. Set only by an explicit project select; deliberately SURVIVES Disconnect.
     private string? _wantProject;
 
     // "Connected" = a project is BOUND: its DTE + TwinCAT project (system manager) are resolved. It deliberately
     // does NOT require the PLC node — that is CONTENT, resolved lazily on the first content op (see EnsurePlc), so a
-    // select/health never has to walk into the PLC application. Plain field reads — safe off the STA thread.
-    public bool IsConnected => _dte != null && _sysManager != null;
+    // select/health never has to walk into the PLC application. Plain field reads — safe off the STA thread. The
+    // `is not null` pattern is load-bearing on a `dynamic` field: `!= null` would compile to a runtime-binder
+    // BinaryOperation call site (a bound COM call), while a pattern match binds against the static type object.
+    public bool IsConnected => _dte is not null && _sysManager is not null;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
 
@@ -88,9 +90,9 @@ internal sealed class TcObjectModel
     {
         VoltLog.Info($"select: project='{project}'");
         // Persist the DESIRED selection so recovery re-establishes exactly this by name. Only an explicit project
-        // pick updates it — a soft/empty select must not erase it, and re-establishes the standing selection.
+        // pick updates it — a soft/empty select must not erase it, it re-establishes the standing selection instead.
         if (!string.IsNullOrEmpty(project)) _wantProject = project;
-        BindAndResolve(string.IsNullOrEmpty(project) ? _wantProject : project, "select");
+        BindAndResolve(_wantProject, "select");
     }
 
     /// <summary>Re-acquire OUR XAE window (by its stable pid) and resolve <paramref name="project"/> inside it — the
@@ -120,8 +122,12 @@ internal sealed class TcObjectModel
     }
 
     // Retarget the DTE, releasing the previous handle when it's a DIFFERENT object. Re-binding our pid after a
-    // re-registration yields a NEW DTE COM object for the same window; dropping the old one avoids both a leak
-    // and keeping a dead reference alive.
+    // re-registration yields a NEW DTE COM object for the same window; dropping the old one avoids both a leak and
+    // keeping a dead reference alive.
+    // NB (audit batch 8): releasing UNCONDITIONALLY may be the correct balance — RotInstances.BindByPid marshals a
+    // fresh reference out of the ROT, so the RCW cache returns the same wrapper with its ref count bumped, and
+    // skipping the release would leak one reference per select/reattach. That is a behaviour change and belongs in
+    // its own commit with its own reasoning; escalated to arch-notes.md rather than taken as a cleanup.
     private void SwapDte(dynamic newDte)
     {
         if (_dte != null && !ReferenceEquals(_dte, newDte))
@@ -191,7 +197,6 @@ internal sealed class TcObjectModel
 
     private void FindPlcProject()
     {
-        if (_plcProjectPath != null) { _plcNode = LookupTreeItemDynamic(_plcProjectPath); return; }
         try
         {
             dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
@@ -207,7 +212,9 @@ internal sealed class TcObjectModel
             }
         }
         catch { }
-        if (_plcNode == null && _plcProjectPath != null) _plcNode = LookupTreeItemDynamic(_plcProjectPath!);
+        // No re-lookup fallback on _plcProjectPath: it and _plcNode are only ever written in the SAME statement
+        // (the TIPC walk above) and only ever cleared together, and EnsurePlc calls this only when _plcNode is
+        // null — so "path known, node missing" cannot occur and any such branch was unreachable.
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
 
@@ -230,12 +237,17 @@ internal sealed class TcObjectModel
         DropProject();
         ReleaseDte();
         VoltLog.Info("disconnected from TwinCAT");
-        // NOTE: the DESIRED selection (_want*) is intentionally kept — a dropped IDE/DTE is transient, and the next
-        // recovery must re-establish the SAME project when TwinCAT returns. Only an explicit new select changes it.
+        // NOTE: the DESIRED selection (_wantProject) is intentionally kept — a dropped IDE/DTE is transient, and the
+        // next recovery must re-establish the SAME project when TwinCAT returns. Only an explicit new select changes it.
+        // ponytail: on TwinCAT this method is INTERFACE-OBLIGATION ONLY — it has no production caller. The wire
+        // `disconnect` op only sets BridgePipeHost._paused (it tears nothing down), and the single production caller
+        // of IIdeSession.Disconnect() is the CODESYS in-proc PipeHost. Kept because BeckhoffDriver must satisfy the
+        // abstract override; read the NOTE above as the contract it WOULD honour, not as a live invariant.
     }
 
     // Release the DTE handle and forget it. The moniker is ephemeral and the handle can go dead (0x800706BA), so
-    // recovery re-acquires a FRESH one by project name rather than resolving on a stale/dead reference.
+    // recovery re-acquires a FRESH one for OUR window by its stable pid, then resolves the project by name, rather
+    // than resolving on a stale/dead reference.
     private void ReleaseDte()
     {
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
@@ -252,16 +264,17 @@ internal sealed class TcObjectModel
     }
 
     /// <summary>Recovery: re-establish the DESIRED selection (the user's last explicit pick) after a project
-    /// close / re-registration / RPC drop. Re-acquires a FRESH DTE for the project by its STABLE name — the held
-    /// <see cref="_dte"/> may be dead (<c>0x800706BA</c>) and its moniker ephemeral, so it re-binds rather than
-    /// reusing. No-op when nothing was ever selected (stays in the soft/list state). Never throws; leaves the model
-    /// not-connected if the desired project is no longer open, so Core refuses cleanly.</summary>
+    /// close / re-registration / RPC drop. Re-acquires a FRESH DTE for OUR window by its STABLE pid and then resolves
+    /// the project by name — the held <see cref="_dte"/> may be dead (<c>0x800706BA</c>) and its moniker ephemeral, so
+    /// it re-binds rather than reusing. No-op when nothing was ever selected (stays in the soft/list state). Never
+    /// throws; leaves the model not-connected if the desired project is no longer open, so Core refuses cleanly.</summary>
     public void ReattachProject()
     {
         DropProject();
         if (string.IsNullOrEmpty(_wantProject)) return;   // nothing selected yet → nothing to recover to
-        // The current handle is why we're recovering — release it so BindAndResolve re-acquires a FRESH DTE for the
-        // desired project by name, rather than resolving on a dead/stale reference.
+        // The current handle is why we're recovering — release it so BindAndResolve re-acquires a FRESH DTE for OUR
+        // window by its stable pid and then resolves the desired project by name, rather than resolving on a
+        // dead/stale reference.
         ReleaseDte();
         BindAndResolve(_wantProject, "reattach");
     }
@@ -371,8 +384,7 @@ internal sealed class TcObjectModel
         dynamic node = item;
         for (var hops = 0; hops < 32; hops++)
         {
-            int t;
-            try { t = (int)node.ItemType; } catch { t = 0; }
+            int t = ItemType((object)node);   // shared read: an unreadable node yields ItemKind.Unknown, never 0 (SystemRoot)
             if (t is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb or ItemKind.PlcItf) return node;
             node = node.Parent;
             if (node == null) return null;
@@ -396,9 +408,10 @@ internal sealed class TcObjectModel
     }
 
     // ── build / diagnostics ─────────────────────────────────────────
-    /// <summary>Commit applied writes to TwinCAT's own store. <c>DTE.Documents.SaveAll()</c> saves open editor tabs,
-    /// but tree operations (create/delete/rename) change the project structure on disk, so the solution is persisted
-    /// too — otherwise a later rename collides with stale files from async tree deletions.
+    /// <summary>Commit applied writes to TwinCAT's own store, via the ONE shell command <c>File.SaveAll</c> — it
+    /// persists open documents, every dirty PROJECT (including the <c>.plcproj</c>) and the solution in a single
+    /// call. Tree operations (create/delete/rename) change the project structure on disk, so the projects must be
+    /// persisted too — otherwise a later rename collides with stale files from async tree deletions.
     /// <para>A failure here is NOT swallowed. Durability is this method's entire purpose: `push` calls it and then
     /// reports success, so a silently-failed save means Volt tells the engineer their work is committed while it
     /// exists only in the IDE's memory — and an IDE crash loses it. Fail loud instead, and let the push fail.</para></summary>

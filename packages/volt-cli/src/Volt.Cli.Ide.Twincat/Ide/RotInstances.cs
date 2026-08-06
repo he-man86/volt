@@ -91,7 +91,9 @@ internal static class RotInstances
     // Enumerate the ROT once. RETRY on an EMPTY result: GetRunningObjectTable/EnumRunning is racy and can transiently
     // return nothing while a TcXaeShell is genuinely running (mid-registration, or the ROT momentarily locked), which
     // otherwise surfaces as a spurious "no instance to bind" at select/probe time. A few short retries close that
-    // window; a genuinely-empty ROT (no IDE open) just costs a few ms once. Runs on the STA thread — keep it brief.
+    // window; a genuinely-empty ROT (no IDE open) costs three enumerations plus ~80 ms of sleep, paid on EVERY call
+    // — acceptable because the supervisor's probe runs in a short-lived child process on a slow cadence.
+    // Runs on the STA thread — keep it brief.
     private static List<object> RunningDtes()
     {
         for (int attempt = 0; attempt < 3; attempt++)
@@ -108,26 +110,37 @@ internal static class RotInstances
         var result = new List<object>();
         if (GetRunningObjectTable(0, out var rot) != 0) return result;
         if (CreateBindCtx(0, out var ctx) != 0) { Release(rot); return result; }
-        rot.EnumRunning(out var en);
-        en.Reset();
-        var arr = new IMoniker[1];
-        while (en.Next(1, arr, IntPtr.Zero) == 0)
+        // The three outer handles are released in a FINALLY: a throw from EnumRunning/Reset/Next would otherwise
+        // leak the ROT, bind-context and enumerator RCWs for the life of the process.
+        IEnumMoniker? en = null;
+        try
         {
-            var moniker = arr[0];
-            try
+            rot.EnumRunning(out en);
+            en.Reset();
+            var arr = new IMoniker[1];
+            while (en.Next(1, arr, IntPtr.Zero) == 0)
             {
-                string name;
-                try { moniker.GetDisplayName(ctx, null, out name); }
-                catch { continue; }
-                if (string.IsNullOrEmpty(name) || !IsDteMoniker(name)) continue;
-                object obj;
-                try { if (rot.GetObject(moniker, out obj) != 0 || obj == null) continue; }
-                catch { continue; }
-                result.Add(obj);
+                var moniker = arr[0];
+                try
+                {
+                    string name;
+                    try { moniker.GetDisplayName(ctx, null, out name); }
+                    catch { continue; }
+                    if (string.IsNullOrEmpty(name) || !IsDteMoniker(name)) continue;
+                    object obj;
+                    try { if (rot.GetObject(moniker, out obj) != 0 || obj == null) continue; }
+                    catch { continue; }
+                    result.Add(obj);
+                }
+                finally { Release(moniker); } // the moniker is spent once we've read its name + object
             }
-            finally { Release(moniker); } // the moniker is spent once we've read its name + object
         }
-        Release(en); Release(ctx); Release(rot);
+        finally
+        {
+            if (en != null) Release(en);
+            Release(ctx);
+            Release(rot);
+        }
         return result;
     }
 }

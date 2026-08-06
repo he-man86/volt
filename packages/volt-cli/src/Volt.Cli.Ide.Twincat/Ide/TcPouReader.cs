@@ -31,9 +31,9 @@ internal static class TcPouReader
     /// NWLImplementationObject (a quoted string in the XmlArchive), uppercased; defaults to FBD.</summary>
     private static string NwlViewMode(XElement nwl)
     {
-        var impl = (string?)nwl.Attribute("t") == "NWLImplementationObject"
-            ? nwl
-            : nwl.DescendantsAndSelf("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        // `nwl` is always the <NWL> root (the sole call site is the "NWL" switch arm); the marker lives on an
+        // inner <o t="NWLImplementationObject"> in the XmlArchive, never on the root.
+        var impl = nwl.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
         var v = impl?.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == "DefaultViewMode")?.Value
                 ?? "\"FBD\"";
         if (v.Length >= 2 && v[0] == '"' && v[v.Length - 1] == '"') v = v.Substring(1, v.Length - 2);

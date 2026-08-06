@@ -7,8 +7,8 @@ namespace Volt.Cli.Ide.Twincat;
 /// <summary>
 /// Marshals work onto the bridge's dedicated STA thread. The TwinCAT COM (DTE / system manager) objects
 /// are apartment-bound, so every read/write must run on the one STA thread that created the attachment —
-/// but the HTTP server runs on background ThreadPool threads. This is the Beckhoff analogue of the
-/// CODESYS bridge's <c>CodesysDispatcher</c> (which wraps the IDE's own <c>InvokeInPrimaryThread</c>);
+/// but <c>BridgePipeHost</c> serves each pipe connection on a background ThreadPool thread. This is the
+/// Beckhoff analogue of the CODESYS bridge's <c>CodesysDispatcher</c> (which wraps the IDE's own <c>InvokeInPrimaryThread</c>);
 /// here we own the thread ourselves and feed it through a blocking queue.
 ///
 /// <para><see cref="RunMessageLoop"/> is the loop that thread runs (started from <c>Program.cs</c>);
@@ -29,17 +29,17 @@ internal sealed class StaDispatcher
             {
                 try { action(); } catch { /* per-item failure already surfaced to its caller via the result */ }
             }
-            else { try { Thread.Sleep(10); } catch { } }
+            // No idle sleep: TryTake's 100 ms timeout IS the idle wait and the cancellation poll interval.
         }
     }
 
     /// <summary>Run <paramref name="fn"/> on the STA thread, block for its result, and re-throw any exception
     /// on the calling thread. No artificial time cap: a build (or a large refs walk) legitimately runs for
-    /// minutes, and the per-operation budget already lives on the caller side — the CLI's per-endpoint HTTP
-    /// timeouts and the streaming keep-alive. A waiter-timeout here could not unwedge a genuinely stuck STA
-    /// thread anyway (the queued action stays stuck; the next item never runs), so it would only mistranslate
-    /// "slow but healthy" into a failure. This matches the CODESYS bridge, which marshals via the IDE's own
-    /// InvokeInPrimaryThread with no artificial cap.</summary>
+    /// minutes, and a waiter-timeout here could not unwedge a genuinely stuck STA thread anyway (the queued
+    /// action stays stuck; the next item never runs), so it would only mistranslate "slow but healthy" into a
+    /// failure. There is deliberately no per-op budget on the pipe client either — <c>PipeClient.Call</c> caps
+    /// only Connect. This matches the CODESYS bridge, which marshals via the IDE's own InvokeInPrimaryThread
+    /// with no artificial cap.</summary>
     public T Run<T>(Func<T> fn)
     {
         using var evt = new ManualResetEventSlim(false);

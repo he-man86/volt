@@ -593,3 +593,143 @@ assembly, so the three suites execute zero lines of it. These were found by read
 
 **Fix.** Log the same two sinks as the Walk guard before returning false (`catch (Exception ex) { VoltLog.Warn($"device '{name}': child probe failed, treating as a leaf: {ex.Message}"); return false; }`), or better, hoist the single GetChildren call the walk already needs and derive both `hasChildren` and the recursion from it under the existing logged guard.
 
+
+---
+
+## BATCH 8 ESCALATIONS — `Volt.Cli.Ide.Twincat` (2026-08-06)
+
+51 findings. Same coverage hole as batch 7: **no test csproj references this project**, so only the live TS e2e
+against a running XAE touches any of it.
+
+### `TcPouReader.cs:37` — defensive-fallback (group 8.2)
+
+**Claim.** A body whose DefaultViewMode cannot be found, and any unrecognised view-mode value, are both silently reported as FBD -- the literal `?? "FBD"` defensive default ARCHITECTURE Conventions 1 names as banned. The consequence is not cosmetic: FBD is an EDITABLE VG language, so a body Volt failed to understand gets materialized as editable VG and is written back to the IDE as FBD on push.
+
+**Fix.** Split the two cases. Keep the FBD default ONLY for a present-but-absent-scalar NWL (that is a real TwinCAT default) and mark it with a `ponytail:` comment recording why. For the other two -- no NWLImplementationObject found at all, and a view-mode string that is neither FBD nor LD -- throw a coded BridgeException naming the item and the value read, so an unparsed archive fails loud rather than round-tripping as editable FBD.
+
+### `ComMessageFilter.cs:61` — bug (group 8.2)
+
+**Claim.** RetryRejectedCall retries SERVERCALL_RETRYLATER forever -- dwTickCount (elapsed ms, the parameter KB201600's pattern uses to give up) is ignored. So the class doc's claim that the HRESULT check 'is the backstop for when retrying ultimately gives up' is unreachable for the dominant reject type: retrying never gives up. Combined with StaDispatcher.Run's deliberate no-cap, one wedged XAE blocks the STA thread and therefore every pipe caller of that worker indefinitely, with no coded error and no degraded flag.
+
+**Fix.** Bound the retry: `=> dwRejectType == ServerCallRetryLater && dwTickCount < RetryBudgetMs ? RetryAfterMs : CancelCall;` with `RetryBudgetMs` set to the longest wait a caller should absorb before the HRESULT backstop is allowed to see the rejection. Then the doc's stated backstop is actually reachable.
+
+### `StaDispatcher.cs:54` — bug (group 8.2)
+
+**Claim.** There is no completion path: once RunMessageLoop returns on cancellation, _queue is never CompleteAdding'd, so any work already queued -- or added afterwards by a pipe connection still in flight -- blocks its caller on evt.Wait() forever. Latent today only because both cancel sites in Program.cs are immediately followed by process exit.
+
+**Fix.** On loop exit, drain to failure instead of abandoning: `_queue.CompleteAdding(); while (_queue.TryTake(out var a)) { try { a(); } catch { } }` after the while loop, and have Run<T> catch the InvalidOperationException from Add on a completed collection and throw a coded BridgeException (the bridge is shutting down) so a caller gets an error frame rather than a hang.
+
+### `StaDispatcher.cs:55` — bug (group 8.2)
+
+**Claim.** `throw error;` rethrows the captured exception object, which RESETS its StackTrace to this line. Every COM failure marshalled off the STA thread therefore loses the frames that identify which TcObjectModel call actually faulted -- on the one bridge that has no C# test coverage and whose only diagnostic is the log.
+
+**Fix.** `if (error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();` -- BCL only, no new dependency, and it preserves the original stack while still surfacing on the calling thread.
+
+### `TcPlcOpen.cs:32` — bug (group 8.2)
+
+**Claim.** When PlcOpenExport produces no file -- the exact failure the class doc says is unverified (a non-default COM interface reached by late-bound dispatch, and an unconfirmed selection grammar) -- the caller does not see 'export failed'. It sees a raw FileNotFoundException naming a random GUID temp path, mapped by BridgePipeHost to an opaque INTERNAL_ERROR that names neither the POU nor the selection string.
+
+**Fix.** Guard the post-condition before reading: `if (!File.Exists(tmp)) throw new BridgeException(BridgeErrorCodes.InternalError, $"TwinCAT PlcOpenExport produced no file for selection '{selection}'");` -- one coded error that names the selection, per Conventions 1 and 5.
+
+### `TcPouReader.cs:20` — defensive-fallback (group 8.2)
+
+**Claim.** A malformed or truncated graphical archive is indistinguishable here from a textual ST body: both return null, which BodyLanguage reports as 'textual', so the raw NWL/CFC XML would be materialized into the workspace as the item's ST source text. The silent catch is load-bearing for real ST bodies, but it currently also absorbs the corruption case.
+
+**Fix.** Only swallow the parse failure when the text is not claiming to be XML: `var t = bodyXml.TrimStart(); if (t.Length == 0 || t[0] != '<') return null;` before the Parse, and let a body that DOES start with '<' but fails to parse raise a coded BridgeException naming the item rather than being written out as ST.
+
+### `TcObjectModel.cs:336` — defensive-fallback (group 8.1)
+
+**Claim.** ReadImplementation swallows a failed COM read into "", which BodyLanguage turns into "textual ST" — so a transient read failure disarms the push body-format guard and a textual push overwrites a live CFC/SFC/FBD body with a comment marker. This is the exact data-loss PushService's own comments say the guard exists to prevent.
+
+**Fix.** Delete the catch and let the COM failure propagate (RunOp/RunRead already map it), or return null and make BodyLanguage refuse on an unread body. A body Volt could not read must never be classified as textual — "unknown" has to fail closed, not open.
+
+### `TcObjectModel.cs:109` — bug (group 8.1)
+
+**Claim.** BindAndResolve's not-bound check tests the FIELD `_dte`, not the freshly obtained `dte`. When BindByPid returns null while an older handle is still held, the requested project is never resolved, yet the method falls through, finds the PREVIOUS project's `_sysManager` still set, and logs "bound '<old project>'" — leaving IsConnected true against the wrong project. That is verbatim the regression FindTwinCatProject records in its own DO-NOT comment; only Core's served-name post-condition still saves the wire outcome.
+
+**Fix.** Test the local: `if (dte == null) { VoltLog.Warn(...); DropProject(); return; }` before touching anything else — a bind miss must leave the model NOT connected, exactly as FindTwinCatProject's reset-first comment requires.
+
+### `TcObjectModel.cs:448` — defensive-fallback (group 8.1)
+
+**Claim.** A failed `LastBuildInfo` read defaults to 0, i.e. "zero failed projects", so Build() reports SUCCESS when it could not read the build result at all. The one defensive default in the method points at the answer that hides the failure.
+
+**Fix.** Let the read throw (BuildService already catches and returns success:false plus a diagnostic naming the reason), or default to a non-zero sentinel so an unreadable result is a failed build.
+
+### `TcObjectModel.cs:451` — bug (group 8.1)
+
+**Claim.** The outer bare `catch { return false; }` turns any COM failure into `success:false` with NO log line and NO diagnostic, while the CODESYS driver throws (`"CODESYS: no Application to build"`) and BuildService converts that into success:false PLUS an error diagnostic carrying the reason. Same wire op, vendor-observably different payload — and a silently swallowed background failure.
+
+**Fix.** Drop the catch (and the `_dte == null` early return — replace it with the coded PLC_DISCONNECTED FlushPendingWrites already raises) so BuildService's catch produces the same success:false + diagnostic on both vendors.
+
+### `TcObjectModel.cs:282` — bug (group 8.1)
+
+**Claim.** ProjectDirty reads `Solution.Saved` — the .sln file's own dirty bit — and publishes it as the health row's per-project `dirty`. It does not see dirty documents or a dirty .plcproj, which is precisely the distinction this same file draws two hundred lines later; CODESYS reports the PROJECT's dirty flag, so the wire field means different things per vendor.
+
+**Fix.** OR the solution bit with the bound project's own Saved flag and any dirty Document under it (needs a live check of which EnvDTE surface answers for a .plcproj), so `dirty` means "the IDE holds unsaved changes" on both vendors.
+
+### `TcObjectModel.cs:75` — bug (group 8.1)
+
+**Claim.** EnsureAttached returns early whenever a project was ever selected, so after a DTE re-registration the health project list goes EMPTY and stays empty — the connector's list is the only way a user re-selects, so the UI has nothing to click and only a content op (which the UI cannot start without a row) can recover. The doc's own justification covers only the project BINDING, not the LIST that the same poll publishes.
+
+**Fix.** Drop the `if (HasSelection) return;` guard — the bare re-bind is already resolution-free (it never touches `_sysManager` or the PLC tree), so it is safe with a selection held and it is what keeps the row list alive for the way back.
+
+### `TcObjectModel.cs:204` — bug (group 8.1)
+
+**Claim.** `_plcProjectPath` is assigned the PLC node's bare NAME, but every consumer feeds it to `LookupTreeItem`, whose argument is a '^'-separated tree path (this file's own other calls are the roots "TIPC"/"TIID"). Both re-lookups and PlcRoot's fallback therefore cannot resolve; the field name documents an intent the value does not satisfy.
+
+**Fix.** Store `(string)plc.PathName` (the real tree path), or read the name and prefix it: `"TIPC^" + plc.Name`. Needs one live check of which member TwinCAT exposes on the TIPC child before committing.
+
+### `TcObjectModel.cs:209` — bug (group 8.1)
+
+**Claim.** The PLC-project resolution swallows the real COM error in two bare catches and then throws a raw InvalidOperationException, so the cause is gone and the wire sees the catch-all INTERNAL_ERROR instead of a coded error — the same for EnsurePlc's "no TwinCAT project bound", which is a textbook PLC_DISCONNECTED. ARCHITECTURE Conventions 5: only BridgeException/BridgeErrorCodes cross the wire.
+
+**Fix.** Capture the swallowed exception and rethrow as `new BridgeException(BridgeErrorCodes.PlcDisconnected, "...", ex)`; make EnsurePlc's guard PLC_DISCONNECTED too. FlushPendingWrites in this same file already models it.
+
+### `TcObjectModel.cs:467` — bug (group 8.1)
+
+**Claim.** Build diagnostics are harvested only from output panes whose NAME contains "Build" or "TwinCAT". Pane names are localized by the VS/TcXaeShell UI language, so on a non-English XAE (e.g. "Erstellen") the loop matches nothing and `build` returns success:false with an empty diagnostics list. The surrounding bare catch means that failure is also silent.
+
+**Fix.** Select the pane by its stable GUID (vsBuildOutput) instead of its display name, and log at Debug when no pane matched or the walk faulted, so an empty diagnostic list is diagnosable.
+
+### `TcObjectModel.cs:300` — defensive-fallback (group 8.1)
+
+**Claim.** GetName coalesces a null name to "" on the field that IS the protocol identity. The tree walk guards against a THROWN name read (it catches and skips) but not against an empty one, so a null name is emitted as an item named "" rather than skipped.
+
+**Fix.** Drop the `?? ""` and let the null surface (or throw a coded error naming the node) so the walk's existing skip-and-log path handles it — an item with no name must never reach the wire.
+
+### `BeckhoffDriver.Tree.cs:85` — bug (group 8.3)
+
+**Claim.** The whole I/O-device walk is dead weight: it emits each device with TwinCAT's RAW native ItemType instead of promoting it to ItemKind.PlcDevice, and no raw TIID item-type is in ItemKind's 601-699 PLC range — so ItemKind.Map() returns null and Core drops every one of them as "unmapped-kind". TwinCAT therefore materializes NO `.device` descriptors while CODESYS does, and each distinct device type additionally trips the once-per-code "unmapped TREEITEMTYPE" warning on every real project.
+
+**Fix.** Emit ItemKind.PlcDevice, exactly as the CODESYS walk does: `new ProjectItem(name, new ItemRef(device), ItemKind.PlcDevice, FolderPath.Encode("I/O Devices"))`. Note that alone is not parity: BeckhoffDriver.ReadManifest has no `Kinds.Device` arm, so the descriptor would come out as the generic `Name=…` line rather than CODESYS's DeviceDescriptor bytes — either add the arm or record the gap. If neither is wanted, delete WalkIoDevices outright rather than keep a walk whose output Core always discards.
+
+### `BeckhoffDriver.Tree.cs:63` — defensive-fallback (group 8.3)
+
+**Claim.** Three silent catches in the tree facet swallow COM failures and substitute a fabricated answer, in direct contradiction of the file's own logging policy comment and of the ARCHITECTURE invariant "Skipped/errored items are logged, never silently dropped". ChildCount→0 is the worst: it silently flips the hybrid-folder decision (a wire-visible folder/version change) on the walk, and in Materializer it makes a POU's properties and property accessors vanish from the materialized ST with no trace. Name→"" fabricates an identity in a protocol where the NAME *is* the identity.
+
+**Fix.** Give all three the same treatment WalkInner already gives its other faults — log the failure with the node's folder/name and the reason. For `Name`, do not invent "": let it throw (name is identity; a nameless item must not reach the wire). Also raise the walk's skip logging from Debug to Warn to match CODESYS's identical event (CodesysDriver.Tree.cs:36 logs to VoltLog.Warn + stderr): Debug is suppressed by default (VoltLog.Level = Info unless VOLT_LOG_DEBUG=1), and TwinCAT is the vendor where cross-process COM faults actually happen.
+
+### `BeckhoffDriver.cs:80` — bug (group 8.3)
+
+**Claim.** The doc-comment contract "NEVER THROWS, and the rows + the throttle clock are published UNCONDITIONALLY" is asserted but not enforced: `_om.EnsureAttached()` runs bare, outside any try, and reaches RotInstances' raw ROT interop (EnumRunning/Next/GetObject on IRunningObjectTable), which can throw COMException. If it does, PublishRows is skipped — so the throttle clock is NOT stamped (defeating stated reason (b): a struggling XAE then gets a fresh STA round-trip on every poll) — and because Connect/SelectProject call this on the request path, it escapes BridgePipeHost.RunOp as an opaque INTERNAL_ERROR instead of the clean PLC_DISCONNECTED, which is the exact regression stated reason (a) says this design prevents.
+
+**Fix.** Wrap the EnsureAttached call so the promise is enforced rather than documented (Conventions #2): `try { _om.EnsureAttached(); } catch (Exception ex) { VoltLog.Warn($"health: re-attach to xae pid failed: {ex.Message}"); }` — the method then genuinely always reaches PublishRows and always returns a verdict, and TriggerAsyncProbe's ProbeIdeAlive=false path raises the coded PLC_DISCONNECTED it is already written to raise.
+
+### `BeckhoffDriver.Code.cs:83` — bug (group 8.3)
+
+**Claim.** `root.Descendants("Dependency")` is an unbounded recursive search, so it collects TRANSITIVE dependencies as well as direct ones — contradicting both the comment on the line and the parenthetical two lines above, which shows the author knew this XML nests dependency records. The DEPENDENCIES line is manifest bytes, so it is both wire-visible and the library's version basis.
+
+**Fix.** Scope the query to the reference's own dependency container instead of the whole document — e.g. `root.Elements("Dependencies").Elements("Dependency")` (or `.Descendants("Dependencies").FirstOrDefault()?.Elements("Dependency") ?? Enumerable.Empty<XElement>()`), mirroring the "first one is ours" reasoning already applied to EffectiveResolution. Same latent issue on `Descendants("Namespace")`/`Descendants(tag)` above: a missing field on the reference silently borrows a nested dependency's value.
+
+### `BeckhoffDriver.Code.cs:55` — defensive-fallback (group 8.3)
+
+**Claim.** ReadManifest and LibraryManifestFromXml fabricate manifest bytes out of missing data instead of failing loud (Conventions #1). `?? "?"` makes every item whose metadata has no readable name materialize as `Name=?` — so they all hash identically and an edit to any of them cannot show up in `volt status`, which is precisely the gap CODESYS's ReadManifest now NAMES in the log. The library path is worse: `?? ""` / `?? name` chains emit a LIBRARY/NAMESPACE/RESOLUTION line built from absent fields, and the RESOLUTION fallback bypasses LibraryManifest.Resolution, producing a differently-SHAPED line than the `name, version (distributor)` form FetchService re-parses.
+
+**Fix.** Drop the invented values and name the gap: when ItemName/LibItemName are both absent, return ItemKind.EmptyManifest(kind) after a VoltLog.Warn naming the kind (the same shape CODESYS uses), rather than `Name=?`. In LibraryManifestFromXml, log-and-fail the reference when ItemName or a resolution source is missing instead of emitting `LIBRARY \n` / a bare-name RESOLUTION; if the DefaultResolution fallback must stay, route it through LibraryManifest.Resolution so the line shape can't diverge.
+
+### `Program.cs:58` — bug (group 8.3)
+
+**Claim.** A malformed --xae-pid is indistinguishable from a missing one, and a repeated flag silently takes the LAST value. `--xae-pid abc` leaves xaePid at 0 and prints "requires --xae-pid <pid>", which sends a supervisor operator hunting for an argument that WAS passed; `--xae-pid -5` parses happily and the worker then tries to bind a negative pid and serves the pipe name `volt.bridge.twincat.-5`.
+
+**Fix.** Split the two failures and reject a non-positive pid: find the flag first, then parse it, erroring with the offending value when the parse fails or `p <= 0`. Fail loud on the value you were actually given (Conventions #1) instead of collapsing it into the missing-argument message.
+

@@ -36,6 +36,9 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).
     /// TwinCAT has NO parameterless Connect() — a worker attaches to a specific XAE by pid, never "the IDE".</summary>
     public void Connect(int xaePid) { _om.ConnectToPid(xaePid); SnapshotHealth(); }
+    // ponytail: never called on TwinCAT — the worker dies with its process, and the wire `disconnect` op only sets
+    // BridgePipeHost._paused. The ONE production caller of IIdeSession.Disconnect() is Codesys/PipeHost.Stop().
+    // Kept to satisfy the DriverBase/IIdeSession contract (the full record is on TcObjectModel.Disconnect).
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
     // ── STA thread ──────────────────────────────────────────────────
@@ -49,10 +52,11 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // machinery; what is vendor-shaped here is the cadence and the LIVENESS VERDICT (see TriggerAsyncProbe below —
     // only this vendor has a cross-process channel that can drop silently). The cadence: throttle the (heavier) STA
     // refresh to ~5s, so a burst of polls answers from cache and only one probe runs.
-    // This stays an OVERRIDE after unify-probe-throttle: Core's floor (DriverBase's 1s default, which
-    // CODESYS takes) bounds a few in-proc reflection reads, while this snapshot is EnsureAttached + ProbeIdeAlive +
-    // OwnSolution across the COM apartment boundary. Tightening it to Core's floor would speed up exactly the
-    // cross-process round-trip the throttle was written to keep off a working engineer's XAE.
+    // This stays an OVERRIDE after unify-probe-throttle: Core's DEFAULT cadence (DriverBase's 1s, which
+    // CODESYS takes — a plain virtual default an override REPLACES, not a floor anything clamps to) bounds a few
+    // in-proc reflection reads, while this snapshot is EnsureAttached + ProbeIdeAlive + OwnSolution across the COM
+    // apartment boundary. Loosening it back to Core's default would speed up exactly the cross-process round-trip
+    // the throttle was written to keep off a working engineer's XAE.
     protected override long ProbeThrottleMs => 5000;
 
     /// <summary>Refresh the cached health snapshot from the live DTE and RETURN whether the XAE answered. MUST run on
@@ -114,16 +118,16 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
             return 0;
         }));
 
-    // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs; those (and only those)
-    // flip the driver to degraded so it can recover instead of hard-failing.
+    // A dead/disconnected TwinCAT COM channel surfaces as RPC HRESULTs: the WHOLE RPC_E_ family (0x800101xx —
+    // 256 codes, which already covers RPC_E_DISCONNECTED 0x80010108 and RPC_E_SERVERCALL_RETRYLATER 0x8001010A),
+    // plus the three 0x800706Bx RPC failures and RPC_E_CALL_REJECTED. Those flip the driver to degraded so it can
+    // recover instead of hard-failing.
     private const uint HResultRpcServerUnavailable = 0x800706BAu;
     private const uint HResultRpcCallFailed = 0x800706BEu;
     private const uint HResultRpcCallFailedDidNotExecute = 0x800706BFu;
     private const uint HResultRpceFamilyMask = 0xFFFFFF00u;
     private const uint HResultRpceFamily = 0x80010100u;
     private const uint HResultCallRejected = 0x80010001u;
-    private const uint HResultDisconnected = 0x80010108u;
-    private const uint HResultServerCallRetryLater = 0x8001010Au;
 
     public override bool ShouldMarkDegraded(Exception ex)
     {
@@ -134,7 +138,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
             if (hr == HResultRpcServerUnavailable) return true;
             if (hr == HResultRpcCallFailed || hr == HResultRpcCallFailedDidNotExecute) return true;
             if ((hr & HResultRpceFamilyMask) == HResultRpceFamily) return true;
-            if (hr == HResultCallRejected || hr == HResultDisconnected || hr == HResultServerCallRetryLater) return true;
+            if (hr == HResultCallRejected) return true;
         }
         return false;
     }
@@ -152,15 +156,15 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         bool? servedDirty = connected ? _om.ProjectDirty() : null;
 
         var own = _om.OwnSolution();
-        var rows = own.Projects.Select(p => (IdeVersion: own.Version, Project: p)).ToList();
+        // IndexOf, not a per-row name test: the FIRST match serves, so two identically-named projects in the one
+        // window still yield EXACTLY ONE serving row (the invariant above).
+        int servingIdx = connected && !string.IsNullOrEmpty(served) ? own.Projects.IndexOf(served!) : -1;
 
-        int servingIdx = connected && !string.IsNullOrEmpty(served) ? rows.FindIndex(r => r.Project == served) : -1;
-
-        var list = new List<ProjectEntry>(rows.Count);
-        for (int i = 0; i < rows.Count; i++)
+        var list = new List<ProjectEntry>(own.Projects.Count);
+        for (int i = 0; i < own.Projects.Count; i++)
         {
             bool serving = i == servingIdx;
-            list.Add(new ProjectEntry(Vendors.Twincat, rows[i].IdeVersion, rows[i].Project,
+            list.Add(new ProjectEntry(Vendors.Twincat, own.Version, own.Projects[i],
                 RowStatus(serving), serving && (servedDirty ?? false)));
         }
         return list;
@@ -185,6 +189,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
-    // TwinCAT has no resolved-library-signature surface yet — it inherits DriverBase's empty defaults
-    // (empty fingerprint + empty extraction), so the cache is a harmless no-op here (parity boundary is the wire).
+    // TwinCAT has no resolved-library-signature surface yet — it inherits DriverBase's empty
+    // ExtractLibrarySignatures, so `verbose` fetch returns no signatures here (a documented parity gap; the
+    // parity boundary is the wire). There is no fingerprint and no signature cache: FetchService reuses the
+    // `.library` files' own per-file version hashes as the change signal.
 }

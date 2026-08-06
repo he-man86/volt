@@ -93,9 +93,10 @@ catch (Exception ex)
 VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid})");
 
 // Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.
+// CancelKeyPress is the ONE reachable shutdown path: ProcessExit fires only once the runtime is ALREADY shutting
+// down, so it can never be what unblocks this Wait, and the connector's TerminateProcess raises no managed event.
 var done = new ManualResetEventSlim(false);
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; done.Set(); };
-AppDomain.CurrentDomain.ProcessExit += (_, _) => done.Set();
 done.Wait();
 cts.Cancel();
 return 0;

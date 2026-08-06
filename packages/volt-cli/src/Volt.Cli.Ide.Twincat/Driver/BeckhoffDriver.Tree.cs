@@ -124,9 +124,11 @@ public sealed partial class BeckhoffDriver
 
     // Enumerating an interface property's accessor COM children can hard-crash TwinCAT — read presence from the
     // enclosing interface's PLCopen export instead, which lists <GetAccessor>/<SetAccessor> under the property.
+    // Pass the PROPERTY: ExportPouXml's own EnclosingPou walk reaches the same enclosing interface, so an explicit
+    // Parent() hop only buys a second marshalled COM read per property on the fetch hot path.
     public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property) =>
         Volt.Engine.Graphical.PlcOpenDocument.InterfacePropertyAccessors(
-            _om.ExportPouXml(_om.Parent(property.Native)), _om.GetName(property.Native));
+            _om.ExportPouXml(property.Native), _om.GetName(property.Native));
 
     // TwinCAT reports EVERY DUT as one tree type (623 = ItemKind.PlcDut) — a DUT is a single wire kind (`dut`),
     // so we emit the raw code as-is. The struct/enum/union/alias distinction is NOT computed on a read (its only
@@ -136,12 +138,18 @@ public sealed partial class BeckhoffDriver
 
     private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();
 
-    /// <summary>Log an unmapped TwinCAT PLC tree-item code once, so a kind we may be missing is visible.</summary>
+    /// <summary>Log an unmapped TwinCAT PLC tree-item code once, so a kind we may be missing is visible. The node is
+    /// NOT skipped here — the walk emits it and Core drops it later as unmapped-kind; say so, because "(skipped)"
+    /// sent a reader looking for a skip that never happens. To BOTH sinks, as the CODESYS walk does: VoltLog is the
+    /// only one an engineer can read after a pull, stderr is what the headless dev loop and the connector's worker
+    /// redirect capture.</summary>
     private static void WarnUnmappedTcCode(int code, string name)
     {
         bool isNew;
         lock (_loggedTcCodes) isNew = _loggedTcCodes.Add(code);
-        if (isNew)
-            Console.Error.WriteLine($"[bridge] unmapped TwinCAT TREEITEMTYPE {code} (skipped): example item='{name}' — add it to ItemKind if it should be tracked");
+        if (!isNew) return;
+        var msg = $"unmapped TwinCAT TREEITEMTYPE {code} (emitted, then dropped by Core as unmapped-kind): example item='{name}' — add it to ItemKind if it should be tracked";
+        Console.Error.WriteLine($"[bridge] {msg}");
+        VoltLog.Warn(msg);
     }
 }
