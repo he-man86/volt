@@ -94,6 +94,8 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 
 | # | move | files touched | LOC before → after | verifier | gate | commit |
 |---|---|---|---|---|---|---|
+| 1 | `connector-test-orphans` (shape) | 2 | 803 → 800 | *(applied directly — 3 lines)* | build 0 err · 324/116/76 | `1299a6e1f1` |
+| 2 | `delete-debug-surface` (shape) | 11 | 2,655 → 2,353 | **accept**, 0 must-revert | build 0 err · 324/116/76 | `fb4c660fda` |
 
 ## Test files moved mechanically
 
