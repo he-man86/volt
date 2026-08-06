@@ -6,7 +6,7 @@
  * scenario) and no-op otherwise, so the SAME file runs on either bridge.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE, VENDOR } from "../harness"
+import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 type Bound = { project?: string | null }
@@ -110,10 +110,11 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 	})
 
 	it("selecting a project that isn't open refuses cleanly, and a valid select right after still works", async () => {
-		// TwinCAT resolves the select by stable project NAME across every running instance, so a name that matches
-		// nothing binds nothing -> the model is not-connected -> Core refuses PLC_DISCONNECTED. CODESYS serves ONE
-		// project per pipe (the name is only confirmatory), so a bogus name still serves its project — skip there.
-		if (VENDOR !== "twincat") return
+		// BOTH bridges, no vendor branch. TwinCAT resolves the select by stable project NAME across every running
+		// instance, so a name that matches nothing binds nothing -> the model is not-connected. CODESYS serves ONE
+		// project per pipe and its select is a no-op refresh, so it stays connected — but Core's post-condition now
+		// compares the SERVED project to the asked-for one, so a bogus name is refused with the same
+		// PLC_DISCONNECTED there too. That parity is the point: this case used to skip CODESYS by hand.
 		const code = await opErrorCode(() => bridge.connect({ project: "VltE2E__no_such_project__" }))
 		expect(code).toBe(DISCONNECTED)
 		await resume()

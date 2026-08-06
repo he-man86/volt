@@ -86,9 +86,24 @@ public sealed class BridgePipeHost : IDisposable
                     // If the driver couldn't attach it — TwinCAT: the project isn't in the bound XAE window; CODESYS:
                     // the pipe's project no longer matches — the bridge is not connected, so we refuse LOUD with the
                     // shared PLC_DISCONNECTED code instead of "succeeding" into a state where the next fetch silently
-                    // returns nothing (the multi-window bug). IsConnected is a plain state read — no COM, safe on this
-                    // STA thread. The drivers no longer each decide this; they just attach, Core verifies.
-                    if (!_ide.IsConnected)
+                    // returns nothing (the multi-window bug). The drivers no longer each decide this; they just
+                    // attach, Core verifies.
+                    // SERVED-NAME half: reading IsConnected alone was not the post-condition this comment claims —
+                    // CODESYS's select is a no-op refresh of its ONE primary project, so `connect {project:"Typo"}`
+                    // answered ok there while TwinCAT refused: a per-vendor difference a pipe client can OBSERVE.
+                    // Ordinal, matching OpGuard.RequireBoundProject, so connect and the first project op cannot
+                    // disagree about the same pair of strings. An EMPTY/absent `sel.Project` stays allowed, and that
+                    // carve-out is load-bearing, not an optimization: it is the soft "serve whatever you have"
+                    // select the e2e harness, the VOLT_PIPE paths and the way back from `disconnect` all send.
+                    // Both reads are plain driver state — no COM round-trip — and this whole body already runs on the
+                    // marshalled IDE thread, which is where CODESYS's live ServedProjectName must be read.
+                    // NB `_paused` is NOT rolled back when this throws: a refused connect deliberately leaves the
+                    // bridge RESUMED. The un-pause above happens before the IDE work on purpose (a `disconnect`
+                    // racing a connect must win), and re-writing it here would re-open exactly that race. Pinned by
+                    // PipeTransportTests.A_refused_connect_still_resumes_the_bridge_the_pause_gate_is_not_restored.
+                    if (!_ide.IsConnected ||
+                        (!string.IsNullOrEmpty(sel.Project) &&
+                         !string.Equals(_ide.ServedProjectName, sel.Project, StringComparison.Ordinal)))
                         throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
                             string.IsNullOrEmpty(sel.Project)
                                 ? "the bridge could not attach an IDE project"

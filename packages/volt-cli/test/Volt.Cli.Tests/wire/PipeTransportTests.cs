@@ -218,8 +218,56 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
         host.Start();
 
-        var r = new PipeClient(pipe).Call("connect", new { project = "P" });
+        // The asked-for name is the PROJECT the fake serves (`HealthProjectName`, default "FakeProject") — this
+        // used to pass "P", which is the POU ITEM's name, and only passed because nothing compared the two.
+        var r = new PipeClient(pipe).Call("connect", new { project = "FakeProject" });
         Assert.True(r.GetProperty("ok").GetBoolean());
+    }
+
+    /// <summary>The other half of that same post-condition, and the parity point: a connect for a project the bridge
+    /// is NOT serving must be refused, on BOTH vendors. Reading `IsConnected` alone let CODESYS answer ok for a name
+    /// it does not serve (its select is a no-op refresh of its one primary project) while TwinCAT refused — a
+    /// per-vendor difference a pipe client can observe, and the reason the live suite vendor-branched around it. The
+    /// connector then marked a green row for a project the first push refuses WRONG_PROJECT against.</summary>
+    [Fact]
+    public void Connect_to_a_project_the_bridge_does_not_serve_is_refused()
+    {
+        var pipe = Pipe();
+        // The select ATTACHES fine (SelectConnects stays true) — the bridge is connected and serving "Demo". The
+        // only thing wrong is that the caller asked for something else, which is exactly the gap: nothing about
+        // `IsConnected` can see it.
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthProjectName = "Demo" };
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        var ex = Assert.Throws<PipeCallException>(() =>
+            new PipeClient(pipe).Call("connect", new { project = "SomeOtherProject" }));
+        Assert.Equal("PLC_DISCONNECTED", ex.Code);
+    }
+
+    /// <summary>What `_paused` is after a REFUSED connect, stated as a test rather than left to be discovered: the
+    /// bridge stays RESUMED. `connect` un-pauses BEFORE the IDE work on purpose (a `disconnect` that lands mid-select
+    /// must win), so a refusal does not restore the gate — the caller sees PLC_DISCONNECTED, and the bridge is
+    /// serving again. The way back is another `connect`, which is unaffected: the empty/absent-project select still
+    /// resumes (Disconnect_refuses_sync_until_the_next_connect_but_leaves_the_host_serving_health covers that).</summary>
+    [Fact]
+    public void A_refused_connect_still_resumes_the_bridge_the_pause_gate_is_not_restored()
+    {
+        var pipe = Pipe();
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthProjectName = "Demo" };
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        new PipeClient(pipe).Call("disconnect");
+        Assert.Equal("PLC_DISCONNECTED",
+            Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("refs")).Code);
+
+        Assert.Equal("PLC_DISCONNECTED",
+            Assert.Throws<PipeCallException>(() =>
+                new PipeClient(pipe).Call("connect", new { project = "SomeOtherProject" })).Code);
+
+        new PipeClient(pipe).Call("refs");   // un-paused by the refused connect — the gate was not restored
+        Assert.True(AnyServing(pipe));
     }
 
     /// <summary>Every project-touching op on a bridge with nothing bound is refused with the SHARED PLC_DISCONNECTED,
