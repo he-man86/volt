@@ -105,6 +105,10 @@ Confirm 2 XAEs / 2 workers / 2 pipes before trusting a TwinCAT number, and re-ru
 | 8 | `bridge-drops-go-to-voltlog` (**fix → reclassified shape-adjacent ADD**) | 2 | +12/−2 | **accept**, 0 must-revert | build 0 err · 324/117/75 | `787a84cc40` |
 | 9 | `one-log-path` (**fix → reclassified shape**) | 11 | 2,065 → 2,032 | **accept**, 0 must-revert | build 0 err · 324/117/75 | `8b904728a8` |
 | 9b | `prune-only-your-own-logs` (**fix**, unplanned — forced by 9) | 2 | +12/−2 | *(main loop; red-first verified)* | build 0 err · **325**/117/75 | `7fe9c1ccc9` |
+| 10 | `wire-row-down-to-transport` (shape, **relocation**) | 18 | 2,127 → 2,156 | **accept-with-reverts**, 1 must-revert *(applied)* | build 0 err · 325/117/75 | `464a8b7ebc` |
+| 11 | `one-health-row` (shape) | 5 | 460 → 390 | **accept**, 0 must-revert | build 0 err · 325/117/**72** | `a91588e956` |
+| 12 | `fake-ide-derives-driverbase` (shape) | 1 | 288 → 321 | **accept**, 0 must-revert | build 0 err · 325/117/72 | `c9de6471fa` |
+| 13 | `health-compose-in-core` (shape) | 6 | 968 → 1,022 | **accept**, 0 must-revert | build 0 err · 325/117/72 · **LIVE: CODESYS 92/8/0 + TwinCAT 88/11/2, one session** | `7467ddb0d7` |
 
 ## Test files moved mechanically
 
@@ -132,6 +136,13 @@ the move's src files and running the new test alone — not taken from the surge
 | 7 | `unsilence-the-accept-loop` | `PipeTransportTests.A_bridge_whose_pipe_cannot_be_bound_fails_Start_instead_of_reporting_ready` | `Assert.ThrowsAny() Failure: No exception was thrown` — i.e. `Start()` returned normally while the pipe never bound |
 | 9b | `prune-only-your-own-logs` | `VoltLogTests.Retention_prunes_only_this_sources_own_files` | `retention deleted a file this source does not own` — `Prune()` globbed `*.log` and swept Setup's `install-*.log`, which `LogWindow` bundles for support and `scripts/test-install.ts` reads |
 | 8 | `bridge-drops-go-to-voltlog` | **none, and none owed** | the amendments turned a substitution into a pure ADD; an ADD corrects nothing, so there is no old behaviour to be red against. Reclassified out of `fix` rather than granted an exemption. (A test could not reach these sites regardless: `Volt.Cli.Ide.Codesys` is net48, every test csproj is net8.0.) |
+
+## e2e checkpoints during execution
+
+| when | CODESYS | TwinCAT | why here |
+|---|---|---|---|
+| baseline (task 0) | 92 / 8 / 0 | 88 / 11 / 2 | a red baseline invalidates every verdict after it |
+| **after move 13** | **92 / 8 / 0** | **88 / 11 / 2** | move 13 rewrote BOTH drivers' health path, and **no C# test project references an Ide project** — the 514 green unit tests execute zero lines of it. The live run IS the gate, not a supplement |
 
 ## Bugs found and fixed while executing (not on the phase-3 list)
 
