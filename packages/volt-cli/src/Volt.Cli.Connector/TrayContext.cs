@@ -428,9 +428,22 @@ namespace Volt.Cli.Connector
         /// (VoltConnector) or the workers; the installer relaunches the connector when done.</summary>
         private static void CloseDesktopGui()
         {
+            // Identify the GUI by its full PATH, never by friendly name. GetProcessesByName matches
+            // ordinal-ignore-case, so "Volt" ALSO matches the installed CLI at <app>\bin\volt.exe — and a
+            // console process has no MainWindowHandle, so CloseMainWindow() returns false and the very next
+            // expression Kill()s it. That killed an in-flight `volt push` MID-WRITE to the live PLC and to the
+            // git repo, from an auto-update the user never connected to that push.
+            var gui = VoltEnv.GuiExe;
             foreach (var p in System.Diagnostics.Process.GetProcessesByName("Volt"))
             {
-                try { if (!p.CloseMainWindow() || !p.WaitForExit(3000)) p.Kill(); }
+                try
+                {
+                    // A process we cannot identify is left alone (MainModule throws for another user's or a
+                    // 32/64-bit-mismatched process). Failing to close the GUI costs an update; killing the
+                    // wrong process costs someone's work.
+                    if (!string.Equals(p.MainModule?.FileName, gui, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!p.CloseMainWindow() || !p.WaitForExit(3000)) p.Kill();
+                }
                 catch { /* already gone / access denied — best effort */ }
             }
         }

@@ -42,7 +42,9 @@ namespace Volt.Cli.Connector
                 return self;
             }
         }
-        private static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
+        /// <summary>The desktop GUI's full path. Internal because the auto-update must identify the GUI process by
+        /// PATH — its friendly name alone also matches the CLI (see TrayContext.CloseDesktopGui).</summary>
+        internal static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
         private static string GuiShortcut =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Volt.lnk");
 
