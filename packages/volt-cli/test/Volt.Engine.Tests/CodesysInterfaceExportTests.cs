@@ -60,15 +60,18 @@ public class CodesysInterfaceExportTests
         Assert.Contains("thingToRegister", register.Declaration!);   // the input var, not just the signature line
     }
 
-    /// <summary>The accessor shape the hand-built document dropped. <see cref="PlcOpenDocument.InterfacePropertyAccessors"/>
-    /// reads exactly this, so the real export feeds it directly instead of needing the COM read.</summary>
+    /// <summary>The accessor shape the hand-built document dropped — asserted through the PRODUCTION reader
+    /// (<see cref="PlcOpenPouParser"/>), which is what materialize now uses. A null accessor means ABSENT; an
+    /// empty one means present-but-bodiless, which is what an interface accessor is. Collapsing those two would
+    /// make a push delete the user's getter, so the distinction is asserted, not assumed.</summary>
     [Fact]
     public void Interface_property_accessors_are_in_the_real_export()
     {
-        var (get, set) = PlcOpenDocument.InterfacePropertyAccessors(
-            Fixture("IModuleManager.plcopen.xml"), "ModuleHandler");
-        Assert.True(get);     // ModuleHandler declares a getter
-        Assert.False(set);    // ...and no setter — the get-only case the Beckhoff bug was about
+        var props = PlcOpenPouParser.Parse(Fixture("IModuleManager.plcopen.xml")).Properties;
+        var moduleHandler = props.Single(p => p.Name == "ModuleHandler");
+        Assert.NotNull(moduleHandler.GetterCode);   // declares a getter...
+        Assert.Equal("", moduleHandler.GetterCode); // ...that is declaration-only, as interface accessors are
+        Assert.Null(moduleHandler.SetterCode);      // and NO setter — the get-only case the Beckhoff bug was about
     }
 
     /// <summary>A methods-only interface: seven methods, no properties. Guards the property-less path.</summary>

@@ -139,65 +139,6 @@ public static class Materializer
         return string.IsNullOrEmpty(d) || IsEmptyVarBlock(d!) ? null : d;
     }
 
-    // ── Property children (COM) — RETIRED for the POU path, still used for interfaces ────────────────
-
-    private static List<ChildData> CollectPropertyChildren(IIdeDriver ide, ItemRef parent, string folderPath = "")
-    {
-        var children = new List<ChildData>();
-        int count = ide.ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ide.ChildAt(parent, i);
-            var childName = ide.Name(child);
-            var itemType = ide.KindCode(child);
-
-            if (itemType == ItemKind.PlcFolder)
-            {
-                children.AddRange(CollectPropertyChildren(ide, child, FolderPath.Append(folderPath, childName)));
-                continue;
-            }
-
-            if (itemType is not (ItemKind.PlcProp or ItemKind.PlcItfProp)) continue;
-
-            string? getterCode = null, setterCode = null;
-            string? getterDecl = null, setterDecl = null;
-
-            var isIfaceProp = ide.KindCode(parent) == ItemKind.PlcItf;
-            if (isIfaceProp)
-            {
-                var (hasGet, hasSet) = ide.InterfacePropertyAccessors(child);
-                if (hasGet) getterCode = "";
-                if (hasSet) setterCode = "";
-            }
-            else
-            {
-                int accCount = ide.ChildCount(child);
-                for (int j = 1; j <= accCount; j++)
-                {
-                    var accessor = ide.ChildAt(child, j);
-                    var accName = ide.Name(accessor).ToLowerInvariant();
-                    if (accName is "get" or "set")
-                    {
-                        if (accName == "get") getterCode = ide.ReadImplementation(accessor)?.Trim() ?? "";
-                        else setterCode = ide.ReadImplementation(accessor)?.Trim() ?? "";
-                        var accDecl = ide.ReadDeclaration(accessor)?.Trim() ?? "";
-                        if (accDecl.Length > 0 && !IsEmptyVarBlock(accDecl))
-                        {
-                            if (accName == "get") getterDecl = accDecl;
-                            else setterDecl = accDecl;
-                        }
-                    }
-                }
-            }
-
-            var folder = string.IsNullOrEmpty(folderPath) ? null : folderPath;
-            children.Add(new ChildData(ItemKind.Kinds.Property, childName,
-                ide.ReadDeclaration(child).Trim(), null,
-                folder, getterCode, setterCode, getterDecl, setterDecl));
-        }
-        return children;
-    }
-
     private static bool IsEmptyVarBlock(string decl)
     {
         var trimmed = decl.Trim();

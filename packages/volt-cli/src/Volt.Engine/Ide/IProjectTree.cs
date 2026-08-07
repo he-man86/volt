@@ -38,10 +38,4 @@ public interface IProjectTree
     ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null);
     void Delete(ItemRef parent, string name);
     void Rename(ItemRef item, string newName);
-
-    /// <summary>Which accessors an INTERFACE property declares — <c>(hasGetter, hasSetter)</c>. Interface
-    /// accessors are declaration-only, so only presence matters. The driver reads it its SAFE way: CODESYS
-    /// enumerates the accessor children directly; TwinCAT reads the enclosing interface's PLCopen export,
-    /// because enumerating an interface property's accessor COM children can hard-crash it.</summary>
-    (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property);
 }

@@ -18,10 +18,9 @@ namespace Volt.Engine.Graphical
     /// temp file).</description></item>
     /// <item><description><see cref="GraphicalBodyLang"/> is the CODESYS path ONLY — TwinCAT sniffs the language
     /// out of its vendor NWL archive (<c>TcPouReader.LanguageOf</c>), which has no CODESYS counterpart.</description></item>
-    /// <item><description><see cref="InterfacePropertyAccessors"/> is the TwinCAT path ONLY — CODESYS enumerates
-    /// the accessor COM children itself (<c>CodesysDriver.Tree</c>).</description></item>
-    /// <item><description><see cref="DeclFromExport"/> is called by NEITHER bridge; the live declaration read is
-    /// <see cref="PlcOpenPouParser"/>'s.</description></item>
+    /// <item><description><see cref="DeclFromExport"/> serves <c>GraphicalCode</c>'s declaration read on both
+    /// vendors; the MATERIALIZE declaration read is <see cref="PlcOpenPouParser"/>'s, which scopes to the POU
+    /// itself rather than to the first plaintext block in the document.</description></item>
     /// </list>
     /// </summary>
     public static class PlcOpenDocument
@@ -79,19 +78,6 @@ namespace Volt.Engine.Graphical
             return string.IsNullOrEmpty(text) ? null : text;
         }
 
-        /// <summary>Which accessors an interface PROPERTY declares — <c>(hasGet, hasSet)</c> — read from the
-        /// enclosing interface's PLCopen export. This is the SAFE source: enumerating an interface property's
-        /// accessor COM children (or reading their text) can hard-crash TwinCAT, but the export lists them as
-        /// <c>&lt;GetAccessor&gt;</c>/<c>&lt;SetAccessor&gt;</c> under the named <c>&lt;Property&gt;</c>. Throws
-        /// (no silent fallback) if the property isn't in its own interface's export — that's a real bug to see.</summary>
-        public static (bool get, bool set) InterfacePropertyAccessors(string xml, string propName)
-        {
-            var prop = XDocument.Parse(xml).Descendants().FirstOrDefault(e =>
-                e.Name.LocalName == "Property" && (string?)e.Attribute("name") == propName)
-                ?? throw new InvalidOperationException($"property '{propName}' not found in interface PLCopen export");
-            bool Has(string tag) => prop.Elements().Any(e => e.Name.LocalName == tag);
-            return (Has("GetAccessor"), Has("SetAccessor"));
-        }
 
         /// <summary>
         /// Replace or insert a graphical body. When the document already has an <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>

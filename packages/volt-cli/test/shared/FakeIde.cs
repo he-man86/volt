@@ -140,12 +140,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ItemRef GetPlcProjectRoot() => new ItemRef(PlcRootName);
     public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
-    public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property)
-    {
-        var kids = FindOrNull(property)?.Children ?? Array.Empty<string>();
-        return (kids.Any(k => k.Equals("Get", StringComparison.OrdinalIgnoreCase)),
-                kids.Any(k => k.Equals("Set", StringComparison.OrdinalIgnoreCase)));
-    }
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); CreatedKinds[name] = kindCode; return new ItemRef(name); }
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");

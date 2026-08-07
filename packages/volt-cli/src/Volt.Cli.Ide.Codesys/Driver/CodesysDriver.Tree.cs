@@ -120,19 +120,6 @@ public sealed partial class CodesysDriver
     // it the null it deliberately maps 692 to.
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
 
-    // CODESYS enumerates an interface property's accessor children safely (in-process, no COM-RPC crash) —
-    // read presence straight off their names.
-    public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property)
-    {
-        bool getter = false, setter = false;
-        foreach (var child in _om.GetChildren(property.Native))
-        {
-            var n = _om.GetName(child);
-            if (string.Equals(n, "Get", StringComparison.OrdinalIgnoreCase)) getter = true;
-            else if (string.Equals(n, "Set", StringComparison.OrdinalIgnoreCase)) setter = true;
-        }
-        return (getter, setter);
-    }
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
