@@ -93,7 +93,20 @@ VOLT_E2E_IDE_CHAOS=1 VOLT_VENDOR=twincat bun test test/e2e/lifecycle/ide-restart
 `libcache` (2 tests) is skipped on TwinCAT **by design** — no signature-extraction surface there. It is a feature
 gap, not configuration; do not try to make it run.
 
-**Known-failing, do not treat as a regression:** `ide-restart`'s second test. Top entry in `arch-notes.md`.
+**~~Known-failing~~ FIXED 2026-08-07:** `ide-restart` is now **2 pass / 0 fail** (confirmed twice). The
+durability defect behind it was closed by `TcObjectModel.FlushPendingWrites` calling `File.SaveAll` — see the
+archived `fix-push-data-loss`. Treat a failure here as a REAL regression from now on.
+
+> Two environment traps will fake a failure, and both cost time before the real run:
+> 1. A `TcXaeShell` open for hours stops answering the COM ROT, so `--list-xae-pids` hangs, exits non-zero, and the
+>    connector correctly spawns NO worker — you get no pipe and a pile of hung probe processes that look like stale
+>    workers. **Restart the XAE.**
+> 2. Running before the bridge has BOUND a project fails instantly on `expect(await serving()).toBe(true)`; the log
+>    line is `attached to TwinCAT … — no project selected`. Wait for `select: bound '<project>'`.
+>
+> Do NOT hand-spawn workers with `--xae-pid` to work around either — that races the supervisor and produces the
+> duplicate workers it looks like it is fixing. Left alone the connector reaps and respawns correctly across the
+> test's own kill/reopen.
 
 TwinCAT environment notes: TcXaeShell is best-effort COM and **closed itself unprompted** once in this session; an
 XAE that is replaced gets a new pid → new worker → **new pipe**, and the old worker keeps serving a dead pipe for

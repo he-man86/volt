@@ -28,7 +28,7 @@
       case pushes textual ST at a graphical METHOD/ACTION child, so the live suite is silent on it.
       **Bug 1's child guard remains proven only against `FakeIde.BodyLang` — a model of the vendors' behaviour,
       not the behaviour.**
-- [ ] 2.2 **BLOCKED ON A HUMAN-AUTHORED FIXTURE, and here is exactly why.** The e2e provisions POU children as
+- [~] 2.2 **BLOCKED ON A HUMAN-AUTHORED FIXTURE — CARRIED FORWARD, see the close-out at the end, and here is exactly why.** The e2e provisions POU children as
       TEXT inside the parent's ST body (`fixtures.ts`'s `METHOD(...)`/`ACTION(...)` blocks). A CFC/SFC child
       cannot be authored that way — that it has no textual form is the entire premise of the guard. So the case
       needs a committed fixture containing a real CFC (or SFC) method child, created by hand in the IDE once.
@@ -122,21 +122,52 @@ Still open below: this is the BROAD save (§4/§5 scoping still applies — it c
 dirty tabs), and `ide-restart`'s durability assertion has NOT been re-checked against it. Do that before
 calling bug 2 closed.
 
-- [ ] 3.0 Narrow it: from `_dte`, resolve the PLC project we are bound to and call `Save()` on it (TwinCAT nests
+- [~] 3.0 Narrow it: from `_dte`, resolve the PLC project we are bound to and call `Save()` on it (TwinCAT nests
       the PLC project inside the TwinCAT project, so `Solution.Projects` likely needs a walk into `ProjectItems` —
       confirm against the live model, do not infer it). Keep the failure loud.
-- [ ] 3.0b Red-first is possible WITHOUT an IDE for the ordering/選択 part only; the real proof is live, below.
+- [~] 3.0b Red-first is possible WITHOUT an IDE for the ordering/選択 part only; the real proof is live, below.
 - [x] 3.0c **DONE 2026-08-06** — no `POUs/` directory remains after a green run; the orphan signature is gone.
 
 - [x] 3.1 DONE — that one observation is what cracked it: the file was on disk, so "never saved" was wrong and the
       registration was the missing piece.
-- [ ] 3.2 Check the push path's `FlushPendingWrites` call: is it invoked at all, and is it invoked AFTER the child
+
+### BUG 2 CLOSED — 2026-08-07
+
+`ide-restart` is **2 pass / 0 fail**, confirmed on two consecutive runs (the TwinCAT notes require re-verifying
+anything conclusive twice). It had been red for the whole programme and is still labelled "Known-failing, do not
+treat as a regression" in `audit-volt-cli-src/RUNBOOK.md` — that line is now stale and is corrected there.
+
+**No new code was needed.** The `File.SaveAll` fix recorded under 3.0-RESULT already fixed the durability gap;
+it had simply never been re-checked against `ide-restart`, which is what §3's remaining items were for. So 3.2-3.5
+are closed by the result rather than by separate work:
+
+- 3.2 **Answered by inspection**: `PushService` calls `ide.FlushPendingWrites()` TWICE — once before the apply
+  (so the pre-apply snapshot is accurate) and once after every op, before the receipt walk. Invoked, and after the
+  child writes, exactly as `IIdeSession` documents.
+- 3.3-3.5 **Moot**: the candidate causes in 3.4 were all downstream of "SaveAll never executed at all", which
+  3.0-RESULT established and fixed. There is no residual failure left to diagnose.
+
+**The first two attempts at this run FAILED, and neither failure was the product** — recording it because it cost
+the most time in this change:
+
+1. A `TcXaeShell` that has been open for hours stops answering the COM ROT enumeration. The connector's
+   `--list-xae-pids` probe then hangs, exits non-zero, and — correctly, per its documented partial-probe policy —
+   spawns NO worker at all. Symptom: no `volt.bridge.twincat.*` pipe and a growing pile of hung probe processes
+   that look like stale workers but are not. Fix: restart the XAE.
+2. Running the test against a bridge that has attached but not yet BOUND a project fails instantly on
+   `expect(await serving()).toBe(true)`. The log line to look for is `attached to TwinCAT … — no project selected`.
+
+Both are environment. The duplicate workers I chased were caused by my own manual `--xae-pid` spawns racing the
+supervisor; left alone, the connector reaps and respawns correctly across the test's kill/reopen (verified: the
+fleet self-healed to exactly one XAE / one worker / one pipe between the two runs).
+
+- [x] 3.2 Check the push path's `FlushPendingWrites` call: is it invoked at all, and is it invoked AFTER the child
       writes rather than before? (`IIdeSession` documents "after applying a push".)
-- [ ] 3.3 Read `%LOCALAPPDATA%\Volt\logs\twincat-*.log` across a push + kill + reopen. With the health probe no
+- [x] 3.3 Read `%LOCALAPPDATA%\Volt\logs\twincat-*.log` across a push + kill + reopen. With the health probe no
       longer swallowing failures (`fix-connected-precondition`), a failing save should now be visible.
-- [ ] 3.4 Candidate causes, in order: SaveAll not invoked / invoked too early; SaveAll saves the PLC project but not
+- [x] 3.4 Candidate causes, in order: SaveAll not invoked / invoked too early; SaveAll saves the PLC project but not
       the item's containing artifact; the reopened XAE loads a cached copy; the kill races the save.
-- [ ] 3.5 Fix, with a red-first test. Prefer a unit-level test on the call ORDER if the cause is ordering — that is
+- [x] 3.5 Fix, with a red-first test. Prefer a unit-level test on the call ORDER if the cause is ordering — that is
       cheap and does not need an IDE.
 - [x] 3.6 **DONE 2026-08-06 — `ide-restart` is 2 pass / 0 fail**, assertions untouched, verified twice. See
       3.0-VERIFIED above.
@@ -179,10 +210,19 @@ Caveat worth respecting: property accessors are independently flaky here (noted 
 "the save fixes the hang", isolate — run the property cases alone with and without the save. A hang that is really
 about accessor instability would otherwise be misattributed to the save policy and freeze the wrong design.
 
-- [ ] 4.1b Isolate the hang: run only the property/accessor e2e cases, save vs no-save, and confirm which one
+- [x] 4.1b **Resolved — the hang does not reproduce.** The full live TwinCAT e2e ran **90 pass / 11 skip / 0 fail
+      in 210.9 s** on 2026-08-07 with `File.SaveAll` in place, matching the 209-217 s note above. Combined with the
+      §4.1-premise correction (the method was ALREADY a no-op when the hang was observed, so that experiment
+      changed nothing observable), the evidence points at TcXaeShell instability, not the save policy — the same
+      instability that cost two failed `ide-restart` attempts today. Original text:
+- [~] 4.1b Isolate the hang: run only the property/accessor e2e cases, save vs no-save, and confirm which one
       actually changes the outcome. Do NOT delete the property cases to make the suite pass — the instability is a
       finding in its own right and hiding it loses it.
-- [ ] 4.1c Then re-run the ORIGINAL experiment: make TwinCAT's `FlushPendingWrites` a no-op,
+- [x] 4.1c **Moot — its decision is already answered.** This existed to choose between DELETING the save and
+      NARROWING it, by checking whether the suite still passes without one. `ide-restart` going 1/1 → **2 pass /
+      0 fail** with the save in place settles the delete branch: the save is load-bearing for durability, so it
+      stays. The narrow branch is then decided by §4b (below), not by this experiment. Original text:
+- [~] 4.1c Then re-run the ORIGINAL experiment: make TwinCAT's `FlushPendingWrites` a no-op,
       rebuild the worker, and run the full live TC e2e suite — it contains the create/rename/delete/move cases that
       would trip the stale-file collision. Compare against the 90 pass / 0 fail baseline.
       - all 90 still pass ⇒ the sequencing claim is stale; **delete the save**, and `ide-restart`'s durability
@@ -192,7 +232,12 @@ about accessor instability would otherwise be misattributed to the save policy a
 - [x] 4.2 **DONE (2026-08-05)** — `Solution.Save()` + `Documents.SaveAll()` is gone, replaced by
       `ExecuteCommand("File.SaveAll")`. See 3.0-RESULT: the old pair never executed at all, so it missed the
       `.plcproj` by never running rather than by saving the wrong things.
-- [ ] 4.3 Whatever survives must keep failing LOUD, and a green run must leave the fixture clean (no orphan files).
+- [x] 4.3 **Verified 2026-08-07.** Failure stays loud (`FlushPendingWrites` throws a coded `InternalError` on a
+      failed `File.SaveAll` — that loudness is what made bug 2 findable in the first place). Fixture is clean after
+      a green run: **no orphan `.TcPOU`**, `git status` shows only the 3 pre-existing modified files. The former
+      orphan signature (`Untitled2/POUs/VltE2E_*.TcPOU` unreferenced by the `.plcproj`) is gone; what remains under
+      `POUs/` is empty folder scaffolding from the e2e's folder cases, which git cannot track and which is
+      harmless.
 
 ## 4b. ASSESSMENT 2026-08-06 — the narrow save is LOW value and HIGH risk. Do not take it casually.
 
@@ -231,16 +276,41 @@ the document/project to save has to be established against the live COM model. G
 current broad save, which at least keeps push durable (CODESYS commits on write, so dropping the save entirely
 would make `push` durable on one vendor and not the other — an observable per-vendor difference).
 
-- [ ] 4.1 Live probe: for a POU tree node, find what identifies its file — walk `_dte.Solution.Projects` /
+- [~] 4.1 (SUPERSEDED by §4b — do not take casually) Live probe: for a POU tree node, find what identifies its file — walk `_dte.Solution.Projects` /
       `ProjectItems` and correlate with the node's path (`_plcProjectPath` + the node name), or check whether the
       node exposes a path-ish property. Record what actually works; do not infer it from the VS DTE docs alone.
-- [ ] 4.2 Have `TcObjectModel` record what it touched since the last flush — content writes (`WriteText`) separately
+- [~] 4.2 Have `TcObjectModel` record what it touched since the last flush — content writes (`WriteText`) separately
       from STRUCTURAL changes (`CreateChild`/`DeleteChild`/`Rename`), since structure is what the existing comment
       says must be persisted to avoid a later rename colliding with stale files.
-- [ ] 4.3 `FlushPendingWrites` saves only those: each touched item's document, plus the containing PLC project when
+- [~] 4.3 `FlushPendingWrites` saves only those: each touched item's document, plus the containing PLC project when
       structure changed. No seam change needed — the object model mediates every write, so it can track its own
       dirty set.
-- [ ] 4.4 A failed scoped save must stay LOUD (already true): durability is this method's whole purpose, so
+- [~] 4.4 A failed scoped save must stay LOUD (already true): durability is this method's whole purpose, so
       reporting success over a failed save is how committed work gets lost.
-- [ ] 4.5 Verify: an engineer's unrelated dirty editor is still dirty after a `volt push`, and the pushed item IS on
+- [~] 4.5 Verify: an engineer's unrelated dirty editor is still dirty after a `volt push`, and the pushed item IS on
       disk. Then remove the `ponytail:` marker in `TcObjectModel.FlushPendingWrites`.
+
+
+---
+
+## CLOSE-OUT — 2026-08-07
+
+**Both bugs are fixed. One test-coverage gap is carried forward, and one improvement is deliberately not taken.**
+
+| | state |
+|---|---|
+| **Bug 1** — a read-only graphical CHILD body was flattened by a textual push | **FIXED.** Guard decides from live `BodyLanguage`, runs as a pre-pass so a refusal is atomic, and refuses the round-tripped marker outright. Covered by unit tests against `FakeIde`. |
+| **Bug 2** — a pushed item did not survive the IDE being killed | **FIXED and VERIFIED LIVE.** `ide-restart` = **2 pass / 0 fail**, confirmed on two consecutive runs. |
+
+**Carried forward — a coverage gap, not a defect (task 2.2).** Bug 1's guard is proven against `FakeIde`, which is
+a MODEL of the vendors, not the vendors. Exercising it live needs a committed fixture containing a real CFC or SFC
+method child, and that cannot be generated by the e2e: children are provisioned as TEXT inside the parent's ST
+body, and having no textual form is the guard's whole premise. **Someone must author one by hand in an IDE once.**
+Until then the guard's live behaviour is unverified on both vendors. This is the single honest gap in this change.
+
+**Deliberately not taken — narrowing the TwinCAT save (§4b).** `push` currently saves via `File.SaveAll`, which
+also commits the engineer's unrelated dirty editors. That is a real discourtesy, but saving a file is not losing
+one: the cost is surprise, not damage. Narrowing it risks re-opening the data-loss bug that was just closed, and
+requires confirming `_plcNode.NestedProject`'s type against a live XAE — precisely the inference that produced
+`Solution.Save()`, a method that does not exist and threw on every push for the life of the code. The `ponytail:`
+note in `FlushPendingWrites` records the debt. Take it only with a live XAE in hand and `ide-restart` as the gate.
