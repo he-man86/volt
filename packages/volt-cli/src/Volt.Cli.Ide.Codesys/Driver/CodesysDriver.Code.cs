@@ -18,8 +18,11 @@ public sealed partial class CodesysDriver
     public void WriteText(ItemRef item, string? declaration, string? implementation) => _om.WriteSourceText(item.Native, declaration, implementation);
 
     // ── PLCopen XML transport ──
+    // Scoped to THIS item's name: the export carries the POU's methods and actions too, so a whole-document
+    // scan reports a graphical CHILD's language for a textual POU — and that language is what routes the item
+    // to the graphical transport.
     public string? BodyLanguage(ItemRef item) =>
-        item.Native is LibRefNode ? null : PlcOpenDocument.GraphicalBodyLang(_om.ExportXmlString(item.Native));
+        item.Native is LibRefNode ? null : PlcOpenDocument.GraphicalBodyLang(_om.ExportXmlString(item.Native), Name(item));
 
     // No LibRefNode arm here, unlike the textual readers above: `library` is not a source kind, so Materializer
     // routes a library reference to ReadManifest and never here. The arm that used to sit here GUARDED the synthetic

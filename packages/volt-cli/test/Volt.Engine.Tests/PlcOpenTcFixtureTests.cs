@@ -29,7 +29,7 @@ public class PlcOpenTcFixtureTests
         // Real TwinCAT LD ground truth: a TON rung with a non-boolean ET output assigned via an <expression>
         // EMBEDDED in the block's output pin. The reader used to read output-pin NAMES only and silently DROP
         // this assignment (real data loss); it must now surface `elapsed := T1.ET`.
-        var ld = PlcOpenDocument.FindFbdLdBody(LdTonFixture());
+        var ld = TestPlcOpen.FindOnlyGraphicalBody(LdTonFixture());
         Assert.NotNull(ld);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(ld!));
         Assert.Contains("T1(IN :=", vg);            // the TON FB call is read
@@ -44,7 +44,7 @@ public class PlcOpenTcFixtureTests
         // the boolean Q is a separate <outVariable>. The FBD reader read output NAMES only and DROPPED the
         // embedded assignment (the same data-loss bug LD had, found by probing the live round-trip). Captured
         // live; must surface `elapsed := t1.ET`.
-        var fbd = PlcOpenDocument.FindFbdLdBody(File.ReadAllText(
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-fbd", "fbd_ton_embedded_output.plcopen.xml")))!;
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd));
         Assert.Contains("t1(IN :=", vg);              // the TON FB call
@@ -58,7 +58,7 @@ public class PlcOpenTcFixtureTests
         // TC brackets a multi-network LD with ONE shared left/right power rail and delimits each network with a
         // vendorElement(networktitle) — it does NOT stride localIds. The reader must split on the markers. This
         // user-authored fixture is four single-rung networks all hanging off the one shared rail (localIds 0-16).
-        var ld = PlcOpenDocument.FindFbdLdBody(File.ReadAllText(
+        var ld = TestPlcOpen.FindOnlyGraphicalBody(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-ld", "ld_four_networks_shared_rails.plcopen.xml")))!;
         var body = PlcOpenReader.ReadBody(ld);
         Assert.Equal(4, body.Networks.Count);
@@ -68,7 +68,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void Real_network_with_sr_negation_edge_branch_jump_label_reads_to_valid_st()
     {
-        var fbd = PlcOpenDocument.FindFbdLdBody(JumpFixture());
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture());
         Assert.NotNull(fbd);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd!));
 
@@ -82,7 +82,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void Real_jump_network_round_trips_through_plcopen()
     {
-        var fbd = PlcOpenDocument.FindFbdLdBody(JumpFixture())!;
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture())!;
         var g1 = PlcOpenReader.ReadBody(fbd);
         var vg1 = VgWriter.Write(g1);
 
@@ -98,7 +98,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void TwinCAT_plcopen_reads_through_the_shared_pipeline_to_VG()
     {
-        var fbd = PlcOpenDocument.FindFbdLdBody(Fixture());
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture());
         Assert.NotNull(fbd);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd!));
 
@@ -115,7 +115,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void Networks_are_split_by_localId_index()
     {
-        var body = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(Fixture())!);
+        var body = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         Assert.Equal(3, body.Networks.Count);   // PLC_PRG's action is three FBD networks
 
         var vg = VgWriter.Write(body);
@@ -133,7 +133,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void Write_back_re_emits_the_vendor_fbdcalltype()
     {
-        var fbd = PlcOpenDocument.FindFbdLdBody(Fixture())!;
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture())!;
         var graph = PlcOpenReader.ReadBody(fbd);
 
         var rewritten = PlcOpenWriter.WriteBody(graph).ToString();

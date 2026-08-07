@@ -26,32 +26,29 @@ namespace Volt.Engine.Graphical
     /// </summary>
     public static class PlcOpenDocument
     {
-        /// <summary>The first <c>&lt;FBD&gt;</c> or <c>&lt;LD&gt;</c> body element in an exported
-        /// PLCopen POU document, or null if it has no graphical body.</summary>
-        public static XElement? FindFbdLdBody(string xml)
+        /// <summary>The <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body of the item named <paramref name="itemName"/> in
+        /// an exported PLCopen document, or null if that item has no graphical body. The export usually holds
+        /// several items' bodies — see <see cref="ItemBody"/> for why the name is what selects between them.</summary>
+        public static XElement? FindFbdLdBody(string xml, string itemName)
         {
             // Parse throws on a malformed export — a real failure that must surface, NOT be masked as
             // "no graphical body" (that masking caused the prior truncated-read bug). A well-formed POU
             // with a textual body legitimately returns null below.
-            return FindFbdLd(XDocument.Parse(xml));
+            return FindFbdLd(XDocument.Parse(xml), itemName);
         }
 
         /// <summary>The language of a POU's graphical body, read from the exported PLCopen alone (the
         /// body element's name): <c>FBD</c>/<c>LD</c> (editable) or <c>CFC</c>/<c>SFC</c> (read-only).
         /// Null for a textual body (ST/IL) or none. Lets the graphical read rely solely on the
         /// (in-memory) export — no extra object-model read that could return a stale post-import body.</summary>
-        public static string? GraphicalBodyLang(string xml)
+        public static string? GraphicalBodyLang(string xml, string itemName)
         {
             // Parse throws on a malformed export — surfaced, never masked as "textual" (the body of the
             // prior stale-read bug). A well-formed textual POU returns null below.
-            // NB: this is a WHOLE-DOCUMENT scan, so on a children-bearing export it can report a child
-            // method's language as the POU's. That is a real defect and it is deliberately NOT fixed here —
-            // the audit is behaviour-preserving. Escalated to arch-notes.md with the two sibling cases
-            // (FindFbdLd, InlineInsert) that share the same document-scoping mistake.
-            var doc = XDocument.Parse(xml);
-            var ns = doc.Root!.GetDefaultNamespace();
-            foreach (var name in new[] { "FBD", "LD", "CFC", "SFC" })
-                if (doc.Descendants(ns + name).Any()) return name;
+            var body = ItemBody(XDocument.Parse(xml), itemName);
+            if (body is null) return null;
+            foreach (var e in body.Elements())
+                if (e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC") return e.Name.LocalName;
             return null;
         }
 
@@ -94,11 +91,14 @@ namespace Volt.Engine.Graphical
         /// wrapper element (name + attributes) is kept, only children are swapped. When no graphical body
         /// exists (first write onto a textual POU), the new body is inserted directly into the
         /// <c>&lt;body&gt;</c> parent — there is nothing to validate because the original ST body is
-        /// discarded in its entirety.</summary>
-        public static string SpliceFbdLdBody(string xml, XElement newBody)
+        /// discarded in its entirety.
+        /// <para>Both the replace and the insert are scoped to the item NAMED <paramref name="itemName"/>. The
+        /// export carries the POU's siblings and children too, and splicing into the wrong one silently destroys
+        /// a body — see <see cref="ItemBody"/>.</para></summary>
+        public static string SpliceFbdLdBody(string xml, string itemName, XElement newBody)
         {
             var doc = XDocument.Parse(xml);
-            var existing = FindFbdLd(doc);
+            var existing = FindFbdLd(doc, itemName);
             if (existing is not null)
             {
                 ValidateExisting(doc, existing);
@@ -110,7 +110,7 @@ namespace Volt.Engine.Graphical
             }
             else
             {
-                InlineInsert(doc, newBody);
+                InlineInsert(doc, itemName, newBody);
             }
             return doc.ToString();
         }
@@ -173,11 +173,11 @@ namespace Volt.Engine.Graphical
         /// <summary>Insert a graphical body for the first time — replace whatever is inside
         /// <c>&lt;body&gt;</c> (typically an ST body) with the new FBD/LD element. No validation
         /// needed: the original textual body is discarded and nothing of value is lost.</summary>
-        private static void InlineInsert(XDocument doc, XElement newBody)
+        private static void InlineInsert(XDocument doc, string itemName, XElement newBody)
         {
-            var ns = doc.Root!.GetDefaultNamespace();
-            var pouBody = doc.Descendants(ns + "body").FirstOrDefault()
-                ?? throw new InvalidOperationException("PLCopen document has no <body> element");
+            var pouBody = ItemBody(doc, itemName)
+                ?? throw new InvalidOperationException(
+                    $"PLCopen export has no <body> element for '{itemName}'");
             pouBody.RemoveNodes();
             pouBody.Add(newBody);
         }
@@ -204,10 +204,35 @@ namespace Volt.Engine.Graphical
             return false;
         }
 
-        private static XElement? FindFbdLd(XDocument doc)
+        private static XElement? FindFbdLd(XDocument doc, string itemName) =>
+            ItemBody(doc, itemName)?.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
+
+        /// <summary>
+        /// The body belonging to the ITEM NAMED <paramref name="itemName"/> — its own direct <c>&lt;body&gt;</c>
+        /// child, never a relative's.
+        /// <para>
+        /// An export is not one item: <c>ReadXml</c> hands back the whole POU document on both vendors
+        /// (CODESYS <c>ExportXmlWithChildren</c>; TwinCAT cannot export a method/action standalone at all), so a
+        /// method's, an action's and the POU's own bodies all sit in the SAME document. Scanning it whole answers
+        /// about whichever body comes first in document order, which is not the one that was asked for: TwinCAT
+        /// emits <c>&lt;actions&gt;</c> BEFORE the POU's <c>&lt;body&gt;</c>, so writing a graphical POU that owns
+        /// a graphical action splices the new body over the ACTION, and writing one action splices it over a
+        /// SIBLING action. Both destroy a body silently and leave the intended one untouched.
+        /// </para>
+        /// <para>
+        /// Name is the right key because name IS the item's identity across this whole wire. Matched over the same
+        /// element vocabulary <see cref="PlcOpenPouParser"/> reads children from, by LOCAL name so it works whether
+        /// or not the vendor put the child in the PLCopen namespace.
+        /// </para>
+        /// Null when the document holds no such named element, or it has no body — a DUT/GVL export legitimately
+        /// has neither, and the callers decide what that means (no graphical body / a throw on write).
+        /// </summary>
+        private static XElement? ItemBody(XDocument doc, string itemName)
         {
-            var ns = doc.Root!.GetDefaultNamespace();
-            return doc.Descendants(ns + "FBD").FirstOrDefault() ?? doc.Descendants(ns + "LD").FirstOrDefault();
+            var item = doc.Descendants().FirstOrDefault(e =>
+                e.Name.LocalName is "pou" or "method" or "action" or "Method" or "Action"
+                && (string?)e.Attribute("name") == itemName);
+            return item?.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
         }
 
         /// <summary>FB instance → type names parsed from a POU declaration (e.g. <c>tmr : TON;</c>),

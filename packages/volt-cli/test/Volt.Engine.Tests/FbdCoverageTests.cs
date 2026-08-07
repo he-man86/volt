@@ -28,9 +28,9 @@ public class FbdCoverageTests
 
     private static string RoundTripBody(string doc)
     {
-        var g = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader is TOTAL (never throws)
+        var g = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);   // reader is TOTAL (never throws)
         var back = PlcOpenWriter.WriteBody(VgParser.Parse(VgWriter.Write(g)));  // read → VG → parse → write
-        return PlcOpenDocument.SpliceFbdLdBody(doc, back);                      // push (may refuse)
+        return TestPlcOpen.SpliceOnlyGraphicalBody(doc, back);                      // push (may refuse)
     }
 
     // ── Modeled: round-trips losslessly (every original element kind survives the push) ──
@@ -63,7 +63,7 @@ public class FbdCoverageTests
         // Every element kind present in the original survives the round-trip (coarse no-loss check). FBD-only:
         // an LD body CANONICALISES to real contact/coil on write (inVariable→contact), so element kinds change
         // by design — LD round-trip is covered by Ld_rung_round_trips below (it checks logic, not identity).
-        foreach (var name in PlcOpenDocument.FindFbdLdBody(doc)!.Elements().Select(e => e.Name.LocalName).Distinct())
+        foreach (var name in TestPlcOpen.FindOnlyGraphicalBody(doc)!.Elements().Select(e => e.Name.LocalName).Distinct())
             Assert.Contains("<" + name, outXml);
     }
 
@@ -96,9 +96,9 @@ public class FbdCoverageTests
     public void Unmodeled_construct_is_refused_not_silently_dropped(string lang, string _desc, string inner)
     {
         var doc = Doc(lang, inner);
-        _ = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader stays TOTAL (no throw)
+        _ = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);   // reader stays TOTAL (no throw)
         Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(doc, new XElement("FBD")));
+            () => TestPlcOpen.SpliceOnlyGraphicalBody(doc, new XElement("FBD")));
     }
 
     /// <summary>A comment box round-trips its TEXT through the full edit path (XML → VG // line →
@@ -111,12 +111,12 @@ public class FbdCoverageTests
             "<inVariable localId='2'><expression>a</expression></inVariable>" +
             "<outVariable localId='3'><expression>o</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
         // through VG and back
-        var g = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);
+        var g = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);
         Assert.Contains("// hello world", VgWriter.Write(g));     // surfaced as a VG comment
         var outXml = RoundTripBody(doc);                          // NOT refused (returns the full pou doc)
         Assert.Contains("hello world", outXml);                  // text preserved on push
         // and re-reading the written body recovers the comment text
-        var g2 = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(outXml)!);
+        var g2 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(outXml)!);
         Assert.Contains("hello world", g2.Networks.SelectMany(n => new[] { n.Comment }).FirstOrDefault(c => c != null) ?? "");
     }
 
@@ -144,7 +144,7 @@ public class FbdCoverageTests
     public void Ld_rung_round_trips(string inner, string expect)
     {
         var doc = Doc("LD", inner);
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.Contains(expect, vg);
         Assert.Contains("out :=", vg);   // coil → assignment
         // and it WRITES back to a real <LD> ladder (no longer read-only / refused)
@@ -170,7 +170,7 @@ public class FbdCoverageTests
             "</inputVariables><outputVariables><variable formalParameter='OUT'><connectionPointOut/></variable></outputVariables></block>" +
             "<coil localId='5'><connectionPointIn><connection refLocalId='4'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>";
         var doc = Doc("LD", inner);
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.Contains(">", vg);                    // the GT comparison renders infix in the VG
         var outXml = RoundTripBody(doc);             // writes back WITHOUT throwing (was a NotSupportedException)
         Assert.Contains("<block", outXml);           // emitted as a real block, not mangled

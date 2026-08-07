@@ -15,7 +15,7 @@ public class EnEnoTests
     [Fact]
     public void EnEno_reads_as_IF_parses_back_and_is_a_fixed_point()
     {
-        var g0 = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(Fixture())!);
+        var g0 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         var vg0 = VgWriter.Write(g0);
 
         // VgParser is the exact inverse of VgWriter (the VG-text fixed point).
@@ -35,12 +35,12 @@ public class EnEnoTests
         // An EN/ENO box is stateless with ENO + its value output. The "stateless function with multiple outputs"
         // guard (PlcOpenDocument.ValidateExisting) must NOT count ENO, or overwriting an existing EN/ENO body is
         // wrongly refused. Found LIVE on TwinCAT: the create slipped through (no existing body), the re-push hit it.
-        var fbd = PlcOpenDocument.FindFbdLdBody(Fixture())!;
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture())!;
         var ns = fbd.Name.Namespace;
         var miniDoc = new XElement(ns + "pou", new XAttribute("name", "P"),
             new XElement(ns + "body", new XElement(fbd))).ToString();
         var newBody = PlcOpenWriter.WriteBody(PlcOpenReader.ReadBody(fbd));
-        var spliced = PlcOpenDocument.SpliceFbdLdBody(miniDoc, newBody);   // must not throw
+        var spliced = TestPlcOpen.SpliceOnlyGraphicalBody(miniDoc, newBody);   // must not throw
         Assert.Contains("ENO", spliced);
     }
 
@@ -62,7 +62,7 @@ public class EnEnoTests
             "</block>" +
             "<outVariable localId=\"3\"><connectionPointIn><connection refLocalId=\"2\" formalParameter=\"OUT\"/></connectionPointIn><expression>y</expression></outVariable>" +
             "</FBD></body></pou></pous></types></project>";
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), vg);
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
@@ -90,7 +90,7 @@ public class EnEnoTests
             "</block>" +
             "<coil localId=\"4\"><connectionPointIn><connection refLocalId=\"3\" formalParameter=\"OUT\"/></connectionPointIn><variable>y</variable></coil>" +
             "</LD></body></pou></pous></types></project>";
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
         Assert.Equal(vg, VgWriter.Write(VgParser.Parse(vg)));   // VG-text fixed point

@@ -61,14 +61,14 @@ public class FbdCorpusRoundTripTests
                 var miniDoc = new XElement(ns + "pou", new XAttribute("name", "P"),
                     new XElement(ns + "body", new XElement(body))).ToString();
 
-                var g0 = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(miniDoc)!);
+                var g0 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(miniDoc)!);
                 string vg0;
                 string spliced;
                 try
                 {
                     vg0 = VgWriter.Write(g0);
                     var newBody = PlcOpenWriter.WriteBody(VgParser.Parse(vg0));   // VG must re-parse
-                    spliced = PlcOpenDocument.SpliceFbdLdBody(miniDoc, newBody);  // and the guard must allow it
+                    spliced = TestPlcOpen.SpliceOnlyGraphicalBody(miniDoc, newBody);  // and the guard must allow it
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or VgParseException)
                 {
@@ -80,14 +80,14 @@ public class FbdCorpusRoundTripTests
                 }
 
                 covered++;
-                var after = Constructs(PlcOpenDocument.FindFbdLdBody(spliced)!);
+                var after = Constructs(TestPlcOpen.FindOnlyGraphicalBody(spliced)!);
                 var lost = before.Except(after).ToList();
                 Assert.True(lost.Count == 0,
                     $"{Path.GetFileName(file)}: silently dropped on push: {string.Join(", ", lost)}");
                 // HASH DRIFT guard: the VG (what the bridge hashes) must be a fixed point through the
                 // full push round-trip — else an unchanged body would re-hash differently and be
                 // falsely flagged as edited (scaffolding we add: localIds/positions/xhtml/typeNames).
-                Assert.True(vg0 == VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(spliced)!)),
+                Assert.True(vg0 == VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(spliced)!)),
                     $"{Path.GetFileName(file)}: hash drift — round-trip changed the VG");
                 // FULL push-gate guard, incl. Invariant 5 (VG_PLCOPEN_DRIFT: the graph→PLCopen→graph fixed
                 // point that the hash-drift guard above does NOT check). A real IDE-produced body's canonical

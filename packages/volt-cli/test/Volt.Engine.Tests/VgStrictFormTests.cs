@@ -103,7 +103,7 @@ public class VgStrictFormTests
     [Fact]
     public void Param_types_round_trip()
     {
-        var fbd = PlcOpenDocument.FindFbdLdBody(
+        var fbd = TestPlcOpen.FindOnlyGraphicalBody(
             System.IO.File.ReadAllText(System.IO.Path.Combine(
                 System.AppContext.BaseDirectory, "fixtures", "tc-fbd", "PLC_PRG_jump_sr.plcopen.xml")))!;
         var g = PlcOpenReader.ReadBody(fbd);

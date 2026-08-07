@@ -27,7 +27,7 @@ public static class GraphicalCode
     /// loud failure, never silent. Production does NOT run this path and never sees this empty body — the
     /// Materializer reads through <see cref="RenderBody"/> and builds the `@volt-graphical` marker itself
     /// (<c>Materializer.VgBodyOf</c>); this method remains for test coverage of the full read pipeline.</summary>
-    public static GraphicalBody? Read(ICodeStore code, ItemRef item)
+    public static GraphicalBody? Read(ICodeStore code, ItemRef item, string itemName)
     {
         var lang = code.BodyLanguage(item);
         if (lang is null) return null;                       // textual → use the textual transport
@@ -38,9 +38,9 @@ public static class GraphicalCode
         if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
-        var fbd = PlcOpenDocument.FindFbdLdBody(xml)
+        var fbd = PlcOpenDocument.FindFbdLdBody(xml, itemName)
             ?? throw new InvalidOperationException(
-                $"graphical body language is {lang} but the PLCopen export has no FBD/LD body element");
+                $"graphical body language is {lang} but the PLCopen export has no FBD/LD body for '{itemName}'");
         return new GraphicalBody(lang, RenderBody(fbd, lang), decl);
     }
 
@@ -129,14 +129,17 @@ public static class GraphicalCode
     /// export's typed <c>&lt;interface&gt;</c>: CODESYS regenerates the interface from that typed block on
     /// import (ignoring the plaintext copy), and TwinCAT's export carries no plaintext interface at all,
     /// so a graphical POU's VAR-section is edited in the IDE, not via push. Throws on invalid VG.</summary>
-    public static void Write(ICodeStore code, ItemRef item, string vgText, string declaration)
+    public static void Write(ICodeStore code, ItemRef item, string itemName, string vgText, string declaration)
     {
         var graph = Validate(vgText);                                        // pure checks first (no IDE write yet)
         var types = PlcOpenDocument.InstanceTypes(declaration);
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
+        // The export is the item's WHOLE POU — the enclosing POU's own body and every sibling method/action come
+        // with it — so the splice is scoped by name. Without that it lands on whichever body is first in document
+        // order and silently destroys it.
         var exported = code.ReadXml(item);                                   // current full POU PLCopen
-        var spliced = PlcOpenDocument.SpliceFbdLdBody(exported, newBody);    // throws if no FBD/LD body
+        var spliced = PlcOpenDocument.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
         code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
     }
 

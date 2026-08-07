@@ -16,7 +16,7 @@ public class PlcOpenDocumentTests
     [Fact]
     public void Finds_the_FBD_body()
     {
-        var body = PlcOpenDocument.FindFbdLdBody(Pou);
+        var body = PlcOpenDocument.FindFbdLdBody(Pou, "P");
         Assert.NotNull(body);
         Assert.Equal("FBD", body!.Name.LocalName);
     }
@@ -28,7 +28,7 @@ public class PlcOpenDocumentTests
         var newBody = new XElement(ns + "FBD", new XElement(ns + "outVariable",
             new XAttribute("localId", 9), new XElement(ns + "expression", "z")));
 
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, newBody);
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, "P", newBody);
 
         Assert.Contains("outVariable", outXml);
         Assert.Contains("z", outXml);
@@ -44,8 +44,7 @@ public class PlcOpenDocumentTests
         // graphical one. NOT a throw — nothing of value is lost (the textual body is discarded by design).
         const string st = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><body><ST>x:=1;</ST></body></pou>""";
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(st,
-            new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(st, "P", new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
         Assert.Contains("<FBD", outXml);          // graphical body inserted
         Assert.DoesNotContain("x:=1", outXml);    // textual body discarded
     }
@@ -55,7 +54,7 @@ public class PlcOpenDocumentTests
     {
         const string noBody = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><interface/></pou>""";
         Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(noBody, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(noBody, "P", new XElement("FBD")));
     }
 
     [Fact]
@@ -72,7 +71,7 @@ public class PlcOpenDocumentTests
         </pou>
         """;
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(withConnector, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(withConnector, "P", new XElement("FBD")));
         Assert.Contains("connector", ex.Message);
     }
 
@@ -86,7 +85,7 @@ public class PlcOpenDocumentTests
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
         var newLd = new XElement(ns + "LD",
             new XElement(ns + "coil", new XAttribute("localId", 9), new XElement(ns + "variable", "z")));
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, newLd);   // Pou has an <FBD> body
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, "P", newLd);   // Pou has an <FBD> body
         Assert.Contains("<LD>", outXml);             // wrapper flipped to match the new body
         Assert.DoesNotContain("<FBD>", outXml);      // old FBD wrapper replaced
         Assert.Contains("coil", outXml);             // new contents present
@@ -107,7 +106,7 @@ public class PlcOpenDocumentTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(withVendor, new XElement(ns + "FBD"));
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(withVendor, "P", new XElement(ns + "FBD"));
         Assert.DoesNotContain("inVariable", outXml);   // body replaced
     }
 
@@ -126,7 +125,7 @@ public class PlcOpenDocumentTests
         </pou>
         """;
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(withGap, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(withGap, "P", new XElement("FBD")));
         Assert.Contains("gap", ex.Message);
     }
 
@@ -144,7 +143,7 @@ public class PlcOpenDocumentTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(contiguous, new XElement(ns + "FBD",
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(contiguous, "P", new XElement(ns + "FBD",
             new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);
     }
@@ -163,7 +162,7 @@ public class PlcOpenDocumentTests
             </block>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("in-out", ex.Message);
     }
 
@@ -176,7 +175,7 @@ public class PlcOpenDocumentTests
             </block>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("output pin", ex.Message);
     }
 
@@ -190,7 +189,7 @@ public class PlcOpenDocumentTests
               <connectionPointIn><connection refLocalId="1"/><connection refLocalId="2"/></connectionPointIn></outVariable>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("multiple sources", ex.Message);
     }
 
@@ -207,10 +206,82 @@ public class PlcOpenDocumentTests
             </block>
             """);
         XNamespace ns = Ns;
-        var outXml = PlcOpenDocument.SpliceFbdLdBody(xml,
-            new XElement(ns + "FBD", new XElement(ns + "outVariable",
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(xml, "P", new XElement(ns + "FBD", new XElement(ns + "outVariable",
                 new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);   // splice proceeded
+    }
+
+    // ── document scoping: the ROOT POU's body, never a child method's ──
+
+    /// <summary>A children-bearing export — the shape `ReadXml` actually returns on BOTH vendors, since neither
+    /// can export a method or action standalone. The POU's own body is textual (ST); the graphical bodies belong
+    /// to its two METHODS. Every one of these read/write entry points used to scan the WHOLE document and so
+    /// answered about whichever body came first, not the one asked for: the read reported the textual POU as FBD
+    /// and handed back a method's body, and the write spliced the regenerated body over that method, destroying
+    /// it while leaving the intended target untouched. Two methods, not one, because "first in document order"
+    /// is also wrong BETWEEN siblings.</summary>
+    private const string PouWithGraphicalMethods = $"""
+    <pou xmlns="{Ns}" name="P" pouType="functionBlock">
+      <interface/>
+      <body><ST>pou_body</ST></body>
+      <pou name="First" pouType="method">
+        <body><FBD><inVariable localId="1"><expression>first_body</expression></inVariable></FBD></body>
+      </pou>
+      <pou name="Second" pouType="method">
+        <body><FBD><inVariable localId="1"><expression>second_body</expression></inVariable></FBD></body>
+      </pou>
+    </pou>
+    """;
+
+    [Fact]
+    public void Body_language_is_the_named_items_not_a_relatives()
+    {
+        Assert.Null(PlcOpenDocument.GraphicalBodyLang(PouWithGraphicalMethods, "P"));       // textual POU
+        Assert.Equal("FBD", PlcOpenDocument.GraphicalBodyLang(PouWithGraphicalMethods, "Second"));
+    }
+
+    [Fact]
+    public void Finding_a_graphical_body_selects_the_named_item()
+    {
+        Assert.Null(PlcOpenDocument.FindFbdLdBody(PouWithGraphicalMethods, "P"));
+        Assert.Contains("second_body", PlcOpenDocument.FindFbdLdBody(PouWithGraphicalMethods, "Second")!.ToString());
+    }
+
+    [Fact]
+    public void Splice_writes_the_named_item_and_leaves_its_siblings_intact()
+    {
+        XNamespace ns = Ns;
+        static XElement NewBody(XNamespace ns) => new(ns + "FBD", new XElement(ns + "outVariable",
+            new XAttribute("localId", 9), new XElement(ns + "expression", "written")));
+
+        // The SECOND method — not the first, which is what document order would have picked.
+        var onMethod = PlcOpenDocument.SpliceFbdLdBody(PouWithGraphicalMethods, "Second", NewBody(ns));
+        Assert.Contains("written", onMethod);
+        Assert.DoesNotContain("second_body", onMethod);   // replaced
+        Assert.Contains("first_body", onMethod);          // sibling method untouched
+        Assert.Contains("pou_body", onMethod);            // the POU's own body untouched
+
+        // The POU itself — a first write onto its textual body, leaving both methods alone.
+        var onPou = PlcOpenDocument.SpliceFbdLdBody(PouWithGraphicalMethods, "P", NewBody(ns));
+        Assert.Contains("written", onPou);
+        Assert.DoesNotContain("pou_body", onPou);         // textual body discarded by the first write
+        Assert.Contains("first_body", onPou);
+        Assert.Contains("second_body", onPou);
+    }
+
+    /// <summary>A TwinCAT action lives in <c>&lt;actions&gt;/&lt;action&gt;</c>, which the export emits BEFORE the
+    /// POU's own <c>&lt;body&gt;</c> — so document order made an action the default answer for its whole POU.</summary>
+    [Fact]
+    public void An_action_is_addressable_by_name_and_does_not_shadow_its_pou()
+    {
+        const string withAction = $"""
+        <pou xmlns="{Ns}" name="P" pouType="program">
+          <actions><action name="ACT"><body><FBD><inVariable localId="1"><expression>act_body</expression></inVariable></FBD></body></action></actions>
+          <body><FBD><inVariable localId="1"><expression>pou_body</expression></inVariable></FBD></body>
+        </pou>
+        """;
+        Assert.Contains("act_body", PlcOpenDocument.FindFbdLdBody(withAction, "ACT")!.ToString());
+        Assert.Contains("pou_body", PlcOpenDocument.FindFbdLdBody(withAction, "P")!.ToString());
     }
 
     [Fact]

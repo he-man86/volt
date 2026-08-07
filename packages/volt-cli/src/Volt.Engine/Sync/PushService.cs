@@ -325,7 +325,7 @@ public static class PushService
                 // fresh create is empty, leaving the vars the contacts/coils reference undeclared. Write the
                 // declaration onto the still-empty POU first (safe: nothing to clobber), then the body.
                 if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
-                GraphicalCode.Write(ide, pou, impl, decl);
+                GraphicalCode.Write(ide, pou, name, impl, decl);
             }
             else
             {
@@ -365,7 +365,7 @@ public static class PushService
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
             foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType);
 
-            if (pouVg) GraphicalCode.Write(ide, pou, impl, decl);
+            if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
             else ide.WriteText(pou, decl, bodyImpl);
         }
 
@@ -390,7 +390,7 @@ public static class PushService
             {
                 if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
-                GraphicalCode.Write(ide, ec, cimpl, decl);   // FB types from the enclosing POU's decl
+                GraphicalCode.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
                 continue;
             }
 

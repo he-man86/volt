@@ -57,7 +57,9 @@ public class WireVocabularyGuardTests
                     "interface_property_get", "interface_property_set", "project_info", "trace", "recipe",
                     "symbol_config" },
             // The PLCopen-XML parser and the VG sublanguage share these words as their OWN vocabularies.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenPouParser.cs", "VgParser.cs" }),
+            // PlcOpenDocument joins the PLCopen readers: "pou"/"method"/"action" there are XML ELEMENT names in
+            // the vendor's schema, which happen to be spelt like item kinds but are not them.
+            new HashSet<string> { "ItemKind.cs", "PlcOpenPouParser.cs", "PlcOpenDocument.cs", "VgParser.cs" }),
     };
 
     [Fact]
