@@ -63,8 +63,39 @@ Known failure modes, to be tested BEFORE relying on them:
 
 ## 3. Route the push through it — CODESYS
 
-- [ ] 3.1 `PushService`: for a POU, build the document once and import once, instead of root `WriteText` + per-child
-      `CreateChild`/`WriteText` + orphan walk.
+### 3.1 BLOCKED — a POU import FLATTENS the POU's internal child folders
+
+**Measured, delete verified, on `CassetteFB` (the corpus POU that uses them):**
+
+| | children | of which folders |
+|---|---|---|
+| before | 54 | 2 (`/Private`, `/Properties`) |
+| after export → delete → import | 52 | **0** |
+
+Every child survived; their ORGANISATION did not. `/Properties/ActualPositionX1` came back as
+`/ActualPositionX1` — 46 children flattened out of 2 folders.
+
+`export_xml`'s **`bExportFolderStructure`** flag (passed `false` everywhere in the driver) was the obvious
+suspect and is not the answer: with it TRUE the export grows 68,606 → 72,882 bytes, so folder data IS added,
+and the import still returns 0 folders.
+
+**Why this blocks §3.1 rather than being a detail.** The import deletes and recreates the POU, so child
+handles are stale afterwards — there is no "write the children separately". Everything must travel in the one
+document, and the document cannot carry the folders. Today's per-child path PRESERVES them (it resolves each
+child's folder and creates there), so routing writes through PLCopen would be a REGRESSION on user structure,
+silently, on every push of a POU that organises its members.
+
+**Not fixable within this change's own rules.** Restoring folders with a post-import scripting pass is a
+SECOND write mechanism — precisely what §5.5 forbids and what this change exists to remove.
+
+- [ ] 3.1 **Decision required (product, not engineering).** Three options, and none is free:
+      1. **Close §3.1.** Keep `WriteText` for POU writes. The read path stays collapsed (already landed and
+         verified); the write asymmetry stays. Cost: the seam that produced three data-loss bugs remains — though
+         all three are now individually fixed and guarded.
+      2. **Accept the flattening.** Only defensible if in-POU folders are judged decorative. They are not:
+         `CassetteFB` uses them to separate `Private` helpers from `Properties`.
+      3. **Post-import folder restore.** Buys the single document at the price of a second write mechanism, i.e.
+         the thing being eliminated. Would need its own justification.
 - [x] 3.2 **DONE — the splice vocabulary is complete.**
       `AddChild(xml, item, child, kind, decl, body)` builds the member to the vendors' shape and REFUSES to
       overwrite an existing child — add and update are different intents and this layer must not guess which the
