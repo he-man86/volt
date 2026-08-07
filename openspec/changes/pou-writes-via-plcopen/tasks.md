@@ -53,7 +53,8 @@ Known failure modes, to be tested BEFORE relying on them:
 ## 4. Gate — CODESYS
 
 - [ ] 4.1 Build + all three offline suites.
-- [ ] 4.2 Live CODESYS e2e at baseline (92 pass / 8 skip / 0 fail), INCLUDING the new folder cases from §1.
+- [ ] 4.2 Live CODESYS e2e at the POST-§1 baseline (**96 pass / 8 skip / 0 fail**), which already INCLUDES the
+      folder cases — the pre-§1 number was 92 and is no longer the target.
 - [ ] 4.3 Explicit manual check: a POU with vendor attributes/pragmas is pushed and those survive — the splice's
       whole justification over regeneration.
 - [ ] 4.4 Explicit manual check: a rejected import leaves the original POU present (the delete-then-reimport
@@ -66,7 +67,8 @@ Known failure modes, to be tested BEFORE relying on them:
 - [ ] 5.2 Verify children survive its round trip (element counts before/after, as done for CODESYS).
 - [ ] 5.3 Verify the declaration lands on TwinCAT, and by WHICH representation — do not assume it is the plaintext
       copy just because CODESYS reads that one.
-- [ ] 5.4 Live TwinCAT e2e at baseline (90 pass / 11 skip / 0 fail) plus the §1 folder cases.
+- [ ] 5.4 Live TwinCAT e2e at the POST-§1 baseline (**94 pass / 11 skip / 0 fail**), folder cases included —
+      the pre-§1 number was 90 and is no longer the target.
 - [ ] 5.5 If any of 5.1-5.3 fails, STOP and record it as a vendor limit like the DUT/GVL one — do not add a
       per-vendor write mechanism to work around it, which would recreate the seam this change exists to remove.
 
