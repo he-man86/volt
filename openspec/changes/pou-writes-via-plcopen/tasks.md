@@ -99,9 +99,32 @@ transport" with "one API", which the change never claimed.
 So the flattening is a step the write must UNDO, not a blocker:
   import the document (content)  →  re-place each child into its `%FOLDER` (structure).
 
-- [ ] 3.1 `PushService`: for a POU, build the document once and import once (declaration, body, children,
-      accessors), then re-place children into their `%FOLDER` paths via the existing `ResolveFolder` —
-      content through PLCopen, structure through scripting, which is the rule §3.4 already states.
+- [ ] 3.1 **STOPPED — the re-placement needs a primitive that does not exist.**
+
+      The plan was: import the document (content), then re-place children into their `%FOLDER` via the existing
+      structural API. Checked what that API can actually do:
+
+      - `IProjectTree` exposes `CreateChild` / `Delete` / `Rename`. **There is no move.** Confirmed in
+        `CodesysObjectModel` and `TcObjectModel` too — neither has one.
+      - `PushService.MoveItem`, for a TOP-LEVEL item, is implemented as a full-fidelity RECREATE: read the
+        source, delete, create in the new folder, write the content back.
+      - `ResolveFolder` only finds-or-creates the folder NODE. Placement happens at `CreateChild` time; it
+        cannot relocate an existing child.
+
+      So re-placing a flattened child means delete + `CreateChild` in the folder + `WriteText` — **exactly the
+      per-child COM path this task exists to remove**, now with an extra whole-POU import in front of it. For a
+      POU that uses child folders the single-document write eliminates nothing and adds an import. For one that
+      does not, it works — but branching on "does this POU use folders" is MORE code paths, not fewer, which is
+      the opposite of the goal.
+
+      This is the change's own stop condition: do not invent a second write mechanism to work around a vendor
+      limit (§5.5).
+
+      **One avenue is NOT ruled out, and it is a probe rather than a reasoning exercise.** `import_xml` takes an
+      `into` target (`ImportXmlString(data, into)`), so a CHILD document might be importable directly into a
+      folder node under the POU — which would place it without delete+recreate. Unknown whether a method or
+      property has a standalone importable document at all; TwinCAT already answers `E_FAIL` for non-POU
+      EXPORTS, so its import is not assumed either. Measure before designing on it.
 - [x] 3.1b **DONE** — `test/e2e/lifecycle/child-folder-preservation.test.ts`. A POU with children at two folder
       depths (`Helpers`, `Helpers/Inner`), one child at the POU root and a property, is edited IN PLACE; the
       `%FOLDER` directive set must come back identical. The test asserts the CREATE placed them first, so a
