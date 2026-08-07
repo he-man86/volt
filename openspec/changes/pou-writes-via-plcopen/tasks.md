@@ -65,7 +65,7 @@ Known failure modes, to be tested BEFORE relying on them:
 
 - [ ] 3.1 `PushService`: for a POU, build the document once and import once, instead of root `WriteText` + per-child
       `CreateChild`/`WriteText` + orphan walk.
-- [~] 3.2 **AddChild DONE (method + action); property-add and rename still open.**
+- [x] 3.2 **DONE — the splice vocabulary is complete.**
       `AddChild(xml, item, child, kind, decl, body)` builds the member to the vendors' shape and REFUSES to
       overwrite an existing child — add and update are different intents and this layer must not guess which the
       push meant. An ACTION is body-only (its `ACTION name` line is synthesized on read, never persisted), so a
@@ -85,7 +85,15 @@ Known failure modes, to be tested BEFORE relying on them:
       > without `<returnType>` is §4's question. If it does not, the answer is to carry the vendor's existing
       > `<interface>` through on an UPDATE and refuse a from-scratch property ADD, not to start generating types.
 
-      **Still open:** RENAME as an element operation.
+      **RENAME needs no element operation — closed by reading the existing behaviour.** Two different renames
+      were being conflated:
+      - the ITEM's own rename already uses `ide.Rename`, a NATIVE rename that makes the IDE rewrite call-sites
+        across the project. PLCopen cannot express that, which is why §3.4 keeps it on the scripting API. Moving
+        it into the document would silently stop references being updated.
+      - a CHILD's rename is not a rename today at all: the children loop matches by name and
+        `RemoveOrphanChildren` deletes whatever is not in the pushed set, so a renamed method is already
+        delete-then-create. `RemoveChild` + `AddChild` express exactly that, with no reference rewriting lost
+        because there was none to lose.
 - [ ] 3.3 Keep the create path on the scripting API: a POU that does not exist yet has no export to splice.
 - [ ] 3.4 Keep item rename/move/delete on the scripting API — PLCopen has neither rename nor folder membership.
 - [ ] 3.5 The read-only/body-format guards run BEFORE the splice, unchanged. They are what stops a textual push
