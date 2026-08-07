@@ -26,9 +26,18 @@ riskiest changes are made against a tree that has already proven the method work
    uses a ROOT item, which is exactly the case that passes; the new test puts the removed item in a SUBFOLDER.
 2. **`VgParser`'s `EXECUTE` bound** — offline-testable. Stop the scan at `END_NETWORK`/`NETWORK` and raise the
    existing coded `VG_PARSE` with the `EXECUTE` line.
-3. **`PlcOpenDocument` document scoping** — offline-testable with a children-bearing export fixture. Resolve the
-   root `<pou>` once and take its DIRECT `<body>` child, in `FindFbdLd`, `InlineInsert` and `GraphicalBodyLang`
-   (the last was fixed by an audit surgeon and correctly reverted as out of scope — restore it here).
+3. **`PlcOpenDocument` document scoping** — offline-testable with a children-bearing export fixture. Scope
+   `FindFbdLd`, `InlineInsert` and `GraphicalBodyLang` to the item the caller NAMES (the last was fixed by an
+   audit surgeon and correctly reverted as out of scope — restore it here).
+
+   > **Corrected while implementing.** This item originally read "resolve the root `<pou>` once and take its
+   > DIRECT `<body>` child". That is wrong, and the recorded TwinCAT fixture `PLC_PRG_jump_sr.plcopen.xml`
+   > disproves it: its graphical body belongs to an **action**, while the root POU's own `<body>` is an empty
+   > `<ST>` placeholder — root-scoping returned null and broke six suites. Neither vendor can export a method
+   > or action standalone, so the export always describes several items and the DOCUMENT cannot say which one
+   > was requested; only the caller can. Scoping by name also makes the defect bigger than recorded: TwinCAT
+   > emits `<actions>` BEFORE the POU's `<body>`, so a POU write landed on its action and an action write
+   > landed on a sibling action.
 4. **`CloseDesktopGui` process match** — filter by full path under the install root, not by friendly name.
 5. **`ReadImplementation` fail-closed** — a body Volt could not read must never classify as textual.
 6. **`CreateChild` accessor cases** + replace `default:` with a throw naming the unhandled kind, per
