@@ -311,6 +311,81 @@ public class PlcOpenSpliceTests
         Assert.DoesNotContain(back.Children, c => c.Name == "Temp");
     }
 
+    // ── properties and their accessors ──────────────────────────────────────────────────────────────
+
+    /// <summary>A property's CODE lives in its accessors, so writing one is how a push edits a property.</summary>
+    [Fact]
+    public void An_accessor_body_and_declaration_can_be_written()
+    {
+        var outXml = PlcOpenDocument.SetAccessor(BoxFb, "BoxFB", "State", getter: true,
+            code: "State := _state;", declaration: "VAR\n\tlocal : INT;\nEND_VAR");
+        var state = PlcOpenPouParser.Parse(outXml).Properties.Single(p => p.Name == "State");
+        Assert.Equal("State := _state;", state.GetterCode);
+        Assert.Contains("local : INT", state.GetterDeclaration!);
+        Assert.NotNull(state.SetterCode);   // the setter is untouched
+    }
+
+    /// <summary>A null code REMOVES the accessor — that is how a push drops a getter, and why the reader keeps
+    /// absent (null) distinct from present-but-bodiless (""). Collapsing them would delete a user's getter.</summary>
+    [Fact]
+    public void A_null_accessor_removes_it_and_leaves_the_other()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb).Properties.Single(p => p.Name == "State");
+        Assert.NotNull(before.GetterCode);
+        Assert.NotNull(before.SetterCode);
+
+        var after = PlcOpenPouParser.Parse(
+            PlcOpenDocument.SetAccessor(BoxFb, "BoxFB", "State", getter: true, code: null, declaration: null))
+            .Properties.Single(p => p.Name == "State");
+
+        Assert.Null(after.GetterCode);                       // getter gone
+        Assert.Equal(before.SetterCode, after.SetterCode);   // setter intact
+    }
+
+    [Fact]
+    public void Removing_an_already_absent_accessor_moves_no_bytes()
+    {
+        var once = PlcOpenDocument.SetAccessor(BoxFb, "BoxFB", "State", getter: true, code: null, declaration: null);
+        var twice = PlcOpenDocument.SetAccessor(once, "BoxFB", "State", getter: true, code: null, declaration: null);
+        Assert.Equal(once, twice);
+    }
+
+    [Fact]
+    public void Writing_one_accessor_leaves_the_other_properties_alone()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb).Properties;
+        var after = PlcOpenPouParser.Parse(
+            PlcOpenDocument.SetAccessor(BoxFb, "BoxFB", "State", getter: false, code: "_state := State;", declaration: null))
+            .Properties;
+        foreach (var p in before.Where(p => p.Name != "State"))
+        {
+            var a = after.Single(x => x.Name == p.Name);
+            Assert.Equal(p.GetterCode, a.GetterCode);
+            Assert.Equal(p.SetterCode, a.SetterCode);
+        }
+    }
+
+    /// <summary>A new property is created with BOTH accessor slots, because a property with neither is not a
+    /// property; the caller then writes the ones it wants and nulls the ones it does not.
+    /// <para>NOTE: this asserts the WRITER matches the READER — it cannot prove the IDE accepts the shape. In
+    /// particular the vendors' own properties carry <c>&lt;interface&gt;&lt;returnType&gt;</c>, which this does
+    /// not emit (the type is in the plaintext declaration; deriving the typed element from ST needs the
+    /// elementary-vs-derived table this change exists to avoid). The live import is what settles it — §4.</para></summary>
+    [Fact]
+    public void A_new_property_is_added_with_both_accessor_slots()
+    {
+        var outXml = PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Added", ItemKind.Kinds.Property,
+            "PROPERTY Added : INT", null);
+        var added = PlcOpenPouParser.Parse(outXml).Properties.Single(p => p.Name == "Added");
+        Assert.NotNull(added.GetterCode);
+        Assert.NotNull(added.SetterCode);
+        Assert.Equal("PROPERTY Added : INT", added.Declaration);
+
+        var withCode = PlcOpenDocument.SetAccessor(outXml, "BoxFB", "Added", getter: true, code: "Added := 1;", declaration: null);
+        Assert.Equal("Added := 1;",
+            PlcOpenPouParser.Parse(withCode).Properties.Single(p => p.Name == "Added").GetterCode);
+    }
+
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element
     /// whitespace. Anything else differing is a real change.</summary>
     private static string Canon(string xml) =>

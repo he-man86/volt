@@ -73,8 +73,19 @@ Known failure modes, to be tested BEFORE relying on them:
       (`<actions>`) is created when the POU has none.
       Deliberately MINIMAL — only the elements the reader parses. Vendor extras (access modifiers, object ids)
       are the IDE's to add on import; inventing them would be guessing at a shape with no ground truth.
-      **Still open:** adding a PROPERTY (needs the `<GetAccessor>`/`<SetAccessor>` pair built, each with its own
-      body and declaration), and RENAME as an element operation.
+      Property ADD and the accessor writer are now in too: `AddChild(..., Property, ...)` creates BOTH accessor
+      slots (a property with neither is not a property) and `SetAccessor(xml, item, prop, getter, code, decl)`
+      writes one — with `code: null` REMOVING it, which is how a push drops a getter and why the reader keeps
+      absent (null) distinct from present-but-bodiless (`""`).
+
+      > **One shape is NOT proven and must be settled by the live gate.** The vendors' own properties carry
+      > `<interface><returnType>`; `AddChild` does not emit it, because deriving the typed element from
+      > `PROPERTY X : INT` needs an elementary-vs-derived type table — the generation this change exists to
+      > avoid. The offline tests only prove the WRITER matches the READER; whether the IDE accepts a property
+      > without `<returnType>` is §4's question. If it does not, the answer is to carry the vendor's existing
+      > `<interface>` through on an UPDATE and refuse a from-scratch property ADD, not to start generating types.
+
+      **Still open:** RENAME as an element operation.
 - [ ] 3.3 Keep the create path on the scripting API: a POU that does not exist yet has no export to splice.
 - [ ] 3.4 Keep item rename/move/delete on the scripting API — PLCopen has neither rename nor folder membership.
 - [ ] 3.5 The read-only/body-format guards run BEFORE the splice, unchanged. They are what stops a textual push

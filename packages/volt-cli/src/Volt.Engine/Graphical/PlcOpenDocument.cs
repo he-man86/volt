@@ -235,6 +235,19 @@ namespace Volt.Engine.Graphical
 
             var member = new XElement(ns + elementName, new XAttribute("name", childName), new XElement(ns + "interface"));
             if (elementName == "Method") member.Add(Body(bodyText ?? ""));
+            if (elementName == "Property")
+            {
+                // A property's CODE lives in its accessors, not on itself, so `bodyText` is the accessor set:
+                // "get\n…" / "set\n…" is not a format we invent here — the caller passes accessors explicitly
+                // via SetAccessor below. What we build is the pair of empty accessors the declaration implies,
+                // because a property with neither is not a property.
+                // NB the vendors' own properties also carry <interface><returnType>, which we do NOT emit: the
+                // type is in the plaintext declaration (`PROPERTY X : INT`), and deriving the typed element from
+                // ST needs an elementary-vs-derived type table — the generation this change exists to avoid.
+                // Whether the IDE accepts that is the LIVE gate's question, not something the parser can answer.
+                foreach (var acc in new[] { "GetAccessor", "SetAccessor" })
+                    member.Add(new XElement(ns + acc, new XElement(ns + "interface"), Body("")));
+            }
             if (!string.IsNullOrEmpty(declaration)) member.Add(Text("InterfaceAsPlainText", declaration!));
 
             // Members hang off the OWNER's own <addData>, one <data> wrapper each.
@@ -248,6 +261,61 @@ namespace Volt.Engine.Graphical
                 new XAttribute("name", ThreeS + dataName),
                 new XAttribute("handleUnknown", "implementation"),
                 member));
+            return doc.ToString();
+        }
+
+        /// <summary>Write one of a property's ACCESSORS. A property's code lives here, not on the property
+        /// itself, so this is what carries a getter's or setter's body and declaration.
+        /// <para><paramref name="code"/> null REMOVES the accessor — that is how a push drops a getter, and it
+        /// is why the reader distinguishes an absent accessor (null) from a present-but-bodiless one (<c>""</c>).
+        /// Collapsing those two would delete a user's getter on every push of an interface property.</para></summary>
+        public static string SetAccessor(string xml, string itemName, string propertyName, bool getter,
+                                         string? code, string? declaration)
+        {
+            var doc = XDocument.Parse(xml);
+            var prop = OwnerOf(doc, itemName)?.Descendants().FirstOrDefault(e =>
+                    e.Name.LocalName is "Property" or "property" && (string?)e.Attribute("name") == propertyName)
+                ?? throw new InvalidOperationException($"'{itemName}' has no property named '{propertyName}'");
+
+            var tag = getter ? "GetAccessor" : "SetAccessor";
+            var acc = prop.Elements().FirstOrDefault(e => e.Name.LocalName == tag);
+
+            if (code is null)
+            {
+                if (acc is null) return xml;          // already absent — a no-op must move no bytes
+                acc.Remove();
+                return doc.ToString();
+            }
+
+            XNamespace ns = prop.Name.Namespace;
+            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            if (acc is null)
+            {
+                acc = new XElement(ns + tag, new XElement(ns + "interface"));
+                // Vendors emit Set before Get; keep the property's own InterfaceAsPlainText last.
+                var iapt = prop.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+                if (iapt is not null) iapt.AddBeforeSelf(acc); else prop.Add(acc);
+            }
+
+            var body = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
+            if (body is null) { body = new XElement(ns + "body"); acc.Add(body); }
+            var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
+            if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); }
+            var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
+            if (innerBody is null) { if (st.Value != code) st.ReplaceNodes(new XElement(xh + "xhtml", code)); }
+            else if (innerBody.Value != code) innerBody.ReplaceNodes(code);
+
+            if (declaration is not null)
+            {
+                var accIapt = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+                if (accIapt is null)
+                    acc.Add(new XElement(ns + "InterfaceAsPlainText", new XElement(xh + "xhtml", declaration)));
+                else
+                {
+                    var inner = accIapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? accIapt;
+                    if (inner.Value != declaration) inner.ReplaceNodes(declaration);
+                }
+            }
             return doc.ToString();
         }
 
