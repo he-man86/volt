@@ -19,6 +19,14 @@ Sketch of the option: keep the item→version map in the long-lived bridge host 
 **Why it is NOT safe by default (the load-bearing point):**
 - Unlike the *library* cache (which is content-addressed — the `.library` version is read fresh and is immutable per version), a walk cache **cannot read the items** (that's the walk it's skipping). It must trust an **external change signal**.
 - `projectDirty` is one boolean for the whole project and only edges clean→dirty; further edits within the same dirty session raise no edge (the documented same-dirty-cycle blind spot). Change *events* may not cover every mutation path (undo/redo, programmatic edits, library updates, externally loaded files).
+
+  > **CORRECTED by the spike (see `tasks.md` 1.1).** `projectDirty` is NOT the only signal available. CODESYS
+  > exposes a per-object `ModificationCounter` and `TimeStamp`, including on the not-yet-deserialized STUB
+  > (`IMetaObjectStub3`/`IMetaObjectStub2`, reachable via `GetMetaObjectStub`) — i.e. readable without paying the
+  > materialization this cache exists to avoid. TwinCAT exposes nothing equivalent (502 members across 10
+  > `ITcSmTreeItem*` interfaces, zero stamps). So the change closes on the CROSS-VENDOR gate, not on "there is no
+  > signal". The rest of the risk argument below stands unchanged and is the reason a CODESYS-only cache still
+  > would not be safe without the break-it matrix.
 - A missed signal means the cache serves a **stale version map** → the client **silently misses a real incoming IDE change** → workspace/IDE divergence with no error. That is strictly worse than the current slow-but-always-correct full walk.
 
 **Precondition (the gate):** a **cheap, provably-comprehensive** project-modification token (or per-object change stamp) the bridge can **confirm on every request** — so it *verifies* freshness rather than *assuming* it. Only then does correctness reduce to "does this token cover every mutation path?", which must be **proven**, not assumed.
