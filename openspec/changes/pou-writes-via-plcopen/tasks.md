@@ -30,14 +30,24 @@ Known failure modes, to be tested BEFORE relying on them:
 
 ## 2. The splice surface (offline, fixture-driven)
 
-- [ ] 2.1 `PlcOpenDocument`: set the declaration (the item's own `<InterfaceAsPlainText>`, scoped by item name —
-      same discipline as `ItemBody`, since one export describes several items).
-- [ ] 2.2 Set the textual body (`<body><ST>`), leaving a graphical body to the existing `SpliceFbdLdBody`.
+- [x] 2.1 **DONE** — `PlcOpenDocument.SetDeclaration(xml, itemName, declaration)`. Scoped by name via `OwnerOf`,
+      and the plaintext block it targets must be the item's OWN (`OwnDescendant`) — a method and an accessor each
+      carry their own `InterfaceAsPlainText`, so an unscoped write would put a POU's declaration on its getter.
+      Absent item, or absent plaintext block, THROWS: a declaration write that silently hit nothing is the exact
+      failure this change exists to remove.
+- [x] 2.2 **DONE** — `PlcOpenDocument.SetTextualBody(xml, itemName, bodyText)`. REFUSES a graphical body rather
+      than flattening it, mirroring the live body-format guard so the splice cannot become a second way to cause
+      the CFC-child bug.
 - [ ] 2.3 Add / replace / remove a CHILD element (method, action, property incl. its accessors) by name.
-- [ ] 2.4 Every one of 2.1-2.3 gets a unit test against the CAPTURED fixtures, not synthetic XML — the recorded
-      CODESYS and TwinCAT exports already in `fixtures/` — so the shapes are the vendors', not mine.
-- [ ] 2.5 Round-trip property: splice(parse(x)) with no change == x, normalised. A splice that rewrites bytes it
-      was not asked to touch is how vendor metadata gets lost.
+- [~] 2.4 **PARTIAL** — `PlcOpenSpliceTests`, 10 cases, every one against a RECORDED vendor export (CODESYS
+      `corpus/*`, TwinCAT `tc-fbd/*`), covering 2.1/2.2/2.5. The 2.3 cases wait on 2.3 itself.
+      Includes the scoping case that matters: writing the enclosing POU's body must leave its ACTION's graphical
+      body byte-identical — the shape of three previous data-loss bugs.
+- [x] 2.5 **DONE, and it earned its keep immediately.** The no-op identity test failed on first run: the fixture's
+      empty body is `<xhtml />` and the splice re-serialized it to `<xhtml></xhtml>`. Semantically identical, but
+      it moved bytes it was not asked to move — so the SPLICE was fixed, not the test. Both setters now return the
+      ORIGINAL string when the content already matches. That is the property that makes splicing safer than
+      regenerating; without it the guarantee is only "probably equivalent".
 
 ## 3. Route the push through it — CODESYS
 

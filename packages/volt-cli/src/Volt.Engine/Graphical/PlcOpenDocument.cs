@@ -79,6 +79,92 @@ namespace Volt.Engine.Graphical
         }
 
 
+        // ── the write splice ────────────────────────────────────────────────────────────────────────────
+        // These EDIT the item's existing export rather than generating a document. That is deliberate: an
+        // export carries attributes, pragmas, object ids and vendor addData that Volt does not model, and
+        // regenerating would silently drop every one of them. Splicing keeps the bytes we were not asked to
+        // change — see the identity test in PlcOpenSpliceTests.
+
+        /// <summary>The element that OWNS the item named <paramref name="itemName"/> — the same resolution
+        /// <see cref="ItemBody"/> uses, widened to the declaration-only kinds. One export describes several
+        /// items, so every write is scoped by name; writing to the first match in the document is exactly the
+        /// bug that spliced a body over a sibling method.</summary>
+        private static XElement? OwnerOf(XDocument doc, string itemName) =>
+            doc.Descendants().FirstOrDefault(e =>
+                e.Name.LocalName is "pou" or "Interface" or "dataType" or "globalVars"
+                    or "method" or "Method" or "action" or "Action"
+                && (string?)e.Attribute("name") == itemName);
+
+        /// <summary>Write the item's DECLARATION into its own <c>&lt;InterfaceAsPlainText&gt;</c>.
+        /// <para>The plaintext copy is what the IDE reads back on import — verified live on CODESYS with the
+        /// typed <c>&lt;interface&gt;</c> block left STALE and the plaintext still winning, so this does not
+        /// need to generate typed variable XML from ST.</para>
+        /// <para>Throws when the item, or its plaintext block, is absent: a declaration write that silently
+        /// did nothing is the failure this whole change exists to remove.</para></summary>
+        public static string SetDeclaration(string xml, string itemName, string declaration)
+        {
+            var doc = XDocument.Parse(xml);
+            var owner = OwnerOf(doc, itemName)
+                ?? throw new InvalidOperationException($"PLCopen export has no item named '{itemName}'");
+            var iapt = OwnDescendant(owner, "InterfaceAsPlainText")
+                ?? throw new InvalidOperationException(
+                    $"PLCopen export for '{itemName}' has no <InterfaceAsPlainText> to write the declaration into");
+            var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+            // Already right → hand back the ORIGINAL string untouched. Re-serializing would still be
+            // semantically equal but not byte-equal (an empty <xhtml /> comes back as <xhtml></xhtml>), and
+            // "only the bytes we were asked to change" is the property that makes splicing safer than
+            // regenerating. A no-op write must be a no-op.
+            if (inner.Value == declaration) return xml;
+            inner.ReplaceNodes(declaration);
+            return doc.ToString();
+        }
+
+        /// <summary>Write the item's TEXTUAL body into its own <c>&lt;body&gt;&lt;ST&gt;</c>. A GRAPHICAL body is
+        /// <see cref="SpliceFbdLdBody"/>'s job — this refuses one rather than flattening it, which is the same
+        /// refusal the live body-format guard makes and the bug that flattened a CFC child.</summary>
+        public static string SetTextualBody(string xml, string itemName, string bodyText)
+        {
+            var doc = XDocument.Parse(xml);
+            var body = ItemBody(doc, itemName)
+                ?? throw new InvalidOperationException($"PLCopen export for '{itemName}' has no <body>");
+            var graphical = body.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC");
+            if (graphical is not null)
+                throw new InvalidOperationException(
+                    $"'{itemName}' has a {graphical.Name.LocalName} body — a textual write would flatten it");
+
+            var ns = body.Name.Namespace;
+            var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
+            // Already right → return the ORIGINAL string. Same reason as SetDeclaration: a no-op write must not
+            // perturb the serialization (an empty <xhtml /> re-serializes as <xhtml></xhtml>).
+            if (st is not null)
+            {
+                var existing = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
+                if ((existing?.Value ?? st.Value) == bodyText) return xml;
+            }
+            if (st is null)
+            {
+                st = new XElement(ns + "ST");
+                body.RemoveNodes();
+                body.Add(st);
+            }
+            // The text lives in an inner <xhtml>; keep the vendor's wrapper element (and its namespace) when it
+            // is already there, so the only bytes that move are the code itself.
+            var inner = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
+            if (inner is null) st.ReplaceNodes(bodyText);
+            else inner.ReplaceNodes(bodyText);
+            return doc.ToString();
+        }
+
+        /// <summary>A descendant belonging to <paramref name="owner"/> ITSELF, not to a child member nested
+        /// inside it — the same containment rule <c>PlcOpenPouParser.DeclFromElement</c> applies, because a
+        /// method and an accessor each carry their own InterfaceAsPlainText.</summary>
+        private static XElement? OwnDescendant(XElement owner, string localName) =>
+            owner.Descendants()
+                .Where(e => e.Name.LocalName == localName)
+                .FirstOrDefault(e => !e.Ancestors().TakeWhile(a => a != owner)
+                    .Any(a => a.Name.LocalName is "pou" or "Method" or "method" or "Action" or "action"
+                        or "Property" or "property" or "GetAccessor" or "SetAccessor"));
+
         /// <summary>
         /// Replace or insert a graphical body. When the document already has an <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
         /// body, the existing body is validated (nothing silently lost) and replaced in-place — the original
