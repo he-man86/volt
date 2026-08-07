@@ -30,11 +30,14 @@ public static class PlcOpenPouParser
         var rootPou = doc.Root.Name.LocalName == "pou"
             ? doc.Root
             : doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "pou")
-              // TwinCAT exports an INTERFACE (and its method signatures) under <addData>/<Interface> with NO
+              // BOTH VENDORS export an INTERFACE (and its method signatures) under <addData>/<Interface> with NO
               // <pou> element. Treat that <Interface> node as the root: its own InterfaceAsPlainText
               // ("INTERFACE X") is the declaration, and its <Methods>/<Method> children are picked up by the
-              // Method-descendant loop below. (CODESYS exports interfaces as <pou pouType="interface">, so this
-              // fallback is TC-only and never changes the CODESYS path.)
+              // Method-descendant loop below.
+              // This was documented as "TC-only … never changes the CODESYS path", on the belief that CODESYS
+              // emits <pou pouType="interface">. It does not — verified against a live 3.5.21.40 export, which
+              // contains zero <pou> elements (see CodesysInterfaceExportTests). The shape is COMMON, which is
+              // what let the CODESYS driver drop its hand-built interface document and serve the IDE's own.
               ?? doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Interface")
               ?? throw new InvalidOperationException("PLCopen document has no <pou> or <Interface> element");
 

@@ -693,8 +693,11 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>Export the parent POU + its children in ONE call so the returned PLCopen XML contains
         /// child <c>&lt;pou&gt;</c> elements. The Materializer parses everything from this single document,
-        /// replacing the per-child COM reads. CODESYS <c>export_xml</c> only works for <c>IPOUObject</c>,
-        /// not <c>IInterfaceObject</c> — callers must use <see cref="ExportInterfaceXml"/> for interfaces.</summary>
+        /// replacing the per-child COM reads.
+        /// <para>Children are collected EXPLICITLY here rather than passing <c>recursive: true</c>, which is the
+        /// one remaining difference from <see cref="ExportInterfaceXml"/>. Unifying the two onto the recursive
+        /// call is the next simplification, but it changes the document for every POU, so it needs the live e2e
+        /// as its gate — not a comment claiming equivalence.</para></summary>
         public string ExportXmlWithChildren(object parentNode)
         {
             var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
@@ -703,49 +706,22 @@ namespace Volt.Cli.Ide.Codesys
             return ExportNodes(proj, nodes);
         }
 
-        /// <summary>Build PLCopen XML for an interface from COM data. CODESYS <c>export_xml</c> rejects
-        /// <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c> — so the XML document the
-        /// <see cref="Volt.Engine.Graphical.PlcOpenPouParser"/> expects is constructed here from the
-        /// declaration and child elements read through the object model.</summary>
+        /// <summary>Export an INTERFACE as the IDE's own PLCopen, RECURSIVELY — recursion is load-bearing here:
+        /// the same interface exported non-recursively carries 0 methods and 0 properties.
+        /// <para>This replaced a hand-built <c>StringBuilder</c> document that existed because "CODESYS
+        /// <c>export_xml</c> rejects <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c>". That is not
+        /// true (verified against 3.5.21.40: all 31 interfaces in the corpus export, and re-import with their
+        /// children intact). Two things the real export gets right that the synthesized one could not:
+        /// it carries interface PROPERTIES and their <c>&lt;GetAccessor&gt;</c>/<c>&lt;SetAccessor&gt;</c> —
+        /// which the hand-built document deliberately dropped — and it is the vendors' COMMON shape, so the
+        /// same parser path serves both. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
+        /// <para>NB the emitted document has NO <c>&lt;pou&gt;</c> element: CODESYS writes an interface as
+        /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
+        /// like TwinCAT. <see cref="Volt.Engine.Graphical.PlcOpenPouParser"/> already reads that shape.</para></summary>
         public string ExportInterfaceXml(object node)
         {
-            var unwrapped = Unwrap(node)!;
-            var name = GetName(node);
-            var declaration = ReadDeclaration(node);
-            var ns = "http://www.plcopen.org/xml/tc6_0200";
-            var sb = new System.Text.StringBuilder();
-            sb.Append("<pou name=\"")
-              .Append(System.Net.WebUtility.HtmlEncode(name))
-              .Append("\" pouType=\"interface\" xmlns=\"")
-              .Append(ns).Append("\">");
-            sb.Append("<InterfaceAsPlainText><xhtml>")
-              .Append(System.Net.WebUtility.HtmlEncode(declaration))
-              .Append("</xhtml></InterfaceAsPlainText>");
-            sb.Append("<body/>");
-            foreach (var child in GetChildren(unwrapped))
-            {
-                if (IsFolder(child)) continue;
-                var childName = GetName(child);
-                var iobj = ReadObject(child);
-                var ifaces = ObjectInterfaceNames(iobj);
-                if (ifaces.Contains("IInterfaceMethodObject"))
-                {
-                    sb.Append("<Method name=\"").Append(System.Net.WebUtility.HtmlEncode(childName)).Append("\">");
-                    sb.Append("<InterfaceAsPlainText><xhtml>")
-                      .Append(System.Net.WebUtility.HtmlEncode(ReadDeclaration(child)))
-                      .Append("</xhtml></InterfaceAsPlainText>");
-                    var impl = ReadImplementation(child);
-                    sb.Append("<body><ST>").Append(System.Net.WebUtility.HtmlEncode(impl)).Append("</ST></body>");
-                    sb.Append("</Method>");
-                }
-                // Interface PROPERTIES are deliberately not emitted: PlcOpenPouParser only turns
-                // Method/Action elements into children, and the Materializer reads interface properties
-                // (and their GET/SET shape) over COM via CollectPropertyChildren /
-                // IProjectTree.InterfacePropertyAccessors. A <Property> element here would be written and
-                // never read.
-            }
-            sb.Append("</pou>");
-            return sb.ToString();
+            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
+            return ExportNodes(proj, new[] { Unwrap(node)! }, recursive: true);
         }
 
         private void CollectPouChildren(object parentNode, List<object> nodes)
@@ -761,7 +737,7 @@ namespace Volt.Cli.Ide.Codesys
             }
         }
 
-        private string ExportNodes(object proj, ICollection<object> nodes)
+        private string ExportNodes(object proj, ICollection<object> nodes, bool recursive = false)
         {
             var export = proj.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "export_xml" && x.GetParameters().Length == 5
                 && typeof(IEnumerable).IsAssignableFrom(x.GetParameters()[0].ParameterType)
@@ -783,7 +759,7 @@ namespace Volt.Cli.Ide.Codesys
             foreach (var n in nodes)
                 objects.SetValue(createExt.MakeGenericMethod(baseType).Invoke(se, new[] { n }), i++);
 
-            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;
+            var xml = (string)export.Invoke(proj, new object?[] { objects, "", recursive, false, true })!;
             return xml.TrimStart('\uFEFF');
         }
 

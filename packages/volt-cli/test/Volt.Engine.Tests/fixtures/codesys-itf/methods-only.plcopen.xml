@@ -1,0 +1,173 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP21 Patch 4" creationDateTime="2026-08-07T12:00:05.7392876" />
+  <contentHeader name="Pro2193-94-95-96" version="0.2" modificationDateTime="2026-07-24T17:53:28.7071213" organization="Brink Automation" author="SR">
+    <Comment>Platform: SPI1
+SER - 0626
+SER - 0627
+SER - 0628
+SER - 0629
+</Comment>
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation>
+          <property name="Author" type="string">SR</property>
+          <property name="Company" type="string">Brink Automation</property>
+          <property name="DefaultNamespace" type="string">Brink</property>
+          <property name="Description" type="string">Platform: SPI1
+SER - 0626
+SER - 0627
+SER - 0628
+SER - 0629
+</property>
+          <property name="IsStorageFormatPinned" type="boolean">false</property>
+          <property name="Project" type="string">Pro2193-94-95-96_COdesys</property>
+          <property name="Title" type="string">Pro2193-94-95-96</property>
+          <property name="Version" type="version">0.2</property>
+        </ProjectInformation>
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous />
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/interface" handleUnknown="implementation">
+      <Interface name="ILed">
+        <Methods>
+          <Method name="Flash">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Start flashing the led</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Start flashing the led
+METHOD PUBLIC Flash
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="LedTestOff">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Force turn the led off</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Force turn the led off
+METHOD PUBLIC LedTestOff
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="LedTestOn">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Force turn the led on</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Force turn the led on
+METHOD PUBLIC LedTestOn
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="LedTestStop">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Stop forcing the led state</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Stop forcing the led state
+METHOD PUBLIC LedTestStop
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="Off">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Turn the led off</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Turn the led off
+METHOD PUBLIC Off
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="SetFlashingFrequency">
+            <interface>
+              <inputVars>
+                <variable name="Value">
+                  <type>
+                    <BOOL />
+                  </type>
+                  <documentation>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml"> Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.</xhtml>
+                  </documentation>
+                </variable>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+                    <InterfaceAsPlainText>
+                      <xhtml xmlns="http://www.w3.org/1999/xhtml">METHOD PUBLIC SetFlashingFrequency
+VAR_INPUT
+	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
+END_VAR
+</xhtml>
+                    </InterfaceAsPlainText>
+                  </data>
+                </addData>
+              </inputVars>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">METHOD PUBLIC SetFlashingFrequency
+VAR_INPUT
+	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="Solid">
+            <interface>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Turn the led on</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Turn the led on
+METHOD PUBLIC Solid
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+        </Methods>
+        <InterfaceAsPlainText>
+          <xhtml xmlns="http://www.w3.org/1999/xhtml">INTERFACE ILed
+</xhtml>
+        </InterfaceAsPlainText>
+        <addData />
+      </Interface>
+    </data>
+  </addData>
+</project>

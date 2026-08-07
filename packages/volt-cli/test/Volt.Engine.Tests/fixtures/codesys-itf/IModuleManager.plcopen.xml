@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP21 Patch 4" creationDateTime="2026-08-07T12:00:05.6734921" />
+  <contentHeader name="Pro2193-94-95-96" version="0.2" modificationDateTime="2026-07-24T17:53:28.7071213" organization="Brink Automation" author="SR">
+    <Comment>Platform: SPI1
+SER - 0626
+SER - 0627
+SER - 0628
+SER - 0629
+</Comment>
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation>
+          <property name="Author" type="string">SR</property>
+          <property name="Company" type="string">Brink Automation</property>
+          <property name="DefaultNamespace" type="string">Brink</property>
+          <property name="Description" type="string">Platform: SPI1
+SER - 0626
+SER - 0627
+SER - 0628
+SER - 0629
+</property>
+          <property name="IsStorageFormatPinned" type="boolean">false</property>
+          <property name="Project" type="string">Pro2193-94-95-96_COdesys</property>
+          <property name="Title" type="string">Pro2193-94-95-96</property>
+          <property name="Version" type="version">0.2</property>
+        </ProjectInformation>
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous />
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/interface" handleUnknown="implementation">
+      <Interface name="IModuleManager">
+        <Methods>
+          <Method name="Register">
+            <interface>
+              <returnType>
+                <BOOL />
+              </returnType>
+              <inputVars>
+                <variable name="thingToRegister">
+                  <type>
+                    <derived name="IAbleToRegister" />
+                  </type>
+                </variable>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+                    <InterfaceAsPlainText>
+                      <xhtml xmlns="http://www.w3.org/1999/xhtml">// Registers a module
+METHOD Register : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+</xhtml>
+                    </InterfaceAsPlainText>
+                  </data>
+                </addData>
+              </inputVars>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Registers a module</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Registers a module
+METHOD Register : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+          <Method name="Unregister">
+            <interface>
+              <returnType>
+                <BOOL />
+              </returnType>
+              <inputVars>
+                <variable name="thingToRegister">
+                  <type>
+                    <derived name="IAbleToRegister" />
+                  </type>
+                </variable>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+                    <InterfaceAsPlainText>
+                      <xhtml xmlns="http://www.w3.org/1999/xhtml">// Unregisters a module
+METHOD Unregister : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+</xhtml>
+                    </InterfaceAsPlainText>
+                  </data>
+                </addData>
+              </inputVars>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Unregisters a module</xhtml>
+              </documentation>
+            </interface>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">// Unregisters a module
+METHOD Unregister : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Method>
+        </Methods>
+        <Properties>
+          <Property name="ModuleHandler">
+            <interface>
+              <returnType>
+                <derived name="L_IMHP.L_IMHP_IModuleHandler" />
+              </returnType>
+            </interface>
+            <GetAccessor>
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+              </InterfaceAsPlainText>
+            </GetAccessor>
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">PROPERTY PUBLIC ModuleHandler : L_IMHP.L_IMHP_IModuleHandler
+</xhtml>
+            </InterfaceAsPlainText>
+            <addData />
+          </Property>
+        </Properties>
+        <InterfaceAsPlainText>
+          <xhtml xmlns="http://www.w3.org/1999/xhtml">INTERFACE IModuleManager
+</xhtml>
+        </InterfaceAsPlainText>
+        <addData />
+      </Interface>
+    </data>
+  </addData>
+</project>
