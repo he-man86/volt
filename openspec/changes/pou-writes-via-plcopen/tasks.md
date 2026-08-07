@@ -85,17 +85,26 @@ document, and the document cannot carry the folders. Today's per-child path PRES
 child's folder and creates there), so routing writes through PLCopen would be a REGRESSION on user structure,
 silently, on every push of a POU that organises its members.
 
-**Not fixable within this change's own rules.** Restoring folders with a post-import scripting pass is a
-SECOND write mechanism — precisely what §5.5 forbids and what this change exists to remove.
+**CORRECTION — it IS fixable, and calling it a second mechanism was my error.** Volt already carries child
+folders in its OWN representation: `PouToStText` writes a `%FOLDER <path>` directive into the child's body,
+`StSplitter` peels it back into `ChildData.Folder`, and `PushService.ResolveFolder` → `FindOrCreateFolder`
+places the child on push (segments percent-encoded, so a real folder named `Interfaces / Data` survives).
+So the folder information never depended on the vendor document at all.
 
-- [ ] 3.1 **Decision required (product, not engineering).** Three options, and none is free:
-      1. **Close §3.1.** Keep `WriteText` for POU writes. The read path stays collapsed (already landed and
-         verified); the write asymmetry stays. Cost: the seam that produced three data-loss bugs remains — though
-         all three are now individually fixed and guarded.
-      2. **Accept the flattening.** Only defensible if in-POU folders are judged decorative. They are not:
-         `CassetteFB` uses them to separate `Private` helpers from `Properties`.
-      3. **Post-import folder restore.** Buys the single document at the price of a second write mechanism, i.e.
-         the thing being eliminated. Would need its own justification.
+§3.4 already states the rule this falls under: **structure — create, rename, move, folders — stays on the
+scripting API**, because PLCopen has neither rename nor folder membership. Re-placing children after the
+import IS that mechanism doing its job; it is not a second CONTENT transport. I conflated "one content
+transport" with "one API", which the change never claimed.
+
+So the flattening is a step the write must UNDO, not a blocker:
+  import the document (content)  →  re-place each child into its `%FOLDER` (structure).
+
+- [ ] 3.1 `PushService`: for a POU, build the document once and import once (declaration, body, children,
+      accessors), then re-place children into their `%FOLDER` paths via the existing `ResolveFolder` —
+      content through PLCopen, structure through scripting, which is the rule §3.4 already states.
+- [ ] 3.1b The folder re-placement needs its own live e2e case: a POU whose CHILDREN sit in sub-folders is
+      pushed and the child folder tree must be identical afterwards. §1 pinned the ITEM's folder; this is the
+      one the measurement above says will actually break, and nothing covers it yet.
 - [x] 3.2 **DONE — the splice vocabulary is complete.**
       `AddChild(xml, item, child, kind, decl, body)` builds the member to the vendors' shape and REFUSES to
       overwrite an existing child — add and update are different intents and this layer must not guess which the
