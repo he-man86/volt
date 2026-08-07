@@ -1,4 +1,4 @@
-## Status: IMPLEMENTED (C# gates green); e2e live-bridge gate is the only step left (user side).
+## Status: COMPLETE — C# gates green, both live-bridge gates green (CODESYS 52/52 + TwinCAT 90/11/0).
 
 **Perf result (this Windows machine, 8000 items):** the blob+tree build dropped from **45.3 s → 0.25 s
 (~178×)**, byte-identical output. The 8000 temp-file writes are gone; magnitude is inflated by Windows temp
@@ -40,10 +40,26 @@ Grounding:
         - `volt pull` — clean.
       (The one "modified" file on the first run was a Windows `MAX_PATH` artifact of a deep temp dir, not a
       content diff — clean in a normal-length root.)
-- [ ] 3.1b **TwinCAT: pending** — same suite with a live TwinCAT bridge. The golden gate is vendor-independent
-      (git plumbing on identical content), so this is confirmation, not new risk.
-- [ ] 3.2 Delete `WriteBlobs`/`BuildTree` (+ the golden-reference test) once 3.1b is green; `WriteTreeViaFastImport`
-      is the only path. Kept for now as the byte-identity oracle.
+- [x] 3.1b **TwinCAT: validated live** (XAE pid 32004, worker from a fresh repo build). e2e **90 pass / 11 skip /
+      0 fail** — the recorded baseline exactly. Real CLI cycle against the live bridge:
+        - `volt init` — **10 files in 0.92s**, `git status` **CLEAN** (fast-import tree ≡ working tree, byte-identical).
+        - `volt push` (an edited FB) — accepted, `pull` reported `already up to date`, tree still clean.
+      Confirms the golden gate's vendor-independence claim: identical content in, identical tree out.
+
+      > Two things the manual cycle turned up, both mine, both worth writing down. Windows PowerShell 5.1's
+      > `Get-Content -Raw` reads as ANSI, so a read/write round-trip DOUBLE-ENCODED every non-ASCII character in
+      > the fixture and I pushed the mojibake into the live project; and `Set-Content -Encoding utf8` writes a
+      > BOM. Both were reverted (the fixture is byte-identical to HEAD again). Use
+      > `[System.IO.File]::ReadAllText/WriteAllText` with an explicit `UTF8Encoding $false` when scripting
+      > against a live PLC project — never the PS 5.1 text cmdlets. The BOM also produced a real product
+      > finding; see the note under 3.2.
+- [x] 3.2 **Resolved, partly by deviation.** `WriteBlobs` — the temp-file writer that WAS the cost — is deleted;
+      `WriteTreeViaFastImport` is the only production path, as intended. `BuildTree` is deliberately KEPT: it has
+      no production caller, but it is (a) the differential oracle
+      `GitTests.FastImport_tree_matches_hash_object_plus_BuildTree` checks fast-import against, and (b) the
+      tree-builder ~10 test setups across `GitTests`/`IdeTreeTests`/`StatusModelTests` use to construct fixtures.
+      Deleting it would ADD code to the tests and remove a byte-identity check that costs nothing to keep — the
+      opposite of this change's point. The comment at `Git.cs` already states this role.
 
 ## 4b. Push: batch the per-file blob read (the read-side mirror of init)  ✅
 
@@ -60,8 +76,11 @@ Grounding:
 ## 4. Measure + decide the index-fusion follow-up
 
 - [x] 4.1 Measured — see the perf result above (45.3 s → 0.25 s, ~178×).
-- [ ] 4.2 `Git.ReadTreeToIndex` (init's third pass) is now the only remaining silent step; not yet measured in
-      isolation. Defer the working-tree-write + index-population fusion until measurement shows it's material.
+- [x] 4.2 **Measured — immaterial; the fusion follow-up is dropped, not deferred.** `git read-tree` over a
+      synthetic 8000-entry tree (init scale, the same size as the 45.3 s measurement) runs in **73 / 75 / 86 ms**
+      across three runs. Fusing the working-tree write with index population would chase ~80 ms against the 0.25 s
+      the whole blob+tree build now costs. There is no case for the added complexity; `Finalizing` stays one
+      `read-tree`.
 
 ## 5. Close the loop  ✅ (docs pending only)
 
