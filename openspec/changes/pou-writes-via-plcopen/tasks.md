@@ -120,7 +120,35 @@ So the flattening is a step the write must UNDO, not a blocker:
       This is the change's own stop condition: do not invent a second write mechanism to work around a vendor
       limit (§5.5).
 
-      **One avenue is NOT ruled out, and it is a probe rather than a reasoning exercise.** `import_xml` takes an
+      **REOPENED — the delete was the driver's choice, not a requirement.** `WriteXml` deletes first and then
+      imports, which is what flattens the folders. Importing WITHOUT a delete, into the parent container so the
+      name collision engages `ConflictResolve`, measured on CODESYS:
+
+      | mode (no delete) | declaration | body | child tree |
+      |---|---|---|---|
+      | **Replace** | ✗ | **lands** | **preserved** |
+      | Copy | ✗ | ✗ | preserved |
+      | Skip | ✗ | ✗ | preserved |
+
+      (The driver already picks `Replace`, then renders it moot by deleting first — its own comment says the
+      mode is "effectively moot", so no mode had ever actually been exercised.)
+
+      So no move primitive is needed after all: nothing flattens because nothing is deleted. What does NOT
+      land on a merge is the DECLARATION, which `ide.WriteText(pou, decl, null)` already writes today.
+
+      **Candidate shape, with two unknowns to measure before designing on it:**
+      - declaration → `WriteText` (COM aspect, as today)
+      - body + children + accessors + graphical bodies → ONE import, `Replace`, no delete
+      - child REMOVE → `ide.Delete` (structural, which §3.4 keeps on scripting regardless)
+      - child folders → preserved for free
+      - **UNKNOWN 1:** does a merge ADD a child that is in the document but not in the IDE?
+      - **UNKNOWN 2:** does it leave a child that is in the IDE but not in the document (i.e. is orphan removal
+        still a separate structural step)?
+
+      That would still remove the per-child content path — the seam all three data-loss bugs lived in — and
+      keep folders. It does NOT make the declaration single-transport; that is the honest cost.
+
+      **Superseded avenue** (kept because it is still untested and might matter for child placement): `import_xml` takes an
       `into` target (`ImportXmlString(data, into)`), so a CHILD document might be importable directly into a
       folder node under the POU — which would place it without delete+recreate. Unknown whether a method or
       property has a standalone importable document at all; TwinCAT already answers `E_FAIL` for non-POU
