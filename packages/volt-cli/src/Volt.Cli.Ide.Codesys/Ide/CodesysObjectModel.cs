@@ -67,16 +67,18 @@ namespace Volt.Cli.Ide.Codesys
         public IReadOnlyList<object> GetChildren(object node)
         {
             var list = new List<object>();
-            var r = InvokeMethod(Unwrap(node), "get_children", false)
-                    ?? InvokeMethod(Unwrap(node), "get_children");
+            // ARITY probe, not a guess: some scripting objects expose get_children(bool), others
+            // get_children(). "No such overload" is the signal to try the other one.
+            var r = TryInvokeMethod(Unwrap(node), "get_children", false)
+                    ?? TryInvokeMethod(Unwrap(node), "get_children");
             if (r is IEnumerable e)
                 foreach (var x in e) { var u = Unwrap(x); if (u != null) list.Add(u); }
             return list;
         }
 
         public string GetName(object node) =>
-            InvokeMethod(Unwrap(node), "get_name", false) as string
-            ?? InvokeMethod(Unwrap(node), "get_name") as string
+            TryInvokeMethod(Unwrap(node), "get_name", false) as string   // arity probe (see GetChildren)
+            ?? TryInvokeMethod(Unwrap(node), "get_name") as string
             ?? "";
 
         public bool IsFolder(object node) => GetMember(Unwrap(node), "is_folder") is bool b && b;
@@ -643,7 +645,25 @@ namespace Volt.Cli.Ide.Codesys
                 case ItemKind.PlcAction: return Create(MemberContainer(parent), "create_action", name);
                 case ItemKind.PlcProp: return Create(MemberContainer(parent), "create_property", name);
                 case ItemKind.PlcItfProp: return Create(MemberContainer(parent), "create_property", name);
-                default: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
+                // Property accessors. create_property above makes BOTH Get and Set with the property, so the
+                // normal path never gets here — PushService.EnsureAccessor finds the existing accessor first.
+                // This is the ADD-A-MISSING-ACCESSOR case (a property that gains a setter), and CODESYS's
+                // member container exposes no create_* for it. Say that, and list what the container DOES
+                // offer, rather than falling through: the fall-through created a FUNCTION BLOCK named
+                // "Get"/"Set" under the property — junk in the user's project where their accessor should be,
+                // and a silent divergence from TwinCAT, which creates these natively.
+                case ItemKind.PlcPropGet:
+                case ItemKind.PlcPropSet:
+                case ItemKind.PlcItfPropGet:
+                case ItemKind.PlcItfPropSet:
+                    throw new InvalidOperationException(
+                        $"CODESYS: cannot create the '{name}' accessor — CODESYS creates a property's Get/Set " +
+                        "with the property itself, and exposes no scripting call to add one afterwards. Add it " +
+                        "in the IDE, then pull. (member container offers: " + CreateMethodNames(MemberContainer(parent)) + ")");
+                // No fallback: an unhandled kind is a bug (a new kind missed here), not a function block —
+                // same policy PushService.PouKindToCode states for its own mapping.
+                default:
+                    throw new InvalidOperationException($"CODESYS: no create for item kind {itemType} ('{name}')");
             }
         }
 
@@ -920,8 +940,26 @@ namespace Volt.Cli.Ide.Codesys
             throw new InvalidOperationException($"no writable '{name}' on {t.FullName}");
         }
 
+        /// <summary>Invoke a CODESYS scripting method by name. A method that ISN'T THERE throws — like
+        /// <see cref="InvokeWithOptionals"/> and <see cref="CreateNamed"/>. Returning null instead meant every
+        /// mutating call through here could silently do nothing: <c>SetObject(meta, true, null)</c> is how a
+        /// source-text write COMMITS, so a missed match made `push` report success while the edit never
+        /// reached the project — and the build that followed saw no errors precisely because nothing changed.
+        /// Use <see cref="TryInvokeMethod"/> where absence is a legitimate answer.</summary>
         private static object? InvokeMethod(object? o, string name, params object?[] args)
         {
+            if (o == null) return null;
+            return TryInvokeMethod(o, name, out var found, args) is var r && found ? r
+                : throw new MissingMethodException(
+                    $"No '{name}' taking {args.Length} arg(s) on {o.GetType().FullName}");
+        }
+
+        /// <summary>Invoke if such a method exists; <paramref name="found"/> reports whether it did. The one
+        /// legitimate use is probing ARITY — some CODESYS scripting objects expose `get_name()` and others
+        /// `get_name(bool)` — where "no such overload" means "try the other", not "something is wrong".</summary>
+        private static object? TryInvokeMethod(object? o, string name, out bool found, params object?[] args)
+        {
+            found = false;
             if (o == null) return null;
             // Matches by name + ARG COUNT only (the first such overload). This is safe for every CODESYS
             // surface we call — none has two same-arity overloads of the same name — but it is the reason
@@ -929,10 +967,25 @@ namespace Volt.Cli.Ide.Codesys
             foreach (var m in o.GetType().GetMethods(BF))
                 if (m.Name == name && m.GetParameters().Length == args.Length)
                 {
+                    found = true;
                     try { return m.Invoke(o, args); }
                     catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
                 }
             return null;
+        }
+
+        private static object? TryInvokeMethod(object? o, string name, params object?[] args) =>
+            TryInvokeMethod(o, name, out _, args);
+
+        /// <summary>The <c>create_*</c> methods a container actually exposes — so a "cannot create this kind"
+        /// refusal names the alternatives instead of leaving the reader to decompile.</summary>
+        private static string CreateMethodNames(object? container)
+        {
+            if (container == null) return "none";
+            var names = container.GetType().GetMethods(BF)
+                .Select(m => m.Name).Where(n => n.StartsWith("create_", StringComparison.Ordinal))
+                .Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();
+            return names.Count == 0 ? "none" : string.Join(", ", names);
         }
 
         private static object? Unwrap(object? o)
