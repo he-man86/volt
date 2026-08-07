@@ -38,9 +38,21 @@ Known failure modes, to be tested BEFORE relying on them:
 - [x] 2.2 **DONE** — `PlcOpenDocument.SetTextualBody(xml, itemName, bodyText)`. REFUSES a graphical body rather
       than flattening it, mirroring the live body-format guard so the splice cannot become a second way to cause
       the CFC-child bug.
-- [ ] 2.3 Add / replace / remove a CHILD element (method, action, property incl. its accessors) by name.
-- [~] 2.4 **PARTIAL** — `PlcOpenSpliceTests`, 10 cases, every one against a RECORDED vendor export (CODESYS
-      `corpus/*`, TwinCAT `tc-fbd/*`), covering 2.1/2.2/2.5. The 2.3 cases wait on 2.3 itself.
+- [~] 2.3 **REPLACE + REMOVE done; ADD still open.** `SetChildText(xml, item, child, decl, body)` and
+      `RemoveChild(xml, item, child)`. A null decl/body means "leave it" — distinct from `""`, which clears, so a
+      body-only edit cannot blank a declaration. Removal takes the `<data>` WRAPPER, not just the member: both
+      vendors nest a method/property in its own `<addData>/<data name="…/method|property">`, and dropping only
+      the member leaves an empty `<data>` the IDE has no meaning for. An ACTION is the other container
+      (`<actions>`), covered by the TwinCAT fixture.
+      **ADD is deliberately not folded in here**: it must build a whole member element to the vendor's shape, and
+      creating one silently inside an "update" call would hide the difference between update and create at
+      exactly the layer that must not guess. It lands with §3, where the push knows which it meant.
+- [x] 2.4 **DONE** — `PlcOpenSpliceTests`, 18 cases, every one against a RECORDED vendor export.
+      Needed a new fixture: nothing in `fixtures/` had a POU WITH PROPERTIES. Captured `codesys-pou/BoxFB` (18 KB,
+      5 methods + 3 properties with BOTH accessors) from the Pro corpus.
+      > The survey that looked for one first reported "every POU has 8 properties" — those were the contentHeader's
+      > PROJECT INFORMATION (`<property name="Author">` …), which is in every export and is not a POU child.
+      > `<GetAccessor>` is the signal that distinguishes a real one; POU properties are capital `<Property>`.
       Includes the scoping case that matters: writing the enclosing POU's body must leave its ACTION's graphical
       body byte-identical — the shape of three previous data-loss bugs.
 - [x] 2.5 **DONE, and it earned its keep immediately.** The no-op identity test failed on first run: the fixture's

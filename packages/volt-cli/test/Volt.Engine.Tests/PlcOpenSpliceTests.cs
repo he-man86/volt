@@ -128,6 +128,110 @@ public class PlcOpenSpliceTests
         Assert.Equal(beforeAction, PlcOpenDocument.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
     }
 
+    // ── 2.3 child members ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>`BoxFB` — a real CODESYS POU: 5 methods and 3 properties, each with BOTH accessors. Captured
+    /// because nothing in `fixtures/` had a POU-with-properties: the survey that looked for one kept matching
+    /// the contentHeader's PROJECT INFORMATION (`&lt;property name="Author"&gt;` …), which is in every export
+    /// and is not a POU child at all.</summary>
+    private static string BoxFb => Fixture("codesys-pou", "BoxFB.plcopen.xml");
+
+    [Fact]
+    public void A_child_method_body_and_declaration_can_be_written()
+    {
+        const string decl = "METHOD Cyclic : BOOL\nVAR_INPUT\n\tspliced : INT;\nEND_VAR";
+        const string body = "Cyclic := TRUE;";
+        var outXml = PlcOpenDocument.SetChildText(BoxFb, "BoxFB", "Cyclic", decl, body);
+
+        var cyclic = PlcOpenPouParser.Parse(outXml).Children.Single(c => c.Name == "Cyclic");
+        Assert.Equal(decl, cyclic.Declaration);
+        Assert.Equal(body, cyclic.BodyElement!.Value);
+    }
+
+    /// <summary>Writing one child must not disturb its siblings — the whole point of scoping, and the shape of
+    /// the bug that spliced a body over a sibling method.</summary>
+    [Fact]
+    public void Writing_one_child_leaves_the_others_and_the_parent_alone()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb);
+        var outXml = PlcOpenDocument.SetChildText(BoxFb, "BoxFB", "AddItem", null, "touched := 1;");
+        var after = PlcOpenPouParser.Parse(outXml);
+
+        Assert.Equal("touched := 1;", after.Children.Single(c => c.Name == "AddItem").BodyElement!.Value);
+        Assert.Equal(before.Declaration, after.Declaration);                       // parent decl untouched
+        Assert.Equal(before.BodyElement!.Value, after.BodyElement!.Value);         // parent body untouched
+        foreach (var sibling in before.Children.Where(c => c.Name != "AddItem"))
+            Assert.Equal(sibling.Declaration,
+                         after.Children.Single(c => c.Name == sibling.Name).Declaration);
+        Assert.Equal(before.Properties.Count, after.Properties.Count);             // properties survived
+    }
+
+    /// <summary>A null argument means "leave it" — distinct from "" which clears. A push that edits only a body
+    /// must not blank the declaration.</summary>
+    [Fact]
+    public void A_null_argument_leaves_that_part_untouched()
+    {
+        var declBefore = PlcOpenPouParser.Parse(BoxFb).Children.Single(c => c.Name == "Cyclic").Declaration;
+        var outXml = PlcOpenDocument.SetChildText(BoxFb, "BoxFB", "Cyclic", null, "x := 1;");
+        Assert.Equal(declBefore, PlcOpenPouParser.Parse(outXml).Children.Single(c => c.Name == "Cyclic").Declaration);
+    }
+
+    [Fact]
+    public void A_child_can_be_removed_and_the_rest_survive()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb);
+        var outXml = PlcOpenDocument.RemoveChild(BoxFb, "BoxFB", "AddItem");
+        var after = PlcOpenPouParser.Parse(outXml);
+
+        Assert.DoesNotContain(after.Children, c => c.Name == "AddItem");
+        Assert.Equal(before.Children.Count - 1, after.Children.Count);
+        Assert.Equal(before.Properties.Count, after.Properties.Count);   // removing a method keeps properties
+        Assert.Equal(before.Declaration, after.Declaration);
+    }
+
+    [Fact]
+    public void A_property_can_be_removed_with_its_accessors()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb);
+        Assert.Contains(before.Properties, p => p.Name == "State");
+
+        var after = PlcOpenPouParser.Parse(PlcOpenDocument.RemoveChild(BoxFb, "BoxFB", "State"));
+        Assert.DoesNotContain(after.Properties, p => p.Name == "State");
+        Assert.Equal(before.Properties.Count - 1, after.Properties.Count);
+        Assert.Equal(before.Children.Count, after.Children.Count);       // removing a property keeps methods
+    }
+
+    /// <summary>Both operations refuse an absent child. A push asking to update or delete something that is not
+    /// there is a disagreement about state, not a no-op to swallow.</summary>
+    [Fact]
+    public void Operating_on_an_absent_child_throws()
+    {
+        Assert.Contains("NoSuchChild", Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.RemoveChild(BoxFb, "BoxFB", "NoSuchChild")).Message);
+        Assert.Contains("NoSuchChild", Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SetChildText(BoxFb, "BoxFB", "NoSuchChild", "METHOD X", "y := 1;")).Message);
+    }
+
+    /// <summary>A no-op child write must not move bytes either — the same identity property as 2.5.</summary>
+    [Fact]
+    public void A_no_op_child_write_changes_nothing()
+    {
+        var cyclic = PlcOpenPouParser.Parse(BoxFb).Children.Single(c => c.Name == "Cyclic");
+        var same = PlcOpenDocument.SetChildText(
+            BoxFb, "BoxFB", "Cyclic", cyclic.Declaration, cyclic.BodyElement!.Value);
+        Assert.Equal(Canon(BoxFb), Canon(same));
+    }
+
+    /// <summary>The TwinCAT ACTION lives in `&lt;actions&gt;`, not in an `&lt;addData&gt;/&lt;data&gt;` wrapper —
+    /// a different container, so removal must find the right element to take out.</summary>
+    [Fact]
+    public void An_action_in_its_own_container_can_be_removed()
+    {
+        var outXml = PlcOpenDocument.RemoveChild(TwincatPou, "PLC_PRG", "ACT_FBD");
+        Assert.DoesNotContain(PlcOpenPouParser.Parse(outXml).Children, c => c.Name == "ACT_FBD");
+        Assert.Contains("PLC_PRG", PlcOpenPouParser.Parse(outXml).Declaration!);   // the POU itself survived
+    }
+
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element
     /// whitespace. Anything else differing is a real change.</summary>
     private static string Canon(string xml) =>

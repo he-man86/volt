@@ -155,6 +155,83 @@ namespace Volt.Engine.Graphical
             return doc.ToString();
         }
 
+        /// <summary>The CHILD member named <paramref name="childName"/> under the item named
+        /// <paramref name="itemName"/>, or null. Both vendors nest a method/property in its own
+        /// <c>&lt;addData&gt;/&lt;data name="…/method|property"&gt;</c> wrapper and an action in
+        /// <c>&lt;actions&gt;</c>, so the element to REMOVE is the wrapper, not the member — dropping only the
+        /// member leaves an empty <c>&lt;data&gt;</c> the IDE has no meaning for.</summary>
+        private static (XElement member, XElement removable)? FindChild(XDocument doc, string itemName, string childName)
+        {
+            var owner = OwnerOf(doc, itemName);
+            if (owner is null) return null;
+            var member = owner.Descendants().FirstOrDefault(e =>
+                e.Name.LocalName is "Method" or "method" or "Action" or "action" or "Property" or "property"
+                && (string?)e.Attribute("name") == childName);
+            if (member is null) return null;
+            // Walk out to the <data> wrapper when there is one; an <action> sits directly in <actions>.
+            var removable = member.Parent is { } p && p.Name.LocalName == "data" ? p : member;
+            return (member, removable);
+        }
+
+        /// <summary>Remove a child member from the item's document. Throws when it isn't there — a push that
+        /// asks to delete something absent is a disagreement about state, not a no-op to swallow.</summary>
+        public static string RemoveChild(string xml, string itemName, string childName)
+        {
+            var doc = XDocument.Parse(xml);
+            var hit = FindChild(doc, itemName, childName)
+                ?? throw new InvalidOperationException($"'{itemName}' has no child named '{childName}' to remove");
+            // If the wrapper was this member's only content, take the wrapper's empty <addData> parent too.
+            var addData = hit.removable.Parent;
+            hit.removable.Remove();
+            if (addData is { } ad && ad.Name.LocalName == "addData" && !ad.Elements().Any()) ad.Remove();
+            return doc.ToString();
+        }
+
+        /// <summary>Write an EXISTING child's declaration and/or body, leaving everything else about it alone.
+        /// A null argument means "don't touch" — distinct from an empty string, which clears.
+        /// <para>Adding a child that isn't there yet is deliberately NOT this method's job: it needs a whole
+        /// member element built to the vendor's shape, and silently creating one here would hide the difference
+        /// between "update this" and "create this" at exactly the layer that must not guess.</para></summary>
+        public static string SetChildText(string xml, string itemName, string childName,
+                                          string? declaration, string? bodyText)
+        {
+            var doc = XDocument.Parse(xml);
+            var hit = FindChild(doc, itemName, childName)
+                ?? throw new InvalidOperationException($"'{itemName}' has no child named '{childName}'");
+            var member = hit.member;
+
+            if (declaration is not null)
+            {
+                var iapt = OwnDescendant(member, "InterfaceAsPlainText")
+                    ?? throw new InvalidOperationException(
+                        $"child '{childName}' of '{itemName}' has no <InterfaceAsPlainText> to write into");
+                var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+                if (inner.Value != declaration) inner.ReplaceNodes(declaration);
+            }
+
+            if (bodyText is not null)
+            {
+                var body = member.Elements().FirstOrDefault(e => e.Name.LocalName == "body")
+                    ?? throw new InvalidOperationException($"child '{childName}' of '{itemName}' has no <body>");
+                var graphical = body.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC");
+                if (graphical is not null)
+                    throw new InvalidOperationException(
+                        $"child '{childName}' has a {graphical.Name.LocalName} body — a textual write would flatten it");
+                var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
+                if (st is null)
+                {
+                    st = new XElement(body.Name.Namespace + "ST");
+                    body.RemoveNodes();
+                    body.Add(st);
+                }
+                var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
+                if (innerBody is null) { if (st.Value != bodyText) st.ReplaceNodes(bodyText); }
+                else if (innerBody.Value != bodyText) innerBody.ReplaceNodes(bodyText);
+            }
+
+            return doc.ToString();
+        }
+
         /// <summary>A descendant belonging to <paramref name="owner"/> ITSELF, not to a child member nested
         /// inside it — the same containment rule <c>PlcOpenPouParser.DeclFromElement</c> applies, because a
         /// method and an accessor each carry their own InterfaceAsPlainText.</summary>
