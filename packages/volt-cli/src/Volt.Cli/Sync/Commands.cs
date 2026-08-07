@@ -359,7 +359,15 @@ public static class Commands
         var blobs = Git.ReadBlobsBatch(root, rows.Where(r => r.Kind != DiffKinds.Delete)
             .Select(r => $"HEAD:src/{Files.StripSrcPrefix(r.Kind == DiffKinds.Rename ? r.NewPath : r.Path)}")
             .Distinct(StringComparer.Ordinal).ToList());
-        string HeadSrc(string rel) => blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b) : "";
+        // TrimStart('﻿'): a BOM is a file-encoding artifact, never content, and `Encoding.UTF8.GetString`
+        // does not remove one. Visual Studio and TcXaeShell save UTF-8 WITH a BOM by default on Windows, so any
+        // user who opens a workspace file there and saves gets one — and it lands in front of the header keyword,
+        // where `.Trim()` leaves it (U+FEFF is not whitespace under .NET Core). The push was then refused with
+        // `Unrecognized code header: PROGRAM PLC_PRG`, which reads as self-contradictory because the offending
+        // character is invisible. Strip it here, at the one place a workspace file's bytes become text bound for
+        // the PLC, rather than teaching every downstream parser about it.
+        string HeadSrc(string rel) =>
+            blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b).TrimStart('﻿') : "";
 
         var ops = new List<PushOp>();
         void SetForChange(string rel)

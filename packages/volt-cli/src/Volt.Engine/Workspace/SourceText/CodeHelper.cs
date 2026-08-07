@@ -30,7 +30,11 @@ public static class CodeHelper
         bool inBlockComment = false;
         for (int i = 0; i < lines.Length; i++)
         {
-            var trimmed = lines[i].Trim();
+            // '﻿' (U+FEFF) is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header
+            // keyword and every match below fails. Belt-and-braces with the strip at the push boundary: this
+            // function's whole contract is that it always finds the header line, and no caller should have to
+            // know that an invisible character can defeat it.
+            var trimmed = lines[i].Trim().TrimStart('﻿');
             if (inBlockComment)
             {
                 if (trimmed.Contains("*)")) inBlockComment = false;

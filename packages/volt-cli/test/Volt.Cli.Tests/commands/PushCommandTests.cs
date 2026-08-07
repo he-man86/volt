@@ -42,6 +42,32 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A workspace file saved with a UTF-8 BOM still pushes. Visual Studio and TcXaeShell write UTF-8
+    /// WITH a BOM by default on Windows, so any user who opens a `.prg` there and saves gets one — and the BOM
+    /// sits in front of the header keyword, where `.Trim()` does not remove it (U+FEFF is not whitespace under
+    /// .NET Core). The push was rejected with `Unrecognized code header: PROGRAM PLC_PRG` — an error that reads
+    /// as self-contradictory, because the character it is complaining about is invisible. Found by hand while
+    /// driving a live TwinCAT bridge.</summary>
+    [Fact]
+    public void Push_accepts_a_file_saved_with_a_utf8_BOM()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            // Exactly what an editor's "UTF-8 with signature" save produces: EF BB BF, then the unchanged text.
+            File.WriteAllText(path, File.ReadAllText(path).Replace("x := 1;", "x := 2;"),
+                new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+            var r = Commands.Push(root, client);
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains(ide.Recorded, x => x.StartsWith("write:PLC_PRG"));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Push_is_rejected_when_the_IDE_changed_since_the_last_sync()
     {
