@@ -68,8 +68,12 @@ namespace Volt.Engine.Graphical
             var owner = doc.Descendants().FirstOrDefault(e =>
                 e.Name.LocalName is "dataType" or "globalVars" or "pou" or "Interface"
                 && (string?)e.Attribute("name") == itemName);
-            var iapt = (owner ?? doc.Root!)?.Descendants()
-                .FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+            // NO whole-document fallback. An earlier version read `(owner ?? doc.Root)`, which meant a name
+            // that isn't in the document returned the FIRST plaintext block anywhere in it — i.e. some OTHER
+            // item's declaration, confidently. That is the same document-scoping mistake that spliced a body
+            // over a sibling method; "not found" must answer null, not a plausible wrong item.
+            if (owner is null) return null;
+            var iapt = owner.Descendants().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
             if (iapt == null) return null;
             // The text lives in an inner <xhtml> element; take its value (not the addData wrapper's, to
             // avoid pretty-print whitespace around it).
@@ -127,10 +131,15 @@ namespace Volt.Engine.Graphical
             var doc = XDocument.Parse(xml);
             var body = ItemBody(doc, itemName)
                 ?? throw new InvalidOperationException($"PLCopen export for '{itemName}' has no <body>");
-            var graphical = body.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC");
-            if (graphical is not null)
+            // Refuse ANY existing body language that is not ST — not just the graphical ones. IL is textual and
+            // would have slipped past a graphical-only guard, then been silently replaced by the `body.RemoveNodes()`
+            // below: a language change the caller never asked for and the user never sees. The six languages are
+            // the same set PlcOpenPouParser knows; anything present that isn't ST is someone else's body.
+            var existingLang = body.Elements()
+                .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC");
+            if (existingLang is not null)
                 throw new InvalidOperationException(
-                    $"'{itemName}' has a {graphical.Name.LocalName} body — a textual write would flatten it");
+                    $"'{itemName}' has a {existingLang.Name.LocalName} body — a textual (ST) write would replace it");
 
             var ns = body.Name.Namespace;
             var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
@@ -189,7 +198,11 @@ namespace Volt.Engine.Graphical
         /// intents, and a call that silently did either would hide which one the push meant.</para>
         /// <para>Deliberately MINIMAL — only the elements the reader parses. Vendor extras (access modifiers,
         /// object ids) are the IDE's to add on import; inventing them here would be guessing at a shape we have
-        /// no ground truth for.</para></summary>
+        /// no ground truth for.</para>
+        /// <para>NOTE the parameter semantics differ from <see cref="SetChildText"/>, and that is intended, not a
+        /// silent default: here a null <paramref name="bodyText"/> means "no body yet" (same as <c>""</c>),
+        /// because a member being CREATED has nothing to preserve — "leave it unchanged" has no referent. In
+        /// <see cref="SetChildText"/>, which UPDATES, null means "leave it" and <c>""</c> means "clear".</para></summary>
         public static string AddChild(string xml, string itemName, string childName, string kind,
                                       string? declaration, string? bodyText)
         {
@@ -282,7 +295,10 @@ namespace Volt.Engine.Graphical
 
             if (code is null)
             {
-                if (acc is null) return xml;          // already absent — a no-op must move no bytes
+                // Absent already ⇒ nothing to do. This is DECLARATIVE ("the property has no getter"), unlike
+                // RemoveChild, which is imperative ("remove this child") and therefore throws when the target
+                // isn't there. Not a swallowed failure: the requested end state is the current one.
+                if (acc is null) return xml;
                 acc.Remove();
                 return doc.ToString();
             }
@@ -359,10 +375,13 @@ namespace Volt.Engine.Graphical
             {
                 var body = member.Elements().FirstOrDefault(e => e.Name.LocalName == "body")
                     ?? throw new InvalidOperationException($"child '{childName}' of '{itemName}' has no <body>");
-                var graphical = body.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC");
-                if (graphical is not null)
+                // Same rule as SetTextualBody: refuse ANY non-ST body language, IL included. A graphical-only
+                // guard let IL through to the RemoveNodes below, silently changing the child's language.
+                var existingLang = body.Elements()
+                    .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC");
+                if (existingLang is not null)
                     throw new InvalidOperationException(
-                        $"child '{childName}' has a {graphical.Name.LocalName} body — a textual write would flatten it");
+                        $"child '{childName}' has a {existingLang.Name.LocalName} body — a textual (ST) write would replace it");
                 var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
                 if (st is null)
                 {

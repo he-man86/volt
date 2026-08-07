@@ -110,7 +110,7 @@ public class PlcOpenSpliceTests
         var ex = Assert.Throws<System.InvalidOperationException>(
             () => PlcOpenDocument.SetTextualBody(TwincatPou, "ACT_FBD", "x := 1;"));
         Assert.Contains("FBD", ex.Message);
-        Assert.Contains("flatten", ex.Message);
+        Assert.Contains("replace", ex.Message);   // wording covers IL too, where "flatten" would be wrong
     }
 
     // ── scoping: the bug class that produced three data-loss defects ────────────────────────────────
@@ -385,6 +385,36 @@ public class PlcOpenSpliceTests
         Assert.Equal("Added := 1;",
             PlcOpenPouParser.Parse(withCode).Properties.Single(p => p.Name == "Added").GetterCode);
     }
+
+    // ── zero-fallback audit ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Reading a declaration for an item that is NOT in the document answers null — never some other
+    /// item's. An earlier version fell back to the whole document (`owner ?? doc.Root`), so an unknown name
+    /// returned the first plaintext block anywhere in it: confidently, and wrong. Same document-scoping mistake
+    /// that once spliced a body over a sibling method.</summary>
+    [Fact]
+    public void Reading_a_declaration_for_an_absent_item_is_null_not_someone_elses()
+    {
+        Assert.NotNull(PlcOpenDocument.DeclFromExport(BoxFb, "BoxFB"));          // the real one is readable
+        Assert.Null(PlcOpenDocument.DeclFromExport(BoxFb, "NoSuchItem"));        // ...and an absent one is null
+        Assert.Null(PlcOpenDocument.DeclFromExport(BoxFb, "Cyclic"));            // a CHILD is not an item either
+    }
+
+    /// <summary>A textual write refuses ANY non-ST body language, not just the graphical ones. IL is textual, so
+    /// a graphical-only guard let it through and the rewrite silently changed the body's language.</summary>
+    [Theory]
+    [InlineData("IL")]
+    [InlineData("FBD")]
+    [InlineData("CFC")]
+    public void A_textual_write_refuses_every_other_body_language(string lang)
+    {
+        var xml = $"<pou xmlns=\"{Ns}\" name=\"P\"><body><{lang}/></body></pou>";
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SetTextualBody(xml, "P", "x := 1;"));
+        Assert.Contains(lang, ex.Message);
+    }
+
+    private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element
     /// whitespace. Anything else differing is a real change.</summary>

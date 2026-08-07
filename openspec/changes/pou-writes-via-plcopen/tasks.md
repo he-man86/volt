@@ -161,6 +161,27 @@ So the flattening is a step the write must UNDO, not a blocker:
 - [ ] 5.5 If any of 5.1-5.3 fails, STOP and record it as a vendor limit like the DUT/GVL one — do not add a
       per-vendor write mechanism to work around it, which would recreate the seam this change exists to remove.
 
+## 5b. Zero-fallback audit of the splice surface (done)
+
+Prompted by the reminder that this repo has a NO-FALLBACK policy. Audited my own additions rather than
+assuming they complied — two real violations, both of the exact class this programme has been removing:
+
+- [x] 5b.1 `DeclFromExport` read `(owner ?? doc.Root)`. A name that is NOT in the document therefore returned
+      the FIRST plaintext block anywhere in it — some other item's declaration, confidently. The same
+      document-scoping mistake that once spliced a body over a sibling method, reintroduced by me while adding
+      the item-name parameter. Now: not found ⇒ null. Pinned by a test that also asserts a CHILD name is not an
+      item name.
+- [x] 5b.2 `SetTextualBody` and `SetChildText` guarded only the GRAPHICAL languages (FBD/LD/CFC/SFC). **IL is
+      textual and slipped through**, then got silently replaced by the ST rewrite — a body-language change
+      nobody asked for. Both now refuse any non-ST body. Theory test over IL/FBD/CFC.
+
+Two more looked like fallbacks and are deliberate; documented in place so they are not "fixed" into bugs:
+
+- `AddChild`'s null body means "no body yet" (a member being CREATED has nothing to preserve), whereas
+  `SetChildText`'s null means "leave it". Create and update genuinely differ.
+- `SetAccessor(code: null)` on an already-absent accessor is a no-op because it is DECLARATIVE ("this property
+  has no getter") — the requested end state is the current one. `RemoveChild` is imperative and throws.
+
 ## 6. Close out
 
 - [ ] 6.1 Delete whatever the change made unreachable (the per-child write path, orphan walk) — compiler-verified,
