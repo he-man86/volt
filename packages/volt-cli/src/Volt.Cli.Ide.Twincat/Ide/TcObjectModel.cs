@@ -343,11 +343,24 @@ internal sealed class TcObjectModel
 
     // ── source text ─────────────────────────────────────────────────
     public string ReadDeclaration(object node) => (string)((dynamic)node).DeclarationText ?? "";
+    /// <summary>An item's body text. Only a MISSING implementation slot yields <c>""</c> — an interface, DUT or
+    /// GVL has no body and TwinCAT's COM object does not expose the member for it. Every OTHER failure is
+    /// rethrown, because this read is FAIL-CLOSED: <c>BodyLanguage</c> is <c>LanguageOf(ReadImplementation(...))</c>,
+    /// so a swallowed failure returned <c>""</c> for a body that does exist, which reports as TEXTUAL — and that
+    /// is the exact value <c>PushService</c>'s body-format guard uses to refuse a textual push over a live
+    /// CFC/SFC body. A body Volt could not read must never classify as textual; it must stop the push.</summary>
     public string ReadImplementation(object node)
     {
         try { return (string)((dynamic)node).ImplementationText ?? ""; }
-        catch { return ""; }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return ""; }
+        catch (System.Runtime.InteropServices.COMException ex) when (IsMissingMember(ex)) { return ""; }
     }
+
+    // The COM "this object has no such member" HRESULTs, as opposed to a member that exists and failed.
+    private static bool IsMissingMember(System.Runtime.InteropServices.COMException ex) =>
+        (uint)ex.HResult is 0x80020003    // DISP_E_MEMBERNOTFOUND
+                         or 0x80020006    // DISP_E_UNKNOWNNAME
+                         or 0x80004001;   // E_NOTIMPL
 
     public void WriteText(object node, string? declaration, string? implementation)
     {
