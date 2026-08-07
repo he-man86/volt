@@ -102,9 +102,12 @@ So the flattening is a step the write must UNDO, not a blocker:
 - [ ] 3.1 `PushService`: for a POU, build the document once and import once (declaration, body, children,
       accessors), then re-place children into their `%FOLDER` paths via the existing `ResolveFolder` —
       content through PLCopen, structure through scripting, which is the rule §3.4 already states.
-- [ ] 3.1b The folder re-placement needs its own live e2e case: a POU whose CHILDREN sit in sub-folders is
-      pushed and the child folder tree must be identical afterwards. §1 pinned the ITEM's folder; this is the
-      one the measurement above says will actually break, and nothing covers it yet.
+- [x] 3.1b **DONE** — `test/e2e/lifecycle/child-folder-preservation.test.ts`. A POU with children at two folder
+      depths (`Helpers`, `Helpers/Inner`), one child at the POU root and a property, is edited IN PLACE; the
+      `%FOLDER` directive set must come back identical. The test asserts the CREATE placed them first, so a
+      flattening cannot pass as "nothing was there anyway".
+      Baselines move again: **CODESYS 98 pass / 8 skip / 0 fail**, **TwinCAT 96 pass / 11 skip / 0 fail**.
+      Passes trivially today — the per-child path never flattens — which is why it is written BEFORE §3.1.
 - [x] 3.2 **DONE — the splice vocabulary is complete.**
       `AddChild(xml, item, child, kind, decl, body)` builds the member to the vendors' shape and REFUSES to
       overwrite an existing child — add and update are different intents and this layer must not guess which the
@@ -142,8 +145,8 @@ So the flattening is a step the write must UNDO, not a blocker:
 ## 4. Gate — CODESYS
 
 - [ ] 4.1 Build + all three offline suites.
-- [ ] 4.2 Live CODESYS e2e at the POST-§1 baseline (**96 pass / 8 skip / 0 fail**), which already INCLUDES the
-      folder cases — the pre-§1 number was 92 and is no longer the target.
+- [ ] 4.2 Live CODESYS e2e at the POST-§3.1b baseline (**98 pass / 8 skip / 0 fail**), folder + child-folder
+      cases included. Earlier numbers in this file's history (92, then 96) are superseded.
 - [ ] 4.3 Explicit manual check: a POU with vendor attributes/pragmas is pushed and those survive — the splice's
       whole justification over regeneration.
 - [ ] 4.4 Explicit manual check: a rejected import leaves the original POU present (the delete-then-reimport
@@ -156,8 +159,8 @@ So the flattening is a step the write must UNDO, not a blocker:
 - [ ] 5.2 Verify children survive its round trip (element counts before/after, as done for CODESYS).
 - [ ] 5.3 Verify the declaration lands on TwinCAT, and by WHICH representation — do not assume it is the plaintext
       copy just because CODESYS reads that one.
-- [ ] 5.4 Live TwinCAT e2e at the POST-§1 baseline (**94 pass / 11 skip / 0 fail**), folder cases included —
-      the pre-§1 number was 90 and is no longer the target.
+- [ ] 5.4 Live TwinCAT e2e at the POST-§3.1b baseline (**96 pass / 11 skip / 0 fail**), folder + child-folder
+      cases included. Earlier numbers (90, then 94) are superseded.
 - [ ] 5.5 If any of 5.1-5.3 fails, STOP and record it as a vendor limit like the DUT/GVL one — do not add a
       per-vendor write mechanism to work around it, which would recreate the seam this change exists to remove.
 
