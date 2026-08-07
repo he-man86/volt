@@ -99,8 +99,23 @@ public static class Materializer
                 SetterDeclaration: null));
         }
 
-        // Properties from COM
-        children.AddRange(CollectPropertyChildren(ide, item));
+        // Properties from the SAME export as everything else — no per-accessor COM walk. Both vendors carry
+        // <Property>/<GetAccessor|SetAccessor> with the accessor's body AND its declaration (verified live on
+        // each). Folder membership still comes from `folderMap`: PLCopen carries no folder information at all,
+        // which is the same reason WriteXml has to re-import into the original parent.
+        foreach (var p in parsed.Properties)
+            children.Add(new ChildData(
+                Kind: ItemKind.Kinds.Property,
+                Name: p.Name,
+                Declaration: p.Declaration?.Trim() ?? $"PROPERTY {p.Name}",
+                BodyText: null,
+                Folder: folderMap.TryGetValue(p.Name, out var pf) && pf is { Length: > 0 } ? pf : null,
+                GetterCode: p.GetterCode,
+                SetterCode: p.SetterCode,
+                // An accessor declaration that is only an empty VAR block carries nothing — keep the existing
+                // rule so the materialized text is unchanged for the common case.
+                GetterDeclaration: KeepDecl(p.GetterDeclaration),
+                SetterDeclaration: KeepDecl(p.SetterDeclaration)));
 
         var body = VgBodyOf(parsed.BodyLanguage, parsed.BodyElement);
         return new PouData(Kind: kind, Declaration: declaration.Trim(), BodyText: body, Children: children);
@@ -117,7 +132,14 @@ public static class Materializer
         return text.Length == 0 ? null : text;
     }
 
-    // ── Property children (COM) ──────────────────────────────────────
+    /// <summary>An accessor declaration worth keeping: null/blank, or a bare empty VAR block, carries nothing.</summary>
+    private static string? KeepDecl(string? decl)
+    {
+        var d = decl?.Trim();
+        return string.IsNullOrEmpty(d) || IsEmptyVarBlock(d!) ? null : d;
+    }
+
+    // ── Property children (COM) — RETIRED for the POU path, still used for interfaces ────────────────
 
     private static List<ChildData> CollectPropertyChildren(IIdeDriver ide, ItemRef parent, string folderPath = "")
     {

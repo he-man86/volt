@@ -11,7 +11,8 @@ public static class PlcOpenPouParser
         string? Declaration,
         string? BodyLanguage,
         XElement? BodyElement,
-        List<ParsedChild> Children
+        List<ParsedChild> Children,
+        List<ParsedProperty> Properties
     );
 
     public sealed record ParsedChild(
@@ -20,6 +21,23 @@ public static class PlcOpenPouParser
         string? Declaration,
         string? BodyLanguage,
         XElement? BodyElement
+    );
+
+    /// <summary>A property and its accessors, read from the export both vendors already produce.
+    /// <para>Verified live on BOTH: a POU export carries <c>&lt;Property name&gt;</c> with
+    /// <c>&lt;GetAccessor&gt;</c>/<c>&lt;SetAccessor&gt;</c>, each holding the accessor's <c>&lt;body&gt;&lt;ST&gt;</c>
+    /// AND its <c>&lt;InterfaceAsPlainText&gt;</c> — TwinCAT `Speed := x` / `x := Speed`, CODESYS
+    /// `uiComBrinkFanuc := ComBrinkFanuc;`. So the accessor bodies never needed the per-accessor COM walk.</para>
+    /// <para>A null <see cref="GetterCode"/> means NO getter; an EMPTY one means a getter with no body — the
+    /// interface-property case, where accessors are declaration-only stubs. That distinction is load-bearing:
+    /// PushService uses null-vs-present to decide whether to REMOVE the accessor.</para></summary>
+    public sealed record ParsedProperty(
+        string Name,
+        string? Declaration,
+        string? GetterCode,
+        string? GetterDeclaration,
+        string? SetterCode,
+        string? SetterDeclaration
     );
 
     public static ParsedPou Parse(string xml)
@@ -77,7 +95,31 @@ public static class PlcOpenPouParser
             children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
         }
 
-        return new ParsedPou(declaration, bodyLang, bodyEl, children);
+        // Properties + their accessors, from the SAME document. Both vendors emit
+        // <Property name>/<GetAccessor|SetAccessor>/<body><ST> plus each accessor's own InterfaceAsPlainText.
+        var properties = new List<ParsedProperty>();
+        foreach (var p in rootPou.Descendants().Where(e => e.Name.LocalName is "Property" or "property"))
+        {
+            var pname = (string?)p.Attribute("name");
+            if (string.IsNullOrEmpty(pname)) continue;
+            var (getCode, getDecl) = Accessor(p, "GetAccessor");
+            var (setCode, setDecl) = Accessor(p, "SetAccessor");
+            properties.Add(new ParsedProperty(pname!, DeclFromElement(p), getCode, getDecl, setCode, setDecl));
+        }
+
+        return new ParsedPou(declaration, bodyLang, bodyEl, children, properties);
+    }
+
+    /// <summary>One accessor: its body text and its own declaration. Returns <c>(null, null)</c> when the
+    /// accessor is ABSENT — distinct from a present-but-bodiless accessor (<c>""</c>), which is what an
+    /// interface property has and what the caller must not confuse with "no getter".</summary>
+    private static (string? code, string? declaration) Accessor(XElement property, string tag)
+    {
+        var acc = property.Elements().FirstOrDefault(e => e.Name.LocalName == tag);
+        if (acc is null) return (null, null);
+        var bodyEl = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
+        var langEl = bodyEl is null ? null : LangIn(bodyEl).element;
+        return (langEl?.Value.Trim() ?? "", DeclFromElement(acc));
     }
 
     private static (string? language, XElement? element) FindBody(XElement pou, XNamespace ns)
@@ -110,8 +152,11 @@ public static class PlcOpenPouParser
     // e.g. a TwinCAT FB's method sits under <addData>/<Method>/<InterfaceAsPlainText>. It must NOT be mistaken
     // for the enclosing POU's declaration (a TC FB itself carries a structured <interface><localVars> with no
     // own IAPT, so grabbing the method's IAPT made an FB materialize as kind "method" → ExtFor threw).
+    // GetAccessor/SetAccessor are here for the same reason the rest are: an ACCESSOR carries its own
+    // InterfaceAsPlainText, and without them a property's declaration read would pick up its getter's.
     private static readonly HashSet<string> ChildDeclContainers =
-        new(StringComparer.OrdinalIgnoreCase) { "pou", "Method", "Action", "Property", "get", "set" };
+        new(StringComparer.OrdinalIgnoreCase)
+        { "pou", "Method", "Action", "Property", "get", "set", "GetAccessor", "SetAccessor" };
 
     private static string? DeclFromElement(XElement element)
     {
