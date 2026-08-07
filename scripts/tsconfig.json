@@ -6,7 +6,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node", "bun"],
-    "typeRoots": ["../packages/volt-git/node_modules/@types", "../packages/volt-lsp-iec/node_modules/@types"],
+    "typeRoots": ["../packages/volt-lsp-iec/node_modules/@types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
