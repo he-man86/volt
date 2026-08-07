@@ -1,0 +1,3 @@
+TwinCAT's committed Untitled2.plcproj references this folder (POUs$d), but git cannot store an
+empty directory — so without this file a fresh clone is missing it and the e2e's move/rename cases
+fail with 'Could not find a part of the path' from ITcSmTreeItem:CreateChild.
