@@ -16,10 +16,17 @@ Known failure modes, to be tested BEFORE relying on them:
 
 ## 1. Folder preservation first — the known failure, pinned before anything depends on it
 
-- [ ] 1.1 Add a live e2e case: a POU nested in at least two folders is pushed (body edit only) and MUST still be
-      in the same folder afterwards. Red against a deliberately parent-less import, green with the parent passed.
-- [ ] 1.2 Same for a POU whose children live in folders under it (the tree the reader's `folderMap` covers).
-- [ ] 1.3 Only once 1.1/1.2 are green does any other task here proceed.
+- [x] 1.1 **DONE** — `test/e2e/lifecycle/folder-preservation.test.ts`: a POU created one, two and THREE folders
+      deep is edited IN PLACE (no `toFolder`) and must still be in the same folder, with the edit applied. Depth
+      is the point: one level can be preserved by accident if the import's default parent happens to be right.
+- [x] 1.2 **DONE** — a fourth case carries `METHOD + ACTION + PROPERTY` and asserts the children survive the
+      in-place edit as well; a write that loses placement is just as likely to lose members, and both are silent.
+- [x] 1.3 Gate met. Baselines MOVED, and later tasks must hold the NEW numbers, not the old ones:
+      **CODESYS 96 pass / 8 skip / 0 fail** (was 92), **TwinCAT 94 pass / 11 skip / 0 fail** (was 90).
+
+      > These pass TODAY under `WriteText` — nothing is deleted, so nothing can be relocated. That is exactly
+      > why they were written first: they pin the behaviour BEFORE the mechanism changes, so a regression is a
+      > red test rather than an engineer's POU quietly reappearing at the top of their project tree.
 
 ## 2. The splice surface (offline, fixture-driven)
 
