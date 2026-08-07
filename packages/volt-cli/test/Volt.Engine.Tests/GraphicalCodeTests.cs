@@ -224,7 +224,7 @@ public class GraphicalCodeTests
         Assert.DoesNotContain("old", s.WrittenXml!);                       // old body gone
         Assert.Contains("<expression>x</expression>", s.WrittenXml!);      // edited body in
         Assert.Equal("FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR",   // interface untouched
-                     Volt.Engine.Graphical.PlcOpenDocument.DeclFromExport(s.WrittenXml!));
+                     Volt.Engine.Graphical.PlcOpenDocument.DeclFromExport(s.WrittenXml!, ItemName));
     }
 }
 

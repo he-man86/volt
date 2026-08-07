@@ -33,7 +33,7 @@ public static class GraphicalCode
         if (lang is null) return null;                       // textual → use the textual transport
 
         var xml = code.ReadXml(item);                        // graphical → the PLCopen transport (throws on failure)
-        var decl = DeclarationFrom(code, item, xml);
+        var decl = DeclarationFrom(code, item, itemName, xml);
 
         if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
@@ -127,8 +127,12 @@ public static class GraphicalCode
     /// into the item's current export and re-import. FB instance types (absent from VG) come from
     /// <paramref name="declaration"/>. The POU's declaration is NOT written — it is preserved from the
     /// export's typed <c>&lt;interface&gt;</c>: CODESYS regenerates the interface from that typed block on
-    /// import (ignoring the plaintext copy), and TwinCAT's export carries no plaintext interface at all,
-    /// so a graphical POU's VAR-section is edited in the IDE, not via push. Throws on invalid VG.</summary>
+    /// import (ignoring the plaintext copy), so a graphical POU's VAR-section is edited in the IDE, not via
+    /// push. Throws on invalid VG.
+    /// <para>This used to add "and TwinCAT's export carries no plaintext interface at all". That is false —
+    /// the recorded TwinCAT export in <c>fixtures/tc-fbd</c> carries <c>&lt;InterfaceAsPlainText&gt;</c> with
+    /// its <c>PROGRAM …/VAR …</c> text, which is exactly why the Materializer can read a declaration out of the
+    /// export on BOTH vendors. The behaviour above is unchanged; only the reason was wrong.</para></summary>
     public static void Write(ICodeStore code, ItemRef item, string itemName, string vgText, string declaration)
     {
         var graph = Validate(vgText);                                        // pure checks first (no IDE write yet)
@@ -160,13 +164,14 @@ public static class GraphicalCode
         return null;
     }
 
-    /// <summary>A graphical POU's declaration: from the export's plaintext interface when the vendor
-    /// includes it (CODESYS — avoids the poisoning aspect), else from the textual aspect (TwinCAT —
-    /// its export omits it, and it has no reimport poison). A structural property of the export, not an
-    /// error path; either way the result is the POU's real declaration.</summary>
-    private static string DeclarationFrom(ICodeStore code, ItemRef item, string xml)
+    /// <summary>A graphical POU's declaration, from the export's plaintext interface — which BOTH vendors
+    /// carry (the recorded TwinCAT export in <c>fixtures/tc-fbd</c> has it; the older "TwinCAT omits it"
+    /// reading of this was wrong). Reading it from the export also avoids touching the object-model aspect,
+    /// which a just-reimported graphical POU poisons. The COM read remains only as the answer for an export
+    /// that genuinely has no plaintext block — a structural property, not an error path.</summary>
+    private static string DeclarationFrom(ICodeStore code, ItemRef item, string itemName, string xml)
     {
-        var fromXml = PlcOpenDocument.DeclFromExport(xml);
+        var fromXml = PlcOpenDocument.DeclFromExport(xml, itemName);
         return fromXml is not null ? fromXml : code.ReadDeclaration(item);
     }
 }

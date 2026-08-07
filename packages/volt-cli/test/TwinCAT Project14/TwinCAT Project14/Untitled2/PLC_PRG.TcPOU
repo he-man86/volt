@@ -80,7 +80,7 @@ udiTotalCount := fbUnit.udiTotalCount;
 // fbUnit.fbModeManager.xUnsuspend := xHmiUnsuspend;]]></ST>
     </Implementation>
     <LineIds Name="PLC_PRG">
-      <LineId Id="79705" Count="40" />
+      <LineId Id="83627" Count="40" />
       <LineId Id="4" Count="0" />
     </LineIds>
   </POU>

@@ -381,6 +381,12 @@ internal sealed class TcObjectModel
     // ── PLCopen XML transport ───────────────────────────────────────
     /// <summary>Export the enclosing POU of <paramref name="item"/> as a PLCopen XML string (via a temp
     /// file). Throws if the item has no enclosing graphical POU.</summary>
+    /// <summary>Export an item's enclosing POU as PLCopen. A member (method/action/property/accessor) has no
+    /// document of its own — it lives inside its POU's — so the POU is what gets exported.
+    /// <para>An item with NO enclosing POU (a DUT, a GVL) throws, and that is a real limit rather than a missing
+    /// feature: exporting the item itself was tried, and TwinCAT's <c>PlcOpenExport</c> answers <c>E_FAIL</c> for
+    /// every DUT and GVL — the export is POU-shaped. Those kinds are read through the declaration aspect
+    /// instead; see <c>Materializer.BuildSource</c>. Do not "fix" this by falling back to the item.</para></summary>
     public string ExportPouXml(object item)
     {
         var pou = EnclosingPou(item) ?? throw new InvalidOperationException("TwinCAT: no enclosing POU to export");

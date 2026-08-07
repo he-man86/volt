@@ -57,12 +57,20 @@ namespace Volt.Engine.Graphical
         /// Interface aspect text exactly — so it's a drift-free substitute that AVOIDS touching the
         /// aspect, which on a just-reimported graphical POU (right after a push) damages its in-session
         /// graphical export. Entity decoding is handled by <see cref="XElement.Value"/>.</summary>
-        public static string? DeclFromExport(string xml)
+        public static string? DeclFromExport(string xml, string itemName)
         {
-            // Parse throws on a malformed export (surfaced, not masked). A well-formed export with no
-            // plaintext interface (e.g. TwinCAT) legitimately returns null below.
+            // Parse throws on a malformed export (surfaced, not masked).
+            // Scoped to the element NAMED itemName — a DUT is <dataType name=…>, a GVL is <globalVars name=…> —
+            // for the same reason ItemBody is: one export can describe several items, and the FIRST
+            // InterfaceAsPlainText in the document is not necessarily the one that was asked for.
+            // Declaration-only kinds (DUT/GVL) have no children, so the first descendant under the named
+            // element IS theirs; POU declarations go through PlcOpenPouParser, which does its own scoping.
             var doc = XDocument.Parse(xml);
-            var iapt = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+            var owner = doc.Descendants().FirstOrDefault(e =>
+                e.Name.LocalName is "dataType" or "globalVars" or "pou" or "Interface"
+                && (string?)e.Attribute("name") == itemName);
+            var iapt = (owner ?? doc.Root!)?.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
             if (iapt == null) return null;
             // The text lives in an inner <xhtml> element; take its value (not the addData wrapper's, to
             // avoid pretty-print whitespace around it).

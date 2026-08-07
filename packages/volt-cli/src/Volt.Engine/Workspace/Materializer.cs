@@ -48,6 +48,20 @@ public static class Materializer
     internal static bool IsGraphicalBodyMarker(string? impl) =>
         impl != null && impl.TrimStart().StartsWith(MarkerPrefix, System.StringComparison.Ordinal);
 
+    /// <summary>Items WITH a body or children (POU, interface) are read through the PLCopen export — only it can
+    /// carry those. DECLARATION-ONLY kinds (DUT, GVL) are read through the declaration aspect.
+    /// <para><b>This split is a vendor limit, not a preference, and it was measured.</b> Routing DUT/GVL through
+    /// the export was implemented and run against both live bridges: CODESYS served them fine, but TwinCAT's
+    /// <c>PlcOpenExport</c> REJECTS a DUT or a GVL outright — <c>E_FAIL</c> from the COM component for every one
+    /// of them (`GVL_PackML`, and all five e2e DUT kinds), because the export is POU-shaped and a DUT has no POU
+    /// to name. So PLCopen cannot be the single read transport while TwinCAT is supported. Do not re-attempt
+    /// without first proving TwinCAT can export a non-POU item; the CODESYS half works and is not the blocker.
+    /// (Cost, for the record, was also against it: ~20 ms per export vs ~1 ms for the aspect, ~17-22x per item
+    /// on the walk `volt status` pays every call.)</para>
+    /// <para>The split is SAFE precisely because these kinds are declaration-only: with no body, no body
+    /// language and no children, a read and a write have nothing to disagree about — which is what the
+    /// read/write representation split DID cause on POUs (the graphical-child flattening, the document-scoping
+    /// bug). Keep it that way: if a kind ever gains a body, it belongs on the export path.</para></summary>
     private static PouData BuildSource(IIdeDriver ide, ItemRef item, string kind)
     {
         if (PouKinds.Contains(kind))
