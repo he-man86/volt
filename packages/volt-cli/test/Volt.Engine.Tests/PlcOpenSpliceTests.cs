@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
+using Volt.Engine.Workspace;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -230,6 +231,84 @@ public class PlcOpenSpliceTests
         var outXml = PlcOpenDocument.RemoveChild(TwincatPou, "PLC_PRG", "ACT_FBD");
         Assert.DoesNotContain(PlcOpenPouParser.Parse(outXml).Children, c => c.Name == "ACT_FBD");
         Assert.Contains("PLC_PRG", PlcOpenPouParser.Parse(outXml).Declaration!);   // the POU itself survived
+    }
+
+    // ── §3: adding a child that is not there yet ────────────────────────────────────────────────────
+
+    [Fact]
+    public void A_new_method_can_be_added_and_reads_back()
+    {
+        const string decl = "METHOD Added : INT\nVAR_INPUT\n\tn : INT;\nEND_VAR";
+        const string body = "Added := n * 2;";
+        var outXml = PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Added", ItemKind.Kinds.Method, decl, body);
+
+        var added = PlcOpenPouParser.Parse(outXml).Children.Single(c => c.Name == "Added");
+        Assert.Equal("method", added.PouType);
+        Assert.Equal(decl, added.Declaration);
+        Assert.Equal(body, added.BodyElement!.Value);
+    }
+
+    [Fact]
+    public void Adding_a_method_leaves_the_existing_members_intact()
+    {
+        var before = PlcOpenPouParser.Parse(BoxFb);
+        var after = PlcOpenPouParser.Parse(
+            PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Added", ItemKind.Kinds.Method, "METHOD Added", "x := 1;"));
+
+        Assert.Equal(before.Children.Count + 1, after.Children.Count);
+        Assert.Equal(before.Properties.Count, after.Properties.Count);
+        Assert.Equal(before.Declaration, after.Declaration);
+        foreach (var c in before.Children)
+            Assert.Equal(c.Declaration, after.Children.Single(x => x.Name == c.Name).Declaration);
+    }
+
+    /// <summary>An action is body-only — its "ACTION name" line is synthesized on read, never persisted — so a
+    /// declaration must be REFUSED rather than written somewhere that will never be read back.</summary>
+    [Fact]
+    public void A_new_action_is_body_only()
+    {
+        var outXml = PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Act1", ItemKind.Kinds.Action, null, "y := 2;");
+        var act = PlcOpenPouParser.Parse(outXml).Children.Single(c => c.Name == "Act1");
+        Assert.Equal("action", act.PouType);
+        Assert.Equal("y := 2;", act.BodyElement!.Value);
+
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Act2", ItemKind.Kinds.Action, "ACTION Act2", "y := 2;"));
+        Assert.Contains("body-only", ex.Message);
+    }
+
+    /// <summary>Adding into a POU that has no `&lt;actions&gt;` container yet must create one — BoxFB has methods
+    /// and properties but no actions, so this is the from-nothing case.</summary>
+    [Fact]
+    public void An_action_container_is_created_when_the_pou_has_none()
+    {
+        Assert.DoesNotContain("<actions", BoxFb);
+        var outXml = PlcOpenDocument.AddChild(BoxFb, "BoxFB", "First", ItemKind.Kinds.Action, null, "z := 3;");
+        Assert.Contains(PlcOpenPouParser.Parse(outXml).Children, c => c.Name == "First" && c.PouType == "action");
+    }
+
+    /// <summary>Add and update are different intents. Adding over an existing child must refuse rather than
+    /// silently updating it — the caller knows which it meant, and this layer must not guess.</summary>
+    [Fact]
+    public void Adding_a_child_that_already_exists_throws()
+    {
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Cyclic", ItemKind.Kinds.Method, "METHOD Cyclic", "x := 1;"));
+        Assert.Contains("already has a child", ex.Message);
+        Assert.Contains("SetChildText", ex.Message);   // and says what to use instead
+    }
+
+    /// <summary>An add followed by a remove returns the document to where it started.</summary>
+    [Fact]
+    public void Add_then_remove_round_trips()
+    {
+        var added = PlcOpenDocument.AddChild(BoxFb, "BoxFB", "Temp", ItemKind.Kinds.Method, "METHOD Temp", "q := 1;");
+        var removed = PlcOpenDocument.RemoveChild(added, "BoxFB", "Temp");
+        var back = PlcOpenPouParser.Parse(removed);
+        var start = PlcOpenPouParser.Parse(BoxFb);
+        Assert.Equal(start.Children.Count, back.Children.Count);
+        Assert.Equal(start.Properties.Count, back.Properties.Count);
+        Assert.DoesNotContain(back.Children, c => c.Name == "Temp");
     }
 
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element

@@ -173,6 +173,84 @@ namespace Volt.Engine.Graphical
             return (member, removable);
         }
 
+        private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
+
+        /// <summary>Add a child MEMBER that is not in the document yet, built to the vendors' shape:
+        /// <code>
+        ///   &lt;addData&gt;&lt;data name="…/method"&gt;&lt;Method name="X"&gt;
+        ///       &lt;interface/&gt;
+        ///       &lt;body&gt;&lt;ST&gt;&lt;xhtml&gt;…&lt;/xhtml&gt;&lt;/ST&gt;&lt;/body&gt;
+        ///       &lt;InterfaceAsPlainText&gt;&lt;xhtml&gt;…&lt;/xhtml&gt;&lt;/InterfaceAsPlainText&gt;
+        /// </code>
+        /// An ACTION is body-only and lives in <c>&lt;actions&gt;</c> instead — it has no declaration at all
+        /// (its <c>ACTION name</c> line is synthesized on read, never persisted), so passing one is refused
+        /// rather than written somewhere it will not be read back.
+        /// <para>Kept SEPARATE from <see cref="SetChildText"/> on purpose: "create" and "update" are different
+        /// intents, and a call that silently did either would hide which one the push meant.</para>
+        /// <para>Deliberately MINIMAL — only the elements the reader parses. Vendor extras (access modifiers,
+        /// object ids) are the IDE's to add on import; inventing them here would be guessing at a shape we have
+        /// no ground truth for.</para></summary>
+        public static string AddChild(string xml, string itemName, string childName, string kind,
+                                      string? declaration, string? bodyText)
+        {
+            var doc = XDocument.Parse(xml);
+            var owner = OwnerOf(doc, itemName)
+                ?? throw new InvalidOperationException($"PLCopen export has no item named '{itemName}'");
+            if (FindChild(doc, itemName, childName) is not null)
+                throw new InvalidOperationException(
+                    $"'{itemName}' already has a child named '{childName}' — use SetChildText to update it");
+
+            XNamespace ns = owner.Name.Namespace;
+            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            XElement Text(string name, string value) =>
+                new(ns + name, new XElement(xh + "xhtml", value));
+            XElement Body(string value) =>
+                new(ns + "body", new XElement(ns + "ST", new XElement(xh + "xhtml", value)));
+
+            if (kind == Workspace.ItemKind.Kinds.Action)
+            {
+                if (!string.IsNullOrEmpty(declaration))
+                    throw new InvalidOperationException(
+                        $"action '{childName}' cannot carry a declaration — an action is body-only");
+                var actions = owner.Elements().FirstOrDefault(e => e.Name.LocalName == "actions");
+                if (actions is null)
+                {
+                    actions = new XElement(ns + "actions");
+                    // <actions> precedes <body> in the schema; put it before if there is one.
+                    var body = owner.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
+                    if (body is not null) body.AddBeforeSelf(actions); else owner.Add(actions);
+                }
+                actions.Add(new XElement(ns + "action", new XAttribute("name", childName), Body(bodyText ?? "")));
+                return doc.ToString();
+            }
+
+            var (elementName, dataName) = kind switch
+            {
+                Workspace.ItemKind.Kinds.Method => ("Method", "method"),
+                Workspace.ItemKind.Kinds.Property => ("Property", "property"),
+                _ => throw new InvalidOperationException(
+                    $"cannot add child kind '{kind}' to '{itemName}' — only method, action and property have a " +
+                    "PLCopen member shape"),
+            };
+
+            var member = new XElement(ns + elementName, new XAttribute("name", childName), new XElement(ns + "interface"));
+            if (elementName == "Method") member.Add(Body(bodyText ?? ""));
+            if (!string.IsNullOrEmpty(declaration)) member.Add(Text("InterfaceAsPlainText", declaration!));
+
+            // Members hang off the OWNER's own <addData>, one <data> wrapper each.
+            var ownAddData = owner.Elements().LastOrDefault(e => e.Name.LocalName == "addData");
+            if (ownAddData is null)
+            {
+                ownAddData = new XElement(ns + "addData");
+                owner.Add(ownAddData);
+            }
+            ownAddData.Add(new XElement(ns + "data",
+                new XAttribute("name", ThreeS + dataName),
+                new XAttribute("handleUnknown", "implementation"),
+                member));
+            return doc.ToString();
+        }
+
         /// <summary>Remove a child member from the item's document. Throws when it isn't there — a push that
         /// asks to delete something absent is a disagreement about state, not a no-op to swallow.</summary>
         public static string RemoveChild(string xml, string itemName, string childName)

@@ -65,8 +65,16 @@ Known failure modes, to be tested BEFORE relying on them:
 
 - [ ] 3.1 `PushService`: for a POU, build the document once and import once, instead of root `WriteText` + per-child
       `CreateChild`/`WriteText` + orphan walk.
-- [ ] 3.2 Child add/remove/rename become element operations in that document — so a partially-applied push is no
-      longer reachable (today N COM mutations can half-apply; one import cannot).
+- [~] 3.2 **AddChild DONE (method + action); property-add and rename still open.**
+      `AddChild(xml, item, child, kind, decl, body)` builds the member to the vendors' shape and REFUSES to
+      overwrite an existing child — add and update are different intents and this layer must not guess which the
+      push meant. An ACTION is body-only (its `ACTION name` line is synthesized on read, never persisted), so a
+      declaration on one is refused rather than written where nothing will read it back; its container
+      (`<actions>`) is created when the POU has none.
+      Deliberately MINIMAL — only the elements the reader parses. Vendor extras (access modifiers, object ids)
+      are the IDE's to add on import; inventing them would be guessing at a shape with no ground truth.
+      **Still open:** adding a PROPERTY (needs the `<GetAccessor>`/`<SetAccessor>` pair built, each with its own
+      body and declaration), and RENAME as an element operation.
 - [ ] 3.3 Keep the create path on the scripting API: a POU that does not exist yet has no export to splice.
 - [ ] 3.4 Keep item rename/move/delete on the scripting API — PLCopen has neither rename nor folder membership.
 - [ ] 3.5 The read-only/body-format guards run BEFORE the splice, unchanged. They are what stops a textual push
