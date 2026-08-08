@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -241,7 +241,7 @@ namespace Volt.Cli.Connector
         {
             var parts = (v ?? "").Trim().Split('.');
             if (parts.Length >= 3 && int.TryParse(parts[^1], out var last) && last >= 1000) return last.ToString();
-            return Base(v);
+            return Base(v ?? "");   // v is nullable at the call site; Base takes non-null
         }
 
         private static string Base(string v)
@@ -254,12 +254,12 @@ namespace Volt.Cli.Connector
         private static string Exe(string path, string args)
         {
             if (!File.Exists(path)) return "";
-            return Capture(new ProcessStartInfo(path, args));
+            return RunAndCapture(new ProcessStartInfo(path, args));
         }
 
         // Run a PATH command / shim (the editor launchers are .cmd on PATH) via cmd.exe.
         private static string Shim(string commandline) =>
-            Capture(new ProcessStartInfo("cmd.exe", "/c " + commandline));
+            RunAndCapture(new ProcessStartInfo("cmd.exe", "/c " + commandline));
 
         private static string ExtensionVersion(string editor)
         {
@@ -273,7 +273,7 @@ namespace Volt.Cli.Connector
             return "";
         }
 
-        private static string Capture(ProcessStartInfo psi)
+        private static string RunAndCapture(ProcessStartInfo psi)
         {
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;

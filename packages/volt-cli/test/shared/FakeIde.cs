@@ -184,7 +184,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // ── ICodeStore ──
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
     public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{(string)item.Native}");
-    public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
+    // RECORDED, because it is not free: on CODESYS `BodyLanguage` is a full PLCopen export. The child
+    // body-format guard used to call it once per child, so a POU with 20 methods paid 22 exports to write one
+    // body. Counting the calls is how that stays fixed.
+    public string? BodyLanguage(ItemRef item)
+    {
+        Recorded.Add($"bodylang:{(string)item.Native}");
+        return Find(item).BodyLang;
+    }
     public string ReadXml(ItemRef item)
     {
         var it = Find(item);

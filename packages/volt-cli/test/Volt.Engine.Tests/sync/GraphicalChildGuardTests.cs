@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Volt.Engine;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
@@ -25,6 +25,12 @@ namespace Volt.Cli.Tests;
 /// </summary>
 public class GraphicalChildGuardTests
 {
+    /// <summary>No call that CHANGES the project was made. Reads are fine and expected — a guard has to look
+    /// before it refuses; what must not happen is a write, a create (including a folder), a delete or a move.</summary>
+    private static void AssertNothingMutated(FakeIde ide) =>
+        Assert.DoesNotContain(ide.Recorded, r =>
+            r.StartsWith("write") || r.StartsWith("create:") || r.StartsWith("delete:") || r.StartsWith("move:") || r.StartsWith("rename:"));
+
     private const string PouDecl = "FUNCTION_BLOCK FB_WithGraphicalChild\nVAR\nEND_VAR";
 
     /// <summary>A POU with one child whose body language is <paramref name="childLang"/> in the IDE.</summary>
@@ -75,9 +81,11 @@ public class GraphicalChildGuardTests
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("read-only", conflict.Reason);
         Assert.Contains("M", conflict.Reason);
-        // The point of the test: NOTHING was written — not the child, and not the root either (the guard is a
-        // pre-pass, so a refusal leaves the IDE untouched instead of half-applied).
-        Assert.Empty(ide.Recorded);
+        // The point of the test: NOTHING was MUTATED — not the child, and not the root either (the guard is a
+        // pre-pass, so a refusal leaves the IDE untouched instead of half-applied). Asserted as "no mutating
+        // call" rather than "no call at all": the fake also records READS (`bodylang:`), which the guard makes by
+        // design and which change nothing.
+        AssertNothingMutated(ide);
     }
 
     /// <summary>The nastier variant: the client edited the marker away and pushes real ST for a child that is CFC in
@@ -92,7 +100,7 @@ public class GraphicalChildGuardTests
         var resp = Push(ide, "y := 2;");
 
         Assert.Contains("read-only", Assert.Single(resp.Conflicts!).Reason);
-        Assert.Empty(ide.Recorded);
+        AssertNothingMutated(ide);
     }
 
     /// <summary>A textual push over an EDITABLE graphical child (FBD/LD) would also flatten it — same refusal as the
@@ -107,7 +115,7 @@ public class GraphicalChildGuardTests
         var resp = Push(ide, "y := 2;");
 
         Assert.Contains("would overwrite it", Assert.Single(resp.Conflicts!).Reason);
-        Assert.Empty(ide.Recorded);
+        AssertNothingMutated(ide);
     }
 
     /// <summary>The guard must not become a blanket refusal: an ordinary TEXTUAL child still pushes.</summary>

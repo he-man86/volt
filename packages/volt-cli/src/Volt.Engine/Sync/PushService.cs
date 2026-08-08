@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -9,6 +9,7 @@ using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
 
 using Volt.Cli.Transport;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Sync;
 
@@ -364,13 +365,23 @@ public static class PushService
         else
         {
             pou = existingPou;
+            // ONE export serves this whole update: the root's body-format guard, EVERY child's guard, and the
+            // splice basis below. It used to be 1 + N + 1 separate exports, because `BodyLanguage` is a full
+            // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
+            // paid 22 exports to write one body. Reading the document once and answering every language question
+            // from it is the same information for a 22nd of the IDE traffic.
+            var doc = !pouVg && OneDocument(ide, itemType) ? ide.ReadXml(pou) : null;
+            var parsed = doc is null ? null : PouReader.Parse(doc);
+
             // Body-type guard (last line of defence): never overwrite an item with a MISMATCHED body format —
             // that silently corrupts/flattens the IDE's representation and loses code. The bridge owns FORMAT;
             // the LSP owns code correctness. Scoped to POUs (only they have graphical bodies; reading an
             // interface body crashes TC), decided from the safe KindCode classification, not a body read.
             if (ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
             {
-                var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
+                // null=textual; FBD/LD=editable; CFC/SFC=read-only — from the document when we have one, else
+                // from the vendor. Both answer the same question; only the cost differs.
+                var currentLang = parsed is null ? ide.BodyLanguage(existingPou) : GraphicalOnly(parsed.BodyLanguage);
                 if (currentLang is "CFC" or "SFC")
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
@@ -385,15 +396,21 @@ public static class PushService
             // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
             // root guard above. Checking inside the apply loop instead would leave the root body already written
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
-            foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType);
+            foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType, parsed);
 
             if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
-            else if (!OneDocument(ide, itemType)) ide.WriteText(pou, decl, bodyImpl);
+            else if (doc is null) ide.WriteText(pou, decl, bodyImpl);
+            else
+            {
+                // The single-document write, reusing the export already read for the guards above.
+                ide.WriteXml(pou, PouDocument.Splice(doc, name, split));
+                RestoreChildFolders(ide, name, split);
+                return;
+            }
         }
 
-        // THE single-document write: declaration, body, children, accessors, adds AND removes, in ONE merge
-        // import — for a CREATE as well as an update. Everything below it (the per-child create/write loop, the
-        // accessor writes, the orphan walk) is the path it replaces, still serving the vendor not yet measured.
+        // THE single-document write for a CREATE: declaration, body, children, accessors, all in ONE merge import.
+        // (The UPDATE takes the same write above, reusing the export it already read for the guards.)
         //
         // Create reaches here because the POU now EXISTS: `CreateChild` above made it, so it has an export to
         // splice. `pou-writes-via-plcopen` §3.3 read "a POU that does not exist yet has no export to splice" as a
@@ -572,6 +589,27 @@ public static class PushService
         return node;
     }
 
+    /// <summary>The six-language body answer reduced to the GRAPHICAL ones — the same shape
+    /// <see cref="ICodeStore.BodyLanguage"/> returns (null for a textual ST/IL body), so the two sources are
+    /// interchangeable at every guard.</summary>
+    private static string? GraphicalOnly(string? language) =>
+        language is "FBD" or "LD" or "CFC" or "SFC" ? language : null;
+
+    /// <summary>Resolve a folder WITHOUT creating one — the read-only twin of <see cref="ResolveFolder"/>, for
+    /// callers that are only looking (a guard must not mutate the project it is about to refuse).</summary>
+    private static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return parent;
+        var node = parent;
+        foreach (var part in FolderPath.Segments(folder))
+        {
+            if (FirstChild(ide, node, c => NameIs(ide, c, part) && ide.KindCode(c) == ItemKind.PlcFolder) is not { } found)
+                return null;                                   // a segment that does not exist ⇒ the child is not there
+            node = found;
+        }
+        return node;
+    }
+
     private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
@@ -588,7 +626,8 @@ public static class PushService
     /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
     /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
     /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
-    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, StSplitter.StChild child, int itemType)
+    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, StSplitter.StChild child, int itemType,
+                                                   PouReader.ParsedPou? parsed)
     {
         var cimpl = child.Implementation;
         // The round-tripped marker is never something to write, whatever the IDE currently holds.
@@ -597,9 +636,24 @@ public static class PushService
                 $"'{child.Name}' is a read-only graphical body — edit it in the IDE, not via push.");
 
         if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
-        if (FindChild(ide, ResolveFolder(ide, pou, child.Folder), child.Name) is not { } live) return;
 
-        var lang = ide.BodyLanguage(live);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
+        string? lang;                        // null=textual; FBD/LD=editable; CFC/SFC=read-only
+        if (parsed is not null)
+        {
+            // From the document already read for this write. Besides costing nothing, this is how the guard stops
+            // MUTATING the project: the vendor path below resolves the child's folder to find it, and
+            // `ResolveFolder` CREATES missing folders — so a guard advertised as "validate before writing
+            // anything, so a refusal is atomic" could leave new empty folders behind and then refuse the push.
+            var known = parsed.Children.FirstOrDefault(c => string.Equals(c.Name, child.Name, StringComparison.OrdinalIgnoreCase));
+            if (known is null) return;       // not in the IDE yet — a create, nothing to overwrite
+            lang = GraphicalOnly(known.BodyLanguage);
+        }
+        else
+        {
+            if (FindChild(ide, FindFolder(ide, pou, child.Folder) ?? pou, child.Name) is not { } live) return;
+            lang = ide.BodyLanguage(live);
+        }
+
         var childVg = VgBody.Is(cimpl);
         if (lang is "CFC" or "SFC")
             throw new BridgeException(BridgeErrorCodes.Unsupported,
