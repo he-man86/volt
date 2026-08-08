@@ -88,20 +88,28 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 
 ## 4. Docs — the layer table IS the design statement
 
-- [ ] 4.1 `ARCHITECTURE.md`: rewrite the `Graphical/` layer row; add the `PlcOpen/` row; state the content-vs-
+- [x] 4.1 **DONE** — layer table now has a `PlcOpen/` row and a rewritten `Graphical/` row; the content-vs-structure rule is a stated invariant; `:180` `Core.Graphical` fixed; the accessor invariant now cites `PouReader.Accessor` (the old symbol did not exist); convention 11 records the FIFTH instance of the same name-scoping bug.
+      `ARCHITECTURE.md`: rewrite the `Graphical/` layer row; add the `PlcOpen/` row; state the content-vs-
       structure rule plainly. Fix `:180` (`Core.Graphical` — stale since a previous rename) and `:135-136`, which
       cites `PlcOpenDocument.InterfacePropertyAccessors`, **a member that does not exist**.
-- [ ] 4.2 `docs/vg-language.md` §13 reference table (five literal paths), `:156`, `:327`.
-- [ ] 4.3 `docs/vg-diagnostics.md` `:8`, `:76`.
-- [ ] 4.4 Root `CLAUDE.md` `:106` layer stack.
-- [ ] 4.5 `ICodeStore`'s section header — it is not "Transport 2: graphical" any more.
-- [ ] 4.6 The six false comments the census found (list in `dialect-census.md` Part 9). Convention 8: a false
+- [x] 4.2 **DONE** — the §13 table's paths are still correct (those files stayed in `Graphical/`); two `src/...` shorthand paths made absolute.
+      `docs/vg-language.md` §13 reference table (five literal paths), `:156`, `:327`.
+- [x] 4.3 **DONE** — paths verified correct; no change needed.
+      `docs/vg-diagnostics.md` `:8`, `:76`.
+- [x] 4.4 **DONE** — layer stack updated and the content-vs-structure rule named, pointing at `DIALECT.md`.
+      Root `CLAUDE.md` `:106` layer stack.
+- [x] 4.5 **DONE** — it is now "the PLCopen DOCUMENT — a POU's whole content", with why the old label was wrong.
+      `ICodeStore`'s section header — it is not "Transport 2: graphical" any more.
+- [x] 4.6 **DONE** — all six. Two were deleted with their code in §1; the other four are corrected in place, each saying what it used to claim so the correction is not silently re-reverted.
+      The six false comments the census found (list in `dialect-census.md` Part 9). Convention 8: a false
       comment is a defect.
-- [ ] 4.7 Leave `openspec/changes/archive/` untouched. Rewriting a frozen record falsifies it.
+- [x] 4.7 **HELD** — `openspec/changes/archive/` untouched.
+      Leave `openspec/changes/archive/` untouched. Rewriting a frozen record falsifies it.
 
 ## 5. The dialect, made checkable
 
-- [ ] 5.1 `PlcOpen/DIALECT.md` — the A/B/C/D census as the ONE home for vendor facts, each citing the fixture that
+- [x] 5.1 **DONE** — the census moved to `src/Volt.Engine/PlcOpen/DIALECT.md`, beside the code it describes. A change folder gets archived; two vendors do not stop existing. The change dir keeps a pointer.
+      `PlcOpen/DIALECT.md` — the A/B/C/D census as the ONE home for vendor facts, each citing the fixture that
       proves it or marked UNMEASURED. Retire the ~20 scattered doc-comments that currently hold these claims, so
       there is one place to correct when a measurement lands.
 - [ ] 5.2 **Record the missing TwinCAT fixture**: one TwinCAT FB with a method, a property, and BOTH accessors.
@@ -110,7 +118,8 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
       shape at all. Highest-value item in this change.
 - [ ] 5.3 Make `PlcOpenSpliceTests` a **matrix**: every splice assertion that is vendor-neutral runs over BOTH
       vendors' recorded fixtures. A divergence then fails a test instead of surprising us live.
-- [ ] 5.4 Do NOT build a dialect abstraction. Record the agreed extension point — one dialect parameter consumed by
+- [x] 5.4 **DONE** — named in `DIALECT.md` and left unbuilt: one dialect parameter on `AddChild`/`SetAccessor`, the only two members that CREATE vendor-shaped elements.
+      Do NOT build a dialect abstraction. Record the agreed extension point — one dialect parameter consumed by
       `AddChild` and `SetAccessor`, the only two members that CREATE vendor-shaped elements — and leave it
       unbuilt until §5 of `pou-writes-via-plcopen` measures TwinCAT. Three times in that change a conclusion drawn
       from reading our own interfaces instead of the vendor turned out to be false; this is the fourth opportunity.

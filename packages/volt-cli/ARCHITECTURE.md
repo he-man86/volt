@@ -46,8 +46,8 @@ net8 standalone TwinCAT exe unchanged.
 ## How a request flows
 
 Every op is the same shape — `Core/Wire/BridgePipeHost` receives one request per connection, `Sync/*`
-services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`Graphical` turn IDE items into canonical
-text:
+services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`PlcOpen`/`Graphical` turn IDE items into
+canonical text:
 
 ```
 volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
@@ -57,7 +57,8 @@ volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
                      ▼
                    Fetch / Push / Build / Refs  (Sync/)      ── the op logic
                      │
-        Workspace/ (ST text) + Graphical/ (VG text)          ── item ⇄ canonical workspace text
+        Workspace/ (ST text) + PlcOpen/ (the document)        ── item ⇄ canonical workspace text
+              + Graphical/ (VG text)
                      │
                    IIdeDriver  (Ide/ contract)               ── the ONE seam a vendor implements
                      ▼
@@ -97,7 +98,7 @@ A strict layer stack; each layer depends only on the ones above it. Read top-dow
 
 | Layer | Does | Key types |
 |---|---|---|
-| **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` provides the shared degraded-state machine, the single-flight health probe, **and the whole health
+| **`Ide/`** | **The contract** a vendor bridge implements — and *only* this. `IIdeDriver` = `IIdeSession` (connect/health/build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (the PLCopen document for a whole POU, plus the textual aspects DUT/GVL still need). `DriverBase` provides the shared degraded-state machine, the single-flight health probe, **and the whole health
 response** — it owns the row cache, the publication, the throttle predicate and the composition, so a vendor
 supplies only `protected override void SnapshotHealth()` ending in `PublishRows`. `BuildHealthResponse` used to
 be abstract, which put a WIRE-VISIBLE shape behind the vendor seam and let the two drivers diverge unseen (they
@@ -106,7 +107,8 @@ attaches cross-process — that is a reached-differently difference, which is ex
 | **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest`). The `health` row itself (`ProjectEntry`/`HealthResponse`) lives one layer DOWN in `Volt.Cli.Transport/Wire/`, because the connector may not reference the engine and still has to read it. The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Wire/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest` |
 | **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`. `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. **There is no debug service** — `DebugService`, `IDebugIntrospect` and the three `IIdeSession.Debug*` members were DELETED (deliberately, resolving the "restore an op or delete them" note that stood here): they had no `Ops` const and no `BridgePipeHost.Dispatch` case, so no client could reach them after the HTTP `GET /debug?…` went away. Restoring live introspection means a real `Ops` const **and** a `Dispatch` case — never a half-wired service. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text. The canonical ST layout has exactly ONE owner per direction: `PouToStText` assembles a `PouData` into it, `SourceText/StSplitter` parses it back (sharing `CodeHelper`). The dict-based `SourceText/StAssembler` was a second, production-unreachable copy of the assemble half that had already diverged in failure policy; it is DELETED and the round-trip tests certify `PouToStText`. `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `PouToStText`, `SourceText/StSplitter` |
-| **`Graphical/`** | **Graphical materialization** — PlcOpen XML ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` and `Vg/VgParser`/`Vg/VgWriter` are the two ends. | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `Vg/VgParser`, `Vg/VgWriter` |
+| **`PlcOpen/`** | **The document** — a POU's whole CONTENT, read and written through ONE PLCopen XML document: declaration, body, methods, actions, properties, accessors. `PouReader` reads it; `PouSplice` writes it by EDITING the item's own export (never regenerating, so attributes, pragmas, object ids and vendor `addData` survive); `PlcOpenDocument` holds the primitives both share. Depends on nothing — not on the graph model, not on Workspace policy. **Graphical bodies are a CONSUMER of this layer, not its owner** — which is why it is no longer filed under `Graphical/`. Vendor dialect facts live in `PlcOpen/DIALECT.md`. | `PouReader`, `PouSplice`, `PlcOpenDocument`, `PouMember` |
+| **`Graphical/`** | **The graph** — an FBD/LD body ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` convert graph ⇄ PLCopen; `Vg/VgParser`/`Vg/VgWriter` convert graph ⇄ VG text; `GraphicalBodySplice` replaces one graphical body in an export and owns the VG editor-capability gate (which elements may be dropped, which pin modifiers block a rewrite). | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `GraphicalBodySplice`, `Vg/VgParser`, `Vg/VgWriter` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body + hash basis), `LibSignature`/`LibSignatureRenderer` (verbose-fetch signatures under the Library Manager). | `LibraryManifest`, `LibSignature`, `LibSignatureRenderer` |
 
 ### Protocol invariant: the item **name** is the identity
@@ -126,6 +128,15 @@ guard that throws** — real projects legitimately repeat these names, and throw
   filtering was scoped — an object the IDE won't compile has no compiler ground truth — but is NOT implemented:
   excluded objects are currently returned like any other source. If added, wire it into the tree walk, not a
   `/debug` probe.)
+- **Content travels as ONE PLCopen document; STRUCTURE travels on the scripting API.** This is the axis the code
+  is filed on, and it holds in BOTH directions. On read, `Workspace/Materializer` gets a POU's declaration, body,
+  methods, actions, properties and accessors out of a single export — but needs a separate COM tree walk
+  (`BuildFolderMap`) for its child folders. On write, `Sync/PushService` imports a single spliced document — and
+  then needs `IProjectTree.Move` (`RestoreChildFolders`) for exactly the same reason. The reason is the same both
+  times: **PLCopen carries no folder membership the import will honour.** CODESYS's export CAN describe it
+  (`bExportFolderStructure` emits a `projectstructure` block) but emits it `handleUnknown="discard"`, and the
+  import does precisely that — measured. Rename is the other structural verb PLCopen cannot express, so it stays
+  on `IProjectTree.Rename`, where the IDE rewrites call-sites.
 - **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Graphical/GraphicalCode`). A read-only body
   materializes empty with an `(* @volt-graphical: <LANG> *)` marker and is refused on push.
 - **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Graphical/Vg/VgParser`,
@@ -133,7 +144,8 @@ guard that throws** — real projects legitimately repeat these names, and throw
 - **Container managers are folders, never items** (`Workspace/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
 - **Property accessor shape round-trips byte-identically** — GET-only / SET-only / GET+SET preserved on both
-  bridges (`Graphical/PlcOpenDocument.InterfacePropertyAccessors`).
+  bridges (`PlcOpen/PouReader.Accessor` — read from the SAME export as everything else, with an ABSENT accessor
+  (null) kept distinct from a present-but-bodiless one (`""`), which is what lets a push drop a getter).
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
   library (`Library/LibraryManifest`); `verbose` fetch (`FetchRequest.Verbose`) adds each element's declaration-only
   signature as a read-only item, excluded from `structureVersion`. TwinCAT (out-of-process) can't extract → empty
@@ -177,7 +189,7 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 - **PlcOpen transport.** CODESYS round-trips XML *in memory* via the object model; Beckhoff's COM API is
   file-based, so `TcPlcOpen` round-trips through a temp file.
 - **`TcPouReader` has no CODESYS counterpart.** TwinCAT stores graphical bodies in a vendor NWL archive whose
-  language must be parsed out locally; CODESYS gets the same answer from shared `Core.Graphical`. The parser is
+  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Graphical`. The parser is
   irreducibly TwinCAT-specific, so it stays in Beckhoff.
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
@@ -277,9 +289,13 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     green unit tests could not see the divergence.
 11. **Resolve the object you NAMED, never the first match in the document.** `ReadXml` returns a POU *and its
     children* on both vendors, so `doc.Descendants(ns + "FBD").FirstOrDefault()` can return a METHOD's body — and
-    `SpliceFbdLdBody` then writes the root's new body into it, destroying the method's. The same mistake appears
-    three times in `PlcOpenDocument` (`FindFbdLd`, `InlineInsert`, `GraphicalBodyLang`) and once more in
-    `DeclFromExport`, which is why `PlcOpenPouParser` exists. Scope to the root `<pou>`'s DIRECT child.
+    `SpliceFbdLdBody` then writes the root's new body into it, destroying the method's. The same mistake appeared
+    three times in the graphical splice (`FindFbdLd`, `InlineInsert`, `GraphicalBodyLang`) and once more in
+    `DeclFromExport`, which is why `PlcOpen/PouReader` exists. Scope to the root `<pou>`'s DIRECT child, by NAME —
+    `PlcOpenDocument.OwnerOf`/`ItemBody`/`OwnDescendants` are the shared primitives that do it, and every splice
+    member takes an item name for this reason alone. A FIFTH instance of the same bug was found later and is worth
+    knowing: a declaration write took the FIRST `InterfaceAsPlainText` under the item, which on a POU with declared
+    variables is the copy nested inside the typed `<interface>` — so the write was accepted and changed nothing.
 12. **A name is not a path.** Wire item names are bare (`Foo.fb`); workspace entries are src-relative paths
     (`Folder/Foo.fb`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
     the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors

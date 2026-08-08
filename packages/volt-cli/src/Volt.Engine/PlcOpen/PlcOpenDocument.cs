@@ -29,9 +29,12 @@ namespace Volt.Engine.PlcOpen
         /// <summary>Re-serialize a spliced document. <c>XDocument.ToString()</c> DROPS the XML declaration, so
         /// every splice was quietly stripping <c>&lt;?xml version="1.0" encoding="utf-8"?&gt;</c> from a document
         /// on its way back to the IDE — bytes nobody asked to move, which is precisely what §2.5 established a
-        /// splice must not do (and the header is not decoration: this same import already rejects a BOM).
-        /// Found by the no-op identity test on <c>PouDocument.Splice</c>, exactly as the §2.5 one found the
-        /// <c>&lt;xhtml /&gt;</c> re-serialization.</summary>
+        /// splice must not do. Found by the no-op identity test on <c>PouDocument.Splice</c>, exactly as the §2.5
+        /// one found the <c>&lt;xhtml /&gt;</c> re-serialization.
+        /// <para>This used to add "and the header is not decoration: this same import already rejects a BOM".
+        /// There is NO evidence for that on either vendor — the only BOM refusal in the repo is over workspace
+        /// SOURCE files, a different path entirely. Dropped rather than left as a confident unmeasured claim; the
+        /// reason above stands on its own.</para></summary>
         internal static string Serialize(XDocument doc) =>
             doc.Declaration is null ? doc.ToString() : doc.Declaration + System.Environment.NewLine + doc.ToString();
 
@@ -60,8 +63,11 @@ namespace Volt.Engine.PlcOpen
         /// An export is not one item: <c>ReadXml</c> hands back the whole POU document on both vendors
         /// (CODESYS <c>ExportXmlWithChildren</c>; TwinCAT cannot export a method/action standalone at all), so a
         /// method's, an action's and the POU's own bodies all sit in the SAME document. Scanning it whole answers
-        /// about whichever body comes first in document order, which is not the one that was asked for: TwinCAT
-        /// emits <c>&lt;actions&gt;</c> BEFORE the POU's <c>&lt;body&gt;</c>, so writing a graphical POU that owns
+        /// about whichever body comes first in document order, which is not the one that was asked for: BOTH vendors
+        /// emit <c>&lt;actions&gt;</c> BEFORE the POU's <c>&lt;body&gt;</c> (recorded on CODESYS in
+        /// <c>codesys-pou/FB_FolderChild.plcopen.xml</c> and on TwinCAT in <c>tc-fbd/PLC_PRG.plcopen.xml</c>;
+        /// this comment used to attribute the ordering to TwinCAT alone, which made it read like a vendor quirk
+        /// rather than the schema's shape), so writing a graphical POU that owns
         /// a graphical action splices the new body over the ACTION, and writing one action splices it over a
         /// SIBLING action. Both destroy a body silently and leave the intended one untouched.
         /// </para>

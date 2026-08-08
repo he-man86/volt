@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -362,8 +362,12 @@ namespace Volt.Engine.Graphical
         }
 
         /// <summary>The whitespace-separated type list from the 3S <c>inputparamtypes</c> /
-        /// <c>outputparamtypes</c> addData (CODESYS and TwinCAT both emit it; operators leave inputs
-        /// empty). Positionally aligned to the block's input/output pins. Read-only metadata.</summary>
+        /// <c>outputparamtypes</c> addData, or EMPTY when the block carries none. Positionally aligned to the
+        /// block's input/output pins; operators leave inputs empty. Read-only metadata.
+        /// <para>Both vendors emit it on an FBD block; TwinCAT's LD blocks do NOT (recorded:
+        /// <c>tc-ld/ld_ton_rung_two_networks.plcopen.xml</c>, a TON carrying only <c>fbdcalltype</c>). This said
+        /// "CODESYS and TwinCAT both emit it" without that qualifier, which is why the absent case reads as an
+        /// anomaly rather than the normal LD shape it is.</para></summary>
         private static IReadOnlyList<string> ReadParamTypes(XElement el, XNamespace ns, string suffix)
         {
             foreach (var d in el.Element(ns + "addData")?.Elements(ns + "data") ?? Enumerable.Empty<XElement>())

@@ -20,7 +20,11 @@ public interface ICodeStore
     /// declaration write on an action; CODESYS silently no-ops it. Passing null is correct on both.</summary>
     void WriteText(ItemRef item, string? declaration, string? implementation);
 
-    // ── Transport 2: PLCopen XML (graphical FBD/LD/CFC/SFC) ──
+    // ── Transport 2: the PLCopen DOCUMENT — a POU's whole content ──
+    // Not "the graphical transport" any more, which is what this said. `ReadXml` is the PRIMARY read for every POU
+    // kind, textual included (declaration, body, methods, actions, properties, accessors all come out of it), and
+    // `WriteXml` carries the whole textual POU back. A graphical body is one thing carried IN this document, not
+    // the reason for it.
     /// <summary>The item's graphical body language (<c>FBD</c>/<c>LD</c>/<c>CFC</c>/<c>SFC</c>), or
     /// null for a textual (ST/IL) body. Made as cheap as the vendor allows.</summary>
     string? BodyLanguage(ItemRef item);

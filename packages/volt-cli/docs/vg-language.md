@@ -153,7 +153,7 @@ opaque text. An *opaque leaf* (`LET i1 := <text>`, §6) carries arbitrary inline
 
 ## 5. Semantic model
 
-VG is a 1:1 textual projection of a **graph** (`GraphBody`, `src/.../Graphical/GraphModel.cs`). Understanding
+VG is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Graphical/GraphModel.cs`). Understanding
 the graph is the key to understanding what each statement *means*.
 
 ```
@@ -324,7 +324,7 @@ follows the index (a body may even mix FBD and LD networks, vendor permitting).
 
 ## 7. Operators
 
-The single canonical table (`Graphical/FbdOperators.cs`). The **symbol** is the infix VG token; the **type** is
+The single canonical table (`src/Volt.Engine/Graphical/FbdOperators.cs`). The **symbol** is the infix VG token; the **type** is
 the underlying operator-box type in the graph/PLCopen. All are **case-insensitive**, **no precedence**, **one
 kind per parenthesised group**.
 

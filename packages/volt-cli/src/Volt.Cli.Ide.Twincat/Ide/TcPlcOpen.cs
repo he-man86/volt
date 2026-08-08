@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 
 namespace Volt.Cli.Ide.Twincat;
@@ -11,12 +11,16 @@ namespace Volt.Cli.Ide.Twincat;
 /// a temp file (CODESYS's is in-memory). Both feed the same shared
 /// <c>PlcOpenReader</c>/<c>PlcOpenWriter</c> path.
 ///
-/// NEEDS LIVE VERIFICATION (cannot be exercised without a running, rebuilt bridge):
-///   1. The methods live on ITcPlcIECProject — a NON-default COM interface. They are invoked
-///      here by late-bound dispatch on the dynamic RCW. If the IDE's default IDispatch doesn't
-///      surface them, a typed interop cast (TCatSysManagerLib) will be required instead.
-///   2. The export SELECTION grammar must be confirmed against a live project before the read
-///      path can be trusted. (Import REPLACE semantics are settled — see <see cref="ImportXmlString"/>.)
+/// SETTLED: the methods live on ITcPlcIECProject — a NON-default COM interface — and late-bound
+/// dispatch on the dynamic RCW DOES reach them. The recorded fixtures in
+/// <c>test/Volt.Engine.Tests/fixtures/tc-*</c> were captured through this exact call against a live
+/// TcXaeShell, so no typed interop cast (TCatSysManagerLib) is needed. The note that used to stand
+/// here said this "needs live verification"; it had already been verified by the act of producing
+/// those fixtures, and leaving it made the TwinCAT read path read as riskier than it is.
+///
+/// STILL UNVERIFIED — the export SELECTION grammar (the '.'-separated project-relative path built by
+/// <c>TcObjectModel.PouSelectionPath</c>) has not been exercised beyond the shapes those fixtures
+/// cover. (Import semantics are settled — see <see cref="ImportXmlString"/>.)
 /// </summary>
 internal static class TcPlcOpen
 {
