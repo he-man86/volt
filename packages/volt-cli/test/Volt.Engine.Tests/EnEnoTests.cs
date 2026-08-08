@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
@@ -33,7 +33,7 @@ public class EnEnoTests
     public void Pushing_over_an_existing_EnEno_body_is_not_refused_as_multi_output()
     {
         // An EN/ENO box is stateless with ENO + its value output. The "stateless function with multiple outputs"
-        // guard (PlcOpenDocument.ValidateExisting) must NOT count ENO, or overwriting an existing EN/ENO body is
+        // guard (GraphicalBodySplice.ValidateExisting) must NOT count ENO, or overwriting an existing EN/ENO body is
         // wrongly refused. Found LIVE on TwinCAT: the create slipped through (no existing body), the re-push hit it.
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture())!;
         var ns = fbd.Name.Namespace;

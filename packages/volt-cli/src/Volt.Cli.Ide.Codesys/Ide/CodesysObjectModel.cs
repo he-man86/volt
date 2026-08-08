@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Volt.Engine.Workspace;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -746,7 +747,7 @@ namespace Volt.Cli.Ide.Codesys
         /// same parser path serves both. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
         /// <para>NB the emitted document has NO <c>&lt;pou&gt;</c> element: CODESYS writes an interface as
         /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
-        /// like TwinCAT. <see cref="Volt.Engine.Graphical.PlcOpenPouParser"/> already reads that shape.</para></summary>
+        /// like TwinCAT. <see cref="Volt.Engine.Graphical.PouReader"/> already reads that shape.</para></summary>
         public string ExportInterfaceXml(object node)
         {
             var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");

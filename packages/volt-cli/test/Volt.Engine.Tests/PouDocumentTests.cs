@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Volt.Engine.Graphical;
@@ -6,6 +6,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
 using Xunit;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 
@@ -41,7 +42,7 @@ public class PouDocumentTests
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
             Split(FbDecl, "//body", Action("ACT", "//new action body")));
 
-        var parsed = PlcOpenPouParser.Parse(doc);
+        var parsed = PouReader.Parse(doc);
         Assert.Equal(new[] { "ACT" }, parsed.Children.Select(c => c.Name));
         Assert.Contains("//new action body", doc);
         Assert.DoesNotContain("//test action", doc);
@@ -54,7 +55,7 @@ public class PouDocumentTests
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
             Split(FbDecl, "//body", Action("ACT", "//test action"), Action("Second", "//brand new")));
 
-        var names = PlcOpenPouParser.Parse(doc).Children.Select(c => c.Name).OrderBy(n => n);
+        var names = PouReader.Parse(doc).Children.Select(c => c.Name).OrderBy(n => n);
         Assert.Equal(new[] { "ACT", "Second" }, names);
         Assert.Contains("//brand new", doc);
     }
@@ -67,7 +68,7 @@ public class PouDocumentTests
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
             Split(FbDecl, "//body"));
 
-        Assert.Empty(PlcOpenPouParser.Parse(doc).Children);
+        Assert.Empty(PouReader.Parse(doc).Children);
         Assert.DoesNotContain("//test action", doc);
     }
 
@@ -79,7 +80,7 @@ public class PouDocumentTests
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
             Split(decl, "//rewritten body", Action("ACT", "//test action")));
 
-        var parsed = PlcOpenPouParser.Parse(doc);
+        var parsed = PouReader.Parse(doc);
         Assert.Contains("bFlag : BOOL;", parsed.Declaration);
         Assert.Contains("//rewritten body", doc);
     }
@@ -138,7 +139,7 @@ public class PouDocumentTests
         // whole-POU splice is (correctly) refused because of it. The invariant under test is the declaration
         // write, so drive that member directly rather than weakening the CFC refusal to reach it.
         var without = "FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n";
-        var doc = PlcOpenDocument.SetDeclaration(xml, "FB_GraphicalChild", without);
+        var doc = PouSplice.SetDeclaration(xml, "FB_GraphicalChild", without);
 
         Assert.Equal(0, Copies(doc, "bProbe : BOOL;"));
     }

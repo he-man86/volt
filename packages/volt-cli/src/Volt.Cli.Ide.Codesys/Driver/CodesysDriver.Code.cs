@@ -4,6 +4,7 @@ using Volt.Cli.Transport;
 using Volt.Engine.Graphical;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Ide.Codesys;
 

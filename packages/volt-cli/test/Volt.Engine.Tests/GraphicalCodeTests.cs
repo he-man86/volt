@@ -5,6 +5,7 @@ using Volt.Engine.Graphical.Vg;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 using Xunit;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 
@@ -224,7 +225,7 @@ public class GraphicalCodeTests
         Assert.DoesNotContain("old", s.WrittenXml!);                       // old body gone
         Assert.Contains("<expression>x</expression>", s.WrittenXml!);      // edited body in
         Assert.Equal("FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR",   // interface untouched
-                     Volt.Engine.Graphical.PlcOpenDocument.DeclFromExport(s.WrittenXml!, ItemName));
+                     Volt.Engine.PlcOpen.PlcOpenDocument.DeclFromExport(s.WrittenXml!, ItemName));
     }
 }
 

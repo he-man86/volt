@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Graphical;
+namespace Volt.Engine.PlcOpen;
 
-public static class PlcOpenPouParser
+public static class PouReader
 {
     public sealed record ParsedPou(
         string? Declaration,

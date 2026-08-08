@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Workspace;
 
@@ -75,7 +76,7 @@ public static class Materializer
     private static PouData BuildPouFromXml(IIdeDriver ide, ItemRef item)
     {
         var xml = ide.ReadXml(item);
-        var parsed = PlcOpenPouParser.Parse(xml);
+        var parsed = PouReader.Parse(xml);
         var declaration = parsed.Declaration
             ?? ide.ReadDeclaration(item);
         var kind = CodeHelper.ParseCodeHeader(declaration).Type;

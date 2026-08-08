@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Volt.Cli.Transport;
 using Volt.Engine.Graphical;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Sync;
 
@@ -30,7 +32,7 @@ public static class PouDocument
     // upgrade is one XDocument threaded through the splice surface — not a second, batched writer.
     public static string Splice(string xml, string name, StSplitter.StSplitResult split)
     {
-        var parsed = PlcOpenPouParser.Parse(xml);
+        var parsed = PouReader.Parse(xml);
         // The document's own view of what the item HAS — the only honest basis for add-vs-update. A property is a
         // child too: the parser reports it in Properties, not Children.
         var present = new HashSet<string>(
@@ -41,7 +43,7 @@ public static class PouDocument
         // Children the push dropped. This replaces the COM orphan walk, and it is strictly better: the walk had to
         // recurse the POU's folders to find them, whereas the export lists every child flat regardless of folder.
         foreach (var gone in present.Where(n => !pushed.Contains(n)).ToList())
-            xml = PlcOpenDocument.RemoveChild(xml, name, gone);
+            xml = PouSplice.RemoveChild(xml, name, gone);
 
         foreach (var child in split.Children)
         {
@@ -52,17 +54,29 @@ public static class PouDocument
             var body = child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
 
             xml = present.Contains(child.Name)
-                ? PlcOpenDocument.SetChildText(xml, name, child.Name, decl, body)
-                : PlcOpenDocument.AddChild(xml, name, child.Name, child.Kind, decl, body);
+                ? PouSplice.SetChildText(xml, name, child.Name, decl, body)
+                : PouSplice.AddChild(xml, name, child.Name, MemberOf(child.Kind), decl, body);
 
             if (child.Kind != ItemKind.Kinds.Property) continue;
             // null code REMOVES the accessor — that is how a push drops a getter, and why the reader keeps an
             // absent accessor (null) distinct from a present-but-bodiless one ("").
-            xml = PlcOpenDocument.SetAccessor(xml, name, child.Name, true, child.Getter?.Implementation, child.Getter?.Declaration);
-            xml = PlcOpenDocument.SetAccessor(xml, name, child.Name, false, child.Setter?.Implementation, child.Setter?.Declaration);
+            xml = PouSplice.SetAccessor(xml, name, child.Name, true, child.Getter?.Implementation, child.Getter?.Declaration);
+            xml = PouSplice.SetAccessor(xml, name, child.Name, false, child.Setter?.Implementation, child.Setter?.Declaration);
         }
 
-        xml = PlcOpenDocument.SetDeclaration(xml, name, split.PouDeclaration);
-        return PlcOpenDocument.SetTextualBody(xml, name, split.PouImplementation);
+        xml = PouSplice.SetDeclaration(xml, name, split.PouDeclaration);
+        return PouSplice.SetTextualBody(xml, name, split.PouImplementation);
     }
+
+    /// <summary>Volt's wire kind → the PLCopen member shape. This mapping lives HERE, in the layer that knows what
+    /// a push is, so the document layer never has to know Volt's vocabulary. No fallback: an unrecognized child
+    /// kind is a bug (a new kind missed here), not a method.</summary>
+    private static PouMember MemberOf(string kind) => kind switch
+    {
+        ItemKind.Kinds.Method => PouMember.Method,
+        ItemKind.Kinds.Action => PouMember.Action,
+        ItemKind.Kinds.Property => PouMember.Property,
+        _ => throw new BridgeException(BridgeErrorCodes.BadRequest,
+            $"unknown POU child kind '{kind}' — only method, action and property have a PLCopen member shape"),
+    };
 }

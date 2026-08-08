@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Tests;
 
@@ -19,7 +20,7 @@ namespace Volt.Engine.Tests;
 /// FIELD name that happens to equal a vocabulary word (e.g. the <c>degraded</c> bool, the <c>init</c> flag) is a
 /// different thing from the vocabulary VALUE. The per-vocabulary allowlist names the files where the same word is a
 /// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and VG
-/// sublanguages (<c>PlcOpenPouParser</c>/<c>VgParser</c> — "program"/"function"/"method"), and the
+/// sublanguages (<c>PouReader</c>/<c>VgParser</c> — "program"/"function"/"method"), and the
 /// TwinCAT menu-name match (<c>TcObjectModel</c> — Contains("TwinCAT")).
 /// </summary>
 public class WireVocabularyGuardTests
@@ -56,10 +57,19 @@ public class WireVocabularyGuardTests
                     "property_get", "property_set", "interface_method", "interface_property",
                     "interface_property_get", "interface_property_set", "project_info", "trace", "recipe",
                     "symbol_config" },
-            // The PLCopen-XML parser and the VG sublanguage share these words as their OWN vocabularies.
-            // PlcOpenDocument joins the PLCopen readers: "pou"/"method"/"action" there are XML ELEMENT names in
-            // the vendor's schema, which happen to be spelt like item kinds but are not them.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenPouParser.cs", "PlcOpenDocument.cs", "VgParser.cs" }),
+            // The PLCopen-XML layer and the VG sublanguage share these words as their OWN vocabularies: "pou",
+            // "method", "action", "Property" there are XML ELEMENT names in the vendor's schema, spelt like item
+            // kinds but not them. `PouSplice` is the write half of that layer and holds the same element names —
+            // it inherits `PlcOpenDocument.cs`'s old entry rather than adding a new exemption, because the file
+            // was split, not the rule.
+            // NB `PouSplice` no longer takes an ItemKind: `AddChild` takes a PlcOpen-native `PouMember` and
+            // `Sync.PouDocument` maps to it, so the dependency on Volt's vocabulary is gone even though the
+            // ELEMENT names remain. That is the distinction this allowlist exists to record.
+            // Three PlcOpen files, not one, because the old single file was split by responsibility: the shared
+            // document primitives (`PlcOpenDocument`), the whole-POU read (`PouReader`) and the whole-POU write
+            // (`PouSplice`). Each resolves elements BY NAME — that is the point of them — so each carries the
+            // schema's element names. Same exemption, same reason, more files.
+            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs", "VgParser.cs" }),
     };
 
     [Fact]

@@ -1,7 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using Volt.Engine.Graphical;
 using Xunit;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 
@@ -17,7 +18,7 @@ namespace Volt.Cli.Tests;
 /// <list type="number">
 /// <item><description>CODESYS emits an interface with <b>NO <c>&lt;pou&gt;</c> element at all</b> — it is
 /// <c>&lt;addData&gt;/&lt;data&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>.
-/// <see cref="PlcOpenPouParser"/> already handles exactly this, via the branch documented as
+/// <see cref="PouReader"/> already handles exactly this, via the branch documented as
 /// "TwinCAT … so this fallback is TC-only and never changes the CODESYS path". It is NOT TC-only: both
 /// vendors emit the same shape, which is why the parser needs no change to serve the real export.</description></item>
 /// <item><description>The real export CARRIES interface properties and their accessors
@@ -40,7 +41,7 @@ public class CodesysInterfaceExportTests
         var xml = Fixture("IModuleManager.plcopen.xml");
         Assert.DoesNotContain("<pou ", xml);           // the shape claim: CODESYS emits no <pou> for an interface
 
-        var parsed = PlcOpenPouParser.Parse(xml);
+        var parsed = PouReader.Parse(xml);
 
         Assert.NotNull(parsed.Declaration);
         Assert.Contains("INTERFACE", parsed.Declaration!);
@@ -53,7 +54,7 @@ public class CodesysInterfaceExportTests
     [Fact]
     public void Interface_method_declarations_come_through_the_export()
     {
-        var parsed = PlcOpenPouParser.Parse(Fixture("IModuleManager.plcopen.xml"));
+        var parsed = PouReader.Parse(Fixture("IModuleManager.plcopen.xml"));
         var register = parsed.Children.Single(c => c.Name == "Register");
         Assert.NotNull(register.Declaration);
         Assert.Contains("METHOD Register", register.Declaration!);
@@ -61,13 +62,13 @@ public class CodesysInterfaceExportTests
     }
 
     /// <summary>The accessor shape the hand-built document dropped — asserted through the PRODUCTION reader
-    /// (<see cref="PlcOpenPouParser"/>), which is what materialize now uses. A null accessor means ABSENT; an
+    /// (<see cref="PouReader"/>), which is what materialize now uses. A null accessor means ABSENT; an
     /// empty one means present-but-bodiless, which is what an interface accessor is. Collapsing those two would
     /// make a push delete the user's getter, so the distinction is asserted, not assumed.</summary>
     [Fact]
     public void Interface_property_accessors_are_in_the_real_export()
     {
-        var props = PlcOpenPouParser.Parse(Fixture("IModuleManager.plcopen.xml")).Properties;
+        var props = PouReader.Parse(Fixture("IModuleManager.plcopen.xml")).Properties;
         var moduleHandler = props.Single(p => p.Name == "ModuleHandler");
         Assert.NotNull(moduleHandler.GetterCode);   // declares a getter...
         Assert.Equal("", moduleHandler.GetterCode); // ...that is declaration-only, as interface accessors are
@@ -78,7 +79,7 @@ public class CodesysInterfaceExportTests
     [Fact]
     public void A_methods_only_interface_yields_all_of_them()
     {
-        var parsed = PlcOpenPouParser.Parse(Fixture("methods-only.plcopen.xml"));
+        var parsed = PouReader.Parse(Fixture("methods-only.plcopen.xml"));
         var methods = parsed.Children.Where(c => c.PouType == "method").ToList();
         Assert.Equal(7, methods.Count);
         Assert.All(methods, m => Assert.False(string.IsNullOrWhiteSpace(m.Declaration)));

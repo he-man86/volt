@@ -52,9 +52,11 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 
 ## 3. The move — mechanical, one commit, no behaviour change
 
-- [ ] 3.1 Create `Volt.Engine.PlcOpen`. Move `PlcOpenPouParser` → `PlcOpen/PouReader.cs` (rename: it reads a whole
+- [x] 3.1 **DONE** — `Volt.Engine.PlcOpen` exists; `PlcOpenPouParser` → `PlcOpen/PouReader.cs`.
+      Create `Volt.Engine.PlcOpen`. Move `PlcOpenPouParser` → `PlcOpen/PouReader.cs` (rename: it reads a whole
       POU, it is not only a parser).
-- [ ] 3.2 Split `PlcOpenDocument.cs`:
+- [x] 3.2 **DONE** — split four ways exactly as planned.
+      Split `PlcOpenDocument.cs`:
       - shared privates (`OwnerOf`, `ItemBody`, `OwnDescendants`, `Serialize`) → `PlcOpen/PlcOpenDocument.cs`
       - group B (the six splice members) → `PlcOpen/PouSplice.cs`
       - group C (`SpliceFbdLdBody`, `ValidateExisting`, `SafeToDrop`, `HasPinMod`, `FindFbdLd`) →
@@ -62,17 +64,26 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
       - `InstanceTypes` → `Workspace/SourceText/`
       - `DeclFromExport`, `FindFbdLdBody`, `GraphicalBodyLang` → follow their callers; `GraphicalBodyLang` is the
         CODESYS driver's, the other two are `GraphicalCode.Read`'s (see 2.3 first).
-- [ ] 3.3 Update `WireVocabularyGuardTests`'s filename set to the NEW files, deciding per file whether it
+- [x] 3.3 **DONE, and the stated expectation was WRONG.** 3.4 removed `PouSplice`'s dependency on `ItemKind`,
+      but the file still legitimately contains `"Method"`/`"action"`/`"Property"` — those are XML ELEMENT names in
+      the vendor schema, and the guard matches raw literals whatever the reason. So `PouSplice.cs` DOES need the
+      entry, and so does the new `PlcOpenDocument.cs`: the split turned one exempt file into three, each resolving
+      elements BY NAME. Same rule, same reason, more files — not a widened exemption.
+      Original text: update `WireVocabularyGuardTests`'s filename set to the NEW files, deciding per file whether it
       legitimately holds `"pou"`/`"method"`/`"action"` as XML element names. After 3.4, `PouSplice.cs` should NOT
       need an entry — that is the check that 3.4 actually worked.
-- [ ] 3.4 `AddChild` takes a PlcOpen-native member kind, not `ItemKind.Kinds.*`; `Sync/PouDocument` maps. Removes
+- [x] 3.4 **DONE** — `AddChild` takes `PouMember`; `Sync.PouDocument.MemberOf` maps.
+      `AddChild` takes a PlcOpen-native member kind, not `ItemKind.Kinds.*`; `Sync/PouDocument` maps. Removes
       the Workspace→PlcOpen wrong-direction edge.
-- [ ] 3.5 Do NOT split `PlcOpenReader`/`PlcOpenWriter`/`VgParser`/`VgWriter` behind visibility boundaries — six
+- [x] 3.5 **HELD** — reader/writer/parser/writer untouched and still in one namespace.
+      Do NOT split `PlcOpenReader`/`PlcOpenWriter`/`VgParser`/`VgWriter` behind visibility boundaries — six
       suites assert them in a single round-trip expression, and per-leg assertions weaken
       "round-trips losslessly OR is refused".
-- [ ] 3.6 Watch the `VgBody` name collision: `Materializer` has a private `VgBodyOf`, and `volt-lsp-iec` declares
+- [x] 3.6 **HELD** — neither `Materializer.VgBodyOf` nor the LSP's TypeScript `VgBody` was touched.
+      Watch the `VgBody` name collision: `Materializer` has a private `VgBodyOf`, and `volt-lsp-iec` declares
       its own unrelated TypeScript `interface VgBody`. Neither is to be touched.
-- [ ] 3.7 Gate: build + three offline suites, unchanged counts. A moved file that changes a test count means
+- [x] 3.7 **DONE** — Engine 392 / Cli 124 / Connector 80, counts unchanged.
+      Gate: build + three offline suites, unchanged counts. A moved file that changes a test count means
       something moved that shouldn't have.
 
 ## 4. Docs — the layer table IS the design statement

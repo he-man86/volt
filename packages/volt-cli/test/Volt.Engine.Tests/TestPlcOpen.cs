@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
 
@@ -11,7 +11,7 @@ namespace Volt.Cli.Tests;
 /// item name, and passing that name is what stops a splice landing on a sibling method or action. These fixtures
 /// are hand-picked documents with a single graphical body, and the tests care about the READER and WRITER, not
 /// about scoping — so they resolve the owner's name here instead of restating it at each of ~20 call sites.
-/// Scoping itself is pinned directly, on multi-body documents, in <c>PlcOpenDocumentTests</c>.
+/// Scoping itself is pinned directly, on multi-body documents, in <c>GraphicalBodySpliceTests</c>.
 /// </para>
 /// </summary>
 internal static class TestPlcOpen
@@ -27,8 +27,8 @@ internal static class TestPlcOpen
     }
 
     internal static XElement? FindOnlyGraphicalBody(string xml) =>
-        PlcOpenDocument.FindFbdLdBody(xml, GraphicalItemName(xml));
+        GraphicalBodySplice.FindFbdLdBody(xml, GraphicalItemName(xml));
 
     internal static string SpliceOnlyGraphicalBody(string xml, XElement newBody) =>
-        PlcOpenDocument.SpliceFbdLdBody(xml, GraphicalItemName(xml), newBody);
+        GraphicalBodySplice.SpliceFbdLdBody(xml, GraphicalItemName(xml), newBody);
 }

@@ -1,12 +1,13 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Volt.Engine.Graphical;
 using Xunit;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 
-public class PlcOpenPouParserTests
+public class PouReaderTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
@@ -28,7 +29,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.NotNull(result.Declaration);
         Assert.Contains("PROGRAM MyPgm", result.Declaration);
@@ -72,7 +73,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Contains("FUNCTION_BLOCK FbPou", result.Declaration);
         Assert.Equal("FBD", result.BodyLanguage);
@@ -105,7 +106,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Contains("INTERFACE IMyInterface", result.Declaration);
         Assert.Null(result.BodyLanguage);
@@ -127,7 +128,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Contains("PROGRAM SimplePgm", result.Declaration);
         Assert.Equal("ST", result.BodyLanguage);
@@ -151,7 +152,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Equal("CFC", result.BodyLanguage);
         Assert.NotNull(result.BodyElement);
@@ -171,7 +172,7 @@ public class PlcOpenPouParserTests
         var xml = File.ReadAllText(Path.Combine(
             System.AppContext.BaseDirectory, "fixtures", "codesys-pou", "FB_GraphicalChild.plcopen.xml"));
 
-        var method = PlcOpenPouParser.Parse(xml).Children.Single(c => c.Name == "doSomething");
+        var method = PouReader.Parse(xml).Children.Single(c => c.Name == "doSomething");
 
         Assert.Equal("CFC", method.BodyLanguage);
     }
@@ -181,7 +182,7 @@ public class PlcOpenPouParserTests
     {
         const string badXml = "<not><valid>";
 
-        Assert.Throws<System.Xml.XmlException>(() => PlcOpenPouParser.Parse(badXml));
+        Assert.Throws<System.Xml.XmlException>(() => PouReader.Parse(badXml));
     }
 
     [Fact]
@@ -193,7 +194,7 @@ public class PlcOpenPouParserTests
         </project>
         """;
 
-        Assert.Throws<InvalidOperationException>(() => PlcOpenPouParser.Parse(xml));
+        Assert.Throws<InvalidOperationException>(() => PouReader.Parse(xml));
     }
 
     [Fact]
@@ -220,7 +221,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Equal(2, result.Children.Count);
 
@@ -261,7 +262,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.True(result.Declaration is null || !result.Declaration.Contains("METHOD"),
             $"FB decl must not be the method's; was: {result.Declaration}");
@@ -296,7 +297,7 @@ public class PlcOpenPouParserTests
         </project>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.NotNull(result.Declaration);
         Assert.Contains("INTERFACE IFoo", result.Declaration);
@@ -319,7 +320,7 @@ public class PlcOpenPouParserTests
         </pou>
         """;
 
-        var result = PlcOpenPouParser.Parse(xml);
+        var result = PouReader.Parse(xml);
 
         Assert.Null(result.BodyLanguage);
         Assert.Null(result.BodyElement);

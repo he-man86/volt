@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using Volt.Engine.Graphical.Vg;
 using Volt.Engine.Ide;
+using Volt.Engine.PlcOpen;
+using Volt.Engine.Workspace.SourceText;
 
 namespace Volt.Engine.Graphical;
 
@@ -44,7 +46,7 @@ public static class GraphicalCode
         if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
-        var fbd = PlcOpenDocument.FindFbdLdBody(xml, itemName)
+        var fbd = GraphicalBodySplice.FindFbdLdBody(xml, itemName)
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body for '{itemName}'");
         return new GraphicalBody(lang, RenderBody(fbd), decl);
@@ -142,14 +144,14 @@ public static class GraphicalCode
     public static void Write(ICodeStore code, ItemRef item, string itemName, string vgText, string declaration)
     {
         var graph = Validate(vgText);                                        // pure checks first (no IDE write yet)
-        var types = PlcOpenDocument.InstanceTypes(declaration);
+        var types = InstanceTypes.Of(declaration);
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
         // The export is the item's WHOLE POU — the enclosing POU's own body and every sibling method/action come
         // with it — so the splice is scoped by name. Without that it lands on whichever body is first in document
         // order and silently destroys it.
         var exported = code.ReadXml(item);                                   // current full POU PLCopen
-        var spliced = PlcOpenDocument.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
+        var spliced = GraphicalBodySplice.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
         code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
     }
 
