@@ -4,7 +4,7 @@ import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind, DidChangeConfigurationNotification } from "vscode-languageclient/node"
 
 // Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.dut/.gvl — every DUT is
-// one .dut) carrying Structured Text. A graphical (VG) body is detected by content (a leading
+// one .dut) carrying Structured Text. A network-text (FBD/LD) body is detected by content (a leading
 // NETWORK token) and highlighted via a TextMate injection; the server routes per-body. Diagnostics
 // flow to the host's native Problems panel automatically via the language client.
 const LANGUAGE_IDS = ["structured-text"]
