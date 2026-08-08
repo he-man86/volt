@@ -234,6 +234,73 @@ public class PouSpliceTests
         Assert.Contains("PLC_PRG", PouReader.Parse(outXml).Declaration!);   // the POU itself survived
     }
 
+    // ── the two-vendor MATRIX ───────────────────────────────────────────────────────────────────────
+    // Every assertion below is vendor-NEUTRAL, so it runs over BOTH vendors' recorded exports. Until
+    // `tc-pou/FB_TcMembers.plcopen.xml` was recorded there was no TwinCAT fixture containing a method, a property
+    // or an accessor anywhere in the repo — so `AddChild`, `SetAccessor` and property-add were certified against
+    // ONE vendor's shape and assumed to fit the other. That assumption held (the shapes are identical, see
+    // PlcOpen/DIALECT.md D5) but nothing was checking it. Now a divergence fails a test instead of a live push.
+    public static TheoryData<string, string, string> PousWithMembers => new()
+    {
+        { "codesys-pou", "BoxFB.plcopen.xml",        "BoxFB" },
+        { "tc-pou",      "FB_TcMembers.plcopen.xml", "FB_TcMembers" },
+    };
+
+    [Theory]
+    [MemberData(nameof(PousWithMembers))]
+    public void Matrix_a_new_method_is_added_and_reads_back(string dir, string file, string item)
+    {
+        const string decl = "METHOD Added : INT\nVAR_INPUT\n\tn : INT;\nEND_VAR";
+        const string body = "Added := n * 2;";
+        var outXml = PouSplice.AddChild(Fixture(dir, file), item, "Added", PouMember.Method, decl, body);
+
+        var added = PouReader.Parse(outXml).Children.Single(c => c.Name == "Added");
+        Assert.Equal(decl, added.Declaration);
+        Assert.Equal(body, added.BodyElement!.Value);
+    }
+
+    [Theory]
+    [MemberData(nameof(PousWithMembers))]
+    public void Matrix_adding_a_member_leaves_the_existing_ones_intact(string dir, string file, string item)
+    {
+        var xml = Fixture(dir, file);
+        var before = PouReader.Parse(xml);
+        Assert.True(before.Children.Count + before.Properties.Count > 0, "fixture has no members — it proves nothing");
+
+        var after = PouReader.Parse(PouSplice.AddChild(xml, item, "Added", PouMember.Method, "METHOD Added", "x := 1;"));
+        Assert.Equal(before.Children.Count + 1, after.Children.Count);
+        Assert.Equal(before.Properties.Count, after.Properties.Count);
+        Assert.Equal(before.Declaration, after.Declaration);
+    }
+
+    [Theory]
+    [MemberData(nameof(PousWithMembers))]
+    public void Matrix_a_new_property_gets_both_accessor_slots(string dir, string file, string item)
+    {
+        var outXml = PouSplice.AddChild(Fixture(dir, file), item, "Added", PouMember.Property, "PROPERTY Added : INT", null);
+        var added = PouReader.Parse(outXml).Properties.Single(p => p.Name == "Added");
+        Assert.NotNull(added.GetterCode);
+        Assert.NotNull(added.SetterCode);
+    }
+
+    /// <summary>An accessor write reaches the right one on both vendors — which matters because they order them
+    /// DIFFERENTLY: CODESYS emits Set then Get, TwinCAT Get then Set (DIALECT.md D6). Anything that picked "the
+    /// first accessor" instead of the named one would pass on one vendor and silently write the wrong accessor on
+    /// the other.</summary>
+    [Theory]
+    [MemberData(nameof(PousWithMembers))]
+    public void Matrix_an_accessor_write_hits_the_named_accessor(string dir, string file, string item)
+    {
+        var xml = Fixture(dir, file);
+        var prop = PouReader.Parse(xml).Properties.First();
+
+        var written = PouSplice.SetAccessor(xml, item, prop.Name, getter: true, code: "GET_MARKER;", declaration: null);
+        var after = PouReader.Parse(written).Properties.Single(p => p.Name == prop.Name);
+
+        Assert.Equal("GET_MARKER;", after.GetterCode);
+        Assert.Equal(prop.SetterCode, after.SetterCode);   // the sibling accessor is untouched
+    }
+
     // ── §3: adding a child that is not there yet ────────────────────────────────────────────────────
 
     [Fact]

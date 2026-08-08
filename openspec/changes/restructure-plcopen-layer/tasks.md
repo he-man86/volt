@@ -112,11 +112,23 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
       `PlcOpen/DIALECT.md` — the A/B/C/D census as the ONE home for vendor facts, each citing the fixture that
       proves it or marked UNMEASURED. Retire the ~20 scattered doc-comments that currently hold these claims, so
       there is one place to correct when a measurement lands.
-- [ ] 5.2 **Record the missing TwinCAT fixture**: one TwinCAT FB with a method, a property, and BOTH accessors.
+- [x] 5.2 **DONE — recorded, and it closed TWO unknowns.** `tc-pou/FB_TcMembers.plcopen.xml`, captured live from
+      TcXaeShell (an FB with a method, a property and BOTH accessors — a shape that existed nowhere in the repo).
+      **D5 closed: the member shape is IDENTICAL to CODESYS's** (`<data name="…/method"><Method>`,
+      `<data name="…/property"><Property>` with the accessors nested), so `AddChild` was right for both vendors —
+      nothing was checking that. **D6 closed and it DIFFERS**: TwinCAT emits Get-before-Set, CODESYS
+      Set-before-Get, so `SetAccessor`'s "vendors emit Set before Get" was a false universal (corrected).
+      Also corroborated: a TwinCAT method with a declared `VAR_INPUT` carries ONE plaintext copy, so the two-copy
+      declaration really is CODESYS-only.
+      Original text: **Record the missing TwinCAT fixture**: one TwinCAT FB with a method, a property, and BOTH accessors.
       `<Method>`, `<Property>`, `<GetAccessor>`, `<SetAccessor>` appear **zero times** across all six recorded
       TwinCAT fixtures, so `AddChild`, `SetAccessor` and property-add have never been tested against a TwinCAT
       shape at all. Highest-value item in this change.
-- [ ] 5.3 Make `PlcOpenSpliceTests` a **matrix**: every splice assertion that is vendor-neutral runs over BOTH
+- [x] 5.3 **DONE** — four vendor-neutral assertions now run over BOTH vendors' recorded exports (add a method,
+      leave existing members intact, add a property with both accessor slots, and write the NAMED accessor). The
+      last one exists because of D6: anything picking "the first accessor" rather than the named one would pass on
+      one vendor and silently write the wrong accessor on the other.
+      Original text: Make `PlcOpenSpliceTests` a **matrix**: every splice assertion that is vendor-neutral runs over BOTH
       vendors' recorded fixtures. A divergence then fails a test instead of surprising us live.
 - [x] 5.4 **DONE** — named in `DIALECT.md` and left unbuilt: one dialect parameter on `AddChild`/`SetAccessor`, the only two members that CREATE vendor-shaped elements.
       Do NOT build a dialect abstraction. Record the agreed extension point — one dialect parameter consumed by

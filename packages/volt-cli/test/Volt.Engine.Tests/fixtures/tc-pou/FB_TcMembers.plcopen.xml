@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.13.21" creationDateTime="2026-08-08T10:26:57.8229883" />
+  <contentHeader name="Untitled1" modificationDateTime="2026-08-08T10:26:57.8250537">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation />
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="FB_TcMembers" pouType="functionBlock">
+        <interface />
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+            <Method name="Compute" ObjectId="a289132b-77b6-4c83-9d0c-2dc76c0986f6">
+              <interface>
+                <returnType>
+                  <BOOL />
+                </returnType>
+                <inputVars>
+                  <variable name="a">
+                    <type>
+                      <INT />
+                    </type>
+                  </variable>
+                </inputVars>
+              </interface>
+              <body>
+                <ST>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">Compute := a &gt; 0;</xhtml>
+                </ST>
+              </body>
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">METHOD Compute : BOOL
+VAR_INPUT
+	a : INT;
+END_VAR
+</xhtml>
+              </InterfaceAsPlainText>
+              <addData />
+            </Method>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/property" handleUnknown="implementation">
+            <Property name="Speed" ObjectId="43abeeed-802d-4ae5-96cb-1c2a2b1c0b41">
+              <interface>
+                <returnType>
+                  <INT />
+                </returnType>
+              </interface>
+              <GetAccessor>
+                <interface />
+                <body>
+                  <ST>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml">Speed := 42;</xhtml>
+                  </ST>
+                </body>
+                <InterfaceAsPlainText>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">PUBLIC
+VAR
+END_VAR</xhtml>
+                </InterfaceAsPlainText>
+                <addData />
+              </GetAccessor>
+              <SetAccessor>
+                <interface />
+                <body>
+                  <ST>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml">nSpeed := Speed;</xhtml>
+                  </ST>
+                </body>
+                <InterfaceAsPlainText>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">PUBLIC
+VAR
+END_VAR</xhtml>
+                </InterfaceAsPlainText>
+                <addData />
+              </SetAccessor>
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">PROPERTY Speed : INT
+</xhtml>
+              </InterfaceAsPlainText>
+              <addData />
+            </Property>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">FUNCTION_BLOCK FB_TcMembers
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR</xhtml>
+            </InterfaceAsPlainText>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>e0f23361-dfca-4c67-97b3-f8eb18a69d01</ObjectId>
+          </data>
+        </addData>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
+      <ProjectStructure>
+        <Object Name="FB_TcMembers" ObjectId="e0f23361-dfca-4c67-97b3-f8eb18a69d01">
+          <Object Name="Compute" ObjectId="a289132b-77b6-4c83-9d0c-2dc76c0986f6" />
+          <Object Name="Speed" ObjectId="43abeeed-802d-4ae5-96cb-1c2a2b1c0b41" />
+        </Object>
+      </ProjectStructure>
+    </data>
+  </addData>
+</project>

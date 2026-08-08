@@ -48,7 +48,7 @@ repo contains a method, a property or an accessor.
 | A2 | BOM: CODESYS's string carries one (stripped at `CodesysObjectModel.cs:788`); TwinCAT's does not | fixture headers |
 | A3 | `fileHeader` productName/companyName differ | `corpus/POU.plcopen.xml:3` vs `tc-fbd/PLC_PRG.plcopen.xml:3` — **nothing reads it**; the cheapest dialect discriminator if ever needed |
 | A4 | `projectstructure` addData: TwinCAT always, CODESYS only with `bExportFolderStructure` | 6/6 `tc-*`; 1/5 `codesys-pou` |
-| A5 | `objectid` addData: TwinCAT always; CODESYS flag-gated + also as an attribute on the member | `tc-fbd/PLC_PRG.plcopen.xml:212-214`; `FB_ChildFolderStructure.plcopen.xml:35` |
+| A5 | `objectid` addData: TwinCAT always; CODESYS flag-gated. TwinCAT ALSO stamps `ObjectId=` as an ATTRIBUTE on every member element unconditionally (`tc-pou/FB_TcMembers.plcopen.xml:34, 63`), where CODESYS does so only with the folder flag. Never read; survives because the splice edits | `tc-fbd/PLC_PRG.plcopen.xml:212-214`; `FB_ChildFolderStructure.plcopen.xml:35` |
 | A6 | `handleUnknown` value distribution | grep counts |
 | A7 | **`InterfaceAsPlainText` copy count** — CODESYS TWICE once any variable is declared, TwinCAT ONCE | `corpus/POU.plcopen.xml:45`+`:197`, `FB_TwoDeclCopies.plcopen.xml:35`+`:142`; vs `tc-fbd/PLC_PRG.plcopen.xml:225` (sole copy, 3 localVars). Handled by `OwnDescendants` — **after a live failure**, see below |
 | A8 | Interface export has no `<pou>` on BOTH vendors (was believed TwinCAT-only) | `codesys-itf/IModuleManager.plcopen.xml:45`; `PlcOpenPouParser.cs:53-59` |
@@ -99,8 +99,8 @@ repo contains a method, a property or an accessor.
 | D2 | Do children survive TwinCAT's delete-then-import round trip? |
 | D3 | Which representation drives a declaration on import — plaintext, typed `<interface>`, or neither? |
 | D4 | Is there a move equivalent? Without one, child folders cannot be restored after an import |
-| D5 | **TwinCAT's POU member shape.** `<Method>`, `<Property>`, `<GetAccessor>`, `<SetAccessor>`: **zero occurrences across all six recorded TwinCAT fixtures.** `AddChild` builds to the CODESYS shape and has never met a TwinCAT import |
-| D6 | Accessor ordering (Set-before-Get) — evidenced on CODESYS only |
+| ~~D5~~ | **CLOSED — measured, and IDENTICAL.** TwinCAT's member shape matches CODESYS's exactly: `<data name="…/method"><Method name= ObjectId=>`, `<data name="…/property"><Property>` with `<GetAccessor>`/`<SetAccessor>` nested. Recorded live from TcXaeShell as `tc-pou/FB_TcMembers.plcopen.xml`. `PouSplice.AddChild`'s shape is right for both vendors → **category A** |
+| ~~D6~~ | **CLOSED — measured, and it DIFFERS.** TwinCAT emits **Get before Set** (`tc-pou/FB_TcMembers.plcopen.xml:69`, `:83`); CODESYS emits **Set before Get** (`codesys-pou/BoxFB.plcopen.xml:304`, `:331`). Order only, so → **category A** — but `SetAccessor` claimed "vendors emit Set before Get" as a universal, which was false |
 | D7 | Does TwinCAT nest a CFC body under `<body>/<addData>` the way CODESYS does? No TwinCAT CFC/SFC fixture exists |
 | D8 | Does TwinCAT's import discard `projectstructure`/`objectid` the way CODESYS's does? |
 | D9 | The `PlcOpenExport` selection grammar — still flagged "NEEDS LIVE VERIFICATION" in the source that uses it |
@@ -128,7 +128,12 @@ flag whose deletion is gated on measurements that have not been taken.
 
 So the structure copes with two dialects through **evidence, not indirection**: one tolerant reader, vendor
 difference confined to the driver, and a two-vendor fixture matrix that turns a divergence into a failing test
-instead of a live surprise. D5 is the highest-value gap to close.
+instead of a live surprise.
+
+D5 — the largest gap — is now CLOSED: `tc-pou/FB_TcMembers.plcopen.xml` was recorded live from TcXaeShell
+(an FB with a method, a property and both accessors, a shape that existed nowhere in the repo). It confirms the
+member shape is common, closes D6 with a real difference, and corroborates that the two-copy declaration is
+CODESYS-only. What remains unmeasured on TwinCAT is all about the IMPORT (D1-D4), which no export can answer.
 
 ## Part 9 — false comments found (Convention 8: a false comment is a defect)
 

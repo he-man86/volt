@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -256,7 +256,11 @@ namespace Volt.Engine.PlcOpen
             if (acc is null)
             {
                 acc = new XElement(ns + tag, new XElement(ns + "interface"));
-                // Vendors emit Set before Get; keep the property's own InterfaceAsPlainText last.
+                // Insert before the property's own InterfaceAsPlainText, which stays last. Deliberately NOT
+                // "before the other accessor": the vendors disagree on order — CODESYS emits Set then Get
+                // (BoxFB), TwinCAT emits Get then Set (FB_TcMembers) — so a new accessor simply lands after the
+                // ones already there, which is valid on both. This comment used to assert "vendors emit Set
+                // before Get" as a universal; it was measured on one vendor.
                 var iapt = prop.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
                 if (iapt is not null) iapt.AddBeforeSelf(acc); else prop.Add(acc);
                 changed = true;
