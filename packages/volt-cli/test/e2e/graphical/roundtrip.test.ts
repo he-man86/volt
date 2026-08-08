@@ -3,7 +3,7 @@
  * CFC/SFC are read-only (declaration-only, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -245,7 +245,10 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
 	})
 
-	it("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
+	// SKIPPED on TwinCAT, and not as a known-failure: TwinCAT has no move primitive at all. `IProjectTree.Move`
+	// throws there by design (DIALECT C5/D4 — measured: no MoveChild/Move/Reparent member on a tree item), so a
+	// pure move is REFUSED rather than performed. Asserting it would be asserting a capability the vendor lacks.
+	it.skipIf(VENDOR === "twincat")("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
 		// A move used to be a delete-and-recreate, and a graphical body cannot be rebuilt from text, so a
 		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IProjectTree.Move the
 		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it

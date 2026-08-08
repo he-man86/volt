@@ -386,9 +386,14 @@ public static class PushService
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
                 if (currentLang is not null && !pouVg)
+                    // WORD-FOR-WORD the message PouSplice.SetBody produces for the same refusal, and the pushed
+                    // language is resolved the same way it resolves the codec. The two paths refuse the same case
+                    // on different vendors, so a client that read the reason got a different sentence depending on
+                    // which IDE was attached — a parity break in the one place the wire is supposed to be
+                    // byte-identical, and it made the e2e assertion vendor-specific.
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
-                        $"'{name}' is a graphical {currentLang} body in the IDE — a textual push would overwrite it. " +
-                        "Edit it in the IDE, or delete it first to replace it.");
+                        $"'{name}' has a {currentLang} body in the IDE but the push carries " +
+                        $"{NetworkText.LanguageOf(impl) ?? "ST"} — edit it in the IDE, or delete it first to replace it.");
                 if (currentLang is null && pouVg)
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");

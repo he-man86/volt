@@ -24,9 +24,6 @@
     <Compile Include="POUs\PLC_PRG.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\Sub\VltE2E_r_maps.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="DUTs" />
