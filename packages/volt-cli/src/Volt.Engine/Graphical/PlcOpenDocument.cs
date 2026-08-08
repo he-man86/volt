@@ -448,9 +448,6 @@ namespace Volt.Engine.Graphical
         /// <summary>A descendant belonging to <paramref name="owner"/> ITSELF, not to a child member nested
         /// inside it — the same containment rule <c>PlcOpenPouParser.DeclFromElement</c> applies, because a
         /// method and an accessor each carry their own InterfaceAsPlainText.</summary>
-        private static XElement? OwnDescendant(XElement owner, string localName) =>
-            OwnDescendants(owner, localName).FirstOrDefault();
-
         /// <summary>EVERY descendant of <paramref name="owner"/> with this name that belongs to the owner itself
         /// rather than to one of its children.
         /// <para>Plural matters for <c>InterfaceAsPlainText</c>: once a POU declares any variable, CODESYS exports

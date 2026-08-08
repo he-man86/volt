@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Volt.Cli.Transport;
 using Volt.Engine.Graphical;
@@ -14,7 +14,6 @@ public sealed partial class CodesysDriver
 {
     // ── textual transport ──
     public string ReadDeclaration(ItemRef item) => item.Native is LibRefNode lib ? lib.Manifest : _om.ReadDeclaration(item.Native);
-    public string ReadImplementation(ItemRef item) => item.Native is LibRefNode ? "" : _om.ReadImplementation(item.Native);
     public void WriteText(ItemRef item, string? declaration, string? implementation) => _om.WriteSourceText(item.Native, declaration, implementation);
 
     // ── PLCopen XML transport ──

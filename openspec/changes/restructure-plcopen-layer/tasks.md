@@ -41,10 +41,11 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 
 ## 2. Dead surfaces — delete before moving, so less moves
 
-- [ ] 2.1 `ICodeStore.ReadImplementation` — zero production call sites. Compiler-verified; both drivers, `FakeIde`
+- [x] 2.1 **DONE** — `ICodeStore.ReadImplementation` — zero production call sites. Compiler-verified; both drivers, `FakeIde`
       and one test double lose a member.
-- [ ] 2.2 `PlcOpenDocument.OwnDescendant` (singular) — no callers since the two-copy declaration fix.
-- [ ] 2.3 Re-check `GraphicalCode.Read`/`DeclarationFrom` (test-only in production). **Do NOT delete blind**: 13
+- [x] 2.2 **DONE** — `PlcOpenDocument.OwnDescendant` (singular) — no callers since the two-copy declaration fix.
+- [x] 2.3 **DONE — KEPT, and now says why.** It is the only entry point exercising the whole read pipeline against a fake code store with no live IDE; its doc-comment now names the 13 tests and the cross-package marker contract that hang off it, so the next reader does not mistake it for dead weight.
+      Original text: re-check `GraphicalCode.Read`/`DeclarationFrom` (test-only in production). **Do NOT delete blind**: 13
       tests in `GraphicalCodeTests` drive the offline gate through it, including the cross-package
       `Graphical_body_marker_matches_the_lsp_hover_shape` contract. Either keep it and say plainly that it is a
       test seam, or move those tests onto the production path. Deleting it silently drops that coverage.

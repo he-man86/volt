@@ -9,8 +9,11 @@ namespace Volt.Engine.Ide;
 public interface ICodeStore
 {
     // ── Transport 1: textual (ST/IL) ──
+    // `ReadImplementation` used to sit here. It had ZERO callers through this interface: a POU's body comes out of
+    // the PLCopen export with everything else, and DUT/GVL (the only kinds still read as text) have no body slot.
+    // Each driver keeps its own object-model body read where it is genuinely needed — TwinCAT's `BodyLanguage`
+    // sniffs `ImplementationText` — but that is vendor-internal, not a transport Core asks for.
     string ReadDeclaration(ItemRef item);
-    string ReadImplementation(ItemRef item);
     /// <summary>Write an item's text. A <c>null</c> <paramref name="declaration"/> means the item HAS no
     /// declaration and none must be written — actions are the case: they are body-only (their "ACTION
     /// name" line is synthesized on read, never persisted). TwinCAT models this faithfully and rejects a

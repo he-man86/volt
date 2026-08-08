@@ -24,9 +24,15 @@ public static class GraphicalCode
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable VG;
     /// CFC/SFC → an empty body. A body the gate calls graphical but the export can't yield as FBD/LD is a
-    /// loud failure, never silent. Production does NOT run this path and never sees this empty body — the
-    /// Materializer reads through <see cref="RenderBody"/> and builds the `@volt-graphical` marker itself
-    /// (<c>Materializer.VgBodyOf</c>); this method remains for test coverage of the full read pipeline.</summary>
+    /// loud failure, never silent.
+    /// <para><b>A TEST SEAM, kept deliberately.</b> Production does not run it — the Materializer reads through
+    /// <see cref="RenderBody"/> and builds the `@volt-graphical` marker itself (<c>Materializer.VgBodyOf</c>).
+    /// It survives because it is the only entry point that exercises the WHOLE read pipeline
+    /// (<c>BodyLanguage</c> → <c>ReadXml</c> → declaration → VG) against a fake code store, with no live IDE:
+    /// 13 cases in <c>GraphicalCodeTests</c> hang off it, including the cross-package
+    /// <c>Graphical_body_marker_matches_the_lsp_hover_shape</c> contract and the zero-fallback assertions that a
+    /// failure propagates rather than degrading to an empty body. Deleting it would delete that coverage, not
+    /// dead weight — so if it ever goes, those tests move onto the production path FIRST.</para></summary>
     public static GraphicalBody? Read(ICodeStore code, ItemRef item, string itemName)
     {
         var lang = code.BodyLanguage(item);

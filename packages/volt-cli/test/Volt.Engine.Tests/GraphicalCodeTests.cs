@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Volt.Engine;
 using Volt.Engine.Graphical;
 using Volt.Engine.Graphical.Vg;
@@ -246,7 +246,6 @@ internal sealed class FakeCodeStore : ICodeStore
     public string ReadXml(ItemRef item) { ReadXmlCalls++; if (ThrowOnReadXml) throw new InvalidOperationException("export failed"); return Xml; }
     public void WriteXml(ItemRef item, string xml) => WrittenXml = xml;
     public string ReadDeclaration(ItemRef item) => Decl;
-    public string ReadImplementation(ItemRef item) => "";
     public void WriteText(ItemRef item, string? declaration, string implementation) => throw new NotSupportedException();
     public string ReadManifest(ItemRef item, string kind) => throw new NotSupportedException();
 }

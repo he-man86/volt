@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -198,7 +198,6 @@ namespace Volt.Cli.Ide.Codesys
 
         // ── source text (object model: aspect → ITextDocument.Text) ────────────
         public string ReadDeclaration(object node) => ReadAspectText(ReadObject(node), "Interface");
-        public string ReadImplementation(object node) => ReadAspectText(ReadObject(node), "Implementation");
 
         public static string ReadAspectText(object? iobject, string aspectName)
         {

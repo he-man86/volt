@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -157,7 +157,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     // ── ICodeStore ──
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
-    public string ReadImplementation(ItemRef item) => Find(item).Implementation ?? "";
     public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{(string)item.Native}");
     public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
     public string ReadXml(ItemRef item)
