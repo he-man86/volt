@@ -266,8 +266,24 @@ So the flattening is a step the write must UNDO, not a blocker:
         `RemoveOrphanChildren` deletes whatever is not in the pushed set, so a renamed method is already
         delete-then-create. `RemoveChild` + `AddChild` express exactly that, with no reference rewriting lost
         because there was none to lose.
-- [ ] 3.3 Keep the create path on the scripting API: a POU that does not exist yet has no export to splice.
-- [ ] 3.4 Keep item rename/move/delete on the scripting API — PLCopen has neither rename nor folder membership.
+- [x] 3.3 **DONE — and the stated reason was only half true.** "A POU that does not exist yet has no export to
+      splice" holds BEFORE the create, and the create path is what decides when that is. So create is now
+      `CreateChild` (structure, per §3.4) and then the SAME single-document write: the just-created POU has an
+      export, and the splice edits it.
+      Measured on 3.5.21.40 before relying on it: a freshly created POU exports with both an
+      `<InterfaceAsPlainText>` and a `<body>` — the two elements the splice needs. (A DUT/GVL exports the
+      plaintext but NO body, which is why `IsPou` excludes them.)
+      This was the last place the per-child seam survived: creating an FB with 5 methods used to cost ~12 COM
+      writes plus an orphan walk; it is now one `CreateChild` and one import.
+- [x] 3.4 **DONE — structure stays on the scripting API, and MOVE became a real one.** Rename still uses
+      `ide.Rename` (the IDE rewrites call-sites; PLCopen cannot express that) and delete still uses `ide.Delete`.
+      **Move no longer recreates.** It was read + delete + re-create + write-content-back, which is why a
+      GRAPHICAL move had to be refused outright ("reorganize it in the IDE, then pull") — a graphical body cannot
+      be rebuilt from text. With `IProjectTree.Move` the IDE relocates the object whole: no read, no delete, no
+      window in which the item does not exist, and a graphical POU moves fine. That refusal is now lifted, with an
+      e2e that creates an FBD program, moves it two folders deep and asserts the body comes back byte-identical.
+      Gated on the same capability as the single-document write, because it is the same measurement — the merge
+      flattens child folders, so that path already depends on `Move` existing.
 - [ ] 3.5 The read-only/body-format guards run BEFORE the splice, unchanged. They are what stops a textual push
       overwriting a live CFC/SFC body, and they read live IDE state, not the document.
 

@@ -41,6 +41,11 @@ public interface ICodeStore
     /// which already answers <c>E_FAIL</c> for DUT/GVL exports — `pou-writes-via-plcopen` §5 stages that
     /// verification deliberately after CODESYS is green. <b>Delete this property when §5 lands</b>: two write paths
     /// is the cost being paid for staging, not a design.</para>
+    /// <para>It also stands for "<b>and this driver has a real <see cref="IProjectTree.Move"/></b>", because the
+    /// two are the same measurement: the merge FLATTENS a POU's child folders, so the single-document write
+    /// depends on <c>Move</c> to put them back — a driver without one could not take this path at all.
+    /// <c>PushService</c> therefore also uses it to choose a real move over the delete-and-recreate. Both facts
+    /// come from the same §5 verification and are deleted together.</para>
     /// <para>Defaulted to false in <c>DriverBase</c>, not here: the bridge targets net48, which has no default
     /// interface members.</para></summary>
     bool WritesPouAsOneDocument { get; }

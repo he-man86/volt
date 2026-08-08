@@ -241,16 +241,34 @@ public static class PushService
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
     }
 
-    /// <summary>Move an item to a new folder by full-fidelity recreate (declaration + implementation +
-    /// children), so a moved FB never loses its methods/actions/properties the way a text-only recreate
-    /// would. Graphical bodies can't be recreated from scratch, so a move of a graphical item is REFUSED
-    /// before any deletion rather than silently corrupting it — reorganize those in the IDE, then pull.</summary>
+    /// <summary>Move an item to another folder.
+    /// <para><b>The real move</b> — <see cref="IProjectTree.Move"/> — where the driver has one: the IDE relocates
+    /// the object whole, so nothing is read, deleted or rebuilt, and there is no window in which the item does not
+    /// exist. A graphical item moves too, which the recreate below can never do.</para>
+    /// <para><b>The recreate</b>, for a driver without a move: read the source, delete, re-create in the new
+    /// folder, write the content back. Full-fidelity (children included) so a moved FB does not lose its members,
+    /// but a graphical body cannot be rebuilt from text, so a graphical move is REFUSED before any deletion rather
+    /// than silently corrupted.</para>
+    /// <para>Both keep the NAME, so name-based references survive either way.</para></summary>
     private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder, string? sourceText)
     {
         var code = ide.KindCode(item);
         var kind = ItemKind.Map(code);
         if (kind == null || !ItemKind.IsSourceKind(kind))
             throw new BridgeException(BridgeErrorCodes.Unsupported, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
+
+        // Gated on the same capability as the single-document write, because they are the same measurement: the
+        // driver that merges a POU document is the driver that has `Move` (the merge FLATTENS child folders, so
+        // `RestoreChildFolders` already depends on it — a driver without a move could not take that path at all).
+        // One flag, both facts, deleted together when §5 measures TwinCAT.
+        if (ide.WritesPouAsOneDocument)
+        {
+            ide.Move(item, ResolveTopLevelFolder(ide, parent, newFolder));
+            if (sourceText is not { } edited) return;                  // pure move: the content never left
+            var moved = ide.Lookup(name) ?? item;                      // refresh the (possibly staled) handle
+            WriteItemFromSource(ide, parent, name, moved, edited, newFolder);   // move+edit → the in-place update
+            return;
+        }
 
         // The moved item's content: the push's new sourceText if it carried one (move+edit), else the item's
         // current source (pure move), read back for the full-fidelity recreate.
@@ -334,9 +352,13 @@ public static class PushService
                 // before writing anything. Without this, WriteText and child creation fail.
                 if (itemType == ItemKind.PlcItf)
                     pou = FindChild(ide, targetParent, name) ?? pou;
+                // A POU on the single-document path writes NOTHING here: its declaration and body are part of the
+                // one import below, so this WriteText would be a COM round-trip whose result is immediately
+                // overwritten. Everything else (interface/DUT/GVL) still writes its text now.
                 // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
                 // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
-                ide.WriteText(pou, decl, bodyImpl);
+                if (!OneDocument(ide, itemType))
+                    ide.WriteText(pou, decl, bodyImpl);
             }
         }
         else
@@ -366,16 +388,23 @@ public static class PushService
             foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType);
 
             if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
-            // THE single-document write: declaration, body, children, accessors, adds AND removes, in one merge
-            // import. Everything below this branch — the per-child create/write loop, the accessor writes and the
-            // orphan walk — is the path it replaces, still serving the vendor that has not been measured yet.
-            else if (ide.WritesPouAsOneDocument && IsPou(itemType))
-            {
-                ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
-                RestoreChildFolders(ide, name, split);
-                return;
-            }
-            else ide.WriteText(pou, decl, bodyImpl);
+            else if (!OneDocument(ide, itemType)) ide.WriteText(pou, decl, bodyImpl);
+        }
+
+        // THE single-document write: declaration, body, children, accessors, adds AND removes, in ONE merge
+        // import — for a CREATE as well as an update. Everything below it (the per-child create/write loop, the
+        // accessor writes, the orphan walk) is the path it replaces, still serving the vendor not yet measured.
+        //
+        // Create reaches here because the POU now EXISTS: `CreateChild` above made it, so it has an export to
+        // splice. `pou-writes-via-plcopen` §3.3 read "a POU that does not exist yet has no export to splice" as a
+        // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
+        // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
+        // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
+        if (!pouVg && OneDocument(ide, itemType))
+        {
+            ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
+            RestoreChildFolders(ide, name, split);
+            return;
         }
 
         foreach (var child in split.Children)
@@ -451,10 +480,16 @@ public static class PushService
     }
 
     /// <summary>Only a POU (program/function/function_block) is written as one PLCopen document. A DUT/GVL has no
-    /// children to reconcile, and an INTERFACE exports in a different shape entirely (no <c>&lt;pou&gt;</c> element
-    /// at all — its members hang off <c>addData/Interface</c>), so neither is in this change's scope.</summary>
+    /// children to reconcile and no <c>&lt;body&gt;</c> at all in its export (measured), and an INTERFACE exports
+    /// in a different shape entirely (no <c>&lt;pou&gt;</c> element — its members hang off
+    /// <c>addData/Interface</c>), so neither is in scope.</summary>
     private static bool IsPou(int itemType) =>
         itemType is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb;
+
+    /// <summary>Whether THIS item, on THIS driver, takes the single-document write. The one predicate the create,
+    /// update and move paths all ask, so they cannot drift apart about which items it covers.</summary>
+    private static bool OneDocument(IIdeDriver ide, int itemType) =>
+        ide.WritesPouAsOneDocument && IsPou(itemType);
 
     /// <summary>Put the POU's children back in their folders after the merge import flattened them.
     /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's

@@ -141,7 +141,33 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); CreatedKinds[name] = kindCode; return new ItemRef(name); }
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null)
+    {
+        Recorded.Add($"create:{name}");
+        CreatedKinds[name] = kindCode;
+        // A real IDE's created object EXISTS the moment CreateChild returns: it is walkable, readable, and
+        // EXPORTABLE — measured on CODESYS 3.5.21.40, where a just-created POU already carries an
+        // <InterfaceAsPlainText> and a <body>. The fake used to record the call and nothing more, so a create
+        // followed by a read threw "sequence contains no matching element" — which made the single-document
+        // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
+        // Only TOP-LEVEL items are registered: a created child/folder must not surface in the item walk.
+        if (ItemKind.IsTopLevelCrud(kindCode) && !_items.Any(i => i.Name == name))
+            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", null, null));
+        return new ItemRef(name);
+    }
+
+    /// <summary>The declaration a fresh item comes into the world with — the IDE writes one, and the fake must
+    /// too, because an item with NO declaration exports no <c>InterfaceAsPlainText</c> and the splice (rightly)
+    /// refuses to write a declaration into a document that has nowhere to put one.</summary>
+    private static string DefaultDeclaration(int kindCode, string name) => kindCode switch
+    {
+        ItemKind.PlcPouFb => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n",
+        ItemKind.PlcPouFunc => $"FUNCTION {name} : INT\nVAR\nEND_VAR\n",
+        ItemKind.PlcItf => $"INTERFACE {name}\n",
+        ItemKind.PlcDut => $"TYPE {name} :\nSTRUCT\nEND_STRUCT\nEND_TYPE\n",
+        ItemKind.PlcGvl => "VAR_GLOBAL\nEND_VAR\n",
+        _ => $"PROGRAM {name}\nVAR\nEND_VAR\n",
+    };
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
     // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
     // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the

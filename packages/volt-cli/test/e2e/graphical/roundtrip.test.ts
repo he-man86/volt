@@ -3,7 +3,7 @@
  * CFC/SFC are read-only (declaration-only, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -243,6 +243,30 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("vg_build_fb")
 		await createItem(fid("vg_build_fb"), ldFb(name), "")
 		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
+	})
+
+	it("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
+		// A move used to be a delete-and-recreate, and a graphical body cannot be rebuilt from text, so a
+		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IProjectTree.Move the
+		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it
+		// byte-identical, which is the whole reason the old path refused rather than tried.
+		const name = id("vg_move")
+		const fullName = fid("vg_move", "prg")
+		await createItem(fullName, fbdProgram(name), "")
+		const before = (await fetchItem(fullName)).sourceText
+
+		// A PURE move: toFolder only, no sourceText — the content never leaves the IDE.
+		const refs = await bridge.refs()
+		const r = await bridge.push({
+			expectedProjectVersion: refs.projectVersion,
+			ops: [{ op: "set", name: fullName, toFolder: "Moved/Deep", ifVersion: refs.items[fullName] }],
+		})
+		expect(r.accepted).toBe(true)
+
+		const after = await fetchItem(fullName)
+		expect(after.sourceText).toBe(before)                     // the graphical body is untouched
+		const folders = (await bridge.refs()).folders as Record<string, string>
+		expect(folders[fullName].endsWith("Moved/Deep")).toBe(true)
 	})
 
 	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
@@ -92,6 +92,89 @@ public class PouMergeWriteTests
     {
         var ide = Fb(oneDoc: true);
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));
+    }
+
+    // ── create and move ─────────────────────────────────────────────────────────────────────────────
+
+    private static PushResponse PushOp(FakeIde ide, SetItemOp op)
+    {
+        var refs = RefsService.Handle(ide);
+        var resp = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
+        Assert.True(resp.Accepted,
+            "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
+        return resp;
+    }
+
+    /// <summary>A CREATE is CreateChild (structure) then ONE document write — not a create followed by a WriteText
+    /// followed by a CreateChild+WriteText per child. On the old path a new FB with two methods cost six COM
+    /// writes; this is the seam the whole change exists to remove, and create was the last place it survived.
+    /// <para>Measured on 3.5.21.40: a just-created POU exports with an <c>InterfaceAsPlainText</c> AND a
+    /// <c>body</c>, which is what makes splicing into a brand-new item possible at all.</para></summary>
+    [Fact]
+    public void A_create_is_one_CreateChild_plus_one_document_write()
+    {
+        var ide = new FakeIde() { OneDocumentWrite = true };
+        PushOp(ide, new SetItemOp
+        {
+            Name = "FB_New.fb",
+            SourceText = "FUNCTION_BLOCK FB_New\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD First : BOOL\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nSecond := FALSE;\nEND_METHOD\n",
+        });
+
+        Assert.Equal(new[] { "create:FB_New", "writexml:FB_New" }, ide.Recorded.ToArray());
+        var doc = ide.WrittenXml["FB_New"];
+        Assert.Contains("First", doc);
+        Assert.Contains("Second", doc);
+    }
+
+    /// <summary>A MOVE is one <c>Move</c> — the item is never read, deleted or rebuilt, so there is no window in
+    /// which it does not exist and nothing to lose. It used to be a full delete-and-recreate.</summary>
+    [Fact]
+    public void A_pure_move_relocates_the_item_instead_of_recreating_it()
+    {
+        var ide = Fb(oneDoc: true);
+        var refs = RefsService.Handle(ide);
+        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+
+        Assert.Contains("move:FB_Test->Motors", ide.Recorded);
+        // `create:Motors` IS expected — the destination folder is resolved-or-created. What must not appear is a
+        // delete or a re-create of the ITEM, which is what the old move did.
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r == "create:FB_Test");
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write"));   // a pure move writes no content at all
+    }
+
+    /// <summary>A move that also EDITS relocates first, then takes the ordinary in-place document write — one
+    /// move plus one import, still no delete.</summary>
+    [Fact]
+    public void A_move_with_an_edit_is_a_move_plus_one_document_write()
+    {
+        var ide = Fb(oneDoc: true);
+        var refs = RefsService.Handle(ide);
+        PushOp(ide, new SetItemOp
+        {
+            Name = "FB_Test.fb",
+            IfVersion = refs.Items["FB_Test.fb"],
+            ToFolder = "Motors",
+            SourceText = Source("n := n + 9;", "DoIt := FALSE;"),
+        });
+
+        Assert.Contains("move:FB_Test->Motors", ide.Recorded);
+        Assert.Contains("writexml:FB_Test", ide.Recorded);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
+        Assert.Contains("n := n + 9;", ide.WrittenXml["FB_Test"]);
+    }
+
+    /// <summary>Without the capability the move is still the delete-and-recreate, so the staging stays real.</summary>
+    [Fact]
+    public void Without_the_capability_a_move_still_recreates()
+    {
+        var ide = Fb(oneDoc: false);
+        var refs = RefsService.Handle(ide);
+        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+
+        Assert.Contains("delete:FB_Test", ide.Recorded);
+        Assert.Contains("create:FB_Test", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));
     }
 }
