@@ -393,8 +393,21 @@ internal sealed class TcObjectModel
         return TcPlcOpen.ExportXmlString(PlcRoot(), PouSelectionPath(pou));
     }
 
-    /// <summary>Import a full PLCopen POU back into the PLC project (same-name replace).</summary>
+    /// <summary>Import a full PLCopen POU back into the PLC project (same-name replace).
+    /// <para>Always into the PLC-PROJECT ROOT, and that is TwinCAT's limit rather than a choice here: measured
+    /// live, <c>PlcOpenImport</c> exists only on the PLC project and takes only <c>(path, options)</c>. The
+    /// caller refuses a foldered item rather than letting it be relocated — see BeckhoffDriver.WriteXml.</para></summary>
     public void ImportPlcOpenXml(string xml) => TcPlcOpen.ImportXmlString(PlcRoot(), xml);
+
+    /// <summary>Is this node the PLC-project root itself? Compared by PATH, which is what TwinCAT gives a tree
+    /// item as its stable identity — two RCWs for one node are not reference-equal.</summary>
+    public bool IsPlcProjectRoot(object node)
+    {
+        try { return string.Equals(PathOf(node), PathOf(PlcRoot()), StringComparison.OrdinalIgnoreCase); }
+        catch { return false; }
+    }
+
+    private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
 
     /// <summary>Walk up to the enclosing POU (FB / function / program / interface). Only called for items
     /// the language gate already classified as graphical POUs, so the POU is found at/near hop 0.</summary>

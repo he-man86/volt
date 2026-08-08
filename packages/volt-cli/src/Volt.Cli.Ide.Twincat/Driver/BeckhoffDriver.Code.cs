@@ -2,6 +2,8 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Volt.Cli.Transport;
+using Volt.Engine;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Workspace;
@@ -27,11 +29,27 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>Import a full PLCopen POU (same-name replace). Delete the existing POU first (TC's PlcOpenImport does
     /// not replace in-place — it adds, and a name collision fails). The capture/restore/rethrow data-safety policy
-    /// lives once in <see cref="Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport"/>.</summary>
+    /// lives once in <see cref="Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport"/>.
+    /// <para><b>REFUSED for an item that lives in a folder</b>, because on TwinCAT the placement cannot be
+    /// preserved and cannot be repaired. Measured live on TcXaeShell 15.0 (DIALECT D4b): <c>PlcOpenImport</c> is
+    /// a member of the PLC PROJECT only — it does not exist on a folder tree item — and its signature is
+    /// <c>(path, options)</c> with no target argument (a third one is <c>DISP_E_TYPEMISMATCH</c>). So the
+    /// re-imported item always lands at the PLC-project root. CODESYS survives the same flattening because it has
+    /// <c>move()</c>; TwinCAT has no move primitive at all (D4).</para>
+    /// <para>It used to just do it, and the POU silently MOVED out of the engineer's folder on every graphical
+    /// push. A loud refusal is the smaller harm: relocating someone's code without telling them is the failure
+    /// mode this bridge exists to prevent, and "your body is unchanged, move the POU to the project root or edit
+    /// it in the IDE" is a thing they can act on.</para></summary>
     public void WriteXml(ItemRef item, string xml)
     {
         var parent = _om.Parent(item.Native);
         var name = _om.GetName(item.Native);
+        if (!_om.IsPlcProjectRoot(parent))
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}' is inside a folder, and TwinCAT's PLCopen import can only place an item at the " +
+                "PLC-project root — it would silently move the POU out of its folder. Edit it in the IDE, or " +
+                "move it to the PLC-project root first.");
+
         Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport(
             exportOriginal: () => _om.ExportPouXml(item.Native),
             delete: () => _om.DeleteChild(parent, name),

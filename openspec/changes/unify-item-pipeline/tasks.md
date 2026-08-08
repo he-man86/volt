@@ -97,5 +97,26 @@ differently from the vendor tests only our own tolerance.**
 
 ## Not done
 
-- [ ] **TwinCAT.** `WritesPouAsOneDocument` is still false there and D1–D4 in `DIALECT.md` are still unmeasured,
-      so TwinCAT keeps the per-child transport — which is now the ONLY thing keeping that code alive.
+- [x] **TwinCAT D1-D4 measured** (live, TcXaeShell 15.0). `WritesPouAsOneDocument` STAYS FALSE - but now for a
+      measured reason instead of an unmeasured one, and the reason is PLACEMENT, not content:
+      - **D1/D2/D3 are all green.** `PlcOpenImport` accepts a spliced document; the method body, the property and
+        BOTH accessor bodies survive the delete-then-import round trip; and the PLAINTEXT drives the declaration
+        exactly as on CODESYS. The content half of the single-document write works on TwinCAT today.
+      - **D4 is the blocker, and D4b makes it unrecoverable.** There is no move primitive on the tree item, and
+        the import FLATTENS a POU-internal folder just as CODESYS's does - CODESYS survives that only because it
+        HAS `move()`. Worse (D4b, new): `PlcOpenImport` exists ONLY on the PLC project, takes only
+        `(path, options)`, and always lands the item at the PLC-PROJECT ROOT. A third argument naming a folder is
+        `DISP_E_TYPEMISMATCH`. So placement can be neither targeted nor repaired.
+      - **That was a live bug, now fixed.** TwinCAT's `WriteXml` (used today for graphical pushes) silently MOVED
+        a foldered POU to the project root on every push. It now refuses with a message. Note the standard
+        fixture's own `PLC_PRG` lives in a `POUs` folder, so this was reachable on a default project.
+
+- [ ] **The TwinCAT live tier is BROKEN, independently of any of this** - found while trying to validate the
+      above end-to-end, and not investigated further:
+      - Every e2e op returns `PLC_DISCONNECTED: Bridge is waiting for an IDE project`. The worker attaches to the
+        XAE and serves its pipe, but never binds the PLC project.
+      - **TcXaeShell CRASHES** - `Application Error` in `TwinCAT System Manager.dll`, three times, each
+        coinciding with a bridge attach + e2e run (19:40:46, 19:52:15, 19:54:02).
+      So the `WriteXml` refusal above is verified against the vendor FACT (measured live) and against the
+      `PathName` comparison it uses (also measured live), but NOT end-to-end - nothing can run end-to-end on
+      TwinCAT until the disconnect and the crash are understood.

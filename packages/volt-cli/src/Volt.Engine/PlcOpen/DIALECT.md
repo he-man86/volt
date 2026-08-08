@@ -95,10 +95,11 @@ repo contains a method, a property or an accessor.
 
 | # | Never verified |
 |---|---|
-| D1 | The entire single-document POU write — does `PlcOpenImport` accept a spliced document at all? |
-| D2 | Do children survive TwinCAT's delete-then-import round trip? |
-| D3 | Which representation drives a declaration on import — plaintext, typed `<interface>`, or neither? |
-| D4 | Is there a move equivalent? Without one, child folders cannot be restored after an import |
+| ~~D1~~ | **CLOSED — YES.** `PlcOpenImport` accepts a spliced document and the edit lands. Measured live on TcXaeShell 15.0 |
+| ~~D2~~ | **CLOSED — YES, content survives in full.** Through the delete-then-import round trip: the method's body, the property, and BOTH accessor bodies all came back intact. Fixture `tc-pou/FB_TcFolderedMember.plcopen.xml` |
+| ~~D3~~ | **CLOSED — the PLAINTEXT drives it**, exactly as on CODESYS. A var spliced into `InterfaceAsPlainText` alone, leaving the typed `<interface>` stale, landed in the IDE's declaration. This is what lets a splice write declarations at all |
+| ~~D4~~ | **CLOSED — NO, and it is the blocker.** No move-like member on the tree item (`MoveChild`/`Move`/`Reparent…` all absent), and the import FLATTENS a POU-internal folder exactly as CODESYS's does — `Helper` came back as a direct child of the POU. CODESYS survives that because it HAS `move()`; TwinCAT does not |
+| **D4b** | **NEW, and a LIVE BUG.** `PlcOpenImport` lands the item at the **PLC-PROJECT ROOT**, never in the folder it came from. It is not on a folder tree item at all (`ITcSmTreeItem` has no such member) and takes only `(path, options)` — a third argument naming a target folder is `DISP_E_TYPEMISMATCH`. So placement is **unrecoverable** on TwinCAT: the primitive cannot target a parent and there is no move to fix it afterwards |
 | ~~D5~~ | **CLOSED — measured, and IDENTICAL.** TwinCAT's member shape matches CODESYS's exactly: `<data name="…/method"><Method name= ObjectId=>`, `<data name="…/property"><Property>` with `<GetAccessor>`/`<SetAccessor>` nested. Recorded live from TcXaeShell as `tc-pou/FB_TcMembers.plcopen.xml`. `PouSplice.AddChild`'s shape is right for both vendors → **category A** |
 | ~~D6~~ | **CLOSED — measured, and it DIFFERS.** TwinCAT emits **Get before Set** (`tc-pou/FB_TcMembers.plcopen.xml:69`, `:83`); CODESYS emits **Set before Get** (`codesys-pou/BoxFB.plcopen.xml:304`, `:331`). Order only, so → **category A** — but `SetAccessor` claimed "vendors emit Set before Get" as a universal, which was false |
 | D7 | Does TwinCAT nest a CFC body under `<body>/<addData>` the way CODESYS does? No TwinCAT CFC/SFC fixture exists |
