@@ -99,8 +99,38 @@ transport" with "one API", which the change never claimed.
 So the flattening is a step the write must UNDO, not a blocker:
   import the document (content)  →  re-place each child into its `%FOLDER` (structure).
 
-- [ ] 3.1 **UNBLOCKED — one import, no delete. Route `PushService` through it.** (History below: the stop and
-      the two reopenings, kept because each correction is a measurement someone will otherwise redo.)
+- [x] 3.1 **DONE on CODESYS — one import, no delete, then `move` for placement.** Live e2e back at the
+      post-§3.1b baseline: **98 pass / 8 skip / 0 fail**.
+
+      What landed:
+      - `PushService` writes an existing POU as ONE `WriteXml`. The per-child `CreateChild`+`WriteText` loop, the
+        accessor writes and `RemoveOrphanChildren` no longer run for it — child add/update/remove all travel in
+        the document.
+      - `PouDocument.Splice` builds that document from the item's own export via the §2 splice surface.
+      - `CodesysDriver.WriteXml` MERGES (`ConflictResolve.Replace`, no delete). `PlcOpenTransport`'s
+        capture/restore is unreachable from it: nothing is deleted, so a refused import leaves the POU intact.
+      - `IProjectTree.Move` is new; `PushService.RestoreChildFolders` re-places each child that carries a
+        `%FOLDER` after the import flattened it. TwinCAT's `Move` THROWS pending §5.1b.
+      - `ICodeStore.WritesPouAsOneDocument` gates it to the measured vendor. **Delete it when §5 lands.**
+
+      **Three bugs the live gate caught that no offline fixture could — all in the splice surface, all silent:**
+
+      1. **A declaration write hit the WRONG element.** Once a POU declares any variable, CODESYS exports its
+         declaration TWICE — inside the typed `<interface>`'s addData AND in the item's own trailing addData.
+         `SetDeclaration` took the FIRST (the nested one) while the IDE kept reading the other, so every
+         declaration change was accepted and did nothing. It surfaced as 31 red e2e tests: `restorePlcPrg` could
+         not remove a deleted FB's instance, so the project stopped compiling and every later test cascaded.
+         Every offline fixture had an EMPTY `<interface>` and therefore ONE copy — which is exactly why it hid.
+         Fixed by writing EVERY copy the item owns (`OwnDescendants`), with a recorded two-copy fixture
+         (`FB_TwoDeclCopies.plcopen.xml`) pinning it.
+      2. **Every splice was dropping the `<?xml ?>` declaration** — `XDocument.ToString()` omits it. Caught by the
+         no-op identity test on `PouDocument.Splice`, the same way §2.5's caught the `<xhtml />` re-serialization.
+         `SetChildText`/`SetAccessor` also lacked §2.5's return-the-original rule; they have it now.
+      3. **`move` was "missing" twice over.** It is not on `ScriptObject`'s own method table (it comes from an
+         interface) and its signature is `move(IExtendedObject<IScriptObject>, int)` — the index is NOT optional.
+         Both arity-exact `InvokeMethod` and `InvokeWithOptionals` reported "no such method" for a method the
+         scripting console calls happily. **This is also how §3.1 got stopped in the first place**: a probe that
+         enumerates only `GetType().GetMethods()` concludes the vendor has no move. Enumerate `GetInterfaces()`.
 
       The plan was: import the document (content), then re-place children into their `%FOLDER` via the existing
       structural API. Checked what that API can actually do:
@@ -243,13 +273,14 @@ So the flattening is a step the write must UNDO, not a blocker:
 
 ## 4. Gate — CODESYS
 
-- [ ] 4.1 Build + all three offline suites.
-- [ ] 4.2 Live CODESYS e2e at the POST-§3.1b baseline (**98 pass / 8 skip / 0 fail**), folder + child-folder
-      cases included. Earlier numbers in this file's history (92, then 96) are superseded.
+- [x] 4.1 **DONE** — Release build clean; Engine **390**, Cli **124**, Connector **80**, 0 failures.
+- [x] 4.2 **DONE** — live CODESYS e2e **98 pass / 8 skip / 0 fail**, folder + child-folder cases included.
 - [ ] 4.3 Explicit manual check: a POU with vendor attributes/pragmas is pushed and those survive — the splice's
-      whole justification over regeneration.
-- [ ] 4.4 Explicit manual check: a rejected import leaves the original POU present (the delete-then-reimport
-      failure window).
+      whole justification over regeneration. **Also state the CFC `localId` renumbering**: the first push of a POU
+      with a graphical child produces a one-time diff (equivalent graph, normalized ids) that converges on the
+      next push. It must be documented, not discovered by a user reading a surprise diff.
+- [x] 4.4 **Moot — there is no failure window left to check.** It existed because `WriteXml` deleted before
+      importing; it no longer deletes, so a rejected import leaves the original POU exactly as it was.
 
 ## 5. TwinCAT — only after CODESYS is green
 

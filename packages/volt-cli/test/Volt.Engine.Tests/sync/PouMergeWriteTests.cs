@@ -1,0 +1,97 @@
+using System.Linq;
+using Volt.Engine.Sync;
+using Volt.Engine.Wire;
+using Volt.Engine.Workspace;
+using Xunit;
+
+namespace Volt.Cli.Tests;
+
+/// <summary>The single-document POU write (`pou-writes-via-plcopen` §3.1): a POU's declaration, body, children and
+/// accessors go to the IDE as ONE merged PLCopen import instead of a root write plus a write per child plus an
+/// orphan-deletion walk.
+/// <para>These are the OFFLINE half of the gate — that the push issues the right CALLS. What the IDE then does
+/// with the document was measured live (see §3.1) and is re-checked by the e2e suite; a fake cannot answer it, and
+/// a fake that pretended to would assert the behaviour away.</para></summary>
+public class PouMergeWriteTests
+{
+    private static FakeIde Fb(bool oneDoc, string childFolder = "") =>
+        new FakeIde(
+            new FakeIde.Item("FB_Test", ItemKind.PlcPouFb, "", true,
+                "FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR", "n := n + 1;", null, null,
+                Children: new[] { "DoIt" }),
+            new FakeIde.Item("DoIt", ItemKind.PlcMethod, childFolder, false,
+                "METHOD DoIt : BOOL", "DoIt := TRUE;", null, null))
+        { OneDocumentWrite = oneDoc };
+
+    // Canonical workspace ST, in PouToStText's layout: the POU's own END keyword precedes its children.
+    private static string Source(string body, string childBody, string? childFolder = null)
+    {
+        var folder = childFolder is null ? "" : $"%FOLDER {childFolder}\n";
+        return $"FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR\n\n{body}\n\nEND_FUNCTION_BLOCK\n\n" +
+               $"METHOD DoIt : BOOL\n{folder}{childBody}\nEND_METHOD\n";
+    }
+
+    private static PushResponse Push(FakeIde ide, string src)
+    {
+        var refs = RefsService.Handle(ide);
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new() { new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], SourceText = src } },
+        });
+        // A rejection here is a test-setup bug 9 times in 10 — surface WHY instead of a bare "expected True".
+        Assert.True(resp.Accepted,
+            "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
+        return resp;
+    }
+
+    /// <summary>The whole write is ONE WriteXml. No per-child WriteText, no CreateChild, no orphan Delete — those
+    /// three calls ARE the seam every data-loss bug in this bridge lived in.</summary>
+    [Fact]
+    public void A_pou_update_is_one_document_write()
+    {
+        var ide = Fb(oneDoc: true);
+        Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
+
+        Assert.Equal(new[] { "writexml:FB_Test" }, ide.Recorded.Where(r => !r.StartsWith("walk")).ToArray());
+        Assert.Contains("n := n + 2;", ide.WrittenXml["FB_Test"]);
+        Assert.Contains("DoIt := FALSE;", ide.WrittenXml["FB_Test"]);
+    }
+
+    /// <summary>The capability gates it: a driver that has NOT had its import measured keeps the per-child path.
+    /// This is what makes the CODESYS-first staging real rather than a comment.</summary>
+    [Fact]
+    public void Without_the_capability_the_per_child_path_still_runs()
+    {
+        var ide = Fb(oneDoc: false);
+        Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
+
+        Assert.Contains("write:FB_Test", ide.Recorded);
+        Assert.DoesNotContain("writexml:FB_Test", ide.Recorded);
+    }
+
+    /// <summary>A child carrying a <c>%FOLDER</c> is MOVED back after the import. The import flattens POU-internal
+    /// folders (measured live on `FB_FolderChild`), so without this the user's method organisation is silently
+    /// destroyed on every push — the regression §3.1b's e2e test exists to catch.</summary>
+    [Fact]
+    public void A_foldered_child_is_moved_back_after_the_import()
+    {
+        var ide = Fb(oneDoc: true, childFolder: "Helpers");
+        Push(ide, Source("n := n + 2;", "DoIt := FALSE;", childFolder: "Helpers"));
+
+        Assert.Contains("writexml:FB_Test", ide.Recorded);
+        Assert.Contains("move:DoIt->Helpers", ide.Recorded);
+        // and the move happens AFTER the write — moving first would only be undone by the import
+        Assert.True(ide.Recorded.IndexOf("writexml:FB_Test") < ide.Recorded.IndexOf("move:DoIt->Helpers"));
+    }
+
+    /// <summary>A child with NO folder is never moved. A blanket "re-place everything" would drag every root-level
+    /// method into a folder that was never asked for.</summary>
+    [Fact]
+    public void A_child_at_the_pou_root_is_not_moved()
+    {
+        var ide = Fb(oneDoc: true);
+        Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));
+    }
+}

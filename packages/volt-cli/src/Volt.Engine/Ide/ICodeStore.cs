@@ -23,9 +23,20 @@ public interface ICodeStore
     string? BodyLanguage(ItemRef item);
     /// <summary>Export the item's whole POU as a PLCopen XML string. Throws on failure (never null).</summary>
     string ReadXml(ItemRef item);
-    /// <summary>Import a full PLCopen XML POU back in place; the vendor restores the original on a
-    /// failed import before rethrowing.</summary>
+    /// <summary>Import a full PLCopen XML POU back in place, MERGING into the existing object (no delete), so a
+    /// refused import leaves the original untouched.</summary>
     void WriteXml(ItemRef item, string xml);
+
+    /// <summary>Whether a POU's whole content — declaration, body, children, accessors — can be written as ONE
+    /// merged <see cref="WriteXml"/>, instead of the per-child text writes.
+    /// <para>A CAPABILITY, deliberately not a vendor name: Core must not branch on who the vendor is. It exists
+    /// because the merge semantics were measured on CODESYS and NOT on TwinCAT, whose import is a temp file and
+    /// which already answers <c>E_FAIL</c> for DUT/GVL exports — `pou-writes-via-plcopen` §5 stages that
+    /// verification deliberately after CODESYS is green. <b>Delete this property when §5 lands</b>: two write paths
+    /// is the cost being paid for staging, not a design.</para>
+    /// <para>Defaulted to false in <c>DriverBase</c>, not here: the bridge targets net48, which has no default
+    /// interface members.</para></summary>
+    bool WritesPouAsOneDocument { get; }
 
     // ── Non-source kinds (libraries, tasks, …) ──
     /// <summary>The item's MANIFEST: a canonical text body for a non-source item (library ref, task, device,

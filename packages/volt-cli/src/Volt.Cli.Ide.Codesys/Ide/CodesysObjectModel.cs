@@ -676,6 +676,37 @@ namespace Volt.Cli.Ide.Codesys
 
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
 
+        /// <summary>Re-place an object under <paramref name="target"/>. Verified live on 3.5.21.40: a POU child
+        /// flattened out of its folder by a PLCopen merge import is moved back with its body intact.
+        /// <para>Resolved across the object's INTERFACES as well as its own type, and with trailing optionals
+        /// filled. Neither is incidental: <c>move</c> is not on <c>ScriptObject</c>'s own method table, so both
+        /// <see cref="InvokeMethod"/> (arity-exact, own type only) and <see cref="InvokeWithOptionals"/> (own type
+        /// only) reported "no such method" for a method that plainly exists — IronPython finds it because it
+        /// walks interfaces and fills defaults. A probe that enumerates only <c>GetType().GetMethods()</c> will
+        /// wrongly conclude the vendor has no move; enumerate <c>GetInterfaces()</c> too.</para></summary>
+        public void Move(object node, object target)
+        {
+            var obj = Unwrap(node)!;
+            var t = obj.GetType();
+            var found = new List<string>();
+            foreach (var tt in new[] { t }.Concat(t.GetInterfaces()))
+                foreach (var m in tt.GetMethods(BF))
+                {
+                    if (m.Name != "move") continue;
+                    var ps = m.GetParameters();
+                    found.Add($"{tt.Name}.move({string.Join(", ", ps.Select(p => p.ParameterType.Name))})");
+                    // move(IExtendedObject<IScriptObject> newParent, int index) — the index is the insert
+                    // position and is NOT optional in the metadata; -1 appends, which is what the scripting
+                    // console's one-argument call resolves to.
+                    if (ps.Length != 2 || !ps[0].ParameterType.IsGenericType || ps[1].ParameterType != typeof(int)) continue;
+                    var parent = AsExtended(Unwrap(target)!, ps[0].ParameterType.GetGenericArguments()[0]);
+                    try { m.Invoke(obj, new object?[] { parent, -1 }); return; }
+                    catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+                }
+            throw new MissingMethodException(
+                $"No usable 'move' on {t.FullName} or its interfaces (saw: {(found.Count == 0 ? "none" : string.Join("; ", found))})");
+        }
+
         // ── PLCopenXML import / export (the graphical write/read transport) ──────
         private object? _scriptEngine;   // cached APEnvironment.ScriptEngine
 
@@ -723,6 +754,22 @@ namespace Volt.Cli.Ide.Codesys
             return ExportNodes(proj, new[] { Unwrap(node)! }, recursive: true);
         }
 
+        /// <summary>Wrap a fully-unwrapped tree node back into the <c>IExtendedObject&lt;IScriptObject&gt;</c> the
+        /// scripting API takes, via the engine's own <c>CreateExtendedObject</c> factory — the same call the
+        /// scripting tree itself uses. Shared by <see cref="ExportNodes"/> and <see cref="Move"/>: both take that
+        /// wrapper, and hand-rolling it twice is how the two would drift.</summary>
+        private object AsExtended(object node, Type baseType)
+        {
+            var apEnv = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")
+                ?? throw new InvalidOperationException("CODESYS APEnvironment type not found — object-model version mismatch");
+            var se = _scriptEngine ??= apEnv.GetProperty("ScriptEngine", BF | BindingFlags.Static)?.GetValue(null)
+                ?? throw new InvalidOperationException("CODESYS APEnvironment.ScriptEngine not available");
+            var createExt = se.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "CreateExtendedObject"
+                && x.IsGenericMethodDefinition && x.GetParameters().Length == 1)
+                ?? throw new InvalidOperationException("CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
+            return createExt.MakeGenericMethod(baseType).Invoke(se, new[] { node })!;
+        }
+
         private string ExportNodes(object proj, ICollection<object> nodes, bool recursive = false)
         {
             var export = proj.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "export_xml" && x.GetParameters().Length == 5
@@ -732,18 +779,10 @@ namespace Volt.Cli.Ide.Codesys
             var elemType = export.GetParameters()[0].ParameterType.GetGenericArguments()[0];   // IExtendedObject<IScriptObject>
             var baseType = elemType.GetGenericArguments()[0];                                    // IScriptObject
 
-            var apEnv = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")
-                ?? throw new InvalidOperationException("CODESYS APEnvironment type not found — object-model version mismatch");
-            var se = _scriptEngine ??= apEnv.GetProperty("ScriptEngine", BF | BindingFlags.Static)?.GetValue(null)
-                ?? throw new InvalidOperationException("CODESYS APEnvironment.ScriptEngine not available");
-            var createExt = se.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "CreateExtendedObject"
-                && x.IsGenericMethodDefinition && x.GetParameters().Length == 1)
-                ?? throw new InvalidOperationException("CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
-
             var objects = Array.CreateInstance(elemType, nodes.Count);
             int i = 0;
             foreach (var n in nodes)
-                objects.SetValue(createExt.MakeGenericMethod(baseType).Invoke(se, new[] { n }), i++);
+                objects.SetValue(AsExtended(n, baseType), i++);
 
             var xml = (string)export.Invoke(proj, new object?[] { objects, "", recursive, false, true })!;
             return xml.TrimStart('\uFEFF');
@@ -759,24 +798,22 @@ namespace Volt.Cli.Ide.Codesys
             var target = into != null ? Unwrap(into)!
                 : (PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project"));
             var t = target.GetType();
-            // Prefer the 3-arg import with an explicit conflict-resolution enum, selecting the
-            // Replace/Overwrite member by name. NOTE: the only caller (CodesysDriver.WriteXml) DELETES
-            // the existing object before importing, so there is no name conflict and the conflict mode
-            // is effectively moot — hence the fall-through to the 2-arg overload (default conflict mode)
-            // is safe even if a future version renames the enum member so the substring match misses.
+            // The 3-arg import with an explicit conflict-resolution enum, and NOTHING ELSE. The caller no longer
+            // deletes the existing object first, so the mode is what makes the import a MERGE — measured on
+            // 3.5.21.40, only `Replace` lands the body; `Copy` and `Skip` silently land nothing while the push
+            // still reports success. The old fall-through to the 2-arg overload (default mode) was safe only
+            // BECAUSE of that delete; keeping it now would turn a renamed enum member into silent data loss.
             var m3 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml" && x.GetParameters().Length == 3
-                && x.GetParameters()[0].ParameterType.IsEnum && x.GetParameters()[1].ParameterType == typeof(string));
-            if (m3 != null)
-            {
-                var et = m3.GetParameters()[0].ParameterType;
-                var pick = Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Replace", StringComparison.OrdinalIgnoreCase) >= 0)
-                        ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0);
-                if (pick != null) { InvokeWith(target, m3, Enum.Parse(et, pick), data, false); return; }
-            }
-            var m2 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml"
-                && x.GetParameters().Length == 2 && x.GetParameters()[0].ParameterType == typeof(string))
-                ?? throw new InvalidOperationException("CODESYS import_xml(string, …) overload not found — object-model version mismatch");
-            InvokeWith(target, m2, data, false);
+                && x.GetParameters()[0].ParameterType.IsEnum && x.GetParameters()[1].ParameterType == typeof(string))
+                ?? throw new InvalidOperationException(
+                    "CODESYS import_xml(ConflictResolve, string, bool) overload not found — object-model version mismatch");
+            var et = m3.GetParameters()[0].ParameterType;
+            var pick = Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Replace", StringComparison.OrdinalIgnoreCase) >= 0)
+                    ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0)
+                    ?? throw new InvalidOperationException(
+                        $"CODESYS {et.Name} has no Replace/Overwrite member ({string.Join(", ", Enum.GetNames(et))}) — " +
+                        "cannot merge without it, and the other modes import nothing");
+            InvokeWith(target, m3, Enum.Parse(et, pick), data, false);
         }
 
         private static object? InvokeWith(object target, System.Reflection.MethodInfo m, params object?[] args)

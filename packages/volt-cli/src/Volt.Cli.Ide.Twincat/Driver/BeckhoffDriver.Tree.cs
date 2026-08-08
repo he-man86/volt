@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Volt.Cli.Transport;
+using Volt.Engine;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
@@ -121,6 +122,16 @@ public sealed partial class BeckhoffDriver
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
+
+    /// <summary>NOT IMPLEMENTED on TwinCAT — and deliberately a loud refusal, not a silent no-op. `move` is what
+    /// restores a POU's child folders after a PLCopen merge import (see <see cref="IProjectTree.Move"/>); CODESYS's
+    /// scripting object has one, TwinCAT's COM surface is a different API and has not been measured for an
+    /// equivalent (`pou-writes-via-plcopen` §5.1b). A no-op here would silently flatten a user's child folders on
+    /// every push — the exact data-shape loss this change exists to prevent. Nothing on the TwinCAT path calls it
+    /// yet: the merge write is CODESYS-only until §5 measures this vendor.</summary>
+    public void Move(ItemRef item, ItemRef target) =>
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            $"cannot move '{Name(item)}': TwinCAT has no move primitive yet — reorganize it in the IDE, then pull");
 
     // TwinCAT reports EVERY DUT as one tree type (623 = ItemKind.PlcDut) — a DUT is a single wire kind (`dut`),
     // so we emit the raw code as-is. The struct/enum/union/alias distinction is NOT computed on a read (its only

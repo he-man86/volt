@@ -366,6 +366,15 @@ public static class PushService
             foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType);
 
             if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
+            // THE single-document write: declaration, body, children, accessors, adds AND removes, in one merge
+            // import. Everything below this branch — the per-child create/write loop, the accessor writes and the
+            // orphan walk — is the path it replaces, still serving the vendor that has not been measured yet.
+            else if (ide.WritesPouAsOneDocument && IsPou(itemType))
+            {
+                ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
+                RestoreChildFolders(ide, name, split);
+                return;
+            }
             else ide.WriteText(pou, decl, bodyImpl);
         }
 
@@ -438,6 +447,36 @@ public static class PushService
         {
             var keep = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
             RemoveOrphanChildren(ide, pou, keep);
+        }
+    }
+
+    /// <summary>Only a POU (program/function/function_block) is written as one PLCopen document. A DUT/GVL has no
+    /// children to reconcile, and an INTERFACE exports in a different shape entirely (no <c>&lt;pou&gt;</c> element
+    /// at all — its members hang off <c>addData/Interface</c>), so neither is in this change's scope.</summary>
+    private static bool IsPou(int itemType) =>
+        itemType is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb;
+
+    /// <summary>Put the POU's children back in their folders after the merge import flattened them.
+    /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's
+    /// internal folders and lands every child at the POU root — even when the document itself describes the
+    /// folders, because CODESYS emits that block <c>handleUnknown="discard"</c>. The placement Volt needs is not in
+    /// the vendor document anyway; it is in Volt's OWN representation, the <c>%FOLDER</c> directive the splitter
+    /// peels off each child.</para>
+    /// <para>Only a child found at the POU ROOT is moved — the position the import leaves it in. One found
+    /// elsewhere is already inside SOME folder, and this has no way to tell "the user moved it in the workspace"
+    /// from "the import happened not to flatten it", so it is left alone. A missed re-placement is a folder the
+    /// user fixes once; a guessed one silently scatters their methods.</para></summary>
+    private static void RestoreChildFolders(IIdeDriver ide, string name, StSplitter.StSplitResult split)
+    {
+        var foldered = split.Children.Where(c => !string.IsNullOrEmpty(c.Folder)).ToList();
+        if (foldered.Count == 0) return;
+        // The merge does not delete the POU, but re-find it anyway: the import rewrites the object, and a handle
+        // captured before it is not something to trust on the write path.
+        if (ide.Lookup(name) is not { } pou) return;
+        foreach (var child in foldered)
+        {
+            if (FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
+            ide.Move(flattened, ResolveFolder(ide, pou, child.Folder));
         }
     }
 

@@ -143,6 +143,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); CreatedKinds[name] = kindCode; return new ItemRef(name); }
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
+    // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
+    // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the
+    // call could assert the bug away.
+    public void Move(ItemRef item, ItemRef target) => Recorded.Add($"move:{(string)item.Native}->{(string)target.Native}");
     public void Rename(ItemRef item, string newName)
     {
         var old = (string)item.Native;
@@ -171,61 +175,69 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             ItemKind.PlcItf => "interface",
             _ => "functionBlock",
         };
-        var xml = $"<pou name=\"{it.Name}\" pouType=\"{pouType}\" xmlns=\"{ns}\">";
+        // The layout below MIRRORS a recorded CODESYS export (test/Volt.Engine.Tests/fixtures/codesys-pou/) —
+        // <actions> before <body>, members in <addData>/<data name="…/method">, the POU's own declaration in the
+        // trailing addData. It used to emit children as NESTED <pou pouType="method"> elements, a shape NEITHER
+        // vendor produces: the reader tolerated it, so nothing failed, but it made the fake unusable for testing
+        // the WRITE path (the splice looks for <Method>, finds nothing, and refuses). A fake that models the
+        // document differently from both vendors can only ever test the reader's tolerance.
+        var kids = (it.Children ?? System.Array.Empty<string>())
+            .Select(n => _items.FirstOrDefault(i => i.Name == n)).Where(c => c != null).Select(c => c!).ToList();
+
+        var xml = $"<pou name=\"{it.Name}\" pouType=\"{pouType}\" xmlns=\"{ns}\"><interface />";
+
+        var actions = kids.Where(c => c.KindCode is ItemKind.PlcAction or ItemKind.PlcTrans).ToList();
+        if (actions.Count > 0)
+            xml += "<actions>" + string.Join("", actions.Select(a =>
+                $"<action name=\"{a.Name}\">{BodyXml(a)}</action>")) + "</actions>";
+
+        xml += BodyXml(it);
+
+        xml += "<addData>";
+        foreach (var m in kids.Where(c => c.KindCode is not (ItemKind.PlcAction or ItemKind.PlcTrans)))
+        {
+            var (element, data) = m.KindCode is ItemKind.PlcProp or ItemKind.PlcItfProp
+                ? ("Property", "property") : ("Method", "method");
+            xml += $"<data name=\"http://www.3s-software.com/plcopenxml/{data}\" handleUnknown=\"implementation\">"
+                 + $"<{element} name=\"{m.Name}\"><interface />{BodyXml(m)}"
+                 + $"<InterfaceAsPlainText><xhtml>{Escape(m.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
+                 + $"</{element}></data>";
+        }
         if (!string.IsNullOrEmpty(it.Declaration))
-            xml += $"<addData><data><InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data></addData>";
-        xml += "<body>";
+            xml += "<data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">"
+                 + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data>";
+        xml += "</addData></pou>";
+        return xml;
+    }
+
+    /// <summary>A <c>&lt;body&gt;</c> in the vendors' shape: ST text in an inner <c>&lt;xhtml&gt;</c> (which is
+    /// what the splice writes into), or a bare graphical element for a CFC/SFC marker.</summary>
+    private static string BodyXml(Item it)
+    {
         if (!string.IsNullOrEmpty(it.Implementation))
         {
             var lang = it.BodyLang ?? "ST";
-            xml += $"<{lang}>{Escape(it.Implementation)}</{lang}>";
+            return $"<body><{lang}><xhtml>{Escape(it.Implementation)}</xhtml></{lang}></body>";
         }
-        else if (!string.IsNullOrEmpty(it.BodyLang))
-        {
-            xml += $"<{it.BodyLang}/>";
-        }
-        xml += "</body>";
-        if (it.Children is { Length: > 0 })
-        {
-            foreach (var childName in it.Children)
-            {
-                var child = _items.FirstOrDefault(i => i.Name == childName);
-                if (child == null) continue;
-                xml += BuildChildXml(child, ns);
-            }
-        }
-        xml += "</pou>";
-        return xml;
-    }
-
-    private static string BuildChildXml(Item child, string ns)
-    {
-        var type = child.KindCode switch
-        {
-            ItemKind.PlcMethod or ItemKind.PlcItfMeth => "method",
-            ItemKind.PlcAction or ItemKind.PlcTrans => "action",
-            _ => "method",
-        };
-        var xml = $"<pou name=\"{child.Name}\" pouType=\"{type}\">";
-        if (!string.IsNullOrEmpty(child.Declaration))
-            xml += $"<addData><data><InterfaceAsPlainText><xhtml>{Escape(child.Declaration)}</xhtml></InterfaceAsPlainText></data></addData>";
-        xml += "<body>";
-        if (!string.IsNullOrEmpty(child.Implementation))
-        {
-            var lang = child.BodyLang ?? "ST";
-            xml += $"<{lang}>{Escape(child.Implementation)}</{lang}>";
-        }
-        else if (!string.IsNullOrEmpty(child.BodyLang))
-        {
-            // Graphical body with empty text — CFC/SFC marker
-            xml += $"<{child.BodyLang}/>";
-        }
-        xml += "</body></pou>";
-        return xml;
+        if (!string.IsNullOrEmpty(it.BodyLang)) return $"<body><{it.BodyLang}/></body>";
+        return "<body><ST><xhtml></xhtml></ST></body>";
     }
 
     private static string Escape(string s) => System.Net.WebUtility.HtmlEncode(s);
-    public void WriteXml(ItemRef item, string xml) { }
+    /// <summary>Opt a fake into the single-document POU write (`pou-writes-via-plcopen` §3.1). Off by default so
+    /// every existing test keeps exercising the per-child path it was written against; a test that wants the merge
+    /// path says so, and then <see cref="WrittenXml"/> is the whole write.</summary>
+    public bool OneDocumentWrite { get; init; }
+    public override bool WritesPouAsOneDocument => OneDocumentWrite;
+
+    /// <summary>The document the last <see cref="WriteXml"/> carried, by item name. On the merge path this IS the
+    /// write — asserting on <c>Recorded</c> alone would miss everything the push actually did.</summary>
+    public Dictionary<string, string> WrittenXml { get; } = new();
+    public void WriteXml(ItemRef item, string xml)
+    {
+        Recorded.Add($"writexml:{(string)item.Native}");
+        WrittenXml[(string)item.Native] = xml;
+    }
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──

@@ -123,6 +123,7 @@ public sealed partial class CodesysDriver
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
+    public void Move(ItemRef item, ItemRef target) => _om.Move(item.Native, target.Native);
 
     private int KindCodeOf(object node)
     {

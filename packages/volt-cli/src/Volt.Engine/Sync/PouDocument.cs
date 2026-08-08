@@ -1,0 +1,68 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Volt.Engine.Graphical;
+using Volt.Engine.Workspace;
+using Volt.Engine.Workspace.SourceText;
+
+namespace Volt.Engine.Sync;
+
+/// <summary>Build the ONE PLCopen document a POU write travels in, by SPLICING the pushed source into the item's
+/// CURRENT export — never by generating a document from scratch. Everything Volt does not model (attributes,
+/// pragmas, object ids, vendor <c>addData</c>, a read-only CFC child's body) is carried through untouched because
+/// it is never rewritten.
+/// <para>This is the whole reason the change exists: reading and writing a POU through the SAME representation
+/// removes the seam all three data-loss bugs lived in — a graphical child flattened because the read said
+/// "graphical" and the write decided from text; a body spliced into the wrong element because the read scoped by
+/// name and the write by document order; an accessor created as a function block named "Get".</para>
+/// <para>Child ADD, UPDATE and REMOVE all travel in this document. Measured on CODESYS 3.5.21.40: a merge import
+/// adds a child present only in the document and removes one absent from it — so there is no orphan-deletion walk
+/// to run afterwards. What the document CANNOT express is placement: the import flattens POU-internal folders, and
+/// <see cref="Volt.Engine.Ide.IProjectTree.Move"/> restores it.</para></summary>
+public static class PouDocument
+{
+    /// <summary>Splice <paramref name="split"/> into <paramref name="xml"/> (the item's own export) and return the
+    /// document to import. Order matters: children are reconciled BEFORE the root's declaration and body, so a
+    /// failure in the (many, fiddly) child splices happens while the root text is still the original — the whole
+    /// document is then discarded unimported, and the IDE is untouched.</summary>
+    // ponytail: each splice call re-parses the document, so this is O(children × document). On the corpus's worst
+    // POU (68 KB, 54 children) that is well under the pipe's own latency. If it ever shows up in a profile, the
+    // upgrade is one XDocument threaded through the splice surface — not a second, batched writer.
+    public static string Splice(string xml, string name, StSplitter.StSplitResult split)
+    {
+        var parsed = PlcOpenPouParser.Parse(xml);
+        // The document's own view of what the item HAS — the only honest basis for add-vs-update. A property is a
+        // child too: the parser reports it in Properties, not Children.
+        var present = new HashSet<string>(
+            parsed.Children.Select(c => c.Name).Concat(parsed.Properties.Select(p => p.Name)),
+            StringComparer.OrdinalIgnoreCase);
+        var pushed = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+
+        // Children the push dropped. This replaces the COM orphan walk, and it is strictly better: the walk had to
+        // recurse the POU's folders to find them, whereas the export lists every child flat regardless of folder.
+        foreach (var gone in present.Where(n => !pushed.Contains(n)).ToList())
+            xml = PlcOpenDocument.RemoveChild(xml, name, gone);
+
+        foreach (var child in split.Children)
+        {
+            // An ACTION is body-only — its `ACTION name` line is synthesized on read, never persisted, so writing
+            // one puts a declaration where nothing reads it back. A PROPERTY node has no body of its own; its code
+            // lives in the accessors, written below.
+            var decl = child.Kind == ItemKind.Kinds.Action ? null : child.Declaration;
+            var body = child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
+
+            xml = present.Contains(child.Name)
+                ? PlcOpenDocument.SetChildText(xml, name, child.Name, decl, body)
+                : PlcOpenDocument.AddChild(xml, name, child.Name, child.Kind, decl, body);
+
+            if (child.Kind != ItemKind.Kinds.Property) continue;
+            // null code REMOVES the accessor — that is how a push drops a getter, and why the reader keeps an
+            // absent accessor (null) distinct from a present-but-bodiless one ("").
+            xml = PlcOpenDocument.SetAccessor(xml, name, child.Name, true, child.Getter?.Implementation, child.Getter?.Declaration);
+            xml = PlcOpenDocument.SetAccessor(xml, name, child.Name, false, child.Setter?.Implementation, child.Setter?.Declaration);
+        }
+
+        xml = PlcOpenDocument.SetDeclaration(xml, name, split.PouDeclaration);
+        return PlcOpenDocument.SetTextualBody(xml, name, split.PouImplementation);
+    }
+}

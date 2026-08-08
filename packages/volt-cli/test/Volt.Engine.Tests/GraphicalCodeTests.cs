@@ -232,6 +232,9 @@ public class GraphicalCodeTests
 /// uses do anything; the rest throw (never reached on the graphical path).</summary>
 internal sealed class FakeCodeStore : ICodeStore
 {
+    // The graphical path never consults it (GraphicalCode owns the PLCopen write for a VG body), so false is the
+    // honest answer here, not a stub for a capability this fake has.
+    public bool WritesPouAsOneDocument => false;
     public string? Lang;
     public string Xml = "";
     public string Decl = "";

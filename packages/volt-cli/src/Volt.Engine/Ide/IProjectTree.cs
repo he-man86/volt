@@ -38,4 +38,16 @@ public interface IProjectTree
     ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null);
     void Delete(ItemRef parent, string name);
     void Rename(ItemRef item, string newName);
+
+    /// <summary>Re-place an EXISTING item under <paramref name="target"/>, keeping its identity and content —
+    /// the one structural primitive a PLCopen import cannot express.
+    /// <para>A POU write is one merge import (content), and that import FLATTENS the POU's internal child
+    /// folders: measured on CODESYS 3.5.21.40 against <c>FB_FolderChild</c>, <c>testfolder</c> is pruned and the
+    /// action lands at the POU root. The document CAN describe the folders (<c>bExportFolderStructure</c> emits a
+    /// <c>projectstructure</c> block) but emits them <c>handleUnknown="discard"</c>, and that is exactly what the
+    /// import does. So placement is restored afterwards, here.</para>
+    /// <para>This interface previously had no move, which is why the change was twice stopped on "there is no
+    /// move primitive" — a conclusion read off THIS file rather than off the vendor. CODESYS's scripting
+    /// <c>ScriptObject</c> has one and it works.</para></summary>
+    void Move(ItemRef item, ItemRef target);
 }

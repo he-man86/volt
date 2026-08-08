@@ -35,20 +35,24 @@ public sealed partial class CodesysDriver
         return _om.ExportXmlWithChildren(item.Native);
     }
 
-    /// <summary>Import a full PLCopen POU in place: delete the existing object and re-import INTO the original parent
-    /// (PLCopenXML carries no folder membership, so a project-level import would relocate the POU to the root). The
-    /// capture/restore/rethrow data-safety policy lives once in <see cref="PlcOpenTransport.ReplaceByReimport"/>.</summary>
-    public void WriteXml(ItemRef item, string xml)
-    {
-        var node = item.Native;
-        var nm = _om.GetName(node);
-        var par = _om.ParentOf(node);
-        PlcOpenTransport.ReplaceByReimport(
-            exportOriginal: () => _om.ExportXmlString(node),
-            delete: () => { if (par != null) _om.DeleteChild(par, nm); },
-            import: x => _om.ImportXmlString(x, par),
-            xml);
-    }
+    /// <summary>Import a full PLCopen POU in place: MERGE into the original parent, so the name collision engages
+    /// <c>ConflictResolve.Replace</c>. No delete.
+    /// <para>The delete was never a requirement — it was this driver's choice, and it is what cost us folders and a
+    /// failure window. Measured on 3.5.21.40: a merge lands the declaration and the body, ADDS a child present only
+    /// in the document, REMOVES one absent from it, and leaves a sibling POU's CFC body untouched. Deleting first
+    /// bought nothing and rendered the conflict mode moot (the old comment here said as much), while opening the
+    /// window where a rejected import leaves the POU GONE — which is why
+    /// <see cref="PlcOpenTransport.ReplaceByReimport"/>'s capture/restore dance existed. Nothing to restore now:
+    /// a refused import leaves the original object exactly as it was.</para>
+    /// <para>The import still targets the original PARENT — a project-level import relocates the POU to the root.
+    /// It does NOT preserve the POU's INTERNAL child folders; <see cref="IProjectTree.Move"/> restores those, in
+    /// <c>PushService</c>, where the pushed source says which folder each child belongs in.</para></summary>
+    public void WriteXml(ItemRef item, string xml) => _om.ImportXmlString(xml, _om.ParentOf(item.Native));
+
+    /// <summary>Measured, not assumed — see <c>pou-writes-via-plcopen</c> §3.1 for the run: on 3.5.21.40 a merge
+    /// import lands the declaration and body, ADDS a document-only child, REMOVES a child absent from the
+    /// document, and leaves a sibling POU's CFC body byte-identical.</summary>
+    public override bool WritesPouAsOneDocument => true;
 
     // ── non-source manifest ──
     /// <summary>Kinds this SESSION has already reported as having no descriptor reader. Instance-scoped, not

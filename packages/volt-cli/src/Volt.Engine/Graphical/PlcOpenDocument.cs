@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -110,17 +110,25 @@ namespace Volt.Engine.Graphical
             var doc = XDocument.Parse(xml);
             var owner = OwnerOf(doc, itemName)
                 ?? throw new InvalidOperationException($"PLCopen export has no item named '{itemName}'");
-            var iapt = OwnDescendant(owner, "InterfaceAsPlainText")
-                ?? throw new InvalidOperationException(
+            var blocks = OwnDescendants(owner, "InterfaceAsPlainText").ToList();
+            if (blocks.Count == 0)
+                throw new InvalidOperationException(
                     $"PLCopen export for '{itemName}' has no <InterfaceAsPlainText> to write the declaration into");
-            var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+            // ALL of them — see OwnDescendants. A POU with declared variables carries two copies of its
+            // declaration, and updating only the first is a write that reports success and changes nothing.
+            var changed = false;
+            foreach (var iapt in blocks)
+            {
+                var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+                if (inner.Value == declaration) continue;
+                inner.ReplaceNodes(declaration);
+                changed = true;
+            }
             // Already right → hand back the ORIGINAL string untouched. Re-serializing would still be
             // semantically equal but not byte-equal (an empty <xhtml /> comes back as <xhtml></xhtml>), and
             // "only the bytes we were asked to change" is the property that makes splicing safer than
             // regenerating. A no-op write must be a no-op.
-            if (inner.Value == declaration) return xml;
-            inner.ReplaceNodes(declaration);
-            return doc.ToString();
+            return changed ? Serialize(doc) : xml;
         }
 
         /// <summary>Write the item's TEXTUAL body into its own <c>&lt;body&gt;&lt;ST&gt;</c>. A GRAPHICAL body is
@@ -161,7 +169,7 @@ namespace Volt.Engine.Graphical
             var inner = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
             if (inner is null) st.ReplaceNodes(bodyText);
             else inner.ReplaceNodes(bodyText);
-            return doc.ToString();
+            return Serialize(doc);
         }
 
         /// <summary>The CHILD member named <paramref name="childName"/> under the item named
@@ -181,6 +189,15 @@ namespace Volt.Engine.Graphical
             var removable = member.Parent is { } p && p.Name.LocalName == "data" ? p : member;
             return (member, removable);
         }
+
+        /// <summary>Re-serialize a spliced document. <c>XDocument.ToString()</c> DROPS the XML declaration, so
+        /// every splice was quietly stripping <c>&lt;?xml version="1.0" encoding="utf-8"?&gt;</c> from a document
+        /// on its way back to the IDE — bytes nobody asked to move, which is precisely what §2.5 established a
+        /// splice must not do (and the header is not decoration: this same import already rejects a BOM).
+        /// Found by the no-op identity test on <c>PouDocument.Splice</c>, exactly as the §2.5 one found the
+        /// <c>&lt;xhtml /&gt;</c> re-serialization.</summary>
+        private static string Serialize(XDocument doc) =>
+            doc.Declaration is null ? doc.ToString() : doc.Declaration + System.Environment.NewLine + doc.ToString();
 
         private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
 
@@ -234,7 +251,7 @@ namespace Volt.Engine.Graphical
                     if (body is not null) body.AddBeforeSelf(actions); else owner.Add(actions);
                 }
                 actions.Add(new XElement(ns + "action", new XAttribute("name", childName), Body(bodyText ?? "")));
-                return doc.ToString();
+                return Serialize(doc);
             }
 
             var (elementName, dataName) = kind switch
@@ -274,7 +291,7 @@ namespace Volt.Engine.Graphical
                 new XAttribute("name", ThreeS + dataName),
                 new XAttribute("handleUnknown", "implementation"),
                 member));
-            return doc.ToString();
+            return Serialize(doc);
         }
 
         /// <summary>Write one of a property's ACCESSORS. A property's code lives here, not on the property
@@ -300,39 +317,46 @@ namespace Volt.Engine.Graphical
                 // isn't there. Not a swallowed failure: the requested end state is the current one.
                 if (acc is null) return xml;
                 acc.Remove();
-                return doc.ToString();
+                return Serialize(doc);
             }
 
             XNamespace ns = prop.Name.Namespace;
             XNamespace xh = "http://www.w3.org/1999/xhtml";
+            // §2.5's identity rule, here too: a push re-states both accessors of every property, so most calls
+            // through this method change nothing and must hand back the original bytes.
+            var changed = false;
             if (acc is null)
             {
                 acc = new XElement(ns + tag, new XElement(ns + "interface"));
                 // Vendors emit Set before Get; keep the property's own InterfaceAsPlainText last.
                 var iapt = prop.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
                 if (iapt is not null) iapt.AddBeforeSelf(acc); else prop.Add(acc);
+                changed = true;
             }
 
             var body = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
-            if (body is null) { body = new XElement(ns + "body"); acc.Add(body); }
+            if (body is null) { body = new XElement(ns + "body"); acc.Add(body); changed = true; }
             var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
-            if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); }
+            if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); changed = true; }
             var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-            if (innerBody is null) { if (st.Value != code) st.ReplaceNodes(new XElement(xh + "xhtml", code)); }
-            else if (innerBody.Value != code) innerBody.ReplaceNodes(code);
+            if (innerBody is null) { if (st.Value != code) { st.ReplaceNodes(new XElement(xh + "xhtml", code)); changed = true; } }
+            else if (innerBody.Value != code) { innerBody.ReplaceNodes(code); changed = true; }
 
             if (declaration is not null)
             {
                 var accIapt = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
                 if (accIapt is null)
+                {
                     acc.Add(new XElement(ns + "InterfaceAsPlainText", new XElement(xh + "xhtml", declaration)));
+                    changed = true;
+                }
                 else
                 {
                     var inner = accIapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? accIapt;
-                    if (inner.Value != declaration) inner.ReplaceNodes(declaration);
+                    if (inner.Value != declaration) { inner.ReplaceNodes(declaration); changed = true; }
                 }
             }
-            return doc.ToString();
+            return changed ? Serialize(doc) : xml;
         }
 
         /// <summary>Remove a child member from the item's document. Throws when it isn't there — a push that
@@ -346,7 +370,7 @@ namespace Volt.Engine.Graphical
             var addData = hit.removable.Parent;
             hit.removable.Remove();
             if (addData is { } ad && ad.Name.LocalName == "addData" && !ad.Elements().Any()) ad.Remove();
-            return doc.ToString();
+            return Serialize(doc);
         }
 
         /// <summary>Write an EXISTING child's declaration and/or body, leaving everything else about it alone.
@@ -361,14 +385,24 @@ namespace Volt.Engine.Graphical
             var hit = FindChild(doc, itemName, childName)
                 ?? throw new InvalidOperationException($"'{itemName}' has no child named '{childName}'");
             var member = hit.member;
+            // Same rule as SetDeclaration/SetTextualBody (§2.5): a write that changes nothing returns the ORIGINAL
+            // string, so a no-op cannot perturb the serialization. This matters far more here than on the root —
+            // a push re-states EVERY child, so on a typical edit almost every call through this method is a no-op.
+            var changed = false;
 
             if (declaration is not null)
             {
-                var iapt = OwnDescendant(member, "InterfaceAsPlainText")
-                    ?? throw new InvalidOperationException(
+                // Every copy, for the same reason as SetDeclaration: a method that declares VAR_INPUT gets a
+                // second plaintext block inside its own typed <interface>.
+                var blocks = OwnDescendants(member, "InterfaceAsPlainText").ToList();
+                if (blocks.Count == 0)
+                    throw new InvalidOperationException(
                         $"child '{childName}' of '{itemName}' has no <InterfaceAsPlainText> to write into");
-                var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
-                if (inner.Value != declaration) inner.ReplaceNodes(declaration);
+                foreach (var iapt in blocks)
+                {
+                    var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+                    if (inner.Value != declaration) { inner.ReplaceNodes(declaration); changed = true; }
+                }
             }
 
             if (bodyText is not null)
@@ -388,22 +422,34 @@ namespace Volt.Engine.Graphical
                     st = new XElement(body.Name.Namespace + "ST");
                     body.RemoveNodes();
                     body.Add(st);
+                    changed = true;
                 }
                 var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-                if (innerBody is null) { if (st.Value != bodyText) st.ReplaceNodes(bodyText); }
-                else if (innerBody.Value != bodyText) innerBody.ReplaceNodes(bodyText);
+                if (innerBody is null) { if (st.Value != bodyText) { st.ReplaceNodes(bodyText); changed = true; } }
+                else if (innerBody.Value != bodyText) { innerBody.ReplaceNodes(bodyText); changed = true; }
             }
 
-            return doc.ToString();
+            return changed ? Serialize(doc) : xml;
         }
 
         /// <summary>A descendant belonging to <paramref name="owner"/> ITSELF, not to a child member nested
         /// inside it — the same containment rule <c>PlcOpenPouParser.DeclFromElement</c> applies, because a
         /// method and an accessor each carry their own InterfaceAsPlainText.</summary>
         private static XElement? OwnDescendant(XElement owner, string localName) =>
+            OwnDescendants(owner, localName).FirstOrDefault();
+
+        /// <summary>EVERY descendant of <paramref name="owner"/> with this name that belongs to the owner itself
+        /// rather than to one of its children.
+        /// <para>Plural matters for <c>InterfaceAsPlainText</c>: once a POU declares any variable, CODESYS exports
+        /// its declaration TWICE — once inside the typed <c>&lt;interface&gt;</c>'s own addData, and once in the
+        /// item's trailing addData. Taking the FIRST wrote to the nested copy while the IDE kept reading the
+        /// other, so a declaration change was accepted and silently did nothing. (It never showed on a fixture
+        /// because a POU with an EMPTY interface has only one copy.) They are two copies of ONE fact and must not
+        /// be allowed to diverge, so a write updates both.</para></summary>
+        private static IEnumerable<XElement> OwnDescendants(XElement owner, string localName) =>
             owner.Descendants()
                 .Where(e => e.Name.LocalName == localName)
-                .FirstOrDefault(e => !e.Ancestors().TakeWhile(a => a != owner)
+                .Where(e => !e.Ancestors().TakeWhile(a => a != owner)
                     .Any(a => a.Name.LocalName is "pou" or "Method" or "method" or "Action" or "action"
                         or "Property" or "property" or "GetAccessor" or "SetAccessor"));
 
@@ -434,7 +480,7 @@ namespace Volt.Engine.Graphical
             {
                 InlineInsert(doc, itemName, newBody);
             }
-            return doc.ToString();
+            return Serialize(doc);
         }
 
         /// <summary>Validate an existing body before replacing it: no element the VG editor cannot
