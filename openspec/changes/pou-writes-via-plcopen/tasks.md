@@ -162,6 +162,31 @@ So the flattening is a step the write must UNDO, not a blocker:
       - child add / update / **remove** → all expressed in that document; no `ide.Delete` per orphan
       - child folders → preserved for free (nothing is deleted, so nothing is re-placed)
 
+      **The folder question, settled — and BOTH of this file's earlier claims about it were wrong.**
+      Measured on `FB_FolderChild` (hand-authored: an ACTION inside a `testfolder`):
+
+      | claim, as previously written here | measured |
+      |---|---|
+      | "PLCopen carries no folder membership" | **false** — `export_xml`'s 4th arg (`bExportFolderStructure`) emits `<data name=".../projectstructure"><ProjectStructure><Object …><Folder Name="testfolder">` |
+      | "a merge preserves the child tree" | **false** — the merge FLATTENS it: `testfolder` is pruned and `ACT` lands at the POU root |
+      | "there is no move primitive" | **false** — that was read off Volt's own `IProjectTree`, not off the vendor. A CODESYS `ScriptObject` has **`move`**, and it works |
+
+      The folder data is exported with `handleUnknown="discard"`, which is precisely what the import does with
+      it: sending a document that CONTAINS `<Folder Name="…">` still flattens. So the document describes
+      placement and the import ignores it — content transport only, exactly as §3.4 says.
+
+      **So §3.1's mechanism is settled, and it is two calls, not a per-child loop:**
+
+          import the document (content: decl + body + children + accessors + adds + removes)
+          then, for each child whose %FOLDER is non-empty:  create_folder if pruned, then child.move(folder)
+
+      Verified end to end on `FB_FolderChild`: the action body landed, the folder was pruned, `create_folder` +
+      `move` restored `testfolder/ACT` exactly, and the merged body survived the move. `FB_GraphicalChild`'s CFC
+      child was untouched throughout — the write has no blast radius onto a sibling POU.
+
+      `move` is the one primitive Volt must ADD (`IProjectTree.Move`), and §5.1 must establish whether TwinCAT
+      has an equivalent before §5 can rely on it.
+
       **One measured caveat, and it is a diff, not data loss.** The first merge RENUMBERS the CFC child's
       `localId`s (the graph is equivalent; ids and element order are normalized). It converges immediately —
       a second merge of the re-exported document leaves the CFC block byte-identical. So a POU with a graphical
@@ -230,6 +255,10 @@ So the flattening is a step the write must UNDO, not a blocker:
 
 - [ ] 5.1 Verify TwinCAT's IMPORT accepts a spliced POU document at all. Its transport is a temp file and it
       already answers `E_FAIL` for DUT/GVL exports, so its import is NOT assumed to mirror its export.
+- [ ] 5.1b Verify TwinCAT has a **move** equivalent for a POU child. CODESYS's `ScriptObject.move` is what makes
+      §3.1 work; `TcObjectModel` has no move today and TwinCAT's COM surface is a different API entirely. If it
+      has none, that is a §5.5 vendor limit — record it, do NOT reintroduce delete+CreateChild+WriteText on the
+      TwinCAT side to fake one.
 - [ ] 5.2 Verify children survive its round trip (element counts before/after, as done for CODESYS).
 - [ ] 5.3 Verify the declaration lands on TwinCAT, and by WHICH representation — do not assume it is the plaintext
       copy just because CODESYS reads that one.

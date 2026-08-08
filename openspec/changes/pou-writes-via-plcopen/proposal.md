@@ -49,7 +49,9 @@ transport). TwinCAT's import needs its own verification: its transport is a temp
 
 **Not in scope:** DUT/GVL (TwinCAT cannot export them — measured, `E_FAIL`), non-source kinds (their export is a
 valid but EMPTY envelope — 529 of 3000 objects on the corpus), and rename/move/delete of the ITEM itself, which
-stay on the scripting API because PLCopen carries no folder membership and no rename.
+stay on the scripting API: PLCopen carries no rename, and while CODESYS's export CAN describe folder membership
+(`bExportFolderStructure` emits a `projectstructure` block), it is emitted `handleUnknown="discard"` and the
+import discards it — measured. Placement is therefore a scripting-API concern on both ends.
 
 ## Capabilities
 
@@ -65,6 +67,7 @@ stay on the scripting API because PLCopen carries no folder membership and no re
 - **Risk: high, and it is the write path to a live PLC.** Every textual push becomes delete-then-reimport, a
   path today exercised only by the rare graphical push. Two failure modes are already known and must be tested
   first, not discovered: an import **relocates the POU to the project root** when the parent is not passed
-  (observed live), and PLCopen carries **no folder membership at all** to protect against it.
+  (observed live), and an import **flattens the POU's internal child folders** — the document can describe them
+  but the import discards them, so placement is restored afterwards via the scripting API's `move`.
 - **Gate:** offline suites, then live e2e on CODESYS, then live e2e on TwinCAT — plus a folder-preservation case
   that does not exist today.
