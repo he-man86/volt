@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -60,7 +60,12 @@ namespace Volt.Engine.Graphical
         /// reproduce is silently dropped, no disabled/hidden network is lost, and no block structure
         /// the editor cannot round-trip is overwritten. These checks run ONLY on the existing-body path
         /// — a first write has nothing to lose, so validation is skipped.</summary>
-        private static void ValidateExisting(XDocument doc, XElement existing)
+        /// <summary>The capability gate as the codec calls it: refuse to overwrite a stored body carrying
+        /// elements network text cannot represent. `doc` is only used for the error message's item name, so the
+        /// codec — which holds the body, not the document — passes none.</summary>
+        internal static void RequireReplaceable(XElement existing) => ValidateExisting(null, existing);
+
+        private static void ValidateExisting(XDocument? doc, XElement existing)
         {
             var lost = existing.Elements()
                 .Select(e => e.Name.LocalName)

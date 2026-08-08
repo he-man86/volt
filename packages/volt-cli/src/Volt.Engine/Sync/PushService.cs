@@ -327,39 +327,33 @@ public static class PushService
             // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
             var targetParent = ResolveTopLevelFolder(ide, parent, folder);
-            if (pouVg)
+
+            // Validate a network-text body BEFORE creating the item — a refused push must not leave an orphaned,
+            // unlisted stub POU behind that blocks the next create.
+            if (pouVg) GraphicalCode.Validate(impl);
+
+            // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
+            // language at creation; CODESYS ignores the argument and takes the language from the body element on
+            // import. There is no create-arm per language any more — the language is data.
+            pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl));
+            // The COM reference from CreateChild is stale for interface items — re-find before writing anything.
+            if (itemType == ItemKind.PlcItf)
+                pou = FindChild(ide, targetParent, name) ?? pou;
+
+            if (!OneDocument(ide, itemType))
             {
-                // The language comes from the VG NETWORK header (FBD/LD). TC's CreateChild uses this
-                // to set the implementation language at creation. CODESYS's create_pou has no
-                // implementation-language parameter, so it falls through to default ST — the subsequent
-                // GraphicalCode.Write sets the correct language via PLCopen import (the <FBD>/<LD>
-                // wrapper element on the body dictates the IDE's POU language).
-                // Validate the VG body (parser + round-trip gate) BEFORE creating the item — otherwise a
-                // refused push leaves an orphaned, unlisted stub POU that blocks the next create.
-                GraphicalCode.Validate(impl);
-                var lang = NetworkText.LanguageOf(impl)!;   // Validate above proved an editable FBD/LD marker is present
-                pou = ide.CreateChild(targetParent, name, itemType, lang);
-                // A graphical POU's program-scope declaration is NOT carried by the body write —
-                // GraphicalCode.Write only writes the BODY and preserves the export's <interface>, which on a
-                // fresh create is empty, leaving the vars the contacts/coils reference undeclared. Write the
-                // declaration onto the still-empty POU first (safe: nothing to clobber), then the body.
-                if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
-                GraphicalCode.Write(ide, pou, name, impl, decl);
-            }
-            else
-            {
-                pou = ide.CreateChild(targetParent, name, itemType);
-                // The COM reference from CreateChild is stale for interface items — re-find
-                // before writing anything. Without this, WriteText and child creation fail.
-                if (itemType == ItemKind.PlcItf)
-                    pou = FindChild(ide, targetParent, name) ?? pou;
-                // A POU on the single-document path writes NOTHING here: its declaration and body are part of the
-                // one import below, so this WriteText would be a COM round-trip whose result is immediately
-                // overwritten. Everything else (interface/DUT/GVL) still writes its text now.
+                // The per-transport path, for a driver whose import has not been measured. A network-text body
+                // still needs its declaration written separately here, because GraphicalCode.Write carries only
+                // the body and a fresh POU's <interface> is empty — leaving every var the contacts reference
+                // undeclared. On the single-document path below, the one splice writes both.
+                if (pouVg)
+                {
+                    if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
+                    GraphicalCode.Write(ide, pou, name, impl, decl);
+                }
                 // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
                 // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
-                if (!OneDocument(ide, itemType))
-                    ide.WriteText(pou, decl, bodyImpl);
+                else ide.WriteText(pou, decl, bodyImpl);
             }
         }
         else
@@ -370,18 +364,23 @@ public static class PushService
             // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
             // paid 22 exports to write one body. Reading the document once and answering every language question
             // from it is the same information for a 22nd of the IDE traffic.
-            var doc = !pouVg && OneDocument(ide, itemType) ? ide.ReadXml(pou) : null;
+            var doc = OneDocument(ide, itemType) ? ide.ReadXml(pou) : null;
             var parsed = doc is null ? null : PouReader.Parse(doc);
 
-            // Body-type guard (last line of defence): never overwrite an item with a MISMATCHED body format —
-            // that silently corrupts/flattens the IDE's representation and loses code. The bridge owns FORMAT;
-            // the LSP owns code correctness. Scoped to POUs (only they have graphical bodies; reading an
+            // Body-type guard for the PER-TRANSPORT path only: never overwrite an item with a MISMATCHED body
+            // format — that silently corrupts/flattens the IDE's representation and loses code. The bridge owns
+            // FORMAT; the LSP owns code correctness. Scoped to POUs (only they have graphical bodies; reading an
             // interface body crashes TC), decided from the safe KindCode classification, not a body read.
-            if (ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
+            //
+            // When there IS a document, `PouSplice.SetBody` is the guard and it is strictly better: it decides
+            // from the element actually present rather than from a vendor language string, so it also catches IL
+            // (which used to slip through this narrowing as "textual") and the addData-nested CFC (which a
+            // direct-children scan called textual). Keeping this copy as well would only re-add the false
+            // refusals it encodes — a fresh POU's blank <ST> is not "a textual body" that forbids establishing a
+            // diagram, which is exactly what the third check used to claim.
+            if (doc is null && ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
             {
-                // null=textual; FBD/LD=editable; CFC/SFC=read-only — from the document when we have one, else
-                // from the vendor. Both answer the same question; only the cost differs.
-                var currentLang = parsed is null ? ide.BodyLanguage(existingPou) : GraphicalOnly(parsed.BodyLanguage);
+                var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
                 if (currentLang is "CFC" or "SFC")
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
@@ -398,15 +397,17 @@ public static class PushService
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
             foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType, parsed);
 
-            if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
-            else if (doc is null) ide.WriteText(pou, decl, bodyImpl);
-            else
+            if (doc is not null)
             {
-                // The single-document write, reusing the export already read for the guards above.
+                // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
+                // the merge: a network-text body no longer takes a separate write that carried only the body and
+                // silently dropped the declaration and the member reconciliation.
                 ide.WriteXml(pou, PouDocument.Splice(doc, name, split));
                 RestoreChildFolders(ide, name, split);
                 return;
             }
+            if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
+            else ide.WriteText(pou, decl, bodyImpl);
         }
 
         // THE single-document write for a CREATE: declaration, body, children, accessors, all in ONE merge import.
@@ -417,7 +418,7 @@ public static class PushService
         // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
         // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
         // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
-        if (!pouVg && OneDocument(ide, itemType))
+        if (OneDocument(ide, itemType))
         {
             ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
             RestoreChildFolders(ide, name, split);
@@ -492,7 +493,11 @@ public static class PushService
         // Only for a textual root POU: a graphical (VG) body push goes through GraphicalCode.Write, which
         // deletes-and-reimports the object (staleing `pou`), and the VG sourceText carries no textual
         // child list to reconcile against — so child reconciliation doesn't apply there.
-        if (!pouVg)
+        // Runs for EVERY language now. It used to be skipped for a network-text root on two stated reasons, both
+        // false: `WriteXml` is a merge with no delete (so `pou` is not stale), and `StSplitter` parses children
+        // identically regardless of body language (so `split.Children` is the list to reconcile against — the
+        // loop above already uses it). The cost of the skip was silent: deleting a method from a graphical POU
+        // was ACCEPTED and the method survived in the IDE, reappearing on the next pull.
         {
             var keep = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
             RemoveOrphanChildren(ide, pou, keep);

@@ -40,6 +40,7 @@ public static class Materializer
 
     private const string MarkerPrefix = "(* @volt-graphical:";
 
+    // internal to the assembly so the read-only body codecs can produce the same marker the reader expects.
     internal static string GraphicalBodyMarker(string language) => $"{MarkerPrefix} {language} *)";
 
     /// <summary>Is this body text the informational CFC/SFC marker rather than real source? A read-only graphical

@@ -55,46 +55,38 @@ namespace Volt.Engine.PlcOpen
             return changed ? PlcOpenDocument.Serialize(doc) : xml;
         }
 
-        /// <summary>Write the item's TEXTUAL body into its own <c>&lt;body&gt;&lt;ST&gt;</c>. A GRAPHICAL body is
-        /// <see cref="SpliceFbdLdBody"/>'s job — this refuses one rather than flattening it, which is the same
-        /// refusal the live body-format guard makes and the bug that flattened a CFC child.</summary>
-        public static string SetTextualBody(string xml, string itemName, string bodyText)
+        /// <summary>Write the item's body — in WHATEVER language the pushed text is.
+        /// <para>There is no textual-vs-graphical fork here, and that is the point. The language is read from the
+        /// text, the codec for it is looked up, and the codec owns the element: ST patches its <c>&lt;xhtml&gt;</c>
+        /// in place (so a no-op write returns the ORIGINAL bytes), network text replaces the whole
+        /// <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> element (its NAME is the language, and the language can change),
+        /// and a read-only language refuses.</para>
+        /// <para>The ONE rule that used to be three copies: a write is refused when the pushed language differs
+        /// from the one in the IDE, or when the IDE's is read-only. That subsumes every case the old guards
+        /// covered by hand — including IL, which used to slip through a graphical-only narrowing as "textual" and
+        /// then be silently rewritten as ST.</para></summary>
+        public static string SetBody(string xml, string itemName, string bodyText)
         {
             var doc = XDocument.Parse(xml);
             var body = PlcOpenDocument.ItemBody(doc, itemName)
                 ?? throw new InvalidOperationException($"PLCopen export for '{itemName}' has no <body>");
-            // Refuse ANY existing body language that is not ST — not just the graphical ones. IL is textual and
-            // would have slipped past a graphical-only guard, then been silently replaced by the `body.RemoveNodes()`
-            // below: a language change the caller never asked for and the user never sees. The six languages are
-            // the same set PlcOpenPouParser knows; anything present that isn't ST is someone else's body.
-            // NestedBodyLanguage, not a direct-children scan: a CODESYS CFC body hangs off <body>/<addData> and
-            // carries an empty sibling <ST>, so a direct scan saw only the <ST> and let a textual write through
-            // onto a read-only diagram — the exact flattening this guard exists to stop.
-            if (NonStBodyLanguage(body) is { } existingLang)
-                throw new InvalidOperationException(
-                    $"'{itemName}' has a {existingLang} body — a textual (ST) write would replace it");
 
-            var ns = body.Name.Namespace;
-            var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
-            // Already right → return the ORIGINAL string. Same reason as SetDeclaration: a no-op write must not
-            // perturb the serialization (an empty <xhtml /> re-serializes as <xhtml></xhtml>).
-            if (st is not null)
-            {
-                var existing = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-                if ((existing?.Value ?? st.Value) == bodyText) return xml;
-            }
-            if (st is null)
-            {
-                st = new XElement(ns + "ST");
-                body.RemoveNodes();
-                body.Add(st);
-            }
-            // The text lives in an inner <xhtml>; keep the vendor's wrapper element (and its namespace) when it
-            // is already there, so the only bytes that move are the code itself.
-            var inner = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-            if (inner is null) st.ReplaceNodes(bodyText);
-            else inner.ReplaceNodes(bodyText);
-            return PlcOpenDocument.Serialize(doc);
+            var pushed = Graphical.BodyCodec.For(Graphical.NetworkText.LanguageOf(bodyText) ?? "ST");
+            // A body recording NO language decision (a blank ST — what a fresh POU is created with) counts as no
+            // body at all, so establishing FBD on it is the ordinary create rather than a mismatch. An empty
+            // <FBD/> does NOT qualify: that POU was made graphical on purpose.
+            var found = Graphical.BodyCodec.PresentWith(body);
+            var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
+
+            if (present is not null && present.ReadOnly)
+                throw new InvalidOperationException(
+                    $"'{itemName}' is a read-only {present.Language} body — edit it in the IDE, not via push.");
+            if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"'{itemName}' has a {present.Language} body in the IDE but the push carries {pushed.Language} — " +
+                    "edit it in the IDE, or delete it first to replace it.");
+
+            return pushed.Encode(body, bodyText) ? PlcOpenDocument.Serialize(doc) : xml;
         }
 
         /// <summary>The CHILD member named <paramref name="childName"/> under the item named

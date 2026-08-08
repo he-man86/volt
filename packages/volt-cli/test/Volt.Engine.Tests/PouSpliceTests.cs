@@ -45,7 +45,7 @@ public class PouSpliceTests
     {
         var xml = CodesysPou;
         var body = PouReader.Parse(xml).BodyElement!.Value;
-        Assert.Equal(Canon(xml), Canon(PouSplice.SetTextualBody(xml, "PLC_PRG", body)));
+        Assert.Equal(Canon(xml), Canon(PouSplice.SetBody(xml, "PLC_PRG", body)));
     }
 
     // ── 2.1 declaration ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ public class PouSpliceTests
     public void The_textual_body_can_be_written_and_read_back()
     {
         const string body = "x := 42;\nIF x > 0 THEN\n\tx := 0;\nEND_IF";
-        var outXml = PouSplice.SetTextualBody(CodesysPou, "PLC_PRG", body);
+        var outXml = PouSplice.SetBody(CodesysPou, "PLC_PRG", body);
         Assert.Equal(body, PouReader.Parse(outXml).BodyElement!.Value);
         Assert.Equal("ST", PouReader.Parse(outXml).BodyLanguage);
     }
@@ -96,7 +96,7 @@ public class PouSpliceTests
     public void Writing_the_body_leaves_the_declaration_alone_and_vice_versa()
     {
         var decl = PlcOpenDocument.DeclFromExport(CodesysPou, "PLC_PRG")!;
-        var afterBody = PouSplice.SetTextualBody(CodesysPou, "PLC_PRG", "y := 1;");
+        var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;");
         Assert.Equal(decl, PlcOpenDocument.DeclFromExport(afterBody, "PLC_PRG"));
 
         var afterBoth = PouSplice.SetDeclaration(afterBody, "PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\ty : INT;\nEND_VAR");
@@ -109,7 +109,7 @@ public class PouSpliceTests
     public void A_textual_body_write_refuses_to_flatten_a_graphical_body()
     {
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetTextualBody(TwincatPou, "ACT_FBD", "x := 1;"));
+            () => PouSplice.SetBody(TwincatPou, "ACT_FBD", "x := 1;"));
         Assert.Contains("FBD", ex.Message);
         Assert.Contains("replace", ex.Message);   // wording covers IL too, where "flatten" would be wrong
     }
@@ -124,7 +124,7 @@ public class PouSpliceTests
         // The TwinCAT fixture is a POU whose graphical body belongs to its ACTION; the POU's own body is ST.
         var beforeAction = GraphicalBodySplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
 
-        var outXml = PouSplice.SetTextualBody(TwincatPou, "PLC_PRG", "poubody := 1;");
+        var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;");
 
         Assert.Equal("poubody := 1;", PouReader.Parse(outXml).BodyElement!.Value);      // the POU took it
         Assert.Equal(beforeAction, GraphicalBodySplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
@@ -478,7 +478,7 @@ public class PouSpliceTests
     {
         var xml = $"<pou xmlns=\"{Ns}\" name=\"P\"><body><{lang}/></body></pou>";
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetTextualBody(xml, "P", "x := 1;"));
+            () => PouSplice.SetBody(xml, "P", "x := 1;"));
         Assert.Contains(lang, ex.Message);
     }
 

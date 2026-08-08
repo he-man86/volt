@@ -73,7 +73,7 @@ public static class PouDocument
         }
 
         xml = PouSplice.SetDeclaration(xml, name, split.PouDeclaration);
-        return PouSplice.SetTextualBody(xml, name, split.PouImplementation);
+        return PouSplice.SetBody(xml, name, split.PouImplementation);
     }
 
     /// <summary>Volt's wire kind → the PLCopen member shape. This mapping lives HERE, in the layer that knows what

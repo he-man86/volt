@@ -306,7 +306,12 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
-		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
+		// Clear, actionable reason — and it names BOTH languages. It used to assert the word "graphical", which
+		// was a proxy for "the refusal explains itself"; the refusal now comes from the body codec, which knows
+		// the two concrete languages instead of one boolean, so "has a FBD body … carries ST" is what it can say.
+		// Tightened rather than relaxed: two exact languages is a stronger claim than one category word.
+		expect(JSON.stringify(r.conflicts)).toContain("FBD")
+		expect(JSON.stringify(r.conflicts)).toContain("ST")
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(after.name).toBe(before.name)              // unchanged — the textual push was refused, body still FBD
