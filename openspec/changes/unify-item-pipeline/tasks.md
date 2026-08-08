@@ -1,8 +1,8 @@
 # Tasks
 
-Every step holds Engine 455 offline (was 433 when this was written), CLI 124, connector 80, and live CODESYS
+Every step holds Engine **493** offline (433 when this was written), CLI 124, connector 80, and live CODESYS
 e2e **99 pass / 8 skip / 0 fail**. The live run is the gate, and it earned that four separate times below —
-each of the last four entries under "what the live gate caught" passed the entire offline suite first.
+every entry under "what the live gate caught" passed the entire offline suite first.
 
 ## Done
 
@@ -23,6 +23,24 @@ each of the last four entries under "what the live gate caught" passed the entir
 - [x] **VG is gone as a name.** The LSP's four wire codes (`vg-*` → `network-*`), the `vg_body` AST kind, the
       `Vg*` types, the `vg*` service entry points, `src/graphical/` → `src/network/`, and the prose in both
       packages. The English word "graphical" stays where it describes an actual diagram.
+- [x] **`Item/`** — `ItemContent` / `Member` / `Accessor`, one model both directions. It replaced `PouData` +
+      `ChildData` (read) and `StSplitResult` + `StChild` + `StAccessor` (write), which differed only in field
+      names and in how they spelled an accessor. A property is a `Member` now, not a separate list, so
+      `PouDocument.Splice` no longer unions two collections before it can ask what an item has.
+      - **Accessor presence is the OBJECT**, and this was the one hazard the merge created. The read path spelled
+        "has a getter" as "code OR declaration is non-null"; the write path spells a null body as "REMOVE this
+        accessor". Merged naively, a bodiless getter would be DELETED on the next push — the old two-field bug
+        arriving from the other direction. `Accessor.Code` closes it: never null, because the accessor exists.
+- [x] **`Text/`** — `StWriter` + `StReader` + `CodeHelper` + `InstanceTypes` in one folder. With both halves on
+      `ItemContent`, "inverse pair" became a law that can be TYPED, and `StFormatRoundTripTests` asserts it:
+      `write(read(write(x))) == write(x)` over 19 shapes, including the ones that look like structure (a pragma
+      above the header, a comment containing `END_FUNCTION_BLOCK`, a string containing `METHOD`, accessors with
+      their own declarations).
+      - It holds for all of them. **The "five verified asymmetries" this was scoped against did not reproduce** —
+        there is exactly ONE, and it is now pinned: a member body whose first line is literally `%FOLDER x` reads
+        back as a folder. Deliberately unescaped, because `%` cannot begin an IEC statement, so no source a
+        compiler accepts can hit it; an escape would mean carrying the rule forever against input that cannot
+        exist. The test is where that decision changes.
 
 ### Defects closed (each was silent, each now has a test)
 
@@ -54,26 +72,9 @@ differently from the vendor tests only our own tolerance.**
 `FakeIde` now answers the three real document shapes (pou / Interface / dataType+globalVars) instead of one
 `<pou>` for every kind, so the last two of those are catchable offline now.
 
-- [x] **`Item/`** — `ItemContent` / `Member` / `Accessor`, one model both directions. It replaced `PouData` +
-      `ChildData` (read) and `StSplitResult` + `StChild` + `StAccessor` (write), which differed only in field
-      names and in how they spelled an accessor. A property is a `Member` now, not a separate list, so
-      `PouDocument.Splice` no longer unions two collections before it can ask what an item has.
-      - **Accessor presence is the OBJECT**, and this was the one hazard the merge created. The read path spelled
-        "has a getter" as "code OR declaration is non-null"; the write path spells a null body as "REMOVE this
-        accessor". Merged naively, a bodiless getter would be DELETED on the next push — the old two-field bug
-        arriving from the other direction. `Accessor.Code` closes it: never null, because the accessor exists.
-- [x] **`Text/`** — `StWriter` + `StReader` + `CodeHelper` + `InstanceTypes` in one folder. With both halves on
-      `ItemContent`, "inverse pair" became a law that can be TYPED, and `StFormatRoundTripTests` asserts it:
-      `write(read(write(x))) == write(x)` over 19 shapes, including the ones that look like structure (a pragma
-      above the header, a comment containing `END_FUNCTION_BLOCK`, a string containing `METHOD`, accessors with
-      their own declarations).
-      - It holds for all of them. **The "five verified asymmetries" this was scoped against did not reproduce** —
-        there is exactly ONE, and it is now pinned: a member body whose first line is literally `%FOLDER x` reads
-        back as a folder. Deliberately unescaped, because `%` cannot begin an IEC statement, so no source a
-        compiler accepts can hit it; an escape would mean carrying the rule forever against input that cannot
-        exist. The test is where that decision changes.
 
 ## Not done
+
 - [ ] **Driver thinning** — move the six descriptor renderers + `Unitize`, diagnostic severity/line/column
       parsing, the build-success criterion, the warn-once idiom and the `Lookup`/`dirty` semantics up into
       Engine. The drivers are **not** to be rewritten: zero C# tests execute either one, CODESYS reaches the IDE
