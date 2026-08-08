@@ -1,10 +1,10 @@
-# VG (graphical body) format & diagnostics
+# network text (graphical body) format & diagnostics
 
-VG is the textual form of an FBD/LD graphical body — **readable Structured Text** that round-trips exactly to the
+network text is the textual form of an FBD/LD graphical body — **readable Structured Text** that round-trips exactly to the
 PLCopen node graph. A wire used once is **inlined** into its consumer's expression; a wire that **fans out** (feeds
-2+ consumers) keeps a name. The bridge **owns the format** (the LSP owns code correctness): a push whose VG isn't
+2+ consumers) keeps a name. The bridge **owns the format** (the LSP owns code correctness): a push whose network text isn't
 valid/canonical is refused *before* it reaches the IDE, with a structured diagnostic. These rules are **general** —
-they depend only on the VG text, never on the PLC code semantics — so they're computed next to the parser
+they depend only on the network text, never on the PLC code semantics — so they're computed next to the parser
 (`Volt.Engine/Body/NetworkText/NetworkTextReader.cs`) with no IDE state.
 
 ## The readable form (what the parser accepts)
@@ -21,7 +21,7 @@ END_NETWORK
   leaf) is introduced inline at its definition with `LET <name> := …`. There is **no `VAR_TEMP` block and no wire
   types** — the wire's identity is marked at its definition and the type is reconstructed by the IDE/LSP. A bare
   `<name> := …` (no `LET`) is a **sink** (an outVariable/coil). The `LET` names never reach the IDE — they're a
-  VG-only construct stripped on push.
+  network text-only construct stripped on push.
 - **Operands inline.** A simple atom (a bare variable/literal) is written in place: `out := (a AND b)`. Only wires
   that need a name get one — see below — so the text reads like ST, not a node-per-line transcript.
 - **Operator** (`(a OP b)`, fully parenthesised, nestable): `out := ((a AND b) OR c)`. One operator per
@@ -66,9 +66,9 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 unless ALL hold, so a graphical body never silently renames wires, drifts, or corrupts/crashes the IDE:
 
 1. **Language** — FBD/LD only (`NETWORK_*` parse codes otherwise).
-2. **Parse** — structurally valid VG (the codes above).
+2. **Parse** — structurally valid network text (the codes above).
 3. **Leaf single-use** (`NETWORK_LEAF_FANOUT`) — one `inVariable` box per read; a block output may fan out (read off the XML).
-4. **VG-text round-trip** (`NETWORK_NOT_CANONICAL`) — the VG ⇄ graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`.
+4. **network text-text round-trip** (`NETWORK_NOT_CANONICAL`) — the network text ⇄ graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`.
 5. **PLCopen convergence** (`NETWORK_PLCOPEN_DRIFT`) — the graph ⇄ PLCopen ⇄ IDE leg: the body reaches a fixed point
    through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises.
 

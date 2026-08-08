@@ -24,7 +24,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
 /**
  * The assignment-type-mismatch diagnostic for one `target := value` pair, or undefined when the compiler
  * would accept it (or either side isn't checkable). The ONE home for this rule — the ST assign check and
- * the VG sink check both call it, so the wording stays byte-identical per vendor.
+ * the network-text sink check both call it, so the wording stays byte-identical per vendor.
  */
 export function assignmentPairError(
   target: Expr,

@@ -78,7 +78,7 @@ public class NetworkCodeTests
         var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal(lang, gb!.Language);
         Assert.Equal("", gb.Body);                                       // not transpiled — empty
-        Assert.DoesNotContain("NETWORK", gb.Body);                       // never an editable VG body
+        Assert.DoesNotContain("NETWORK", gb.Body);                       // never an editable network text body
         Assert.Equal("FUNCTION_BLOCK C\nVAR\nEND_VAR", gb.Declaration);  // export omits plaintext iface → textual aspect
     }
 
@@ -100,11 +100,11 @@ public class NetworkCodeTests
         // REGRESSION (graphical-execute-box): a CODESYS Execute box is the standard "ST inside FBD/LD"
         // element — it carries inline ST in an <STCode> addData. The bridge must render that ST (readable,
         // analyzable), NOT collapse it into a bare `EXECUTE()` call that drops the code. The body stays a
-        // normal, readable VG body.
+        // normal, readable network-text body.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal("FBD", gb!.Language);
-        Assert.Contains("NETWORK", gb.Body);          // a normal, readable VG body
+        Assert.Contains("NETWORK", gb.Body);          // a normal, readable network-text body
         Assert.Contains("target := 42;", gb.Body);    // the box's real inline ST is materialized
         Assert.DoesNotContain("EXECUTE()", gb.Body);  // never the lossy call rendering
     }
@@ -112,7 +112,7 @@ public class NetworkCodeTests
     [Fact]
     public void Execute_box_round_trips_through_vg_preserving_its_st_and_en()
     {
-        // Full round-trip: PLCopen XML → VG → graph → PLCopen XML. The Execute box renders as
+        // Full round-trip: PLCopen XML → network text → graph → PLCopen XML. The Execute box renders as
         // `IF en THEN EXECUTE … END_EXECUTE END_IF` (EN handled like any block), and reconstructs as
         // <block typeName="EXECUTE"> + fbdcalltype=execute + <STCode> — so its inline ST survives verbatim.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
@@ -122,7 +122,7 @@ public class NetworkCodeTests
         Assert.Contains("target := 42;", vg);          // the ST is rendered verbatim
         Assert.Contains("IF en", vg);                  // EN via the ordinary wire+IF guard, not special-cased
 
-        var graph = NetworkTextReader.Parse(vg);                // VG → graph (bridge parser detects the EXECUTE marker)
+        var graph = NetworkTextReader.Parse(vg);                // network text → graph (bridge parser detects the EXECUTE marker)
         var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("typeName=\"EXECUTE\"", xml);  // reconstructed as a CODESYS Execute box
         Assert.Contains("target := 42;", xml);         // …carrying its STCode
@@ -143,7 +143,7 @@ public class NetworkCodeTests
     [Fact]
     public void Write_reconstructs_an_execute_box_from_its_vg()
     {
-        // Full write-path round-trip: read an execute-box body to canonical VG, then Write it back. The box is
+        // Full write-path round-trip: read an execute-box body to canonical network text, then Write it back. The box is
         // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
         // not refused. So an Execute box is editable, not read-only.
         var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
@@ -232,7 +232,7 @@ public class NetworkCodeTests
 /// uses do anything; the rest throw (never reached on the graphical path).</summary>
 internal sealed class FakeCodeStore : ICodeStore
 {
-    // The graphical path never consults it (NetworkCode owns the PLCopen write for a VG body), so false is the
+    // The graphical path never consults it (NetworkCode owns the PLCopen write for a network-text body), so false is the
     // honest answer here, not a stub for a capability this fake has.
     public bool WritesPouAsOneDocument => false;
     public string? Lang;

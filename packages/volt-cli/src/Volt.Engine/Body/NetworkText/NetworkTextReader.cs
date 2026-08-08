@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace Volt.Engine.Body
 {
     /// <summary>
-    /// Parses VG text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.
+    /// Parses network text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.
     /// The bridge uses this purely as a VALIDATING GATE: anything outside the strict form (nested
     /// sub-expressions, inline literals/variables as operands, multi-operator statements, unresolved
     /// references) throws <see cref="NetworkTextException"/> and the push is rejected. (Preventing such
@@ -15,7 +15,7 @@ namespace Volt.Engine.Body
     /// <c>inVariable</c>, a named <c>g*</c> is an operator/call block — and a bare <c>name</c> := ref
     /// is an <c>outVariable</c> sink. There is no per-network <c>VAR_TEMP</c> block: a leftover one is
     /// not part of the grammar and is refused as a malformed statement. FB-call type names are NOT in
-    /// VG (they live in the POU declaration) — left empty here and resolved by the writer.
+    /// network text (they live in the POU declaration) — left empty here and resolved by the writer.
     /// </summary>
     public static class NetworkTextReader
     {
@@ -167,7 +167,7 @@ namespace Volt.Engine.Body
 
             public void AddStatement(string stmt, int line) => _stmts.Add((stmt, line));
 
-            // Execute boxes (ST-in-FBD/LD): buffered separately (their ST is verbatim, not VG statements) and
+            // Execute boxes (ST-in-FBD/LD): buffered separately (their ST is verbatim, not network text statements) and
             // built after the regular statements so a preceding `LET en := …` wire is already resolvable.
             private readonly List<(string? En, string StCode)> _executes = new();
             public void AddExecute(string? en, string stCode, int line) => _executes.Add((en, stCode));
@@ -486,7 +486,7 @@ namespace Volt.Engine.Body
                 return new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
             }
 
-            /// <summary>Strip pin/operand modifiers from a VG operand — leading <c>NOT</c>
+            /// <summary>Strip pin/operand modifiers from a network-text operand — leading <c>NOT</c>
             /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/
             /// <c>RESET</c> (storage) — returning the bare operand + its <see cref="Mods"/>. Inverse
             /// of <c>NetworkTextWriter.ApplyMods</c>.</summary>
@@ -561,7 +561,7 @@ namespace Volt.Engine.Body
         }
     }
 
-    /// <summary>A structured VG diagnostic: a stable <see cref="Code"/> (e.g. NETWORK_LEAF_REFERENCES_TEMP) the AI
+    /// <summary>A structured network-text diagnostic: a stable <see cref="Code"/> (e.g. NETWORK_LEAF_REFERENCES_TEMP) the AI
     /// can branch on, the 1-based source <see cref="Line"/> within the body (attached by the parse loop), and
     /// the human message. Format-only — it never depends on the actual PLC code semantics.</summary>
     public sealed class NetworkTextException : Exception

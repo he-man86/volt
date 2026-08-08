@@ -207,7 +207,7 @@ The language server SHALL parse the body of every Structured Text POU (function 
 
 The tree SHALL also cover the CODESYS/IEC constructs the real-project corpus exercises: the set/reset/reference assignment operators (`S=`, `R=`, `REF=`), chained assignment (`a := b := c`), inline assignment used as an expression (`(x := v)`, `IF x := f() THEN`), bit access (`x.0`), unconnected call arguments (`in := ,` / `out => ,`), the `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY` exception block, and a bare-expression statement. An accessor's own access modifier (`SET PRIVATE …`) SHALL NOT leak into its body.
 
-The parsed tree SHALL be exposed on the body model for `language: "st"` bodies. VG (graphical) bodies SHALL retain their existing dedicated model and SHALL NOT be given an ST statement tree.
+The parsed tree SHALL be exposed on the body model for `language: "st"` bodies. Network-text bodies SHALL retain their existing dedicated model and SHALL NOT be given an ST statement tree.
 
 #### Scenario: Member-chain expression is structured, not flattened
 - **WHEN** a body contains `alarmCondition := IMM.AutoOperation AND (ActState = StateWaitForMouldClosed);`
@@ -501,16 +501,16 @@ Beyond resolution (not flagging them unresolved), the LSP SHALL provide go-to-de
 - **WHEN** the cursor is on a bare enum member `StateAutomatic`
 - **THEN** go-to-definition jumps to its declaration in the enum, and hover shows the enum + value
 
-### Requirement: The graphical (VG) unresolved check consults the library and device catalogs
+### Requirement: The network-text unresolved check consults the library and device catalogs
 
-The VG (FBD/LD) `vg-undeclared-identifier` check SHALL skip the same names the Structured-Text
+The Network-text (FBD/LD) `network-undeclared-identifier` check SHALL skip the same names the Structured-Text
 unresolved-identifier check skips: known library namespaces (from `.library` stubs) and device-tree
 instances (from `.device` files). A device instance or library root referenced inside a graphical body
 SHALL NOT false-flag when the equivalent Structured-Text reference resolves.
 
 #### Scenario: A device instance in a graphical body resolves
 - **WHEN** an FBD/LD network references a device instance (`EtherCAT_Master`, `Axis_MainDrive`) mirrored as a `.device`
-- **THEN** the VG check does not flag it, matching Structured-Text behavior
+- **THEN** the network-text check does not flag it, matching Structured-Text behavior
 
 <!-- ══════════ D2. Editor services — formatting (LSP-owned) ══════════ -->
 
@@ -546,28 +546,28 @@ The formatter SHALL guarantee three invariants over every formatted document: (A
 - **WHEN** an already-formatted document is formatted again
 - **THEN** the output is byte-identical (idempotent), and for any document `parse(format(src))` deep-equals `parse(src)` and the comment multiset is unchanged
 
-<!-- ══════════ E. VG graphical sublanguage — code correctness LSP-owned; FORMAT & ROUND-TRIP BRIDGE-OWNED ══════════ -->
+<!-- ══════════ E. the network-text sublanguage — code correctness LSP-owned; FORMAT & ROUND-TRIP BRIDGE-OWNED ══════════ -->
 
-### Requirement: VG is its own language, routed by content
+### Requirement: Network text is its own language, routed by content
 
 Editable FBD/LD graphical bodies SHALL be represented as network text — a distinct language
 with its own grammar, parser, and analysis, not Structured Text. A POU body whose first significant
-token is `NETWORK` SHALL be routed to the VG analysis path; everything else is ST. The declaration
-(`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the VG parser sees only the body.
+token is `NETWORK` SHALL be routed to the network-text analysis path; everything else is ST. The declaration
+(`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the network-text parser sees only the body.
 
-#### Scenario: A NETWORK body is analyzed as VG
+#### Scenario: A NETWORK body is analyzed as network text
 - **WHEN** a POU body begins with a `NETWORK` marker
-- **THEN** it is parsed and analyzed by the VG path, not the ST path
+- **THEN** it is parsed and analyzed by the network-text path, not the ST path
 
 ### Requirement: The round trip is exact and the bridge is the source of truth
 
-The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ VG exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
-push whose VG is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
+The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ network text exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
+push whose network text is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
 structured diagnostic that returns the canonical text. So a graphical body can be read, edited, and
-written entirely as VG text without drift.
+written entirely as network text without drift.
 
 #### Scenario: A non-canonical body is refused with its canonical form
-- **WHEN** a push sends VG that is valid but not canonical (`NetworkTextWriter(NetworkTextReader(x)) != x`)
+- **WHEN** a push sends network text that is valid but not canonical (`NetworkTextWriter(NetworkTextReader(x)) != x`)
 - **THEN** the bridge refuses it with `NETWORK_NOT_CANONICAL` and returns the canonical text to paste
 
 ### Requirement: The bridge owns format, the LSP owns code correctness
@@ -579,38 +579,38 @@ structural codes as diagnostics so a body is fixed before it is pushed.
 
 #### Scenario: A wire's type is inferred, not stored
 - **WHEN** the LSP hovers an internal `LET` wire
-- **THEN** it shows a type inferred from the defining expression (the VG text carries no wire type)
+- **THEN** it shows a type inferred from the defining expression (the network text carries no wire type)
 
 ### Requirement: FBD/LD are editable; CFC/SFC are read-only
 
-ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable VG). CFC and SFC
+ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable network text). CFC and SFC
 bodies SHALL have **no text representation** and are authored only in the IDE; they are not a read-only
 *access* state, they simply are not materialized as editable code. A CFC/SFC body SHALL materialize as
 a single informational marker comment identifying the language and directing the reader to the IDE, and
-SHALL NOT be analyzed as VG or ST. There is no read-only-language flag.
+SHALL NOT be analyzed as network text or ST. There is no read-only-language flag.
 
 #### Scenario: A CFC body is materialized as an informational marker
 - **WHEN** a project contains a CFC (or SFC) body
-- **THEN** it materializes as an `(* @volt-graphical: <LANG> *)` informational marker comment (e.g. `(* @volt-graphical: CFC *)`, which the LSP hover explains) and is not analyzed as VG or ST
+- **THEN** it materializes as an `(* @volt-graphical: <LANG> *)` informational marker comment (e.g. `(* @volt-graphical: CFC *)`, which the LSP hover explains) and is not analyzed as network text or ST
 
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
-`volt-vscode` SHALL highlight VG by a content injection on the `NETWORK` token. Because a POU is named
+`volt-vscode` SHALL highlight network text by a content injection on the `NETWORK` token. Because a POU is named
 by its KIND (`.fb`/`.prg`/`.fun`), an editable graphical POU is stored in a kind-named file, not a
 language-named file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
 discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
 graphical POU (e.g. a `.fb` file whose body begins with `NETWORK`) *and* a graphical body inlined
 inside a POU (a graphical method). The body discriminator is 2-way: a body beginning with `NETWORK` is
-editable VG (FBD/LD); anything else is treated as text (ST, or a CFC/SFC informational marker comment,
+editable Network-text (FBD/LD); anything else is treated as text (ST, or a CFC/SFC informational marker comment,
 which yields no analysis). There is no `READONLY <LANG>` control marker.
 
 #### Scenario: An editable graphical body is detected by NETWORK
 - **WHEN** a kind-named POU file's body begins with `NETWORK`
-- **THEN** it is highlighted and analyzed as editable VG, regardless of extension
+- **THEN** it is highlighted and analyzed as editable network text, regardless of extension
 
 #### Scenario: A CFC/SFC informational marker is not analyzed
 - **WHEN** a kind-named POU (or inlined method) body is a CFC/SFC informational marker comment
-- **THEN** it is not highlighted or analyzed as VG, and produces no diagnostics (it is a comment)
+- **THEN** it is not highlighted or analyzed as network text, and produces no diagnostics (it is a comment)
 
 <!-- ══════════ F. Workspace file layout & materialization — BRIDGE/CLI-OWNED (LSP consumes) ══════════ -->
 
@@ -657,7 +657,7 @@ folder SHALL remain a `.gitkeep` marker.
 The CLI SHALL derive a POU file's push-ability from its content — a body that is a `(* @volt-graphical: … *)`
 marker is read-only, a `NETWORK`-led or plain textual body is writable — while reference kinds stay read-only
 by their extension. The bridge SHALL recover an item's kind from file content on push-back (the ST
-declaration header for textual kinds; the NETWORK-token VG body for editable graphical POUs), never
+declaration header for textual kinds; the NETWORK-token network-text body for editable graphical POUs), never
 from the extension. The kind-based naming SHALL NOT lose kind or access information.
 
 #### Scenario: Kind is recovered from content on push
@@ -713,7 +713,7 @@ The compiler ground truth SHALL be refreshable from within the LSP package (a `r
 The LSP SHALL be tested against a committed conformance corpus materialized from a real, full-option
 CODESYS project (the project's items rendered as kind-named files on disk). Every language construct the
 corpus contains — POUs, DUTs, GVLs, interfaces, methods/properties/actions/transitions, pragmas, and
-editable graphical FBD/LD bodies surfaced as VG — SHALL parse and analyze with **no spurious parse
+editable graphical FBD/LD bodies surfaced as network text — SHALL parse and analyze with **no spurious parse
 errors and no analysis gaps**. The corpus SHALL be loadable from disk by the test harness and
 regenerable via a documented step, so it is a durable regression guard, not a one-off.
 

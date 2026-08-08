@@ -137,9 +137,9 @@ guard that throws** — real projects legitimately repeat these names, and throw
   (`bExportFolderStructure` emits a `projectstructure` block) but emits it `handleUnknown="discard"`, and the
   import does precisely that — measured. Rename is the other structural verb PLCopen cannot express, so it stays
   on `IProjectTree.Rename`, where the IDE rewrites call-sites.
-- **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Body/NetworkCode`). A read-only body
+- **CFC/SFC are read-only; only FBD/LD round-trip as editable network text** (`Body/NetworkCode`). A read-only body
   materializes empty with an `(* @volt-graphical: <LANG> *)` marker and is refused on push.
-- **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Body/NetworkText/NetworkTextReader`,
+- **Execute boxes round-trip as network text `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Body/NetworkText/NetworkTextReader`,
   `PlcOpenReader.ReadStCode`) — never a bare call that drops the ST.
 - **Container managers are folders, never items** (`Workspace/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
@@ -327,5 +327,5 @@ by the connector).
 ## Related docs
 
 - `docs/ITEM_KINDS.md` — the vendor-neutral item-type coverage map (`Workspace/ItemKind` is the source of truth).
-- `docs/network-text.md`, `docs/network-text-diagnostics.md` — the VG graphical sublanguage.
+- `docs/network-text.md`, `docs/network-text-diagnostics.md` — the network text graphical sublanguage.
 - `docs/debugging-a-bridge-session.md` — debugging a live bridge.

@@ -62,7 +62,7 @@ public class GraphSpliceTests
     [Fact]
     public void Splice_refuses_to_drop_unrepresentable_elements()
     {
-        // A body with a <connector> the VG editor can't reproduce — must refuse, not silently drop it.
+        // A body with a <connector> the network text editor can't reproduce — must refuse, not silently drop it.
         // (contact/coil/power-rails ARE now reproduced by the ladder generator, so they're no longer here.)
         const string withConnector = """
         <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">

@@ -10,7 +10,7 @@ namespace Volt.Engine.Body
     /// CODESYS re-lays-out on import) and localIds come from the model. Opaque nodes round-trip
     /// verbatim on the FBD path ONLY; the LD path has no opaque arm and DROPS them — its per-network
     /// vendorElement(networktitle) marker is regenerated instead.
-    /// FB-call <c>typeName</c> is not carried by VG, so the caller supplies a resolver
+    /// FB-call <c>typeName</c> is not carried by network text, so the caller supplies a resolver
     /// (instanceName → type) from the POU declaration; operators/functions carry their own type.
     /// </summary>
     public static class GraphWriter
@@ -36,7 +36,7 @@ namespace Volt.Engine.Body
         private static XElement WriteFbdBody(GraphBody body, System.Func<string, string?>? resolveType)
         {
             var root = new XElement(Ns + "FBD");
-            // A connection back to an operator/function result carries no output-pin name in VG (it's
+            // A connection back to an operator/function result carries no output-pin name in network text (it's
             // `g1`, not `g1.Out1`). Re-derive the producer block's single output pin so the PLCopen
             // connection still names the output the IDE expects.
             var byId = new Dictionary<long, GraphNode>();
@@ -44,7 +44,7 @@ namespace Volt.Engine.Body
             string? OutPin(long id) => byId.TryGetValue(id, out var n) && n is Block bl && bl.OutputPins.Count > 0
                 ? bl.OutputPins[0] : null;
 
-            // Output pins REFERENCED by a connection's formalParameter (an FB output like `inst.Q`). VG
+            // Output pins REFERENCED by a connection's formalParameter (an FB output like `inst.Q`). network text
             // lists a block's CALL but not its output pins, so a parsed FB block has no OutputPins; without
             // this the `inst.Q` connection would name a pin the block doesn't declare and the IDE would
             // DROP it on import (the `out := ;` bug). Emit these as the block's outputVariables too.
@@ -132,7 +132,7 @@ namespace Volt.Engine.Body
                             ModAttrs(p.Mods), ConnIn(p.Source, outPin)))));
                     el.Add(new XElement(Ns + "inOutVariables"));
                     // Output pins = the block's own, UNION any referenced by an `inst.Q` connection
-                    // (which VG carries on the consumer, not the block) so the connection stays valid.
+                    // (which network text carries on the consumer, not the block) so the connection stays valid.
                     var outs = new List<string>(b.OutputPins);
                     if (refPins.TryGetValue(b.LocalId, out var extra))
                         foreach (var p in extra) if (!outs.Contains(p)) outs.Add(p);
@@ -142,7 +142,7 @@ namespace Volt.Engine.Body
                     // Re-emit the CODESYS/TwinCAT vendor metadata so a written-back block carries what
                     // the IDE exported: the fbdcalltype hint (operator / function / functionblock) plus
                     // the input/output param-type lists. Types are read-only metadata — on the push path
-                    // VG doesn't carry them, so these come out empty and the IDE reconstructs them.
+                    // network text doesn't carry them, so these come out empty and the IDE reconstructs them.
                     if (!string.IsNullOrEmpty(b.CallType))
                         el.Add(new XElement(Ns + "addData",
                             VendorData("fbdcalltype", "CallType", b.CallType),
@@ -429,7 +429,7 @@ namespace Volt.Engine.Body
             if (c != null)
             {
                 var conn = new XElement(Ns + "connection", new XAttribute("refLocalId", c.RefLocalId));
-                // VG drops an operator/function result's pin (`g1`, not `g1.Out1`); re-derive it so the
+                // network text drops an operator/function result's pin (`g1`, not `g1.Out1`); re-derive it so the
                 // connection still names the producer's output. FB-instance refs already carry the pin.
                 var fp = c.FormalParameter ?? outPin(c.RefLocalId);
                 if (fp != null) conn.Add(new XAttribute("formalParameter", fp));

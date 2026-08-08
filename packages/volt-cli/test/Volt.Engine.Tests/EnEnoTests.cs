@@ -17,7 +17,7 @@ public class EnEnoTests
         var g0 = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         var vg0 = NetworkTextWriter.Write(g0);
 
-        // NetworkTextReader is the exact inverse of NetworkTextWriter (the VG-text fixed point).
+        // NetworkTextReader is the exact inverse of NetworkTextWriter (the network text-text fixed point).
         var vg1 = NetworkTextWriter.Write(NetworkTextReader.Parse(vg0));
         // And the parsed graph survives a full PLCopen round-trip (the convergence the push-gate checks).
         var vg2 = GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg0));
@@ -47,7 +47,7 @@ public class EnEnoTests
     public void Unconnected_EN_is_dropped_so_the_box_renders_as_a_plain_call()
     {
         // A function box whose EN input is UNCONNECTED (PLCopen `refLocalId=0`) is unconditionally enabled — it
-        // must render as a plain call, NOT `LET en := ; IF en THEN …` (an empty producer = malformed VG). Verified
+        // must render as a plain call, NOT `LET en := ; IF en THEN …` (an empty producer = malformed network text). Verified
         // live on the Lenze LD project (Alarms_V5_1_100 with EN → refLocalId 0).
         var doc =
             "<project xmlns=\"http://www.plcopen.org/xml/tc6_0200\"><types><pous><pou name=\"p\" pouType=\"program\"><body><FBD>" +
@@ -66,7 +66,7 @@ public class EnEnoTests
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
         Assert.Contains("FC_Do(", vg);         // rendered as a plain call
-        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));            // VG-text fixed point
+        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));            // network text-text fixed point
         Assert.Equal(vg, GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg)));   // PLCopen convergence
     }
 
@@ -92,7 +92,7 @@ public class EnEnoTests
         var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
-        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));   // VG-text fixed point
+        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));   // network text-text fixed point
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class EnEnoTests
             "END_NETWORK\n";
         var once = NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_fb.txt"), once);
-        Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));            // VG-text fixed point
+        Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));            // network text-text fixed point
         Assert.Equal(once, GraphRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // PLCopen convergence
     }
 }

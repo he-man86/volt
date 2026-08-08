@@ -20,7 +20,7 @@ namespace Volt.Engine.Tests;
 /// Comments are exempt (they explain the shared transform). <c>[JsonPropertyName("…")]</c> lines are exempt: a wire
 /// FIELD name that happens to equal a vocabulary word (e.g. the <c>degraded</c> bool, the <c>init</c> flag) is a
 /// different thing from the vocabulary VALUE. The per-vocabulary allowlist names the files where the same word is a
-/// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and VG
+/// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and network text
 /// sublanguages (<c>PouReader</c>/<c>NetworkTextReader</c> — "program"/"function"/"method"), and the
 /// TwinCAT menu-name match (<c>TcObjectModel</c> — Contains("TwinCAT")).
 /// </summary>
@@ -58,7 +58,7 @@ public class WireVocabularyGuardTests
                     "property_get", "property_set", "interface_method", "interface_property",
                     "interface_property_get", "interface_property_set", "project_info", "trace", "recipe",
                     "symbol_config" },
-            // The PLCopen-XML layer and the VG sublanguage share these words as their OWN vocabularies: "pou",
+            // The PLCopen-XML layer and the network text sublanguage share these words as their OWN vocabularies: "pou",
             // "method", "action", "Property" there are XML ELEMENT names in the vendor's schema, spelt like item
             // kinds but not them. `PouSplice` is the write half of that layer and holds the same element names —
             // it inherits `PlcOpenDocument.cs`'s old entry rather than adding a new exemption, because the file

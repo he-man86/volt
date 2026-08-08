@@ -1,5 +1,5 @@
 /**
- * folding over VG (graphical) bodies (P2). Folding refused graphical bodies outright, so an FBD/LD POU with
+ * folding over network text (graphical) bodies (P2). Folding refused graphical bodies outright, so an FBD/LD POU with
  * many networks was unfoldable below the POU level. Emit one fold per NETWORK.
  */
 import { test, expect } from "bun:test"

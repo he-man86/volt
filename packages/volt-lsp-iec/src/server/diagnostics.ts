@@ -15,7 +15,7 @@ import {
   type DiagnosticItem,
   type Messages,
 } from "../analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../graphical/index.js"
+import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { codesysCodeFor } from "../reference/error-code-map.js"
 import { isLibrarySymbol } from "../symbols/index.js"
 import { rangeFromSpan, type Document } from "../services/index.js"
@@ -31,7 +31,7 @@ const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
 function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
   // Surface the CODESYS `Cnnnn` the check mirrors as the diagnostic code (users recognise it and can cross-
   // reference the IDE), with a link to its docs page. Falls back to our internal slug for codes with no mapping
-  // (VG / parse errors). Config toggles still key on the slug server-side, so this is display-only.
+  // (network text / parse errors). Config toggles still key on the slug server-side, so this is display-only.
   const mapped = codesysCodeFor(item.code)
   return {
     range: rangeFromSpan(item.span),
@@ -43,7 +43,7 @@ function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
   }
 }
 
-/** The full LSP diagnostic set for one document — semantic + VG + parse errors, with dead-code suppression. */
+/** The full LSP diagnostic set for one document — semantic + network text + parse errors, with dead-code suppression. */
 export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d: Document): Diagnostic[] {
   // ROOT gate for the whole library-FP class: a referenced library is a precompiled blob the consuming
   // project never recompiles, so CODESYS runs no check on its materialized source — any error we emit on it is

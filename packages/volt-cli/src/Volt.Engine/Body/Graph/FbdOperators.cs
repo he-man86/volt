@@ -5,11 +5,11 @@ using System.Linq;
 namespace Volt.Engine.Body;
 
 /// <summary>
-/// The single canonical table of FBD/LD operator boxes and their infix ST/VG symbols, shared by the
-/// VG parser and writer (the two ends of the infix rendering) so a new operator is added in exactly
+/// The single canonical table of FBD/LD operator boxes and their infix ST/network text symbols, shared by the
+/// network-text parser and writer (the two ends of the infix rendering) so a new operator is added in exactly
 /// one place. (GraphReader/Writer carry <c>typeName</c> verbatim and never consult it.) The box
 /// <see cref="TypeName"/> is the PLCopen/CODESYS operator type (OR, ADD, GT…); the
-/// <see cref="Symbol"/> is how it renders infix in ST/VG (OR, +, &gt;…).
+/// <see cref="Symbol"/> is how it renders infix in ST/network text (OR, +, &gt;…).
 /// </summary>
 public static class FbdOperators
 {

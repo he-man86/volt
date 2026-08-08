@@ -7,11 +7,11 @@ import {
   computeNetworkTextDiagnostics,
   documentSymbolsWithVg,
   analyzeNetworkText,
-  vgHover,
-  vgDefinition,
-  vgCompletion,
-  vgResolveAt,
-  vgMarkerHover,
+  networkHover,
+  networkDefinition,
+  networkCompletion,
+  networkResolveAt,
+  networkMarkerHover,
   referencesAnywhere,
   renameAnywhere,
 } from "./index.js"
@@ -40,7 +40,7 @@ function project(d: Document): Scope {
   return buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
 }
 
-/** VG diagnostics for a single-doc project (codesys wording). */
+/** network-text diagnostics for a single-doc project (codesys wording). */
 function vgDiags(src: string): DiagnosticItem[] {
   const d = doc(src)
   return computeNetworkTextDiagnostics(d, project(d), messagesFor("codesys"))
@@ -55,13 +55,13 @@ out := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK`
 
-test("VG: an FBD/LD body is detected as graphical, not ST", () => {
+test("network text: an FBD/LD body is detected as graphical, not ST", () => {
   const { units, errors } = parseSource(LD)
-  expect(errors).toEqual([]) // ST parser routes around the VG body — no false parse errors
+  expect(errors).toEqual([]) // ST parser routes around the network-text body — no false parse errors
   expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
 })
 
-test("VG: a single LD network with a sink parses clean", () => {
+test("network text: a single LD network with a sink parses clean", () => {
   const vg = parseNetworkText(vgBody(LD))
   expect(vg.diagnostics).toEqual([])
   expect(vg.networks).toHaveLength(1)
@@ -78,7 +78,7 @@ test("VG: a single LD network with a sink parses clean", () => {
   }
 })
 
-test("VG: LET wire-def keeps its name + producer", () => {
+test("network text: LET wire-def keeps its name + producer", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 NETWORK 1 FBD
@@ -98,7 +98,7 @@ END_FUNCTION_BLOCK`
   if (sink?.kind === "sink") expect(idents(sink.value)).toEqual(["g"]) // wire reference
 })
 
-test("VG: header parses language, label and DISABLED", () => {
+test("network text: header parses language, label and DISABLED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 3 FBD 'my label' DISABLED
@@ -112,7 +112,7 @@ END_FUNCTION_BLOCK`
   expect(n.disabled).toBe(true)
 })
 
-test("VG: an unclosed network reports NETWORK_NOT_CLOSED", () => {
+test("network text: an unclosed network reports NETWORK_NOT_CLOSED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -122,7 +122,7 @@ END_FUNCTION_BLOCK`
   expect(codes).toContain("NETWORK_NOT_CLOSED")
 })
 
-test("VG: a duplicate network index reports NETWORK_DUPLICATE_NETWORK", () => {
+test("network text: a duplicate network index reports NETWORK_DUPLICATE_NETWORK", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -136,7 +136,7 @@ END_FUNCTION_BLOCK`
   expect(codes).toContain("NETWORK_DUPLICATE_NETWORK")
 })
 
-test("VG: a duplicated LET name reports NETWORK_DUPLICATE_NAME", () => {
+test("network text: a duplicated LET name reports NETWORK_DUPLICATE_NAME", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
 NETWORK 0 FBD
@@ -149,7 +149,7 @@ END_FUNCTION_BLOCK`
   expect(codes).toContain("NETWORK_DUPLICATE_NAME")
 })
 
-test("VG: a statement before any network reports NETWORK_PARSE", () => {
+test("network text: a statement before any network reports NETWORK_PARSE", () => {
   // hand-built body tokens: `out := TRUE;` with no NETWORK — force via a raw graphical-looking body.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
@@ -162,7 +162,7 @@ END_FUNCTION_BLOCK`
   expect(codes).toContain("NETWORK_PARSE")
 })
 
-test("VG: an IF en/eno box is parsed with its condition and inner body", () => {
+test("network text: an IF en/eno box is parsed with its condition and inner body", () => {
   const src = `FUNCTION_BLOCK F
 VAR en : BOOL; out : BOOL; a : BOOL; END_VAR
 NETWORK 0 FBD
@@ -182,7 +182,7 @@ END_FUNCTION_BLOCK`
   }
 })
 
-test("VG: an FB-instance call with no result binding is an fb_call", () => {
+test("network text: an FB-instance call with no result binding is an fb_call", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; t : TIME; on : BOOL; END_VAR
 NETWORK 0 FBD
@@ -196,7 +196,7 @@ END_FUNCTION_BLOCK`
   if (call.kind === "fb_call") expect(call.call?.kind).toBe("call")
 })
 
-test("VG: label, JMP and RETURN are recognised", () => {
+test("network text: label, JMP and RETURN are recognised", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -212,7 +212,7 @@ END_FUNCTION_BLOCK`
   expect(kinds).toContain("return")
 })
 
-test("VG: computeNetworkTextDiagnostics lifts VG errors into DiagnosticItems for the server", () => {
+test("network text: computeNetworkTextDiagnostics lifts network text errors into DiagnosticItems for the server", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -223,7 +223,7 @@ END_FUNCTION_BLOCK`
   expect(items[0]).toMatchObject({ severity: "error", source: "volt-lsp-iec", code: "NETWORK_NOT_CLOSED" })
 })
 
-test("VG: a clean ST body yields zero VG diagnostics", () => {
+test("network text: a clean ST body yields zero network-text diagnostics", () => {
   const st = `FUNCTION_BLOCK F
 VAR i : INT; END_VAR
 i := i + 1;
@@ -231,7 +231,7 @@ END_FUNCTION_BLOCK`
   expect(vgDiags(st)).toEqual([])
 })
 
-test("VG: a sink type mismatch is flagged with the SAME check/message as ST", () => {
+test("network text: a sink type mismatch is flagged with the SAME check/message as ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR flag : BOOL; count : INT; END_VAR
 NETWORK 0 LD
@@ -242,7 +242,7 @@ END_FUNCTION_BLOCK`
   expect(items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
 })
 
-test("VG: a well-typed sink over real vars yields no code diagnostic", () => {
+test("network text: a well-typed sink over real vars yields no code diagnostic", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 NETWORK 0 LD
@@ -252,13 +252,13 @@ END_FUNCTION_BLOCK`
   expect(vgDiags(src)).toEqual([])
 })
 
-// vg-undeclared-identifier — the VG analogue of ST's unresolved-identifier, sharing its resolution rules.
+// network-undeclared-identifier — the network-text analogue of ST's unresolved-identifier, sharing its resolution rules.
 const vgUndeclared = (src: string, references?: WorkspaceRefs): string[] =>
   computeNetworkTextDiagnostics(doc(src), project(doc(src)), messagesFor("codesys"), references)
-    .filter((d) => d.code === "vg-undeclared-identifier")
+    .filter((d) => d.code === "network-undeclared-identifier")
     .map((d) => d.message)
 
-test("VG: an operand declared nowhere IS flagged, byte-identical to the compiler", () => {
+test("network text: an operand declared nowhere IS flagged, byte-identical to the compiler", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -268,7 +268,7 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual(["Identifier 'nope' not defined"])
 })
 
-test("VG: declared vars and LET wires resolve (no undeclared diagnostic)", () => {
+test("network text: declared vars and LET wires resolve (no undeclared diagnostic)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 NETWORK 0 FBD
@@ -280,7 +280,7 @@ END_FUNCTION_BLOCK`
 })
 
 // Gap found via corpus: SET/RESET (and RISING/FALLING) are LD coil/edge MODIFIER words, not identifiers.
-test("VG: SET / RESET coil modifiers are not flagged as undeclared", () => {
+test("network text: SET / RESET coil modifiers are not flagged as undeclared", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; a : BOOL; END_VAR
 NETWORK 0 LD
@@ -291,7 +291,7 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual([])
 })
 
-test("VG: a referenced-library namespace is skipped when supplied", () => {
+test("network text: a referenced-library namespace is skipped when supplied", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 FBD
@@ -303,9 +303,9 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
 })
 
-// vg-unknown-member — the VG analogue of ST's `a.b` member check (wired once the qualified_only binder
+// network-unknown-member — the network-text analogue of ST's `a.b` member check (wired once the qualified_only binder
 // bug that caused the lenze `Mach1` FPs was fixed). Shares `unresolvedMembers` + `notAMember` wording.
-test("VG: an unknown struct member IS flagged; a real one stays quiet (vg-unknown-member)", () => {
+test("network text: an unknown struct member IS flagged; a real one stays quiet (network-unknown-member)", () => {
   const src = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
 FUNCTION_BLOCK F
 VAR p : Pt; out : INT; END_VAR
@@ -314,11 +314,11 @@ out := p.x;
 out := p.nope;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const msgs = vgDiags(src).filter((d) => d.code === "vg-unknown-member").map((d) => d.message)
+  const msgs = vgDiags(src).filter((d) => d.code === "network-unknown-member").map((d) => d.message)
   expect(msgs).toEqual(["'nope' is no component of 'Pt'"]) // p.x quiet, p.nope flagged
 })
 
-test("VG: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regression)", () => {
+test("network text: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regression)", () => {
   // bare `Mach1` binds to the GVL block (not HMI's qualified-only member), so `Mach1.Genflags.bReady`
   // resolves cleanly through the GVL global's struct type — zero unknown-member FPs.
   const files: Record<string, string> = {
@@ -331,14 +331,14 @@ test("VG: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regres
   const proj = buildSymbolTable(docs)
   const fbDoc = docs.find((d) => d.uri === "file:///FB_User.fb")!
   const diags = computeNetworkTextDiagnostics(fbDoc, proj, messagesFor("codesys"))
-  expect(diags.filter((d) => d.code === "vg-unknown-member")).toEqual([])
-  expect(diags.filter((d) => d.code === "vg-undeclared-identifier")).toEqual([])
+  expect(diags.filter((d) => d.code === "network-unknown-member")).toEqual([])
+  expect(diags.filter((d) => d.code === "network-undeclared-identifier")).toEqual([])
 })
 
 const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) => d.code === code).length
 
-// VG sink pair checks mirror ST via the shared helpers (assignment already tested above).
-test("VG: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
+// network text sink pair checks mirror ST via the shared helpers (assignment already tested above).
+test("network text: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR r : REAL; l : LREAL; END_VAR
 NETWORK 0 LD
@@ -351,9 +351,9 @@ END_FUNCTION_BLOCK`
 })
 
 // Corpus-found (lenze FB_Lenze_i550, Network 1): a conversion-call OPERAND whose argument sign-changes into the
-// conversion's source type. VG never ran the conversion-arg check before — the whole type-check class was blind
+// conversion's source type. network text never ran the conversion-arg check before — the whole type-check class was blind
 // to graphical bodies. Byte-identical to the CODESYS build.
-test("VG: a conversion-arg operand that sign-changes (UINT_TO_WORD of an INT) warns like ST", () => {
+test("network text: a conversion-arg operand that sign-changes (UINT_TO_WORD of an INT) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR w : WORD; i : INT; END_VAR
 NETWORK 1 FBD
@@ -366,7 +366,7 @@ END_FUNCTION_BLOCK`
 })
 
 // Gap found via a re-harvested corpus: a RESET/SET coil value collides with a same-named enum member.
-test("VG: a reset-coil sink (`:= RESET`) is not typed as an enum→BOOL mismatch", () => {
+test("network text: a reset-coil sink (`:= RESET`) is not typed as an enum→BOOL mismatch", () => {
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; END_VAR
@@ -377,7 +377,7 @@ END_FUNCTION_BLOCK`
   expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).toEqual([])
 })
 
-test("VG: a bad binary operand (MOD on REAL) is flagged like ST", () => {
+test("network text: a bad binary operand (MOD on REAL) is flagged like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : REAL; b : REAL; out : REAL; END_VAR
 NETWORK 0 FBD
@@ -387,8 +387,8 @@ END_FUNCTION_BLOCK`
   expect(vgByCode(src, "binary-op-type-mismatch")).toBe(1)
 })
 
-// vg-undefined-label — a JMP to a label that exists nowhere in the network.
-test("VG: a JMP to an undefined label is flagged; a defined one is not", () => {
+// network-undefined-label — a JMP to a label that exists nowhere in the network.
+test("network text: a JMP to an undefined label is flagged; a defined one is not", () => {
   const bad = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -396,7 +396,7 @@ out := TRUE;
 JMP Nowhere;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(vgByCode(bad, "vg-undefined-label")).toBe(1)
+  expect(vgByCode(bad, "network-undefined-label")).toBe(1)
   const good = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -405,37 +405,37 @@ out := TRUE;
 JMP Loop;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(vgByCode(good, "vg-undefined-label")).toBe(0)
+  expect(vgByCode(good, "network-undefined-label")).toBe(0)
 })
 
-// vg-unknown-pin — an FB box passing a pin the FB doesn't declare (checked only for resolved project FBs).
+// network-unknown-pin — an FB box passing a pin the FB doesn't declare (checked only for resolved project FBs).
 const FB_M = `FUNCTION_BLOCK FB_M
 VAR_INPUT a : BOOL; END_VAR
 END_FUNCTION_BLOCK
 `
-test("VG: an unknown FB pin is flagged; a declared pin is not", () => {
+test("network text: an unknown FB pin is flagged; a declared pin is not", () => {
   const bad = `${FB_M}FUNCTION_BLOCK F
 VAR m : FB_M; x : BOOL; END_VAR
 NETWORK 0 FBD
 m(b := x);
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(vgByCode(bad, "vg-unknown-pin")).toBe(1)
+  expect(vgByCode(bad, "network-unknown-pin")).toBe(1)
   const good = bad.replace("m(b := x)", "m(a := x)")
-  expect(vgByCode(good, "vg-unknown-pin")).toBe(0)
+  expect(vgByCode(good, "network-unknown-pin")).toBe(0)
 })
 
-test("VG: a box on an unresolvable (library/standard) FB is not pin-checked", () => {
+test("network text: a box on an unresolvable (library/standard) FB is not pin-checked", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; on : BOOL; t : TIME; END_VAR
 NETWORK 0 FBD
 tmr(IN := on, PT := t, MADE_UP := on);
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(vgByCode(src, "vg-unknown-pin")).toBe(0) // TON is not a project FB → skipped, no guess
+  expect(vgByCode(src, "network-unknown-pin")).toBe(0) // TON is not a project FB → skipped, no guess
 })
 
-test("VG: wire types are inferred from producers and chain (LET en2 := en1)", () => {
+test("network text: wire types are inferred from producers and chain (LET en2 := en1)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : INT; END_VAR
 NETWORK 0 LD
@@ -449,7 +449,7 @@ END_FUNCTION_BLOCK`
   expect(items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
 })
 
-test("VG: analyzeNetworkText types a wire from its defining expression", () => {
+test("network text: analyzeNetworkText types a wire from its defining expression", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
 NETWORK 0 LD
@@ -464,7 +464,7 @@ END_FUNCTION_BLOCK`
   if (wire?.typeExpr?.kind === "named_type") expect(wire.typeExpr.name.text).toBe("BOOL")
 })
 
-test("VG: document outline attaches networks under their POU", () => {
+test("network text: document outline attaches networks under their POU", () => {
   const syms = documentSymbolsWithVg(doc(LD))
   const fb = syms.find((s) => s.name === "FB_LD")
   expect(fb).toBeDefined()
@@ -481,44 +481,44 @@ out := g;
 END_NETWORK
 END_FUNCTION_BLOCK`
 
-test("VG hover: a wire shows a type INFERRED from its producer (spec §E)", () => {
+test("network text hover: a wire shows a type INFERRED from its producer (spec §E)", () => {
   const d = doc(WIRED)
   const off = WIRED.indexOf("out := g") + "out := ".length // the `g` USE
-  const h = vgHover(d, project(d), off)
+  const h = networkHover(d, project(d), off)
   expect((h as { contents: { value: string } })?.contents.value).toContain("g : BOOL")
 })
 
-test("VG hover: a real variable shows its declared type", () => {
+test("network text hover: a real variable shows its declared type", () => {
   const d = doc(WIRED)
   const off = WIRED.indexOf("(a AND b)") + 1 // the `a` operand
-  const h = vgHover(d, project(d), off)
+  const h = networkHover(d, project(d), off)
   expect((h as { contents: { value: string } })?.contents.value).toContain("a : BOOL")
 })
 
-test("VG definition: a wire use jumps to its LET definition", () => {
+test("network text definition: a wire use jumps to its LET definition", () => {
   const d = doc(WIRED)
   const useOff = WIRED.indexOf("out := g") + "out := ".length
-  const loc = vgDefinition(d, project(d), useOff)
+  const loc = networkDefinition(d, project(d), useOff)
   const defLine = WIRED.slice(0, WIRED.indexOf("LET g")).split("\n").length - 1 // 0-based line of `LET g`
   expect(loc?.range.start.line).toBe(defLine)
 })
 
-test("VG definition: a real-var operand jumps to its declaration", () => {
+test("network text definition: a real-var operand jumps to its declaration", () => {
   const d = doc(WIRED)
   const off = WIRED.indexOf("(a AND b)") + 1
-  const loc = vgDefinition(d, project(d), off)
+  const loc = networkDefinition(d, project(d), off)
   expect(loc?.range.start.line).toBe(1) // the VAR line
 })
 
-test("VG completion: offers POU vars AND the network's wires", () => {
+test("network text completion: offers POU vars AND the network's wires", () => {
   const d = doc(WIRED)
   const off = WIRED.indexOf("out := g") + "out := ".length
-  const labels = vgCompletion(d, project(d), off).map((c) => c.label)
+  const labels = networkCompletion(d, project(d), off).map((c) => c.label)
   expect(labels).toContain("out") // POU var
   expect(labels).toContain("g") // network wire
 })
 
-test("VG resolve: a member chain operand resolves to its field", () => {
+test("network text resolve: a member chain operand resolves to its field", () => {
   const src = `FUNCTION_BLOCK Inner
 VAR Q : BOOL; END_VAR
 END_FUNCTION_BLOCK
@@ -530,25 +530,25 @@ END_NETWORK
 END_FUNCTION_BLOCK`
   const d = doc(src)
   const off = src.indexOf("t.Q") + 2 // the `Q` member
-  const sym = vgResolveAt(d, project(d), off)
+  const sym = networkResolveAt(d, project(d), off)
   expect(sym?.name).toBe("Q")
 })
 
-test("VG: a CFC/SFC marker hover explains the read-only graphical body (F.2e)", () => {
+test("network text: a CFC/SFC marker hover explains the read-only graphical body (F.2e)", () => {
   const src = `FUNCTION_BLOCK F\nVAR END_VAR\n(* @volt-graphical: CFC *)\nEND_FUNCTION_BLOCK`
   const d = doc(src)
   const off = src.indexOf("@volt-graphical")
-  const h = vgMarkerHover(d, off)
+  const h = networkMarkerHover(d, off)
   const value = (h as { contents: { value: string } })?.contents.value
   expect(value).toContain("Continuous Function Chart")
   expect(value).toContain("IDE")
-  // a CFC marker body is a comment — not analyzed as VG or ST (no diagnostics)
+  // a CFC marker body is a comment — not analyzed as network text or ST (no diagnostics)
   expect(vgDiags(src)).toEqual([])
 })
 
-// ─── cross-body references / rename: a symbol used in BOTH ST and VG bodies ─────
+// ─── cross-body references / rename: a symbol used in BOTH ST and network text bodies ─────
 
-/** A multi-file project: a GVL global read by one FB's ST body and another FB's VG (LD) body. */
+/** A multi-file project: a GVL global read by one FB's ST body and another FB's network text (LD) body. */
 function crossBodyProject() {
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
@@ -559,27 +559,27 @@ function crossBodyProject() {
   return { docs, project: buildSymbolTable(docs), by: (uri: string) => docs.find((d) => d.uri === uri)! }
 }
 
-test("VG references: a global read in a VG operand is found from an ST cursor", () => {
+test("network text references: a global read in a network-text operand is found from an ST cursor", () => {
   const { docs, project, by } = crossBodyProject()
   const st = by("file:///FB_ST.fb")
   const locs = referencesAnywhere(docs, project, st, st.source.indexOf("Flag"))
   const uris = new Set(locs?.map((l) => l.uri))
-  // declaration (GVL) + the ST use + the VG operand use — the VG body must not be missed
+  // declaration (GVL) + the ST use + the network-text operand use — the network-text body must not be missed
   expect(uris).toEqual(new Set(["file:///G.gvl", "file:///FB_ST.fb", "file:///FB_VG.fb"]))
 })
 
-test("VG rename: renaming from a VG operand edits every ST and VG occurrence", () => {
+test("network text rename: renaming from a network-text operand edits every ST and network text occurrence", () => {
   const { docs, project, by } = crossBodyProject()
   const vg = by("file:///FB_VG.fb")
   const edit = renameAnywhere(docs, project, vg, vg.source.indexOf("Flag"), "Enabled")
   const changed = Object.keys(edit?.changes ?? {}).sort()
   expect(changed).toEqual(["file:///FB_ST.fb", "file:///FB_VG.fb", "file:///G.gvl"])
-  // the VG operand edit lands on `Flag` within the LD network
+  // the network-text operand edit lands on `Flag` within the LD network
   const vgEdits = edit!.changes!["file:///FB_VG.fb"]!
   expect(vgEdits.every((e) => e.newText === "Enabled")).toBe(true)
 })
 
-test("VG references: a cursor outside any symbol resolves to nothing", () => {
+test("network text references: a cursor outside any symbol resolves to nothing", () => {
   const { docs, project, by } = crossBodyProject()
   const vg = by("file:///FB_VG.fb")
   expect(referencesAnywhere(docs, project, vg, vg.source.indexOf("NETWORK"))).toBeUndefined()

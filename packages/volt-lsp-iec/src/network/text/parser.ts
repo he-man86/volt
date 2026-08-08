@@ -1,18 +1,18 @@
 /**
- * VG parser (Layer F, F.2) — a lean recursive scan of a graphical `BodySpan`'s tokens into networks and
- * statements. The body is already lexed by Layer A; we only impose the VG structure over its tokens.
+ * network-text parser (Layer F, F.2) — a lean recursive scan of a graphical `BodySpan`'s tokens into networks and
+ * statements. The body is already lexed by Layer A; we only impose the network text structure over its tokens.
  *
  * Operands (a sink's lvalue/value, a wire's producer, an EN condition) are parsed into ST `Expr` via the
- * ST expression parser — VG operands ARE fully-parenthesised ST expressions, so the one type engine /
+ * ST expression parser — network-text operands ARE fully-parenthesised ST expressions, so the one type engine /
  * resolveMemberChain / nav / hover apply unchanged. EXECUTE boxes hold ordinary ST, parsed as such.
  */
 import { parseExprFromTokens, parseStatements, type BodySpan, type Span, type Token } from "../../syntax/index.js"
-import type { NetworkTextBody, VgLanguage, VgName, NetworkTextNetwork, NetworkTextStatement, NetworkTextDiagnostic } from "./ast.js"
+import type { NetworkTextBody, NetworkLanguage, NetworkName, NetworkTextNetwork, NetworkTextStatement, NetworkTextDiagnostic } from "./ast.js"
 
-// Uppercased header token → VG language (no cast: the map's values ARE VgLanguage).
-const LANGUAGES: Record<string, VgLanguage> = { FBD: "FBD", LD: "LD", CFC: "CFC", SFC: "SFC" }
+// Uppercased header token → network text language (no cast: the map's values ARE NetworkLanguage).
+const LANGUAGES: Record<string, NetworkLanguage> = { FBD: "FBD", LD: "LD", CFC: "CFC", SFC: "SFC" }
 
-/** Parse a graphical body's tokens into a VG AST + structural diagnostics. */
+/** Parse a graphical body's tokens into a network-text AST + structural diagnostics. */
 export function parseNetworkText(body: BodySpan): NetworkTextBody {
   const toks = body.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "pragma")
   const networks: NetworkTextNetwork[] = []
@@ -37,7 +37,7 @@ export function parseNetworkText(body: BodySpan): NetworkTextBody {
   }
 
   checkDuplicateNetworks(networks, diagnostics)
-  return { kind: "vg_body", networks, diagnostics, span: body.span }
+  return { kind: "network_body", networks, diagnostics, span: body.span }
 }
 
 // ─── networks ────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ function parseNetwork(
     index = Number(toks[i]!.text)
     i++
   }
-  let language: VgLanguage = "UNKNOWN"
+  let language: NetworkLanguage = "UNKNOWN"
   const langTok = toks[i]
   const mapped = langTok?.kind === "identifier" ? LANGUAGES[langTok.text.toUpperCase()] : undefined
   if (mapped !== undefined) {
@@ -134,14 +134,14 @@ function parseStatement(
   }
   if (word(t) === "JMP") {
     const target = toks[start + 1]
-    const name: VgName =
+    const name: NetworkName =
       target !== undefined ? { text: target.text, span: target.span } : { text: "", span: t.span }
     const span = target ? spanOf([t, target]) : t.span
     return { statement: { kind: "jump", target: name, span }, next: skipSemi(toks, start + (target ? 2 : 1)) }
   }
   // `name:` label — a lone `:` token (not `:=`), no `;` terminator; must be caught before the run scan.
   if (t.kind === "identifier" && toks[start + 1]?.text === ":") {
-    const name: VgName = { text: t.text, span: t.span }
+    const name: NetworkName = { text: t.text, span: t.span }
     dedupeName(name, names, diagnostics)
     return { statement: { kind: "label", name, span: spanOf([t, toks[start + 1]!]) }, next: start + 2 }
   }
@@ -158,9 +158,9 @@ function parseStatement(
   if (word(first) === "LET") {
     const nameTok = run[1]
     const nameSpan = nameTok?.span ?? first.span
-    const name: VgName = { text: nameTok?.text ?? "", span: nameSpan }
+    const name: NetworkName = { text: nameTok?.text ?? "", span: nameSpan }
     dedupeName(name, names, diagnostics)
-    // ponytail: en-binding by name convention (`en`, `en2`, …) — the VG writer names EN echoes this way.
+    // ponytail: en-binding by name convention (`en`, `en2`, …) — the network text writer names EN echoes this way.
     const isEnBinding = /^en\d*$/i.test(name.text)
     const producer = assignAt >= 0 ? parseExprFromTokens(run.slice(assignAt + 1)) : undefined
     return { statement: { kind: "wire_def", name, isEnBinding, producer, span: spanOf(run) }, next }
@@ -198,7 +198,7 @@ function parseExecute(toks: Token[], start: number): { statement: NetworkTextSta
   }
 }
 
-/** `IF <en> THEN <statements> END_IF` — an EN/ENO box; the body is faithful VG (recursively parsed). */
+/** `IF <en> THEN <statements> END_IF` — an EN/ENO box; the body is faithful network text (recursively parsed). */
 function parseEnEnoIf(
   toks: Token[],
   start: number,
@@ -255,7 +255,7 @@ function checkDuplicateNetworks(networks: NetworkTextNetwork[], diagnostics: Net
   }
 }
 
-function dedupeName(name: VgName, names: Set<string>, diagnostics: NetworkTextDiagnostic[]): void {
+function dedupeName(name: NetworkName, names: Set<string>, diagnostics: NetworkTextDiagnostic[]): void {
   if (name.text === "") return
   if (names.has(name.text)) {
     diagnostics.push({
@@ -280,7 +280,7 @@ function topLevelAssign(run: Token[]): number {
 }
 
 const isComment = (t: Token): boolean => t.kind === "line_comment" || t.kind === "block_comment"
-// VG structural words (NETWORK/END_NETWORK/LET/DISABLED) lex as identifiers, IF/RETURN/JMP as keywords —
+// network text structural words (NETWORK/END_NETWORK/LET/DISABLED) lex as identifiers, IF/RETURN/JMP as keywords —
 // match all by uppercased text so both are covered uniformly.
 const word = (t: Token): string => t.text.toUpperCase()
 

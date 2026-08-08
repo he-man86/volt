@@ -1,9 +1,9 @@
 /**
- * VG services (Layer F, F.2d) — the graphical branch of hover · definition · type-definition · completion.
- * Native by reuse: VG operands are ST `Expr`, so cursor→symbol resolution runs the SAME descent
+ * network text services (Layer F, F.2d) — the graphical branch of hover · definition · type-definition · completion.
+ * Native by reuse: network-text operands are ST `Expr`, so cursor→symbol resolution runs the SAME descent
  * (`exprAtOffset`/`memberAtOffset`) and `resolveMemberChain`/`lookup` the ST services use, against the
  * network scope (POU + inferred `LET` wires). Results render through the ST cores (`symbolHover`,
- * `completionAtScope`, `locationOf`), so VG understanding matches ST — including a wire's inferred type.
+ * `completionAtScope`, `locationOf`), so network text understanding matches ST — including a wire's inferred type.
  *
  * The server routes a position query to these when the offset is inside a graphical body (`inNetworkText`),
  * else to the ST services.
@@ -36,10 +36,10 @@ import {
   type Document,
   type Ref,
 } from "../services/index.js"
-import { analyzeNetworkText, vgNetworkAt, wireDefs } from "./network-analyze.js"
+import { analyzeNetworkText, networkNetworkAt, wireDefs } from "./network-analyze.js"
 import type { NetworkTextStatement } from "./text/ast.js"
 
-/** True when the offset falls inside a graphical (VG) body — the server's routing discriminator. */
+/** True when the offset falls inside a graphical (network text) body — the server's routing discriminator. */
 export function inNetworkText(doc: Document, offset: number): boolean {
   return vgBodyAt(doc, offset) !== undefined
 }
@@ -54,9 +54,9 @@ const GRAPHICAL_LANGUAGES: Record<string, string> = {
 /**
  * Hover for a `(* @volt-graphical: <LANG> *)` marker (F.2e) — the informational comment a read-only
  * CFC/SFC body materializes as (spec §E). Explains that the body is authored in the IDE and not editable
- * as text. The marker is a comment, so it is otherwise not analyzed as VG or ST.
+ * as text. The marker is a comment, so it is otherwise not analyzed as network text or ST.
  */
-export function vgMarkerHover(doc: Document, offset: number): Hover | undefined {
+export function networkMarkerHover(doc: Document, offset: number): Hover | undefined {
   const marker = /\(\* @volt-graphical: (\w+) \*\)/g
   for (const m of doc.source.matchAll(marker)) {
     const start = m.index
@@ -78,9 +78,9 @@ export function vgMarkerHover(doc: Document, offset: number): Hover | undefined 
   return undefined
 }
 
-/** Hover for a VG operand/wire — a symbol declaration (wire type inferred) or a built-in reference entry. */
-export function vgHover(doc: Document, project: Scope, offset: number): Hover | undefined {
-  const sym = vgResolveAt(doc, project, offset)
+/** Hover for a network-text operand/wire — a symbol declaration (wire type inferred) or a built-in reference entry. */
+export function networkHover(doc: Document, project: Scope, offset: number): Hover | undefined {
+  const sym = networkResolveAt(doc, project, offset)
   if (sym !== undefined) return symbolHover(sym)
   const tok = tokenAtOffset(doc.source, offset)
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
@@ -90,45 +90,45 @@ export function vgHover(doc: Document, project: Scope, offset: number): Hover | 
   return undefined
 }
 
-/** Go-to-definition for a VG operand/wire reference. */
-export function vgDefinition(doc: Document, project: Scope, offset: number): Location | undefined {
-  const sym = vgResolveAt(doc, project, offset)
+/** Go-to-definition for a network-text operand/wire reference. */
+export function networkDefinition(doc: Document, project: Scope, offset: number): Location | undefined {
+  const sym = networkResolveAt(doc, project, offset)
   return sym !== undefined ? locationOf(sym) : undefined
 }
 
 /** Go-to-type-definition: the declaration of the resolved symbol's TYPE. */
-export function vgTypeDefinition(doc: Document, project: Scope, offset: number): Location | undefined {
-  const te = vgResolveAt(doc, project, offset)?.typeExpr
+export function networkTypeDefinition(doc: Document, project: Scope, offset: number): Location | undefined {
+  const te = networkResolveAt(doc, project, offset)?.typeExpr
   const name = te?.kind === "named_type" ? te.name.text : undefined
   if (name === undefined) return undefined
   const typeSym = lookup(project, name)?.symbol
   return typeSym !== undefined ? locationOf(typeSym) : undefined
 }
 
-/** Completion inside a VG network — POU vars + this network's wires + members + keywords. */
-export function vgCompletion(doc: Document, project: Scope, offset: number): CompletionItem[] {
+/** Completion inside a network text network — POU vars + this network's wires + members + keywords. */
+export function networkCompletion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const found = vgBodyAt(doc, offset)
   if (found === undefined) return []
   const analysis = analyzeNetworkText(found.unit, found.body, project, doc.uri)
-  const scope = vgNetworkAt(analysis, offset)?.scope ?? analysis.pou
+  const scope = networkNetworkAt(analysis, offset)?.scope ?? analysis.pou
   return completionAtScope(scope, project, doc.source, offset)
 }
 
 // ─── cross-body references / rename (F.2d follow-on) ───────────────────────────
 //
-// A symbol can be used in BOTH ST and VG bodies, so references/rename must span both — a rename that
-// missed a VG operand would leave it pointing at the old name (data corruption). These compose the ST
-// `findReferences` (declaration + ST body uses) with a walk over VG operand networks, and resolve the
+// A symbol can be used in BOTH ST and network text bodies, so references/rename must span both — a rename that
+// missed a network-text operand would leave it pointing at the old name (data corruption). These compose the ST
+// `findReferences` (declaration + ST body uses) with a walk over network-text operand networks, and resolve the
 // cursor from whichever body kind it sits in. The server routes ALL references/rename here.
 
-/** Resolve the symbol under the cursor whether it lands in an ST or a VG body. */
+/** Resolve the symbol under the cursor whether it lands in an ST or a network-text body. */
 export function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol | undefined {
-  return inNetworkText(doc, offset) ? vgResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
+  return inNetworkText(doc, offset) ? networkResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
 }
 
-/** Every occurrence of `target` across ST bodies (via `findReferences`) AND VG operand networks. */
+/** Every occurrence of `target` across ST bodies (via `findReferences`) AND network-text operand networks. */
 export function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
-  const all = [...docs] // iterated twice (ST pass, then VG pass)
+  const all = [...docs] // iterated twice (ST pass, then network text pass)
   const out = findReferences(all, project, target)
   for (const doc of all) {
     for (const body of vgBodies(doc)) {
@@ -154,7 +154,7 @@ export function allReferences(docs: Iterable<Document>, project: Scope, target: 
   return out
 }
 
-/** references (ST + VG) — the target resolved from either body kind. */
+/** references (ST + network text) — the target resolved from either body kind. */
 export function referencesAnywhere(
   docs: Iterable<Document>,
   project: Scope,
@@ -174,21 +174,21 @@ export function referencesAnywhere(
   return toLocations(kept)
 }
 
-/** documentHighlight (ST + VG) — every occurrence of the cursor's symbol IN this doc, incl. VG operand uses. */
+/** documentHighlight (ST + network text) — every occurrence of the cursor's symbol IN this doc, incl. network-text operand uses. */
 export function documentHighlightsAnywhere(doc: Document, project: Scope, offset: number): Range[] | undefined {
   const sym = resolveAnywhere(doc, project, offset)
   if (sym === undefined) return undefined
   return allReferences([doc], project, sym).map((r) => r.range)
 }
 
-/** prepareRename (ST + VG) — the editable range for a renameable cursor. */
+/** prepareRename (ST + network text) — the editable range for a renameable cursor. */
 export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
   if (resolveAnywhere(doc, project, offset) === undefined) return undefined
   const tok = tokenAtOffset(doc.source, offset)
   return tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword") ? rangeFromSpan(tok.span) : undefined
 }
 
-/** rename (ST + VG) — one edit per occurrence across both body kinds. */
+/** rename (ST + network text) — one edit per occurrence across both body kinds. */
 export function renameAnywhere(
   docs: Iterable<Document>,
   project: Scope,
@@ -203,7 +203,7 @@ export function renameAnywhere(
   return { changes }
 }
 
-/** Every VG body (with its unit) in a document. */
+/** Every network-text body (with its unit) in a document. */
 function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
   const out: { unit: TopLevel; body: BodySpan }[] = []
   for (const unit of doc.parseResult.units)
@@ -213,12 +213,12 @@ function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
 
 // ─── resolution ──────────────────────────────────────────────────────────────
 
-/** The symbol a VG cursor points at: a `LET` wire (at its def or a use) or a POU/global via the operand. */
-export function vgResolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
+/** The symbol a network text cursor points at: a `LET` wire (at its def or a use) or a POU/global via the operand. */
+export function networkResolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
   const found = vgBodyAt(doc, offset)
   if (found === undefined) return undefined
   const analysis = analyzeNetworkText(found.unit, found.body, project, doc.uri)
-  const here = vgNetworkAt(analysis, offset)
+  const here = networkNetworkAt(analysis, offset)
   if (here === undefined) return undefined
   const { network, scope } = here
 
@@ -241,7 +241,7 @@ export function vgResolveAt(doc: Document, project: Scope, offset: number): Symb
   return undefined
 }
 
-/** Wrap every VG operand `Expr` as an `expr_stmt` so `exprAtOffset`/`memberAtOffset` descend it. */
+/** Wrap every network-text operand `Expr` as an `expr_stmt` so `exprAtOffset`/`memberAtOffset` descend it. */
 function operandStatements(statements: readonly NetworkTextStatement[]): Statement[] {
   const out: Statement[] = []
   const push = (e?: Expr): void => {

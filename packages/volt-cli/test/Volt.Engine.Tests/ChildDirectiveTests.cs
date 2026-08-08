@@ -81,7 +81,7 @@ public class ChildDirectiveTests
     public void Graphical_pou_var_temp_stays_in_impl_not_decl()
     {
         // Regression: a graphical body's VAR_TEMP must NOT be split into the POU declaration. (It used
-        // to: the decl/impl split scanned for the LAST END_VAR, which is the VG VAR_TEMP's — so push
+        // to: the decl/impl split scanned for the LAST END_VAR, which is the network text VAR_TEMP's — so push
         // wrote temp vars into the POU and corrupted it, breaking every later read.)
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
                  "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
@@ -89,7 +89,7 @@ public class ChildDirectiveTests
         var s = StSplitter.SplitSt(st);
         Assert.Contains("PROGRAM POU", s.PouDeclaration);
         Assert.Contains("out1 : BOOL;", s.PouDeclaration);
-        Assert.DoesNotContain("VAR_TEMP", s.PouDeclaration);   // VG temps never leak into the decl
+        Assert.DoesNotContain("VAR_TEMP", s.PouDeclaration);   // network text temps never leak into the decl
         Assert.DoesNotContain("NETWORK", s.PouDeclaration);
         Assert.StartsWith("NETWORK 0 FBD", s.PouImplementation);
         Assert.Contains("VAR_TEMP", s.PouImplementation);      // they stay in the body
@@ -99,7 +99,7 @@ public class ChildDirectiveTests
     [Theory]
     [InlineData("NETWORK 0 FBD\n  out := i1;\nEND_NETWORK", "FBD", true)]   // editable: language on the marker
     [InlineData("NETWORK 0 LD\n  out := i1;\nEND_NETWORK", "LD", true)]
-    [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a VG body
+    [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a network-text body
     public void NetworkText_classifies_language_and_editability(string impl, string? lang, bool editable)
     {
         Assert.Equal(lang != null, NetworkText.Is(impl));

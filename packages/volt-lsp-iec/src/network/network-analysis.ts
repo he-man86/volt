@@ -1,5 +1,5 @@
 /**
- * VG diagnostics (Layer F, F.2c) — the graphical branch of the analysis orchestrator. Two streams, both
+ * network-text diagnostics (Layer F, F.2c) — the graphical branch of the analysis orchestrator. Two streams, both
  * lifted into the same `DiagnosticItem` the ST checks emit so the server merges them onto one
  * `PublishDiagnostics`:
  *   1. STRUCTURAL — the LSP-ownable subset of the bridge's `NETWORK_*` codes (parse · not-closed · duplicate
@@ -9,12 +9,12 @@
  *      Byte-identical wording per vendor; the corpus 0-FP gate covers it. Sinks nested in EN/ENO boxes and
  *      the assignments inside EXECUTE boxes are checked too.
  *
- * Type checks mirrored for VG (all share the ST per-pair/per-node helpers so wording stays byte-identical):
+ * Type checks mirrored for network text (all share the ST per-pair/per-node helpers so wording stays byte-identical):
  * assignment mismatch + sink narrowing (`checkStatements`/`checkPair`), binary-operator (`checkBinaryOps`), and
  * conversion-argument narrowing/sign-change (`checkConversionArgs`). ponytail: not every ST type check runs on
- * VG yet — the remainder is added the same way (per-node helper over `operandExprs`) as corpus cases surface.
+ * network text yet — the remainder is added the same way (per-node helper over `operandExprs`) as corpus cases surface.
  *
- * vg-undeclared-identifier: an operand naming something declared nowhere reachable — the VG analogue of ST's
+ * network-undeclared-identifier: an operand naming something declared nowhere reachable — the network-text analogue of ST's
  * unresolved-identifier, sharing its exact resolution rules (`unresolvedInExprs`), against the per-network
  * scope (POU + `LET` wires). Error severity, so the corpus 0-FP gate covers it.
  */
@@ -81,9 +81,9 @@ export function computeNetworkTextDiagnostics(
 const NETWORK_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
 
 /**
- * vg-undeclared-identifier + vg-unknown-member: resolve every operand identifier in the network against its
+ * network-undeclared-identifier + network-unknown-member: resolve every operand identifier in the network against its
  * POU+wire scope (bare names), then type-check every member access (`a.b`) against the base's type — the SAME
- * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so VG matches ST byte-for-byte. Member access was
+ * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so network text matches ST byte-for-byte. Member access was
  * held pending a corpus re-harvest; the blocker was actually a binder bug (qualified_only GVL members leaking
  * into the bare namespace — the lenze `Mach1` collision), now fixed, so it ships at 0-FP.
  */
@@ -102,7 +102,7 @@ function checkUndeclared(
       severity: "error",
       span: ref.span,
       source: SOURCE,
-      code: "vg-undeclared-identifier",
+      code: "network-undeclared-identifier",
       message: messages.undefinedIdentifier(ref.name),
     })
   }
@@ -111,14 +111,14 @@ function checkUndeclared(
       severity: "error",
       span: ref.span,
       source: SOURCE,
-      code: "vg-unknown-member",
+      code: "network-unknown-member",
       message: messages.notAMember(ref.member, ref.typeName),
     })
   }
 }
 
 /**
- * vg-undefined-label: a `JMP` whose target names no `LABEL` in the same network → error. Both compilers
+ * network-undefined-label: a `JMP` whose target names no `LABEL` in the same network → error. Both compilers
  * reject it. Labels + jumps are gathered across EN/ENO boxes too (a jump reaches any label in its network).
  * ponytail: message PROVISIONAL/bridge-gated — network text has no conformance recording yet (like the NETWORK_* codes).
  */
@@ -143,8 +143,8 @@ function checkJumps(statements: readonly NetworkTextStatement[], labels: Readonl
           severity: "error",
           span: s.target.span,
           source: SOURCE,
-          code: "vg-undefined-label",
-          // CODESYS wording, confirmed live (label UPPERCASED). TwinCAT does NOT flag a VG JMP to a missing
+          code: "network-undefined-label",
+          // CODESYS wording, confirmed live (label UPPERCASED). TwinCAT does NOT flag a network-text JMP to a missing
           // label at all — so the fixture is a TwinCAT KNOWN_DIVERGENCE in the conformance replay.
           message: `No such label '${s.target.text.toUpperCase()}' within the scope of the JMP statement`,
         })
@@ -156,7 +156,7 @@ function checkJumps(statements: readonly NetworkTextStatement[], labels: Readonl
 }
 
 /**
- * vg-unknown-pin: an FB-instance box `inst(PIN := arg, …)` passing a PIN the FB doesn't declare → error
+ * network-unknown-pin: an FB-instance box `inst(PIN := arg, …)` passing a PIN the FB doesn't declare → error
  * (both compilers reject it). Conservative to a fault (zero-FP): the check runs ONLY when the callee
  * resolves to a project FB whose ENTIRE `EXTENDS` chain is resolved — an unresolvable base (a library FB) is
  * an unknown pin set, so the whole call is skipped rather than guessed. Pins = the FB's VAR_INPUT/OUTPUT/
@@ -181,7 +181,7 @@ function checkPins(statements: readonly NetworkTextStatement[], scope: Scope, pr
           severity: "error",
           span: arg.param.span,
           source: SOURCE,
-          code: "vg-unknown-pin",
+          code: "network-unknown-pin",
           // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live). Use the FB's
           // TYPE name (t.name), not the instance expression.
           message: `'${arg.param.name}' is no input of '${t.name.toUpperCase()}'`,

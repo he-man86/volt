@@ -8,7 +8,7 @@ public class NetworkTextRoundTripTests
     private static string Round(string vg) => NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
 
     [Theory]
-    // Each of these shapes must CONVERGE to a fixed point through the readable-VG round-trip. We assert
+    // Each of these shapes must CONVERGE to a fixed point through the readable-network-text round-trip. We assert
     // idempotence — Round(Round(x)) == Round(x) — not equality to a hardcoded canonical string: the canonical
     // form is implementation-defined (the writer inlines single-use wires, names only fan-out), so pinning an
     // exact string is brittle. Inputs here introduce internal wires with the inline `LET <name> := …` form —

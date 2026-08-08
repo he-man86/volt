@@ -89,7 +89,7 @@ public class NetworkTextCompoundExpressionTests
     [Fact]
     public void Negation_round_trips_through_plcopen_as_a_pin_modifier()
     {
-        // The supported inversions — NOT on an input operand and on the output sink — survive VG → PLCopen → VG
+        // The supported inversions — NOT on an input operand and on the output sink — survive network text → PLCopen → network text
         // (negated="true" on the pin/variable). Assert the round-trip CONVERGES (settles to a fixed point)
         // rather than equality to a hand-written canonical string.
         var vg = "NETWORK 0 FBD\n  LET g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";

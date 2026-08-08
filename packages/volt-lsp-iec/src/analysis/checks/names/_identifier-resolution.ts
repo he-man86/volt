@@ -1,9 +1,9 @@
 /**
  * Shared bare-identifier resolution (names/). The oracle behind BOTH the ST `unresolved-identifier` check
- * and the VG `vg-undeclared-identifier` check: VG operands are ST `Expr` trees, so a graphical body resolves
+ * and the network-text `network-undeclared-identifier` check: network-text operands are ST `Expr` trees, so a graphical body resolves
  * its identifiers by exactly the same rules as a textual one (against a network scope that layers `LET`
  * wires over the POU scope). Keeping the rules in one place is what makes the two checks agree by
- * construction — a name ST resolves can never be one VG flags, and vice-versa.
+ * construction — a name ST resolves can never be one the network-text check flags, and vice-versa.
  *
  * Zero-FP is the whole game. A name resolves (is NOT flagged) when it is any of: a `__`-system operator, a
  * conversion call (`<T>_TO_<U>` / `TO_<U>`), a compiler-provided implicit (`THIS`/`SUPER`/`IoConfig_Globals`/

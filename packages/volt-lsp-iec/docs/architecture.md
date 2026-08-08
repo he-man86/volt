@@ -76,10 +76,10 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 (document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
 `code-actions`.
 
-### F — `reference/` · `graphical/`
+### F — `reference/` · `network/`
 `reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
-lifecycle) — ranges derive from `types/elementary`. `graphical/` is the FBD/LD family: the readable text
-encoding (`graphical/text/`, room for future formats), plus infer/checks/services that **reuse the shared
+lifecycle) — ranges derive from `types/elementary`. `network/` is the FBD/LD family: the readable text
+encoding (`network/text/`, room for future formats), plus infer/checks/services that **reuse the shared
 core** — one type engine, one orchestrator, one service set. Graphical is a second front-end that plugs in, not
 a second stack.
 
@@ -173,7 +173,7 @@ map first.** A second copy is a lint failure, not a style nit.
 - Conservative & non-authoritative: unknown types skip; the IDE owns final type-checking + codegen.
 - Additive to the protocol; `inferExprType` is the frontend's public entry point.
 
-Requirement-level contracts (compiler-parity, vendor-keying, error-tolerant parsing, VG ownership boundary,
+Requirement-level contracts (compiler-parity, vendor-keying, error-tolerant parsing, network-text ownership boundary,
 library resolution, corpus verification) live in `spec.md`; the concrete types in `data-model.md`; the IEC
 catalog + the CODESYS↔TwinCAT differences in `language-reference.md`. This document is the structural blueprint
 the build follows.

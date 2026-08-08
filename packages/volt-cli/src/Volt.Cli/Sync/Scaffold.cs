@@ -48,7 +48,7 @@ public static class Scaffold
         "- **`volt pull` / `volt push`** sync `src/` with the live IDE (the machine).",
         "- **`git commit` / `git push`** version the text + share with the team. Commit before pulling.", "",
         "`src/` mirrors the IDE — edit the kind-named source files locally; `volt push` writes them back.",
-        "FBD/LD graphical bodies ride in those files too, editable as VG text. `.cfc`/`.sfc` are read-only",
+        "FBD/LD graphical bodies ride in those files too, editable as network text. `.cfc`/`.sfc` are read-only",
         "views of graphical bodies (don't hand-edit).", "",
         "## File extensions — name every item by its KIND", "",
         "An item's extension IS its kind. Every DUT (struct, enum, union, alias) is a single `.dut` file —",

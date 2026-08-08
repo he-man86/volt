@@ -9,7 +9,7 @@ public class PlcOpenWriterTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
-    /// <summary>XML → graph → XML → graph → VG must reproduce the same VG: the writer faithfully
+    /// <summary>XML → graph → XML → graph → network text must reproduce the same network text: the writer faithfully
     /// reproduces the graph the reader parsed.</summary>
     private static void AssertXmlRoundTrip(string fbdInner)
     {
@@ -59,7 +59,7 @@ public class PlcOpenWriterTests
             <outVariable localId="6"><expression>result</expression><connectionPointIn><connection refLocalId="5"/></connectionPointIn></outVariable>
             """);
 
-    /// <summary>Regression: a negated block input is read into Mods, must surface in VG as NOT, and
+    /// <summary>Regression: a negated block input is read into Mods, must surface in network text as NOT, and
     /// must be RE-EMITTED as negated="true" on write (it was silently dropped before).</summary>
     [Fact]
     public void Negated_input_survives_read_then_write()
@@ -78,7 +78,7 @@ public class PlcOpenWriterTests
             """;
         var g1 = GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbd}</FBD>"));
         var vg1 = NetworkTextWriter.Write(g1);
-        Assert.Contains("NOT a", vg1);                                   // negation surfaces in VG as a pin modifier on the inlined operand
+        Assert.Contains("NOT a", vg1);                                   // negation surfaces in network text as a pin modifier on the inlined operand
 
         var xml2 = GraphWriter.WriteBody(g1);
         Assert.Contains("negated=\"true\"", xml2.ToString());           // re-emitted, not dropped
@@ -216,7 +216,7 @@ public class PlcOpenWriterTests
         Assert.Contains("y :=", back);
     }
 
-    /// <summary>Regression: VG carries an FB output only on the CONSUMER (`done := t1.Q`), never on the
+    /// <summary>Regression: network text carries an FB output only on the CONSUMER (`done := t1.Q`), never on the
     /// block's call. The writer must still declare `Q` as an output pin on the block — otherwise the
     /// connection names a pin the block doesn't have and the IDE drops it on import (the `out := ;` bug).</summary>
     [Fact]
@@ -232,7 +232,7 @@ public class PlcOpenWriterTests
         Assert.Equal(vg, NetworkTextWriter.Write(GraphReader.ReadBody(xml)));          // and it round-trips (fixed point)
     }
 
-    /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
+    /// <summary>Full pipeline network text → graph → PLCopenXML → graph → network text (the write path the bridge runs),
     /// with FB types supplied by the declaration resolver.</summary>
     [Fact]
     public void Vg_through_xml_back_to_vg_with_type_resolver()

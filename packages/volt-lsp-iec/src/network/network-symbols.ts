@@ -1,5 +1,5 @@
 /**
- * VG outline (Layer F, F.2) — the graphical branch of document-symbol. Enriches the ST outline (E's
+ * network text outline (Layer F, F.2) — the graphical branch of document-symbol. Enriches the ST outline (E's
  * `documentSymbols`) with a `NETWORK n` child under each POU that has a graphical body, so an FBD/LD
  * body shows its networks instead of appearing empty.
  */
@@ -8,7 +8,7 @@ import { unitBodies, isGraphicalBody } from "../syntax/index.js"
 import { documentSymbols, rangeFromSpan, type Document } from "../services/index.js"
 import { parseNetworkText } from "./text/parser.js"
 
-/** ST document symbols with each VG body's networks attached under their owning POU. */
+/** ST document symbols with each network-text body's networks attached under their owning POU. */
 export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {
   const symbols = documentSymbols(doc)
   for (const unit of doc.parseResult.units) {

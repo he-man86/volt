@@ -237,9 +237,9 @@ public static class StSplitter
 			return (string.Join("\n", pouLines).TrimEnd(), "");
 		}
 
-		// A GRAPHICAL (VG) body — NETWORK <n> <LANG> … (editable FBD/LD; CFC/SFC are declaration-only) — is
+		// A GRAPHICAL (network text) body — NETWORK <n> <LANG> … (editable FBD/LD; CFC/SFC are declaration-only) — is
 		// the IMPLEMENTATION in full, INCLUDING its own VAR_TEMP block. Split BEFORE that marker so the
-		// VG's VAR_TEMP is never mistaken for a POU declaration var (the END_VAR scan below would pull it
+		// network text's VAR_TEMP is never mistaken for a POU declaration var (the END_VAR scan below would pull it
 		// into the decl, writing temp vars into the POU and corrupting it on push).
 		int gfx = FirstMarkerLine(pouLines, includeFolder: false);
 		if (gfx >= 0) return SplitAtLine(pouLines, gfx);
@@ -423,7 +423,7 @@ public static class StSplitter
 	private static (string decl, string impl) SplitDeclImplOfChild(IList<string> innerLines)
 	{
 		// Same guard as the root POU, plus %FOLDER: a child's impl is everything from the first
-		// %FOLDER/graphical marker (its VG body — incl. VAR_TEMP — and the %FOLDER directive that
+		// %FOLDER/graphical marker (its network-text body — incl. VAR_TEMP — and the %FOLDER directive that
 		// PeelFolderDirective will strip). Real VAR sections stay in the decl before it.
 		int gfx = FirstMarkerLine(innerLines, includeFolder: true);
 		if (gfx >= 0) return SplitAtLine(innerLines, gfx);

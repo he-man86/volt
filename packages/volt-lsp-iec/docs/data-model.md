@@ -308,64 +308,64 @@ interface ReferenceEntry {
 interface ConversionEntry extends ReferenceEntry { sourceType: string; destType: string }
 ```
 
-## graphical (VG)
+## network text (FBD/LD as text)
 
-**As-built (the reuse model).** VG operands ARE fully-parenthesised ST expressions, so they parse into the
+**As-built (the reuse model).** Network-text operands ARE fully-parenthesised ST expressions, so they parse into the
 ST `Expr` tree and flow through the ONE type engine / `resolveMemberChain` / nav / hover — there is no
-parallel `VgOperand`/`VgGroup`/`VgLeaf` operand tree, no VG-specific infer/resolve stack, and operator info
-is the `Expr` binary node's, not a `VgGroup` fact. An `EXECUTE` box holds ordinary ST, parsed with the ST
+parallel `NetworkOperand`/`NetworkGroup`/`NetworkLeaf` operand tree, no network-text-specific infer/resolve stack, and operator info
+is the `Expr` binary node's, not a `NetworkGroup` fact. An `EXECUTE` box holds ordinary ST, parsed with the ST
 statement parser into a `StatementList`. This is the "reuse the shared core — one type engine, one service
-set" refinement (architecture F); the pre-rebuild `VgOperand` tree below the line is retained only as the
+set" refinement (architecture F); the pre-rebuild `NetworkOperand` tree below the line is retained only as the
 historical topology model.
 
 ```ts
 // Diagnostic codes — the LSP EMITS only the pure-text structural subset (it mirrors these so a body is
 // fixed before push). The rest are BRIDGE-OWNED (need the writer + PLCopen round-trip) and never emitted
 // by the LSP; they are listed for completeness of the wire vocabulary.
-type VgDiagnosticCode =
+type NetworkDiagnosticCode =
   | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NETWORK" | "NETWORK_DUPLICATE_NAME"   // ← LSP-emitted
   | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNKNOWN_OPERATOR" | "NETWORK_LEAF_REFERENCES_TEMP" | "NETWORK_LEAF_FANOUT" | "NETWORK_NOT_CANONICAL" // ← bridge-only
-interface VgDiagnostic { code: VgDiagnosticCode; message: string; span: Span } // messages PROVISIONAL until the T.1 bridge record pass
+interface NetworkDiagnostic { code: NetworkDiagnosticCode; message: string; span: Span } // messages PROVISIONAL until the T.1 bridge record pass
 
-type VgLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
-interface VgName { text: string; span: Span }
+type NetworkLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
+interface NetworkName { text: string; span: Span }
 
 // Statements — operands are ST `Expr` (undefined when a slice does not parse cleanly → conservative skip).
-type VgStatement =
-  | VgWireDef | VgSink | VgFbCall | VgEnEnoIf | VgExecute | VgLabel | VgJump | VgReturn | VgComment | VgUnknownStmt
-interface VgWireDef { kind: "wire_def"; name: VgName; isEnBinding: boolean; producer?: Expr; span: Span }
-interface VgSink    { kind: "sink"; target?: Expr; value?: Expr; span: Span }
-interface VgFbCall  { kind: "fb_call"; call?: Expr; span: Span }                        // a box call `inst(PIN := arg, …)`
-interface VgEnEnoIf { kind: "en_eno_if"; en?: Expr; body: VgStatement[]; span: Span }   // IF <en> THEN … END_IF
-interface VgExecute { kind: "execute"; statements: StatementList; ok: boolean; span: Span } // EXECUTE <inline ST> END_EXECUTE
-interface VgLabel   { kind: "label"; name: VgName; span: Span }
-interface VgJump    { kind: "jump"; target: VgName; condition?: Expr; span: Span }
-interface VgReturn  { kind: "return"; condition?: Expr; span: Span }
-interface VgComment { kind: "comment"; text: string; span: Span }
-interface VgUnknownStmt { kind: "unknown_stmt"; tokens: Token[]; span: Span }
+type NetworkStatement =
+  | NetworkWireDef | NetworkSink | NetworkFbCall | NetworkEnEnoIf | NetworkExecute | NetworkLabel | NetworkJump | NetworkReturn | NetworkComment | NetworkUnknownStmt
+interface NetworkWireDef { kind: "wire_def"; name: NetworkName; isEnBinding: boolean; producer?: Expr; span: Span }
+interface NetworkSink    { kind: "sink"; target?: Expr; value?: Expr; span: Span }
+interface NetworkFbCall  { kind: "fb_call"; call?: Expr; span: Span }                        // a box call `inst(PIN := arg, …)`
+interface NetworkEnEnoIf { kind: "en_eno_if"; en?: Expr; body: NetworkStatement[]; span: Span }   // IF <en> THEN … END_IF
+interface NetworkExecute { kind: "execute"; statements: StatementList; ok: boolean; span: Span } // EXECUTE <inline ST> END_EXECUTE
+interface NetworkLabel   { kind: "label"; name: NetworkName; span: Span }
+interface NetworkJump    { kind: "jump"; target: NetworkName; condition?: Expr; span: Span }
+interface NetworkReturn  { kind: "return"; condition?: Expr; span: Span }
+interface NetworkComment { kind: "comment"; text: string; span: Span }
+interface NetworkUnknownStmt { kind: "unknown_stmt"; tokens: Token[]; span: Span }
 
-interface VgNetwork {
-  index?: number; language: VgLanguage; label?: string; disabled: boolean
-  statements: VgStatement[]; headerSpan: Span; span: Span
+interface NetworkNetwork {
+  index?: number; language: NetworkLanguage; label?: string; disabled: boolean
+  statements: NetworkStatement[]; headerSpan: Span; span: Span
 }
-interface NetworkText { kind: "vg_body"; networks: VgNetwork[]; diagnostics: VgDiagnostic[]; span: Span }
+interface NetworkText { kind: "network_body"; networks: NetworkNetwork[]; diagnostics: NetworkDiagnostic[]; span: Span }
 
 // Analysis (F.2b) — a per-network resolution scope layering the network's LET wires (typed by inferring
 // their producer `Expr`) over the POU scope; the shared infer engine resolves wires like real variables.
-interface VgAnalysis { vg: NetworkText; pou: Scope; networkScopes: Map<VgNetwork, Scope> }
+interface VgAnalysis { vg: NetworkText; pou: Scope; networkScopes: Map<NetworkNetwork, Scope> }
 ```
 
 <details><summary>Pre-rebuild operand tree (historical — NOT built; operands are `Expr`)</summary>
 
 ```ts
 interface VgMods { negated: boolean; edge?: "rising" | "falling"; storage?: "set" | "reset"; tokens: Token[] }
-type VgCore = VgGroup | VgCall | VgMember | VgLeaf
-interface VgOperand { kind: "operand"; mods: VgMods; core: VgCore; span: Span }
-interface VgGroup   { kind: "group"; op?: VgOperatorSymbol; opTokens: Token[]; operands: VgOperand[]; span: Span }
-interface VgCall    { kind: "call"; callee: VgName; args: VgArg[]; span: Span }
-interface VgMember  { kind: "member"; base: VgName; member: VgName; span: Span }
-interface VgLeaf    { kind: "leaf"; text: string; tokens: Token[]; isLiteral: boolean; name?: VgName; span: Span }
-interface VgArg     { pin?: VgName; value: VgOperand; span: Span }
+type VgCore = NetworkGroup | VgCall | VgMember | NetworkLeaf
+interface NetworkOperand { kind: "operand"; mods: VgMods; core: VgCore; span: Span }
+interface NetworkGroup   { kind: "group"; op?: VgOperatorSymbol; opTokens: Token[]; operands: NetworkOperand[]; span: Span }
+interface VgCall    { kind: "call"; callee: NetworkName; args: VgArg[]; span: Span }
+interface VgMember  { kind: "member"; base: NetworkName; member: NetworkName; span: Span }
+interface NetworkLeaf    { kind: "leaf"; text: string; tokens: Token[]; isLiteral: boolean; name?: NetworkName; span: Span }
+interface VgArg     { pin?: NetworkName; value: NetworkOperand; span: Span }
 type VgOperatorSymbol = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD" | ">" | "<" | ">=" | "<=" | "=" | "<>"
 type VgOperatorClass = "logic" | "arithmetic" | "comparison"
 ```
@@ -405,9 +405,9 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
   is the one source of truth.
 - **Fold `ResolvedType` + `InferredType` into one `Type`** — they overlap heavily; resolve and infer become one
   engine.
-- **VG operands are ST `Expr`, not a `VgOperand`/`VgGroup` tree** — VG operands are fully-parenthesised ST
+- **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
-  nav / hover. There is no VG-specific operand tree or infer/resolve stack; operator info is the `Expr`
+  nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`
   binary node's. `LET` wires become per-network pseudo-symbols typed by inferring their producer `Expr`
   (`VgAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
-  the earlier "operator info as a fact on `VgGroup`" refinement (there is no `VgGroup`).
+  the earlier "operator info as a fact on `NetworkGroup`" refinement (there is no `NetworkGroup`).

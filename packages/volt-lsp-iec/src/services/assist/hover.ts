@@ -29,7 +29,7 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
 /**
  * Hover for a pragma — the directive (`{IF …}`, `{region …}`) or the `{attribute '<name>'}` name under the
  * cursor, described from the reference catalog. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
- * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback (like `vgMarkerHover`).
+ * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback (like `networkMarkerHover`).
  */
 export function pragmaHover(doc: Document, offset: number): Hover | undefined {
   for (const t of lex(doc.source)) {
@@ -52,7 +52,7 @@ function pragmaMd(word: string): Hover | undefined {
   return help !== undefined ? { contents: { kind: "markdown", value: `\`{${word}}\`\n\n${help}` } } : undefined
 }
 
-/** The markdown hover for a resolved symbol — a declaration line + kind label. Shared by ST and VG hover. */
+/** The markdown hover for a resolved symbol — a declaration line + kind label. Shared by ST and network text hover. */
 export function symbolHover(sym: Symbol): Hover {
   const value = `\`\`\`iecst\n${declarationLine(sym)}\n\`\`\`\n\n_${humanKind(sym.kind)}_`
   return { contents: { kind: "markdown", value } }

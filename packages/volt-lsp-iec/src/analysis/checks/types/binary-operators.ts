@@ -23,7 +23,7 @@ export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): 
 
 /**
  * The binary-operator-type-mismatch diagnostic for one binary node, or undefined. The ONE home for the
- * rule — the ST body check and the VG operand check both call it. Both operands must be elementary (else
+ * rule — the ST body check and the network-text operand check both call it. Both operands must be elementary (else
  * skip, zero-FP): `MOD` on a non-integer, or arithmetic mixing `BOOL` with a numeric.
  */
 export function binaryOpError(

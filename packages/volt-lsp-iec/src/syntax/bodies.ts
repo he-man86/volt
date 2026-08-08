@@ -1,9 +1,9 @@
 /**
  * Body helpers (Layer A) — the ONE home for "which token-bodies does a unit have" and "is this body
- * graphical (VG) rather than ST". Both were previously copy-pasted across the services + analysis
+ * graphical (network text) rather than ST". Both were previously copy-pasted across the services + analysis
  * layers; consolidated here so every consumer imports the same definition.
  *
- * Graphical detection is a heuristic (first meaningful token is `NETWORK`) until the real VG surface
+ * Graphical detection is a heuristic (first meaningful token is `NETWORK`) until the real network text surface
  * lands in Layer F; keeping it in one place means that upgrade is a single edit.
  */
 import type { BodySpan, Identifier, TopLevel, TypeExpr, VarSection } from "./ast.js"

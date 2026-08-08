@@ -1,10 +1,10 @@
 /**
- * VG analysis core (Layer F, F.2b) — the infer adapter onto the shared type engine. Parses a graphical
+ * network-text analysis core (Layer F, F.2b) — the infer adapter onto the shared type engine. Parses a graphical
  * body and builds, per network, a scope that layers the network's `LET` wires over the POU scope. A wire
  * carries a `typeExpr` SYNTHESIZED from inferring its producer (`LET g := (a AND b)` → BOOL), so the ONE
  * type engine / resolveMemberChain / nav / hover resolve wire references exactly like real variables —
  * including chained wires (`LET en5 := en4`) because each producer is inferred against the wires already
- * defined before it. Wire types are inferred, never stored (spec §E) — the VG text carries no wire type.
+ * defined before it. Wire types are inferred, never stored (spec §E) — the network text carries no wire type.
  *
  * Wires are network-scoped (NETWORK_DUPLICATE_NAME is per-network), so each network owns its own scope and a
  * `LET g` in network 0 never shadows one in network 1.
@@ -18,7 +18,7 @@ import {
 import { inferExprType, type Type } from "../types/index.js"
 import type { BodySpan, Span, TopLevel, TypeExpr } from "../syntax/index.js"
 import { parseNetworkText } from "./text/parser.js"
-import type { NetworkTextBody, NetworkTextNetwork, NetworkTextStatement, VgWireDef } from "./text/ast.js"
+import type { NetworkTextBody, NetworkTextNetwork, NetworkTextStatement, NetworkWireDef } from "./text/ast.js"
 
 export interface NetworkTextAnalysis {
   vg: NetworkTextBody
@@ -60,12 +60,12 @@ export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scop
 }
 
 /** The network whose span contains `offset`, and its scope; POU scope when outside every network. */
-export function vgScopeAt(analysis: NetworkTextAnalysis, offset: number): Scope {
-  return vgNetworkAt(analysis, offset)?.scope ?? analysis.pou
+export function networkScopeAt(analysis: NetworkTextAnalysis, offset: number): Scope {
+  return networkNetworkAt(analysis, offset)?.scope ?? analysis.pou
 }
 
 /** The network containing `offset` paired with its resolution scope, or undefined when outside all. */
-export function vgNetworkAt(analysis: NetworkTextAnalysis, offset: number): { network: NetworkTextNetwork; scope: Scope } | undefined {
+export function networkNetworkAt(analysis: NetworkTextAnalysis, offset: number): { network: NetworkTextNetwork; scope: Scope } | undefined {
   for (const [network, scope] of analysis.networkScopes) {
     if (offset >= network.span.start && offset < network.span.end) return { network, scope }
   }
@@ -73,7 +73,7 @@ export function vgNetworkAt(analysis: NetworkTextAnalysis, offset: number): { ne
 }
 
 /** Every `LET` wire-def in a statement list, recursing into en/eno IF boxes, in source order. */
-export function* wireDefs(statements: readonly NetworkTextStatement[]): Generator<VgWireDef> {
+export function* wireDefs(statements: readonly NetworkTextStatement[]): Generator<NetworkWireDef> {
   for (const s of statements) {
     if (s.kind === "wire_def") yield s
     else if (s.kind === "en_eno_if") yield* wireDefs(s.body)

@@ -147,7 +147,7 @@ namespace Volt.Engine.Body
             var existing = Locate(body) ?? body.Elements()
                 .FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");  // a language change swaps the element
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
-            GraphSplice.RequireReplaceable(existing);             // refuse to drop what VG cannot represent
+            GraphSplice.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
             if (XNode.DeepEquals(existing, replacement)) return false;
             existing.ReplaceWith(replacement);
             return true;

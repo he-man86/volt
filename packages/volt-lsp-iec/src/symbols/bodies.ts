@@ -8,7 +8,7 @@
  * can own what the other imports. `symbols/` already owns `scopeForUnit` and imports `syntax/`.
  *
  * Covers POU bodies AND property getter/setter accessor bodies (via `unitBodies`) — so diagnostics reach
- * accessor bodies that the old analysis `getBody` silently skipped. Graphical (VG) and non-parsing bodies
+ * accessor bodies that the old analysis `getBody` silently skipped. Graphical (network text) and non-parsing bodies
  * are skipped (conservative — the compilers analyze neither the way this ST engine would).
  */
 import {

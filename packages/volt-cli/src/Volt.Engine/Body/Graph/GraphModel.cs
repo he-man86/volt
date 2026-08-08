@@ -15,10 +15,10 @@ namespace Volt.Engine.Body
     /// A faithful, position-free projection of a PLCopenXML FBD/LD body. Every node maps 1:1 to a
     /// PLCopenXML element; wiring is by <c>localId</c> / <c>refLocalId</c> / <c>formalParameter</c>
     /// taken verbatim from the XML — nothing is inferred. This is the lossless pivot between
-    /// PLCopenXML and the VG text language, and the only projection of a graphical body.
+    /// PLCopenXML and the network text language, and the only projection of a graphical body.
     /// Structural equality is NOT provided: this is a <c>record</c>, but its collection members
     /// compare by REFERENCE, so two structurally identical graphs are never equal. Compare rendered
-    /// VG (<c>NetworkTextWriter.Write</c>), never graphs.
+    /// network text (<c>NetworkTextWriter.Write</c>), never graphs.
     /// </summary>
     public sealed record GraphBody(string Language, IReadOnlyList<GraphNetwork> Networks);
 
@@ -83,7 +83,7 @@ namespace Volt.Engine.Body
     /// <summary>A node kind the FBD reader recognises but does not model yet (contact, coil,
     /// connector, continuation, power rails, comment, vendorElement). Preserved opaquely so the
     /// reader stays TOTAL over the XSD and <c>GraphWriter</c> can re-emit it verbatim; <c>NetworkTextWriter</c>
-    /// has no VG spelling for it, so it is DROPPED from network text and from any pushed body (see the
+    /// has no network text spelling for it, so it is DROPPED from network text and from any pushed body (see the
     /// <c>ponytail:</c> note in NetworkTextWriter).</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);

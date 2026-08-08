@@ -53,13 +53,13 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_fp_ptr_deref", "valid pointer dereference → accepted", "p : POINTER TO INT; x : INT;", "x := p^;"),
   fb("cc_fp_word_to_int", "WORD→INT assignment → conversion warning, NOT an error", "x : INT; w : WORD;", "x := w;"),
 
-  // ── VG (graphical) checks — canonical FBD/LD bodies (2-space indent); the recorder pushes them as real
+  // ── network text (graphical) checks — canonical FBD/LD bodies (2-space indent); the recorder pushes them as real
   //    graphical POUs. Library types skip the LSP member/pin checks, so unknown-member/pin use a PROJECT type. ──
   {
     name: "cc_vg_undeclared",
     pouName: "FB_LANG_cc_vg_undeclared",
     kind: "function_block",
-    feature: "VG: an operand declared nowhere → compiler error",
+    feature: "network text: an operand declared nowhere → compiler error",
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgu : FB_LANG_cc_vg_undeclared;",
     plcPrgBody: "inst_vgu();",
@@ -69,7 +69,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     name: "cc_vg_undefined_label",
     pouName: "FB_LANG_cc_vg_label",
     kind: "function_block",
-    feature: "VG: a JMP to a missing label → compiler error",
+    feature: "network text: a JMP to a missing label → compiler error",
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgl : FB_LANG_cc_vg_label;",
     plcPrgBody: "inst_vgl();",
@@ -79,7 +79,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     name: "cc_vg_unknown_member",
     pouName: "FB_LANG_cc_vg_member",
     kind: "function_block",
-    feature: "VG: a non-member of a project struct → compiler error",
+    feature: "network text: a non-member of a project struct → compiler error",
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgm : FB_LANG_cc_vg_member;",
     plcPrgBody: "inst_vgm();",
@@ -89,7 +89,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     name: "cc_vg_unknown_pin",
     pouName: "FB_LANG_cc_vg_pin",
     kind: "function_block",
-    feature: "VG: a box wired to a pin the FB doesn't have → compiler error",
+    feature: "network text: a box wired to a pin the FB doesn't have → compiler error",
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgp : FB_LANG_cc_vg_pin;",
     plcPrgBody: "inst_vgp();",

@@ -42,7 +42,7 @@ namespace Volt.Engine.Body
                 var logic = els.Where(e => e.Name.LocalName != "comment").ToList();
 
                 // LD-native rungs (contacts/coils/rails) lower to the SAME boolean graph as the FBD
-                // twin so they READ as VG; pure block/variable networks read directly. Fresh localIds start
+                // twin so they READ as network text; pure block/variable networks read directly. Fresh localIds start
                 // high within the network's range so they can't collide with original pass-through ids.
                 var ladder = logic.Any(e => e.Name.LocalName is "contact" or "coil" or "leftPowerRail" or "rightPowerRail");
                 List<GraphNode> nodes;
@@ -115,7 +115,7 @@ namespace Volt.Engine.Body
         /// branches (a connectionPointIn with several connections) are OR, a coil is an assignment.
         /// Negation/edge/storage ride as pin <see cref="Mods"/> on the consumer. The inverse —
         /// <c>GraphWriter.WriteLadderBody</c> — regenerates the ladder (contacts/coil/power-rails) from this
-        /// boolean graph on write, so ladder is both READABLE as VG and round-trippable.</summary>
+        /// boolean graph on write, so ladder is both READABLE as network text and round-trippable.</summary>
         private static List<GraphNode> LowerLadder(List<XElement> els, XNamespace ns, long baseId)
         {
             var byId = new Dictionary<long, XElement>();
@@ -207,7 +207,7 @@ namespace Volt.Engine.Body
                         r = (null, Mods.None);
                         break;
                     }
-                    default:                                            // vendorElement / unknown → opaque, dropped from VG
+                    default:                                            // vendorElement / unknown → opaque, dropped from network text
                         nodes.Add(ReadNode(el, ns) with { LocalId = next++ });
                         r = (null, Mods.None);
                         break;
@@ -312,7 +312,7 @@ namespace Volt.Engine.Body
 
         // An UNCONNECTED EN (no producer, or the PLCopen `refLocalId=0` sentinel) means the box is unconditionally
         // enabled — it is not a guard. Drop it so the box renders as a plain call, not a broken
-        // `LET en := ; IF en THEN …` (the empty producer was malformed VG). The round-trip stays faithful: with no
+        // `LET en := ; IF en THEN …` (the empty producer was malformed network text). The round-trip stays faithful: with no
         // EN pin, NetworkTextReader rebuilds the box without one and the IDE defaults EN to TRUE. Applied in BOTH block-read
         // paths (the LD-lowering `Value` case and the FBD `ReadBlock`), which resolve inputs differently.
         private static List<Pin> DropUnconnectedEn(IEnumerable<Pin> pins) =>

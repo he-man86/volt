@@ -6,9 +6,9 @@ using Xunit;
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// The strict, every-node-named VG contract: VG is isomorphic to the PLCopen node graph (one
+/// The strict, every-node-named network text contract: network text is isomorphic to the PLCopen node graph (one
 /// statement per node, operands are only names, internal wires introduced inline with `LET <name> := …`),
-/// so round-trip is identical in all cases and the LET wire names are a VG-only construct stripped on push.
+/// so round-trip is identical in all cases and the LET wire names are a network text-only construct stripped on push.
 /// </summary>
 public class NetworkTextStrictFormTests
 {
@@ -71,7 +71,7 @@ public class NetworkTextStrictFormTests
         Assert.Equal(vg, FullRoundTrip(vg));
     }
 
-    /// <summary>The LET internal wires are a VG-only construct: the wire NAMES never reach the IDE, so the
+    /// <summary>The LET internal wires are a network text-only construct: the wire NAMES never reach the IDE, so the
     /// PLCopen the bridge pushes carries neither the wire names nor fabricated types (the IDE reconstructs
     /// them) — the inline `LET <name> := …` form replaced the old per-network VAR_TEMP block.</summary>
     [Fact]

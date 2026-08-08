@@ -68,7 +68,7 @@ public static class PushService
             try { applied.Add((ApplyOp(ide, parent, itemCache, op), op.Name)); }
             catch (Exception ex)
             {
-                // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
+                // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
                 var vg = ex as Body.NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
@@ -313,7 +313,7 @@ public static class PushService
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
         var bodyImpl = split.PouKind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
 
-        // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
+        // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
         var pouVg = NetworkText.Is(impl);
 
@@ -490,8 +490,8 @@ public static class PushService
         // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
         // (declaration-only), so they are kept, not deleted.
         //
-        // Only for a textual root POU: a graphical (VG) body push goes through NetworkCode.Write, which
-        // deletes-and-reimports the object (staleing `pou`), and the VG sourceText carries no textual
+        // Only for a textual root POU: a graphical (network text) body push goes through NetworkCode.Write, which
+        // deletes-and-reimports the object (staleing `pou`), and the network sourceText carries no textual
         // child list to reconcile against — so child reconciliation doesn't apply there.
         // Runs for EVERY language now. It used to be skipped for a network-text root on two stated reasons, both
         // false: `WriteXml` is a merge with no delete (so `pou` is not stale), and `StSplitter` parses children

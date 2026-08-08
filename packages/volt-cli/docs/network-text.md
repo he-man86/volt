@@ -1,7 +1,7 @@
-# The VG Language — Design & Specification
+# The network text Language — Design & Specification
 
 > **Status:** shipped (inline-`LET` form; `VAR_TEMP` retired in commit `e1c94d806`).
-> **Audience:** anyone building tooling for VG — primarily a **language server (LSP)**.
+> **Audience:** anyone building tooling for network text — primarily a **language server (LSP)**.
 > This is the complete, self-contained spec. [`network-text-diagnostics.md`](./network-text-diagnostics.md) is a focused
 > bridge-side quick-reference (a subset of §9–§10 here).
 
@@ -15,21 +15,21 @@ network of boxes and wires rendered as *readable, ST-flavored* text. It reads li
 server can work over a graphical body **as text**, even though it was authored graphically in the vendor IDE
 (TwinCAT, CODESYS).
 
-**Bodies are ST _or_ VG.** When a project is pulled, every writable POU materialises as a single kind-named file
-(`.fb`/`.prg`/`.fun`) — a textual body as ST, an editable FBD/LD body as VG text (the body language
-rides on the VG `NETWORK` marker in the content, not the extension). When pushed, the bridge parses the VG back to the graphical node
+**Bodies are ST _or_ network text.** When a project is pulled, every writable POU materialises as a single kind-named file
+(`.fb`/`.prg`/`.fun`) — a textual body as ST, an editable FBD/LD body as network text (the body language
+rides on the network text `NETWORK` marker in the content, not the extension). When pushed, the bridge parses the network text back to the graphical node
 graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a graphical body
-can be read, edited, and written entirely as VG text. (CFC/SFC are surfaced read-only.)
+can be read, edited, and written entirely as network text. (CFC/SFC are surfaced read-only.)
 
 ```
-  Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──NetworkTextWriter──►  VG text   (pull / read)
-  Vendor IDE  ◄─PLCopen XML──   graph (GraphBody)  ◄─NetworkTextReader──   VG text   (push / write)
+  Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──NetworkTextWriter──►  network text   (pull / read)
+  Vendor IDE  ◄─PLCopen XML──   graph (GraphBody)  ◄─NetworkTextReader──   network text   (push / write)
 ```
 
 **Division of responsibility:**
 
-- **The bridge owns FORMAT.** A push whose VG isn't structurally valid or canonical is **refused before it
-  reaches the IDE**, with a structured diagnostic (§10). These checks depend only on the VG text, never on PLC
+- **The bridge owns FORMAT.** A push whose network text isn't structurally valid or canonical is **refused before it
+  reaches the IDE**, with a structured diagnostic (§10). These checks depend only on the network text, never on PLC
   semantics, so they live next to the parser.
 - **The LSP owns CODE correctness.** Type checking, undeclared-variable detection, hover, completion, and
   navigation are the language server's job. This document is written so that job can be implemented.
@@ -52,9 +52,9 @@ END_PROGRAM
 The **declaration** (`PROGRAM`/`VAR … END_VAR`) is ordinary ST and belongs to the POU. The **body** is
 everything from the first `NETWORK` marker onward. The bridge's `NetworkTextReader` is handed **only the body** — it
 never sees the declaration. (This matters for type inference: see §8.) A graphical POU's declaration is edited
-in the IDE, not via VG; a push writes the body only.
+in the IDE, not via network text; a push writes the body only.
 
-**Cross-vendor.** TwinCAT and CODESYS produce **identical** VG for the same logic. The form has no
+**Cross-vendor.** TwinCAT and CODESYS produce **identical** network text for the same logic. The form has no
 vendor-specific syntax; the only per-vendor switch anywhere in the pipeline is the bridge port.
 
 ---
@@ -78,7 +78,7 @@ vendor-specific syntax; the only per-vendor switch anywhere in the pipeline is t
 
 ## 3. Lexical structure
 
-VG is line-oriented: each statement is on its own line, terminated by an optional `;`. Leading/trailing
+network text is line-oriented: each statement is on its own line, terminated by an optional `;`. Leading/trailing
 whitespace is insignificant; blank lines are ignored. **All keywords, operators, and modifier words are
 case-insensitive** (`AND` = `and`, `LET` = `let`). Identifiers are matched ordinal (case-sensitive) — they are
 real PLC identifiers and must round-trip verbatim.
@@ -153,7 +153,7 @@ opaque text. An *opaque leaf* (`LET i1 := <text>`, §6) carries arbitrary inline
 
 ## 5. Semantic model
 
-VG is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Body/Graph/GraphModel.cs`). Understanding
+network text is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Body/Graph/GraphModel.cs`). Understanding
 the graph is the key to understanding what each statement *means*.
 
 ```
@@ -181,7 +181,7 @@ Mods = Negated(bool) , Edge(None|Rising|Falling) , Storage(None|Set|Reset)
   is the wire feeding it. `out` is a real l-value declared in the POU's `VAR` section.
 - An **internal wire** is `LET <name> := <expr>`. The `<name>` is *not* a graph node of its own — it is a label
   for a producer (a `Block` result or an `InVar`) so that two or more consumers can reference the same box.
-  `LET` names are a **VG-only construct: they never reach the IDE** (they are stripped on push; the wiring is
+  `LET` names are a **network text-only construct: they never reach the IDE** (they are stripped on push; the wiring is
   carried by `localId`/`refLocalId` in the XML).
 
 **Inlining.** A producer wired to exactly **one** consumer is **inlined** into that consumer's expression — it
@@ -285,7 +285,7 @@ END_IF
 A box with no wired EN renders as a bare `EXECUTE … END_EXECUTE` (no `IF`). The explicit `END_EXECUTE`
 delimiter (not "until `END_IF`") disambiguates the ST's own nested `END_IF`s. The ST between the markers is
 carried opaquely — the bridge reconstructs `<block typeName="EXECUTE">` from it on push (a real, live-verified
-round-trip), and the LSP treats it as full ST rather than the simplified VG grammar.
+round-trip), and the LSP treats it as full ST rather than the simplified network text grammar.
 
 ### Modifiers — ride on the consumer
 `NOT` (negation, leading), `RISING`/`FALLING` (edge, trailing), `SET`/`RESET` (coil storage, trailing). A
@@ -324,7 +324,7 @@ follows the index (a body may even mix FBD and LD networks, vendor permitting).
 
 ## 7. Operators
 
-The single canonical table (`src/Volt.Engine/Body/Graph/FbdOperators.cs`). The **symbol** is the infix VG token; the **type** is
+The single canonical table (`src/Volt.Engine/Body/Graph/FbdOperators.cs`). The **symbol** is the infix network-text token; the **type** is
 the underlying operator-box type in the graph/PLCopen. All are **case-insensitive**, **no precedence**, **one
 kind per parenthesised group**.
 
@@ -342,7 +342,7 @@ fully parenthesises, so each group is exactly one operator. An unknown symbol is
 
 ## 8. Type system & inference (the LSP's job)
 
-VG **does not write wire types**. An internal wire (`LET g1 := …`) has no annotation, and the bridge does not
+network text **does not write wire types**. An internal wire (`LET g1 := …`) has no annotation, and the bridge does not
 need one (the graph carries types in the PLCopen pins). For hover, completion, and type-checking, the **LSP must
 infer** a wire's type from its defining expression and the POU declaration:
 
@@ -374,11 +374,11 @@ accepted body can never silently rename a wire, drift on the next pull, or corru
 mirror these as diagnostics (so a body is fixed *before* it is pushed).
 
 1. **Language** — the `NETWORK` marker's language is `FBD` or `LD` (else a parse error).
-2. **Parse** — the body is structurally valid VG (the codes in §10).
+2. **Parse** — the body is structurally valid network text (the codes in §10).
 3. **Leaf single-use** (`NETWORK_LEAF_FANOUT`) — a *leaf* (variable/literal `InVar`) feeds exactly one consumer.
    TwinCAT draws one `inVariable` box per read and crashes on a shared one. (A *block* output may fan out — that
    is a legitimate branch, and is why fan-out block results get a `LET` name.)
-4. **VG-text round-trip** (`NETWORK_NOT_CANONICAL`) — the VG⇄graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`. The body must
+4. **network text-text round-trip** (`NETWORK_NOT_CANONICAL`) — the network text⇄graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`. The body must
    already be in canonical form (the writer's exact output). The diagnostic returns the canonical text to paste.
 5. **PLCopen convergence** (`NETWORK_PLCOPEN_DRIFT`) — the graph⇄PLCopen⇄IDE leg: the body reaches a fixed point
    through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises. (A one-step
@@ -414,7 +414,7 @@ canonical body. (On the wire: `PushConflict.code` / `.line`; the CLI prints `nam
 
 ## 11. LSP implementation guidance
 
-VG is small and regular; a full-featured server is very achievable. Concrete targets per feature:
+network text is small and regular; a full-featured server is very achievable. Concrete targets per feature:
 
 - **Tokenisation / semantic tokens.** Distinct classes: keywords (`NETWORK`/`LET`/`IF`/`THEN`/`JMP`/…),
   operators, modifier words, **wire names** (a `LET` binding), **sinks** (a bare l-value), **FB instances**
@@ -525,8 +525,8 @@ END_NETWORK
 
 | File | Role |
 |---|---|
-| `src/Volt.Engine/Body/NetworkText/NetworkTextReader.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
-| `src/Volt.Engine/Body/NetworkText/NetworkTextWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
+| `src/Volt.Engine/Body/NetworkText/NetworkTextReader.cs` | network text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
+| `src/Volt.Engine/Body/NetworkText/NetworkTextWriter.cs` | graph → network text (the canonical form: inlining, naming, `LET` emission) |
 | `src/Volt.Engine/Body/Graph/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
 | `src/Volt.Engine/Body/Graph/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
 | `src/Volt.Engine/Body/NetworkCode.cs` | `Validate` — the well-formedness gate (§9) |

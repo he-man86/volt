@@ -6,10 +6,10 @@ using Xunit;
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// Coverage + SAFETY matrix over the TC6 graphical construct set (the spec the VG round-trip is
+/// Coverage + SAFETY matrix over the TC6 graphical construct set (the spec the network-text round-trip is
 /// chasing toward 100%). The invariant that must hold at every coverage level:
 ///
-///     a graphical body either round-trips LOSSLESSLY through VG, or its push is REFUSED —
+///     a graphical body either round-trips LOSSLESSLY through network text, or its push is REFUSED —
 ///     never silently dropped.
 ///
 /// As each construct gets modeled it moves from the "refused" theory to the "modeled" theory; the
@@ -28,7 +28,7 @@ public class FbdCoverageTests
     private static string RoundTripBody(string doc)
     {
         var g = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);   // reader is TOTAL (never throws)
-        var back = GraphWriter.WriteBody(NetworkTextReader.Parse(NetworkTextWriter.Write(g)));  // read → VG → parse → write
+        var back = GraphWriter.WriteBody(NetworkTextReader.Parse(NetworkTextWriter.Write(g)));  // read → network text → parse → write
         return TestPlcOpen.SpliceOnlyGraphicalBody(doc, back);                      // push (may refuse)
     }
 
@@ -100,7 +100,7 @@ public class FbdCoverageTests
             () => TestPlcOpen.SpliceOnlyGraphicalBody(doc, new XElement("FBD")));
     }
 
-    /// <summary>A comment box round-trips its TEXT through the full edit path (XML → VG // line →
+    /// <summary>A comment box round-trips its TEXT through the full edit path (XML → network text // line →
     /// XML), even though the box position is dropped. Text extraction is robust to the wrapper.</summary>
     [Fact]
     public void Comment_text_round_trips()
@@ -109,9 +109,9 @@ public class FbdCoverageTests
             "<comment localId='1'><content>hello world</content></comment>" +
             "<inVariable localId='2'><expression>a</expression></inVariable>" +
             "<outVariable localId='3'><expression>o</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
-        // through VG and back
+        // through network text and back
         var g = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);
-        Assert.Contains("// hello world", NetworkTextWriter.Write(g));     // surfaced as a VG comment
+        Assert.Contains("// hello world", NetworkTextWriter.Write(g));     // surfaced as a network text comment
         var outXml = RoundTripBody(doc);                          // NOT refused (returns the full pou doc)
         Assert.Contains("hello world", outXml);                  // text preserved on push
         // and re-reading the written body recovers the comment text
@@ -119,7 +119,7 @@ public class FbdCoverageTests
         Assert.Contains("hello world", g2.Networks.SelectMany(n => new[] { n.Comment }).FirstOrDefault(c => c != null) ?? "");
     }
 
-    /// <summary>An LD rung ROUND-TRIPS: it READS by lowering to the same boolean VG as the FBD twin
+    /// <summary>An LD rung ROUND-TRIPS: it READS by lowering to the same boolean network text as the FBD twin
     /// (series contacts = AND, coil = assignment, negated contact = NOT), and WRITES back to real
     /// contact/coil via the inverse generator — losslessly in logic. No longer read-only.</summary>
     [Theory]
@@ -170,14 +170,14 @@ public class FbdCoverageTests
             "<coil localId='5'><connectionPointIn><connection refLocalId='4'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>";
         var doc = Doc("LD", inner);
         var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
-        Assert.Contains(">", vg);                    // the GT comparison renders infix in the VG
+        Assert.Contains(">", vg);                    // the GT comparison renders infix in the network text
         var outXml = RoundTripBody(doc);             // writes back WITHOUT throwing (was a NotSupportedException)
         Assert.Contains("<block", outXml);           // emitted as a real block, not mangled
         Assert.Contains("GT", outXml);
     }
 
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard
-    /// allows it (it's representable) but VG doesn't carry it, so a push drops it. Documented here so
+    /// allows it (it's representable) but network text doesn't carry it, so a push drops it. Documented here so
     /// the exception to "never silently dropped" is explicit and intentional.</summary>
     [Fact]
     public void Vendor_element_is_the_one_sanctioned_silent_drop()

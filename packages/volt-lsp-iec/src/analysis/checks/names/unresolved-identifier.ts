@@ -2,7 +2,7 @@
  * unresolved-identifier (D.2 · names/). A bare identifier reference whose name resolves in NO reachable
  * scope → error `Identifier '<name>' not defined` (byte-identical on both compilers). Mirrors what the
  * IDE rejects; a compiler-parity check, so it runs always. The resolution rules (and the whole skip surface)
- * live in `identifier-resolution` — shared verbatim with the VG `vg-undeclared-identifier` check.
+ * live in `identifier-resolution` — shared verbatim with the network-text `network-undeclared-identifier` check.
  *
  * Emits two codes: `unresolved-identifier` (a bare name — `undefinedIdentifier`) and `unknown-member`
  * (`a.b` where `b` is not on `a`'s type — `unresolvedMembers`/`notAMember`). Member access is conservative:

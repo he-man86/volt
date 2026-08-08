@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Volt.Cli.Tests;
 
-// A LITERAL leaf fanning out to two blocks re-emits identically through the VG-text round-trip gate, so it
+// A LITERAL leaf fanning out to two blocks re-emits identically through the network text-text round-trip gate, so it
 // would slip through to the PLCopen writer and crash TwinCAT's importer ("Index was outside the bounds of the
 // array" / "key not present in the dictionary") — a hidden bug that passes one check and crashes another. The
 // leaf-fan-out guard refuses it cleanly. A BLOCK-output branch (the real fbd_branch shape) stays allowed.
@@ -21,7 +21,7 @@ public class LiteralFanoutBugTests
         // OLD form: a literal leaf fanning out re-emitted IDENTICALLY (a text fixed point), so ONLY an explicit
         // guard caught it — it passed one check and crashed another. READABLE form: the writer inlines a leaf
         // into each consumer, so a fan-out leaf becomes SEPARATE boxes (the valid FBD shape). Canonical output
-        // therefore can never contain it — the guard (below) is now just a backstop for hand-authored VG.
+        // therefore can never contain it — the guard (below) is now just a backstop for hand-authored network text.
         Assert.NotEqual(LiteralFanout.Trim(), NetworkTextWriter.Write(NetworkTextReader.Parse(LiteralFanout)).Trim());
     }
 

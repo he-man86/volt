@@ -38,7 +38,7 @@ const CONVERSION_SOURCE_RE = /^([A-Za-z][A-Za-z0-9]*)_TO_[A-Za-z]/i
  * The implicit-conversion WARNING for a conversion-function ARGUMENT, or undefined. `<SRC>_TO_<DST>(arg)`
  * converts `arg` to `<SRC>` first, so an `arg` that narrows/sign-changes into `<SRC>` warns exactly as the
  * assignment `<SRC>Var := arg` would — the class the assignment-only check missed (both the textual
- * `REAL_TO_DINT(EXPT(…))` and the graphical `UINT_TO_WORD(…)` corpus cases). Exported so the VG sink check
+ * `REAL_TO_DINT(EXPT(…))` and the graphical `UINT_TO_WORD(…)` corpus cases). Exported so the network-text sink check
  * runs it over graphical operands too.
  */
 export function conversionArgError(
@@ -59,7 +59,7 @@ export function conversionArgError(
 
 /**
  * The implicit-conversion WARNING for one `target := value` pair, or undefined. The ONE home for the rule —
- * the ST assign check and the VG sink check both call it, so wording stays byte-identical per vendor. Emits for
+ * the ST assign check and the network-text sink check both call it, so wording stays byte-identical per vendor. Emits for
  * `classifyConversion === "narrow"` (loss) and `=== "sign-change"` (sign); the ERROR kinds are the assignment /
  * conversion-source checks' job. Kept as one function so a site yields exactly one diagnostic.
  */

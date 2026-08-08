@@ -31,7 +31,7 @@ function attributeCompletions(src: string, offset: number): CompletionItem[] | u
 }
 
 /**
- * Completion against an explicit resolution scope — the shared core of ST and VG completion. `base.|`
+ * Completion against an explicit resolution scope — the shared core of ST and network text completion. `base.|`
  * offers members of `base`'s type; otherwise every symbol visible from `scope` + common keywords.
  */
 export function completionAtScope(scope: Scope, project: Scope, source: string, offset: number): CompletionItem[] {

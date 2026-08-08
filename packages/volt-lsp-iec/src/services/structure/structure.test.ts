@@ -72,9 +72,9 @@ test("selection: expands token → expr → statement outward", () => {
   expect(steps).toBeGreaterThan(0) // there is a real expansion chain
 })
 
-test("semantic tokens: color VG operand text (whole-doc pass covers graphical bodies)", () => {
-  // A VG (LD) body's operands are ordinary lexer tokens, so the whole-document semantic pass colors them —
-  // no VG-specific pass needed. Guards that graphical bodies produce valid tokens over their operand region.
+test("semantic tokens: color network-text operand text (whole-doc pass covers graphical bodies)", () => {
+  // A network text (LD) body's operands are ordinary lexer tokens, so the whole-document semantic pass colors them —
+  // no network text-specific pass needed. Guards that graphical bodies produce valid tokens over their operand region.
   const src = `FUNCTION_BLOCK F
 VAR
 	a : BOOL; b : BOOL; out : BOOL;

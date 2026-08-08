@@ -6,14 +6,14 @@ using Volt.Engine.Workspace.SourceText;
 namespace Volt.Engine.Body;
 
 /// <summary>A graphical (FBD/LD/CFC/SFC) body rendered to text. <paramref name="Language"/> is
-/// FBD/LD/CFC/SFC; <paramref name="Body"/> is editable VG for FBD/LD, empty for read-only CFC/SFC;
+/// FBD/LD/CFC/SFC; <paramref name="Body"/> is editable network text for FBD/LD, empty for read-only CFC/SFC;
 /// <paramref name="Declaration"/> is the POU's real declaration (from the same export when the vendor
 /// carries the plaintext interface, else the textual aspect — never empty/guessed).</summary>
 public sealed record GraphicalBody(string Language, string Body, string Declaration);
 
 /// <summary>
 /// The graphical code path, in pure Core: the language gate + every transform between a vendor's
-/// PLCopen XML and editable VG. The vendor supplies only transport (<see cref="ICodeStore"/>); this
+/// PLCopen XML and editable network text. The vendor supplies only transport (<see cref="ICodeStore"/>); this
 /// class owns the decisions. The READ gate lives in <c>Materializer.BodyTextOf</c> (it calls
 /// <see cref="RenderBody"/> for FBD/LD and builds the `@volt-graphical` marker for CFC/SFC itself);
 /// this class owns <see cref="RenderBody"/>, <see cref="Validate"/> and <see cref="Write"/>. On the
@@ -23,13 +23,13 @@ public sealed record GraphicalBody(string Language, string Body, string Declarat
 /// </summary>
 public static class NetworkCode
 {
-    /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable VG;
+    /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable network text;
     /// CFC/SFC → an empty body. A body the gate calls graphical but the export can't yield as FBD/LD is a
     /// loud failure, never silent.
     /// <para><b>A TEST SEAM, kept deliberately.</b> Production does not run it — the Materializer reads through
     /// <see cref="RenderBody"/> and builds the `@volt-graphical` marker itself (<c>Materializer.BodyTextOf</c>).
     /// It survives because it is the only entry point that exercises the WHOLE read pipeline
-    /// (<c>BodyLanguage</c> → <c>ReadXml</c> → declaration → VG) against a fake code store, with no live IDE:
+    /// (<c>BodyLanguage</c> → <c>ReadXml</c> → declaration → network text) against a fake code store, with no live IDE:
     /// 13 cases in <c>NetworkCodeTests</c> hang off it, including the cross-package
     /// <c>Graphical_body_marker_matches_the_lsp_hover_shape</c> contract and the zero-fallback assertions that a
     /// failure propagates rather than degrading to an empty body. Deleting it would delete that coverage, not
@@ -42,7 +42,7 @@ public static class NetworkCode
         var xml = code.ReadXml(item);                        // graphical → the PLCopen transport (throws on failure)
         var decl = DeclarationFrom(code, item, itemName, xml);
 
-        if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body, real decl
+        if (lang is "CFC" or "SFC")                          // CFC/SFC: no network-text round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
         var fbd = GraphSplice.FindFbdLdBody(xml, itemName)
@@ -51,7 +51,7 @@ public static class NetworkCode
         return new GraphicalBody(lang, RenderBody(fbd), decl);
     }
 
-    /// <summary>Render an FBD/LD body element to canonical VG text. The shared single-source-of-truth used by
+    /// <summary>Render an FBD/LD body element to canonical network text. The shared single-source-of-truth used by
     /// both <see cref="Read"/> (old COM path) and <see cref="Materializer.BuildPouFromXml"/> (new XML path),
     /// guaranteeing identical output for the same body element regardless of which path produced it.</summary>
     public static string RenderBody(System.Xml.Linq.XElement bodyElement)
@@ -60,25 +60,25 @@ public static class NetworkCode
         return NetworkTextWriter.Write(graph);
     }
 
-    /// <summary>Validate a VG body WITHOUT touching the IDE — the language gate, the parser, and the strict
+    /// <summary>Validate a network-text body WITHOUT touching the IDE — the language gate, the parser, and the strict
     /// round-trip gate, all pure/format-only. Returns the parsed graph (reused by <see cref="Write"/>). Call
     /// this BEFORE creating a new item so a REFUSED push never leaves an orphaned stub in the project (the
-    /// create-then-write order otherwise materialises a POU before the body is checked). Throws on invalid VG.</summary>
+    /// create-then-write order otherwise materialises a POU before the body is checked). Throws on invalid network text.</summary>
     public static GraphBody Validate(string vgText)
     {
-        // Format guard: only FBD/LD can be authored as VG. An unknown language token on the NETWORK marker is
+        // Format guard: only FBD/LD can be authored as network text. An unknown language token on the NETWORK marker is
         // refused with a clear message — not downstream with a misleading "not writable". Bridge owns FORMAT.
         var lang = NetworkText.LanguageOf(vgText);
         if (!NetworkText.IsEditable(lang))
             throw new InvalidOperationException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
 
-        var graph = NetworkTextReader.Parse(vgText);                                  // throws on structurally-invalid VG
+        var graph = NetworkTextReader.Parse(vgText);                                  // throws on structurally-invalid network text
 
         // Leaf-fan-out guard. TwinCAT represents a variable READ as one inVariable box per consumer; a single
         // leaf wired to two blocks has NO valid FBD shape and CRASHES TC's importer ("Index was outside the
         // bounds of the array"). A BLOCK output CAN fan out — that's a legitimate branch (g1 feeding g2 and g3).
         // So refuse a LEAF referenced more than once and tell the author to give each read its own leaf. This
-        // is caught here, BEFORE the writer, because the VG-text round-trip gate alone misses it (a literal leaf
+        // is caught here, BEFORE the writer, because the network text-text round-trip gate alone misses it (a literal leaf
         // re-emits identically, so it would otherwise slip through and crash the IDE).
         var refCount = new Dictionary<long, int>();
         foreach (var n in graph.Networks.SelectMany(x => x.Nodes))
@@ -92,7 +92,7 @@ public static class NetworkCode
                     + "a shared one crashes its importer). Give each read a separate leaf statement.",
                     "NETWORK_LEAF_FANOUT");
 
-        // The VG-text round-trip gate (the VG ⇄ graph leg): the parser is the exact inverse of the writer,
+        // The network text-text round-trip gate (the network text ⇄ graph leg): the parser is the exact inverse of the writer,
         // so a body that doesn't RE-EMIT identically isn't canonical — it would drift on the next pull, or
         // silently rename/alias temps. Refuse it HERE and show the canonical form so the author can paste it.
         var canonical = NetworkTextWriter.Write(graph);
@@ -130,12 +130,12 @@ public static class NetworkCode
         _ => Enumerable.Empty<Conn?>(),
     };
 
-    /// <summary>Write an editable VG body back through the PLCopen transport: splice the new FBD/LD body
-    /// into the item's current export and re-import. FB instance types (absent from VG) come from
+    /// <summary>Write an editable network text body back through the PLCopen transport: splice the new FBD/LD body
+    /// into the item's current export and re-import. FB instance types (absent from network text) come from
     /// <paramref name="declaration"/>. The POU's declaration is NOT written — it is preserved from the
     /// export's typed <c>&lt;interface&gt;</c>: CODESYS regenerates the interface from that typed block on
     /// import (ignoring the plaintext copy), so a graphical POU's VAR-section is edited in the IDE, not via
-    /// push. Throws on invalid VG.
+    /// push. Throws on invalid network text.
     /// <para>This used to add "and TwinCAT's export carries no plaintext interface at all". That is false —
     /// the recorded TwinCAT export in <c>fixtures/tc-fbd</c> carries <c>&lt;InterfaceAsPlainText&gt;</c> with
     /// its <c>PROGRAM …/VAR …</c> text, which is exactly why the Materializer can read a declaration out of the

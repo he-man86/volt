@@ -13,7 +13,7 @@ function fbdProgram(name: string) {
 	// CANONICAL readable form (a fixed point of NetworkTextWriter∘NetworkTextReader, so it passes the round-trip gate): operands
 	// inlined, single-use results inlined, full parenthesisation. Exercises OUTPUT negation (`out := NOT (a AND
 	// b)`) — which now round-trips through both vendors (FBD inVariable negation is encoded as expression text;
-	// see PlcOpenWriter). The old verbose `i1 := a; … g1 := (i1 AND i2); out := NOT g1;` is now non-canonical.
+	// see GraphWriter). The old verbose `i1 := a; … g1 := (i1 AND i2); out := NOT g1;` is now non-canonical.
 	return `PROGRAM ${name}
 VAR
 \ta : BOOL;
@@ -107,7 +107,7 @@ END_PROGRAM
 
 // An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (EN via the
 // ordinary wire+IF), holding real multi-statement, commented ST. Exercises the full round-trip: NetworkTextReader
-// detects `EXECUTE … END_EXECUTE`, PlcOpenWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
+// detects `EXECUTE … END_EXECUTE`, GraphWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
 // re-push is byte-identical (the ST is carried verbatim).
 function executeProgram(name: string) {
 	return `PROGRAM ${name}
@@ -168,7 +168,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
 			expect(after.sourceText).toMatch(new RegExp(`NETWORK\\s+\\d+\\s+${lang}\\b`))   // stayed ${lang}, not flattened to ST
 
-			// The program-scope DECLARATION must survive a push-create — GraphicalCode.Write writes the BODY
+			// The program-scope DECLARATION must survive a push-create — NetworkCode.Write writes the BODY
 			// only, so without an explicit decl write the VAR section comes back empty and the vars the
 			// contacts/coils reference are undeclared. The body round-trip alone never caught this.
 			const decl = after.sourceText.split("NETWORK")[0]
@@ -224,7 +224,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
 			expect(v1.sourceText).toMatch(/NETWORK\s+\d+\s+LD\b/)      // stayed ladder (LD), not flattened to ST
 
-			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
+			// Fixed point: pushing the fetched network text back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
 			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
 			expect(r2.accepted).toBe(true)

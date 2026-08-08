@@ -12,7 +12,7 @@ export * from "./types/index.js"
 export * from "./analysis/index.js"
 export * from "./services/index.js"
 export * from "./reference/index.js"
-export * from "./graphical/index.js"
+export * from "./network/index.js"
 export * from "./server/index.js"
 
 // Workspace init + vendor detection — the cross-package surface volt-git's `volt init` consumes

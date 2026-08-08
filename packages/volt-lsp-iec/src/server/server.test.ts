@@ -159,7 +159,7 @@ test("server: a pull-capable client gets NO push (avoids double diagnostics)", a
   client.dispose()
 })
 
-test("server: didOpen pushes VG diagnostics for a graphical body", async () => {
+test("server: didOpen pushes network-text diagnostics for a graphical body", async () => {
   const client = connect()
   const got = new Promise<{ diagnostics: { code?: unknown }[] }>((resolve) => {
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
@@ -212,7 +212,7 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
   expect(emitted.some((d) => d.code === "C0032")).toBe(true)
 })
 
-test("server: hover inside a VG body resolves a wire's inferred type", async () => {
+test("server: hover inside a network-text body resolves a wire's inferred type", async () => {
   const client = connect()
   const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\nNETWORK 0 LD\nLET g := (a AND b);\nout := g;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })

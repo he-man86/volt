@@ -27,7 +27,7 @@ import { WorkspaceStore } from "../../src/server/workspace-store.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
 import { allowedCode } from "../lsp/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
-import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/graphical/index.js"
+import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
@@ -65,7 +65,7 @@ function bodiesOf(u: TopLevel): BodySpan[] {
   return out
 }
 
-/** A body is graphical (VG) — not ST — when its first meaningful token is `NETWORK`. */
+/** A body is graphical (network text) — not ST — when its first meaningful token is `NETWORK`. */
 function isGraphical(body: BodySpan): boolean {
   const first = body.tokens.find((t) => !isTrivia(t.kind))
   return first !== undefined && first.text.toUpperCase() === "NETWORK"
@@ -106,10 +106,10 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     expect(failures).toEqual([])
   }, CORPUS_TIMEOUT)
 
-  // Layer F (F.2): every graphical (VG) body in the corpus is valid IDE-exported FBD/LD, so the VG parser
+  // Layer F (F.2): every graphical (network text) body in the corpus is valid IDE-exported FBD/LD, so the network-text parser
   // must find its networks and emit ZERO structural errors (NETWORK_PARSE / NETWORK_NOT_CLOSED). Duplicate
   // name/network warnings aren't structural parse failures and aren't counted here.
-  test("VG parser: zero structural errors across every graphical corpus body", () => {
+  test("network-text parser: zero structural errors across every graphical corpus body", () => {
     let vgBodies = 0
     const failures: string[] = []
     const STRUCTURAL = new Set(["NETWORK_PARSE", "NETWORK_NOT_CLOSED"])

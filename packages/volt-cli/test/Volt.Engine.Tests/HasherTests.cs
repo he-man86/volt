@@ -37,7 +37,7 @@ public class HasherTests
     [Fact]
     public void A_graphical_body_edit_changes_the_version()
     {
-        // The materialized VG body text is what's hashed — so an edit to the body (here: a different
+        // The materialized network-text body text is what's hashed — so an edit to the body (here: a different
         // operand) yields a different version, while the unchanged body is stable.
         const string fbd1 = "NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
         const string fbd2 = "NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n";

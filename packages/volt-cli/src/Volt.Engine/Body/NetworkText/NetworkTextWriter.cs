@@ -6,7 +6,7 @@ using System.Text;
 namespace Volt.Engine.Body
 {
     /// <summary>
-    /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text-LIKE
+    /// Renders a <see cref="GraphBody"/> to network text — a canonical, constrained Structured-Text-LIKE
     /// dialect that is ISOMORPHIC to the PLCopen node graph: each network is a delimited block
     /// <c>NETWORK &lt;index&gt; &lt;LANG&gt; … END_NETWORK</c>, and every node is EITHER <b>named</b> — an
     /// inline <c>LET &lt;name&gt; := …</c> for opaque leaves <c>i*</c>, fan-out operator/function results
@@ -14,12 +14,12 @@ namespace Volt.Engine.Body
     /// target — OR <b>inlined</b> into its consumer's fully-parenthesised expression (simple leaves and
     /// single-use operator/function results), so an operand may be a nested sub-expression. There is no
     /// <c>VAR_TEMP</c> block: a wire is introduced at its definition and its type is inferred downstream.
-    /// This shrinks the VG⊄FBD gap to ~zero and makes round-trip identical in all cases (fan-out
-    /// preserved by shared names). Pin modifiers are VG EXTENSIONS, not standard ST: <c>NOT operand</c>
+    /// This shrinks the network text⊄FBD gap to ~zero and makes round-trip identical in all cases (fan-out
+    /// preserved by shared names). Pin modifiers are network text EXTENSIONS, not standard ST: <c>NOT operand</c>
     /// (negation — valid ST), and the suffixes
     /// <c>RISING</c>/<c>FALLING</c> (edge) and <c>SET</c>/<c>RESET</c> (storage), which keep the
     /// modifier visible at the pin rather than synthesizing hidden R_TRIG/SR instances. Round-trippable
-    /// (<c>NetworkTextReader</c> reverses it); emission is deterministic so VG→graph→VG is a fixed point.
+    /// (<c>NetworkTextReader</c> reverses it); emission is deterministic so network text→graph→network text is a fixed point.
     /// </summary>
     public static class NetworkTextWriter
     {
@@ -176,7 +176,7 @@ namespace Volt.Engine.Body
                     // whose "call" is raw ST. EN is handled EXACTLY like every other block (a normal wire +
                     // `IF en THEN … END_IF`, below); the only new thing is the `EXECUTE … END_EXECUTE` marker
                     // delimiting the VERBATIM ST. So (a) it reads/analyzes as the real (possibly complex) ST it
-                    // is — the LSP hands the marked region to the full ST parser, not the simplified VG one — and
+                    // is — the LSP hands the marked region to the full ST parser, not the simplified network text one — and
                     // (b) the reader detects the marker to reconstruct the CODESYS Execute box on push.
                     // The ST is emitted VERBATIM (its own indentation preserved) between the markers, so it
                     // round-trips byte-for-byte — the parser captures exactly these lines back into <STCode>.
@@ -219,12 +219,12 @@ namespace Volt.Engine.Body
                     sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
 
             // ponytail: OpaqueNode is DELIBERATELY absent from this switch — contacts/coils, connectors,
-            // continuations, power rails, comments and vendorElements have no VG spelling, so they are
+            // continuations, power rails, comments and vendorElements have no network text spelling, so they are
             // DROPPED from network text (and therefore from a pushed body). Pinned by NetworkTextWriterTests
             // .Real_CONFIG_fb_call_renders_as_a_call_with_named_pins, whose input carries a <vendorElement>
-            // the expected VG has no trace of. GraphWriter's `case OpaqueNode` consequently serves only
+            // the expected network text has no trace of. GraphWriter's `case OpaqueNode` consequently serves only
             // the reader→writer path, NOT push — GraphModel's OpaqueNode summary ("the writer can
-            // round-trip it") is true of GraphWriter alone, not of VG.
+            // round-trip it") is true of GraphWriter alone, not of network text.
             foreach (var node in net.Nodes)
                 switch (node)
                 {

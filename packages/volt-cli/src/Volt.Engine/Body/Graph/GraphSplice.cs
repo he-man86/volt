@@ -9,7 +9,7 @@ namespace Volt.Engine.Body
     /// <summary>The FBD/LD BODY splice: replacing one graphical body inside an export, and the capability gate
     /// that decides whether the existing body may be replaced at all.
     /// <para>Separate from <c>PlcOpen.PouSplice</c> on purpose. That class writes a POU's text and members and has
-    /// no graph knowledge; this one encodes what the VG EDITOR can represent — which elements are safe to drop,
+    /// no graph knowledge; this one encodes what the network text EDITOR can represent — which elements are safe to drop,
     /// which pin modifiers block a rewrite, and the network-numbering rules — so it belongs with the graph, not
     /// with the document.</para>
     /// </summary>
@@ -56,7 +56,7 @@ namespace Volt.Engine.Body
             return PlcOpenDocument.Serialize(doc);
         }
 
-        /// <summary>Validate an existing body before replacing it: no element the VG editor cannot
+        /// <summary>Validate an existing body before replacing it: no element the network text editor cannot
         /// reproduce is silently dropped, no disabled/hidden network is lost, and no block structure
         /// the editor cannot round-trip is overwritten. These checks run ONLY on the existing-body path
         /// — a first write has nothing to lose, so validation is skipped.</summary>
@@ -74,7 +74,7 @@ namespace Volt.Engine.Body
                 .ToList();
             if (lost.Count > 0)
                 throw new InvalidOperationException(
-                    "refusing to write this graphical body: it contains element(s) the VG editor cannot " +
+                    "refusing to write this graphical body: it contains element(s) the network text editor cannot " +
                     "represent yet (" + string.Join(", ", lost) + "). Edit this POU in the IDE instead.");
 
             var indices = existing.Elements()
@@ -112,7 +112,7 @@ namespace Volt.Engine.Body
                 blind.Add("a stateless function with multiple outputs");
             if (blind.Count > 0)
                 throw new InvalidOperationException(
-                    "refusing to write this graphical body: it has structure the VG editor cannot " +
+                    "refusing to write this graphical body: it has structure the network text editor cannot " +
                     "represent yet (" + string.Join("; ", blind.Distinct()) + "). Edit this POU in the IDE instead.");
         }
 
@@ -128,19 +128,19 @@ namespace Volt.Engine.Body
             pouBody.Add(newBody);
         }
 
-        /// <summary>Elements safe to discard when REPLACING an existing FBD/LD body, because the VG editor
+        /// <summary>Elements safe to discard when REPLACING an existing FBD/LD body, because the network text editor
         /// either represents them explicitly (inVariable, outVariable, block) or regenerates them on write.
         /// <c>vendorElement</c> is editor rendering info. <c>leftPowerRail</c>, <c>rightPowerRail</c>,
         /// <c>contact</c>, <c>coil</c> are LD ladder elements — the existing ones are dropped here and
-        /// <c>GraphWriter.WriteLadderBody</c> regenerates them from the VG (BOTH TwinCAT and CODESYS emit
+        /// <c>GraphWriter.WriteLadderBody</c> regenerates them from the network text (BOTH TwinCAT and CODESYS emit
         /// real <c>contact</c>/<c>coil</c> inside an <c>&lt;LD&gt;</c> body — TwinCAT does NOT wrap LD in
-        /// <c>&lt;FBD&gt;</c>, as once assumed). Adding a genuinely structural element here without VG support
+        /// <c>&lt;FBD&gt;</c>, as once assumed). Adding a genuinely structural element here without network text support
         /// would silently drop functional logic — every entry must be affirmatively confirmed as cosmetic.</summary>
         private static readonly HashSet<string> SafeToDrop =
             new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement",
                     "leftPowerRail", "rightPowerRail", "contact", "coil" };
 
-        /// <summary>A pin <c>&lt;variable&gt;</c> carries a modifier VG can't reproduce on an output
+        /// <summary>A pin <c>&lt;variable&gt;</c> carries a modifier network text can't reproduce on an output
         /// (negation / edge / set-reset storage). "none"/absent = no modifier.</summary>
         private static bool HasPinMod(XElement v)
         {
