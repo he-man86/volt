@@ -111,6 +111,31 @@ public class PouDocumentTests
         Assert.Contains("CFC", ex.Message);
     }
 
+    /// <summary>A POU with a read-only CFC child is EDITABLE — its root body can be pushed, and the CFC child is
+    /// left exactly alone.
+    /// <para>Until now the whole push was refused: the child guard threw on the marker unconditionally, before the
+    /// interface/property early-out, so a POU containing any CFC/SFC member could not be edited through Volt at
+    /// all — not even for an unrelated change to its own ST body. The refusal is right for a marker pushed over a
+    /// body that is NOT read-only (a stale or hand-written marker); it is wrong for the ordinary round-trip, where
+    /// the marker is simply what a read-only body materializes as and means "leave this one alone".</para></summary>
+    [Fact]
+    public void A_POU_with_a_read_only_CFC_child_can_still_be_edited()
+    {
+        var xml = Fixture("FB_GraphicalChild.plcopen.xml");
+        var cfcBefore = Cfc(xml);
+        Assert.NotEmpty(cfcBefore);
+
+        var doc = PouDocument.Splice(xml, "FB_GraphicalChild",
+            Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
+                  "//edited root body",
+                  new StSplitter.StChild(ItemKind.Kinds.Method, "doSomething",
+                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "(* @volt-graphical: CFC *)")));
+
+        Assert.Contains("//edited root body", doc);          // the edit landed…
+        Assert.Equal(cfcBefore, Cfc(doc));                   // …and the diagram is untouched, byte for byte
+        Assert.Contains("doSomething", doc);                 // …and the member was NOT dropped as an orphan
+    }
+
     /// <summary>A no-op splice returns the document UNCHANGED — the property the whole approach rests on. If a
     /// write moves bytes it was not asked to move, "attributes and pragmas survive" is only probably true.</summary>
     [Fact]

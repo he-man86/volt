@@ -341,16 +341,17 @@ public static class StSplitter
 			ctx.Update(lines[j]);
 			if (ctx.InsideTrivia) continue;
 			if (LineStartsWithKeyword(lines[j], "END_PROPERTY")) { endLine = j; break; }
-			if (LineStartsWithKeyword(lines[j], "GET") && currentAccessorStart is null)
+			var opens = LineStartsWithKeyword(lines[j], "GET") ? "get"
+					  : LineStartsWithKeyword(lines[j], "SET") ? "set" : null;
+			if (opens is not null)
 			{
+				// A new accessor keyword while one is still OPEN closes the previous one as BARE (bodiless) —
+				// `GET` immediately followed by `SET` is two empty accessors, not one accessor swallowing the
+				// other. Before, the second keyword was simply ignored and that accessor was lost.
+				if (currentAccessorStart is not null && currentAccessorKind is not null)
+					accessorBoundaries.Add((currentAccessorStart.Value, currentAccessorStart.Value, currentAccessorKind));
 				currentAccessorStart = j;
-				currentAccessorKind = "get";
-				continue;
-			}
-			if (LineStartsWithKeyword(lines[j], "SET") && currentAccessorStart is null)
-			{
-				currentAccessorStart = j;
-				currentAccessorKind = "set";
+				currentAccessorKind = opens;
 				continue;
 			}
 			if (LineStartsWithKeyword(lines[j], "END_GET") || LineStartsWithKeyword(lines[j], "END_SET"))
@@ -362,6 +363,17 @@ public static class StSplitter
 					currentAccessorKind = null;
 				}
 			}
+		}
+		// A BARE `GET` (or `SET`) with no `END_GET` — the bodiless form the LSP documents and a human writes by
+		// hand. It used to fall off the end of this loop unclosed: `accessorBoundaries` stayed empty, the keyword
+		// was swallowed into the property's DECLARATION, the accessor came back null, and the push then REMOVED
+		// the engineer's getter (null code means "this property has no getter"). Silent data loss from a shape the
+		// docs call valid. Close it here instead — a bare keyword IS an accessor, just an empty one.
+		if (currentAccessorStart is not null && currentAccessorKind is not null)
+		{
+			accessorBoundaries.Add((currentAccessorStart.Value, currentAccessorStart.Value, currentAccessorKind));
+			currentAccessorStart = null;
+			currentAccessorKind = null;
 		}
 		if (endLine is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing END_PROPERTY for property starting at line {sigLine + 1}");
@@ -399,6 +411,10 @@ public static class StSplitter
 		// Between them: optional VAR sections + body. No signature line —
 		// the GET/SET keyword IS the signature. Decl is everything up to
 		// END_VAR (if any); impl is the rest.
+		// A BARE keyword is one line and has no END_: it is a PRESENT but empty accessor. `""`/`""` says exactly
+		// that — present-with-no-body — which is the distinction the whole accessor model turns on (null would
+		// mean "no such accessor" and would delete it on push).
+		if (accLines.Count <= 1) return new StAccessor("", "");
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
 		var (decl, impl) = SplitAtLine(inner, LastCodeLine(inner, "END_VAR") + 1);
 		return new StAccessor(decl, impl);

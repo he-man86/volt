@@ -432,11 +432,14 @@ public static class PushService
             // Materializer.GraphicalBodyMarker, and VgBody.Is matches only a `NETWORK n LANG` header, so it REJECTS
             // that marker. The old guard here was `VgBody.Is(cimpl) && !IsEditable(...)`, which therefore never fired
             // for the one case it existed to stop: the marker fell through to the textual path below and
-            // ide.WriteText replaced the engineer's graphical body with a comment. Refuse the round-tripped marker
-            // outright — it is never something to write.
-            if (Materializer.IsGraphicalBodyMarker(cimpl))
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"'{child.Name}' is a read-only graphical body — edit it in the IDE, not via push.");
+            // ide.WriteText replaced the engineer's graphical body with a comment.
+            //
+            // SKIP it — do not write it, and do not treat it as absent either. The marker is what every pull
+            // produces for such a member, so refusing it (as this did) made a POU containing ANY CFC/SFC member
+            // permanently uneditable. `RequireChildFormatWritable` has already refused the case that IS wrong: a
+            // marker whose IDE body is not actually read-only. Leaving the loop means the member keeps its
+            // diagram, and staying in `keep` below means the orphan pass does not delete it.
+            if (Materializer.IsGraphicalBodyMarker(cimpl)) continue;
 
             var childParent = ResolveFolder(ide, pou, child.Folder);
             var existingChild = FindChild(ide, childParent, child.Name);
@@ -630,10 +633,7 @@ public static class PushService
                                                    PouReader.ParsedPou? parsed)
     {
         var cimpl = child.Implementation;
-        // The round-tripped marker is never something to write, whatever the IDE currently holds.
-        if (Materializer.IsGraphicalBodyMarker(cimpl))
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' is a read-only graphical body — edit it in the IDE, not via push.");
+        var marker = Materializer.IsGraphicalBodyMarker(cimpl);
 
         if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
 
@@ -655,6 +655,19 @@ public static class PushService
         }
 
         var childVg = VgBody.Is(cimpl);
+
+        // A read-only body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
+        // splice leaves that member's body untouched. So the marker is only a refusal when it does NOT match a
+        // read-only body in the IDE: a stale or hand-written marker over something writable, which would
+        // otherwise silently do nothing.
+        if (marker)
+        {
+            if (lang is "CFC" or "SFC") return;                 // the normal round-trip — leave the diagram alone
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{child.Name}' carries a read-only graphical marker but its body in the IDE is " +
+                $"{lang ?? "textual"} — remove the marker and push real source, or pull first.");
+        }
+
         if (lang is "CFC" or "SFC")
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' is a read-only {lang} body — edit it in the IDE, not via push.");

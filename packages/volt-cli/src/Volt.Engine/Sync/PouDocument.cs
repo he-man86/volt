@@ -53,6 +53,14 @@ public static class PouDocument
             var decl = child.Kind == ItemKind.Kinds.Action ? null : child.Declaration;
             var body = child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
 
+            // A READ-ONLY body (CFC/SFC) materializes as a marker comment, not as source. `null` here means
+            // "leave the member's body exactly as it is" — which is the only correct thing to do with a diagram
+            // we cannot represent. It must NOT be written (that replaces the engineer's diagram with a comment)
+            // and it must NOT be dropped: the member stays in `pushed`, so the removal pass above leaves it be.
+            // This is what makes a POU that merely CONTAINS a CFC member editable at all — before it, the guard
+            // refused the entire push, so such a POU could not be touched even to edit its own root body.
+            if (Materializer.IsGraphicalBodyMarker(body)) body = null;
+
             xml = present.Contains(child.Name)
                 ? PouSplice.SetChildText(xml, name, child.Name, decl, body)
                 : PouSplice.AddChild(xml, name, child.Name, MemberOf(child.Kind), decl, body);

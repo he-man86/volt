@@ -68,23 +68,38 @@ public class GraphicalChildGuardTests
     private const string Bare = "FB_WithGraphicalChild";
     private const string Name = Bare + ".fb";
 
+    /// <summary>Pushing the marker BACK over a matching read-only child is the ordinary round-trip: ACCEPTED, the
+    /// root is written, and the child is left alone.
+    /// <para>This test used to assert the opposite — that the whole push was refused. That premise was wrong on
+    /// grounds independent of the code: the marker is simply what a read-only body materializes as on every pull,
+    /// so refusing it meant a POU that merely CONTAINED a CFC/SFC member could never be edited through Volt at
+    /// all, not even to change its own root body. The refusal is still right when the marker does NOT match a
+    /// read-only body (see the sibling test) — that is a stale marker and would silently do nothing.</para></summary>
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
-    public void Pushing_the_marker_back_over_a_read_only_child_is_refused_not_written(string lang)
+    public void Pushing_the_marker_back_over_a_read_only_child_is_a_no_op_not_a_refusal(string lang)
     {
         var ide = IdeWithChild("M", lang);
 
         var resp = Push(ide, Marker(lang));
 
-        // PushService isolates a per-item failure as a CONFLICT rather than faulting the whole batch.
-        var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Contains("read-only", conflict.Reason);
-        Assert.Contains("M", conflict.Reason);
-        // The point of the test: NOTHING was MUTATED — not the child, and not the root either (the guard is a
-        // pre-pass, so a refusal leaves the IDE untouched instead of half-applied). Asserted as "no mutating
-        // call" rather than "no call at all": the fake also records READS (`bodylang:`), which the guard makes by
-        // design and which change nothing.
+        Assert.True(resp.Accepted, "a POU containing a read-only child must remain editable");
+        Assert.Contains("write:" + Bare, ide.Recorded);                     // the root's own edit landed…
+        Assert.DoesNotContain(ide.Recorded, r => r == "write:M");           // …and the diagram was not written over
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …nor dropped as an orphan
+    }
+
+    /// <summary>A marker that does NOT match a read-only body is refused — a stale or hand-written marker over a
+    /// writable body would otherwise be accepted and silently change nothing.</summary>
+    [Fact]
+    public void A_marker_over_a_body_that_is_not_read_only_is_refused()
+    {
+        var ide = IdeWithChild("M", null);   // the child's body in the IDE is textual
+
+        var resp = Push(ide, Marker("CFC"));
+
+        Assert.Contains("marker", Assert.Single(resp.Conflicts!).Reason);
         AssertNothingMutated(ide);
     }
 
