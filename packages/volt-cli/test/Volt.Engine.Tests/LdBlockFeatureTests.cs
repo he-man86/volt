@@ -1,6 +1,6 @@
 ﻿using System.IO;
 using System;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -11,12 +11,12 @@ namespace Volt.Cli.Tests;
 ///  - an FB/operator block on a ladder rung round-trips (boolean output → coil, non-boolean output → embedded
 ///    expression in the pin), as a graph→write→read fixed point matching the live `after == after2`;
 ///  - the round-trip gate / parser carry structured diagnostics (stable Code + 1-based Line);
-///  - GraphicalCode.Validate is pure (no IDE) so a refused push never creates a stub.
+///  - NetworkCode.Validate is pure (no IDE) so a refused push never creates a stub.
 /// </summary>
 public class LdBlockFeatureTests
 {
     // VG → PLCopen → VG, resolving an FB instance's type (VG carries no types). Mirrors the live round-trip.
-    private static string Rt(string vg) => GraphicalRoundTrip.ToVg(vg, _ => "TON");
+    private static string Rt(string vg) => GraphRoundTrip.ToVg(vg, _ => "TON");
 
     private const string TonRung =
         "NETWORK 0 LD\n  t1(IN := enable, PT := pt);\n  done := t1.Q;\n  elapsed := t1.ET;\nEND_NETWORK\n";
@@ -24,7 +24,7 @@ public class LdBlockFeatureTests
     [Fact]
     public void Fb_on_a_rung_emits_boolean_output_as_coil_and_nonboolean_as_embedded_expression()
     {
-        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(TonRung), _ => "TON").ToString();
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(TonRung), _ => "TON").ToString();
         Assert.Contains("<coil", xml);                 // boolean Q drives a coil (TC drops a boolean embedded in the pin)
         Assert.Contains("<block", xml);                // the TON block
         Assert.Contains("elapsed", xml);               // the non-boolean ET assignment is present...
@@ -49,11 +49,11 @@ public class LdBlockFeatureTests
     [Fact]
     public void Validate_is_pure_and_rejects_a_non_canonical_body_with_a_structured_code()
     {
-        // GraphicalCode.Validate runs the language gate + parser + round-trip gate WITHOUT touching the IDE —
+        // NetworkCode.Validate runs the language gate + parser + round-trip gate WITHOUT touching the IDE —
         // it is the check PushService runs before CreateChild so a refusal never leaves an orphan stub.
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
-        var ex = Assert.Throws<NetworkTextException>(() => GraphicalCode.Validate(nonCanonical));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkCode.Validate(nonCanonical));
         Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);
         Assert.NotNull(ex.Line);
         Assert.Contains("out := (a AND b)", ex.Message);   // the readable canonical form is shown

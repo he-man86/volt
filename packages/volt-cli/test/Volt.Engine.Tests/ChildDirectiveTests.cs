@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
 using Xunit;

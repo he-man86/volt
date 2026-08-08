@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
@@ -70,7 +70,7 @@ public static class PushService
             {
                 // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
-                var vg = ex as Graphical.NetworkTextException;
+                var vg = ex as Body.NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
@@ -330,7 +330,7 @@ public static class PushService
 
             // Validate a network-text body BEFORE creating the item — a refused push must not leave an orphaned,
             // unlisted stub POU behind that blocks the next create.
-            if (pouVg) GraphicalCode.Validate(impl);
+            if (pouVg) NetworkCode.Validate(impl);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
             // language at creation; CODESYS ignores the argument and takes the language from the body element on
@@ -343,13 +343,13 @@ public static class PushService
             if (!OneDocument(ide, itemType))
             {
                 // The per-transport path, for a driver whose import has not been measured. A network-text body
-                // still needs its declaration written separately here, because GraphicalCode.Write carries only
+                // still needs its declaration written separately here, because NetworkCode.Write carries only
                 // the body and a fresh POU's <interface> is empty — leaving every var the contacts reference
                 // undeclared. On the single-document path below, the one splice writes both.
                 if (pouVg)
                 {
                     if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
-                    GraphicalCode.Write(ide, pou, name, impl, decl);
+                    NetworkCode.Write(ide, pou, name, impl, decl);
                 }
                 // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
                 // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
@@ -406,7 +406,7 @@ public static class PushService
                 RestoreChildFolders(ide, name, split);
                 return;
             }
-            if (pouVg) GraphicalCode.Write(ide, pou, name, impl, decl);
+            if (pouVg) NetworkCode.Write(ide, pou, name, impl, decl);
             else ide.WriteText(pou, decl, bodyImpl);
         }
 
@@ -449,7 +449,7 @@ public static class PushService
             {
                 if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
-                GraphicalCode.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
+                NetworkCode.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
                 continue;
             }
 
@@ -490,7 +490,7 @@ public static class PushService
         // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
         // (declaration-only), so they are kept, not deleted.
         //
-        // Only for a textual root POU: a graphical (VG) body push goes through GraphicalCode.Write, which
+        // Only for a textual root POU: a graphical (VG) body push goes through NetworkCode.Write, which
         // deletes-and-reimports the object (staleing `pou`), and the VG sourceText carries no textual
         // child list to reconcile against — so child reconciliation doesn't apply there.
         // Runs for EVERY language now. It used to be skipped for a network-text root on two stated reasons, both

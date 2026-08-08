@@ -4,7 +4,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.PlcOpen;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>The FBD/LD BODY splice: replacing one graphical body inside an export, and the capability gate
     /// that decides whether the existing body may be replaced at all.
@@ -13,7 +13,7 @@ namespace Volt.Engine.Graphical
     /// which pin modifiers block a rewrite, and the network-numbering rules — so it belongs with the graph, not
     /// with the document.</para>
     /// </summary>
-    public static class GraphicalBodySplice
+    public static class GraphSplice
     {
         /// <summary>The <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body of the item named <paramref name="itemName"/> in
         /// an exported PLCopen document, or null if that item has no graphical body. The export usually holds
@@ -132,7 +132,7 @@ namespace Volt.Engine.Graphical
         /// either represents them explicitly (inVariable, outVariable, block) or regenerates them on write.
         /// <c>vendorElement</c> is editor rendering info. <c>leftPowerRail</c>, <c>rightPowerRail</c>,
         /// <c>contact</c>, <c>coil</c> are LD ladder elements — the existing ones are dropped here and
-        /// <c>PlcOpenWriter.WriteLadderBody</c> regenerates them from the VG (BOTH TwinCAT and CODESYS emit
+        /// <c>GraphWriter.WriteLadderBody</c> regenerates them from the VG (BOTH TwinCAT and CODESYS emit
         /// real <c>contact</c>/<c>coil</c> inside an <c>&lt;LD&gt;</c> body — TwinCAT does NOT wrap LD in
         /// <c>&lt;FBD&gt;</c>, as once assumed). Adding a genuinely structural element here without VG support
         /// would silently drop functional logic — every entry must be affirmatively confirmed as cosmetic.</summary>

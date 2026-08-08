@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -14,9 +14,9 @@ public class NetworkTextStrictFormTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
     private static GraphBody Read(string inner) =>
-        PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
+        GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
     private static string Vg(string inner) => NetworkTextWriter.Write(Read(inner));
-    private static string FullRoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
+    private static string FullRoundTrip(string vg) => GraphRoundTrip.ToVg(vg);
 
     /// <summary>A SIMPLE leaf (a bare atom) feeding two consumers is INLINED into each consumer box
     /// (`x := a; y := a;`) — only block results and opaque leaves are named-and-fanned-out; a simple
@@ -80,7 +80,7 @@ public class NetworkTextStrictFormTests
         const string vg =
             "NETWORK 0 FBD\n" +
             "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
-        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
 
         Assert.DoesNotContain("VAR_TEMP", xml);
         Assert.DoesNotContain("i1", xml);              // temp names never reach the IDE
@@ -105,11 +105,11 @@ public class NetworkTextStrictFormTests
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(
             System.IO.File.ReadAllText(System.IO.Path.Combine(
                 System.AppContext.BaseDirectory, "fixtures", "tc-fbd", "PLC_PRG_jump_sr.plcopen.xml")))!;
-        var g = PlcOpenReader.ReadBody(fbd);
+        var g = GraphReader.ReadBody(fbd);
         var sr = g.Networks.SelectMany(n => n.Nodes).OfType<Block>().Single(b => b.TypeName == "SR");
         Assert.All(sr.Inputs, p => Assert.Equal("BOOL", p.Type));   // SET1/RESET typed from inputparamtypes
 
-        var g2 = GraphicalRoundTrip.Once(g);
+        var g2 = GraphRoundTrip.Once(g);
         var sr2 = g2.Networks.SelectMany(n => n.Nodes).OfType<Block>().Single(b => b.TypeName == "SR");
         Assert.All(sr2.Inputs, p => Assert.Equal("BOOL", p.Type));  // survived the rewrite
     }
@@ -189,7 +189,7 @@ public class NetworkTextStrictFormTests
     /// <summary>An EXECUTE whose END_EXECUTE is missing or misspelled must be REFUSED, not allowed to swallow the
     /// rest of the body. The scan used to run to end-of-input, straight over END_NETWORK and every following
     /// NETWORK header, collapsing N networks into one Execute box's verbatim ST — and it SURVIVED
-    /// GraphicalCode.Validate's canonical gate, because that ST is re-emitted verbatim. So a single typo pushed
+    /// NetworkCode.Validate's canonical gate, because that ST is re-emitted verbatim. So a single typo pushed
     /// the whole body into the IDE as flat ST with no error anywhere. An Execute box's ST can never legally
     /// contain a network delimiter, which is what makes the boundary a safe place to stop.</summary>
     [Fact]

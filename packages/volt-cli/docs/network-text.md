@@ -153,7 +153,7 @@ opaque text. An *opaque leaf* (`LET i1 := <text>`, §6) carries arbitrary inline
 
 ## 5. Semantic model
 
-VG is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Graphical/GraphModel.cs`). Understanding
+VG is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Body/Graph/GraphModel.cs`). Understanding
 the graph is the key to understanding what each statement *means*.
 
 ```
@@ -324,7 +324,7 @@ follows the index (a body may even mix FBD and LD networks, vendor permitting).
 
 ## 7. Operators
 
-The single canonical table (`src/Volt.Engine/Graphical/FbdOperators.cs`). The **symbol** is the infix VG token; the **type** is
+The single canonical table (`src/Volt.Engine/Body/Graph/FbdOperators.cs`). The **symbol** is the infix VG token; the **type** is
 the underlying operator-box type in the graph/PLCopen. All are **case-insensitive**, **no precedence**, **one
 kind per parenthesised group**.
 
@@ -369,7 +369,7 @@ for go-to-definition and rename.
 
 ## 9. Well-formedness invariants (the gate)
 
-`GraphicalCode.Validate` enforces a named, ordered set of rules. A push is refused unless **all** hold, so an
+`NetworkCode.Validate` enforces a named, ordered set of rules. A push is refused unless **all** hold, so an
 accepted body can never silently rename a wire, drift on the next pull, or corrupt/crash the IDE. The LSP should
 mirror these as diagnostics (so a body is fixed *before* it is pushed).
 
@@ -435,7 +435,7 @@ VG is small and regular; a full-featured server is very achievable. Concrete tar
 - **Rename.** A `LET` wire is safe to rename within its network (it never escapes to the IDE). Renaming a real
   variable is a declaration-level rename.
 
-Treat the bridge's `GraphicalCode.Validate` as the source of truth for *structural* rules and the §8 table as
+Treat the bridge's `NetworkCode.Validate` as the source of truth for *structural* rules and the §8 table as
 the source of truth for *types*; the LSP adds code-correctness on top.
 
 ---
@@ -525,10 +525,10 @@ END_NETWORK
 
 | File | Role |
 |---|---|
-| `src/Volt.Engine/Graphical/NetworkText/NetworkTextReader.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
-| `src/Volt.Engine/Graphical/NetworkText/NetworkTextWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
-| `src/Volt.Engine/Graphical/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
-| `src/Volt.Engine/Graphical/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
-| `src/Volt.Engine/Graphical/GraphicalCode.cs` | `Validate` — the well-formedness gate (§9) |
+| `src/Volt.Engine/Body/NetworkText/NetworkTextReader.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
+| `src/Volt.Engine/Body/NetworkText/NetworkTextWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
+| `src/Volt.Engine/Body/Graph/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
+| `src/Volt.Engine/Body/Graph/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
+| `src/Volt.Engine/Body/NetworkCode.cs` | `Validate` — the well-formedness gate (§9) |
 | `docs/network-text-diagnostics.md` | the bridge-side quick-reference (a subset of §9–§10) |
 | `test/Volt.Engine.Tests/Vg*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |

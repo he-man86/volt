@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
     /// Parses VG text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.
@@ -51,7 +51,7 @@ namespace Volt.Engine.Graphical
                     if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
-                    // localIds index*GraphConstants.NetworkStride+1…, mirroring PlcOpenReader, so a
+                    // localIds index*GraphConstants.NetworkStride+1…, mirroring GraphReader, so a
                     // multi-network body's nodes don't collide across networks — they would otherwise
                     // all restart at 1 → duplicate localIds → networks collapse / import breaks on
                     // push); the next word is the body language (FBD/LD), carried here instead of a
@@ -83,7 +83,7 @@ namespace Volt.Engine.Graphical
                     // BOUNDED at the network boundary. An Execute box's ST can never legally contain END_NETWORK
                     // or a NETWORK header, and without this the scan ran to end-of-input: a missing or misspelled
                     // END_EXECUTE swallowed every following network into ONE box's verbatim ST, whenever a LATER
-                    // network had an END_EXECUTE for it to stop at. It survived GraphicalCode.Validate too — that
+                    // network had an END_EXECUTE for it to stop at. It survived NetworkCode.Validate too — that
                     // ST is re-emitted verbatim — so a single typo pushed the whole body to the IDE as flat ST
                     // with no error anywhere.
                     for (; j < rawLines.Length; j++)

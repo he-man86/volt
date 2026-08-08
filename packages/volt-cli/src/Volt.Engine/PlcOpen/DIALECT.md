@@ -73,7 +73,7 @@ repo contains a method, a property or an accessor.
 | B1 | Transport: CODESYS in-memory `export_xml(…, "", …)`; TwinCAT file-based `PlcOpenExport(path, selection)` | two `ICodeStore` impls — correct |
 | B2 | Export selection: CODESYS a node; TwinCAT a `'.'`-separated project-relative path, walking up to the enclosing POU | `TcObjectModel.cs:390-427` |
 | B3 | Body-language gate: CODESYS a full export + element name; TwinCAT a cheap `ImplementationText` sniff (`<NWL>`/`DefaultViewMode`) | `TcPouReader.cs:16-43`; deliberate, `ARCHITECTURE.md:179-181`. Cost: ~20 ms vs ~1 ms |
-| B4 | **LD-as-FBD read** — a TwinCAT empty LD body exports inside `<FBD>`; the COM language is authoritative. **Currently NOT handled on the production read path** — the override is dead | `PlcOpenReader.cs:15-19`; `Materializer.cs:123-131` passes the element's own name |
+| B4 | **LD-as-FBD read** — a TwinCAT empty LD body exports inside `<FBD>`; the COM language is authoritative. **Currently NOT handled on the production read path** — the override is dead | `GraphReader.cs:15-19`; `Materializer.cs:123-131` passes the element's own name |
 | B5 | **CFC body placement** — CODESYS nests it under `<body>/<addData>/<data name="…/cfc">`, not as a direct child. **Not handled at all** | see Defects below |
 | B6 | **Import mode** — CODESYS merges in place (`Replace`, no delete); TwinCAT ADDS and FAILS on a name collision, so it must delete first | `CodesysDriver.Code.cs:37-52` vs `TcPlcOpen.cs:38-51`. **The deepest genuine divergence in the path** |
 | B7 | `CreateChild` semantics — TwinCAT rejects String vInfo on a FUNCTION, rejects `"ST"` on interfaces, wants the return type as vInfo for interface members, rejects `"LD"`; CODESYS ignores the language entirely | `TcObjectModel.cs:319-340`; `test/e2e/vendor-notes.test.ts:4-7` |
@@ -84,8 +84,8 @@ repo contains a method, a property or an accessor.
 |---|---|
 | C1 | TwinCAT `PlcOpenExport` has **no flags** — the export shape is not tunable |
 | C2 | TwinCAT answers **`E_FAIL` for every DUT and GVL** export (measured live) — `Materializer.cs:52-58` |
-| C3 | TwinCAT's importer drops `negated` on an `<inVariable>`, so negation is encoded as `NOT x` in the expression text for BOTH vendors — `PlcOpenWriter.cs:108-115` |
-| C4 | TwinCAT's importer **crashes** on leaf fan-out ("Index was outside the bounds of the array"); refused globally in Core — `GraphicalCode.cs:70-86` |
+| C3 | TwinCAT's importer drops `negated` on an `<inVariable>`, so negation is encoded as `NOT x` in the expression text for BOTH vendors — `GraphWriter.cs:108-115` |
+| C4 | TwinCAT's importer **crashes** on leaf fan-out ("Index was outside the bounds of the array"); refused globally in Core — `NetworkCode.cs:70-86` |
 | C5 | TwinCAT has **no move primitive** — `BeckhoffDriver.Tree.cs:126-134` throws. (See D4: nobody has actually looked.) |
 | C6 | TwinCAT `CreateChild` cannot create `"LD"` — created as FBD |
 
@@ -110,11 +110,11 @@ repo contains a method, a property or an accessor.
 
 | # | Never verified |
 |---|---|
-| D11 | **The entire LD export/import shape.** No CODESYS LD capture exists anywhere; `PlcOpenWriter` emits TwinCAT's shared-rail form (left rail id 0, right rail 2147483646, regenerated `networktitle` markers) to CODESYS. `PlcOpenWriter.cs:219` claims live CODESYS verification with nothing to show for it |
+| D11 | **The entire LD export/import shape.** No CODESYS LD capture exists anywhere; `GraphWriter` emits TwinCAT's shared-rail form (left rail id 0, right rail 2147483646, regenerated `networktitle` markers) to CODESYS. `GraphWriter.cs:219` claims live CODESYS verification with nothing to show for it |
 | D12 | EN/ENO pin naming — `NetworkTextReader.cs:228-232` hardcodes TwinCAT's `EN`/`In2…`/`Out2`/`ENO` and writes it into CODESYS |
 | D13 | Embedded output assignment on write — the LD writer always embeds a non-primary output in its pin, a rule derived entirely from live TwinCAT |
 | D14 | `negated` on `<inVariable>` — the C3 workaround is exercised by **no fixture on either vendor** |
-| D15 | The FBD `<comment>` shape — "CODESYS rejects bare text" (`PlcOpenWriter.cs:69`); no recorded CODESYS export contains a `<comment>` at all |
+| D15 | The FBD `<comment>` shape — "CODESYS rejects bare text" (`GraphWriter.cs:69`); no recorded CODESYS export contains a `<comment>` at all |
 | D16 | Whether **either** IDE accepts a `<Property>` written without `<interface><returnType>` |
 
 ## Structural conclusion
@@ -137,13 +137,13 @@ CODESYS-only. What remains unmeasured on TwinCAT is all about the IMPORT (D1-D4)
 
 ## Part 9 — false comments found (Convention 8: a false comment is a defect)
 
-1. `Graphical/PlcOpenDocument.cs:585-587` attributes `<actions>`-before-`<body>` to TwinCAT. **CODESYS does it too**
+1. `PlcOpen/PlcOpenDocument.cs:585-587` attributes `<actions>`-before-`<body>` to TwinCAT. **CODESYS does it too**
    (`FB_FolderChild.plcopen.xml:27,38`). The hazard is real; the attribution is wrong.
-2. `Graphical/PlcOpenReader.cs:358-360` — "CODESYS and TwinCAT both emit [param types]". True for FBD, **false for
+2. `Body/Graph/GraphReader.cs:358-360` — "CODESYS and TwinCAT both emit [param types]". True for FBD, **false for
    TwinCAT LD**.
-3. `Graphical/PlcOpenDocument.cs:196` — "this same import already rejects a BOM". **No evidence for either vendor.**
+3. `PlcOpen/PlcOpenDocument.cs:196` — "this same import already rejects a BOM". **No evidence for either vendor.**
    The only BOM-rejection evidence concerns workspace source files on a different path.
-4. `Graphical/PlcOpenReader.cs:15-19` — documents the `language` override as how the TwinCAT empty-LD case is
+4. `Body/Graph/GraphReader.cs:15-19` — documents the `language` override as how the TwinCAT empty-LD case is
    handled. It is never fed a vendor language on the production path.
 5. `ARCHITECTURE.md:135-136` cites `Graphical/PlcOpenDocument.InterfacePropertyAccessors` — **that member does not
    exist**; accessors come from `PlcOpenPouParser.Accessor`.

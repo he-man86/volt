@@ -1,6 +1,6 @@
 ﻿using System;
 using System.IO;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -9,7 +9,7 @@ namespace Volt.Cli.Tests;
 /// Ground-truth over REAL TwinCAT PLCopenXML, captured live from TcXaeShell via
 /// ITcPlcIECProject.PlcOpenExport (fixtures/tc-fbd/PLC_PRG.plcopen.xml). Confirms TwinCAT's export
 /// (which uses the SAME 3S/CODESYS addData extensions) flows through the shared CODESYS pipeline —
-/// PlcOpenReader → NetworkTextWriter — and that PlcOpenWriter re-emits the vendor fbdcalltype on the way back.
+/// GraphReader → NetworkTextWriter — and that GraphWriter re-emits the vendor fbdcalltype on the way back.
 /// </summary>
 public class PlcOpenTcFixtureTests
 {
@@ -30,7 +30,7 @@ public class PlcOpenTcFixtureTests
         // this assignment (real data loss); it must now surface `elapsed := T1.ET`.
         var ld = TestPlcOpen.FindOnlyGraphicalBody(LdTonFixture());
         Assert.NotNull(ld);
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(ld!));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(ld!));
         Assert.Contains("T1(IN :=", vg);            // the TON FB call is read
         Assert.Contains("done := T1.Q", vg);         // boolean output Q → coil
         Assert.Contains("elapsed := T1.ET", vg);     // the embedded non-boolean output assignment survives
@@ -45,7 +45,7 @@ public class PlcOpenTcFixtureTests
         // live; must surface `elapsed := t1.ET`.
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-fbd", "fbd_ton_embedded_output.plcopen.xml")))!;
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(fbd));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd));
         Assert.Contains("t1(IN :=", vg);              // the TON FB call
         Assert.Contains("done := t1.Q", vg);           // boolean output → separate outVariable
         Assert.Contains("elapsed := t1.ET", vg);       // non-boolean output embedded in the pin — must survive
@@ -59,7 +59,7 @@ public class PlcOpenTcFixtureTests
         // user-authored fixture is four single-rung networks all hanging off the one shared rail (localIds 0-16).
         var ld = TestPlcOpen.FindOnlyGraphicalBody(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-ld", "ld_four_networks_shared_rails.plcopen.xml")))!;
-        var body = PlcOpenReader.ReadBody(ld);
+        var body = GraphReader.ReadBody(ld);
         Assert.Equal(4, body.Networks.Count);
     }
 
@@ -69,7 +69,7 @@ public class PlcOpenTcFixtureTests
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture());
         Assert.NotNull(fbd);
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(fbd!));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
 
         Assert.Contains("SR_0(SET1 := NOT xtest, RESET := xtestr1 RISING)", vg);  // SR FB + inlined operands + negation + edge
         Assert.Contains("out := SR_0.Q1", vg);                                    // branch / fan-out...
@@ -82,16 +82,16 @@ public class PlcOpenTcFixtureTests
     public void Real_jump_network_round_trips_through_plcopen()
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture())!;
-        var g1 = PlcOpenReader.ReadBody(fbd);
+        var g1 = GraphReader.ReadBody(fbd);
         var vg1 = NetworkTextWriter.Write(g1);
 
-        var xml2 = PlcOpenWriter.WriteBody(g1).ToString();
+        var xml2 = GraphWriter.WriteBody(g1).ToString();
         Assert.Contains("<jump", xml2);
         Assert.Contains("<label", xml2);
         Assert.Contains("negated=\"true\"", xml2);
         Assert.Contains("edge=\"rising\"", xml2);
 
-        Assert.Equal(vg1, GraphicalRoundTrip.ToVg(g1));  // fixed point
+        Assert.Equal(vg1, GraphRoundTrip.ToVg(g1));  // fixed point
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class PlcOpenTcFixtureTests
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture());
         Assert.NotNull(fbd);
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(fbd!));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
 
         Assert.Matches(@"NETWORK \d+ FBD", vg);   // language rides on the network marker
         // Literal operands are inlined into the operator statement (e.g. `xtest := (FALSE AND TRUE);`).
@@ -114,7 +114,7 @@ public class PlcOpenTcFixtureTests
     [Fact]
     public void Networks_are_split_by_localId_index()
     {
-        var body = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
+        var body = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         Assert.Equal(3, body.Networks.Count);   // PLC_PRG's action is three FBD networks
 
         var vg = NetworkTextWriter.Write(body);
@@ -133,9 +133,9 @@ public class PlcOpenTcFixtureTests
     public void Write_back_re_emits_the_vendor_fbdcalltype()
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture())!;
-        var graph = PlcOpenReader.ReadBody(fbd);
+        var graph = GraphReader.ReadBody(fbd);
 
-        var rewritten = PlcOpenWriter.WriteBody(graph).ToString();
+        var rewritten = GraphWriter.WriteBody(graph).ToString();
 
         // The operator boxes' CallType ("operator") must survive read → graph → write,
         // matching what TwinCAT/CODESYS export (so re-import keeps the vendor metadata).

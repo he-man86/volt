@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -14,13 +14,13 @@ public class EnEnoTests
     [Fact]
     public void EnEno_reads_as_IF_parses_back_and_is_a_fixed_point()
     {
-        var g0 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
+        var g0 = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         var vg0 = NetworkTextWriter.Write(g0);
 
         // NetworkTextReader is the exact inverse of NetworkTextWriter (the VG-text fixed point).
         var vg1 = NetworkTextWriter.Write(NetworkTextReader.Parse(vg0));
         // And the parsed graph survives a full PLCopen round-trip (the convergence the push-gate checks).
-        var vg2 = GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg0));
+        var vg2 = GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg0));
 
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_rt.txt"),
             "=== vg0 (read) ===\n" + vg0 + "\n=== vg1 (parse→write) ===\n" + vg1 + "\n=== vg2 (parse→plcopen→write) ===\n" + vg2);
@@ -32,13 +32,13 @@ public class EnEnoTests
     public void Pushing_over_an_existing_EnEno_body_is_not_refused_as_multi_output()
     {
         // An EN/ENO box is stateless with ENO + its value output. The "stateless function with multiple outputs"
-        // guard (GraphicalBodySplice.ValidateExisting) must NOT count ENO, or overwriting an existing EN/ENO body is
+        // guard (GraphSplice.ValidateExisting) must NOT count ENO, or overwriting an existing EN/ENO body is
         // wrongly refused. Found LIVE on TwinCAT: the create slipped through (no existing body), the re-push hit it.
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture())!;
         var ns = fbd.Name.Namespace;
         var miniDoc = new XElement(ns + "pou", new XAttribute("name", "P"),
             new XElement(ns + "body", new XElement(fbd))).ToString();
-        var newBody = PlcOpenWriter.WriteBody(PlcOpenReader.ReadBody(fbd));
+        var newBody = GraphWriter.WriteBody(GraphReader.ReadBody(fbd));
         var spliced = TestPlcOpen.SpliceOnlyGraphicalBody(miniDoc, newBody);   // must not throw
         Assert.Contains("ENO", spliced);
     }
@@ -61,13 +61,13 @@ public class EnEnoTests
             "</block>" +
             "<outVariable localId=\"3\"><connectionPointIn><connection refLocalId=\"2\" formalParameter=\"OUT\"/></connectionPointIn><expression>y</expression></outVariable>" +
             "</FBD></body></pou></pous></types></project>";
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), vg);
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
         Assert.Contains("FC_Do(", vg);         // rendered as a plain call
         Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));            // VG-text fixed point
-        Assert.Equal(vg, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg)));   // PLCopen convergence
+        Assert.Equal(vg, GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg)));   // PLCopen convergence
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class EnEnoTests
             "</block>" +
             "<coil localId=\"4\"><connectionPointIn><connection refLocalId=\"3\" formalParameter=\"OUT\"/></connectionPointIn><variable>y</variable></coil>" +
             "</LD></body></pou></pous></types></project>";
-        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
         Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));   // VG-text fixed point
@@ -108,6 +108,6 @@ public class EnEnoTests
         var once = NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_fb.txt"), once);
         Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));            // VG-text fixed point
-        Assert.Equal(once, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // PLCopen convergence
+        Assert.Equal(once, GraphRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // PLCopen convergence
     }
 }

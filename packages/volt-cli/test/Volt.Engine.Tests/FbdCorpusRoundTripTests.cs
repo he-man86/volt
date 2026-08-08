@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -60,13 +60,13 @@ public class FbdCorpusRoundTripTests
                 var miniDoc = new XElement(ns + "pou", new XAttribute("name", "P"),
                     new XElement(ns + "body", new XElement(body))).ToString();
 
-                var g0 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(miniDoc)!);
+                var g0 = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(miniDoc)!);
                 string vg0;
                 string spliced;
                 try
                 {
                     vg0 = NetworkTextWriter.Write(g0);
-                    var newBody = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg0));   // VG must re-parse
+                    var newBody = GraphWriter.WriteBody(NetworkTextReader.Parse(vg0));   // VG must re-parse
                     spliced = TestPlcOpen.SpliceOnlyGraphicalBody(miniDoc, newBody);  // and the guard must allow it
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or NetworkTextException)
@@ -86,14 +86,14 @@ public class FbdCorpusRoundTripTests
                 // HASH DRIFT guard: the VG (what the bridge hashes) must be a fixed point through the
                 // full push round-trip — else an unchanged body would re-hash differently and be
                 // falsely flagged as edited (scaffolding we add: localIds/positions/xhtml/typeNames).
-                Assert.True(vg0 == NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(spliced)!)),
+                Assert.True(vg0 == NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(spliced)!)),
                     $"{Path.GetFileName(file)}: hash drift — round-trip changed the VG");
                 // FULL push-gate guard, incl. Invariant 5 (NETWORK_PLCOPEN_DRIFT: the graph→PLCopen→graph fixed
                 // point that the hash-drift guard above does NOT check). A real IDE-produced body's canonical
-                // VG must pass EVERY GraphicalCode.Validate invariant; a body that oscillated through the
+                // VG must pass EVERY NetworkCode.Validate invariant; a body that oscillated through the
                 // PLCopen round-trip would be refused here. This is the accept-path coverage for the one VG
                 // invariant that otherwise had no test.
-                GraphicalCode.Validate(vg0);
+                NetworkCode.Validate(vg0);
             }
         }
 

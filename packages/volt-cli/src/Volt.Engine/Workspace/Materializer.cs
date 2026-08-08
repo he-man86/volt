@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace.SourceText;
 using Volt.Engine.PlcOpen;
@@ -127,7 +127,7 @@ public static class Materializer
     {
         if (lang == null || bodyEl == null) return null;
         if (lang is "FBD" or "LD")
-            return GraphicalCode.RenderBody(bodyEl);
+            return NetworkCode.RenderBody(bodyEl);
         if (lang is "CFC" or "SFC")
             return GraphicalBodyMarker(lang);
         var text = bodyEl.Value.Trim();

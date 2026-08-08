@@ -12,7 +12,7 @@ namespace Volt.Cli.Tests;
 /// The BODY CODEC: one splice writes any body, dispatching on its LANGUAGE — there is no "graphical path".
 /// <para>Every case here runs against a RECORDED CODESYS export with a real <c>&lt;FBD&gt;</c> body
 /// (<c>VltFbd_FbdRoot.plcopen.xml</c>). Before the codec, a POU whose body was FBD took an entirely separate
-/// write (<c>GraphicalCode.Write</c>) that wrote ONLY the body — so its declaration edits were silently
+/// write (<c>NetworkCode.Write</c>) that wrote ONLY the body — so its declaration edits were silently
 /// discarded and its dropped members silently kept. Those are not edge cases; they are what the fork cost.</para>
 /// </summary>
 public class BodyCodecTests
@@ -30,7 +30,7 @@ public class BodyCodecTests
     private static string BodyOfFixture()
     {
         var parsed = PouReader.Parse(Fbd);
-        return Volt.Engine.Graphical.GraphicalCode.RenderBody(parsed.BodyElement!);
+        return Volt.Engine.Body.NetworkCode.RenderBody(parsed.BodyElement!);
     }
 
     private static StSplitter.StSplitResult Split(string decl, string body) =>
@@ -59,8 +59,8 @@ public class BodyCodecTests
         var before = PouReader.Parse(Fbd).BodyElement!;
         var after = PouReader.Parse(doc).BodyElement!;
         Assert.Equal("FBD", after.Name.LocalName);
-        Assert.Equal(Volt.Engine.Graphical.GraphicalCode.RenderBody(before),
-                     Volt.Engine.Graphical.GraphicalCode.RenderBody(after));
+        Assert.Equal(Volt.Engine.Body.NetworkCode.RenderBody(before),
+                     Volt.Engine.Body.NetworkCode.RenderBody(after));
     }
 
     /// <summary>DEFECT 5 — an IL body is refused as a LANGUAGE MISMATCH, by the body writer, with a message that

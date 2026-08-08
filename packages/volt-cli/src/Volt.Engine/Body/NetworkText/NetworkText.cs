@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.RegularExpressions;
 
-namespace Volt.Engine.Graphical;
+namespace Volt.Engine.Body;
 
 /// <summary>
 /// The VG graphical-body contract. An EDITABLE graphical body (FBD/LD — a ROOT POU's own kind-named

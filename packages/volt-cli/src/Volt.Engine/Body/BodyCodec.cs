@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
     /// How one body LANGUAGE moves between its workspace TEXT and its PLCopen ELEMENT.
@@ -138,16 +138,16 @@ namespace Volt.Engine.Graphical
     {
         public NetworkCodec(string language) => Language = language;
         public override string Language { get; }
-        public override string Decode(XElement element) => GraphicalCode.RenderBody(element);
+        public override string Decode(XElement element) => NetworkCode.RenderBody(element);
 
         public override bool Encode(XElement body, string text)
         {
-            var graph = GraphicalCode.Validate(text);                     // parse + canonical + convergence gates
-            var replacement = PlcOpenWriter.WriteBody(graph, null);
+            var graph = NetworkCode.Validate(text);                     // parse + canonical + convergence gates
+            var replacement = GraphWriter.WriteBody(graph, null);
             var existing = Locate(body) ?? body.Elements()
                 .FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");  // a language change swaps the element
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
-            GraphicalBodySplice.RequireReplaceable(existing);             // refuse to drop what VG cannot represent
+            GraphSplice.RequireReplaceable(existing);             // refuse to drop what VG cannot represent
             if (XNode.DeepEquals(existing, replacement)) return false;
             existing.ReplaceWith(replacement);
             return true;

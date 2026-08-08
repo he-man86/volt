@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>FBD encodes the network index in the high digits of each <c>localId</c>
     /// (<c>index = localId / 10^10</c>). LD does NOT stride — its networks are delimited by
     /// <c>vendorElement(networktitle)</c> markers and share one power-rail pair; the stride is the
-    /// FBD-only fallback in <c>PlcOpenReader.SplitNetworks</c>.</summary>
+    /// FBD-only fallback in <c>GraphReader.SplitNetworks</c>.</summary>
     public static class GraphConstants
     {
         public const long NetworkStride = 10_000_000_000L;
@@ -82,7 +82,7 @@ namespace Volt.Engine.Graphical
 
     /// <summary>A node kind the FBD reader recognises but does not model yet (contact, coil,
     /// connector, continuation, power rails, comment, vendorElement). Preserved opaquely so the
-    /// reader stays TOTAL over the XSD and <c>PlcOpenWriter</c> can re-emit it verbatim; <c>NetworkTextWriter</c>
+    /// reader stays TOTAL over the XSD and <c>GraphWriter</c> can re-emit it verbatim; <c>NetworkTextWriter</c>
     /// has no VG spelling for it, so it is DROPPED from network text and from any pushed body (see the
     /// <c>ponytail:</c> note in NetworkTextWriter).</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)

@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -13,7 +13,7 @@ public class NetworkTextWriterTests
     {
         var xml = $"<FBD xmlns=\"{Ns}\">{fbdInner}</FBD>";
         var fbd = XElement.Parse(xml);
-        var body = PlcOpenReader.ReadBody(fbd);
+        var body = GraphReader.ReadBody(fbd);
         return NetworkTextWriter.Write(body);
     }
 

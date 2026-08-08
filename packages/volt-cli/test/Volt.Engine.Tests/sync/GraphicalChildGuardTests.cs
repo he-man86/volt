@@ -6,7 +6,7 @@ using Volt.Engine.Workspace;
 using Xunit;
 
 using Volt.Cli.Transport;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 
 namespace Volt.Cli.Tests;
 

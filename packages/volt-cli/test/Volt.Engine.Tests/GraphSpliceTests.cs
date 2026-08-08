@@ -1,12 +1,12 @@
 ﻿using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Workspace.SourceText;
 
 namespace Volt.Cli.Tests;
 
-public class GraphicalBodySpliceTests
+public class GraphSpliceTests
 {
     private const string Pou = """
     <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">
@@ -18,7 +18,7 @@ public class GraphicalBodySpliceTests
     [Fact]
     public void Finds_the_FBD_body()
     {
-        var body = GraphicalBodySplice.FindFbdLdBody(Pou, "P");
+        var body = GraphSplice.FindFbdLdBody(Pou, "P");
         Assert.NotNull(body);
         Assert.Equal("FBD", body!.Name.LocalName);
     }
@@ -30,7 +30,7 @@ public class GraphicalBodySpliceTests
         var newBody = new XElement(ns + "FBD", new XElement(ns + "outVariable",
             new XAttribute("localId", 9), new XElement(ns + "expression", "z")));
 
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(Pou, "P", newBody);
+        var outXml = GraphSplice.SpliceFbdLdBody(Pou, "P", newBody);
 
         Assert.Contains("outVariable", outXml);
         Assert.Contains("z", outXml);
@@ -46,7 +46,7 @@ public class GraphicalBodySpliceTests
         // graphical one. NOT a throw — nothing of value is lost (the textual body is discarded by design).
         const string st = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><body><ST>x:=1;</ST></body></pou>""";
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(st, "P", new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
+        var outXml = GraphSplice.SpliceFbdLdBody(st, "P", new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
         Assert.Contains("<FBD", outXml);          // graphical body inserted
         Assert.DoesNotContain("x:=1", outXml);    // textual body discarded
     }
@@ -56,7 +56,7 @@ public class GraphicalBodySpliceTests
     {
         const string noBody = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><interface/></pou>""";
         Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(noBody, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(noBody, "P", new XElement("FBD")));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class GraphicalBodySpliceTests
         </pou>
         """;
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(withConnector, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(withConnector, "P", new XElement("FBD")));
         Assert.Contains("connector", ex.Message);
     }
 
@@ -87,7 +87,7 @@ public class GraphicalBodySpliceTests
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
         var newLd = new XElement(ns + "LD",
             new XElement(ns + "coil", new XAttribute("localId", 9), new XElement(ns + "variable", "z")));
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(Pou, "P", newLd);   // Pou has an <FBD> body
+        var outXml = GraphSplice.SpliceFbdLdBody(Pou, "P", newLd);   // Pou has an <FBD> body
         Assert.Contains("<LD>", outXml);             // wrapper flipped to match the new body
         Assert.DoesNotContain("<FBD>", outXml);      // old FBD wrapper replaced
         Assert.Contains("coil", outXml);             // new contents present
@@ -108,7 +108,7 @@ public class GraphicalBodySpliceTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(withVendor, "P", new XElement(ns + "FBD"));
+        var outXml = GraphSplice.SpliceFbdLdBody(withVendor, "P", new XElement(ns + "FBD"));
         Assert.DoesNotContain("inVariable", outXml);   // body replaced
     }
 
@@ -127,7 +127,7 @@ public class GraphicalBodySpliceTests
         </pou>
         """;
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(withGap, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(withGap, "P", new XElement("FBD")));
         Assert.Contains("gap", ex.Message);
     }
 
@@ -145,7 +145,7 @@ public class GraphicalBodySpliceTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(contiguous, "P", new XElement(ns + "FBD",
+        var outXml = GraphSplice.SpliceFbdLdBody(contiguous, "P", new XElement(ns + "FBD",
             new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);
     }
@@ -164,7 +164,7 @@ public class GraphicalBodySpliceTests
             </block>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("in-out", ex.Message);
     }
 
@@ -177,7 +177,7 @@ public class GraphicalBodySpliceTests
             </block>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("output pin", ex.Message);
     }
 
@@ -191,7 +191,7 @@ public class GraphicalBodySpliceTests
               <connectionPointIn><connection refLocalId="1"/><connection refLocalId="2"/></connectionPointIn></outVariable>
             """);
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphicalBodySplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
         Assert.Contains("multiple sources", ex.Message);
     }
 
@@ -208,7 +208,7 @@ public class GraphicalBodySpliceTests
             </block>
             """);
         XNamespace ns = Ns;
-        var outXml = GraphicalBodySplice.SpliceFbdLdBody(xml, "P", new XElement(ns + "FBD", new XElement(ns + "outVariable",
+        var outXml = GraphSplice.SpliceFbdLdBody(xml, "P", new XElement(ns + "FBD", new XElement(ns + "outVariable",
                 new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);   // splice proceeded
     }
@@ -245,8 +245,8 @@ public class GraphicalBodySpliceTests
     [Fact]
     public void Finding_a_graphical_body_selects_the_named_item()
     {
-        Assert.Null(GraphicalBodySplice.FindFbdLdBody(PouWithGraphicalMethods, "P"));
-        Assert.Contains("second_body", GraphicalBodySplice.FindFbdLdBody(PouWithGraphicalMethods, "Second")!.ToString());
+        Assert.Null(GraphSplice.FindFbdLdBody(PouWithGraphicalMethods, "P"));
+        Assert.Contains("second_body", GraphSplice.FindFbdLdBody(PouWithGraphicalMethods, "Second")!.ToString());
     }
 
     [Fact]
@@ -257,14 +257,14 @@ public class GraphicalBodySpliceTests
             new XAttribute("localId", 9), new XElement(ns + "expression", "written")));
 
         // The SECOND method — not the first, which is what document order would have picked.
-        var onMethod = GraphicalBodySplice.SpliceFbdLdBody(PouWithGraphicalMethods, "Second", NewBody(ns));
+        var onMethod = GraphSplice.SpliceFbdLdBody(PouWithGraphicalMethods, "Second", NewBody(ns));
         Assert.Contains("written", onMethod);
         Assert.DoesNotContain("second_body", onMethod);   // replaced
         Assert.Contains("first_body", onMethod);          // sibling method untouched
         Assert.Contains("pou_body", onMethod);            // the POU's own body untouched
 
         // The POU itself — a first write onto its textual body, leaving both methods alone.
-        var onPou = GraphicalBodySplice.SpliceFbdLdBody(PouWithGraphicalMethods, "P", NewBody(ns));
+        var onPou = GraphSplice.SpliceFbdLdBody(PouWithGraphicalMethods, "P", NewBody(ns));
         Assert.Contains("written", onPou);
         Assert.DoesNotContain("pou_body", onPou);         // textual body discarded by the first write
         Assert.Contains("first_body", onPou);
@@ -282,8 +282,8 @@ public class GraphicalBodySpliceTests
           <body><FBD><inVariable localId="1"><expression>pou_body</expression></inVariable></FBD></body>
         </pou>
         """;
-        Assert.Contains("act_body", GraphicalBodySplice.FindFbdLdBody(withAction, "ACT")!.ToString());
-        Assert.Contains("pou_body", GraphicalBodySplice.FindFbdLdBody(withAction, "P")!.ToString());
+        Assert.Contains("act_body", GraphSplice.FindFbdLdBody(withAction, "ACT")!.ToString());
+        Assert.Contains("pou_body", GraphSplice.FindFbdLdBody(withAction, "P")!.ToString());
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text-LIKE
@@ -56,7 +56,7 @@ namespace Volt.Engine.Graphical
 
             // The wires a node CONSUMES — the ONE spelling of that relation in this file: both the
             // use-count below and the EN/ENO into-sink search read it.
-            // ponytail: GraphicalCode.Sources and PlcOpenWriter's NoteRef loops answer the same question
+            // ponytail: NetworkCode.Sources and GraphWriter's NoteRef loops answer the same question
             // with their own switches; the relation belongs on GraphNode, which is a wider change than this.
             IEnumerable<Conn> Consumed(GraphNode n) => n switch
             {
@@ -222,9 +222,9 @@ namespace Volt.Engine.Graphical
             // continuations, power rails, comments and vendorElements have no VG spelling, so they are
             // DROPPED from network text (and therefore from a pushed body). Pinned by NetworkTextWriterTests
             // .Real_CONFIG_fb_call_renders_as_a_call_with_named_pins, whose input carries a <vendorElement>
-            // the expected VG has no trace of. PlcOpenWriter's `case OpaqueNode` consequently serves only
+            // the expected VG has no trace of. GraphWriter's `case OpaqueNode` consequently serves only
             // the reader→writer path, NOT push — GraphModel's OpaqueNode summary ("the writer can
-            // round-trip it") is true of PlcOpenWriter alone, not of VG.
+            // round-trip it") is true of GraphWriter alone, not of VG.
             foreach (var node in net.Nodes)
                 switch (node)
                 {

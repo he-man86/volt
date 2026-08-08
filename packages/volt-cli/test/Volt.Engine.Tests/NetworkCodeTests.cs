@@ -1,6 +1,6 @@
 ﻿using System;
 using Volt.Engine;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 using Xunit;
@@ -8,10 +8,10 @@ using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 
-/// <summary>Exercises the graphical code path (<see cref="GraphicalCode"/>) entirely offline through a
+/// <summary>Exercises the graphical code path (<see cref="NetworkCode"/>) entirely offline through a
 /// fake code store — the payoff of the clean boundary: no live IDE needed. Proves the symmetric
 /// read/write (decl + body via one PLCopen) and the zero-fallback behaviour (failures propagate).</summary>
-public class GraphicalCodeTests
+public class NetworkCodeTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
@@ -51,7 +51,7 @@ public class GraphicalCodeTests
     public void Textual_body_returns_null_and_never_exports()
     {
         var s = new FakeCodeStore { Lang = null };
-        Assert.Null(GraphicalCode.Read(s, Item, ItemName));
+        Assert.Null(NetworkCode.Read(s, Item, ItemName));
         Assert.Equal(0, s.ReadXmlCalls);   // the cheap gate short-circuits — no export for textual POUs
     }
 
@@ -59,7 +59,7 @@ public class GraphicalCodeTests
     public void Fbd_body_reads_as_vg_with_declaration_from_the_same_export()
     {
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: true, oldDecl: "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR") };
-        var gb = GraphicalCode.Read(s, Item, ItemName);
+        var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.NotNull(gb);
         Assert.Equal("FBD", gb!.Language);
         Assert.StartsWith("NETWORK 0 FBD", gb.Body);
@@ -72,10 +72,10 @@ public class GraphicalCodeTests
     [InlineData("SFC")]
     public void Cfc_and_sfc_bodies_read_as_an_empty_body_with_a_real_declaration(string lang)
     {
-        // CFC/SFC have no text form: GraphicalCode.Read returns an EMPTY body (the Materializer later wraps
+        // CFC/SFC have no text form: NetworkCode.Read returns an EMPTY body (the Materializer later wraps
         // it in the @volt-graphical marker). A Core rule, not a vendor trait — proven offline here.
         var s = new FakeCodeStore { Lang = lang, Xml = Pou($"<{lang}/>", withIface: false), Decl = "FUNCTION_BLOCK C\nVAR\nEND_VAR" };
-        var gb = GraphicalCode.Read(s, Item, ItemName);
+        var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal(lang, gb!.Language);
         Assert.Equal("", gb.Body);                                       // not transpiled — empty
         Assert.DoesNotContain("NETWORK", gb.Body);                       // never an editable VG body
@@ -102,7 +102,7 @@ public class GraphicalCodeTests
         // analyzable), NOT collapse it into a bare `EXECUTE()` call that drops the code. The body stays a
         // normal, readable VG body.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
-        var gb = GraphicalCode.Read(s, Item, ItemName);
+        var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal("FBD", gb!.Language);
         Assert.Contains("NETWORK", gb.Body);          // a normal, readable VG body
         Assert.Contains("target := 42;", gb.Body);    // the box's real inline ST is materialized
@@ -116,14 +116,14 @@ public class GraphicalCodeTests
         // `IF en THEN EXECUTE … END_EXECUTE END_IF` (EN handled like any block), and reconstructs as
         // <block typeName="EXECUTE"> + fbdcalltype=execute + <STCode> — so its inline ST survives verbatim.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
-        var vg = GraphicalCode.Read(s, Item, ItemName)!.Body;
+        var vg = NetworkCode.Read(s, Item, ItemName)!.Body;
         Assert.Contains("EXECUTE", vg);
         Assert.Contains("END_EXECUTE", vg);
         Assert.Contains("target := 42;", vg);          // the ST is rendered verbatim
         Assert.Contains("IF en", vg);                  // EN via the ordinary wire+IF guard, not special-cased
 
         var graph = NetworkTextReader.Parse(vg);                // VG → graph (bridge parser detects the EXECUTE marker)
-        var xml = PlcOpenWriter.WriteBody(graph).ToString();
+        var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("typeName=\"EXECUTE\"", xml);  // reconstructed as a CODESYS Execute box
         Assert.Contains("target := 42;", xml);         // …carrying its STCode
         Assert.Contains("STCode", xml);
@@ -137,7 +137,7 @@ public class GraphicalCodeTests
         // leaf; otherwise the pulled body fails the canonical/leaf-fanout gate and can't be pushed back.
         var vg = "NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN\n  EXECUTE\n  x := 1;\n  END_EXECUTE\n  END_IF\n"
             + "  LET en2 := en1;\n  IF en2 THEN out := (b AND c); END_IF\nEND_NETWORK\n";
-        GraphicalCode.Validate(vg);   // throws NETWORK_NOT_CANONICAL / NETWORK_LEAF_FANOUT if the round-trip breaks
+        NetworkCode.Validate(vg);   // throws NETWORK_NOT_CANONICAL / NETWORK_LEAF_FANOUT if the round-trip breaks
     }
 
     [Fact]
@@ -147,9 +147,9 @@ public class GraphicalCodeTests
         // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
         // not refused. So an Execute box is editable, not read-only.
         var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
-        var vg = GraphicalCode.Read(read, Item, ItemName)!.Body;
+        var vg = NetworkCode.Read(read, Item, ItemName)!.Body;
         var write = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: true) };
-        GraphicalCode.Write(write, Item, ItemName, vg, "PROGRAM P\nVAR\nEND_VAR");
+        NetworkCode.Write(write, Item, ItemName, vg, "PROGRAM P\nVAR\nEND_VAR");
         Assert.NotNull(write.WrittenXml);
         Assert.Contains("typeName=\"EXECUTE\"", write.WrittenXml!);   // the box is reconstructed
         Assert.Contains("target := 42;", write.WrittenXml!);         // …with its STCode
@@ -159,14 +159,14 @@ public class GraphicalCodeTests
     public void Declaration_falls_to_the_textual_aspect_when_the_export_omits_it()
     {
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false), Decl = "FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR" };
-        Assert.Equal("FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR", GraphicalCode.Read(s, Item, ItemName)!.Declaration);
+        Assert.Equal("FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR", NetworkCode.Read(s, Item, ItemName)!.Declaration);
     }
 
     [Fact]
     public void Graphical_language_but_no_fbd_body_throws_not_a_silent_marker()
     {
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou("<ST>x:=1;</ST>", withIface: true) };
-        Assert.Throws<InvalidOperationException>(() => GraphicalCode.Read(s, Item, ItemName));
+        Assert.Throws<InvalidOperationException>(() => NetworkCode.Read(s, Item, ItemName));
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class GraphicalCodeTests
         // A3: a bad language token is rejected BEFORE the IDE import, with a clear message — not downstream
         // with a misleading "not writable". The guard fires before ReadXml, so the store needn't be valid.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
-        var ex = Assert.Throws<InvalidOperationException>(() => GraphicalCode.Write(
+        var ex = Assert.Throws<InvalidOperationException>(() => NetworkCode.Write(
             s, Item, ItemName, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
         Assert.Contains("unknown graphical language", ex.Message);
@@ -192,7 +192,7 @@ public class GraphicalCodeTests
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
         var ex = Assert.Throws<NetworkTextException>(() =>
-            GraphicalCode.Write(s, Item, ItemName, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+            NetworkCode.Write(s, Item, ItemName, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
         Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);          // structured diagnostic
         Assert.NotNull(ex.Line);                            // names the first differing line
         Assert.Contains("out := (a AND b)", ex.Message);    // the writer's readable canonical form is shown verbatim
@@ -202,7 +202,7 @@ public class GraphicalCodeTests
     public void A_failed_export_propagates_never_an_empty_marker()
     {
         var s = new FakeCodeStore { Lang = "FBD", ThrowOnReadXml = true };
-        Assert.Throws<InvalidOperationException>(() => GraphicalCode.Read(s, Item, ItemName));
+        Assert.Throws<InvalidOperationException>(() => NetworkCode.Read(s, Item, ItemName));
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class GraphicalCodeTests
         const string vg = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
         const string decl = "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tx : BOOL;\nEND_VAR";
 
-        GraphicalCode.Write(s, Item, ItemName, vg, decl);
+        NetworkCode.Write(s, Item, ItemName, vg, decl);
 
         Assert.NotNull(s.WrittenXml);
         Assert.DoesNotContain("old", s.WrittenXml!);                       // old body gone
@@ -228,11 +228,11 @@ public class GraphicalCodeTests
     }
 }
 
-/// <summary>A minimal in-memory <see cref="ICodeStore"/>: only the members <see cref="GraphicalCode"/>
+/// <summary>A minimal in-memory <see cref="ICodeStore"/>: only the members <see cref="NetworkCode"/>
 /// uses do anything; the rest throw (never reached on the graphical path).</summary>
 internal sealed class FakeCodeStore : ICodeStore
 {
-    // The graphical path never consults it (GraphicalCode owns the PLCopen write for a VG body), so false is the
+    // The graphical path never consults it (NetworkCode owns the PLCopen write for a VG body), so false is the
     // honest answer here, not a stub for a capability this fake has.
     public bool WritesPouAsOneDocument => false;
     public string? Lang;

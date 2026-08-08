@@ -1,20 +1,20 @@
 ﻿using System;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
-    /// The body's journey through the PLCopen transport, in ONE place: graph → <see cref="PlcOpenWriter"/> →
-    /// <see cref="PlcOpenReader"/> → graph, and back to VG. This is the IDE-facing leg of the round-trip — what
-    /// the IDE would store and hand back. Shared by the convergence gate (<see cref="GraphicalCode.Validate"/>)
+    /// The body's journey through the PLCopen transport, in ONE place: graph → <see cref="GraphWriter"/> →
+    /// <see cref="GraphReader"/> → graph, and back to VG. This is the IDE-facing leg of the round-trip — what
+    /// the IDE would store and hand back. Shared by the convergence gate (<see cref="NetworkCode.Validate"/>)
     /// and the fixed-point tests so the pattern has a single home (it used to be copy-pasted into every test).
     /// </summary>
-    public static class GraphicalRoundTrip
+    public static class GraphRoundTrip
     {
         /// <summary>One pass through PLCopen: graph → XML → graph. <paramref name="resolveType"/> maps an FB
         /// instance to its type (VG carries the call, not the type, so the writer restores it) — null is fine
         /// for type-agnostic checks, since NetworkTextWriter renders an FB call from its instance name alone.</summary>
         public static GraphBody Once(GraphBody graph, Func<string, string?>? resolveType = null)
-            => PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(graph, resolveType));
+            => GraphReader.ReadBody(GraphWriter.WriteBody(graph, resolveType));
 
         /// <summary>The VG the IDE would hand back after one PLCopen round-trip.</summary>
         public static string ToVg(GraphBody graph, Func<string, string?>? resolveType = null)

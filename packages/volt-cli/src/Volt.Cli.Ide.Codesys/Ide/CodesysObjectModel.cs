@@ -596,7 +596,7 @@ namespace Volt.Cli.Ide.Codesys
         /// new node; the caller writes its text via <see cref="WriteSourceText"/>.
         /// <paramref name="language"/> is UNUSED here — CODESYS's <c>create_pou</c> has no
         /// implementation-language parameter, so a graphical POU is created as ST and its language is set
-        /// afterwards by the PLCopen import (see PushService / GraphicalCode.Write). The parameter stays
+        /// afterwards by the PLCopen import (see PushService / NetworkCode.Write). The parameter stays
         /// for the IProjectTree signature, which TwinCAT does honour.</summary>
         public object CreateChild(object parent, string name, int itemType, string? language = null)
         {
@@ -747,7 +747,7 @@ namespace Volt.Cli.Ide.Codesys
         /// same parser path serves both. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
         /// <para>NB the emitted document has NO <c>&lt;pou&gt;</c> element: CODESYS writes an interface as
         /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
-        /// like TwinCAT. <see cref="Volt.Engine.Graphical.PouReader"/> already reads that shape.</para></summary>
+        /// like TwinCAT. <see cref="Volt.Engine.Body.PouReader"/> already reads that shape.</para></summary>
         public string ExportInterfaceXml(object node)
         {
             var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");

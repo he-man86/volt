@@ -9,7 +9,7 @@ namespace Volt.Cli.Ide.Twincat;
 /// (<c>ExportXmlString</c>/<c>ImportXmlString</c>, the TwinCAT analogue of CODESYS's object-model
 /// methods of the same name), but TwinCAT's API is FILE-based, so internally we round-trip through
 /// a temp file (CODESYS's is in-memory). Both feed the same shared
-/// <c>PlcOpenReader</c>/<c>PlcOpenWriter</c> path.
+/// <c>GraphReader</c>/<c>GraphWriter</c> path.
 ///
 /// SETTLED: the methods live on ITcPlcIECProject — a NON-default COM interface — and late-bound
 /// dispatch on the dynamic RCW DOES reach them. The recorded fixtures in

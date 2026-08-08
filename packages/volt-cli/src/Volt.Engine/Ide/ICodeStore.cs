@@ -3,7 +3,7 @@ namespace Volt.Engine.Ide;
 /// <summary>
 /// The TWO code transports, plus the language gate and the non-source manifest read. This is the only
 /// surface that moves code in/out of the IDE; the choice between transports is made wholesale by
-/// <see cref="BodyLanguage"/> (Core decides — see <c>GraphicalCode</c>). Every method throws on real
+/// <see cref="BodyLanguage"/> (Core decides — see <c>NetworkCode</c>). Every method throws on real
 /// IDE failure; there is no silent fallback.
 /// </summary>
 public interface ICodeStore

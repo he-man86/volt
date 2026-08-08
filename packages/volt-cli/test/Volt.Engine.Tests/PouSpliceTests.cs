@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Workspace;
 using Xunit;
 using Volt.Engine.PlcOpen;
@@ -122,12 +122,12 @@ public class PouSpliceTests
     public void A_write_is_scoped_to_the_named_item_not_the_first_match()
     {
         // The TwinCAT fixture is a POU whose graphical body belongs to its ACTION; the POU's own body is ST.
-        var beforeAction = GraphicalBodySplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
+        var beforeAction = GraphSplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
 
         var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;");
 
         Assert.Equal("poubody := 1;", PouReader.Parse(outXml).BodyElement!.Value);      // the POU took it
-        Assert.Equal(beforeAction, GraphicalBodySplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
+        Assert.Equal(beforeAction, GraphSplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
     }
 
     // ── 2.3 child members ───────────────────────────────────────────────────────────────────────────

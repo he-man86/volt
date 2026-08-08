@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 using Volt.Engine.PlcOpen;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 
 namespace Volt.Engine.Tests;
 

@@ -1,5 +1,5 @@
 ﻿using System.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -49,8 +49,8 @@ public class NetworkTextCompoundExpressionTests
         Assert.Equal(2, blocks.Count);                                  // an AND block and an OR block
         Assert.Contains(blocks, b => b.TypeName == "AND");
         Assert.Contains(blocks, b => b.TypeName == "OR");
-        // and it writes without throwing (the inverse is exercised by PlcOpenWriter)
-        var xml = PlcOpenWriter.WriteBody(graph).ToString();
+        // and it writes without throwing (the inverse is exercised by GraphWriter)
+        var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("OR", xml);
     }
 
@@ -73,7 +73,7 @@ public class NetworkTextCompoundExpressionTests
             + "  LET i1 := TRUE;\n  LET i2 := FALSE;\n  LET g1 := (i1 OR i2);\n  outpur := NOT g1;\nEND_NETWORK\n";
         var graph = NetworkTextReader.Parse(src);
         Assert.Single(graph.Networks[0].Nodes.OfType<Block>());      // just the OR block — no phantom NOT node
-        Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
+        Assert.Contains("negated", GraphWriter.WriteBody(graph).ToString().ToLowerInvariant());
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class NetworkTextCompoundExpressionTests
         var src = "NETWORK 1 FBD\n"
             + "  LET i1 := NOT someVar;\n  LET i2 := FALSE;\n  LET g1 := (NOT i1 AND i2);\n  outpur := g1;\nEND_NETWORK\n";
         var graph = NetworkTextReader.Parse(src);                              // must not throw
-        Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
+        Assert.Contains("negated", GraphWriter.WriteBody(graph).ToString().ToLowerInvariant());
     }
 
     [Fact]
@@ -93,9 +93,9 @@ public class NetworkTextCompoundExpressionTests
         // (negated="true" on the pin/variable). Assert the round-trip CONVERGES (settles to a fixed point)
         // rather than equality to a hand-written canonical string.
         var vg = "NETWORK 0 FBD\n  LET g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";
-        var once = GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg));
-        Assert.Equal(once, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // fixed point
-        Assert.Contains("negated", PlcOpenWriter.WriteBody(NetworkTextReader.Parse(once)).ToString().ToLowerInvariant());
+        var once = GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg));
+        Assert.Equal(once, GraphRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // fixed point
+        Assert.Contains("negated", GraphWriter.WriteBody(NetworkTextReader.Parse(once)).ToString().ToLowerInvariant());
     }
 
     [Fact]
@@ -105,10 +105,10 @@ public class NetworkTextCompoundExpressionTests
         // (both IDEs round-trip expression text verbatim). Edge/storage would stay attrs.
         var vg = "NETWORK 0 FBD\n  LET i1 := NOT x;\n  out := i1;\nEND_NETWORK\n";
         var graph = NetworkTextReader.Parse(vg);
-        var xml = PlcOpenWriter.WriteBody(graph).ToString();
+        var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("NOT x", xml);                            // negation is in the expression
         Assert.DoesNotContain("negated", xml.ToLowerInvariant()); // NOT as a `negated` attribute
-        var back = GraphicalRoundTrip.ToVg(graph);
+        var back = GraphRoundTrip.ToVg(graph);
         Assert.Equal(vg, back);                                   // read↔write symmetric (bridge fixed point)
     }
 
@@ -117,7 +117,7 @@ public class NetworkTextCompoundExpressionTests
     {
         // TC HANDLES `negated` on an outVariable — keep it there, don't move it into expression text.
         var vg = "NETWORK 0 FBD\n  LET i1 := x;\n  out := NOT i1;\nEND_NETWORK\n";
-        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
         Assert.Contains("outVariable", xml);
         Assert.Contains("negated", xml.ToLowerInvariant());       // output negation stays an attribute
         Assert.DoesNotContain("NOT i1", xml);                     // not moved into text

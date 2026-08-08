@@ -3,7 +3,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Workspace.SourceText;
 
-namespace Volt.Engine.Graphical;
+namespace Volt.Engine.Body;
 
 /// <summary>A graphical (FBD/LD/CFC/SFC) body rendered to text. <paramref name="Language"/> is
 /// FBD/LD/CFC/SFC; <paramref name="Body"/> is editable VG for FBD/LD, empty for read-only CFC/SFC;
@@ -21,7 +21,7 @@ public sealed record GraphicalBody(string Language, string Body, string Declarat
 /// touches the object-model aspect (which a just-reimported graphical POU poisons). Failures throw;
 /// nothing is ever silently downgraded.
 /// </summary>
-public static class GraphicalCode
+public static class NetworkCode
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable VG;
     /// CFC/SFC → an empty body. A body the gate calls graphical but the export can't yield as FBD/LD is a
@@ -30,7 +30,7 @@ public static class GraphicalCode
     /// <see cref="RenderBody"/> and builds the `@volt-graphical` marker itself (<c>Materializer.BodyTextOf</c>).
     /// It survives because it is the only entry point that exercises the WHOLE read pipeline
     /// (<c>BodyLanguage</c> → <c>ReadXml</c> → declaration → VG) against a fake code store, with no live IDE:
-    /// 13 cases in <c>GraphicalCodeTests</c> hang off it, including the cross-package
+    /// 13 cases in <c>NetworkCodeTests</c> hang off it, including the cross-package
     /// <c>Graphical_body_marker_matches_the_lsp_hover_shape</c> contract and the zero-fallback assertions that a
     /// failure propagates rather than degrading to an empty body. Deleting it would delete that coverage, not
     /// dead weight — so if it ever goes, those tests move onto the production path FIRST.</para></summary>
@@ -45,7 +45,7 @@ public static class GraphicalCode
         if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
-        var fbd = GraphicalBodySplice.FindFbdLdBody(xml, itemName)
+        var fbd = GraphSplice.FindFbdLdBody(xml, itemName)
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body for '{itemName}'");
         return new GraphicalBody(lang, RenderBody(fbd), decl);
@@ -56,7 +56,7 @@ public static class GraphicalCode
     /// guaranteeing identical output for the same body element regardless of which path produced it.</summary>
     public static string RenderBody(System.Xml.Linq.XElement bodyElement)
     {
-        var graph = PlcOpenReader.ReadBody(bodyElement);
+        var graph = GraphReader.ReadBody(bodyElement);
         return NetworkTextWriter.Write(graph);
     }
 
@@ -103,15 +103,15 @@ public static class GraphicalCode
                 "NETWORK_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
 
         // The PLCopen convergence gate (the graph ⇄ PLCopen ⇄ IDE leg, the one that actually touches the
-        // IDE). The body must reach a FIXED POINT through our OWN PlcOpenWriter→PlcOpenReader, so the closed loop
+        // IDE). The body must reach a FIXED POINT through our OWN GraphWriter→GraphReader, so the closed loop
         // push → pull → push STABILISES rather than oscillating into a malformed shape. We do NOT demand the
         // input already BE the fixed point — LD legitimately canonicalises in one step (e.g. a negated contact
         // `i1 := NOT a` ⇄ the operand form `(NOT i1 …)`); we require only that it converges. A body that keeps
         // changing every pull is an unstable shape the IDE can't store cleanly → refuse. (resolveType is null:
         // NetworkTextWriter ignores FB instance types — see the FBD/LD fixed-point tests.)
-        var afterOnePass = GraphicalRoundTrip.Once(graph);                   // ONE PLCopen pass, shared by both sides
+        var afterOnePass = GraphRoundTrip.Once(graph);                   // ONE PLCopen pass, shared by both sides
         var once = NetworkTextWriter.Write(afterOnePass);
-        var twice = GraphicalRoundTrip.ToVg(afterOnePass);
+        var twice = GraphRoundTrip.ToVg(afterOnePass);
         if (Canon(once) != Canon(twice))
             throw new NetworkTextException(
                 "graphical body does not converge through the PLCopen round-trip — it keeps changing on every "
@@ -144,13 +144,13 @@ public static class GraphicalCode
     {
         var graph = Validate(vgText);                                        // pure checks first (no IDE write yet)
         var types = InstanceTypes.Of(declaration);
-        var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
+        var newBody = GraphWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
         // The export is the item's WHOLE POU — the enclosing POU's own body and every sibling method/action come
         // with it — so the splice is scoped by name. Without that it lands on whichever body is first in document
         // order and silently destroys it.
         var exported = code.ReadXml(item);                                   // current full POU PLCopen
-        var spliced = GraphicalBodySplice.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
+        var spliced = GraphSplice.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
         code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
     }
 

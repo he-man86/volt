@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Cli.Transport;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Volt.Engine.Workspace;
 using Volt.Engine.Workspace.SourceText;
 using Volt.Engine.PlcOpen;

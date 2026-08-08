@@ -19,7 +19,7 @@ namespace Volt.Engine.PlcOpen
     /// <para>Two properties make splicing safer than regenerating, and both are tested: a write is scoped to the
     /// NAMED item, and a write that changes nothing returns the ORIGINAL string byte-for-byte.</para>
     /// <para>Graphical bodies are NOT this class's business — a textual write onto one is refused, not flattened.
-    /// <c>Graphical.GraphicalBodySplice</c> owns that.</para>
+    /// <c>Graphical.GraphSplice</c> owns that.</para>
     /// </summary>
     public static class PouSplice
     {
@@ -78,11 +78,11 @@ namespace Volt.Engine.PlcOpen
                     : throw new InvalidOperationException(
                         $"'{itemName}' has no <body> in its PLCopen document — this kind carries no code of its own");
 
-            var pushed = Graphical.BodyCodec.For(Graphical.NetworkText.LanguageOf(bodyText) ?? "ST");
+            var pushed = Body.BodyCodec.For(Body.NetworkText.LanguageOf(bodyText) ?? "ST");
             // A body recording NO language decision (a blank ST — what a fresh POU is created with) counts as no
             // body at all, so establishing FBD on it is the ordinary create rather than a mismatch. An empty
             // <FBD/> does NOT qualify: that POU was made graphical on purpose.
-            var found = Graphical.BodyCodec.PresentWith(body);
+            var found = Body.BodyCodec.PresentWith(body);
             var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
 
             if (present is not null && present.ReadOnly)

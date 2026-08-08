@@ -5,7 +5,7 @@ PLCopen node graph. A wire used once is **inlined** into its consumer's expressi
 2+ consumers) keeps a name. The bridge **owns the format** (the LSP owns code correctness): a push whose VG isn't
 valid/canonical is refused *before* it reaches the IDE, with a structured diagnostic. These rules are **general** —
 they depend only on the VG text, never on the PLC code semantics — so they're computed next to the parser
-(`Volt.Engine/Graphical/NetworkText/NetworkTextReader.cs`) with no IDE state.
+(`Volt.Engine/Body/NetworkText/NetworkTextReader.cs`) with no IDE state.
 
 ## The readable form (what the parser accepts)
 
@@ -62,7 +62,7 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 
 ## Well-formedness invariants (the gate, in order)
 
-`GraphicalCode.Validate` enforces a named, ordered set of rules — the language's well-formedness. A push is refused
+`NetworkCode.Validate` enforces a named, ordered set of rules — the language's well-formedness. A push is refused
 unless ALL hold, so a graphical body never silently renames wires, drifts, or corrupts/crashes the IDE:
 
 1. **Language** — FBD/LD only (`NETWORK_*` parse codes otherwise).
@@ -73,4 +73,4 @@ unless ALL hold, so a graphical body never silently renames wires, drifts, or co
    through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises.
 
 The two round-trip legs together are the backstop: nothing we accept can drift or be a shape the importer
-rejects. See `Graphical/GraphicalCode.cs` (`Validate`) and `Vg/NetworkTextReader.cs`.
+rejects. See `Body/NetworkCode.cs` (`Validate`) and `Body/NetworkText/NetworkTextReader.cs`.

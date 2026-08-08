@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
     /// Parses a PLCopenXML <c>&lt;FBD&gt;</c> / <c>&lt;LD&gt;</c> body element into a
@@ -10,7 +10,7 @@ namespace Volt.Engine.Graphical
     /// becomes an <see cref="OpaqueNode"/> (preserved verbatim), so it never throws on valid input
     /// and the writer can round-trip what we don't interpret. Positions are discarded.
     /// </summary>
-    public static class PlcOpenReader
+    public static class GraphReader
     {
         /// <summary>The language is the BODY ELEMENT's own name. There used to be an override parameter here,
         /// documented as carrying the vendor's COM body-language for one case: TwinCAT creates an LD POU as FBD
@@ -114,7 +114,7 @@ namespace Volt.Engine.Graphical
         /// an FBD network would use: a contact is its variable, contacts in series are AND, parallel
         /// branches (a connectionPointIn with several connections) are OR, a coil is an assignment.
         /// Negation/edge/storage ride as pin <see cref="Mods"/> on the consumer. The inverse —
-        /// <c>PlcOpenWriter.WriteLadderBody</c> — regenerates the ladder (contacts/coil/power-rails) from this
+        /// <c>GraphWriter.WriteLadderBody</c> — regenerates the ladder (contacts/coil/power-rails) from this
         /// boolean graph on write, so ladder is both READABLE as VG and round-trippable.</summary>
         private static List<GraphNode> LowerLadder(List<XElement> els, XNamespace ns, long baseId)
         {
@@ -336,7 +336,7 @@ namespace Volt.Engine.Graphical
         }
 
         /// <summary>An inVariable's negation rides in the EXPRESSION TEXT (`NOT x`), since TwinCAT drops the
-        /// `negated` attribute on inVariables (see PlcOpenWriter). Re-extract a leading NOT into the model so
+        /// `negated` attribute on inVariables (see GraphWriter). Re-extract a leading NOT into the model so
         /// read↔write stays symmetric. Still honours the `negated` ATTRIBUTE too — TC MIGRATES a leaf-sourced
         /// pin-negation onto the inVariable as the attribute on its first export; the next write re-encodes it
         /// as text, stable thereafter.</summary>

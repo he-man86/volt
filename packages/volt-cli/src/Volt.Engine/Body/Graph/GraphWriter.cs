@@ -2,18 +2,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Graphical
+namespace Volt.Engine.Body
 {
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to a PLCopenXML <c>&lt;FBD&gt;</c> / <c>&lt;LD&gt;</c> body
-    /// element — the inverse of <see cref="PlcOpenReader"/>. Positions are SYNTHESIZED (a fixed grid;
+    /// element — the inverse of <see cref="GraphReader"/>. Positions are SYNTHESIZED (a fixed grid;
     /// CODESYS re-lays-out on import) and localIds come from the model. Opaque nodes round-trip
     /// verbatim on the FBD path ONLY; the LD path has no opaque arm and DROPS them — its per-network
     /// vendorElement(networktitle) marker is regenerated instead.
     /// FB-call <c>typeName</c> is not carried by VG, so the caller supplies a resolver
     /// (instanceName → type) from the POU declaration; operators/functions carry their own type.
     /// </summary>
-    public static class PlcOpenWriter
+    public static class GraphWriter
     {
         public static readonly XNamespace Ns = "http://www.plcopen.org/xml/tc6_0200";
         private static readonly XNamespace Xhtml = "http://www.w3.org/1999/xhtml";
@@ -21,7 +21,7 @@ namespace Volt.Engine.Graphical
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
         /// <summary>Render a graphical <see cref="GraphBody"/> to its PLCopen body element. FBD and LD are the
-        /// editable graphical languages; LD is generated as the inverse of <see cref="PlcOpenReader"/>'s ladder
+        /// editable graphical languages; LD is generated as the inverse of <see cref="GraphReader"/>'s ladder
         /// lowering. CFC and SFC are READ-ONLY today (declaration-only, never written) — when one
         /// becomes writable, add its case here with its own writer/model. An unhandled language throws (a loud
         /// failure, never a silently-wrong body).</summary>
@@ -30,7 +30,7 @@ namespace Volt.Engine.Graphical
             "FBD" => WriteFbdBody(body, resolveType),
             "LD" => WriteLadderBody(body, resolveType),
             _ => throw new System.NotSupportedException(
-                $"PlcOpenWriter: graphical language '{body.Language}' is not writable (FBD/LD are generated; CFC/SFC are read-only)."),
+                $"GraphWriter: graphical language '{body.Language}' is not writable (FBD/LD are generated; CFC/SFC are read-only)."),
         };
 
         private static XElement WriteFbdBody(GraphBody body, System.Func<string, string?>? resolveType)
@@ -109,7 +109,7 @@ namespace Volt.Engine.Graphical
                     // TwinCAT's importer DROPS `negated` on an <inVariable> (it honours it on outVariables and
                     // block input pins, not here). So a leaf carries its negation in the EXPRESSION TEXT
                     // (`NOT x`) — which both TC and CODESYS round-trip verbatim — not as the attribute. Edge/
-                    // storage (rare on a source) stay as attrs. PlcOpenReader re-extracts the leading NOT.
+                    // storage (rare on a source) stay as attrs. GraphReader re-extracts the leading NOT.
                     return new XElement(Ns + "inVariable", IdAttrs(iv), ModAttrs(iv.Mods with { Negated = false }),
                         Pos(row), new XElement(Ns + "connectionPointOut"),
                         new XElement(Ns + "expression", iv.Mods.Negated ? "NOT " + iv.Expression : iv.Expression));
@@ -167,7 +167,7 @@ namespace Volt.Engine.Graphical
                     // Every GraphNode subtype is matched above. A new one must get its own arm here —
                     // emitting a placeholder would ship a silently-wrong body (see WriteBody).
                     throw new System.NotSupportedException(
-                        $"PlcOpenWriter: no writer for graph node '{node.GetType().Name}' (localId {node.LocalId}).");
+                        $"GraphWriter: no writer for graph node '{node.GetType().Name}' (localId {node.LocalId}).");
             }
         }
 
@@ -178,7 +178,7 @@ namespace Volt.Engine.Graphical
         }
 
         /// <summary>The PLCopen pin/element modifier attributes (negation, edge, set/reset storage),
-        /// the inverse of <see cref="PlcOpenReader"/>'s ReadMods. None emitted when <c>IsNone</c>.</summary>
+        /// the inverse of <see cref="GraphReader"/>'s ReadMods. None emitted when <c>IsNone</c>.</summary>
         private static IEnumerable<XAttribute> ModAttrs(Mods m)
         {
             if (m.Negated) yield return new XAttribute("negated", "true");
@@ -208,7 +208,7 @@ namespace Volt.Engine.Graphical
             return list.Any(t => t.Length > 0) ? string.Join(" ", list) : null;
         }
 
-        // ── LD ladder generation — ONE recursion, the exact inverse of PlcOpenReader.LowerLadder ─────────────
+        // ── LD ladder generation — ONE recursion, the exact inverse of GraphReader.LowerLadder ─────────────
         // A rung is leftPowerRail → the boolean spine → coil. The right rail is emitted ONCE per body as an
         // UNCONNECTED terminator (empty connectionPointIn; no coil is wired to it, and a coil's own
         // connectionPointOut is left dangling) — it is this form, not a wired one, that the live round-trip
@@ -237,7 +237,7 @@ namespace Volt.Engine.Graphical
                 var ctx = new LdCtx(root, net, resolveType, netIndex);
                 // The network's COMMENT precedes its title marker — the shape both vendors emit (recorded:
                 // tc-ld/ld_four_networks_shared_rails.plcopen.xml:33, a <comment> then a <vendorElement>), and the
-                // order PlcOpenReader.SplitNetworks expects. Without this the ladder writer silently DELETED an
+                // order GraphReader.SplitNetworks expects. Without this the ladder writer silently DELETED an
                 // engineer's network comment on every push: the reader folds it into the network, `SafeToDrop`
                 // lets the splice remove the original, and nothing put it back. FBD has always re-emitted it.
                 if (!string.IsNullOrEmpty(net.Comment))
@@ -276,7 +276,7 @@ namespace Volt.Engine.Graphical
         }
 
         // The per-network "networktitle" vendorElement TwinCAT/CODESYS emit to delimit each LD network. The
-        // ElementType is in NO namespace (xmlns="") — PlcOpenReader.SplitNetworks matches it by local name.
+        // ElementType is in NO namespace (xmlns="") — GraphReader.SplitNetworks matches it by local name.
         private static XElement NetworkTitle(long id, XElement pos) =>
             new XElement(Ns + "vendorElement", new XAttribute("localId", id), pos,
                 new XElement(Ns + "alternativeText", new XElement(Xhtml + "xhtml")),
@@ -287,7 +287,7 @@ namespace Volt.Engine.Graphical
                         new XElement("ElementType", "networktitle"))));
 
         /// <summary>Per-network emit state for the ladder writer (see the section comment). ONE recursion, the
-        /// inverse of <see cref="PlcOpenReader"/>'s LowerLadder: <see cref="EmitPower"/> draws the boolean power
+        /// inverse of <see cref="GraphReader"/>'s LowerLadder: <see cref="EmitPower"/> draws the boolean power
         /// spine (contacts / series=AND / parallel=OR / an FB-or-operator block whose primary output continues
         /// the spine), <see cref="EmitData"/> draws a block's typed data inputs as variable boxes. A leaf reached
         /// via EmitPower is a contact; via EmitData a box — the contact-vs-box choice the reader collapsed. A

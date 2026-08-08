@@ -46,7 +46,7 @@ net8 standalone TwinCAT exe unchanged.
 ## How a request flows
 
 Every op is the same shape — `Core/Wire/BridgePipeHost` receives one request per connection, `Sync/*`
-services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`PlcOpen`/`Graphical` turn IDE items into
+services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`PlcOpen`/`Body` turn IDE items into
 canonical text:
 
 ```
@@ -58,7 +58,7 @@ volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
                    Fetch / Push / Build / Refs  (Sync/)      ── the op logic
                      │
         Workspace/ (ST text) + PlcOpen/ (the document)        ── item ⇄ canonical workspace text
-              + Graphical/ (VG text)
+              + Body/ (the body codecs, keyed by language)
                      │
                    IIdeDriver  (Ide/ contract)               ── the ONE seam a vendor implements
                      ▼
@@ -107,8 +107,8 @@ attaches cross-process — that is a reached-differently difference, which is ex
 | **`Wire/`** | **The wire DTOs** — plain JSON request/response shapes (`RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest`). The `health` row itself (`ProjectEntry`/`HealthResponse`) lives one layer DOWN in `Volt.Cli.Transport/Wire/`, because the connector may not reference the engine and still has to read it. The transport itself is `Volt.Cli.Transport` (the named pipe) driven by `Wire/BridgePipeHost`, which maps each op to its Sync service, marshals every project-touching call onto the IDE's required thread, streams progress, and is the single error boundary. Identical on both bridges. | `RefsFetch`, `PushModels`, `BuildModels`, `ConnectRequest` |
 | **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`. `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. **There is no debug service** — `DebugService`, `IDebugIntrospect` and the three `IIdeSession.Debug*` members were DELETED (deliberately, resolving the "restore an op or delete them" note that stood here): they had no `Ops` const and no `BridgePipeHost.Dispatch` case, so no client could reach them after the HTTP `GET /debug?…` went away. Restoring live introspection means a real `Ops` const **and** a `Dispatch` case — never a half-wired service. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text. The canonical ST layout has exactly ONE owner per direction: `PouToStText` assembles a `PouData` into it, `SourceText/StSplitter` parses it back (sharing `CodeHelper`). The dict-based `SourceText/StAssembler` was a second, production-unreachable copy of the assemble half that had already diverged in failure policy; it is DELETED and the round-trip tests certify `PouToStText`. `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `PouToStText`, `SourceText/StSplitter` |
-| **`PlcOpen/`** | **The document** — a POU's whole CONTENT, read and written through ONE PLCopen XML document: declaration, body, methods, actions, properties, accessors. `PouReader` reads it; `PouSplice` writes it by EDITING the item's own export (never regenerating, so attributes, pragmas, object ids and vendor `addData` survive); `PlcOpenDocument` holds the primitives both share. Depends on nothing — not on the graph model, not on Workspace policy. **Graphical bodies are a CONSUMER of this layer, not its owner** — which is why it is no longer filed under `Graphical/`. Vendor dialect facts live in `PlcOpen/DIALECT.md`. | `PouReader`, `PouSplice`, `PlcOpenDocument`, `PouMember` |
-| **`Graphical/`** | **The graph** — an FBD/LD body ⇄ `GraphModel` ⇄ VG text (see `docs/network-text.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` convert graph ⇄ PLCopen; `Vg/NetworkTextReader`/`Vg/NetworkTextWriter` convert graph ⇄ VG text; `GraphicalBodySplice` replaces one graphical body in an export and owns the VG editor-capability gate (which elements may be dropped, which pin modifiers block a rewrite). | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `GraphicalBodySplice`, `Vg/NetworkTextReader`, `Vg/NetworkTextWriter` |
+| **`PlcOpen/`** | **The document** — a POU's whole CONTENT, read and written through ONE PLCopen XML document: declaration, body, methods, actions, properties, accessors. `PouReader` reads it; `PouSplice` writes it by EDITING the item's own export (never regenerating, so attributes, pragmas, object ids and vendor `addData` survive); `PlcOpenDocument` holds the primitives both share. Depends on nothing — not on the graph model, not on Workspace policy. **Graphical bodies are a CONSUMER of this layer, not its owner** — which is why it is no longer filed under the body folder. Vendor dialect facts live in `PlcOpen/DIALECT.md`. | `PouReader`, `PouSplice`, `PlcOpenDocument`, `PouMember` |
+| **`Body/`** | **The body, keyed by LANGUAGE.** `BodyCodec` is the registry and the dispatch: each language knows where its element lives in a `<body>`, how to decode it to workspace text, and whether it can be written back. ST is the identity codec; FBD/LD pivot on the graph; CFC/SFC read as a marker and refuse to write. **There is no "graphical vs textual" fork above this layer** — that boolean was the source of three silent data-loss bugs, and deleting it is what this folder is for. `Graph/` holds the FBD/LD machinery the network codec delegates to: `GraphModel` is the IR, `GraphReader`/`GraphWriter` convert graph ⇄ PLCopen body XML (named for the graph, not for PLCopen, so they do not read as siblings of `PlcOpen/PouReader` — they are not), `GraphSplice` replaces one graph body in an export and owns the editor-capability gate, and `NetworkText/` converts graph ⇄ network text. `NetworkCode` is the FBD/LD facade: `Validate` (the well-formedness gate) and the legacy per-transport `Write`, which now only a driver WITHOUT the single-document write reaches. | `BodyCodec`, `NetworkCode`, `Graph/GraphModel`, `Graph/GraphReader`, `Graph/GraphWriter`, `Graph/GraphSplice`, `NetworkText/NetworkTextReader`, `NetworkText/NetworkTextWriter` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body + hash basis), `LibSignature`/`LibSignatureRenderer` (verbose-fetch signatures under the Library Manager). | `LibraryManifest`, `LibSignature`, `LibSignatureRenderer` |
 
 ### Protocol invariant: the item **name** is the identity
@@ -137,9 +137,9 @@ guard that throws** — real projects legitimately repeat these names, and throw
   (`bExportFolderStructure` emits a `projectstructure` block) but emits it `handleUnknown="discard"`, and the
   import does precisely that — measured. Rename is the other structural verb PLCopen cannot express, so it stays
   on `IProjectTree.Rename`, where the IDE rewrites call-sites.
-- **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Graphical/GraphicalCode`). A read-only body
+- **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Body/NetworkCode`). A read-only body
   materializes empty with an `(* @volt-graphical: <LANG> *)` marker and is refused on push.
-- **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Graphical/NetworkText/NetworkTextReader`,
+- **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Body/NetworkText/NetworkTextReader`,
   `PlcOpenReader.ReadStCode`) — never a bare call that drops the ST.
 - **Container managers are folders, never items** (`Workspace/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
@@ -189,7 +189,7 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 - **PlcOpen transport.** CODESYS round-trips XML *in memory* via the object model; Beckhoff's COM API is
   file-based, so `TcPlcOpen` round-trips through a temp file.
 - **`TcPouReader` has no CODESYS counterpart.** TwinCAT stores graphical bodies in a vendor NWL archive whose
-  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Graphical`. The parser is
+  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Body`. The parser is
   irreducibly TwinCAT-specific, so it stays in Beckhoff.
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of

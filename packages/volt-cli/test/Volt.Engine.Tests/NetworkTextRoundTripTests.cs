@@ -1,5 +1,5 @@
 ﻿using Xunit;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 
 namespace Volt.Cli.Tests;
 

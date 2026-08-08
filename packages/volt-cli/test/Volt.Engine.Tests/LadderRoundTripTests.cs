@@ -1,14 +1,14 @@
 ﻿using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graphical;
+using Volt.Engine.Body;
 using Xunit;
 
 namespace Volt.Cli.Tests;
 
 /// <summary>
 /// The LD (ladder) featureset, exercised through the full writer+reader pipeline: a VG ladder body is
-/// generated to PLCopen <c>&lt;LD&gt;</c> (real contact/coil/power-rails) by <see cref="PlcOpenWriter"/>,
-/// read back by <see cref="PlcOpenReader"/>, and re-rendered to VG. Each case asserts the boolean logic
+/// generated to PLCopen <c>&lt;LD&gt;</c> (real contact/coil/power-rails) by <see cref="GraphWriter"/>,
+/// read back by <see cref="GraphReader"/>, and re-rendered to VG. Each case asserts the boolean logic
 /// survives at the element level AND that a second pass is a FIXED POINT (the canonical VG stabilises, so
 /// re-editing never drifts). Companion to <see cref="FbdCoverageTests"/> (the refusal matrix) and the live
 /// e2e / CLI ladder suites — coverage is duplicated across the three test layers on purpose.
@@ -18,10 +18,10 @@ public class LadderRoundTripTests
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
     /// <summary>VG → generated PLCopen <c>&lt;LD&gt;</c> element (for element-level assertions).</summary>
-    private static XElement ToLadder(string vg) => PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg));
+    private static XElement ToLadder(string vg) => GraphWriter.WriteBody(NetworkTextReader.Parse(vg));
 
     /// <summary>VG → <c>&lt;LD&gt;</c> → VG: one full write+read pass through the ladder pipeline.</summary>
-    private static string RoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
+    private static string RoundTrip(string vg) => GraphRoundTrip.ToVg(vg);
 
     private static int Count(XElement ld, string element) => ld.Elements(XName.Get(element, Ns)).Count();
 
