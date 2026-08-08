@@ -111,7 +111,7 @@ repo contains a method, a property or an accessor.
 | # | Never verified |
 |---|---|
 | D11 | **The entire LD export/import shape.** No CODESYS LD capture exists anywhere; `PlcOpenWriter` emits TwinCAT's shared-rail form (left rail id 0, right rail 2147483646, regenerated `networktitle` markers) to CODESYS. `PlcOpenWriter.cs:219` claims live CODESYS verification with nothing to show for it |
-| D12 | EN/ENO pin naming — `VgParser.cs:228-232` hardcodes TwinCAT's `EN`/`In2…`/`Out2`/`ENO` and writes it into CODESYS |
+| D12 | EN/ENO pin naming — `NetworkTextReader.cs:228-232` hardcodes TwinCAT's `EN`/`In2…`/`Out2`/`ENO` and writes it into CODESYS |
 | D13 | Embedded output assignment on write — the LD writer always embeds a non-primary output in its pin, a rule derived entirely from live TwinCAT |
 | D14 | `negated` on `<inVariable>` — the C3 workaround is exercised by **no fixture on either vendor** |
 | D15 | The FBD `<comment>` shape — "CODESYS rejects bare text" (`PlcOpenWriter.cs:69`); no recorded CODESYS export contains a `<comment>` at all |

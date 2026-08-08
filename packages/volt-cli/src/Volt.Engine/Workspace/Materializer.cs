@@ -86,7 +86,7 @@ public static class Materializer
         var children = new List<ChildData>();
         foreach (var c in parsed.Children)
         {
-            var impl = VgBodyOf(c.BodyLanguage, c.BodyElement);
+            var impl = BodyTextOf(c.BodyLanguage, c.BodyElement);
             children.Add(new ChildData(
                 Kind: c.PouType,
                 Name: c.Name,
@@ -118,11 +118,11 @@ public static class Materializer
                 GetterDeclaration: KeepDecl(p.GetterDeclaration),
                 SetterDeclaration: KeepDecl(p.SetterDeclaration)));
 
-        var body = VgBodyOf(parsed.BodyLanguage, parsed.BodyElement);
+        var body = BodyTextOf(parsed.BodyLanguage, parsed.BodyElement);
         return new PouData(Kind: kind, Declaration: declaration.Trim(), BodyText: body, Children: children);
     }
 
-    private static string? VgBodyOf(string? lang, XElement? bodyEl)
+    private static string? BodyTextOf(string? lang, XElement? bodyEl)
     {
         if (lang == null || bodyEl == null) return null;
         if (lang is "FBD" or "LD")

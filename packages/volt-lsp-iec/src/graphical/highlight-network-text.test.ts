@@ -6,7 +6,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import { documentHighlightsAnywhere } from "./vg-services.js"
+import { documentHighlightsAnywhere } from "./network-services.js"
 
 const LD = `FUNCTION_BLOCK FB_LD
 VAR

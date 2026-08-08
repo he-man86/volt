@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Volt.Engine.Graphical.Vg
+namespace Volt.Engine.Graphical
 {
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text-LIKE
@@ -19,9 +19,9 @@ namespace Volt.Engine.Graphical.Vg
     /// (negation — valid ST), and the suffixes
     /// <c>RISING</c>/<c>FALLING</c> (edge) and <c>SET</c>/<c>RESET</c> (storage), which keep the
     /// modifier visible at the pin rather than synthesizing hidden R_TRIG/SR instances. Round-trippable
-    /// (<c>VgParser</c> reverses it); emission is deterministic so VG→graph→VG is a fixed point.
+    /// (<c>NetworkTextReader</c> reverses it); emission is deterministic so VG→graph→VG is a fixed point.
     /// </summary>
-    public static class VgWriter
+    public static class NetworkTextWriter
     {
         // Operator box types render infix; everything else is an FB call or function call.
         // Canonical operator table lives in FbdOperators (shared with the transpiler + parser).
@@ -29,7 +29,7 @@ namespace Volt.Engine.Graphical.Vg
         {
             var sb = new StringBuilder();
             // Order is the REAL PLCopen network index and every producer supplies it; there is no
-            // positional fallback — an invented index can duplicate a real one, which VgParser refuses.
+            // positional fallback — an invented index can duplicate a real one, which NetworkTextReader refuses.
             foreach (var net in body.Networks) WriteNetwork(sb, net, net.Order!.Value, body.Language);
             return sb.ToString();
         }
@@ -220,7 +220,7 @@ namespace Volt.Engine.Graphical.Vg
 
             // ponytail: OpaqueNode is DELIBERATELY absent from this switch — contacts/coils, connectors,
             // continuations, power rails, comments and vendorElements have no VG spelling, so they are
-            // DROPPED from VG (and therefore from a pushed body). Pinned by VgWriterTests
+            // DROPPED from network text (and therefore from a pushed body). Pinned by NetworkTextWriterTests
             // .Real_CONFIG_fb_call_renders_as_a_call_with_named_pins, whose input carries a <vendorElement>
             // the expected VG has no trace of. PlcOpenWriter's `case OpaqueNode` consequently serves only
             // the reader→writer path, NOT push — GraphModel's OpaqueNode summary ("the writer can
@@ -253,7 +253,7 @@ namespace Volt.Engine.Graphical.Vg
 
         /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix (negation), trailing
         /// <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/<c>RESET</c> (storage). Inverse
-        /// of <see cref="VgParser"/>'s modifier parsing.</summary>
+        /// of <see cref="NetworkTextReader"/>'s modifier parsing.</summary>
         private static string ApplyMods(string value, Mods m)
         {
             if (m.IsNone) return value;

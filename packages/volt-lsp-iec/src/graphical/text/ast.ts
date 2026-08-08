@@ -1,6 +1,6 @@
 /**
- * VG (Volt Graphical) AST — the textual form of an FBD/LD body (Layer F, F.2). A body is VG when its
- * first meaningful token is `NETWORK` (`syntax/isGraphicalBody`). Grammar (vg-language.md §4):
+ * Network-text AST — the textual form of an FBD/LD body (Layer F, F.2). A body is network text when its
+ * first meaningful token is `NETWORK` (`syntax/isGraphicalBody`). Grammar (network-text.md §4):
  *   body    = { network }
  *   network = "NETWORK" int LANG [string] ["DISABLED"] , { statement } , "END_NETWORK"
  *   stmt    = wire-def | sink | fb-call | control-flow | comment
@@ -14,24 +14,24 @@ import type { Expr, Span, StatementList, Token } from "../../syntax/index.js"
 
 export type VgLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
 
-export interface VgBody {
+export interface NetworkTextBody {
   kind: "vg_body"
-  networks: VgNetwork[]
-  diagnostics: VgDiagnostic[]
+  networks: NetworkTextNetwork[]
+  diagnostics: NetworkTextDiagnostic[]
   span: Span
 }
 
-export interface VgNetwork {
+export interface NetworkTextNetwork {
   index?: number
   language: VgLanguage
   label?: string
   disabled: boolean
-  statements: VgStatement[]
+  statements: NetworkTextStatement[]
   span: Span
   headerSpan: Span
 }
 
-export type VgStatement =
+export type NetworkTextStatement =
   | VgWireDef
   | VgSink
   | VgFbCall
@@ -74,7 +74,7 @@ export interface VgFbCall {
 export interface VgEnEnoIf {
   kind: "en_eno_if"
   en?: Expr
-  body: VgStatement[]
+  body: NetworkTextStatement[]
   span: Span
 }
 /** `EXECUTE <inline ST> END_EXECUTE` — an inline-ST action box; its body is ordinary ST, parsed as such. */
@@ -117,19 +117,19 @@ export interface VgName {
 }
 
 /**
- * The LSP-ownable subset of the bridge's VG diagnostic codes (vg-diagnostics.md). The canonical /
- * round-trip gate (VG_NOT_CANONICAL, VG_PLCOPEN_DRIFT, VG_LEAF_FANOUT, VG_LEAF_REFERENCES_TEMP) needs
+ * The LSP-ownable subset of the bridge's VG diagnostic codes (network-text-diagnostics.md). The canonical /
+ * round-trip gate (NETWORK_NOT_CANONICAL, NETWORK_PLCOPEN_DRIFT, NETWORK_LEAF_FANOUT, NETWORK_LEAF_REFERENCES_TEMP) needs
  * the writer + PLCopen and stays the BRIDGE's domain. These four are pure-text structural facts the LSP
  * can surface live. ponytail: messages are PROVISIONAL — no VG recordings yet, so wording is
  * bridge-gated (locked at the live-bridge record pass), same as the D.3 overflow/subrange messages.
  */
 export type VgDiagnosticCode =
-  | "VG_PARSE"
-  | "VG_NETWORK_NOT_CLOSED"
-  | "VG_DUPLICATE_NETWORK"
-  | "VG_DUPLICATE_NAME"
+  | "NETWORK_PARSE"
+  | "NETWORK_NOT_CLOSED"
+  | "NETWORK_DUPLICATE_NETWORK"
+  | "NETWORK_DUPLICATE_NAME"
 
-export interface VgDiagnostic {
+export interface NetworkTextDiagnostic {
   code: VgDiagnosticCode
   message: string
   span: Span

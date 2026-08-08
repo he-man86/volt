@@ -1,7 +1,6 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -29,7 +28,7 @@ public class FbdCoverageTests
     private static string RoundTripBody(string doc)
     {
         var g = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);   // reader is TOTAL (never throws)
-        var back = PlcOpenWriter.WriteBody(VgParser.Parse(VgWriter.Write(g)));  // read → VG → parse → write
+        var back = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(NetworkTextWriter.Write(g)));  // read → VG → parse → write
         return TestPlcOpen.SpliceOnlyGraphicalBody(doc, back);                      // push (may refuse)
     }
 
@@ -112,7 +111,7 @@ public class FbdCoverageTests
             "<outVariable localId='3'><expression>o</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
         // through VG and back
         var g = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!);
-        Assert.Contains("// hello world", VgWriter.Write(g));     // surfaced as a VG comment
+        Assert.Contains("// hello world", NetworkTextWriter.Write(g));     // surfaced as a VG comment
         var outXml = RoundTripBody(doc);                          // NOT refused (returns the full pou doc)
         Assert.Contains("hello world", outXml);                  // text preserved on push
         // and re-reading the written body recovers the comment text
@@ -144,7 +143,7 @@ public class FbdCoverageTests
     public void Ld_rung_round_trips(string inner, string expect)
     {
         var doc = Doc("LD", inner);
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.Contains(expect, vg);
         Assert.Contains("out :=", vg);   // coil → assignment
         // and it WRITES back to a real <LD> ladder (no longer read-only / refused)
@@ -170,7 +169,7 @@ public class FbdCoverageTests
             "</inputVariables><outputVariables><variable formalParameter='OUT'><connectionPointOut/></variable></outputVariables></block>" +
             "<coil localId='5'><connectionPointIn><connection refLocalId='4'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>";
         var doc = Doc("LD", inner);
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.Contains(">", vg);                    // the GT comparison renders infix in the VG
         var outXml = RoundTripBody(doc);             // writes back WITHOUT throwing (was a NotSupportedException)
         Assert.Contains("<block", outXml);           // emitted as a real block, not mangled

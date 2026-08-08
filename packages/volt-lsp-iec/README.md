@@ -41,7 +41,7 @@ Load-bearing invariants a maintainer must not break:
   per vendor. The corpus is only a regression safety net: a miss it surfaces means *add a feature test*, not
   *tweak a threshold*.
 - **Editable FBD/LD bodies are analyzed as VG.** A POU body whose first significant token is `NETWORK` is
-  routed to the VG (Volt Graphical) path — its own grammar, parser, and analysis — not Structured Text. Code
+  routed to the network-text path — its own grammar, parser, and analysis — not Structured Text. Code
   correctness (type inference, undeclared-variable, hover/nav) is LSP-owned; VG *format* and the PlcOpen
   round-trip are bridge-owned.
 - **CFC/SFC are read-only and carry no control marker.** They materialize as a single informational comment
@@ -90,5 +90,5 @@ server`), lint-enforced. See [`docs/architecture.md`](./docs/architecture.md) fo
 - [`docs/data-model.md`](./docs/data-model.md) — the concrete types.
 - [`docs/language-reference.md`](./docs/language-reference.md) — the IEC catalog + the CODESYS↔TwinCAT differences.
 - [`TESTING.md`](./TESTING.md) — the three test layers and the live-bridge tooling.
-- [`../volt-cli/docs/vg-language.md`](../volt-cli/docs/vg-language.md) — the VG language the graphical path analyzes.
+- [`../volt-cli/docs/network-text.md`](../volt-cli/docs/network-text.md) — the network-text language the graphical path analyzes.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance.

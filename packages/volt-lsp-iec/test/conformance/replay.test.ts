@@ -22,7 +22,7 @@ import { join } from "node:path"
 import { parseSource } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
-import { computeVgDiagnostics } from "../../src/graphical/index.js"
+import { computeNetworkTextDiagnostics } from "../../src/graphical/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 
 interface RecordedDiagnostic {
@@ -117,7 +117,7 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
     diags.push(...computeSemanticDiagnostics({ parseResult: plc.parseResult, source: plc.source, project, config }))
   }
   // Graphical (VG) bodies: the semantic pass skips them; run the VG checks too so VG fixtures are covered.
-  diags.push(...computeVgDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
+  diags.push(...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
   const msgs = diags
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => `[${d.severity}] ${d.message}`)

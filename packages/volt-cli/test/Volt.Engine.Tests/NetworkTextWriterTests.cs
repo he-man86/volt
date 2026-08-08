@@ -1,12 +1,11 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
 
-public class VgWriterTests
+public class NetworkTextWriterTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
@@ -15,7 +14,7 @@ public class VgWriterTests
         var xml = $"<FBD xmlns=\"{Ns}\">{fbdInner}</FBD>";
         var fbd = XElement.Parse(xml);
         var body = PlcOpenReader.ReadBody(fbd);
-        return VgWriter.Write(body);
+        return NetworkTextWriter.Write(body);
     }
 
     [Fact]

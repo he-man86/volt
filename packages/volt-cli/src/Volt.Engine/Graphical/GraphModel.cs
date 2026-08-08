@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Volt.Engine.Graphical
 {
@@ -18,7 +18,7 @@ namespace Volt.Engine.Graphical
     /// PLCopenXML and the VG text language, and the only projection of a graphical body.
     /// Structural equality is NOT provided: this is a <c>record</c>, but its collection members
     /// compare by REFERENCE, so two structurally identical graphs are never equal. Compare rendered
-    /// VG (<c>VgWriter.Write</c>), never graphs.
+    /// VG (<c>NetworkTextWriter.Write</c>), never graphs.
     /// </summary>
     public sealed record GraphBody(string Language, IReadOnlyList<GraphNetwork> Networks);
 
@@ -43,7 +43,7 @@ namespace Volt.Engine.Graphical
     /// <summary>One input pin of a block: its formal name, the wire feeding it (or null if
     /// unconnected), any modifiers on that pin, and (when the IDE supplies it) the pin's declared
     /// type from the block's <c>inputparamtypes</c> addData. <see cref="Type"/> is read-only metadata
-    /// — VgWriter uses it to declare a leaf temp; it is NOT load-bearing for round-trip.</summary>
+    /// — NetworkTextWriter uses it to declare a leaf temp; it is NOT load-bearing for round-trip.</summary>
     public sealed record Pin(string FormalParameter, Conn? Source, Mods Mods, string? Type = null);
 
     public abstract record GraphNode(long LocalId, int? ExecOrder);
@@ -82,9 +82,9 @@ namespace Volt.Engine.Graphical
 
     /// <summary>A node kind the FBD reader recognises but does not model yet (contact, coil,
     /// connector, continuation, power rails, comment, vendorElement). Preserved opaquely so the
-    /// reader stays TOTAL over the XSD and <c>PlcOpenWriter</c> can re-emit it verbatim; <c>VgWriter</c>
-    /// has no VG spelling for it, so it is DROPPED from VG and from any pushed body (see the
-    /// <c>ponytail:</c> note in VgWriter).</summary>
+    /// reader stays TOTAL over the XSD and <c>PlcOpenWriter</c> can re-emit it verbatim; <c>NetworkTextWriter</c>
+    /// has no VG spelling for it, so it is DROPPED from network text and from any pushed body (see the
+    /// <c>ponytail:</c> note in NetworkTextWriter).</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);
 }

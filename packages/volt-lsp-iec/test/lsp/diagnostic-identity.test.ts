@@ -3,7 +3,7 @@
  * `codeDescription`, and uniqueness — is what a client shows the user, and no analysis test asserts it
  * (they test `DiagnosticItem`, pre-wire). Two invariants, checked over the server's real responses:
  *   1. Every diagnostic `code` is the CODESYS `Cnnnn` the check mirrors (recognisable, cross-referable to
- *      the IDE), OR a documented exception (graphical `VG_*`, a parse error with no code, or a semantic
+ *      the IDE), OR a documented exception (network-text `NETWORK_*`, a parse error with no code, or a semantic
  *      slug not yet mapped to a catalog code — see KNOWN_UNMAPPED).
  *   2. No two diagnostics on one document share `(range, code)` — the duplicate that PR #86 fixed at the
  *      transport now can't silently return via the compute path.
@@ -13,7 +13,7 @@ import { CAPS, harness } from "./harness.js"
 import { allowedCode } from "./diagnostic-codes.js"
 
 const C0032 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
-const VG_UNCLOSED = `FUNCTION_BLOCK G\nVAR out : BOOL;\nEND_VAR\nNETWORK 0 LD\nout := TRUE;\nEND_FUNCTION_BLOCK`
+const NETWORK_UNCLOSED = `FUNCTION_BLOCK G\nVAR out : BOOL;\nEND_VAR\nNETWORK 0 LD\nout := TRUE;\nEND_FUNCTION_BLOCK`
 const PARSE_ERR = `FUNCTION_BLOCK H\nVAR\n x : ;\nEND_VAR\nEND_FUNCTION_BLOCK`
 
 test("a mapped check shows the recognisable Cnnnn, once, with a docs link", async () => {
@@ -31,7 +31,7 @@ test("every diagnostic code is a Cnnnn or a documented exception", async () => {
   await h.init(CAPS.pull)
   const docs: [string, string][] = [
     ["file:///F.fb", C0032],
-    ["file:///G.fb", VG_UNCLOSED],
+    ["file:///G.fb", NETWORK_UNCLOSED],
     ["file:///H.fb", PARSE_ERR],
   ]
   const offenders: string[] = []
@@ -48,7 +48,7 @@ test("no two diagnostics on a document share (range, code)", async () => {
   await h.init(CAPS.pull)
   const docs: [string, string][] = [
     ["file:///F.fb", C0032],
-    ["file:///G.fb", VG_UNCLOSED],
+    ["file:///G.fb", NETWORK_UNCLOSED],
     ["file:///H.fb", PARSE_ERR],
   ]
   const dupes: string[] = []

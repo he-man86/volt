@@ -115,7 +115,7 @@ The whole wire is keyed by bare item name — `refs`, `fetch` `knownItems`, ever
 
 ### VG (graphical) language
 
-Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/vg-language.md` and `vg-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Engine/Workspace/ItemKind` is the source of truth).
+Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC/SFC are read-only. The VG language is specified in `packages/volt-cli/docs/network-text.md` and `network-text-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Engine/Workspace/ItemKind` is the source of truth).
 
 ## Agent hosts — PATH, and nothing else
 

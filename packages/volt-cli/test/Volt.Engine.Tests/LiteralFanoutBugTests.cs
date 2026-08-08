@@ -1,5 +1,4 @@
-using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
+﻿using Volt.Engine.Graphical;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -23,14 +22,14 @@ public class LiteralFanoutBugTests
         // guard caught it — it passed one check and crashed another. READABLE form: the writer inlines a leaf
         // into each consumer, so a fan-out leaf becomes SEPARATE boxes (the valid FBD shape). Canonical output
         // therefore can never contain it — the guard (below) is now just a backstop for hand-authored VG.
-        Assert.NotEqual(LiteralFanout.Trim(), VgWriter.Write(VgParser.Parse(LiteralFanout)).Trim());
+        Assert.NotEqual(LiteralFanout.Trim(), NetworkTextWriter.Write(NetworkTextReader.Parse(LiteralFanout)).Trim());
     }
 
     [Fact]
     public void Validate_refuses_leaf_fanout_cleanly_instead_of_crashing_TwinCAT()
     {
-        var ex = Assert.Throws<VgParseException>(() => GraphicalCode.Validate(LiteralFanout));
-        Assert.Equal("VG_LEAF_FANOUT", ex.Code);
+        var ex = Assert.Throws<NetworkTextException>(() => GraphicalCode.Validate(LiteralFanout));
+        Assert.Equal("NETWORK_LEAF_FANOUT", ex.Code);
     }
 
     [Fact]
@@ -39,7 +38,7 @@ public class LiteralFanoutBugTests
         // g1 (a gate) feeding BOTH consumers is a real FBD branch — TwinCAT supports it (this is the fbd_branch
         // the user drew). It stays NAMED in the readable form (fan-out), and the leaf-fan-out guard must NOT
         // refuse it. Round-trip a rough body to the canonical form first so it passes the convergence invariant.
-        var branch = VgWriter.Write(VgParser.Parse(
+        var branch = NetworkTextWriter.Write(NetworkTextReader.Parse(
             "NETWORK 0 FBD\n" +
             "  LET g1 := (a AND b);\n  outpur := (g1 OR c);\n  np := (g1 OR d);\nEND_NETWORK\n"));
         GraphicalCode.Validate(branch);   // must not throw

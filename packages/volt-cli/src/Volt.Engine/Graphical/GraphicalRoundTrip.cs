@@ -1,5 +1,4 @@
-using System;
-using Volt.Engine.Graphical.Vg;
+﻿using System;
 
 namespace Volt.Engine.Graphical
 {
@@ -13,16 +12,16 @@ namespace Volt.Engine.Graphical
     {
         /// <summary>One pass through PLCopen: graph → XML → graph. <paramref name="resolveType"/> maps an FB
         /// instance to its type (VG carries the call, not the type, so the writer restores it) — null is fine
-        /// for type-agnostic checks, since VgWriter renders an FB call from its instance name alone.</summary>
+        /// for type-agnostic checks, since NetworkTextWriter renders an FB call from its instance name alone.</summary>
         public static GraphBody Once(GraphBody graph, Func<string, string?>? resolveType = null)
             => PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(graph, resolveType));
 
         /// <summary>The VG the IDE would hand back after one PLCopen round-trip.</summary>
         public static string ToVg(GraphBody graph, Func<string, string?>? resolveType = null)
-            => VgWriter.Write(Once(graph, resolveType));
+            => NetworkTextWriter.Write(Once(graph, resolveType));
 
         /// <summary>Parse a VG body, take it once through PLCopen, and render it back to VG.</summary>
         public static string ToVg(string vgText, Func<string, string?>? resolveType = null)
-            => ToVg(VgParser.Parse(vgText), resolveType);
+            => ToVg(NetworkTextReader.Parse(vgText), resolveType);
     }
 }

@@ -76,12 +76,12 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
       `AddChild` takes a PlcOpen-native member kind, not `ItemKind.Kinds.*`; `Sync/PouDocument` maps. Removes
       the Workspace→PlcOpen wrong-direction edge.
 - [x] 3.5 **HELD** — reader/writer/parser/writer untouched and still in one namespace.
-      Do NOT split `PlcOpenReader`/`PlcOpenWriter`/`VgParser`/`VgWriter` behind visibility boundaries — six
+      Do NOT split `PlcOpenReader`/`PlcOpenWriter`/`NetworkTextReader`/`NetworkTextWriter` behind visibility boundaries — six
       suites assert them in a single round-trip expression, and per-leg assertions weaken
       "round-trips losslessly OR is refused".
-- [x] 3.6 **HELD** — neither `Materializer.VgBodyOf` nor the LSP's TypeScript `VgBody` was touched.
-      Watch the `VgBody` name collision: `Materializer` has a private `VgBodyOf`, and `volt-lsp-iec` declares
-      its own unrelated TypeScript `interface VgBody`. Neither is to be touched.
+- [x] 3.6 **HELD** — neither `Materializer.NetworkTextOf` nor the LSP's TypeScript `NetworkText` was touched.
+      Watch the `NetworkText` name collision: `Materializer` has a private `NetworkTextOf`, and `volt-lsp-iec` declares
+      its own unrelated TypeScript `interface NetworkText`. Neither is to be touched.
 - [x] 3.7 **DONE** — Engine 392 / Cli 124 / Connector 80, counts unchanged.
       Gate: build + three offline suites, unchanged counts. A moved file that changes a test count means
       something moved that shouldn't have.
@@ -93,9 +93,9 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
       structure rule plainly. Fix `:180` (`Core.Graphical` — stale since a previous rename) and `:135-136`, which
       cites `PlcOpenDocument.InterfacePropertyAccessors`, **a member that does not exist**.
 - [x] 4.2 **DONE** — the §13 table's paths are still correct (those files stayed in `Graphical/`); two `src/...` shorthand paths made absolute.
-      `docs/vg-language.md` §13 reference table (five literal paths), `:156`, `:327`.
+      `docs/network-text.md` §13 reference table (five literal paths), `:156`, `:327`.
 - [x] 4.3 **DONE** — paths verified correct; no change needed.
-      `docs/vg-diagnostics.md` `:8`, `:76`.
+      `docs/network-text-diagnostics.md` `:8`, `:76`.
 - [x] 4.4 **DONE** — layer stack updated and the content-vs-structure rule named, pointing at `DIALECT.md`.
       Root `CLAUDE.md` `:106` layer stack.
 - [x] 4.5 **DONE** — it is now "the PLCopen DOCUMENT — a POU's whole content", with why the old label was wrong.

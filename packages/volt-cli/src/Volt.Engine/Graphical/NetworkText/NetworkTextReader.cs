@@ -1,15 +1,15 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Volt.Engine.Graphical.Vg
+namespace Volt.Engine.Graphical
 {
     /// <summary>
-    /// Parses VG text back into a <see cref="GraphBody"/> — the inverse of <see cref="VgWriter"/>.
+    /// Parses VG text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.
     /// The bridge uses this purely as a VALIDATING GATE: anything outside the strict form (nested
     /// sub-expressions, inline literals/variables as operands, multi-operator statements, unresolved
-    /// references) throws <see cref="VgParseException"/> and the push is rejected. (Preventing such
+    /// references) throws <see cref="NetworkTextException"/> and the push is rejected. (Preventing such
     /// input is the LSP's job; the bridge only checks and errors.) Every node is its own statement:
     /// an internal wire is introduced INLINE as <c>LET &lt;name&gt; := …</c> — a leaf <c>i*</c> is an
     /// <c>inVariable</c>, a named <c>g*</c> is an operator/call block — and a bare <c>name</c> := ref
@@ -17,7 +17,7 @@ namespace Volt.Engine.Graphical.Vg
     /// not part of the grammar and is refused as a malformed statement. FB-call type names are NOT in
     /// VG (they live in the POU declaration) — left empty here and resolved by the writer.
     /// </summary>
-    public static class VgParser
+    public static class NetworkTextReader
     {
         // Canonical operator table (symbol ↔ type) lives in FbdOperators, shared with the writer.
         public static GraphBody Parse(string text)
@@ -42,13 +42,13 @@ namespace Volt.Engine.Graphical.Vg
                 {
                     // Structure is enforced, not tolerated: a malformed graphical body must be refused (it can
                     // corrupt the IDE on import), never silently reshaped. END_NETWORK closes exactly one open network.
-                    if (cur == null) throw new VgParseException("END_NETWORK without an open NETWORK block");
+                    if (cur == null) throw new NetworkTextException("END_NETWORK without an open NETWORK block");
                     Flush();
                     continue;
                 }
                 if (line.StartsWith("NETWORK", StringComparison.Ordinal))
                 {
-                    if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED");
+                    if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
                     // localIds index*GraphConstants.NetworkStride+1…, mirroring PlcOpenReader, so a
@@ -60,14 +60,14 @@ namespace Volt.Engine.Graphical.Vg
                     var nm = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
                     int order = nm.Groups[1].Success ? int.Parse(nm.Groups[1].Value) : ordinal;
                     if (!seenIndices.Add(order))
-                        throw new VgParseException($"network index {order} appears more than once — indices must be unique (their localIds would collide)", "VG_DUPLICATE_NETWORK");
+                        throw new NetworkTextException($"network index {order} appears more than once — indices must be unique (their localIds would collide)", "NETWORK_DUPLICATE_NETWORK");
                     if (nm.Groups[2].Success) lang = nm.Groups[2].Value;
                     cur = new NetworkBuilder(nm.Success ? header.Substring(nm.Length) : header,
                         order, order * GraphConstants.NetworkStride + 1);
                     ordinal++;
                     continue;
                 }
-                if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
+                if (cur == null) throw new NetworkTextException("statement before any NETWORK: " + line);
                 if (line.StartsWith("//", StringComparison.Ordinal)) { cur.AddComment(line.Substring(2).Trim()); continue; }
 
                 // Execute box (standard CODESYS ST-in-FBD/LD): a multi-line `IF <en> THEN` guard (EN handled
@@ -92,10 +92,10 @@ namespace Volt.Engine.Graphical.Vg
                         if (t.Equals("END_EXECUTE", StringComparison.OrdinalIgnoreCase)) break;
                         if (t.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase) ||
                             t.StartsWith("NETWORK", StringComparison.OrdinalIgnoreCase))
-                            throw new VgParseException("EXECUTE without a closing END_EXECUTE", "VG_PARSE") { Line = lineNum };
+                            throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNum };
                         stLines.Add(rawLines[j]);
                     }
-                    if (j >= rawLines.Length) throw new VgParseException("EXECUTE without a closing END_EXECUTE", "VG_PARSE") { Line = lineNum };
+                    if (j >= rawLines.Length) throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNum };
                     cur.AddExecute(pendingEn, string.Join("\n", stLines), lineNum);
                     i = j;   // consume through END_EXECUTE
                     if (pendingEn != null)   // an EN-guarded execute: consume its matching END_IF
@@ -103,23 +103,23 @@ namespace Volt.Engine.Graphical.Vg
                         int k = i + 1;
                         while (k < rawLines.Length && rawLines[k].Trim().Length == 0) k++;
                         if (k >= rawLines.Length || !rawLines[k].Trim().Equals("END_IF", StringComparison.OrdinalIgnoreCase))
-                            throw new VgParseException("EN-guarded EXECUTE is not closed by END_IF", "VG_PARSE") { Line = lineNum };
+                            throw new NetworkTextException("EN-guarded EXECUTE is not closed by END_IF", "NETWORK_PARSE") { Line = lineNum };
                         i = k;
                         pendingEn = null;
                     }
                     continue;
                 }
                 if (pendingEn != null)
-                    throw new VgParseException($"'IF {pendingEn} THEN' spanning lines is only valid guarding an EXECUTE block", "VG_PARSE") { Line = lineNum };
+                    throw new NetworkTextException($"'IF {pendingEn} THEN' spanning lines is only valid guarding an EXECUTE block", "NETWORK_PARSE") { Line = lineNum };
 
                 // A `LET <name> := …` introduces an internal wire (the synthetic i*/g*/en* names); a bare
                 // `<name> := …` writes a sink. Both buffer as statements — ScanLetWires (in Build) records the
                 // LET names so the parser can tell a named producer from an outVariable sink.
                 cur.AddStatement(line.TrimEnd(';').Trim(), lineNum);
                 }
-                catch (VgParseException ex) { ex.Line ??= lineNum; throw; }
+                catch (NetworkTextException ex) { ex.Line ??= lineNum; throw; }
             }
-            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED") { Line = rawLines.Length };
+            if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED") { Line = rawLines.Length };
             return new GraphBody(lang, networks);
         }
 
@@ -199,7 +199,7 @@ namespace Volt.Engine.Graphical.Vg
                 var asg = SplitAssignment(stmt);              // (lhs, rhs) or null for a bare FB call
                 if (asg == null) { ParseFbCall(stmt); return; }
                 var (lhs, rhs) = asg.Value;
-                if (lhs.Length == 0) throw new VgParseException("assignment has no target: '" + stmt + "'", "VG_PARSE");
+                if (lhs.Length == 0) throw new NetworkTextException("assignment has no target: '" + stmt + "'", "NETWORK_PARSE");
 
                 if (enWires.Contains(lhs))                    // en := <EN source> — held until its IF builds the box
                 { Declare(lhs); _enSource[lhs] = ParseOperand(rhs); return; }
@@ -232,7 +232,7 @@ namespace Volt.Engine.Graphical.Vg
             private void ParseEnEnoIf(string en, string body)
             {
                 if (!_enSource.TryGetValue(en, out var enSrc))
-                    throw new VgParseException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
+                    throw new NetworkTextException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "NETWORK_BAD_EXPRESSION");
                 if (StartsWithWord(body, "LET")) body = body.Substring(3).Trim();   // a named EN/ENO result; into-sink bodies stay bare
                 var asg = SplitAssignment(body);
                 if (asg == null)   // EN/ENO FUNCTION BLOCK: `IF en THEN inst(IN := x); END_IF` — its value outputs are read elsewhere via inst.Pin
@@ -242,7 +242,7 @@ namespace Volt.Engine.Graphical.Vg
                     fbPins.AddRange(SplitArgs(inner).Select(a =>
                     {
                         var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
-                        if (p.Length != 2) throw new VgParseException("FB call arg needs 'pin := value': " + a);
+                        if (p.Length != 2) throw new NetworkTextException("FB call arg needs 'pin := value': " + a);
                         var (conn, mods) = ParseOperand(p[1].Trim());
                         return new Pin(p[0].Trim(), conn, mods);
                     }));
@@ -269,7 +269,7 @@ namespace Volt.Engine.Graphical.Vg
                     typeName = fn; callType = "function";
                     operands = SplitArgs(inner).Select(ParseOperand).ToList();
                 }
-                else throw new VgParseException("EN/ENO body must be 'result := (expr)' or 'result := FN(args)': " + body, "VG_BAD_EXPRESSION");
+                else throw new NetworkTextException("EN/ENO body must be 'result := (expr)' or 'result := FN(args)': " + body, "NETWORK_BAD_EXPRESSION");
 
                 var id = _nextId++;
                 var pins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
@@ -314,7 +314,7 @@ namespace Volt.Engine.Graphical.Vg
                 var pins = SplitArgs(inner).Select(a =>
                 {
                     var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
-                    if (p.Length != 2) throw new VgParseException("FB call arg needs 'pin := value': " + a);
+                    if (p.Length != 2) throw new NetworkTextException("FB call arg needs 'pin := value': " + a);
                     var (conn, mods) = ParseOperand(p[1].Trim());
                     return new Pin(p[0].Trim(), conn, mods);
                 }).ToList();
@@ -324,7 +324,7 @@ namespace Volt.Engine.Graphical.Vg
                 _nodes.Add(new Block(id, null, "", name, pins, new List<string>(), "functionblock"));
             }
 
-            // ── recursive expression engine — the inverse of VgWriter's RenderExpr ───────────────────
+            // ── recursive expression engine — the inverse of NetworkTextWriter's RenderExpr ───────────────────
             /// <summary>An operand → its producer wire (+ its consuming-pin modifiers). A leading <c>NOT</c> /
             /// trailing edge|storage rides the PIN; the bare core is resolved by <see cref="ParseCore"/>.</summary>
             private (Conn Conn, Mods Mods) ParseOperand(string token)
@@ -343,7 +343,7 @@ namespace Volt.Engine.Graphical.Vg
                 if (IsSingleGroup(core)) return ParseOperatorExpr(core.Substring(1, core.Length - 2));
                 if (IsCall(core)) return ParseFunctionExpr(core);
                 if (core.IndexOf('(') >= 0 || core.IndexOf(')') >= 0)   // parens that form neither a single group nor a call → malformed
-                    throw new VgParseException("malformed expression — unbalanced or partially-parenthesised: '" + core + "'", "VG_BAD_EXPRESSION");
+                    throw new NetworkTextException("malformed expression — unbalanced or partially-parenthesised: '" + core + "'", "NETWORK_BAD_EXPRESSION");
                 var dot = core.IndexOf('.');
                 var baseName = dot >= 0 ? core.Substring(0, dot) : core;
                 if (_eno.TryGetValue(baseName, out var enoBlock)) return new Conn(enoBlock, "ENO");   // an EN/ENO box's enable echo
@@ -394,7 +394,7 @@ namespace Volt.Engine.Graphical.Vg
             private void Declare(string name)
             {
                 if (!_declared.Add(name))
-                    throw new VgParseException($"'{name}' is defined more than once in this network — each wire, result, instance, and label name must be unique", "VG_DUPLICATE_NAME");
+                    throw new NetworkTextException($"'{name}' is defined more than once in this network — each wire, result, instance, and label name must be unique", "NETWORK_DUPLICATE_NAME");
             }
 
             /// <summary>A leaf is a real SOURCE — a literal or a real variable — never an alias/modifier of a
@@ -406,11 +406,11 @@ namespace Volt.Engine.Graphical.Vg
             {
                 foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
                     if (_temps.Contains(m.Value))
-                        throw new VgParseException(
+                        throw new NetworkTextException(
                             $"{display} derives from the temp '{m.Value}', so it is not a valid leaf. A NOT/edge "
                             + "modifier rides on the CONSUMER ('out := NOT g1', not 'g2 := NOT g1'), and an expression "
                             + "over temps is written inline (fully parenthesised) at its consumer.",
-                            "VG_LEAF_REFERENCES_TEMP");
+                            "NETWORK_LEAF_REFERENCES_TEMP");
             }
 
             /// <summary>Split a parenthesised operator body into its single operator + operands, respecting
@@ -438,15 +438,15 @@ namespace Volt.Engine.Graphical.Vg
                     else merged.Add(tokens[i]);
                 }
                 if (merged.Count < 3 || merged.Count % 2 == 0)
-                    throw new VgParseException("operator expression must be 'a OP b [OP c …]': " + inner, "VG_BAD_EXPRESSION");
+                    throw new NetworkTextException("operator expression must be 'a OP b [OP c …]': " + inner, "NETWORK_BAD_EXPRESSION");
                 var op = merged[1];
-                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'", "VG_UNKNOWN_OPERATOR");
+                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new NetworkTextException("unknown operator '" + op + "'", "NETWORK_UNKNOWN_OPERATOR");
                 var operands = new List<string>();
                 for (int i = 0; i < merged.Count; i++)
                 {
                     if (i % 2 == 0) operands.Add(merged[i]);
                     else if (!string.Equals(merged[i], op, StringComparison.OrdinalIgnoreCase))
-                        throw new VgParseException("one operator per parenthesised group; found '" + merged[i] + "' and '" + op + "'", "VG_BAD_EXPRESSION");
+                        throw new NetworkTextException("one operator per parenthesised group; found '" + merged[i] + "' and '" + op + "'", "NETWORK_BAD_EXPRESSION");
                 }
                 return (op, operands);
             }
@@ -469,7 +469,7 @@ namespace Volt.Engine.Graphical.Vg
                 }
                 foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
                     try { ParseStatement(stmt, enWires); }
-                    catch (VgParseException ex) { ex.Line ??= line; throw; }
+                    catch (NetworkTextException ex) { ex.Line ??= line; throw; }
                 // pass 3: build the execute boxes — EN pin = the held enable source, body is the verbatim ST.
                 for (int e = 0; e < _executes.Count; e++)
                 {
@@ -478,7 +478,7 @@ namespace Volt.Engine.Graphical.Vg
                     if (en != null)
                     {
                         if (!_enSource.TryGetValue(en, out var enSrc))
-                            throw new VgParseException($"'IF {en} THEN EXECUTE' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
+                            throw new NetworkTextException($"'IF {en} THEN EXECUTE' has no preceding '{en} := …' enable assignment", "NETWORK_BAD_EXPRESSION");
                         pins.Add(new Pin("EN", enSrc.Conn, enSrc.Mods));
                     }
                     _nodes.Add(new Block(executeIds[e], null, "EXECUTE", null, pins, new List<string> { "ENO" }, "execute", null, st));
@@ -489,7 +489,7 @@ namespace Volt.Engine.Graphical.Vg
             /// <summary>Strip pin/operand modifiers from a VG operand — leading <c>NOT</c>
             /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/
             /// <c>RESET</c> (storage) — returning the bare operand + its <see cref="Mods"/>. Inverse
-            /// of <c>VgWriter.ApplyMods</c>.</summary>
+            /// of <c>NetworkTextWriter.ApplyMods</c>.</summary>
             private static (string Core, Mods Mods) ExtractMods(string token)
             {
                 token = token.Trim();
@@ -538,7 +538,7 @@ namespace Volt.Engine.Graphical.Vg
             private static (string name, string inner) SplitCall(string s)
             {
                 var open = s.IndexOf('(');
-                if (open < 0 || !s.EndsWith(")", StringComparison.Ordinal)) throw new VgParseException("expected a call: " + s);
+                if (open < 0 || !s.EndsWith(")", StringComparison.Ordinal)) throw new NetworkTextException("expected a call: " + s);
                 return (s.Substring(0, open).Trim(), s.Substring(open + 1, s.Length - open - 2));
             }
 
@@ -561,13 +561,13 @@ namespace Volt.Engine.Graphical.Vg
         }
     }
 
-    /// <summary>A structured VG diagnostic: a stable <see cref="Code"/> (e.g. VG_LEAF_REFERENCES_TEMP) the AI
+    /// <summary>A structured VG diagnostic: a stable <see cref="Code"/> (e.g. NETWORK_LEAF_REFERENCES_TEMP) the AI
     /// can branch on, the 1-based source <see cref="Line"/> within the body (attached by the parse loop), and
     /// the human message. Format-only — it never depends on the actual PLC code semantics.</summary>
-    public sealed class VgParseException : Exception
+    public sealed class NetworkTextException : Exception
     {
         public string Code { get; }
         public int? Line { get; set; }   // settable: the Parse loop attaches the line a builder throw came from
-        public VgParseException(string message, string code = "VG_PARSE") : base(message) { Code = code; }
+        public NetworkTextException(string message, string code = "NETWORK_PARSE") : base(message) { Code = code; }
     }
 }

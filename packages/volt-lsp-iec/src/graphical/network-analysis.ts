@@ -2,7 +2,7 @@
  * VG diagnostics (Layer F, F.2c) — the graphical branch of the analysis orchestrator. Two streams, both
  * lifted into the same `DiagnosticItem` the ST checks emit so the server merges them onto one
  * `PublishDiagnostics`:
- *   1. STRUCTURAL — the LSP-ownable subset of the bridge's `VG_*` codes (parse · not-closed · duplicate
+ *   1. STRUCTURAL — the LSP-ownable subset of the bridge's `NETWORK_*` codes (parse · not-closed · duplicate
  *      network/name). The canonical/round-trip gate stays the bridge's. Vendor-neutral, PROVISIONAL text.
  *   2. CODE CORRECTNESS — a sink `target := value` is an assignment, so it runs the SAME assignment-type
  *      check as ST (`assignmentPairError`), against a scope where `LET` wires are inferred pseudo-vars.
@@ -42,10 +42,10 @@ import {
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
 import type { Document } from "../services/index.js"
-import { analyzeVgBody } from "./vg-analyze.js"
-import type { VgStatement } from "./text/ast.js"
+import { analyzeNetworkText } from "./network-analyze.js"
+import type { NetworkTextStatement } from "./text/ast.js"
 
-export function computeVgDiagnostics(
+export function computeNetworkTextDiagnostics(
   doc: Document,
   project: Scope,
   messages: Messages,
@@ -55,7 +55,7 @@ export function computeVgDiagnostics(
   for (const unit of doc.parseResult.units) {
     for (const body of unitBodies(unit)) {
       if (!isGraphicalBody(body)) continue
-      const analysis = analyzeVgBody(unit, body, project, doc.uri)
+      const analysis = analyzeNetworkText(unit, body, project, doc.uri)
       for (const d of analysis.vg.diagnostics) {
         out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
       }
@@ -73,12 +73,12 @@ export function computeVgDiagnostics(
 }
 
 /**
- * VG operand MODIFIER words (vg-language.md §Modifier words / operand grammar), lowercased. Trailing
+ * Network-text operand MODIFIER words (network-text.md §Modifier words / operand grammar), lowercased. Trailing
  * `SET`/`RESET` (coil storage) + `RISING`/`FALLING` (edge) are graphical keywords the lean operand parser
  * leaves in the expression, not identifiers — so the undeclared check must skip them. (`NOT`, the leading
  * modifier, already resolves via the reference catalog's boolean operator.)
  */
-const VG_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
+const NETWORK_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
 
 /**
  * vg-undeclared-identifier + vg-unknown-member: resolve every operand identifier in the network against its
@@ -88,7 +88,7 @@ const VG_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising"
  * into the bare namespace — the lenze `Mach1` collision), now fixed, so it ships at 0-FP.
  */
 function checkUndeclared(
-  statements: readonly VgStatement[],
+  statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
   references: WorkspaceRefs,
@@ -97,7 +97,7 @@ function checkUndeclared(
 ): void {
   const exprs = operandExprs(statements)
   for (const ref of unresolvedInExprs(exprs, scope, project, references)) {
-    if (VG_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
+    if (NETWORK_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
     out.push({
       severity: "error",
       span: ref.span,
@@ -120,22 +120,22 @@ function checkUndeclared(
 /**
  * vg-undefined-label: a `JMP` whose target names no `LABEL` in the same network → error. Both compilers
  * reject it. Labels + jumps are gathered across EN/ENO boxes too (a jump reaches any label in its network).
- * ponytail: message PROVISIONAL/bridge-gated — VG has no conformance recording yet (like the VG_* codes).
+ * ponytail: message PROVISIONAL/bridge-gated — network text has no conformance recording yet (like the NETWORK_* codes).
  */
-function checkLabels(statements: readonly VgStatement[], out: DiagnosticItem[]): void {
+function checkLabels(statements: readonly NetworkTextStatement[], out: DiagnosticItem[]): void {
   const labels = new Set<string>()
   collectLabels(statements, labels)
   checkJumps(statements, labels, out)
 }
 
-function collectLabels(statements: readonly VgStatement[], labels: Set<string>): void {
+function collectLabels(statements: readonly NetworkTextStatement[], labels: Set<string>): void {
   for (const s of statements) {
     if (s.kind === "label") labels.add(s.name.text.toLowerCase())
     else if (s.kind === "en_eno_if") collectLabels(s.body, labels)
   }
 }
 
-function checkJumps(statements: readonly VgStatement[], labels: ReadonlySet<string>, out: DiagnosticItem[]): void {
+function checkJumps(statements: readonly NetworkTextStatement[], labels: ReadonlySet<string>, out: DiagnosticItem[]): void {
   for (const s of statements) {
     if (s.kind === "jump") {
       if (!labels.has(s.target.text.toLowerCase())) {
@@ -161,9 +161,9 @@ function checkJumps(statements: readonly VgStatement[], labels: ReadonlySet<stri
  * resolves to a project FB whose ENTIRE `EXTENDS` chain is resolved — an unresolvable base (a library FB) is
  * an unknown pin set, so the whole call is skipped rather than guessed. Pins = the FB's VAR_INPUT/OUTPUT/
  * IN_OUT members + PROPERTY accessors (all bare-settable on a box), inherited members included.
- * ponytail: message PROVISIONAL/bridge-gated (VG has no conformance recording yet).
+ * ponytail: message PROVISIONAL/bridge-gated (network text has no conformance recording yet).
  */
-function checkPins(statements: readonly VgStatement[], scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+function checkPins(statements: readonly NetworkTextStatement[], scope: Scope, project: Scope, out: DiagnosticItem[]): void {
   for (const s of statements) {
     if (s.kind === "en_eno_if") {
       checkPins(s.body, scope, project, out)
@@ -214,7 +214,7 @@ function isPinSection(section: string | undefined): boolean {
 }
 
 /** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
-function operandExprs(statements: readonly VgStatement[]): Expr[] {
+function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
   const out: Expr[] = []
   for (const s of statements) {
     switch (s.kind) {
@@ -248,7 +248,7 @@ function operandExprs(statements: readonly VgStatement[]): Expr[] {
 
 /** Sink pair type-checks (assignment mismatch + narrowing), recursing into EN/ENO + EXECUTE boxes. */
 function checkStatements(
-  statements: readonly VgStatement[],
+  statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
   messages: Messages,
@@ -278,7 +278,7 @@ function checkStatements(
  * reset coil reads as `enum → BOOL`. (The undeclared check skips the same set.)
  */
 function isModifierValue(value: Expr): boolean {
-  return value.kind === "ident_expr" && VG_MODIFIER_WORDS.has(value.name.toLowerCase())
+  return value.kind === "ident_expr" && NETWORK_MODIFIER_WORDS.has(value.name.toLowerCase())
 }
 
 /** Run the shared per-pair rules (assignment mismatch → error, narrowing → warning) on one `target := value`. */
@@ -291,7 +291,7 @@ function checkPair(target: Expr, value: Expr, scope: Scope, project: Scope, mess
 
 /** vg binary-operator-type-mismatch: run the shared per-node rule on every binary node in the operands. */
 function checkBinaryOps(
-  statements: readonly VgStatement[],
+  statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
   messages: Messages,
@@ -310,7 +310,7 @@ function checkBinaryOps(
  *  `<SRC>` — the SAME C0195/C0197 the ST check emits, so a graphical `UINT_TO_WORD(anINT)` operand warns exactly
  *  as textual code would. (Sink narrowing is already covered by `checkPair`; this closes the operand case.) */
 function checkConversionArgs(
-  statements: readonly VgStatement[],
+  statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
   messages: Messages,

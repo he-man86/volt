@@ -70,7 +70,7 @@ public static class PushService
             {
                 // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
-                var vg = ex as Graphical.Vg.VgParseException;
+                var vg = ex as Graphical.NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
@@ -275,7 +275,7 @@ public static class PushService
         // current source (pure move), read back for the full-fidelity recreate.
         var src = sourceText ?? Materializer.Materialize(ide, name, kind, item).Text;
         var split = StSplitter.SplitSt(src);
-        if (VgBody.Is(split.PouImplementation) || split.Children.Any(c => VgBody.Is(c.Implementation)))
+        if (NetworkText.Is(split.PouImplementation) || split.Children.Any(c => NetworkText.Is(c.Implementation)))
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
 
@@ -315,7 +315,7 @@ public static class PushService
 
         // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
-        var pouVg = VgBody.Is(impl);
+        var pouVg = NetworkText.Is(impl);
 
         // Read-only enforcement for graphical bodies is by LIVE IDE STATE, not content: an existing CFC/SFC
         // body is refused by the body-type guard below (which reads `BodyLanguage`). The materialized
@@ -337,7 +337,7 @@ public static class PushService
                 // Validate the VG body (parser + round-trip gate) BEFORE creating the item — otherwise a
                 // refused push leaves an orphaned, unlisted stub POU that blocks the next create.
                 GraphicalCode.Validate(impl);
-                var lang = VgBody.LanguageOf(impl)!;   // Validate above proved an editable FBD/LD marker is present
+                var lang = NetworkText.LanguageOf(impl)!;   // Validate above proved an editable FBD/LD marker is present
                 pou = ide.CreateChild(targetParent, name, itemType, lang);
                 // A graphical POU's program-scope declaration is NOT carried by the body write —
                 // GraphicalCode.Write only writes the BODY and preserves the export's <interface>, which on a
@@ -427,10 +427,10 @@ public static class PushService
         foreach (var child in split.Children)
         {
             var cimpl = child.Implementation;
-            var childVg = VgBody.Is(cimpl);
+            var childVg = NetworkText.Is(cimpl);
             // A read-only graphical (CFC/SFC) child has NO text form — it materializes as
-            // Materializer.GraphicalBodyMarker, and VgBody.Is matches only a `NETWORK n LANG` header, so it REJECTS
-            // that marker. The old guard here was `VgBody.Is(cimpl) && !IsEditable(...)`, which therefore never fired
+            // Materializer.GraphicalBodyMarker, and NetworkText.Is matches only a `NETWORK n LANG` header, so it REJECTS
+            // that marker. The old guard here was `NetworkText.Is(cimpl) && !IsEditable(...)`, which therefore never fired
             // for the one case it existed to stop: the marker fell through to the textual path below and
             // ide.WriteText replaced the engineer's graphical body with a comment.
             //
@@ -621,11 +621,11 @@ public static class PushService
         FirstChild(ide, parent, c => NameIs(ide, c, name));
 
     /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it
-    /// decides from the IDE's LIVE body language, never from the incoming text. <c>VgBody</c>'s contract says it
+    /// decides from the IDE's LIVE body language, never from the incoming text. <c>NetworkText</c>'s contract says it
     /// outright: CFC/SFC read-only-ness "is enforced by live IDE state on push, not by any content marker".
-    /// <para>The old guard tried to do it from content — <c>VgBody.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
+    /// <para>The old guard tried to do it from content — <c>NetworkText.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
     /// never work, because a CFC/SFC body has no text form and materializes as
-    /// <see cref="Materializer.GraphicalBodyMarker"/>, which <c>VgBody.Is</c> (a <c>NETWORK n LANG</c> matcher)
+    /// <see cref="Materializer.GraphicalBodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
     /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
     /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
     /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
@@ -654,7 +654,7 @@ public static class PushService
             lang = ide.BodyLanguage(live);
         }
 
-        var childVg = VgBody.Is(cimpl);
+        var childVg = NetworkText.Is(cimpl);
 
         // A read-only body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
         // splice leaves that member's body untouched. So the marker is only a refusal when it does NOT match a

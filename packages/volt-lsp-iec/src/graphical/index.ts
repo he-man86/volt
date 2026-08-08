@@ -2,12 +2,12 @@
 // the graphical branch of the outline. A second front-end that plugs in, not a second stack.
 // See architecture.md → ownership map: `graphical/` owns the VG AST + VG diagnostics.
 export * from "./text/ast.js"
-export { parseVgBody } from "./text/parser.js"
-export { analyzeVgBody, vgScopeAt, wireDefs, type VgAnalysis } from "./vg-analyze.js"
-export { computeVgDiagnostics } from "./vg-analysis.js"
-export { documentSymbolsWithVg } from "./vg-symbols.js"
+export { parseNetworkText } from "./text/parser.js"
+export { analyzeNetworkText, vgScopeAt, wireDefs, type NetworkTextAnalysis } from "./network-analyze.js"
+export { computeNetworkTextDiagnostics } from "./network-analysis.js"
+export { documentSymbolsWithVg } from "./network-symbols.js"
 export {
-  inVgBody,
+  inNetworkText,
   vgHover,
   vgMarkerHover,
   vgDefinition,
@@ -20,4 +20,4 @@ export {
   documentHighlightsAnywhere,
   prepareRenameAnywhere,
   renameAnywhere,
-} from "./vg-services.js"
+} from "./network-services.js"

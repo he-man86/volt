@@ -1,7 +1,6 @@
 ﻿using System;
 using Volt.Engine;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Volt.Engine.Ide;
 using Volt.Engine.Workspace;
 using Xunit;
@@ -123,7 +122,7 @@ public class GraphicalCodeTests
         Assert.Contains("target := 42;", vg);          // the ST is rendered verbatim
         Assert.Contains("IF en", vg);                  // EN via the ordinary wire+IF guard, not special-cased
 
-        var graph = VgParser.Parse(vg);                // VG → graph (bridge parser detects the EXECUTE marker)
+        var graph = NetworkTextReader.Parse(vg);                // VG → graph (bridge parser detects the EXECUTE marker)
         var xml = PlcOpenWriter.WriteBody(graph).ToString();
         Assert.Contains("typeName=\"EXECUTE\"", xml);  // reconstructed as a CODESYS Execute box
         Assert.Contains("target := 42;", xml);         // …carrying its STCode
@@ -138,7 +137,7 @@ public class GraphicalCodeTests
         // leaf; otherwise the pulled body fails the canonical/leaf-fanout gate and can't be pushed back.
         var vg = "NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN\n  EXECUTE\n  x := 1;\n  END_EXECUTE\n  END_IF\n"
             + "  LET en2 := en1;\n  IF en2 THEN out := (b AND c); END_IF\nEND_NETWORK\n";
-        GraphicalCode.Validate(vg);   // throws VG_NOT_CANONICAL / VG_LEAF_FANOUT if the round-trip breaks
+        GraphicalCode.Validate(vg);   // throws NETWORK_NOT_CANONICAL / NETWORK_LEAF_FANOUT if the round-trip breaks
     }
 
     [Fact]
@@ -192,9 +191,9 @@ public class GraphicalCodeTests
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
-        var ex = Assert.Throws<VgParseException>(() =>
+        var ex = Assert.Throws<NetworkTextException>(() =>
             GraphicalCode.Write(s, Item, ItemName, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
-        Assert.Equal("VG_NOT_CANONICAL", ex.Code);          // structured diagnostic
+        Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);          // structured diagnostic
         Assert.NotNull(ex.Line);                            // names the first differing line
         Assert.Contains("out := (a AND b)", ex.Message);    // the writer's readable canonical form is shown verbatim
     }

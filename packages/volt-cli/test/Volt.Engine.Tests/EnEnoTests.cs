@@ -2,7 +2,6 @@
 using System.IO;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -16,12 +15,12 @@ public class EnEnoTests
     public void EnEno_reads_as_IF_parses_back_and_is_a_fixed_point()
     {
         var g0 = PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
-        var vg0 = VgWriter.Write(g0);
+        var vg0 = NetworkTextWriter.Write(g0);
 
-        // VgParser is the exact inverse of VgWriter (the VG-text fixed point).
-        var vg1 = VgWriter.Write(VgParser.Parse(vg0));
+        // NetworkTextReader is the exact inverse of NetworkTextWriter (the VG-text fixed point).
+        var vg1 = NetworkTextWriter.Write(NetworkTextReader.Parse(vg0));
         // And the parsed graph survives a full PLCopen round-trip (the convergence the push-gate checks).
-        var vg2 = GraphicalRoundTrip.ToVg(VgParser.Parse(vg0));
+        var vg2 = GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg0));
 
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_rt.txt"),
             "=== vg0 (read) ===\n" + vg0 + "\n=== vg1 (parse→write) ===\n" + vg1 + "\n=== vg2 (parse→plcopen→write) ===\n" + vg2);
@@ -62,13 +61,13 @@ public class EnEnoTests
             "</block>" +
             "<outVariable localId=\"3\"><connectionPointIn><connection refLocalId=\"2\" formalParameter=\"OUT\"/></connectionPointIn><expression>y</expression></outVariable>" +
             "</FBD></body></pou></pous></types></project>";
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), vg);
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
         Assert.Contains("FC_Do(", vg);         // rendered as a plain call
-        Assert.Equal(vg, VgWriter.Write(VgParser.Parse(vg)));            // VG-text fixed point
-        Assert.Equal(vg, GraphicalRoundTrip.ToVg(VgParser.Parse(vg)));   // PLCopen convergence
+        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));            // VG-text fixed point
+        Assert.Equal(vg, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg)));   // PLCopen convergence
     }
 
     [Fact]
@@ -90,10 +89,10 @@ public class EnEnoTests
             "</block>" +
             "<coil localId=\"4\"><connectionPointIn><connection refLocalId=\"3\" formalParameter=\"OUT\"/></connectionPointIn><variable>y</variable></coil>" +
             "</LD></body></pou></pous></types></project>";
-        var vg = VgWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        var vg = NetworkTextWriter.Write(PlcOpenReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
         Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
         Assert.DoesNotContain("IF en", vg);    // not EN-guarded
-        Assert.Equal(vg, VgWriter.Write(VgParser.Parse(vg)));   // VG-text fixed point
+        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));   // VG-text fixed point
     }
 
     [Fact]
@@ -106,9 +105,9 @@ public class EnEnoTests
             "  IF en1 THEN t1(IN := x, PT := y); END_IF\n" +
             "  done := t1.Q;\n" +
             "END_NETWORK\n";
-        var once = VgWriter.Write(VgParser.Parse(vg));
+        var once = NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_fb.txt"), once);
-        Assert.Equal(once, VgWriter.Write(VgParser.Parse(once)));            // VG-text fixed point
-        Assert.Equal(once, GraphicalRoundTrip.ToVg(VgParser.Parse(once)));   // PLCopen convergence
+        Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));            // VG-text fixed point
+        Assert.Equal(once, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // PLCopen convergence
     }
 }

@@ -1,11 +1,11 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "VG graphical networks",
-  "scopeName": "vg.injection",
+  "scopeName": "network-text.injection",
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A VG (Volt Graphical) network — the textual form of an FBD/LD body. Detected by content (the NETWORK header), so it lights up whether it's a whole graphical POU (a kind-named .fb/.prg/.fun file) or a graphical body inlined in a POU (e.g. a graphical method). Mirrors the LSP's isVgBody discriminator.",
+      "comment": "A network-text network — the textual form of an FBD/LD body. Detected by content (the NETWORK header), so it lights up whether it's a whole graphical POU (a kind-named .fb/.prg/.fun file) or a graphical body inlined in a POU (e.g. a graphical method). Mirrors the LSP's isNetworkText discriminator.",
       "name": "meta.network.vg",
       "begin": "^\\s*(NETWORK)\\b[ \\t]*(\\d+)?[ \\t]*(FBD|LD)?\\b[ \\t]*(\"[^\"]*\")?[ \\t]*(DISABLED)?",
       "beginCaptures": {

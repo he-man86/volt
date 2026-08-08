@@ -2,14 +2,14 @@
 
 > **Status:** shipped (inline-`LET` form; `VAR_TEMP` retired in commit `e1c94d806`).
 > **Audience:** anyone building tooling for VG — primarily a **language server (LSP)**.
-> This is the complete, self-contained spec. [`vg-diagnostics.md`](./vg-diagnostics.md) is a focused
+> This is the complete, self-contained spec. [`network-text-diagnostics.md`](./network-text-diagnostics.md) is a focused
 > bridge-side quick-reference (a subset of §9–§10 here).
 
 ---
 
 ## 1. Purpose & context
 
-**VG** ("Volt Graphical") is Volt's **own textual language for FBD/LD graphical PLC bodies** — a graphical
+**Network text** is Volt's **own textual language for FBD/LD graphical PLC bodies** — a graphical
 network of boxes and wires rendered as *readable, ST-flavored* text. It reads like Structured Text but is a
 **distinct language** with its own grammar, parser, and analysis. It exists so an AI agent and a language
 server can work over a graphical body **as text**, even though it was authored graphically in the vendor IDE
@@ -22,8 +22,8 @@ graph and writes it through the vendor's PLCopen XML transport. The round trip i
 can be read, edited, and written entirely as VG text. (CFC/SFC are surfaced read-only.)
 
 ```
-  Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──VgWriter──►  VG text   (pull / read)
-  Vendor IDE  ◄─PLCopen XML──   graph (GraphBody)  ◄─VgParser──   VG text   (push / write)
+  Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──NetworkTextWriter──►  VG text   (pull / read)
+  Vendor IDE  ◄─PLCopen XML──   graph (GraphBody)  ◄─NetworkTextReader──   VG text   (push / write)
 ```
 
 **Division of responsibility:**
@@ -50,7 +50,7 @@ END_PROGRAM
 ```
 
 The **declaration** (`PROGRAM`/`VAR … END_VAR`) is ordinary ST and belongs to the POU. The **body** is
-everything from the first `NETWORK` marker onward. The bridge's `VgParser` is handed **only the body** — it
+everything from the first `NETWORK` marker onward. The bridge's `NetworkTextReader` is handed **only the body** — it
 never sees the declaration. (This matters for type inference: see §8.) A graphical POU's declaration is edited
 in the IDE, not via VG; a push writes the body only.
 
@@ -63,7 +63,7 @@ vendor-specific syntax; the only per-vendor switch anywhere in the pipeline is t
 
 1. **Reads like real ST.** A wire used once is inlined into its consumer's expression; only wires that *fan
    out* (feed 2+ consumers) get a name. `out := ((a AND b) OR c)` — not a four-line node-per-wire transcript.
-2. **Round-trip-exact.** `VgWriter(VgParser(x)) == x` is enforced (§9). There is exactly one canonical text for
+2. **Round-trip-exact.** `NetworkTextWriter(NetworkTextReader(x)) == x` is enforced (§9). There is exactly one canonical text for
    any graph, so a body never silently reformats or drifts on the next pull.
 3. **Topology-exact, no precedence.** Every operator group is fully parenthesised. Parentheses encode the
    wiring directly, so there is **no operator precedence** and a parser needs no precedence table.
@@ -107,7 +107,7 @@ normal name, not a keyword.
 
 ```ebnf
 program        = declaration , body ;
-declaration    = (* ordinary ST: PROGRAM/FUNCTION_BLOCK/… + VAR sections — NOT parsed by VgParser *) ;
+declaration    = (* ordinary ST: PROGRAM/FUNCTION_BLOCK/… + VAR sections — NOT parsed by NetworkTextReader *) ;
 body           = { network } ;
 
 network        = network-header , { statement } , "END_NETWORK" ;
@@ -192,7 +192,7 @@ inlining it would duplicate its box. This rule is what makes the text both reada
 **EN/ENO enable echo** (`en*`), and an **opaque leaf** (`i*`, §6). Everything else inlines.
 
 **localId / network encoding.** Each node's `localId` encodes its network: `network index = localId / 10¹⁰`
-(`GraphConstants.NetworkStride`). Network indices must be unique (§10, `VG_DUPLICATE_NETWORK`). The integer on
+(`GraphConstants.NetworkStride`). Network indices must be unique (§10, `NETWORK_DUPLICATE_NETWORK`). The integer on
 the `NETWORK` header is that index, preserved verbatim so gapped/renumbered networks round-trip.
 
 **Pins.** A `Block` input is a `Pin(FormalParameter, Source, Mods, Type?)`. Operator/function pins are
@@ -244,7 +244,7 @@ et   := t1.ET;
 ### Opaque leaf — `LET i := <text>`
 An `inVariable` whose text is **not a single safe token** — it has whitespace or parentheses (`a + 1`, `NOT x`,
 `f(x)`) and so cannot sit at an operand position without mis-splitting. It is named and gets its own statement.
-Its text may **not** alias an internal wire (that is `VG_LEAF_REFERENCES_TEMP`).
+Its text may **not** alias an internal wire (that is `NETWORK_LEAF_REFERENCES_TEMP`).
 ```
 LET i1 := NOT b;
 out := (a AND i1);
@@ -335,8 +335,8 @@ kind per parenthesised group**.
 | Comparison | `>` `<` `>=` `<=` `=` `<>` | `GT` `LT` `GE` `LE` `EQ` `NE` |
 
 A group is `( a OP b )`, `( a OP b OP c )` (same `OP` repeated → one N-ary box), or nested
-`( ( a AND b ) OR c )`. Mixing kinds in one group (`(a AND b OR c)`) is `VG_BAD_EXPRESSION` — the writer always
-fully parenthesises, so each group is exactly one operator. An unknown symbol is `VG_UNKNOWN_OPERATOR`.
+`( ( a AND b ) OR c )`. Mixing kinds in one group (`(a AND b OR c)`) is `NETWORK_BAD_EXPRESSION` — the writer always
+fully parenthesises, so each group is exactly one operator. An unknown symbol is `NETWORK_UNKNOWN_OPERATOR`.
 
 ---
 
@@ -375,12 +375,12 @@ mirror these as diagnostics (so a body is fixed *before* it is pushed).
 
 1. **Language** — the `NETWORK` marker's language is `FBD` or `LD` (else a parse error).
 2. **Parse** — the body is structurally valid VG (the codes in §10).
-3. **Leaf single-use** (`VG_LEAF_FANOUT`) — a *leaf* (variable/literal `InVar`) feeds exactly one consumer.
+3. **Leaf single-use** (`NETWORK_LEAF_FANOUT`) — a *leaf* (variable/literal `InVar`) feeds exactly one consumer.
    TwinCAT draws one `inVariable` box per read and crashes on a shared one. (A *block* output may fan out — that
    is a legitimate branch, and is why fan-out block results get a `LET` name.)
-4. **VG-text round-trip** (`VG_NOT_CANONICAL`) — the VG⇄graph leg: `VgWriter(VgParser(x)) == x`. The body must
+4. **VG-text round-trip** (`NETWORK_NOT_CANONICAL`) — the VG⇄graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`. The body must
    already be in canonical form (the writer's exact output). The diagnostic returns the canonical text to paste.
-5. **PLCopen convergence** (`VG_PLCOPEN_DRIFT`) — the graph⇄PLCopen⇄IDE leg: the body reaches a fixed point
+5. **PLCopen convergence** (`NETWORK_PLCOPEN_DRIFT`) — the graph⇄PLCopen⇄IDE leg: the body reaches a fixed point
    through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises. (A one-step
    canonicalisation, e.g. an LD negated contact, is allowed — only non-convergence is refused.)
 
@@ -395,19 +395,19 @@ canonical body. (On the wire: `PushConflict.code` / `.line`; the CLI prints `nam
 
 | Code | Trigger |
 |---|---|
-| `VG_NOT_CANONICAL` | Parses, but `VgWriter(VgParser(x)) != x` — would drift on the next pull. Message includes the exact canonical form. |
-| `VG_PLCOPEN_DRIFT` | Does not converge through `PlcOpenWriter`→`PlcOpenReader` — an unstable shape the IDE can't store cleanly. |
-| `VG_LEAF_REFERENCES_TEMP` | An opaque leaf's text aliases an internal wire (`LET g2 := NOT g1`). A `NOT`/edge rides on the consumer; an expression over wires is written inline at its consumer. |
-| `VG_BAD_EXPRESSION` | A malformed group — partial/unbalanced parens (`(a AND b) OR c`) or mixed operators in one group (`(a AND b OR c)`). |
-| `VG_UNKNOWN_OPERATOR` | The operator symbol is not in the §7 table. |
-| `VG_DUPLICATE_NAME` | A wire/result/instance/label name is defined more than once in a network — the second would orphan the first. |
-| `VG_DUPLICATE_NETWORK` | A network index appears more than once — their `localId`s would collide and the IDE would merge/corrupt them on import. |
-| `VG_LEAF_FANOUT` | A leaf (variable/literal) feeds more than one block in a network (see §9 rule 3). |
-| `VG_NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
-| `VG_PARSE` | Any other structural error (unexpected `END_NETWORK`, a leftover legacy `VAR_TEMP`/`END_VAR` line, a statement before any network, …). |
+| `NETWORK_NOT_CANONICAL` | Parses, but `NetworkTextWriter(NetworkTextReader(x)) != x` — would drift on the next pull. Message includes the exact canonical form. |
+| `NETWORK_PLCOPEN_DRIFT` | Does not converge through `PlcOpenWriter`→`PlcOpenReader` — an unstable shape the IDE can't store cleanly. |
+| `NETWORK_LEAF_REFERENCES_TEMP` | An opaque leaf's text aliases an internal wire (`LET g2 := NOT g1`). A `NOT`/edge rides on the consumer; an expression over wires is written inline at its consumer. |
+| `NETWORK_BAD_EXPRESSION` | A malformed group — partial/unbalanced parens (`(a AND b) OR c`) or mixed operators in one group (`(a AND b OR c)`). |
+| `NETWORK_UNKNOWN_OPERATOR` | The operator symbol is not in the §7 table. |
+| `NETWORK_DUPLICATE_NAME` | A wire/result/instance/label name is defined more than once in a network — the second would orphan the first. |
+| `NETWORK_DUPLICATE_NETWORK` | A network index appears more than once — their `localId`s would collide and the IDE would merge/corrupt them on import. |
+| `NETWORK_LEAF_FANOUT` | A leaf (variable/literal) feeds more than one block in a network (see §9 rule 3). |
+| `NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
+| `NETWORK_PARSE` | Any other structural error (unexpected `END_NETWORK`, a leftover legacy `VAR_TEMP`/`END_VAR` line, a statement before any network, …). |
 
 > **Legacy note.** The pre-`LET` form declared wires in a per-network `VAR_TEMP … END_VAR` block. That block is
-> **retired**: a `VAR_TEMP`/`END_VAR` line in a body is now refused (`VG_PARSE`). Wires are marked inline with
+> **retired**: a `VAR_TEMP`/`END_VAR` line in a body is now refused (`NETWORK_PARSE`). Wires are marked inline with
 > `LET` instead, and carry no written type.
 
 ---
@@ -525,10 +525,10 @@ END_NETWORK
 
 | File | Role |
 |---|---|
-| `src/Volt.Engine/Graphical/Vg/VgParser.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
-| `src/Volt.Engine/Graphical/Vg/VgWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
+| `src/Volt.Engine/Graphical/NetworkText/NetworkTextReader.cs` | VG text → graph (the grammar, the `LET`/sink dispatch, the gate's parse leg) |
+| `src/Volt.Engine/Graphical/NetworkText/NetworkTextWriter.cs` | graph → VG text (the canonical form: inlining, naming, `LET` emission) |
 | `src/Volt.Engine/Graphical/GraphModel.cs` | the graph IR (`GraphBody`, `Block`, `InVar`, `OutVar`, `Conn`, `Pin`, `Mods`, …) |
 | `src/Volt.Engine/Graphical/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
 | `src/Volt.Engine/Graphical/GraphicalCode.cs` | `Validate` — the well-formedness gate (§9) |
-| `docs/vg-diagnostics.md` | the bridge-side quick-reference (a subset of §9–§10) |
+| `docs/network-text-diagnostics.md` | the bridge-side quick-reference (a subset of §9–§10) |
 | `test/Volt.Engine.Tests/Vg*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |

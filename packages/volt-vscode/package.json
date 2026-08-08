@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "icon": "icons/volt.png",
-  "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
+  "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and network text (the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
   "version": "0.1.0",
   "publisher": "volt-ai",
   "license": "MIT",
@@ -237,8 +237,8 @@
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       },
       {
-        "scopeName": "vg.injection",
-        "path": "./languages/structured-text/vg.injection.tmLanguage.json",
+        "scopeName": "network-text.injection",
+        "path": "./languages/structured-text/network-text.injection.tmLanguage.json",
         "injectTo": [
           "source.structured-text"
         ]

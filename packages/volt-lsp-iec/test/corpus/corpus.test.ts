@@ -27,7 +27,7 @@ import { WorkspaceStore } from "../../src/server/workspace-store.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
 import { allowedCode } from "../lsp/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
-import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
+import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/graphical/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
@@ -107,18 +107,18 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
   }, CORPUS_TIMEOUT)
 
   // Layer F (F.2): every graphical (VG) body in the corpus is valid IDE-exported FBD/LD, so the VG parser
-  // must find its networks and emit ZERO structural errors (VG_PARSE / VG_NETWORK_NOT_CLOSED). Duplicate
+  // must find its networks and emit ZERO structural errors (NETWORK_PARSE / NETWORK_NOT_CLOSED). Duplicate
   // name/network warnings aren't structural parse failures and aren't counted here.
   test("VG parser: zero structural errors across every graphical corpus body", () => {
     let vgBodies = 0
     const failures: string[] = []
-    const STRUCTURAL = new Set(["VG_PARSE", "VG_NETWORK_NOT_CLOSED"])
+    const STRUCTURAL = new Set(["NETWORK_PARSE", "NETWORK_NOT_CLOSED"])
     for (const f of files) {
       for (const u of parseSource(readFileSync(f, "utf8")).units) {
         for (const body of bodiesOf(u)) {
           if (body.tokens.length === 0 || !isGraphical(body)) continue
           vgBodies += 1
-          const vg = parseVgBody(body)
+          const vg = parseNetworkText(body)
           if (vg.networks.length === 0) failures.push(`${f}: no networks parsed`)
           for (const d of vg.diagnostics)
             if (STRUCTURAL.has(d.code)) failures.push(`${f} [${d.code}] ${d.message}`)
@@ -157,7 +157,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
 
   // Diagnostic-identity invariants over the FULL LSP wire path (documentDiagnostics — the exact bytes a
   // client receives), folded into the corpus so every real file is checked, not just synthetic cases:
-  //   1. every code is a Cnnnn / VG_* / parse (no code) / KNOWN_UNMAPPED (see test/lsp/diagnostic-codes.ts)
+  //   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see test/lsp/diagnostic-codes.ts)
   //   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed can't recur
   test("every corpus diagnostic has a valid code identity and no (range,code) duplicates", () => {
     const messages = messagesFor("codesys")

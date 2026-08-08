@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Volt.Engine.Wire;
@@ -74,7 +74,7 @@ public class PushConflict
     [JsonPropertyName("reason")]
     public string Reason { get; set; } = "";
 
-    /// <summary>Stable diagnostic code for a thrown-op error (e.g. VG_NESTED_EXPR, VG_NOT_CANONICAL) — null for
+    /// <summary>Stable diagnostic code for a thrown-op error (e.g. NETWORK_NESTED_EXPR, NETWORK_NOT_CANONICAL) — null for
     /// a plain version conflict. Omitted from JSON when null (WhenWritingNull).</summary>
     [JsonPropertyName("code")]
     public string? Code { get; set; }

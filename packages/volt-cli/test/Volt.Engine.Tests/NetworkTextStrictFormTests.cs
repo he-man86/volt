@@ -1,7 +1,6 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -11,12 +10,12 @@ namespace Volt.Cli.Tests;
 /// statement per node, operands are only names, internal wires introduced inline with `LET <name> := …`),
 /// so round-trip is identical in all cases and the LET wire names are a VG-only construct stripped on push.
 /// </summary>
-public class VgStrictFormTests
+public class NetworkTextStrictFormTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
     private static GraphBody Read(string inner) =>
         PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
-    private static string Vg(string inner) => VgWriter.Write(Read(inner));
+    private static string Vg(string inner) => NetworkTextWriter.Write(Read(inner));
     private static string FullRoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
 
     /// <summary>A SIMPLE leaf (a bare atom) feeding two consumers is INLINED into each consumer box
@@ -33,7 +32,7 @@ public class VgStrictFormTests
         Assert.Contains("x := a;", vg);
         Assert.Contains("y := a;", vg);
         // the simple atom inlines into each box — two distinct InVar nodes survive a parse
-        Assert.Equal(2, VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
+        Assert.Equal(2, NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
         Assert.Equal(vg, FullRoundTrip(vg));   // fixed point
     }
 
@@ -51,7 +50,7 @@ public class VgStrictFormTests
 
         Assert.Contains("x := a;", vg);
         Assert.Contains("y := a;", vg);
-        Assert.Equal(2, VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
+        Assert.Equal(2, NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
         Assert.Equal(vg, FullRoundTrip(vg));
     }
 
@@ -65,7 +64,7 @@ public class VgStrictFormTests
             "<outVariable localId='2'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>");
 
         Assert.Contains("i1 := a + 1;", vg);
-        var nodes = VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).ToList();
+        var nodes = NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).ToList();
         Assert.Single(nodes.OfType<InVar>());
         Assert.Equal("a + 1", nodes.OfType<InVar>().Single().Expression);
         Assert.Empty(nodes.OfType<Block>());           // not decomposed into an ADD block
@@ -81,7 +80,7 @@ public class VgStrictFormTests
         const string vg =
             "NETWORK 0 FBD\n" +
             "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
-        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg)).ToString();
+        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
 
         Assert.DoesNotContain("VAR_TEMP", xml);
         Assert.DoesNotContain("i1", xml);              // temp names never reach the IDE
@@ -94,7 +93,7 @@ public class VgStrictFormTests
     [Fact]
     public void Var_temp_omitted_for_control_flow_only_network()
     {
-        var vg = VgWriter.Write(VgParser.Parse("NETWORK 0 FBD\n  myLabel:\n  JMP myLabel;\nEND_NETWORK\n"));
+        var vg = NetworkTextWriter.Write(NetworkTextReader.Parse("NETWORK 0 FBD\n  myLabel:\n  JMP myLabel;\nEND_NETWORK\n"));
         Assert.DoesNotContain("VAR_TEMP", vg);
     }
 
@@ -154,7 +153,7 @@ public class VgStrictFormTests
         Assert.Contains("i1 := NOT x;", vg);   // own modifier on the leaf RHS, once
         Assert.Contains("a := i1;", vg);
         Assert.Contains("b := i1;", vg);
-        Assert.Single(VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
+        Assert.Single(NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
         Assert.Equal(vg, FullRoundTrip(vg));
     }
 
@@ -163,7 +162,7 @@ public class VgStrictFormTests
     [Fact]
     public void Network_not_closed_by_END_NETWORK_is_refused()
     {
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(
             "NETWORK 0 FBD\n  LET i1 := a;\n  q := i1;\n"));   // no END_NETWORK
         Assert.Contains("END_NETWORK", ex.Message);
     }
@@ -171,7 +170,7 @@ public class VgStrictFormTests
     [Fact]
     public void Network_not_closed_before_the_next_network_is_refused()
     {
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(
             "NETWORK 0 FBD\n  LET i1 := a;\n  q := i1;\n" +
             "NETWORK 1 FBD\n  LET j := b;\n  r := j;\nEND_NETWORK\n"));
         Assert.Contains("END_NETWORK", ex.Message);
@@ -183,7 +182,7 @@ public class VgStrictFormTests
         // The per-network VAR_TEMP … END_VAR block was REMOVED — internal wires are introduced inline with
         // `LET <name> := …`. A leftover VAR_TEMP line is no longer special grammar; it parses as a malformed
         // statement and the push is refused (the old block form must never silently reach the IDE).
-        Assert.Throws<VgParseException>(() => VgParser.Parse(
+        Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(
             "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"));
     }
 
@@ -204,7 +203,7 @@ public class VgStrictFormTests
                  "NETWORK 1 FBD\n  q := a;\nEND_NETWORK\n" +
                  "NETWORK 2 FBD\n  EXECUTE\n    y := 2;\n  END_EXECUTE\nEND_NETWORK\n";
 
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(vg));
-        Assert.Equal("VG_PARSE", ex.Code);
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(vg));
+        Assert.Equal("NETWORK_PARSE", ex.Code);
     }
 }

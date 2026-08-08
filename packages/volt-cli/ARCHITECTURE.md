@@ -108,7 +108,7 @@ attaches cross-process — that is a reached-differently difference, which is ex
 | **`Sync/`** | **One service per op** — `FetchService` (`fetch` + `init`), `PushService`, `BuildService`, `RefsService`. `Hasher` + `Versioning` give each item one content version so the same project hashes identically on either vendor. **There is no debug service** — `DebugService`, `IDebugIntrospect` and the three `IIdeSession.Debug*` members were DELETED (deliberately, resolving the "restore an op or delete them" note that stood here): they had no `Ops` const and no `BridgePipeHost.Dispatch` case, so no client could reach them after the HTTP `GET /debug?…` went away. Restoring live introspection means a real `Ops` const **and** a `Dispatch` case — never a half-wired service. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning` |
 | **`Workspace/`** | **Source materialization** — `Materializer` turns a project item into canonical workspace text. The canonical ST layout has exactly ONE owner per direction: `PouToStText` assembles a `PouData` into it, `SourceText/StSplitter` parses it back (sharing `CodeHelper`). The dict-based `SourceText/StAssembler` was a second, production-unreachable copy of the assemble half that had already diverged in failure policy; it is DELETED and the round-trip tests certify `PouToStText`. `ItemKind` is the vendor-neutral item-type table (see `docs/ITEM_KINDS.md`). | `Materializer`, `ItemKind`, `PouToStText`, `SourceText/StSplitter` |
 | **`PlcOpen/`** | **The document** — a POU's whole CONTENT, read and written through ONE PLCopen XML document: declaration, body, methods, actions, properties, accessors. `PouReader` reads it; `PouSplice` writes it by EDITING the item's own export (never regenerating, so attributes, pragmas, object ids and vendor `addData` survive); `PlcOpenDocument` holds the primitives both share. Depends on nothing — not on the graph model, not on Workspace policy. **Graphical bodies are a CONSUMER of this layer, not its owner** — which is why it is no longer filed under `Graphical/`. Vendor dialect facts live in `PlcOpen/DIALECT.md`. | `PouReader`, `PouSplice`, `PlcOpenDocument`, `PouMember` |
-| **`Graphical/`** | **The graph** — an FBD/LD body ⇄ `GraphModel` ⇄ VG text (see `docs/vg-language.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` convert graph ⇄ PLCopen; `Vg/VgParser`/`Vg/VgWriter` convert graph ⇄ VG text; `GraphicalBodySplice` replaces one graphical body in an export and owns the VG editor-capability gate (which elements may be dropped, which pin modifiers block a rewrite). | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `GraphicalBodySplice`, `Vg/VgParser`, `Vg/VgWriter` |
+| **`Graphical/`** | **The graph** — an FBD/LD body ⇄ `GraphModel` ⇄ VG text (see `docs/network-text.md`). `GraphicalCode` is the gate: FBD/LD → editable VG; CFC/SFC → read-only. `PlcOpenReader`/`Writer` convert graph ⇄ PLCopen; `Vg/NetworkTextReader`/`Vg/NetworkTextWriter` convert graph ⇄ VG text; `GraphicalBodySplice` replaces one graphical body in an export and owns the VG editor-capability gate (which elements may be dropped, which pin modifiers block a rewrite). | `GraphicalCode`, `GraphModel`, `PlcOpenReader`, `PlcOpenWriter`, `GraphicalBodySplice`, `Vg/NetworkTextReader`, `Vg/NetworkTextWriter` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body + hash basis), `LibSignature`/`LibSignatureRenderer` (verbose-fetch signatures under the Library Manager). | `LibraryManifest`, `LibSignature`, `LibSignatureRenderer` |
 
 ### Protocol invariant: the item **name** is the identity
@@ -139,7 +139,7 @@ guard that throws** — real projects legitimately repeat these names, and throw
   on `IProjectTree.Rename`, where the IDE rewrites call-sites.
 - **CFC/SFC are read-only; only FBD/LD round-trip as editable VG** (`Graphical/GraphicalCode`). A read-only body
   materializes empty with an `(* @volt-graphical: <LANG> *)` marker and is refused on push.
-- **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Graphical/Vg/VgParser`,
+- **Execute boxes round-trip as VG `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Graphical/NetworkText/NetworkTextReader`,
   `PlcOpenReader.ReadStCode`) — never a bare call that drops the ST.
 - **Container managers are folders, never items** (`Workspace/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
@@ -327,5 +327,5 @@ by the connector).
 ## Related docs
 
 - `docs/ITEM_KINDS.md` — the vendor-neutral item-type coverage map (`Workspace/ItemKind` is the source of truth).
-- `docs/vg-language.md`, `docs/vg-diagnostics.md` — the VG graphical sublanguage.
+- `docs/network-text.md`, `docs/network-text-diagnostics.md` — the VG graphical sublanguage.
 - `docs/debugging-a-bridge-session.md` — debugging a live bridge.

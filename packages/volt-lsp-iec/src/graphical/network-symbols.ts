@@ -6,7 +6,7 @@
 import { SymbolKind, type DocumentSymbol } from "vscode-languageserver-protocol"
 import { unitBodies, isGraphicalBody } from "../syntax/index.js"
 import { documentSymbols, rangeFromSpan, type Document } from "../services/index.js"
-import { parseVgBody } from "./text/parser.js"
+import { parseNetworkText } from "./text/parser.js"
 
 /** ST document symbols with each VG body's networks attached under their owning POU. */
 export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {
@@ -14,7 +14,7 @@ export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {
   for (const unit of doc.parseResult.units) {
     for (const body of unitBodies(unit)) {
       if (!isGraphicalBody(body)) continue
-      const networks = parseVgBody(body).networks.map(
+      const networks = parseNetworkText(body).networks.map(
         (n): DocumentSymbol => ({
           name: `NETWORK ${n.index ?? "?"}${n.label ? `: ${n.label}` : ""}`,
           kind: SymbolKind.Namespace,

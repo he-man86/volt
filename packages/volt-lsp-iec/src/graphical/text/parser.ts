@@ -7,16 +7,16 @@
  * resolveMemberChain / nav / hover apply unchanged. EXECUTE boxes hold ordinary ST, parsed as such.
  */
 import { parseExprFromTokens, parseStatements, type BodySpan, type Span, type Token } from "../../syntax/index.js"
-import type { VgBody, VgLanguage, VgName, VgNetwork, VgStatement, VgDiagnostic } from "./ast.js"
+import type { NetworkTextBody, VgLanguage, VgName, NetworkTextNetwork, NetworkTextStatement, NetworkTextDiagnostic } from "./ast.js"
 
 // Uppercased header token → VG language (no cast: the map's values ARE VgLanguage).
 const LANGUAGES: Record<string, VgLanguage> = { FBD: "FBD", LD: "LD", CFC: "CFC", SFC: "SFC" }
 
 /** Parse a graphical body's tokens into a VG AST + structural diagnostics. */
-export function parseVgBody(body: BodySpan): VgBody {
+export function parseNetworkText(body: BodySpan): NetworkTextBody {
   const toks = body.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "pragma")
-  const networks: VgNetwork[] = []
-  const diagnostics: VgDiagnostic[] = []
+  const networks: NetworkTextNetwork[] = []
+  const diagnostics: NetworkTextDiagnostic[] = []
   let i = 0
 
   while (i < toks.length) {
@@ -32,7 +32,7 @@ export function parseVgBody(body: BodySpan): VgBody {
       continue
     }
     // Anything outside a network that isn't a NETWORK header / comment is a structural error.
-    diagnostics.push({ code: "VG_PARSE", message: `Expected NETWORK, found '${t.text}'.`, span: t.span })
+    diagnostics.push({ code: "NETWORK_PARSE", message: `Expected NETWORK, found '${t.text}'.`, span: t.span })
     i++
   }
 
@@ -45,8 +45,8 @@ export function parseVgBody(body: BodySpan): VgBody {
 function parseNetwork(
   toks: Token[],
   start: number,
-  diagnostics: VgDiagnostic[],
-): { network: VgNetwork; next: number } {
+  diagnostics: NetworkTextDiagnostic[],
+): { network: NetworkTextNetwork; next: number } {
   // header: NETWORK <int> <LANG> [string] [DISABLED]
   let i = start + 1
   const headerStart = toks[start]!.span.start
@@ -88,7 +88,7 @@ function parseNetwork(
   } else {
     endSpan = toks[Math.min(i, toks.length) - 1]?.span ?? headerSpan
     diagnostics.push({
-      code: "VG_NETWORK_NOT_CLOSED",
+      code: "NETWORK_NOT_CLOSED",
       message: `Network ${index ?? ""} is missing END_NETWORK.`.replace("  ", " "),
       span: headerSpan,
     })
@@ -104,10 +104,10 @@ function parseStatementSeq(
   toks: Token[],
   start: number,
   stopWord: string,
-  diagnostics: VgDiagnostic[],
+  diagnostics: NetworkTextDiagnostic[],
   names: Set<string>,
-): { statements: VgStatement[]; next: number } {
-  const statements: VgStatement[] = []
+): { statements: NetworkTextStatement[]; next: number } {
+  const statements: NetworkTextStatement[] = []
   let i = start
   while (i < toks.length && word(toks[i]!) !== stopWord) {
     const stmt = parseStatement(toks, i, diagnostics, names)
@@ -120,9 +120,9 @@ function parseStatementSeq(
 function parseStatement(
   toks: Token[],
   start: number,
-  diagnostics: VgDiagnostic[],
+  diagnostics: NetworkTextDiagnostic[],
   names: Set<string>,
-): { statement: VgStatement | undefined; next: number } {
+): { statement: NetworkTextStatement | undefined; next: number } {
   const t = toks[start]!
   if (isComment(t)) {
     return { statement: { kind: "comment", text: t.text, span: t.span }, next: start + 1 }
@@ -177,7 +177,7 @@ function parseStatement(
 }
 
 /** `EXECUTE <inline ST> END_EXECUTE` — the box holds ordinary ST, parsed with the ST statement parser. */
-function parseExecute(toks: Token[], start: number): { statement: VgStatement; next: number } {
+function parseExecute(toks: Token[], start: number): { statement: NetworkTextStatement; next: number } {
   let j = start + 1
   const bodyStart = j
   let depth = 1
@@ -202,9 +202,9 @@ function parseExecute(toks: Token[], start: number): { statement: VgStatement; n
 function parseEnEnoIf(
   toks: Token[],
   start: number,
-  diagnostics: VgDiagnostic[],
+  diagnostics: NetworkTextDiagnostic[],
   names: Set<string>,
-): { statement: VgStatement; next: number } {
+): { statement: NetworkTextStatement; next: number } {
   // condition = tokens between IF and the top-level THEN.
   let i = start + 1
   const condStart = i
@@ -240,13 +240,13 @@ function runEnd(toks: Token[], start: number): number {
   return toks.length
 }
 
-function checkDuplicateNetworks(networks: VgNetwork[], diagnostics: VgDiagnostic[]): void {
+function checkDuplicateNetworks(networks: NetworkTextNetwork[], diagnostics: NetworkTextDiagnostic[]): void {
   const seen = new Set<number>()
   for (const n of networks) {
     if (n.index === undefined) continue
     if (seen.has(n.index)) {
       diagnostics.push({
-        code: "VG_DUPLICATE_NETWORK",
+        code: "NETWORK_DUPLICATE_NETWORK",
         message: `Network index ${n.index} appears more than once.`,
         span: n.headerSpan,
       })
@@ -255,11 +255,11 @@ function checkDuplicateNetworks(networks: VgNetwork[], diagnostics: VgDiagnostic
   }
 }
 
-function dedupeName(name: VgName, names: Set<string>, diagnostics: VgDiagnostic[]): void {
+function dedupeName(name: VgName, names: Set<string>, diagnostics: NetworkTextDiagnostic[]): void {
   if (name.text === "") return
   if (names.has(name.text)) {
     diagnostics.push({
-      code: "VG_DUPLICATE_NAME",
+      code: "NETWORK_DUPLICATE_NAME",
       message: `'${name.text}' is defined more than once in this network.`,
       span: name.span,
     })

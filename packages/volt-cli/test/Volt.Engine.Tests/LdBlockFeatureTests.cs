@@ -1,7 +1,6 @@
-using System.IO;
+﻿using System.IO;
 using System;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -25,7 +24,7 @@ public class LdBlockFeatureTests
     [Fact]
     public void Fb_on_a_rung_emits_boolean_output_as_coil_and_nonboolean_as_embedded_expression()
     {
-        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(TonRung), _ => "TON").ToString();
+        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(TonRung), _ => "TON").ToString();
         Assert.Contains("<coil", xml);                 // boolean Q drives a coil (TC drops a boolean embedded in the pin)
         Assert.Contains("<block", xml);                // the TON block
         Assert.Contains("elapsed", xml);               // the non-boolean ET assignment is present...
@@ -54,21 +53,21 @@ public class LdBlockFeatureTests
         // it is the check PushService runs before CreateChild so a refusal never leaves an orphan stub.
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
-        var ex = Assert.Throws<VgParseException>(() => GraphicalCode.Validate(nonCanonical));
-        Assert.Equal("VG_NOT_CANONICAL", ex.Code);
+        var ex = Assert.Throws<NetworkTextException>(() => GraphicalCode.Validate(nonCanonical));
+        Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);
         Assert.NotNull(ex.Line);
         Assert.Contains("out := (a AND b)", ex.Message);   // the readable canonical form is shown
     }
 
     [Theory]
-    [InlineData("g2 := NOT g1", "VG_LEAF_REFERENCES_TEMP")]          // a NOT of a temp on its own line
-    [InlineData("g3 := (i1 FOO i2)", "VG_UNKNOWN_OPERATOR")]         // not an operator
-    [InlineData("g3 := (i1 AND i2 OR i1)", "VG_BAD_EXPRESSION")]     // partially-parenthesised (no precedence) → refused
-    public void VgParser_throws_carry_a_stable_code_and_line(string stmt, string code)
+    [InlineData("g2 := NOT g1", "NETWORK_LEAF_REFERENCES_TEMP")]          // a NOT of a temp on its own line
+    [InlineData("g3 := (i1 FOO i2)", "NETWORK_UNKNOWN_OPERATOR")]         // not an operator
+    [InlineData("g3 := (i1 AND i2 OR i1)", "NETWORK_BAD_EXPRESSION")]     // partially-parenthesised (no precedence) → refused
+    public void NetworkTextReader_throws_carry_a_stable_code_and_line(string stmt, string code)
     {
         var net = "NETWORK 1 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  LET " + stmt + ";\n  out := g1;\nEND_NETWORK\n";
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(net));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(net));
         Assert.Equal(code, ex.Code);
         Assert.NotNull(ex.Line);
     }

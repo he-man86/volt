@@ -5,7 +5,7 @@ PLCopen node graph. A wire used once is **inlined** into its consumer's expressi
 2+ consumers) keeps a name. The bridge **owns the format** (the LSP owns code correctness): a push whose VG isn't
 valid/canonical is refused *before* it reaches the IDE, with a structured diagnostic. These rules are **general** —
 they depend only on the VG text, never on the PLC code semantics — so they're computed next to the parser
-(`Volt.Engine/Graphical/Vg/VgParser.cs`) with no IDE state.
+(`Volt.Engine/Graphical/NetworkText/NetworkTextReader.cs`) with no IDE state.
 
 ## The readable form (what the parser accepts)
 
@@ -49,28 +49,28 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 
 | Code | Meaning |
 |---|---|
-| `VG_NOT_CANONICAL` | Parses, but `VgWriter(VgParser(x)) != x` — it would drift on the next pull. The message includes the exact canonical form. |
-| `VG_PLCOPEN_DRIFT` | Does not converge through the PLCopen round-trip (`PlcOpenWriter`→`PlcOpenReader`) — it keeps changing every pull, an unstable shape the IDE can't store cleanly. (One-step canonicalisation, e.g. an LD negated contact, is fine — only non-convergence is refused.) |
-| `VG_LEAF_REFERENCES_TEMP` | An opaque leaf's text aliases an internal wire (`LET g2 := NOT g1`) — a NOT/edge rides on the consumer, and an expression over wires is written inline (fully parenthesised) at its consumer. |
-| `VG_BAD_EXPRESSION` | A malformed expression — a partially-parenthesised/unbalanced group (`(a AND b) OR c`) or mixed operators in one group (`(a AND b OR c)`). The writer fully-parenthesises, so each group is exactly one operator. |
-| `VG_UNKNOWN_OPERATOR` | The operator symbol isn't a known FBD/LD operator. |
-| `VG_DUPLICATE_NAME` | A wire/result/instance/label name is defined more than once in a network — the second silently orphans the first. |
-| `VG_DUPLICATE_NETWORK` | A network index appears more than once — their localIds would collide and the IDE would merge/corrupt them on import. |
-| `VG_LEAF_FANOUT` | A leaf (variable/literal) feeds more than one block in a network. TwinCAT draws one `inVariable` box per read and crashes on a shared one — give each read its own leaf statement. (A BLOCK output may fan out freely; that's a legitimate branch.) |
-| `VG_NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
-| `VG_PARSE` | Any other structural parse error (unexpected `END_NETWORK`, a leftover `VAR_TEMP`/`END_VAR` line from the old block form, statement before a network, …). |
+| `NETWORK_NOT_CANONICAL` | Parses, but `NetworkTextWriter(NetworkTextReader(x)) != x` — it would drift on the next pull. The message includes the exact canonical form. |
+| `NETWORK_PLCOPEN_DRIFT` | Does not converge through the PLCopen round-trip (`PlcOpenWriter`→`PlcOpenReader`) — it keeps changing every pull, an unstable shape the IDE can't store cleanly. (One-step canonicalisation, e.g. an LD negated contact, is fine — only non-convergence is refused.) |
+| `NETWORK_LEAF_REFERENCES_TEMP` | An opaque leaf's text aliases an internal wire (`LET g2 := NOT g1`) — a NOT/edge rides on the consumer, and an expression over wires is written inline (fully parenthesised) at its consumer. |
+| `NETWORK_BAD_EXPRESSION` | A malformed expression — a partially-parenthesised/unbalanced group (`(a AND b) OR c`) or mixed operators in one group (`(a AND b OR c)`). The writer fully-parenthesises, so each group is exactly one operator. |
+| `NETWORK_UNKNOWN_OPERATOR` | The operator symbol isn't a known FBD/LD operator. |
+| `NETWORK_DUPLICATE_NAME` | A wire/result/instance/label name is defined more than once in a network — the second silently orphans the first. |
+| `NETWORK_DUPLICATE_NETWORK` | A network index appears more than once — their localIds would collide and the IDE would merge/corrupt them on import. |
+| `NETWORK_LEAF_FANOUT` | A leaf (variable/literal) feeds more than one block in a network. TwinCAT draws one `inVariable` box per read and crashes on a shared one — give each read its own leaf statement. (A BLOCK output may fan out freely; that's a legitimate branch.) |
+| `NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
+| `NETWORK_PARSE` | Any other structural parse error (unexpected `END_NETWORK`, a leftover `VAR_TEMP`/`END_VAR` line from the old block form, statement before a network, …). |
 
 ## Well-formedness invariants (the gate, in order)
 
 `GraphicalCode.Validate` enforces a named, ordered set of rules — the language's well-formedness. A push is refused
 unless ALL hold, so a graphical body never silently renames wires, drifts, or corrupts/crashes the IDE:
 
-1. **Language** — FBD/LD only (`VG_*` parse codes otherwise).
+1. **Language** — FBD/LD only (`NETWORK_*` parse codes otherwise).
 2. **Parse** — structurally valid VG (the codes above).
-3. **Leaf single-use** (`VG_LEAF_FANOUT`) — one `inVariable` box per read; a block output may fan out (read off the XML).
-4. **VG-text round-trip** (`VG_NOT_CANONICAL`) — the VG ⇄ graph leg: `VgWriter(VgParser(x)) == x`.
-5. **PLCopen convergence** (`VG_PLCOPEN_DRIFT`) — the graph ⇄ PLCopen ⇄ IDE leg: the body reaches a fixed point
+3. **Leaf single-use** (`NETWORK_LEAF_FANOUT`) — one `inVariable` box per read; a block output may fan out (read off the XML).
+4. **VG-text round-trip** (`NETWORK_NOT_CANONICAL`) — the VG ⇄ graph leg: `NetworkTextWriter(NetworkTextReader(x)) == x`.
+5. **PLCopen convergence** (`NETWORK_PLCOPEN_DRIFT`) — the graph ⇄ PLCopen ⇄ IDE leg: the body reaches a fixed point
    through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises.
 
 The two round-trip legs together are the backstop: nothing we accept can drift or be a shape the importer
-rejects. See `Graphical/GraphicalCode.cs` (`Validate`) and `Vg/VgParser.cs`.
+rejects. See `Graphical/GraphicalCode.cs` (`Validate`) and `Vg/NetworkTextReader.cs`.

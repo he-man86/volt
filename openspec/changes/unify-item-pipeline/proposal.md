@@ -3,7 +3,7 @@
 Three independent surveys plus five live probes say the same thing: **there is no "graphical code path". There is
 one item pipeline with two data-driven axes, and the code currently spells them as forks.**
 
-The strongest evidence is already in the tree. **The READ path is already unified** — `Materializer.VgBodyOf` is
+The strongest evidence is already in the tree. **The READ path is already unified** — `Materializer.BodyTextOf` is
 one entry point with a three-arm switch on *language*, no boolean. The WRITE path does the same job with `pouVg`,
 a boolean forking **nine** separate decisions across `PushService`. That asymmetry is residue, not design.
 
@@ -15,7 +15,7 @@ Not "graphical vs textual". Two things, both **data**:
    `Methods`/`Properties`, a DUT/GVL has none.
 2. **Body codec — per LANGUAGE.** `locate(body)`, `decode(element)→text`, `encode(text)→element`, `validate`,
    `canReplace`, `readOnly`. ST is the *identity* codec (four one-liners — both halves already exist as one-liners
-   today); FBD/LD is the existing `VgParser`/`VgWriter` + `PlcOpenReader`/`PlcOpenWriter` pivoting on `GraphBody`;
+   today); FBD/LD is the existing `NetworkTextReader`/`NetworkTextWriter` + `PlcOpenReader`/`PlcOpenWriter` pivoting on `GraphBody`;
    CFC and SFC are `{read: marker, write: none}` — which is what "read-only" *means*.
 
    **Read-only-ness and placement are INDEPENDENT axes** — do not fuse them into one "graphical" flag, which is
@@ -58,7 +58,7 @@ One concept, many spellings — this is what "everything is still tangled" means
 | item kind | **3 authorities that can disagree** — the read path silently prefers ST text over the IDE's `KindCode` |
 | "which kinds have a body" | **4 predicates** |
 | "is this body writable?" | **2 full implementations + a third copy** |
-| the canonical ST format | **4 owners** (emitter, parser, the LSP's own, and VG for the embedded sub-language) |
+| the canonical ST format | **4 owners** (emitter, parser, the LSP's own, and network text for the embedded sub-language) |
 
 ## What Changes
 
@@ -69,7 +69,7 @@ src/Volt.Engine/
   Ide/          the vendor contract — unchanged in shape, THINNER (see below)
   Item/         ONE model both directions: ItemContent { Declaration, Body, Members }, Member, Accessor
   PlcOpen/      the document: PlcOpenDocument, PouReader, PouSplice, DocumentShape (NEW), DIALECT.md
-  Body/         the codecs: IBodyCodec, StCodec, VgCodec, ReadOnlyCodec, Graph/, Vg/
+  Body/         the codecs: IBodyCodec, StCodec, NetworkTextCodec, ReadOnlyCodec, Graph/, NetworkText/
   Text/         canonical ST: StWriter + StReader (the inverse pair, ONE owner)
   Sync/         services — PushService loses ~200 lines
   Workspace/    Materializer, ItemKind, FolderPath

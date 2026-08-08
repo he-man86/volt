@@ -6,7 +6,7 @@
  * including chained wires (`LET en5 := en4`) because each producer is inferred against the wires already
  * defined before it. Wire types are inferred, never stored (spec §E) — the VG text carries no wire type.
  *
- * Wires are network-scoped (VG_DUPLICATE_NAME is per-network), so each network owns its own scope and a
+ * Wires are network-scoped (NETWORK_DUPLICATE_NAME is per-network), so each network owns its own scope and a
  * `LET g` in network 0 never shadows one in network 1.
  */
 import {
@@ -17,25 +17,25 @@ import {
 } from "../symbols/index.js"
 import { inferExprType, type Type } from "../types/index.js"
 import type { BodySpan, Span, TopLevel, TypeExpr } from "../syntax/index.js"
-import { parseVgBody } from "./text/parser.js"
-import type { VgBody, VgNetwork, VgStatement, VgWireDef } from "./text/ast.js"
+import { parseNetworkText } from "./text/parser.js"
+import type { NetworkTextBody, NetworkTextNetwork, NetworkTextStatement, VgWireDef } from "./text/ast.js"
 
-export interface VgAnalysis {
-  vg: VgBody
+export interface NetworkTextAnalysis {
+  vg: NetworkTextBody
   /** The enclosing POU scope (fallback for offsets outside any network). */
   pou: Scope
   /** Each network's resolution scope (POU + its wires). */
-  networkScopes: Map<VgNetwork, Scope>
+  networkScopes: Map<NetworkTextNetwork, Scope>
 }
 
 // ponytail: a wire is a synthetic decl with no backing AST node; readers of `sym.ast` all cast-and-read
 // optional fields (guarded), so an empty object is a safe placeholder that never throws.
 const WIRE_AST = {} as StSymbol["ast"]
 
-export function analyzeVgBody(unit: TopLevel, body: BodySpan, project: Scope, uri: string): VgAnalysis {
+export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scope, uri: string): NetworkTextAnalysis {
   const pou = scopeForUnit(project, unit) ?? project
-  const vg = parseVgBody(body)
-  const networkScopes = new Map<VgNetwork, Scope>()
+  const vg = parseNetworkText(body)
+  const networkScopes = new Map<NetworkTextNetwork, Scope>()
   for (const network of vg.networks) {
     const scope: Scope = { kind: "pou", name: `${pou.name}$net${network.index ?? "?"}`, parent: pou, symbols: new Map(), children: [], span: network.span }
     for (const wire of wireDefs(network.statements)) {
@@ -60,12 +60,12 @@ export function analyzeVgBody(unit: TopLevel, body: BodySpan, project: Scope, ur
 }
 
 /** The network whose span contains `offset`, and its scope; POU scope when outside every network. */
-export function vgScopeAt(analysis: VgAnalysis, offset: number): Scope {
+export function vgScopeAt(analysis: NetworkTextAnalysis, offset: number): Scope {
   return vgNetworkAt(analysis, offset)?.scope ?? analysis.pou
 }
 
 /** The network containing `offset` paired with its resolution scope, or undefined when outside all. */
-export function vgNetworkAt(analysis: VgAnalysis, offset: number): { network: VgNetwork; scope: Scope } | undefined {
+export function vgNetworkAt(analysis: NetworkTextAnalysis, offset: number): { network: NetworkTextNetwork; scope: Scope } | undefined {
   for (const [network, scope] of analysis.networkScopes) {
     if (offset >= network.span.start && offset < network.span.end) return { network, scope }
   }
@@ -73,7 +73,7 @@ export function vgNetworkAt(analysis: VgAnalysis, offset: number): { network: Vg
 }
 
 /** Every `LET` wire-def in a statement list, recursing into en/eno IF boxes, in source order. */
-export function* wireDefs(statements: readonly VgStatement[]): Generator<VgWireDef> {
+export function* wireDefs(statements: readonly NetworkTextStatement[]): Generator<VgWireDef> {
   for (const s of statements) {
     if (s.kind === "wire_def") yield s
     else if (s.kind === "en_eno_if") yield* wireDefs(s.body)

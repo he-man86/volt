@@ -323,8 +323,8 @@ historical topology model.
 // fixed before push). The rest are BRIDGE-OWNED (need the writer + PLCopen round-trip) and never emitted
 // by the LSP; they are listed for completeness of the wire vocabulary.
 type VgDiagnosticCode =
-  | "VG_PARSE" | "VG_NETWORK_NOT_CLOSED" | "VG_DUPLICATE_NETWORK" | "VG_DUPLICATE_NAME"   // ← LSP-emitted
-  | "VG_BAD_EXPRESSION" | "VG_UNKNOWN_OPERATOR" | "VG_LEAF_REFERENCES_TEMP" | "VG_LEAF_FANOUT" | "VG_NOT_CANONICAL" // ← bridge-only
+  | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NETWORK" | "NETWORK_DUPLICATE_NAME"   // ← LSP-emitted
+  | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNKNOWN_OPERATOR" | "NETWORK_LEAF_REFERENCES_TEMP" | "NETWORK_LEAF_FANOUT" | "NETWORK_NOT_CANONICAL" // ← bridge-only
 interface VgDiagnostic { code: VgDiagnosticCode; message: string; span: Span } // messages PROVISIONAL until the T.1 bridge record pass
 
 type VgLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
@@ -348,11 +348,11 @@ interface VgNetwork {
   index?: number; language: VgLanguage; label?: string; disabled: boolean
   statements: VgStatement[]; headerSpan: Span; span: Span
 }
-interface VgBody { kind: "vg_body"; networks: VgNetwork[]; diagnostics: VgDiagnostic[]; span: Span }
+interface NetworkText { kind: "vg_body"; networks: VgNetwork[]; diagnostics: VgDiagnostic[]; span: Span }
 
 // Analysis (F.2b) — a per-network resolution scope layering the network's LET wires (typed by inferring
 // their producer `Expr`) over the POU scope; the shared infer engine resolves wires like real variables.
-interface VgAnalysis { vg: VgBody; pou: Scope; networkScopes: Map<VgNetwork, Scope> }
+interface VgAnalysis { vg: NetworkText; pou: Scope; networkScopes: Map<VgNetwork, Scope> }
 ```
 
 <details><summary>Pre-rebuild operand tree (historical — NOT built; operands are `Expr`)</summary>

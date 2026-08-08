@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/he-man86/volt"
   },
-  "description": "Volt CLI — the single C# toolchain: git-native PLC sync (volt.exe) + the in-IDE bridges (CODESYS/TwinCAT) over Windows named pipes, with shared Core; round-trips FBD/LD graphical bodies as VG (Volt Graphical) text. This package.json exists for the TS e2e parity suite (test/e2e).",
+  "description": "Volt CLI — the single C# toolchain: git-native PLC sync (volt.exe) + the in-IDE bridges (CODESYS/TwinCAT) over Windows named pipes, with shared Core; round-trips FBD/LD graphical bodies as network text. This package.json exists for the TS e2e parity suite (test/e2e).",
   "type": "module",
   "scripts": {
     "build": "dotnet build Volt.Cli.sln -c Release --nologo",

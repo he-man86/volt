@@ -5,7 +5,7 @@
  * network scope (POU + inferred `LET` wires). Results render through the ST cores (`symbolHover`,
  * `completionAtScope`, `locationOf`), so VG understanding matches ST — including a wire's inferred type.
  *
- * The server routes a position query to these when the offset is inside a graphical body (`inVgBody`),
+ * The server routes a position query to these when the offset is inside a graphical body (`inNetworkText`),
  * else to the ST services.
  */
 import type { CompletionItem, Hover, Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
@@ -36,11 +36,11 @@ import {
   type Document,
   type Ref,
 } from "../services/index.js"
-import { analyzeVgBody, vgNetworkAt, wireDefs } from "./vg-analyze.js"
-import type { VgStatement } from "./text/ast.js"
+import { analyzeNetworkText, vgNetworkAt, wireDefs } from "./network-analyze.js"
+import type { NetworkTextStatement } from "./text/ast.js"
 
 /** True when the offset falls inside a graphical (VG) body — the server's routing discriminator. */
-export function inVgBody(doc: Document, offset: number): boolean {
+export function inNetworkText(doc: Document, offset: number): boolean {
   return vgBodyAt(doc, offset) !== undefined
 }
 
@@ -109,7 +109,7 @@ export function vgTypeDefinition(doc: Document, project: Scope, offset: number):
 export function vgCompletion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const found = vgBodyAt(doc, offset)
   if (found === undefined) return []
-  const analysis = analyzeVgBody(found.unit, found.body, project, doc.uri)
+  const analysis = analyzeNetworkText(found.unit, found.body, project, doc.uri)
   const scope = vgNetworkAt(analysis, offset)?.scope ?? analysis.pou
   return completionAtScope(scope, project, doc.source, offset)
 }
@@ -123,7 +123,7 @@ export function vgCompletion(doc: Document, project: Scope, offset: number): Com
 
 /** Resolve the symbol under the cursor whether it lands in an ST or a VG body. */
 export function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol | undefined {
-  return inVgBody(doc, offset) ? vgResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
+  return inNetworkText(doc, offset) ? vgResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
 }
 
 /** Every occurrence of `target` across ST bodies (via `findReferences`) AND VG operand networks. */
@@ -132,7 +132,7 @@ export function allReferences(docs: Iterable<Document>, project: Scope, target: 
   const out = findReferences(all, project, target)
   for (const doc of all) {
     for (const body of vgBodies(doc)) {
-      const analysis = analyzeVgBody(body.unit, body.body, project, doc.uri)
+      const analysis = analyzeNetworkText(body.unit, body.body, project, doc.uri)
       for (const [network, scope] of analysis.networkScopes) {
         const stmts = operandStatements(network.statements)
         const memberNames = new Set<IdentExpr>()
@@ -217,7 +217,7 @@ function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
 export function vgResolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
   const found = vgBodyAt(doc, offset)
   if (found === undefined) return undefined
-  const analysis = analyzeVgBody(found.unit, found.body, project, doc.uri)
+  const analysis = analyzeNetworkText(found.unit, found.body, project, doc.uri)
   const here = vgNetworkAt(analysis, offset)
   if (here === undefined) return undefined
   const { network, scope } = here
@@ -242,12 +242,12 @@ export function vgResolveAt(doc: Document, project: Scope, offset: number): Symb
 }
 
 /** Wrap every VG operand `Expr` as an `expr_stmt` so `exprAtOffset`/`memberAtOffset` descend it. */
-function operandStatements(statements: readonly VgStatement[]): Statement[] {
+function operandStatements(statements: readonly NetworkTextStatement[]): Statement[] {
   const out: Statement[] = []
   const push = (e?: Expr): void => {
     if (e !== undefined) out.push({ kind: "expr_stmt", expr: e, span: e.span })
   }
-  const walk = (stmts: readonly VgStatement[]): void => {
+  const walk = (stmts: readonly NetworkTextStatement[]): void => {
     for (const s of stmts) {
       switch (s.kind) {
         case "sink":

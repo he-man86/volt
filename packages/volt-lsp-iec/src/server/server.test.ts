@@ -170,7 +170,7 @@ test("server: didOpen pushes VG diagnostics for a graphical body", async () => {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
   const params = await got
-  expect(params.diagnostics.some((d) => d.code === "VG_NETWORK_NOT_CLOSED")).toBe(true)
+  expect(params.diagnostics.some((d) => d.code === "NETWORK_NOT_CLOSED")).toBe(true)
   client.dispose()
 })
 

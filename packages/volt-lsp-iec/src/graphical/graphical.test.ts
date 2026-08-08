@@ -3,10 +3,10 @@ import { parseSource, unitBodies, isGraphicalBody, walkExpr, type BodySpan, type
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
 import {
-  parseVgBody,
-  computeVgDiagnostics,
+  parseNetworkText,
+  computeNetworkTextDiagnostics,
   documentSymbolsWithVg,
-  analyzeVgBody,
+  analyzeNetworkText,
   vgHover,
   vgDefinition,
   vgCompletion,
@@ -43,7 +43,7 @@ function project(d: Document): Scope {
 /** VG diagnostics for a single-doc project (codesys wording). */
 function vgDiags(src: string): DiagnosticItem[] {
   const d = doc(src)
-  return computeVgDiagnostics(d, project(d), messagesFor("codesys"))
+  return computeNetworkTextDiagnostics(d, project(d), messagesFor("codesys"))
 }
 
 const LD = `FUNCTION_BLOCK FB_LD
@@ -62,7 +62,7 @@ test("VG: an FBD/LD body is detected as graphical, not ST", () => {
 })
 
 test("VG: a single LD network with a sink parses clean", () => {
-  const vg = parseVgBody(vgBody(LD))
+  const vg = parseNetworkText(vgBody(LD))
   expect(vg.diagnostics).toEqual([])
   expect(vg.networks).toHaveLength(1)
   const n = vg.networks[0]!
@@ -86,7 +86,7 @@ LET g := (a AND b);
 out := g;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseVgBody(vgBody(src))
+  const vg = parseNetworkText(vgBody(src))
   expect(vg.diagnostics).toEqual([])
   const [wire, sink] = vg.networks[0]!.statements
   expect(wire?.kind).toBe("wire_def")
@@ -105,24 +105,24 @@ NETWORK 3 FBD 'my label' DISABLED
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const n = parseVgBody(vgBody(src)).networks[0]!
+  const n = parseNetworkText(vgBody(src)).networks[0]!
   expect(n.index).toBe(3)
   expect(n.language).toBe("FBD")
   expect(n.label).toBe("my label")
   expect(n.disabled).toBe(true)
 })
 
-test("VG: an unclosed network reports VG_NETWORK_NOT_CLOSED", () => {
+test("VG: an unclosed network reports NETWORK_NOT_CLOSED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
 out := TRUE;
 END_FUNCTION_BLOCK`
-  const codes = parseVgBody(vgBody(src)).diagnostics.map((d) => d.code)
-  expect(codes).toContain("VG_NETWORK_NOT_CLOSED")
+  const codes = parseNetworkText(vgBody(src)).diagnostics.map((d) => d.code)
+  expect(codes).toContain("NETWORK_NOT_CLOSED")
 })
 
-test("VG: a duplicate network index reports VG_DUPLICATE_NETWORK", () => {
+test("VG: a duplicate network index reports NETWORK_DUPLICATE_NETWORK", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -132,11 +132,11 @@ NETWORK 0 LD
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const codes = parseVgBody(vgBody(src)).diagnostics.map((d) => d.code)
-  expect(codes).toContain("VG_DUPLICATE_NETWORK")
+  const codes = parseNetworkText(vgBody(src)).diagnostics.map((d) => d.code)
+  expect(codes).toContain("NETWORK_DUPLICATE_NETWORK")
 })
 
-test("VG: a duplicated LET name reports VG_DUPLICATE_NAME", () => {
+test("VG: a duplicated LET name reports NETWORK_DUPLICATE_NAME", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
 NETWORK 0 FBD
@@ -145,11 +145,11 @@ LET g := (a OR a);
 out := g;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const codes = parseVgBody(vgBody(src)).diagnostics.map((d) => d.code)
-  expect(codes).toContain("VG_DUPLICATE_NAME")
+  const codes = parseNetworkText(vgBody(src)).diagnostics.map((d) => d.code)
+  expect(codes).toContain("NETWORK_DUPLICATE_NAME")
 })
 
-test("VG: a statement before any network reports VG_PARSE", () => {
+test("VG: a statement before any network reports NETWORK_PARSE", () => {
   // hand-built body tokens: `out := TRUE;` with no NETWORK — force via a raw graphical-looking body.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
@@ -158,8 +158,8 @@ out := TRUE;
 END_NETWORK
 JUNK
 END_FUNCTION_BLOCK`
-  const codes = parseVgBody(vgBody(src)).diagnostics.map((d) => d.code)
-  expect(codes).toContain("VG_PARSE")
+  const codes = parseNetworkText(vgBody(src)).diagnostics.map((d) => d.code)
+  expect(codes).toContain("NETWORK_PARSE")
 })
 
 test("VG: an IF en/eno box is parsed with its condition and inner body", () => {
@@ -170,7 +170,7 @@ LET en := a;
 IF en THEN out := TRUE; END_IF
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseVgBody(vgBody(src))
+  const vg = parseNetworkText(vgBody(src))
   expect(vg.diagnostics).toEqual([])
   const stmts = vg.networks[0]!.statements
   expect(stmts.map((s) => s.kind)).toEqual(["wire_def", "en_eno_if"])
@@ -189,7 +189,7 @@ NETWORK 0 FBD
 tmr(IN := on, PT := t);
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseVgBody(vgBody(src))
+  const vg = parseNetworkText(vgBody(src))
   expect(vg.diagnostics).toEqual([])
   const call = vg.networks[0]!.statements[0]!
   expect(call.kind).toBe("fb_call")
@@ -206,13 +206,13 @@ JMP Loop;
 RETURN;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const kinds = parseVgBody(vgBody(src)).networks[0]!.statements.map((s) => s.kind)
+  const kinds = parseNetworkText(vgBody(src)).networks[0]!.statements.map((s) => s.kind)
   expect(kinds).toContain("label")
   expect(kinds).toContain("jump")
   expect(kinds).toContain("return")
 })
 
-test("VG: computeVgDiagnostics lifts VG errors into DiagnosticItems for the server", () => {
+test("VG: computeNetworkTextDiagnostics lifts VG errors into DiagnosticItems for the server", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 NETWORK 0 LD
@@ -220,7 +220,7 @@ out := TRUE;
 END_FUNCTION_BLOCK`
   const items = vgDiags(src)
   expect(items).toHaveLength(1)
-  expect(items[0]).toMatchObject({ severity: "error", source: "volt-lsp-iec", code: "VG_NETWORK_NOT_CLOSED" })
+  expect(items[0]).toMatchObject({ severity: "error", source: "volt-lsp-iec", code: "NETWORK_NOT_CLOSED" })
 })
 
 test("VG: a clean ST body yields zero VG diagnostics", () => {
@@ -254,7 +254,7 @@ END_FUNCTION_BLOCK`
 
 // vg-undeclared-identifier — the VG analogue of ST's unresolved-identifier, sharing its resolution rules.
 const vgUndeclared = (src: string, references?: WorkspaceRefs): string[] =>
-  computeVgDiagnostics(doc(src), project(doc(src)), messagesFor("codesys"), references)
+  computeNetworkTextDiagnostics(doc(src), project(doc(src)), messagesFor("codesys"), references)
     .filter((d) => d.code === "vg-undeclared-identifier")
     .map((d) => d.message)
 
@@ -330,7 +330,7 @@ test("VG: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regres
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
   const proj = buildSymbolTable(docs)
   const fbDoc = docs.find((d) => d.uri === "file:///FB_User.fb")!
-  const diags = computeVgDiagnostics(fbDoc, proj, messagesFor("codesys"))
+  const diags = computeNetworkTextDiagnostics(fbDoc, proj, messagesFor("codesys"))
   expect(diags.filter((d) => d.code === "vg-unknown-member")).toEqual([])
   expect(diags.filter((d) => d.code === "vg-undeclared-identifier")).toEqual([])
 })
@@ -449,7 +449,7 @@ END_FUNCTION_BLOCK`
   expect(items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
 })
 
-test("VG: analyzeVgBody types a wire from its defining expression", () => {
+test("VG: analyzeNetworkText types a wire from its defining expression", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
 NETWORK 0 LD
@@ -457,7 +457,7 @@ LET g := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK`
   const d = doc(src)
-  const analysis = analyzeVgBody(parseSource(src).units[0]!, vgBody(src), project(d), d.uri)
+  const analysis = analyzeNetworkText(parseSource(src).units[0]!, vgBody(src), project(d), d.uri)
   const scope = [...analysis.networkScopes.values()][0]!
   const wire = scope.symbols.get("g")?.[0]
   expect(wire?.typeExpr?.kind).toBe("named_type")

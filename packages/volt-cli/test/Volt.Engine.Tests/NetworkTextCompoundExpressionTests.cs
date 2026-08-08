@@ -1,6 +1,5 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -12,7 +11,7 @@ namespace Volt.Cli.Tests;
 /// of object 'fbd' failed … Object reference not set"). The bridge owns FORMAT and must refuse cleanly,
 /// before any IDE write — never emit IDE-corrupting XML.
 /// </summary>
-public class VgCompoundExpressionTests
+public class NetworkTextCompoundExpressionTests
 {
     private static string Net(string body) =>
         "NETWORK 1 FBD\n" + body + "END_NETWORK\n";
@@ -24,8 +23,8 @@ public class VgCompoundExpressionTests
         // PARTIALLY-parenthesised one ('(i1 AND i2) OR i3') is neither a single group nor an opaque leaf, so
         // it's malformed and refused (it would otherwise become an inVariable citing the stripped temps).
         var src = Net("  LET i1 := FALSE;\n  LET i2 := TRUE;\n  LET i3 := FALSE;\n  LET g1 := (i1 AND i2) OR i3;\n  outpur := g1;\n");
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(src));
-        Assert.Equal("VG_BAD_EXPRESSION", ex.Code);
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(src));
+        Assert.Equal("NETWORK_BAD_EXPRESSION", ex.Code);
         Assert.Contains("i1", ex.Message);   // echoes the offending expression
     }
 
@@ -34,8 +33,8 @@ public class VgCompoundExpressionTests
     {
         // The supported way to write the same logic now: inline + fully parenthesised (no decomposition needed).
         var ok = "NETWORK 1 FBD\n  outpur := ((a AND b) OR c);\nEND_NETWORK\n";
-        var once = VgWriter.Write(VgParser.Parse(ok));
-        Assert.Equal(once, VgWriter.Write(VgParser.Parse(once)));   // converges to a fixed point
+        var once = NetworkTextWriter.Write(NetworkTextReader.Parse(ok));
+        Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));   // converges to a fixed point
     }
 
     [Fact]
@@ -45,7 +44,7 @@ public class VgCompoundExpressionTests
         var src = Net(
             "  LET i1 := FALSE;\n  LET i2 := TRUE;\n  LET i3 := FALSE;\n" +
             "  LET g0 := (i1 AND i2);\n  LET g1 := (g0 OR i3);\n  outpur := g1;\n");
-        var graph = VgParser.Parse(src);
+        var graph = NetworkTextReader.Parse(src);
         var blocks = graph.Networks[0].Nodes.OfType<Block>().ToList();
         Assert.Equal(2, blocks.Count);                                  // an AND block and an OR block
         Assert.Contains(blocks, b => b.TypeName == "AND");
@@ -61,7 +60,7 @@ public class VgCompoundExpressionTests
         // g2 := NOT g1 — in FBD a NOT is a PIN modifier, not a node; this derives g2 from the temp g1.
         var src = "NETWORK 1 FBD\n"
             + "  LET i1 := TRUE;\n  LET i2 := FALSE;\n  LET g1 := (i1 OR i2);\n  LET g2 := NOT g1;\n  outpur := g2;\nEND_NETWORK\n";
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(src));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(src));
         Assert.Contains("NOT g1", ex.Message);                       // names the offending statement
         Assert.Contains("consumer", ex.Message.ToLowerInvariant());  // tells the user to fold it onto the consumer
     }
@@ -72,7 +71,7 @@ public class VgCompoundExpressionTests
         // outpur := NOT g1 — the negation rides on the sink (the supported way to invert an output).
         var src = "NETWORK 1 FBD\n"
             + "  LET i1 := TRUE;\n  LET i2 := FALSE;\n  LET g1 := (i1 OR i2);\n  outpur := NOT g1;\nEND_NETWORK\n";
-        var graph = VgParser.Parse(src);
+        var graph = NetworkTextReader.Parse(src);
         Assert.Single(graph.Networks[0].Nodes.OfType<Block>());      // just the OR block — no phantom NOT node
         Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
     }
@@ -83,7 +82,7 @@ public class VgCompoundExpressionTests
         // NOT on an operand inside the operation, AND on a leaf reading a real variable — both supported.
         var src = "NETWORK 1 FBD\n"
             + "  LET i1 := NOT someVar;\n  LET i2 := FALSE;\n  LET g1 := (NOT i1 AND i2);\n  outpur := g1;\nEND_NETWORK\n";
-        var graph = VgParser.Parse(src);                              // must not throw
+        var graph = NetworkTextReader.Parse(src);                              // must not throw
         Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
     }
 
@@ -94,9 +93,9 @@ public class VgCompoundExpressionTests
         // (negated="true" on the pin/variable). Assert the round-trip CONVERGES (settles to a fixed point)
         // rather than equality to a hand-written canonical string.
         var vg = "NETWORK 0 FBD\n  LET g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";
-        var once = GraphicalRoundTrip.ToVg(VgParser.Parse(vg));
-        Assert.Equal(once, GraphicalRoundTrip.ToVg(VgParser.Parse(once)));   // fixed point
-        Assert.Contains("negated", PlcOpenWriter.WriteBody(VgParser.Parse(once)).ToString().ToLowerInvariant());
+        var once = GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(vg));
+        Assert.Equal(once, GraphicalRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // fixed point
+        Assert.Contains("negated", PlcOpenWriter.WriteBody(NetworkTextReader.Parse(once)).ToString().ToLowerInvariant());
     }
 
     [Fact]
@@ -105,7 +104,7 @@ public class VgCompoundExpressionTests
         // TwinCAT drops `negated` on an <inVariable>, so a negated leaf carries NOT in the EXPRESSION text
         // (both IDEs round-trip expression text verbatim). Edge/storage would stay attrs.
         var vg = "NETWORK 0 FBD\n  LET i1 := NOT x;\n  out := i1;\nEND_NETWORK\n";
-        var graph = VgParser.Parse(vg);
+        var graph = NetworkTextReader.Parse(vg);
         var xml = PlcOpenWriter.WriteBody(graph).ToString();
         Assert.Contains("NOT x", xml);                            // negation is in the expression
         Assert.DoesNotContain("negated", xml.ToLowerInvariant()); // NOT as a `negated` attribute
@@ -118,7 +117,7 @@ public class VgCompoundExpressionTests
     {
         // TC HANDLES `negated` on an outVariable — keep it there, don't move it into expression text.
         var vg = "NETWORK 0 FBD\n  LET i1 := x;\n  out := NOT i1;\nEND_NETWORK\n";
-        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg)).ToString();
+        var xml = PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
         Assert.Contains("outVariable", xml);
         Assert.Contains("negated", xml.ToLowerInvariant());       // output negation stays an attribute
         Assert.DoesNotContain("NOT i1", xml);                     // not moved into text

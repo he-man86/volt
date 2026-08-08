@@ -10,7 +10,7 @@ import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requir
 setDefaultTimeout(30000)
 
 function fbdProgram(name: string) {
-	// CANONICAL readable form (a fixed point of VgWriter∘VgParser, so it passes the round-trip gate): operands
+	// CANONICAL readable form (a fixed point of NetworkTextWriter∘NetworkTextReader, so it passes the round-trip gate): operands
 	// inlined, single-use results inlined, full parenthesisation. Exercises OUTPUT negation (`out := NOT (a AND
 	// b)`) — which now round-trips through both vendors (FBD inVariable negation is encoded as expression text;
 	// see PlcOpenWriter). The old verbose `i1 := a; … g1 := (i1 AND i2); out := NOT g1;` is now non-canonical.
@@ -106,7 +106,7 @@ END_PROGRAM
 }
 
 // An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (EN via the
-// ordinary wire+IF), holding real multi-statement, commented ST. Exercises the full round-trip: VgParser
+// ordinary wire+IF), holding real multi-statement, commented ST. Exercises the full round-trip: NetworkTextReader
 // detects `EXECUTE … END_EXECUTE`, PlcOpenWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
 // re-push is byte-identical (the ST is carried verbatim).
 function executeProgram(name: string) {

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 using Volt.Engine.PlcOpen;
+using Volt.Engine.Graphical;
 
 namespace Volt.Engine.Tests;
 
@@ -20,7 +21,7 @@ namespace Volt.Engine.Tests;
 /// FIELD name that happens to equal a vocabulary word (e.g. the <c>degraded</c> bool, the <c>init</c> flag) is a
 /// different thing from the vocabulary VALUE. The per-vocabulary allowlist names the files where the same word is a
 /// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and VG
-/// sublanguages (<c>PouReader</c>/<c>VgParser</c> — "program"/"function"/"method"), and the
+/// sublanguages (<c>PouReader</c>/<c>NetworkTextReader</c> — "program"/"function"/"method"), and the
 /// TwinCAT menu-name match (<c>TcObjectModel</c> — Contains("TwinCAT")).
 /// </summary>
 public class WireVocabularyGuardTests
@@ -69,7 +70,7 @@ public class WireVocabularyGuardTests
             // document primitives (`PlcOpenDocument`), the whole-POU read (`PouReader`) and the whole-POU write
             // (`PouSplice`). Each resolves elements BY NAME — that is the point of them — so each carries the
             // schema's element names. Same exemption, same reason, more files.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs", "VgParser.cs" }),
+            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs", "NetworkTextReader.cs" }),
     };
 
     [Fact]

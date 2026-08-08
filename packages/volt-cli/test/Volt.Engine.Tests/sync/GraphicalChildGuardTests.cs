@@ -6,6 +6,7 @@ using Volt.Engine.Workspace;
 using Xunit;
 
 using Volt.Cli.Transport;
+using Volt.Engine.Graphical;
 
 namespace Volt.Cli.Tests;
 
@@ -14,13 +15,13 @@ namespace Volt.Cli.Tests;
 /// overwritten by a push.
 ///
 /// <para>The root POU is protected by asking the IDE for its live <c>BodyLanguage</c>. The child path used to
-/// decide from the incoming TEXT instead: <c>VgBody.Is(cimpl) &amp;&amp; !VgBody.IsEditable(...)</c>. But a CFC/SFC body
+/// decide from the incoming TEXT instead: <c>NetworkText.Is(cimpl) &amp;&amp; !NetworkText.IsEditable(...)</c>. But a CFC/SFC body
 /// has no text form — it materializes as <c>Materializer.GraphicalBodyMarker</c>, i.e.
-/// <c>(* @volt-graphical: CFC *)</c> — and <c>VgBody.Is</c> matches ONLY a <c>NETWORK n LANG</c> header, so it
+/// <c>(* @volt-graphical: CFC *)</c> — and <c>NetworkText.Is</c> matches ONLY a <c>NETWORK n LANG</c> header, so it
 /// REJECTED the marker. The guard therefore never fired for the exact case it existed to stop: the marker fell
 /// through to the textual path and <c>ide.WriteText</c> replaced the engineer's graphical body with a comment.</para>
 ///
-/// <para><c>VgBody</c>'s own contract states the rule this pins: CFC/SFC "are not editable, but that is enforced by
+/// <para><c>NetworkText</c>'s own contract states the rule this pins: CFC/SFC "are not editable, but that is enforced by
 /// live IDE state on push, not by any content marker".</para>
 /// </summary>
 public class GraphicalChildGuardTests

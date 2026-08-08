@@ -192,7 +192,7 @@ pull suppresses every push for that client.
 ### Requirement: Every semantic diagnostic carries its compiler code
 
 A diagnostic from a semantic check SHALL expose the CODESYS `Cnnnn` it mirrors as its LSP `code`, with a
-`codeDescription` link to that code's docs. Codes with no catalog mapping — graphical `VG_*`, raw parse errors
+`codeDescription` link to that code's docs. Codes with no catalog mapping — graphical `NETWORK_*`, raw parse errors
 (no code), and the handful of semantic slugs not yet mapped to a `Cnnnn` (tracked as `KNOWN_UNMAPPED` in
 `test/lsp/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
 diagnostics on one document SHALL share the same `(range, code)`.
@@ -550,7 +550,7 @@ The formatter SHALL guarantee three invariants over every formatted document: (A
 
 ### Requirement: VG is its own language, routed by content
 
-Editable FBD/LD graphical bodies SHALL be represented as VG (Volt Graphical) — a distinct language
+Editable FBD/LD graphical bodies SHALL be represented as network text — a distinct language
 with its own grammar, parser, and analysis, not Structured Text. A POU body whose first significant
 token is `NETWORK` SHALL be routed to the VG analysis path; everything else is ST. The declaration
 (`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the VG parser sees only the body.
@@ -561,18 +561,18 @@ token is `NETWORK` SHALL be routed to the VG analysis path; everything else is S
 
 ### Requirement: The round trip is exact and the bridge is the source of truth
 
-The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ VG exactly (`VgWriter(VgParser(x)) == x`). A
+The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ VG exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
 push whose VG is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
 structured diagnostic that returns the canonical text. So a graphical body can be read, edited, and
 written entirely as VG text without drift.
 
 #### Scenario: A non-canonical body is refused with its canonical form
-- **WHEN** a push sends VG that is valid but not canonical (`VgWriter(VgParser(x)) != x`)
-- **THEN** the bridge refuses it with `VG_NOT_CANONICAL` and returns the canonical text to paste
+- **WHEN** a push sends VG that is valid but not canonical (`NetworkTextWriter(NetworkTextReader(x)) != x`)
+- **THEN** the bridge refuses it with `NETWORK_NOT_CANONICAL` and returns the canonical text to paste
 
 ### Requirement: The bridge owns format, the LSP owns code correctness
 
-The bridge SHALL enforce VG *structural* well-formedness (the `VG_*` gate) since those checks depend
+The bridge SHALL enforce network-text *structural* well-formedness (the `NETWORK_*` gate) since those checks depend
 only on the text. The LSP SHALL provide *code* correctness — type inference (wire types are inferred,
 never written), undeclared-variable detection, hover, completion, navigation — and SHOULD mirror the
 structural codes as diagnostics so a body is fixed before it is pushed.

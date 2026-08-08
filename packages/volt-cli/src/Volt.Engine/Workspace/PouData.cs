@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Volt.Engine.Workspace;
 
@@ -8,7 +8,7 @@ namespace Volt.Engine.Workspace;
 /// StText→Pou→XML write path: push writes each item through <c>Ide/ICodeStore</c> (<c>WriteText</c>/
 /// <c>WriteXml</c>), so nothing assembles a <see cref="PouData"/> from ST.
 /// <para>There is deliberately no body-LANGUAGE field: the language is already baked into
-/// <see cref="BodyText"/> by <c>Materializer.VgBodyOf</c> (VG for FBD/LD, the `@volt-graphical` marker for
+/// <see cref="BodyText"/> by <c>Materializer.BodyTextOf</c> (VG for FBD/LD, the `@volt-graphical` marker for
 /// CFC/SFC), so <c>PouToStText</c> has nothing to read it for.</para></summary>
 public sealed record PouData(
     string Kind,

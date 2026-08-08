@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.RegularExpressions;
 
 namespace Volt.Engine.Graphical;
@@ -11,7 +11,7 @@ namespace Volt.Engine.Graphical;
 /// (see <c>Materializer.GraphicalBodyMarker</c>); they are not editable, but that is enforced by live IDE
 /// state on push, not by any content marker.
 /// </summary>
-public static class VgBody
+public static class NetworkText
 {
     // NETWORK <index> <LANG> … — the editable marker (the digit after NETWORK rules out ST text).
     private static readonly Regex NetworkHeader = new(@"^NETWORK\s+\d+\s+([A-Za-z]\w*)", RegexOptions.Compiled);

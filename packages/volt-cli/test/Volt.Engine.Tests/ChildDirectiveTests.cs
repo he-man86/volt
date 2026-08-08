@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Graphical;
 using Volt.Engine.Workspace;
@@ -11,7 +11,7 @@ namespace Volt.Cli.Tests;
 /// Child metadata travels as a directive block at the top of the body: `%FOLDER &lt;path&gt;` (the
 /// sub-folder), not as signature comments/markers. The graphical language is conveyed by the body
 /// itself — the `NETWORK &lt;n&gt; &lt;LANG&gt;` marker for editable FBD/LD, or a `%LANG &lt;lang&gt;`
-/// placeholder for read-only CFC/SFC. This asserts both directions (assemble → split) and the VgBody
+/// placeholder for read-only CFC/SFC. This asserts both directions (assemble → split) and the NetworkText
 /// classification.
 /// </summary>
 public class ChildDirectiveTests
@@ -69,12 +69,12 @@ public class ChildDirectiveTests
         var bf = split.Children.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
         Assert.StartsWith("NETWORK 0 FBD", bf.Implementation);  // graphical body preserved, %FOLDER peeled off
-        Assert.True(VgBody.Is(bf.Implementation));
+        Assert.True(NetworkText.Is(bf.Implementation));
 
         var ta = split.Children.First(ch => ch.Name == "TA01");
         Assert.Equal("Sub/Deep", ta.Folder);                    // nested folder round-trips
         Assert.Equal("x := 1;", ta.Implementation);             // textual body, directive peeled
-        Assert.False(VgBody.Is(ta.Implementation));
+        Assert.False(NetworkText.Is(ta.Implementation));
     }
 
     [Fact]
@@ -100,10 +100,10 @@ public class ChildDirectiveTests
     [InlineData("NETWORK 0 FBD\n  out := i1;\nEND_NETWORK", "FBD", true)]   // editable: language on the marker
     [InlineData("NETWORK 0 LD\n  out := i1;\nEND_NETWORK", "LD", true)]
     [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a VG body
-    public void VgBody_classifies_language_and_editability(string impl, string? lang, bool editable)
+    public void NetworkText_classifies_language_and_editability(string impl, string? lang, bool editable)
     {
-        Assert.Equal(lang != null, VgBody.Is(impl));
-        Assert.Equal(lang, VgBody.LanguageOf(impl));
-        Assert.Equal(editable, VgBody.IsEditable(VgBody.LanguageOf(impl)));
+        Assert.Equal(lang != null, NetworkText.Is(impl));
+        Assert.Equal(lang, NetworkText.LanguageOf(impl));
+        Assert.Equal(editable, NetworkText.IsEditable(NetworkText.LanguageOf(impl)));
     }
 }

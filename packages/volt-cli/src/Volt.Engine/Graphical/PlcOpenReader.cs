@@ -313,7 +313,7 @@ namespace Volt.Engine.Graphical
         // An UNCONNECTED EN (no producer, or the PLCopen `refLocalId=0` sentinel) means the box is unconditionally
         // enabled — it is not a guard. Drop it so the box renders as a plain call, not a broken
         // `LET en := ; IF en THEN …` (the empty producer was malformed VG). The round-trip stays faithful: with no
-        // EN pin, VgParser rebuilds the box without one and the IDE defaults EN to TRUE. Applied in BOTH block-read
+        // EN pin, NetworkTextReader rebuilds the box without one and the IDE defaults EN to TRUE. Applied in BOTH block-read
         // paths (the LD-lowering `Value` case and the FBD `ReadBlock`), which resolve inputs differently.
         private static List<Pin> DropUnconnectedEn(IEnumerable<Pin> pins) =>
             pins.Where(p => !(p.FormalParameter == "EN" && (p.Source == null || p.Source.RefLocalId == 0))).ToList();

@@ -1,7 +1,6 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Graphical;
-using Volt.Engine.Graphical.Vg;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -19,7 +18,7 @@ public class LadderRoundTripTests
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
     /// <summary>VG → generated PLCopen <c>&lt;LD&gt;</c> element (for element-level assertions).</summary>
-    private static XElement ToLadder(string vg) => PlcOpenWriter.WriteBody(VgParser.Parse(vg));
+    private static XElement ToLadder(string vg) => PlcOpenWriter.WriteBody(NetworkTextReader.Parse(vg));
 
     /// <summary>VG → <c>&lt;LD&gt;</c> → VG: one full write+read pass through the ladder pipeline.</summary>
     private static string RoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);

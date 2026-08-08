@@ -108,7 +108,7 @@ import {
 import {
   documentHighlightsAnywhere,
   documentSymbolsWithVg,
-  inVgBody,
+  inNetworkText,
   prepareRenameAnywhere,
   referencesAnywhere,
   renameAnywhere,
@@ -378,17 +378,17 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   conn.onRequest(HoverRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inVgBody(d, o) ? vgHover(d, project(), o) : (hover(d, project(), o) ?? pragmaHover(d, o) ?? vgMarkerHover(d, o)),
+      inNetworkText(d, o) ? vgHover(d, project(), o) : (hover(d, project(), o) ?? pragmaHover(d, o) ?? vgMarkerHover(d, o)),
     ),
   )
   conn.onRequest(DefinitionRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inVgBody(d, o) ? vgDefinition(d, project(), o) : definition(d, project(), o),
+      inNetworkText(d, o) ? vgDefinition(d, project(), o) : definition(d, project(), o),
     ),
   )
   conn.onRequest(TypeDefinitionRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inVgBody(d, o) ? vgTypeDefinition(d, project(), o) : typeDefinition(d, project(), o),
+      inNetworkText(d, o) ? vgTypeDefinition(d, project(), o) : typeDefinition(d, project(), o),
     ),
   )
   conn.onRequest(ImplementationRequest.type, (p) =>
@@ -410,7 +410,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   )
   conn.onRequest(CompletionRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inVgBody(d, o) ? vgCompletion(d, project(), o) : completion(d, project(), o),
+      inNetworkText(d, o) ? vgCompletion(d, project(), o) : completion(d, project(), o),
     ),
   )
   conn.onRequest(SignatureHelpRequest.type, (p) =>
