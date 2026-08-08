@@ -129,6 +129,23 @@ differently from the vendor tests only our own tolerance.**
 
 ## Still open
 
-- [ ] **TwinCAT single-document write.** D1–D3 are green and D4/D4b are the blocker (no move primitive; the
-      import can only place at the PLC-project root). Unblocking it needs a placement primitive that TwinCAT
-      does not currently expose — not more measurement.
+- [ ] **TwinCAT single-document write — ATTEMPTED, NOT SHIPPED.** Turned on and reverted; the code is back at
+      96 pass / 12 skip / 0 fail. What the attempt established, so the next one starts here:
+      - **D1–D3 are green** (see above) and DUT/GVL must be EXCLUDED whenever it is turned on — TwinCAT cannot
+        export them at all (`E_FAIL`, DIALECT C2), and widening the document path to every kind put a DUT on a
+        path whose first step is an export that cannot happen.
+      - **Turning it on loses a POU's CHILDREN — 30 live failures, cause not found.** A method vanishes across an
+        in-place edit. Notably a hand-spliced document imported through the SAME delete-then-import round trip
+        keeps its children (that is what D2 measured), so the difference is in what `PouDocument.Splice` produces,
+        not in the transport. That is the thread to pull.
+      - **The placement blockers now have a partial answer**: `ExportChild`/`ImportChild` exist (D4, corrected),
+        but the archive carries the item's SOURCE PATH, so importing into another folder yields
+        `dest/originalPath`. Until that path can be rewritten there is still no usable move, and without a move
+        neither D4 (the merge flattens POU-internal folders) nor D4b (the import lands at the PLC-project root)
+        can be repaired.
+
+- [ ] **The TwinCAT e2e leaves the fixture DIRTY, and a re-run on a used copy reports false failures.** Measured
+      the confusing way: the same reverted code gave 3, then 8, then 0 failures depending only on how used the
+      project copy was. Always start from a fresh copy of `test/TwinCAT Project13`. Worth fixing at the source —
+      the suite's cleanup does not fully undo itself, which is also how the committed fixtures came to reference
+      files that do not exist.
