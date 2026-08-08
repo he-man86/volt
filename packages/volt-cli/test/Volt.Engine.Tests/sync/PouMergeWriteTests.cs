@@ -23,7 +23,7 @@ public class PouMergeWriteTests
                 "METHOD DoIt : BOOL", "DoIt := TRUE;", null, null))
         { OneDocumentWrite = oneDoc };
 
-    // Canonical workspace ST, in PouToStText's layout: the POU's own END keyword precedes its children.
+    // Canonical workspace ST, in StWriter's layout: the POU's own END keyword precedes its children.
     private static string Source(string body, string childBody, string? childFolder = null)
     {
         var folder = childFolder is null ? "" : $"%FOLDER {childFolder}\n";

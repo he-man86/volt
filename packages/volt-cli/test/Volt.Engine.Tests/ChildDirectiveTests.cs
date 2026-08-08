@@ -2,7 +2,8 @@
 using System.Linq;
 using Volt.Engine.Body;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -16,25 +17,25 @@ namespace Volt.Cli.Tests;
 /// </summary>
 public class ChildDirectiveTests
 {
-    private static ChildData Child(string kind, string name, string decl, string impl, string? folder) =>
-        new ChildData(
-            Kind: kind, Name: name, Declaration: decl, BodyText: impl, Folder: folder,
-            GetterCode: null, SetterCode: null, GetterDeclaration: null, SetterDeclaration: null);
+    private static Member Child(string kind, string name, string decl, string impl, string? folder) =>
+        new Member(
+            Kind: kind, Name: name, Declaration: decl, Body: impl, Folder: folder,
+            Getter: null, Setter: null);
 
     [Fact]
     public void Folder_and_language_round_trip_as_directives()
     {
-        var pou = new PouData(
+        var pou = new ItemContent(
             Kind: "function_block",
             Declaration: "FUNCTION_BLOCK FB",
-            BodyText: "",
-            Children: new List<ChildData>
+            Body: "",
+            Members: new List<Member>
             {
                 Child("action", "BF01", "ACTION BF01", "NETWORK 0 FBD\n  i1 := a;\n  out := i1;\nEND_NETWORK", "MFB01_Basic Functions"),
                 Child("action", "TA01", "ACTION TA01", "x := 1;", "Sub/Deep"),
             });
 
-        var st = PouToStText.Convert(pou);
+        var st = StWriter.Write(pou);
 
         // Golden: the WHOLE emitted text, not substrings — this is the exact byte layout the content hash
         // and every git diff are taken over, and the substring assertions below cannot catch a child that
@@ -64,17 +65,17 @@ public class ChildDirectiveTests
         Assert.DoesNotContain("(* folder", st);                 // no comment annotation
         Assert.DoesNotContain("@volt-graphical", st);           // no marker
 
-        var split = StSplitter.SplitSt(st);
+        var split = StReader.Read(st);
 
-        var bf = split.Children.First(ch => ch.Name == "BF01");
+        var bf = split.Members.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
-        Assert.StartsWith("NETWORK 0 FBD", bf.Implementation);  // graphical body preserved, %FOLDER peeled off
-        Assert.True(NetworkText.Is(bf.Implementation));
+        Assert.StartsWith("NETWORK 0 FBD", bf.Body);  // graphical body preserved, %FOLDER peeled off
+        Assert.True(NetworkText.Is(bf.Body));
 
-        var ta = split.Children.First(ch => ch.Name == "TA01");
+        var ta = split.Members.First(ch => ch.Name == "TA01");
         Assert.Equal("Sub/Deep", ta.Folder);                    // nested folder round-trips
-        Assert.Equal("x := 1;", ta.Implementation);             // textual body, directive peeled
-        Assert.False(NetworkText.Is(ta.Implementation));
+        Assert.Equal("x := 1;", ta.Body);             // textual body, directive peeled
+        Assert.False(NetworkText.Is(ta.Body));
     }
 
     [Fact]
@@ -86,14 +87,14 @@ public class ChildDirectiveTests
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
                  "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
                  "  i1 := a;\n  g1 := (i1 AND i1);\n  out1 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n";
-        var s = StSplitter.SplitSt(st);
-        Assert.Contains("PROGRAM POU", s.PouDeclaration);
-        Assert.Contains("out1 : BOOL;", s.PouDeclaration);
-        Assert.DoesNotContain("VAR_TEMP", s.PouDeclaration);   // network text temps never leak into the decl
-        Assert.DoesNotContain("NETWORK", s.PouDeclaration);
-        Assert.StartsWith("NETWORK 0 FBD", s.PouImplementation);
-        Assert.Contains("VAR_TEMP", s.PouImplementation);      // they stay in the body
-        Assert.Contains("g1 := (i1 AND i1);", s.PouImplementation);
+        var s = StReader.Read(st);
+        Assert.Contains("PROGRAM POU", s.Declaration);
+        Assert.Contains("out1 : BOOL;", s.Declaration);
+        Assert.DoesNotContain("VAR_TEMP", s.Declaration);   // network text temps never leak into the decl
+        Assert.DoesNotContain("NETWORK", s.Declaration);
+        Assert.StartsWith("NETWORK 0 FBD", s.Body);
+        Assert.Contains("VAR_TEMP", s.Body);      // they stay in the body
+        Assert.Contains("g1 := (i1 AND i1);", s.Body);
     }
 
     [Theory]

@@ -1,6 +1,7 @@
 using System.Linq;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -12,14 +13,14 @@ namespace Volt.Cli.Tests;
 /// was swallowed into the property's DECLARATION, the accessor came back <c>null</c>, and the push then REMOVED
 /// the engineer's getter — because a null accessor means "this property has no getter". Silent data loss, from a
 /// shape `volt-lsp-iec` documents as valid (`units/interface.ts`: "a bare keyword OR a full GET … END_GET
-/// block"). `PouToStText` only ever emits the block form, so nothing in the round-trip suite could reach it.</para>
+/// block"). `StWriter` only ever emits the block form, so nothing in the round-trip suite could reach it.</para>
 /// <para>The distinction under test is the one the whole accessor model turns on: <c>null</c> = no such accessor
 /// (remove it), <c>""</c> = present but bodiless (keep it).</para>
 /// </summary>
 public class BareAccessorTests
 {
-    private static StSplitter.StChild OnlyChild(string src) =>
-        StSplitter.SplitSt(src).Children.Single();
+    private static Member OnlyChild(string src) =>
+        StReader.Read(src).Members.Single();
 
     private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n";
 
@@ -32,7 +33,7 @@ public class BareAccessorTests
 
         var acc = keyword == "GET" ? child.Getter : child.Setter;
         Assert.NotNull(acc);                       // present — NOT null, which would delete it on push
-        Assert.Equal("", acc!.Implementation);     // …and empty, which is what bodiless means
+        Assert.Equal("", acc!.Body);     // …and empty, which is what bodiless means
         Assert.DoesNotContain(keyword, child.Declaration);   // …and not swallowed into the declaration
     }
 
@@ -53,7 +54,7 @@ public class BareAccessorTests
     {
         var child = OnlyChild(Fb + "PROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n");
 
-        Assert.Equal("P := 1;", child.Getter!.Implementation.Trim());
+        Assert.Equal("P := 1;", child.Getter!.Body.Trim());
         Assert.Null(child.Setter);                 // absent stays absent
     }
 }

@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Xml.Linq;
 using Volt.Engine.Body;
 using Volt.Engine.Ide;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Workspace;
@@ -18,7 +19,7 @@ public static class Materializer
         if (ItemKind.IsSourceKind(kind))
         {
             var build = BuildSource(ide, item, kind);
-            var text = PouToStText.Convert(build);
+            var text = StWriter.Write(build);
             var resolvedKind = build.Kind;
             return new WorkspaceItem(text, FullWireName(name, ItemKind.ExtFor(resolvedKind)));
         }
@@ -64,17 +65,17 @@ public static class Materializer
     /// language and no children, a read and a write have nothing to disagree about — which is what the
     /// read/write representation split DID cause on POUs (the graphical-child flattening, the document-scoping
     /// bug). Keep it that way: if a kind ever gains a body, it belongs on the export path.</para></summary>
-    private static PouData BuildSource(IIdeDriver ide, ItemRef item, string kind)
+    private static ItemContent BuildSource(IIdeDriver ide, ItemRef item, string kind)
     {
         if (PouKinds.Contains(kind))
             return BuildPouFromXml(ide, item);
 
         var decl = ide.ReadDeclaration(item);
         var header = CodeHelper.ParseCodeHeader(decl);
-        return new PouData(header.Type, decl.TrimEnd(), null, new());
+        return new ItemContent(header.Type, decl.TrimEnd(), null, new());
     }
 
-    private static PouData BuildPouFromXml(IIdeDriver ide, ItemRef item)
+    private static ItemContent BuildPouFromXml(IIdeDriver ide, ItemRef item)
     {
         var xml = ide.ReadXml(item);
         var parsed = PouReader.Parse(xml);
@@ -84,21 +85,17 @@ public static class Materializer
 
         var folderMap = BuildFolderMap(ide, item);
 
-        var children = new List<ChildData>();
+        var members = new List<Member>();
         foreach (var c in parsed.Children)
         {
             var impl = BodyTextOf(c.BodyLanguage, c.BodyElement);
-            children.Add(new ChildData(
+            members.Add(new Member(
                 Kind: c.PouType,
                 Name: c.Name,
                 Declaration: c.Declaration?.Trim()
                     ?? (c.PouType == ItemKind.Kinds.Action ? $"ACTION {c.Name}" : $"METHOD {c.Name}"),
-                BodyText: impl,
-                Folder: folderMap.TryGetValue(c.Name, out var f) && f is { Length: > 0 } ? f : null,
-                GetterCode: null,
-                SetterCode: null,
-                GetterDeclaration: null,
-                SetterDeclaration: null));
+                Body: impl,
+                Folder: FolderOf(folderMap, c.Name)));
         }
 
         // Properties from the SAME export as everything else — no per-accessor COM walk. Both vendors carry
@@ -106,21 +103,31 @@ public static class Materializer
         // each). Folder membership still comes from `folderMap`: PLCopen carries no folder information at all,
         // which is the same reason WriteXml has to re-import into the original parent.
         foreach (var p in parsed.Properties)
-            children.Add(new ChildData(
+            members.Add(new Member(
                 Kind: ItemKind.Kinds.Property,
                 Name: p.Name,
                 Declaration: p.Declaration?.Trim() ?? $"PROPERTY {p.Name}",
-                BodyText: null,
-                Folder: folderMap.TryGetValue(p.Name, out var pf) && pf is { Length: > 0 } ? pf : null,
-                GetterCode: p.GetterCode,
-                SetterCode: p.SetterCode,
-                // An accessor declaration that is only an empty VAR block carries nothing — keep the existing
-                // rule so the materialized text is unchanged for the common case.
-                GetterDeclaration: KeepDecl(p.GetterDeclaration),
-                SetterDeclaration: KeepDecl(p.SetterDeclaration)));
+                Body: null,
+                Folder: FolderOf(folderMap, p.Name),
+                Getter: AccessorOf(p.GetterCode, p.GetterDeclaration),
+                Setter: AccessorOf(p.SetterCode, p.SetterDeclaration)));
 
         var body = BodyTextOf(parsed.BodyLanguage, parsed.BodyElement);
-        return new PouData(Kind: kind, Declaration: declaration.Trim(), BodyText: body, Children: children);
+        return new ItemContent(Kind: kind, Declaration: declaration.Trim(), Body: body, Members: members);
+    }
+
+    private static string? FolderOf(Dictionary<string, string?> map, string name) =>
+        map.TryGetValue(name, out var f) && f is { Length: > 0 } ? f : null;
+
+    /// <summary>The accessor, or null when the property has none. This decision used to be spread across the two
+    /// fields it produced and re-made by every reader of the record ("a getter exists if its code OR its
+    /// declaration is non-null"); it is made ONCE here now, and the answer is an object.
+    /// <para>A null <paramref name="code"/> with a real declaration still yields an accessor — that is the
+    /// bodiless case, not an absent one.</para></summary>
+    private static Item.Accessor? AccessorOf(string? code, string? declaration)
+    {
+        var decl = KeepDecl(declaration);
+        return code is null && decl is null ? null : new Item.Accessor(decl, code);
     }
 
     private static string? BodyTextOf(string? lang, XElement? bodyEl)

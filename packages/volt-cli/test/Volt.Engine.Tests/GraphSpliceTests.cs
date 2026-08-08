@@ -2,7 +2,8 @@
 using Volt.Engine.Body;
 using Xunit;
 using Volt.Engine.PlcOpen;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Tests;
 

@@ -4,8 +4,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using Volt.Cli.Transport;
+using Volt.Engine.Item;
+using Volt.Engine.Workspace;
 
-namespace Volt.Engine.Workspace.SourceText;
+namespace Volt.Engine.Text;
 
 /// <summary>
 /// Splits one canonical workspace source item (ST text) into the vendor-neutral primitives
@@ -13,11 +15,11 @@ namespace Volt.Engine.Workspace.SourceText;
 /// children (methods / actions / properties / property accessors).
 ///
 /// Wire-model: a push carries the item's whole ST text in the pipe's declarative `set` op
-/// (<c>Wire/PushModels</c>). PushService runs SplitSt on it to recover the tree structure it
+/// (<c>Wire/PushModels</c>). PushService runs Read on it to recover the tree structure it
 /// needs to create/update those children. The inverse producer — the canonical text this
-/// expects — is <c>Workspace/PouToStText</c>.
+/// expects — is <see cref="StWriter"/>, its neighbour in this folder.
 ///
-/// Format (canonical workspace ST-text layout — see PouToStText):
+/// Format (canonical workspace ST-text layout — see StWriter):
 ///   {optional pragmas/comments}
 ///   FUNCTION_BLOCK Name [EXTENDS B] [IMPLEMENTS I,J]
 ///   VAR_INPUT … END_VAR
@@ -50,32 +52,16 @@ namespace Volt.Engine.Workspace.SourceText;
 /// Block comments `(* ... *)`, line comments `// ...` and pragmas
 /// `{ ... }` are skipped from the keyword-search (see ScanContext).
 /// </summary>
-public static class StSplitter
+public static class StReader
 {
-	public record StAccessor(string Declaration, string Implementation);
-
-	public record StChild(
-		string Kind,                 // "method" | "action" | "property"
-		string Name,
-		string Declaration,          // signature + VAR sections, NO trailing newline
-		string Implementation,       // body text, NO leading/trailing newlines
-		StAccessor? Getter = null,
-		StAccessor? Setter = null,
-		string? Folder = null,
-		string? ReturnType = null,
-		string? DataType = null);
-
-	public record StSplitResult(
-		string PouKind,              // function_block / program / function / interface / gvl / dut
-		string PouDeclaration,
-		string PouImplementation,
-		List<StChild> Children);
+	// The model lives in Item/ — this reader and StWriter are the two halves of ONE format, and they now
+	// produce and consume the SAME record rather than two records that happened to line up. See ItemContent.
 
 	/// <summary>
 	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
 	/// push path writes through <c>IIdeDriver</c>.
 	/// </summary>
-	public static StSplitResult SplitSt(string sourceText)
+	public static ItemContent Read(string sourceText)
 	{
 		if (string.IsNullOrWhiteSpace(sourceText))
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, "Empty ST source");
@@ -91,7 +77,7 @@ public static class StSplitter
 		// ones (gvl / dut) are single text blobs.
 		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
 		{
-			return new StSplitResult(kind, sourceText.TrimEnd(), "", new List<StChild>());
+			return new ItemContent(kind, sourceText.TrimEnd(), "", new List<Member>());
 		}
 
 		// 3. Composite POU: find the outer END_X to split POU from
@@ -111,12 +97,12 @@ public static class StSplitter
 			// source — we don't merge those in (no spec for sibling
 			// children of an interface).
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines);
-			return new StSplitResult(kind, interfaceDecl, "", interfaceChildren);
+			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
 		}
 
 		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, kind);
 		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1));
-		return new StSplitResult(kind, pouDecl, pouImpl, children);
+		return new ItemContent(kind, pouDecl, pouImpl, children);
 	}
 
 	/// <summary>
@@ -124,14 +110,14 @@ public static class StSplitter
 	/// including END_INTERFACE) into the header-only declaration and
 	/// any METHOD/PROPERTY/ACTION signature children that live inside.
 	/// </summary>
-	private static (string decl, List<StChild> children) SplitInterfaceBody(IList<string> bodyLines)
+	private static (string decl, List<Member> children) SplitInterfaceBody(IList<string> bodyLines)
 	{
 		// Find the INTERFACE header line — first non-trivia line.
 		int interfaceHeaderLineIdx = FirstCodeLine(bodyLines);
 		if (interfaceHeaderLineIdx < 0)
 		{
 			// No header found — treat everything as decl, no children.
-			return (string.Join("\n", bodyLines).TrimEnd(), new List<StChild>());
+			return (string.Join("\n", bodyLines).TrimEnd(), new List<Member>());
 		}
 
 		// Declaration = lines up to and including the INTERFACE header.
@@ -140,7 +126,7 @@ public static class StSplitter
 
 		if (interfaceHeaderLineIdx + 1 >= bodyLines.Count)
 		{
-			return (decl, new List<StChild>());
+			return (decl, new List<Member>());
 		}
 
 		// Children region = lines after the INTERFACE header. SplitChildren
@@ -258,9 +244,9 @@ public static class StSplitter
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
 
-	private static List<StChild> SplitChildren(IList<string> after)
+	private static List<Member> SplitChildren(IList<string> after)
 	{
-		var children = new List<StChild>();
+		var children = new List<Member>();
 		int i = 0;
 		while (i < after.Count)
 		{
@@ -288,7 +274,7 @@ public static class StSplitter
 		return children;
 	}
 
-	private static StChild ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw)
+	private static Member ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw)
 	{
 		int sigLine = i; // line with the keyword
 		// Find the matching end keyword — at any indentation (see LineStartsWithKeyword), not column 0.
@@ -323,10 +309,10 @@ public static class StSplitter
 		// sub-folder) and is peeled off. The graphical marker (NETWORK … for editable FBD/LD) stays
 		// in the body for graphical detection.
 		var (folder, body) = PeelFolderDirective(impl);
-		return new StChild(kind, name, decl, body, Folder: folder, ReturnType: returnType);
+		return new Member(kind, name, decl, body, Folder: folder, ReturnType: returnType);
 	}
 
-	private static StChild ReadProperty(IList<string> lines, ref int i, int blockStart)
+	private static Member ReadProperty(IList<string> lines, ref int i, int blockStart)
 	{
 		int sigLine = i;
 		var ctx = new ScanContext();
@@ -390,7 +376,7 @@ public static class StSplitter
 		// A %FOLDER directive may sit just under the signature — peel it into the folder field.
 		var (folder, propDecl) = PeelFolderDirective(string.Join("\n", declSlice).TrimEnd());
 
-		StAccessor? getter = null, setter = null;
+		Accessor? getter = null, setter = null;
 		foreach (var (gStart, gEnd, gKind) in accessorBoundaries)
 		{
 			var inner = SliceLines(lines, gStart, gEnd); // includes GET/END_GET keywords
@@ -399,13 +385,13 @@ public static class StSplitter
 			else setter = acc;
 		}
 
-		return new StChild(
+		return new Member(
 			ItemKind.Kinds.Property, name, propDecl, "",
 			Getter: getter, Setter: setter,
 			Folder: folder, DataType: dataType);
 	}
 
-	private static StAccessor ParseAccessor(IList<string> accLines)
+	private static Accessor ParseAccessor(IList<string> accLines)
 	{
 		// First line is GET / SET, last line is END_GET / END_SET — strip both.
 		// Between them: optional VAR sections + body. No signature line —
@@ -414,10 +400,10 @@ public static class StSplitter
 		// A BARE keyword is one line and has no END_: it is a PRESENT but empty accessor. `""`/`""` says exactly
 		// that — present-with-no-body — which is the distinction the whole accessor model turns on (null would
 		// mean "no such accessor" and would delete it on push).
-		if (accLines.Count <= 1) return new StAccessor("", "");
+		if (accLines.Count <= 1) return new Accessor("", "");
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
 		var (decl, impl) = SplitAtLine(inner, LastCodeLine(inner, "END_VAR") + 1);
-		return new StAccessor(decl, impl);
+		return new Accessor(decl, impl);
 	}
 
 	private static (string decl, string impl) SplitDeclImplOfChild(IList<string> innerLines)

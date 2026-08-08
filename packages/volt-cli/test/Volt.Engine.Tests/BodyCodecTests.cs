@@ -3,7 +3,8 @@ using System.Linq;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -33,8 +34,8 @@ public class BodyCodecTests
         return Volt.Engine.Body.NetworkCode.RenderBody(parsed.BodyElement!);
     }
 
-    private static StSplitter.StSplitResult Split(string decl, string body) =>
-        new(ItemKind.Kinds.Program, decl, body, new System.Collections.Generic.List<StSplitter.StChild>());
+    private static ItemContent Split(string decl, string body) =>
+        new(ItemKind.Kinds.Program, decl, body, new System.Collections.Generic.List<Member>());
 
     /// <summary>DEFECT 1 — a declaration edit on a GRAPHICAL POU must land. It used to be discarded silently:
     /// the graphical write path took `declaration` only to resolve FB instance types and never wrote it, while

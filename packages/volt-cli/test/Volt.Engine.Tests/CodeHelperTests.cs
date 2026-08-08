@@ -1,5 +1,6 @@
 using Volt.Engine;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 
 namespace Volt.Cli.Tests;

@@ -2,7 +2,8 @@ using System.IO;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 
 namespace Volt.Cli.Tests;
@@ -53,9 +54,9 @@ public class DeclarationOnlyDocumentTests
     [InlineData("GVL.plcopen.xml", "GVL")]
     public void B_a_declaration_edit_travels_the_document(string file, string name)
     {
-        var split = new StSplitter.StSplitResult(
+        var split = new ItemContent(
             ItemKind.Kinds.Dut, $"TYPE {name} :\nSTRUCT\n\tvltMarker : INT;\nEND_STRUCT\nEND_TYPE\n", "",
-            new System.Collections.Generic.List<StSplitter.StChild>());
+            new System.Collections.Generic.List<Member>());
 
         var doc = PouDocument.Splice(Fixture(file), name, split);
 

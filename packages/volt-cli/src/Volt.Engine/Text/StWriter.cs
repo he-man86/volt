@@ -4,43 +4,46 @@ using System.Linq;
 using System.Text;
 
 using Volt.Cli.Transport;
+using Volt.Engine.Item;
+using Volt.Engine.Workspace;
 
-namespace Volt.Engine.Workspace;
+namespace Volt.Engine.Text;
 
-/// <summary>Assembles a <see cref="PouData"/> into canonical workspace Structured Text — the inverse of
-/// <c>SourceText/StSplitter</c>, and the SOLE owner of that format.
-/// <para>The dict-based <c>SourceText/StAssembler</c> that used to share this format is DELETED, retiring its
+/// <summary>Assembles a <see cref="ItemContent"/> into canonical workspace Structured Text — the inverse of
+/// <see cref="StReader"/>, and the SOLE owner of that format — the two sit in this folder together for
+/// exactly that reason.
+/// <para>The dict-based <c>StAssembler</c> that used to share this format is DELETED, retiring its
 /// `ponytail:` note (which prescribed exactly this once the two round-trip tests stopped driving it): it had no
 /// production call site, and it had already diverged here — it invented `END_&lt;KIND&gt;` where this throws
 /// <c>INVALID_CODE_HEADER</c>. ChildDirectiveTests and InterfaceRoundTripTests now certify THIS emitter, against
 /// a golden of the whole emitted text.</para></summary>
-public static class PouToStText
+public static class StWriter
 {
-    public static string Convert(PouData pou)
+    public static string Write(ItemContent item)
     {
-        if (!HasBody(pou.Kind))
-            return pou.Declaration.TrimEnd() + "\n";
+        if (!HasBody(item.Kind))
+            return item.Declaration.TrimEnd() + "\n";
 
         var sb = new StringBuilder();
-        sb.Append(pou.Declaration.TrimEnd());
+        sb.Append(item.Declaration.TrimEnd());
 
-        var impl = (pou.BodyText ?? "").Trim();
+        var impl = (item.Body ?? "").Trim();
         if (impl.Length > 0)
             sb.Append('\n').Append('\n').Append(impl);
 
-        var children = pou.Children
+        var children = item.Members
             .OrderBy(c => KindOrder(c.Kind))
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 
-        if (pou.Kind == ItemKind.Kinds.Interface)
+        if (item.Kind == ItemKind.Kinds.Interface)
         {
             foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c)); }
-            sb.Append('\n').Append('\n').Append(EndKeyword(pou.Kind));
+            sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
         }
         else
         {
-            sb.Append('\n').Append('\n').Append(EndKeyword(pou.Kind));
+            sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
             foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c)); }
         }
 
@@ -72,11 +75,11 @@ public static class PouToStText
         _ => 3,
     };
 
-    private static string AssembleChild(ChildData child)
+    private static string AssembleChild(Member child)
     {
         if (child.Kind == ItemKind.Kinds.Property) return AssembleProperty(child);
         var decl = child.Declaration.TrimEnd();
-        var impl = PrependFolder(child.Folder, (child.BodyText ?? "").Trim());
+        var impl = PrependFolder(child.Folder, (child.Body ?? "").Trim());
         var end = child.Kind switch
         {
             ItemKind.Kinds.Method => "END_METHOD",
@@ -87,14 +90,14 @@ public static class PouToStText
         return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
     }
 
-    private static string AssembleProperty(ChildData child)
+    private static string AssembleProperty(Member child)
     {
         var parts = new List<string> { child.Declaration.TrimEnd() };
         if (!string.IsNullOrEmpty(child.Folder)) parts.Add($"%FOLDER {child.Folder}");
-        if (child.GetterCode is not null || child.GetterDeclaration is not null)
-            parts.Add(AssembleAccessor("GET", child.GetterDeclaration, child.GetterCode));
-        if (child.SetterCode is not null || child.SetterDeclaration is not null)
-            parts.Add(AssembleAccessor("SET", child.SetterDeclaration, child.SetterCode));
+        // Presence is the object. This used to re-derive it from two nullable fields — the same rule the reader
+        // applied, spelled a second time, which is exactly the kind of duplication ItemContent exists to remove.
+        if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body));
+        if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set.Declaration, set.Body));
         parts.Add("END_PROPERTY");
         return string.Join("\n", parts);
     }

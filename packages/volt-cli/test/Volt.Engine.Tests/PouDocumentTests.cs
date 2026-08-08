@@ -4,7 +4,8 @@ using System.Linq;
 using Volt.Engine.Body;
 using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Xunit;
 using Volt.Engine.PlcOpen;
 
@@ -24,12 +25,12 @@ public class PouDocumentTests
     private static string Fixture(string file) =>
         File.ReadAllText(Path.Combine(System.AppContext.BaseDirectory, "fixtures", "codesys-pou", file));
 
-    private static StSplitter.StSplitResult Split(string decl, string impl, params StSplitter.StChild[] children) =>
+    private static ItemContent Split(string decl, string impl, params Member[] children) =>
         new(ItemKind.Kinds.FunctionBlock, decl, impl, children.ToList());
 
     private const string FbDecl = "FUNCTION_BLOCK FB_FolderChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n";
 
-    private static StSplitter.StChild Action(string name, string body, string? folder = null) =>
+    private static Member Action(string name, string body, string? folder = null) =>
         new(ItemKind.Kinds.Action, name, "", body, Folder: folder);
 
     // ── the whole point: one document, all four child operations ───────────────────────────────────
@@ -104,7 +105,7 @@ public class PouDocumentTests
         var ex = Assert.Throws<System.InvalidOperationException>(() => PouDocument.Splice(xml, "FB_GraphicalChild",
             Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
                   "//new parent body",
-                  new StSplitter.StChild(ItemKind.Kinds.Method, "doSomething",
+                  new Member(ItemKind.Kinds.Method, "doSomething",
                       "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", ""))));
 
         Assert.Contains("doSomething", ex.Message);
@@ -128,7 +129,7 @@ public class PouDocumentTests
         var doc = PouDocument.Splice(xml, "FB_GraphicalChild",
             Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
                   "//edited root body",
-                  new StSplitter.StChild(ItemKind.Kinds.Method, "doSomething",
+                  new Member(ItemKind.Kinds.Method, "doSomething",
                       "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "(* @volt-graphical: CFC *)")));
 
         Assert.Contains("//edited root body", doc);          // the edit landed…

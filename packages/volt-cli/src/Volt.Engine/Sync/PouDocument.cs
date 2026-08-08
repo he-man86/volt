@@ -4,7 +4,8 @@ using System.Linq;
 using Volt.Cli.Transport;
 using Volt.Engine.Body;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 using Volt.Engine.PlcOpen;
 
 namespace Volt.Engine.Sync;
@@ -30,7 +31,7 @@ public static class PouDocument
     // ponytail: each splice call re-parses the document, so this is O(children × document). On the corpus's worst
     // POU (68 KB, 54 children) that is well under the pipe's own latency. If it ever shows up in a profile, the
     // upgrade is one XDocument threaded through the splice surface — not a second, batched writer.
-    public static string Splice(string xml, string name, StSplitter.StSplitResult split)
+    public static string Splice(string xml, string name, ItemContent split)
     {
         var parsed = PouReader.Parse(xml);
         // The document's own view of what the item HAS — the only honest basis for add-vs-update. A property is a
@@ -38,15 +39,15 @@ public static class PouDocument
         var present = new HashSet<string>(
             parsed.Children.Select(c => c.Name).Concat(parsed.Properties.Select(p => p.Name)),
             StringComparer.OrdinalIgnoreCase);
-        var pushed = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-        var isInterface = split.PouKind == ItemKind.Kinds.Interface;
+        var pushed = new HashSet<string>(split.Members.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        var isInterface = split.Kind == ItemKind.Kinds.Interface;
 
         // Children the push dropped. This replaces the COM orphan walk, and it is strictly better: the walk had to
         // recurse the POU's folders to find them, whereas the export lists every child flat regardless of folder.
         foreach (var gone in present.Where(n => !pushed.Contains(n)).ToList())
             xml = PouSplice.RemoveChild(xml, name, gone);
 
-        foreach (var child in split.Children)
+        foreach (var child in split.Members)
         {
             // An ACTION is body-only — its `ACTION name` line is synthesized on read, never persisted, so writing
             // one puts a declaration where nothing reads it back. A PROPERTY node has no body of its own; its code
@@ -55,7 +56,7 @@ public static class PouDocument
             // No body when the member cannot hold one: a PROPERTY node's code lives in its accessors (written
             // below), and every member of an INTERFACE is a signature — the interface document has no <body>
             // element anywhere, for the item or its members.
-            var body = child.Kind == ItemKind.Kinds.Property || isInterface ? null : child.Implementation;
+            var body = child.Kind == ItemKind.Kinds.Property || isInterface ? null : child.Body;
 
             // A READ-ONLY body (CFC/SFC) materializes as a marker comment, not as source. `null` here means
             // "leave the member's body exactly as it is" — which is the only correct thing to do with a diagram
@@ -72,12 +73,12 @@ public static class PouDocument
             if (child.Kind != ItemKind.Kinds.Property) continue;
             // null code REMOVES the accessor — that is how a push drops a getter, and why the reader keeps an
             // absent accessor (null) distinct from a present-but-bodiless one ("").
-            xml = PouSplice.SetAccessor(xml, name, child.Name, true, child.Getter?.Implementation, child.Getter?.Declaration);
-            xml = PouSplice.SetAccessor(xml, name, child.Name, false, child.Setter?.Implementation, child.Setter?.Declaration);
+            xml = PouSplice.SetAccessor(xml, name, child.Name, true, child.Getter?.Code, child.Getter?.Declaration);
+            xml = PouSplice.SetAccessor(xml, name, child.Name, false, child.Setter?.Code, child.Setter?.Declaration);
         }
 
-        xml = PouSplice.SetDeclaration(xml, name, split.PouDeclaration);
-        return PouSplice.SetBody(xml, name, split.PouImplementation);
+        xml = PouSplice.SetDeclaration(xml, name, split.Declaration);
+        return PouSplice.SetBody(xml, name, split.Body);
     }
 
     /// <summary>Volt's wire kind → the PLCopen member shape. This mapping lives HERE, in the layer that knows what

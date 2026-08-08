@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Volt.Engine.Workspace.SourceText
+namespace Volt.Engine.Text
 {
     /// <summary>Instance name → FB type, read out of a POU's ST DECLARATION text.
     /// <para>It lived in the PLCopen document class, where it was the one member that never touched XML. It is a

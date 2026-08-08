@@ -3,14 +3,16 @@ using System.Text.RegularExpressions;
 
 using Volt.Cli.Transport;
 
-namespace Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Workspace;
+
+namespace Volt.Engine.Text;
 
 public static class CodeHelper
 {
     // A parsed header carries only the KIND and the NAME — the sole things callers read. It deliberately does
     // NOT extract a return type / data type / access modifier: those had no readers, and requiring them on the
     // header line made a header unrecognizable when the `: type` tail wrapped to the next line (a real CODESYS
-    // export form). Child-level metadata (method return types etc.) is parsed separately in StSplitter.
+    // export form). Child-level metadata (method return types etc.) is parsed separately in StReader.
     public record CodeHeader(string Type, string? Name);
 
     /// <summary>The first line of a declaration that is actually a HEADER — skipping blank lines, `{…}` pragmas,

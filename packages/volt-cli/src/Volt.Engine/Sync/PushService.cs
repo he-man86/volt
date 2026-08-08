@@ -6,7 +6,8 @@ using Volt.Engine.Body;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
-using Volt.Engine.Workspace.SourceText;
+using Volt.Engine.Text;
+using Volt.Engine.Item;
 
 using Volt.Cli.Transport;
 using Volt.Engine.PlcOpen;
@@ -274,8 +275,8 @@ public static class PushService
         // The moved item's content: the push's new sourceText if it carried one (move+edit), else the item's
         // current source (pure move), read back for the full-fidelity recreate.
         var src = sourceText ?? Materializer.Materialize(ide, name, kind, item).Text;
-        var split = StSplitter.SplitSt(src);
-        if (NetworkText.Is(split.PouImplementation) || split.Children.Any(c => NetworkText.Is(c.Implementation)))
+        var split = StReader.Read(src);
+        if (NetworkText.Is(split.Body) || split.Members.Any(c => NetworkText.Is(c.Body)))
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
 
@@ -287,7 +288,7 @@ public static class PushService
     /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.</summary>
     private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
     {
-        var split = StSplitter.SplitSt(src);
+        var split = StReader.Read(src);
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
         // collapse: the second's CreateChild finds the first and WriteText overwrites it, losing a source item
@@ -295,7 +296,7 @@ public static class PushService
         // overload). Reject the push with a clear reason instead of dropping code. This is NOT the top-level
         // opaque-item name invariant (which forbids a throwing dup guard because real projects repeat opaque
         // names) — it is duplicate children WITHIN one pushed source, which is unambiguously invalid.
-        var dupChild = split.Children
+        var dupChild = split.Members
             .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault(g => g.Count() > 1);
         if (dupChild != null)
@@ -304,14 +305,14 @@ public static class PushService
                 "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
                 "Rename or remove the duplicate.");
 
-        var decl = split.PouDeclaration;
-        var impl = split.PouImplementation;
-        var itemType = PouKindToCode(split.PouKind);
+        var decl = split.Declaration;
+        var impl = split.Body;
+        var itemType = PouKindToCode(split.Kind);
         // Only POUs (program/function/function_block) have an implementation-body slot. DUTs, GVLs and
         // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
         // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
-        var bodyImpl = split.PouKind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
+        var bodyImpl = split.Kind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
 
         // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
@@ -395,7 +396,7 @@ public static class PushService
             // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
             // root guard above. Checking inside the apply loop instead would leave the root body already written
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
-            foreach (var child in split.Children) RequireChildFormatWritable(ide, pou, child, itemType, parsed);
+            foreach (var child in split.Members) RequireChildFormatWritable(ide, pou, child, itemType, parsed);
 
             if (doc is not null)
             {
@@ -425,9 +426,9 @@ public static class PushService
             return;
         }
 
-        foreach (var child in split.Children)
+        foreach (var child in split.Members)
         {
-            var cimpl = child.Implementation;
+            var cimpl = child.Body;
             var childVg = NetworkText.Is(cimpl);
             // A read-only graphical (CFC/SFC) child has NO text form — it materializes as
             // Materializer.GraphicalBodyMarker, and NetworkText.Is matches only a `NETWORK n LANG` header, so it REJECTS
@@ -466,7 +467,7 @@ public static class PushService
             // accessors carry the impl, written below) — pass null so no ImplementationText is written to a
             // slot the COM object doesn't expose (crashes TC). Methods/actions have a body: pass it (possibly
             // "" to clear).
-            var childImpl = isInterface || child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
+            var childImpl = isInterface || child.Kind == ItemKind.Kinds.Property ? null : child.Body;
             ide.WriteText(childItem, childDecl, childImpl);
 
             if (child.Kind == ItemKind.Kinds.Property)
@@ -477,9 +478,9 @@ public static class PushService
 
                 var getCode = isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet;
                 var setCode = isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet;
-                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Implementation, isInterface);
+                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Code, isInterface);
                 else RemoveChildIfPresent(ide, childItem, "Get");
-                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Implementation, isInterface);
+                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Code, isInterface);
                 else RemoveChildIfPresent(ide, childItem, "Set");
             }
         }
@@ -494,12 +495,12 @@ public static class PushService
         // deletes-and-reimports the object (staleing `pou`), and the network sourceText carries no textual
         // child list to reconcile against — so child reconciliation doesn't apply there.
         // Runs for EVERY language now. It used to be skipped for a network-text root on two stated reasons, both
-        // false: `WriteXml` is a merge with no delete (so `pou` is not stale), and `StSplitter` parses children
-        // identically regardless of body language (so `split.Children` is the list to reconcile against — the
+        // false: `WriteXml` is a merge with no delete (so `pou` is not stale), and `StReader` parses children
+        // identically regardless of body language (so `split.Members` is the list to reconcile against — the
         // loop above already uses it). The cost of the skip was silent: deleting a method from a graphical POU
         // was ACCEPTED and the method survived in the IDE, reappearing on the next pull.
         {
-            var keep = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+            var keep = new HashSet<string>(split.Members.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
             RemoveOrphanChildren(ide, pou, keep);
         }
     }
@@ -531,9 +532,9 @@ public static class PushService
     /// elsewhere is already inside SOME folder, and this has no way to tell "the user moved it in the workspace"
     /// from "the import happened not to flatten it", so it is left alone. A missed re-placement is a folder the
     /// user fixes once; a guessed one silently scatters their methods.</para></summary>
-    private static void RestoreChildFolders(IIdeDriver ide, string name, StSplitter.StSplitResult split)
+    private static void RestoreChildFolders(IIdeDriver ide, string name, ItemContent split)
     {
-        var foldered = split.Children.Where(c => !string.IsNullOrEmpty(c.Folder)).ToList();
+        var foldered = split.Members.Where(c => !string.IsNullOrEmpty(c.Folder)).ToList();
         if (foldered.Count == 0) return;
         // The merge does not delete the POU, but re-find it anyway: the import rewrites the object, and a handle
         // captured before it is not something to trust on the write path.
@@ -639,10 +640,10 @@ public static class PushService
     /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
     /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
     /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
-    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, StSplitter.StChild child, int itemType,
+    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, Member child, int itemType,
                                                    PouReader.ParsedPou? parsed)
     {
-        var cimpl = child.Implementation;
+        var cimpl = child.Body;
         var marker = Materializer.IsGraphicalBodyMarker(cimpl);
 
         if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
@@ -709,7 +710,7 @@ public static class PushService
     private static bool NameIs(IIdeDriver ide, ItemRef item, string name) =>
         string.Equals(ide.Name(item), name, StringComparison.OrdinalIgnoreCase);
 
-    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string decl, string impl, bool isInterface)
+    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string? decl, string impl, bool isInterface)
     {
         var accessor = FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
         // An INTERFACE property accessor is a bodiless stub: it only declares that a getter/setter exists,
