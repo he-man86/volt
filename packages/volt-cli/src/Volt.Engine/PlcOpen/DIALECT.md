@@ -150,6 +150,32 @@ CODESYS-only. What remains unmeasured on TwinCAT is all about the IMPORT (D1-D4)
 6. `Ide/TcPlcOpen.cs:14-21` — "NEEDS LIVE VERIFICATION" on a call the recorded fixtures were captured through. At
    least partly settled, never retracted, which makes §5.1's risk read larger than it is.
 
+## What the STANDARD says (TC6 XML v2.01)
+
+The normative schema is committed at `packages/volt-cli/docs/tc6_xml_v201.xsd` (PLCopen's own download). It
+promotes several rows below from "measured on CODESYS" to "specified, and CODESYS conforms" — which matters
+because a specified rule is one we may rely on for TwinCAT too, and a vendor quirk is not.
+
+1. **`<body>` is an `xsd:choice` of exactly FIVE: `IL`, `ST`, `FBD`, `LD`, `SFC`** (`:415-444`). **CFC is not in
+   the schema at all** — so its `addData` placement is not a CODESYS quirk, it is the only legal option. This also
+   settles IL, which was the one inferred row in the locator table: **IL is a direct child.**
+2. **`handleUnknown` is `preserve | discard | implementation`** (`:672-678`), and the schema documents the
+   processor contract: preserve it, *dismiss it* ("because the data is invalid if not updated correctly"), or use
+   the processor default. **CODESYS marks `projectstructure` and `objectid` as `discard`** — so the folder
+   flattening we measured is *the standard behaving as specified*, not a defect to work around. The exporter is
+   explicitly telling the importer to drop it.
+3. **Methods, properties, accessors and interfaces do not exist in TC6 at all** — zero occurrences of `Method`,
+   `Property`, `GetAccessor` or an interface `pouType`. `pouType` is `function | functionBlock | program` only
+   (`:1751-1753`). The ENTIRE OOP member model is vendor extension, which is why both vendors carry it under the
+   same `3s-software` namespace (TwinCAT's PLC engine is CODESYS-derived) and why the "document shape per kind"
+   axis has to be a table rather than schema-driven.
+4. **The standard has no concept of folders** — zero occurrences of "folder". Organisational placement is
+   out-of-band by definition, which is exactly why it travels as `%FOLDER` + `IProjectTree.Move`.
+5. `<pou>` allows `body` with **`maxOccurs="unbounded"`** (`:224`) — multiple bodies are legal. Volt assumes one;
+   nothing has ever produced more, but the reader should not assume it cannot happen.
+6. The typed `<interface>` (returnType / localVars / inputVars …) IS standard (`:117-122`) — so the two-copy
+   declaration (typed block + `InterfaceAsPlainText`) is one standard element plus one vendor extension.
+
 ## The body LOCATOR table — where a body element actually lives
 
 Measured on CODESYS 3.5.21.40 against hand-authored fixtures, not inferred. Placement was inferred once and the
@@ -162,7 +188,7 @@ inference was WRONG (SFC was assumed to sit with CFC; it does not), so every row
 | LD | direct | `tc-ld/*.plcopen.xml` |
 | **SFC** | **direct** | `codesys-pou/POU_SfcRoot_StFbdMethods.plcopen.xml` (root) |
 | **CFC** | **`<body>/<addData>/<data name="…/cfc">`, AND a sibling empty `<ST>`** | `codesys-pou/FB_GraphicalChild.plcopen.xml` (`doSomething`) |
-| IL | direct — INFERRED (a TC6 language; no fixture anywhere) | — |
+| IL | direct — **SPECIFIED** by the schema (`tc6_xml_v201.xsd:416`); no fixture, but no longer a guess |
 
 The rule is the standard, not a vendor quirk: **PLCopen TC6 defines ST, IL, FBD, LD and SFC as body languages, so
 each gets a real element whose NAME is the language. CFC is a CODESYS extension with no place in the schema, so it
