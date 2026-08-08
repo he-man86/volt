@@ -16,7 +16,12 @@ Not "graphical vs textual". Two things, both **data**:
 2. **Body codec — per LANGUAGE.** `locate(body)`, `decode(element)→text`, `encode(text)→element`, `validate`,
    `canReplace`, `readOnly`. ST is the *identity* codec (four one-liners — both halves already exist as one-liners
    today); FBD/LD is the existing `VgParser`/`VgWriter` + `PlcOpenReader`/`PlcOpenWriter` pivoting on `GraphBody`;
-   CFC/SFC is `{read: marker, write: none}` — which is what "read-only" *means*.
+   CFC and SFC are `{read: marker, write: none}` — which is what "read-only" *means*.
+
+   **Read-only-ness and placement are INDEPENDENT axes** — do not fuse them into one "graphical" flag, which is
+   the mistake this whole change exists to undo. SFC is read-only *and* a direct child; CFC is read-only *and*
+   `addData`-nested; FBD is writable *and* a direct child. Three combinations across two booleans, so the codec
+   table needs both columns.
 
    **`locate` is load-bearing and was measured, after being inferred wrongly once.** PLCopen TC6 defines ST, IL,
    FBD, LD and **SFC** as body languages, so each is a direct `<body>` child whose element NAME is the language.
