@@ -32,9 +32,9 @@ SHALL NOT count as absent.
 
 ### Requirement: Every writable kind reaches the IDE as ONE document
 
-On a driver that writes a POU as a single PLCopen document, EVERY writable kind — program, function,
-function block, interface, DUT and GVL — SHALL be written that way: one `CreateChild` for a create and
-one `WriteXml` for the content, with members, accessors, declaration and body all in that document. No
+Every writable kind SHALL reach the IDE as one PLCopen document on a driver that writes a POU that way —
+program, function, function block, interface, DUT and GVL alike: one `CreateChild` for a create and one
+`WriteXml` for the content, with members, accessors, declaration and body all in that document. No
 per-child `CreateChild`/`WriteText` and no orphan-deletion walk SHALL run alongside it.
 
 Where kinds differ is document SHAPE, which SHALL be read from the document itself rather than passed
