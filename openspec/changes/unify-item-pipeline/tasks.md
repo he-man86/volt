@@ -111,12 +111,24 @@ differently from the vendor tests only our own tolerance.**
         a foldered POU to the project root on every push. It now refuses with a message. Note the standard
         fixture's own `PLC_PRG` lives in a `POUs` folder, so this was reachable on a default project.
 
-- [ ] **The TwinCAT live tier is BROKEN, independently of any of this** - found while trying to validate the
-      above end-to-end, and not investigated further:
-      - Every e2e op returns `PLC_DISCONNECTED: Bridge is waiting for an IDE project`. The worker attaches to the
-        XAE and serves its pipe, but never binds the PLC project.
-      - **TcXaeShell CRASHES** - `Application Error` in `TwinCAT System Manager.dll`, three times, each
-        coinciding with a bridge attach + e2e run (19:40:46, 19:52:15, 19:54:02).
-      So the `WriteXml` refusal above is verified against the vendor FACT (measured live) and against the
-      `PathName` comparison it uses (also measured live), but NOT end-to-end - nothing can run end-to-end on
-      TwinCAT until the disconnect and the crash are understood.
+- [x] **The TwinCAT live tier — FIXED. First green run: 96 pass / 12 skip / 0 fail.** The cause was not in the
+      bridge: three committed fixture solutions name a `.TcPOU` in their `.plcproj` that is not on disk and was
+      never in git (two are leftover `VltE2E_*` e2e artifacts). A dangling reference makes the tree report a
+      ChildCount that INCLUDES the phantom; resolving it faults `RPC_E_CALL_FAILED` and the TwinCAT System
+      Manager dies, taking TcXaeShell with it — after which everything is "RPC server unavailable", which the
+      client sees as the generic "waiting for an IDE project".
+      - **The disconnect and the crash were ONE fault**, and the disconnect was the symptom. The earlier note
+        here had them as two problems and had the bridge failing to bind; the log says it binds fine and dies
+        ~4s later on the first tree walk. Bisected by op (`refs`, not `fetch`) then by node.
+      - Not fixable in the bridge — a plain PowerShell walk kills the IDE identically. What is ours is not
+        shipping a fixture that does it: `FixtureProjectIntegrityTests` now asserts every `.plcproj` reference
+        resolves, and was verified to FAIL on a reintroduced phantom.
+      - Two parity bugs fell out of the suite finally running: the body-mismatch refusal emitted a DIFFERENT
+        sentence per vendor (now word-for-word identical), and the graphical-MOVE test asserted a capability
+        TwinCAT does not have (now skipped there, with the vendor fact cited).
+
+## Still open
+
+- [ ] **TwinCAT single-document write.** D1–D3 are green and D4/D4b are the blocker (no move primitive; the
+      import can only place at the PLC-project root). Unblocking it needs a placement primitive that TwinCAT
+      does not currently expose — not more measurement.
