@@ -23,6 +23,13 @@ export const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${body}\n
 export const PROPERTY = (n: string, get = true, set = true) =>
 	`\nPROPERTY ${n} : INT\n` + (get ? `GET\n\t${n} := x;\nEND_GET\n` : "") + (set ? `SET\n\tx := ${n};\nEND_SET\n` : "") + `END_PROPERTY\n`
 
+/** An INTERFACE property: same shape, BODILESS accessors. In IEC 61131-3 an interface declares the signature and
+ *  implementers supply the code, so `GET\n\tReady := x;\nEND_GET` is not interface source at all. The interface
+ *  tests used PROPERTY above and got accessor bodies the bridge then discarded in silence; the push now refuses
+ *  them, which is what surfaced the difference. */
+export const ITF_PROPERTY = (n: string, get = true, set = true) =>
+	`\nPROPERTY ${n} : INT\n` + (get ? `GET\nEND_GET\n` : "") + (set ? `SET\nEND_SET\n` : "") + `END_PROPERTY\n`
+
 /** Kinds that support the full textual CRUD lifecycle (create/edit/rename/move/delete). The `edit`
  *  builder produces a second, content-different version so the content-edit delta is observable. */
 export type LifecycleKind = {

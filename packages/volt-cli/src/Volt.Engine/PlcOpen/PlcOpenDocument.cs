@@ -20,10 +20,18 @@ namespace Volt.Engine.PlcOpen
         /// <see cref="ItemBody"/> uses, widened to the declaration-only kinds. One export describes several
         /// items, so every write is scoped by name; writing to the first match in the document is exactly the
         /// bug that spliced a body over a sibling method.</summary>
+        /// <summary>The element names a TOP-LEVEL item can appear under, across every kind and both vendors.
+        /// <para>ONE list, because it was three and they disagreed — a union DUT parsed nowhere while resolving
+        /// fine for a declaration read. What the list encodes is the TC6 schema's own division: <c>pou</c> and
+        /// <c>dataType</c> are TC6 elements (a struct, an enum and an alias are all a <c>dataType</c>, being all
+        /// baseTypes), while <c>Interface</c>, <c>globalVars</c> and <c>union</c> have no TC6 equivalent and so
+        /// live in vendor <c>addData</c> blocks. Measured, not inferred — see PlcOpen/DIALECT.md.</para></summary>
+        internal static bool IsItemElement(XElement e) =>
+            e.Name.LocalName is "pou" or "Interface" or "dataType" or "globalVars" or "union";
+
         internal static XElement? OwnerOf(XDocument doc, string itemName) =>
             doc.Descendants().FirstOrDefault(e =>
-                e.Name.LocalName is "pou" or "Interface" or "dataType" or "globalVars"
-                    or "method" or "Method" or "action" or "Action"
+                (IsItemElement(e) || e.Name.LocalName is "method" or "Method" or "action" or "Action")
                 && (string?)e.Attribute("name") == itemName);
 
         /// <summary>Re-serialize a spliced document. <c>XDocument.ToString()</c> DROPS the XML declaration, so
@@ -119,8 +127,7 @@ namespace Volt.Engine.PlcOpen
             // element IS theirs; POU declarations go through PlcOpenPouParser, which does its own scoping.
             var doc = XDocument.Parse(xml);
             var owner = doc.Descendants().FirstOrDefault(e =>
-                e.Name.LocalName is "dataType" or "globalVars" or "pou" or "Interface"
-                && (string?)e.Attribute("name") == itemName);
+                IsItemElement(e) && (string?)e.Attribute("name") == itemName);
             // NO whole-document fallback. An earlier version read `(owner ?? doc.Root)`, which meant a name
             // that isn't in the document returned the FIRST plaintext block anywhere in it — i.e. some OTHER
             // item's declaration, confidently. That is the same document-scoping mistake that spliced a body

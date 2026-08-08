@@ -39,6 +39,7 @@ public static class PouDocument
             parsed.Children.Select(c => c.Name).Concat(parsed.Properties.Select(p => p.Name)),
             StringComparer.OrdinalIgnoreCase);
         var pushed = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        var isInterface = split.PouKind == ItemKind.Kinds.Interface;
 
         // Children the push dropped. This replaces the COM orphan walk, and it is strictly better: the walk had to
         // recurse the POU's folders to find them, whereas the export lists every child flat regardless of folder.
@@ -51,7 +52,10 @@ public static class PouDocument
             // one puts a declaration where nothing reads it back. A PROPERTY node has no body of its own; its code
             // lives in the accessors, written below.
             var decl = child.Kind == ItemKind.Kinds.Action ? null : child.Declaration;
-            var body = child.Kind == ItemKind.Kinds.Property ? null : child.Implementation;
+            // No body when the member cannot hold one: a PROPERTY node's code lives in its accessors (written
+            // below), and every member of an INTERFACE is a signature — the interface document has no <body>
+            // element anywhere, for the item or its members.
+            var body = child.Kind == ItemKind.Kinds.Property || isInterface ? null : child.Implementation;
 
             // A READ-ONLY body (CFC/SFC) materializes as a marker comment, not as source. `null` here means
             // "leave the member's body exactly as it is" — which is the only correct thing to do with a diagram

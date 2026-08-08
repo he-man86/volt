@@ -57,7 +57,20 @@ public static class PouReader
               // contains zero <pou> elements (see CodesysInterfaceExportTests). The shape is COMMON, which is
               // what let the CODESYS driver drop its hand-built interface document and serve the IDE's own.
               ?? doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Interface")
-              ?? throw new InvalidOperationException("PLCopen document has no <pou> or <Interface> element");
+              // The DECLARATION-ONLY kinds: no body, no members, one declaration in an interfaceasplaintext
+              // addData. They parse to the SAME record with those fields empty, which is what lets every kind
+              // take one write. There is no vendor reason they were excluded: PLCopen import/export is defined
+              // for all of them, and each was measured to round-trip a declaration change on CODESYS 3.5.21.40.
+              //
+              // FOUR element names, not two, and the split is the TC6 schema's rather than the vendor's whim: a
+              // struct, an enum and an ALIAS all fit <dataType> (all three are a baseType), so all three export
+              // as <types>/<dataTypes>/<dataType>. A UNION has no TC6 equivalent at all, so CODESYS puts it in
+              // its own <addData> extension block as <union> — the same treatment CFC gets for the same reason.
+              // A GVL is likewise <globalVars> in an addData block. Measured (probe 14/16) after a union DUT
+              // failed to parse; "it is a DUT so it is a dataType" was the wrong inference.
+              ?? doc.Descendants().FirstOrDefault(PlcOpenDocument.IsItemElement)
+              ?? throw new InvalidOperationException(
+                  "PLCopen document has no <pou>, <Interface>, <dataType> or <globalVars> element");
 
         var declaration = DeclFromElement(rootPou);
         var (bodyLang, bodyEl) = FindBody(rootPou, ns);

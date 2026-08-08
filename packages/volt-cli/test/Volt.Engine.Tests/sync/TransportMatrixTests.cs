@@ -31,31 +31,26 @@ public class TransportMatrixTests
     /// <summary>THE MATRIX. kindCode, extension, source, the exact calls an UPDATE makes, and the exact calls a
     /// CREATE makes. Read it as the table it is:
     /// <code>
-    ///   kind         update                                create
-    ///   fb/prg/fun   writexml                              create + writexml
-    ///   itf          write + (create+write per member)     create + write + (create+write per member)
-    ///   dut/gvl      write                                 create + write
+    ///   kind                     update      create
+    ///   fb/prg/fun/itf/dut/gvl   writexml    create + writexml
     /// </code>
-    /// The three POU kinds are the single-document path. The other three are NOT, deliberately: a DUT/GVL has no
-    /// members and no <c>&lt;body&gt;</c> in its export at all, and an INTERFACE exports in a different shape (no
-    /// <c>&lt;pou&gt;</c> element — members hang off <c>addData/Interface</c>), so its members still go one COM
-    /// call at a time. `ItfSrc` carries one method precisely so that cost is visible here instead of implied.</summary>
+    /// <b>One row, six kinds</b> — that uniformity IS the agreement, not a coincidence to be preserved by hand.
+    /// It used to be three rows: POUs took the document while an interface's members went one COM call at a time
+    /// and a DUT/GVL took a WriteText. The differences that justified that are real but they are DOCUMENT-SHAPE
+    /// differences (an interface's members live in <c>Methods</c>/<c>Properties</c> rather than
+    /// <c>addData/data</c>; a DUT/GVL has no members and no <c>&lt;body&gt;</c>), and shape is something the
+    /// document layer reads off the owner element — not a reason for a second transport.
+    /// <para>`ItfSrc` carries one method on purpose: under the old matrix that method cost a visible
+    /// `create:M` + `write:M`, and it is what this row proves now rides in the document.</para></summary>
     public static TheoryData<int, string, string, string[], string[]> Writable => new()
     {
         { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
         { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
         { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "write:K", "create:M", "write:M" },
-                                              new[] { "create:K", "write:K", "create:M", "write:M" } },
-        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "write:K" }, new[] { "create:K", "write:K" } },
-        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "write:K" }, new[] { "create:K", "write:K" } },
+        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
+        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
+        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
     };
-
-    /// <summary>A POU is what the single-document write covers. The other three writable kinds are deliberately
-    /// NOT in it: a DUT/GVL has no children and no <c>&lt;body&gt;</c> in its export at all (measured), and an
-    /// interface exports in a different shape entirely (no <c>&lt;pou&gt;</c> element).</summary>
-    private static bool IsPou(int code) =>
-        code is ItemKind.PlcPouFb or ItemKind.PlcPouProg or ItemKind.PlcPouFunc;
 
     private static FakeIde Ide(int code, string src, params FakeIde.Item[] extra)
     {
@@ -78,9 +73,7 @@ public class TransportMatrixTests
 
     // ── UPDATE ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>An UPDATE of a POU is ONE WriteXml and nothing else. For the three non-POU writable kinds it is
-    /// one WriteText — they are outside the single-document scope, and this records that plainly rather than
-    /// leaving it to be rediscovered.</summary>
+    /// <summary>An UPDATE is ONE WriteXml and nothing else — for every writable kind.</summary>
     [Theory]
     [MemberData(nameof(Writable))]
     public void Update_uses_exactly_the_matrix_calls(int code, string ext, string src, string[] onUpdate, string[] onCreate)
@@ -95,8 +88,8 @@ public class TransportMatrixTests
 
     // ── CREATE ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A CREATE of a POU is ONE CreateChild (structure) + ONE WriteXml (content). No WriteText for the
-    /// root, no CreateChild+WriteText per child, no orphan walk. Non-POU kinds keep CreateChild + WriteText.</summary>
+    /// <summary>A CREATE is ONE CreateChild (structure) + ONE WriteXml (content), for every writable kind. No
+    /// WriteText for the root, no CreateChild+WriteText per member, no orphan walk.</summary>
     [Theory]
     [MemberData(nameof(Writable))]
     public void Create_uses_exactly_the_matrix_calls(int code, string ext, string src, string[] onUpdate, string[] onCreate)
@@ -146,16 +139,18 @@ public class TransportMatrixTests
 
     // ── the negative half: nothing else may reach the IDE ───────────────────────────────────────────
 
-    /// <summary>The whole point. A POU write must not ALSO run the per-child path — the two coexisting is exactly
-    /// how a body got written twice, by two mechanisms that disagreed. Asserted as an absence over every writable
-    /// kind, with members present so the per-child loop would have something to do if it ran.</summary>
+    /// <summary>The whole point, and it now covers EVERY writable kind rather than only POUs. A document write
+    /// must not ALSO run the per-child path — the two coexisting is exactly how a body got written twice, by two
+    /// mechanisms that disagreed. Asserted as an absence, with members present so the per-child loop would have
+    /// something to do if it ran.
+    /// <para>This used to `return` early for interface/DUT/GVL, because those kinds legitimately still used the
+    /// per-child transport. That exemption is gone — which is the difference between "the new path works" and
+    /// "there is only one path", and only the second one stays true on its own.</para></summary>
     [Theory]
     [MemberData(nameof(Writable))]
-    public void No_per_child_or_accessor_interaction_survives_a_POU_write(int code, string ext, string src, string[] onUpdate, string[] onCreate)
+    public void No_per_child_or_accessor_interaction_survives_a_write(int code, string ext, string src, string[] onUpdate, string[] onCreate)
     {
         _ = (onUpdate, onCreate);
-        if (!IsPou(code)) return;   // non-POU kinds legitimately still use the per-child path (see Update_ above)
-
         var ide = Ide(code, src);
         var refs = RefsService.Handle(ide);
         var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nM := TRUE;\nEND_METHOD\n")

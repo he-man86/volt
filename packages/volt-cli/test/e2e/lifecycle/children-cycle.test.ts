@@ -2,7 +2,7 @@
  *  The delete cases are the regression for the orphan-removal fix (a removed child must not reappear). */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, cleanup, requireHealthy, createItem, updateItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
-import { fb, iface, METHOD, ACTION, PROPERTY } from "../fixtures"
+import { fb, iface, METHOD, ACTION, PROPERTY, ITF_PROPERTY } from "../fixtures"
 
 describe(`lifecycle / children (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -60,9 +60,9 @@ describe(`lifecycle / children (${BASE})`, () => {
 	// which crashes TC — so a get-only interface property must NOT come back with a phantom setter).
 	it("drops an INTERFACE property's SET accessor (GET+SET → GET only)", async () => {
 		const name = id("ch_iacc"), wire = fid("ch_iacc", "itf")
-		await createItem(wire, iface(name, PROPERTY("Ready", true, true)))
+		await createItem(wire, iface(name, ITF_PROPERTY("Ready", true, true)))
 		expect(await fetchSource(wire)).toContain("END_SET")
-		await updateItem(wire, iface(name, PROPERTY("Ready", true, false)))
+		await updateItem(wire, iface(name, ITF_PROPERTY("Ready", true, false)))
 		const s = await fetchSource(wire)
 		expect(s).toContain("END_GET")
 		expect(s).not.toContain("END_SET")
@@ -72,9 +72,9 @@ describe(`lifecycle / children (${BASE})`, () => {
 	// read side stamping both accessors). GET+SET → SET only drops the getter.
 	it("drops an INTERFACE property's GET accessor (GET+SET → SET only)", async () => {
 		const name = id("ch_iacs"), wire = fid("ch_iacs", "itf")
-		await createItem(wire, iface(name, PROPERTY("Ready", true, true)))
+		await createItem(wire, iface(name, ITF_PROPERTY("Ready", true, true)))
 		expect(await fetchSource(wire)).toContain("END_GET")
-		await updateItem(wire, iface(name, PROPERTY("Ready", false, true)))
+		await updateItem(wire, iface(name, ITF_PROPERTY("Ready", false, true)))
 		const s = await fetchSource(wire)
 		expect(s).toContain("END_SET")
 		expect(s).not.toContain("END_GET")

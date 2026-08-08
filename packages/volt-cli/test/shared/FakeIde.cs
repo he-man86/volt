@@ -196,15 +196,22 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         var it = Find(item);
         if (it.Xml != null) return it.Xml;
-        // Auto-generate valid PLCopen XML for POU items — like the real IDE does.
-        // Non-POU items should never reach here (Materializer only calls ReadXml for POUs).
         var ns = "http://www.plcopen.org/xml/tc6_0200";
+
+        // THREE document shapes, one per kind, each mirroring a recorded CODESYS export. A fake that answered a
+        // single <pou> shape for every kind would pass the whole write suite and fail live the moment a DUT or an
+        // interface took the document path — the splice looks for <dataType>/<Interface> and would find neither.
+        // Fixtures: fixtures/codesys-decl/{DUT,GVL}.plcopen.xml, fixtures/codesys-itf/ITF_FolderedMember.plcopen.xml.
+        if (it.KindCode is ItemKind.PlcDut or ItemKind.PlcGvl)
+            return DeclOnlyXml(it, ns);
+        if (it.KindCode == ItemKind.PlcItf)
+            return InterfaceXml(it, ns);
+
         var pouType = it.KindCode switch
         {
             ItemKind.PlcPouProg => "program",
             ItemKind.PlcPouFb => "functionBlock",
             ItemKind.PlcPouFunc => "function",
-            ItemKind.PlcItf => "interface",
             _ => "functionBlock",
         };
         // The layout below MIRRORS a recorded CODESYS export (test/Volt.Engine.Tests/fixtures/codesys-pou/) —
@@ -240,6 +247,48 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                  + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data>";
         xml += "</addData></pou>";
         return xml;
+    }
+
+    /// <summary>A DUT (<c>&lt;dataType&gt;</c> under <c>types/dataTypes</c>) or a GVL
+    /// (<c>&lt;globalVars&gt;</c> under the project's own <c>addData</c>). Both are DECLARATION-ONLY: no
+    /// <c>&lt;body&gt;</c> anywhere, no members. The <c>baseType</c> a real DUT also carries is omitted — it is
+    /// the IDE's to regenerate from the plaintext on import, and inventing one here would model a shape the
+    /// splice never writes.</summary>
+    private static string DeclOnlyXml(Item it, string ns)
+    {
+        var iapt = "<data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">"
+                 + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration ?? "")}</xhtml></InterfaceAsPlainText></data>";
+        return it.KindCode == ItemKind.PlcDut
+            ? $"<project xmlns=\"{ns}\"><types><dataTypes><dataType name=\"{it.Name}\"><addData>{iapt}</addData>"
+              + "</dataType></dataTypes><pous /></types></project>"
+            : $"<project xmlns=\"{ns}\"><types><dataTypes /><pous /></types><addData>"
+              + "<data name=\"http://www.3s-software.com/plcopenxml/globalvars\" handleUnknown=\"implementation\">"
+              + $"<globalVars name=\"{it.Name}\"><addData>{iapt}</addData></globalVars></data></addData></project>";
+    }
+
+    /// <summary>An INTERFACE: <c>&lt;Interface&gt;</c> under the project's own <c>addData</c>, with members in
+    /// plain <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c> containers — NOT in per-member <c>data</c> wrappers
+    /// the way a POU's are, and with no <c>&lt;body&gt;</c> on the interface or on any member. That difference is
+    /// the whole reason the document layer reads placement off the owner element.</summary>
+    private string InterfaceXml(Item it, string ns)
+    {
+        var kids = (it.Children ?? System.Array.Empty<string>())
+            .Select(n => _items.FirstOrDefault(i => i.Name == n)).Where(c => c != null).Select(c => c!).ToList();
+        string Group(string tag, System.Collections.Generic.List<Item> ms) => ms.Count == 0 ? "" :
+            $"<{tag}s>" + string.Join("", ms.Select(m =>
+                $"<{tag} name=\"{m.Name}\"><interface />"
+                + (tag == "Property"
+                    ? "<SetAccessor><interface /></SetAccessor><GetAccessor><interface /></GetAccessor>" : "")
+                + $"<InterfaceAsPlainText><xhtml>{Escape(m.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
+                + $"</{tag}>")) + $"</{tag}s>";
+
+        return $"<project xmlns=\"{ns}\"><types><dataTypes /><pous /></types><addData>"
+             + "<data name=\"http://www.3s-software.com/plcopenxml/interface\" handleUnknown=\"implementation\">"
+             + $"<Interface name=\"{it.Name}\">"
+             + Group("Method", kids.Where(c => c.KindCode is not (ItemKind.PlcProp or ItemKind.PlcItfProp)).ToList())
+             + Group("Property", kids.Where(c => c.KindCode is ItemKind.PlcProp or ItemKind.PlcItfProp).ToList())
+             + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
+             + "</Interface></data></addData></project>";
     }
 
     /// <summary>A <c>&lt;body&gt;</c> in the vendors' shape: ST text in an inner <c>&lt;xhtml&gt;</c> (which is

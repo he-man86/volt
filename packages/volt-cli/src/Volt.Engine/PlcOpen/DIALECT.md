@@ -199,11 +199,42 @@ beside it. That decoy is what made a direct-children scan answer `"ST"` for a CF
 child in place (byte-identity on no-op); FBD/LD/SFC replace the whole element (the name is the language, and the
 language can change); CFC reads from `addData` and refuses to write.
 
-**Kinds with NO body element at all:** interface, DUT (incl. enum), GVL — measured. The locator must tolerate an
-absent body rather than assume one.
+**Kinds with NO body element at all:** interface, DUT (incl. enum, alias and union), GVL — measured. The locator
+must tolerate an absent body rather than assume one.
 
 A document legitimately mixes languages: `POU_SfcRoot_StFbdMethods` is one file carrying an SFC root, an ST method
 and an FBD method.
+
+## The ITEM SHAPE table — where the item element itself lives, and where its members go
+
+The second per-kind axis, and the one that let every writable kind join the single-document write. Same source as
+above: measured on CODESYS 3.5.21.40 (probes 13–16), every row with a committed fixture.
+
+| kind | item element | members | body |
+|---|---|---|---|
+| program / function / functionBlock | `types/pous/pou` | `addData/data[…/method\|property]`, actions in `<actions>` | yes |
+| **interface** | `addData/data[…/interface]/Interface` | **`<Methods>` / `<Properties>`** — plain containers, no `data` wrapper | **no** |
+| DUT — struct, enum, **alias** | `types/dataTypes/dataType` | none | no |
+| **DUT — union** | **`addData/data[…/union]/union`** | none | no |
+| GVL | `addData/data[…/globalvars]/globalVars` | none | no |
+
+The division is the SCHEMA's, not a vendor whim: **`pou` and `dataType` are TC6 elements** — and a struct, an enum
+and an alias are all a `baseType`, which is why three DUT flavours share one element. **A union, an interface and a
+global variable list have no TC6 equivalent at all**, so CODESYS puts each in its own vendor `addData` block —
+exactly the treatment CFC gets in the body table above, for exactly the same reason.
+
+Two things measured here after being inferred wrongly, both of which passed every offline test and failed live:
+
+- **"A union is a DUT, so it is a `<dataType>`."** It is not; it is `<union>`. The push failed with *"document has
+  no `<pou>`, `<Interface>`, `<dataType>` or `<globalVars>`"*. Fixture: `codesys-decl/VltProbeUnion.plcopen.xml`.
+- **`<Property>` pluralises to `<Properties>`, not `<Propertys>`.** The importer does not reject an unrecognised
+  container — it **silently drops the member inside it**, so the push reported success and the property never
+  existed. That is the failure mode to expect from this importer generally: wrong shape ⇒ silence, not an error.
+
+What the importer does NOT care about (measured, probe 15/16, so do not add ceremony for it): a spliced `<Method>`
+lands with a bare `<interface/>` and no `returnType`; an interface `<Property>` lands with or without `<body>`
+elements on its accessors. We still emit the vendor's own shape — no body on an interface accessor — because
+emitting an element the format does not have there is a claim we cannot support, not because it is rejected.
 
 ## The extension point, deliberately NOT built
 

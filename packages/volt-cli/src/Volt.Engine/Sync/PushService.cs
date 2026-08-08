@@ -504,17 +504,22 @@ public static class PushService
         }
     }
 
-    /// <summary>Only a POU (program/function/function_block) is written as one PLCopen document. A DUT/GVL has no
-    /// children to reconcile and no <c>&lt;body&gt;</c> at all in its export (measured), and an INTERFACE exports
-    /// in a different shape entirely (no <c>&lt;pou&gt;</c> element — its members hang off
-    /// <c>addData/Interface</c>), so neither is in scope.</summary>
     private static bool IsPou(int itemType) =>
         itemType is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb;
 
     /// <summary>Whether THIS item, on THIS driver, takes the single-document write. The one predicate the create,
-    /// update and move paths all ask, so they cannot drift apart about which items it covers.</summary>
+    /// update and move paths all ask, so they cannot drift apart about which items it covers.
+    /// <para>EVERY writable kind, not just POUs. PLCopen import/export is defined for all of them and all four
+    /// were measured to round-trip on CODESYS 3.5.21.40 — an interface (members in <c>Methods</c>/<c>Properties</c>
+    /// rather than <c>addData/data</c>, and an added member IS created by the merge), a DUT, an enum DUT with its
+    /// pragmas intact, and a GVL. The three shapes differ only in where members live and whether there is a
+    /// <c>&lt;body&gt;</c>, which the document layer reads off the owner element.</para>
+    /// <para>What this leaves behind is the point: on a driver that writes one document there is now exactly ONE
+    /// way an item's content reaches the IDE. The per-child <c>WriteText</c>/<c>CreateChild</c> loop below it runs
+    /// only for a driver that does not (TwinCAT, whose import is still unmeasured — D1–D4 in DIALECT.md).</para></summary>
     private static bool OneDocument(IIdeDriver ide, int itemType) =>
-        ide.WritesPouAsOneDocument && IsPou(itemType);
+        ide.WritesPouAsOneDocument &&
+        (IsPou(itemType) || itemType is ItemKind.PlcItf or ItemKind.PlcDut or ItemKind.PlcGvl);
 
     /// <summary>Put the POU's children back in their folders after the merge import flattened them.
     /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's

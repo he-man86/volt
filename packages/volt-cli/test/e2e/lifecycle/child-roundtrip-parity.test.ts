@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
-import { fb, iface, METHOD, ACTION, PROPERTY } from "../fixtures"
+import { fb, iface, METHOD, ACTION, PROPERTY, ITF_PROPERTY } from "../fixtures"
 
 // A bodiless interface method (interfaces declare signatures only).
 const ITF_METHOD = (n: string) => `METHOD ${n} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nEND_METHOD\n`
@@ -26,7 +26,7 @@ const CASES: Case[] = [
 	{ desc: "FB + ACTION", wire: fid("cp_fba"), src: fb(id("cp_fba"), { children: ACTION("Act1") }) },
 	{ desc: "FB + PROPERTY", wire: fid("cp_fbp"), src: fb(id("cp_fbp"), { children: PROPERTY("Speed") }) },
 	{ desc: "INTERFACE + METHOD", wire: fid("cp_itm", "itf"), src: iface(id("cp_itm"), ITF_METHOD("Go")) },
-	{ desc: "INTERFACE + PROPERTY", wire: fid("cp_itp", "itf"), src: iface(id("cp_itp"), PROPERTY("Ready", true, false)) },
+	{ desc: "INTERFACE + PROPERTY", wire: fid("cp_itp", "itf"), src: iface(id("cp_itp"), ITF_PROPERTY("Ready", true, false)) },
 ]
 
 /** Delete each name with its /refs version, falling back to the UNREADABLE sentinel so a dropped/invisible

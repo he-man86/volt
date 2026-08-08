@@ -68,8 +68,15 @@ namespace Volt.Engine.PlcOpen
         public static string SetBody(string xml, string itemName, string bodyText)
         {
             var doc = XDocument.Parse(xml);
-            var body = PlcOpenDocument.ItemBody(doc, itemName)
-                ?? throw new InvalidOperationException($"PLCopen export for '{itemName}' has no <body>");
+            var body = PlcOpenDocument.ItemBody(doc, itemName);
+            if (body is null)
+                // An interface, a DUT and a GVL have NO <body> in their document — they carry a declaration and
+                // nothing else. Pushing no code to one is the ordinary case and writes nothing; pushing code IS
+                // an error and says so, rather than silently discarding it. (Not a fallback: the two outcomes are
+                // different requests, and only one of them is unsatisfiable.)
+                return string.IsNullOrEmpty(bodyText) ? xml
+                    : throw new InvalidOperationException(
+                        $"'{itemName}' has no <body> in its PLCopen document — this kind carries no code of its own");
 
             var pushed = Graphical.BodyCodec.For(Graphical.NetworkText.LanguageOf(bodyText) ?? "ST");
             // A body recording NO language decision (a blank ST — what a fresh POU is created with) counts as no
@@ -120,6 +127,10 @@ namespace Volt.Engine.PlcOpen
                 ?.Name.LocalName;
 
         private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
+
+        /// <summary>Is this owner an INTERFACE? Both vendors export one as an <c>&lt;Interface&gt;</c> element with
+        /// no <c>&lt;pou&gt;</c> anywhere — so the element name is the kind, and no caller has to pass one in.</summary>
+        private static bool IsInterface(XElement owner) => owner.Name.LocalName == "Interface";
 
         /// <summary>Add a child MEMBER that is not in the document yet, built to the vendors' shape:
         /// <code>
@@ -184,7 +195,10 @@ namespace Volt.Engine.PlcOpen
             };
 
             var member = new XElement(ns + elementName, new XAttribute("name", childName), new XElement(ns + "interface"));
-            if (elementName == "Method") member.Add(Body(bodyText ?? ""));
+            // An INTERFACE's method is a SIGNATURE — it has no body in the document (measured: CODESYS exports
+            // Interface/Methods/Method as interface + InterfaceAsPlainText, no <body>), and the IDE has no slot to
+            // put one in. Emitting an empty one would invent an element the vendor never produces.
+            if (elementName == "Method" && !IsInterface(owner)) member.Add(Body(bodyText ?? ""));
             if (elementName == "Property")
             {
                 // A property's CODE lives in its accessors, not on itself, so `bodyText` is the accessor set:
@@ -195,22 +209,50 @@ namespace Volt.Engine.PlcOpen
                 // type is in the plaintext declaration (`PROPERTY X : INT`), and deriving the typed element from
                 // ST needs an elementary-vs-derived type table — the generation this change exists to avoid.
                 // Whether the IDE accepts that is the LIVE gate's question, not something the parser can answer.
+                // An INTERFACE property's accessors are signatures — no <body>, matching the vendor's own export.
+                // (Measured: the importer accepts one either way, so this is about not emitting an element the
+                // format does not have there, rather than about being rejected.)
                 foreach (var acc in new[] { "GetAccessor", "SetAccessor" })
-                    member.Add(new XElement(ns + acc, new XElement(ns + "interface"), Body("")));
+                    member.Add(IsInterface(owner)
+                        ? new XElement(ns + acc, new XElement(ns + "interface"))
+                        : new XElement(ns + acc, new XElement(ns + "interface"), Body("")));
             }
             if (!string.IsNullOrEmpty(declaration)) member.Add(Text("InterfaceAsPlainText", declaration!));
 
-            // Members hang off the OWNER's own <addData>, one <data> wrapper each.
-            var ownAddData = owner.Elements().LastOrDefault(e => e.Name.LocalName == "addData");
-            if (ownAddData is null)
+            // WHERE a member goes is the one thing that differs per KIND, and it is the whole reason the document
+            // covers more than POUs now. An INTERFACE groups its members in plain <Methods>/<Properties>
+            // containers; a POU hangs each off its own <addData>/<data> wrapper. Same member element, two homes —
+            // read off the owner, because the owner element IS the kind.
+            if (IsInterface(owner))
             {
-                ownAddData = new XElement(ns + "addData");
-                owner.Add(ownAddData);
+                // Method → Methods, Property → PROPERTIES. Naive "+ s" produced <Propertys>, and the importer
+                // does not complain about a container it does not recognise — it silently drops the member
+                // inside it. The push then reported success while the property never existed, which is why the
+                // group name is spelled out per kind rather than derived.
+                var group = elementName == "Property" ? "Properties" : elementName + "s";
+                var container = owner.Elements().FirstOrDefault(e => e.Name.LocalName == group);
+                if (container is null)
+                {
+                    container = new XElement(ns + group);
+                    // Both containers precede the interface's own InterfaceAsPlainText, which stays last.
+                    var iapt = owner.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+                    if (iapt is not null) iapt.AddBeforeSelf(container); else owner.Add(container);
+                }
+                container.Add(member);
             }
-            ownAddData.Add(new XElement(ns + "data",
-                new XAttribute("name", ThreeS + dataName),
-                new XAttribute("handleUnknown", "implementation"),
-                member));
+            else
+            {
+                var ownAddData = owner.Elements().LastOrDefault(e => e.Name.LocalName == "addData");
+                if (ownAddData is null)
+                {
+                    ownAddData = new XElement(ns + "addData");
+                    owner.Add(ownAddData);
+                }
+                ownAddData.Add(new XElement(ns + "data",
+                    new XAttribute("name", ThreeS + dataName),
+                    new XAttribute("handleUnknown", "implementation"),
+                    member));
+            }
             return PlcOpenDocument.Serialize(doc);
         }
 
@@ -258,13 +300,27 @@ namespace Volt.Engine.PlcOpen
                 changed = true;
             }
 
-            var body = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
-            if (body is null) { body = new XElement(ns + "body"); acc.Add(body); changed = true; }
-            var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
-            if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); changed = true; }
-            var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-            if (innerBody is null) { if (st.Value != code) { st.ReplaceNodes(new XElement(xh + "xhtml", code)); changed = true; } }
-            else if (innerBody.Value != code) { innerBody.ReplaceNodes(code); changed = true; }
+            // An INTERFACE accessor is a signature and has no body anywhere in the vendor's export. `code` is ""
+            // for one — a getter that EXISTS but holds no code, which is the whole reason null and "" stay
+            // distinct on this path. Anything else is a caller writing code where the format has nowhere to put
+            // it, and that is worth failing over rather than dropping.
+            if (IsInterface(prop.Ancestors().First(a => a.Name.LocalName is "Interface" or "pou")))
+            {
+                if (!string.IsNullOrEmpty(code))
+                    throw new InvalidOperationException(
+                        $"interface property '{propertyName}' cannot carry {(getter ? "getter" : "setter")} code — " +
+                        "an interface accessor is declaration-only");
+            }
+            else
+            {
+                var body = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
+                if (body is null) { body = new XElement(ns + "body"); acc.Add(body); changed = true; }
+                var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
+                if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); changed = true; }
+                var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
+                if (innerBody is null) { if (st.Value != code) { st.ReplaceNodes(new XElement(xh + "xhtml", code)); changed = true; } }
+                else if (innerBody.Value != code) { innerBody.ReplaceNodes(code); changed = true; }
+            }
 
             if (declaration is not null)
             {
