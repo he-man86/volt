@@ -145,3 +145,35 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 - §5 TwinCAT measurement, and deleting `ICodeStore.WritesPouAsOneDocument` — gated on it.
 - `PlcOpenTransport.ReplaceByReimport`'s unguarded restore (a known TwinCAT-only data-safety defect: if the
   restore throws, the primary exception is lost and the item stays deleted).
+
+## 7. Close-out
+
+- [x] **Complete.** Final gate: Release build clean, **Engine 400 / Cli 124 / Connector 80** offline, live CODESYS
+      e2e **98 pass / 8 skip / 0 fail** (the post-§3.1b baseline, unchanged by the restructure), `bun run check`
+      14/14.
+
+**What actually shipped, against what was proposed:**
+
+| Proposed | Outcome |
+|---|---|
+| Move PLCopen out of `Graphical/` | Done — `Volt.Engine.PlcOpen` with `PouReader`, `PouSplice`, `PlcOpenDocument` |
+| Split `PlcOpenDocument`'s four tenants | Done — plus `Graphical/GraphicalBodySplice` and `Workspace/SourceText/InstanceTypes` |
+| Kill both wrong-direction dependencies | Done — `PouMember` replaced `ItemKind` at the boundary; the `GraphConstants` edge vanished with `ValidateExisting` |
+| No dialect abstraction | Held — and vindicated: the two shapes turned out IDENTICAL where it mattered |
+| A two-vendor fixture matrix instead | Done — and it closed the two largest unknowns |
+
+**Three things the surveys predicted and the work confirmed**, worth keeping for the next restructure:
+
+1. §3.3's stated expectation was WRONG, and saying so is the point. Removing the `ItemKind` dependency did not
+   free `PouSplice` from the wire-vocabulary guard — the file still holds `"Method"`/`"action"` as XML ELEMENT
+   names. One exempt file became three. The rule did not change; the file count did.
+2. The defects found while surveying were worth more than the move. The CFC one was a live, latent
+   read-and-write bug that every offline fixture was blind to.
+3. Doing behaviour first and layout second was right. §1 turned two of my own tests red for the correct reason;
+   had that landed inside the rename commit it would have looked like rename fallout.
+
+**Still open, deliberately** (each named in `proposal.md` §"NOT in scope"): extending the single-document write to
+CREATE and MOVE — the seam this whole programme exists to remove is still the entire create path, where a push
+that creates an FB with 5 methods still issues ~12 COM writes; collapsing the two splice-and-import
+implementations; and §5 of `pou-writes-via-plcopen` (TwinCAT's IMPORT, D1–D4 in `DIALECT.md`), which no export
+can answer and which gates deleting `ICodeStore.WritesPouAsOneDocument`.
