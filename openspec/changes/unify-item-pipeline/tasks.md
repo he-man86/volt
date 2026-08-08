@@ -1,6 +1,6 @@
 # Tasks
 
-Every step holds Engine **493** offline (433 when this was written), CLI 124, connector 80, and live CODESYS
+Every step holds Engine **533** offline (433 when this was written), CLI 124, connector 80, and live CODESYS
 e2e **99 pass / 8 skip / 0 fail**. The live run is the gate, and it earned that four separate times below —
 every entry under "what the live gate caught" passed the entire offline suite first.
 
@@ -73,12 +73,29 @@ differently from the vendor tests only our own tolerance.**
 `<pou>` for every kind, so the last two of those are catchable offline now.
 
 
+- [x] **Driver thinning.** Not a rewrite — the reasoning against one held, and is worth keeping: zero C# tests
+      executed a line of either driver, CODESYS reaches the IDE through reflected string literals so a rename has
+      no compiler check, and the only oracle is a live run that is not CI. What moved up is what was pure,
+      duplicated, or both, and every piece has tests it never had.
+      - **`Ide/ItemLookup`** — and this one was a BUG, not tidying. Two walks, two answers: CODESYS matched
+        case-SENSITIVELY (so on a cache miss, pushing `fb_motor` at an IDE holding `FB_Motor` created a second
+        object) and matched ANY node at any depth (so a METHOD could answer for a POU of the same name), while
+        TwinCAT did neither. `IProjectTree` loses the member entirely: finding an item by name is a walk over
+        four members it already has.
+      - **`Workspace/Descriptor`** — the format half of six renderers producing hashed wire bytes with zero
+        fixtures. The three padding rules (fixed 14, fixed 11, widest-declared-label + 2) are preserved EXACTLY;
+        unifying them would re-flow files in every user's repo. The vendor half stays in the driver.
+      - **`Wire/Severity`** — one mapping to the wire's error/warning/info, which `BuildService` counts on.
+        Build SUCCESS is deliberately not unified: CODESYS derives it from the diagnostics, TwinCAT reads
+        `SolutionBuild.LastBuildInfo` — two vendor signals, not two copies of one rule.
+      - **`Ide/BridgeLog`** — the both-sinks write (five hand-written copies, three repeating the same paragraph
+        about why one sink is not enough) and the warn-ONCE-per-key idiom (two).
+      - **`FakeIde` models a real TREE now** (root → folders → items) instead of a flat list with a dictionary
+        lookup. Without it, moving a walk into Engine buys testability that does not exist.
+      - **The counts in the original scope did not all reproduce**: the "warn-once idiom, three copies" was two,
+        and `dirty` turned out to be one property read per driver with nothing shared to lift.
+
 ## Not done
 
-- [ ] **Driver thinning** — move the six descriptor renderers + `Unitize`, diagnostic severity/line/column
-      parsing, the build-success criterion, the warn-once idiom and the `Lookup`/`dirty` semantics up into
-      Engine. The drivers are **not** to be rewritten: zero C# tests execute either one, CODESYS reaches the IDE
-      through reflected string literals so a rename has no compiler check, and the only oracle is a live run that
-      is not CI.
 - [ ] **TwinCAT.** `WritesPouAsOneDocument` is still false there and D1–D4 in `DIALECT.md` are still unmeasured,
       so TwinCAT keeps the per-child transport — which is now the ONLY thing keeping that code alive.
