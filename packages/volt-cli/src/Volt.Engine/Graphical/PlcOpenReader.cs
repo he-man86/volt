@@ -12,15 +12,21 @@ namespace Volt.Engine.Graphical
     /// </summary>
     public static class PlcOpenReader
     {
-        /// <param name="language">Override the language read from the element name — TwinCAT creates an LD POU
-        /// as FBD (the ladder view lives as DefaultViewMode metadata in the NWL archive, see
-        /// <c>TcObjectModel.CreateChild</c>), so a not-yet-populated LD body exports inside an
-        /// <c>&lt;FBD&gt;</c> element; the COM body-language is authoritative. (A POPULATED TwinCAT LD body does
-        /// export as <c>&lt;LD&gt;</c> with real contacts/coils — it is not wrapped in <c>&lt;FBD&gt;</c>.)</param>
-        public static GraphBody ReadBody(XElement fbdOrLd, string? language = null)
+        /// <summary>The language is the BODY ELEMENT's own name. There used to be an override parameter here,
+        /// documented as carrying the vendor's COM body-language for one case: TwinCAT creates an LD POU as FBD
+        /// (the ladder view lives as <c>DefaultViewMode</c> in the NWL archive, see <c>TcObjectModel.CreateChild</c>),
+        /// so a not-yet-populated LD body exports inside an <c>&lt;FBD&gt;</c> element.
+        /// <para><b>It never carried anything.</b> Every caller — production and test — either omitted it or passed
+        /// the element's own local name, so the override was a no-op everywhere and the case it documented was
+        /// never actually handled. Threading a real COM language in would cost a per-item vendor call on the read
+        /// path (a full export on CODESYS, ~20 ms vs ~1 ms) to fix an EMPTY body's label. Not worth it: the gap is
+        /// recorded in <c>DIALECT.md</c> instead of being papered over by a parameter nobody passes.</para>
+        /// <para>A POPULATED TwinCAT LD body does export as <c>&lt;LD&gt;</c> with real contacts and coils, which
+        /// is why this has never been observed as a user-visible bug.</para></summary>
+        public static GraphBody ReadBody(XElement fbdOrLd)
         {
             var ns = fbdOrLd.Name.Namespace;
-            var lang = (language ?? fbdOrLd.Name.LocalName).ToUpperInvariant();
+            var lang = fbdOrLd.Name.LocalName.ToUpperInvariant();
             var networks = new List<GraphNetwork>();
 
             // Split into networks. FBD strides localIds (network index = localId / 10^10); TwinCAT's LD export

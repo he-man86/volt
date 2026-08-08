@@ -125,7 +125,7 @@ public static class Materializer
     {
         if (lang == null || bodyEl == null) return null;
         if (lang is "FBD" or "LD")
-            return GraphicalCode.RenderBody(bodyEl, lang);
+            return GraphicalCode.RenderBody(bodyEl);
         if (lang is "CFC" or "SFC")
             return GraphicalBodyMarker(lang);
         var text = bodyEl.Value.Trim();

@@ -46,9 +46,11 @@ namespace Volt.Engine.Graphical
             // prior stale-read bug). A well-formed textual POU returns null below.
             var body = ItemBody(XDocument.Parse(xml), itemName);
             if (body is null) return null;
-            foreach (var e in body.Elements())
-                if (e.Name.LocalName is "FBD" or "LD" or "CFC" or "SFC") return e.Name.LocalName;
-            return null;
+            // Delegates to the parser's ONE lookup rather than re-scanning direct children here. It used to do the
+            // latter, and so answered null for a CODESYS CFC body — which nests under <body>/<addData> and carries
+            // an empty sibling <ST>. This IS the driver's `BodyLanguage`, i.e. the signal the read-only-CFC push
+            // refusal reads, so "textual" was the one wrong answer it could give.
+            return PlcOpenPouParser.GraphicalLanguageOf(body);
         }
 
         /// <summary>The POU's declaration, read from the exported PLCopen's <c>interfaceasplaintext</c>
@@ -143,11 +145,12 @@ namespace Volt.Engine.Graphical
             // would have slipped past a graphical-only guard, then been silently replaced by the `body.RemoveNodes()`
             // below: a language change the caller never asked for and the user never sees. The six languages are
             // the same set PlcOpenPouParser knows; anything present that isn't ST is someone else's body.
-            var existingLang = body.Elements()
-                .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC");
-            if (existingLang is not null)
+            // NestedBodyLanguage, not a direct-children scan: a CODESYS CFC body hangs off <body>/<addData> and
+            // carries an empty sibling <ST>, so a direct scan saw only the <ST> and let a textual write through
+            // onto a read-only diagram — the exact flattening this guard exists to stop.
+            if (NonStBodyLanguage(body) is { } existingLang)
                 throw new InvalidOperationException(
-                    $"'{itemName}' has a {existingLang.Name.LocalName} body — a textual (ST) write would replace it");
+                    $"'{itemName}' has a {existingLang} body — a textual (ST) write would replace it");
 
             var ns = body.Name.Namespace;
             var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
@@ -198,6 +201,18 @@ namespace Volt.Engine.Graphical
         /// <c>&lt;xhtml /&gt;</c> re-serialization.</summary>
         private static string Serialize(XDocument doc) =>
             doc.Declaration is null ? doc.ToString() : doc.Declaration + System.Environment.NewLine + doc.ToString();
+
+        /// <summary>The body's language when it is anything other than ST, else null — the ONE refusal predicate
+        /// both textual writers share. IL counts: it is textual but it is not ST, and a graphical-only guard once
+        /// let it through to be silently rewritten as ST. Looks in <c>&lt;body&gt;/&lt;addData&gt;</c> as well as
+        /// the direct children, because that is where CODESYS puts a CFC diagram.</summary>
+        private static string? NonStBodyLanguage(XElement body) =>
+            body.Elements()
+                .Concat(body.Elements().Where(e => e.Name.LocalName == "addData")
+                    .SelectMany(a => a.Elements().Where(d => d.Name.LocalName == "data"))
+                    .SelectMany(d => d.Elements()))
+                .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC")
+                ?.Name.LocalName;
 
         private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
 
@@ -409,13 +424,11 @@ namespace Volt.Engine.Graphical
             {
                 var body = member.Elements().FirstOrDefault(e => e.Name.LocalName == "body")
                     ?? throw new InvalidOperationException($"child '{childName}' of '{itemName}' has no <body>");
-                // Same rule as SetTextualBody: refuse ANY non-ST body language, IL included. A graphical-only
-                // guard let IL through to the RemoveNodes below, silently changing the child's language.
-                var existingLang = body.Elements()
-                    .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC");
-                if (existingLang is not null)
+                // Same rule as SetTextualBody, including the nested lookup — a CFC METHOD child is the shape that
+                // first exposed the direct-children blind spot.
+                if (NonStBodyLanguage(body) is { } existingLang)
                     throw new InvalidOperationException(
-                        $"child '{childName}' has a {existingLang.Name.LocalName} body — a textual (ST) write would replace it");
+                        $"child '{childName}' has a {existingLang} body — a textual (ST) write would replace it");
                 var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
                 if (st is null)
                 {

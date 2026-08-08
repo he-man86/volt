@@ -235,6 +235,17 @@ namespace Volt.Engine.Graphical
             {
                 long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / GraphConstants.NetworkStride : 0);
                 var ctx = new LdCtx(root, net, resolveType, netIndex);
+                // The network's COMMENT precedes its title marker — the shape both vendors emit (recorded:
+                // tc-ld/ld_four_networks_shared_rails.plcopen.xml:33, a <comment> then a <vendorElement>), and the
+                // order PlcOpenReader.SplitNetworks expects. Without this the ladder writer silently DELETED an
+                // engineer's network comment on every push: the reader folds it into the network, `SafeToDrop`
+                // lets the splice remove the original, and nothing put it back. FBD has always re-emitted it.
+                if (!string.IsNullOrEmpty(net.Comment))
+                    root.Add(new XElement(Ns + "comment",
+                        new XAttribute("localId", ctx.Mint()), new XAttribute("height", 0), new XAttribute("width", 0),
+                        Pos(row++),
+                        // TC6 comment content is xhtml, not plain text — CODESYS rejects bare text.
+                        new XElement(Ns + "content", new XElement(Xhtml + "xhtml", net.Comment))));
                 root.Add(NetworkTitle(ctx.Mint(), Pos(row++)));   // delimits this network — the reader splits here
                 foreach (var node in net.Nodes)
                 {

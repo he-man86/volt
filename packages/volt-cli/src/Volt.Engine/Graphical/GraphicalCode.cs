@@ -41,15 +41,15 @@ public static class GraphicalCode
         var fbd = PlcOpenDocument.FindFbdLdBody(xml, itemName)
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body for '{itemName}'");
-        return new GraphicalBody(lang, RenderBody(fbd, lang), decl);
+        return new GraphicalBody(lang, RenderBody(fbd), decl);
     }
 
     /// <summary>Render an FBD/LD body element to canonical VG text. The shared single-source-of-truth used by
     /// both <see cref="Read"/> (old COM path) and <see cref="Materializer.BuildPouFromXml"/> (new XML path),
     /// guaranteeing identical output for the same body element regardless of which path produced it.</summary>
-    public static string RenderBody(System.Xml.Linq.XElement bodyElement, string language)
+    public static string RenderBody(System.Xml.Linq.XElement bodyElement)
     {
-        var graph = PlcOpenReader.ReadBody(bodyElement, language);
+        var graph = PlcOpenReader.ReadBody(bodyElement);
         return VgWriter.Write(graph);
     }
 

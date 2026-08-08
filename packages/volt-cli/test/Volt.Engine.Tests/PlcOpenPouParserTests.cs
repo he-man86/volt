@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Volt.Engine.Graphical;
 using Xunit;
@@ -155,6 +156,24 @@ public class PlcOpenPouParserTests
         Assert.Equal("CFC", result.BodyLanguage);
         Assert.NotNull(result.BodyElement);
         Assert.Empty(result.Children);
+    }
+
+    /// <summary>REGRESSION — the synthetic `&lt;body&gt;&lt;CFC/&gt;&lt;/body&gt;` above is a shape NO recorded
+    /// export produces. CODESYS nests a real CFC body under
+    /// <c>&lt;body&gt;&lt;ST/&gt;&lt;addData&gt;&lt;data name="…/cfc"&gt;&lt;CFC&gt;</c> — an EMPTY sibling
+    /// <c>&lt;ST&gt;</c> and the diagram in an addData. Scanning only DIRECT children of <c>&lt;body&gt;</c>
+    /// therefore finds the <c>&lt;ST&gt;</c> first and reports a graphical body as TEXTUAL, which is how a
+    /// read-only CFC body slips past the guard that exists to protect it.
+    /// <para>Run against the RECORDED fixture, not synthetic XML — that is the whole point of the bug.</para></summary>
+    [Fact]
+    public void A_CODESYS_CFC_body_nested_in_addData_reads_as_CFC_not_ST()
+    {
+        var xml = File.ReadAllText(Path.Combine(
+            System.AppContext.BaseDirectory, "fixtures", "codesys-pou", "FB_GraphicalChild.plcopen.xml"));
+
+        var method = PlcOpenPouParser.Parse(xml).Children.Single(c => c.Name == "doSomething");
+
+        Assert.Equal("CFC", method.BodyLanguage);
     }
 
     [Fact]

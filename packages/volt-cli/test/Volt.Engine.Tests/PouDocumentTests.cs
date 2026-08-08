@@ -86,25 +86,28 @@ public class PouDocumentTests
 
     // ── the guarantee that makes splicing safer than regenerating ──────────────────────────────────
 
-    /// <summary>A CFC child's body is carried through UNTOUCHED by a write to its enclosing POU. This is the
-    /// first of the three data-loss bugs, in its exact original shape — a read-only graphical child flattened
-    /// because the write path decided from text. The child is declaration-only in the push (its body has no text
-    /// form), and its graphical body must still be byte-identical afterwards.</summary>
+    /// <summary>A textual write that would land on a CFC child is REFUSED, and the refusal NAMES the child.
+    /// <para>This is the first of the three data-loss bugs in its exact original shape — a read-only graphical
+    /// child flattened because the write path decided from text. The refusal is what makes the flattening
+    /// impossible; asserting that the bytes happen to survive would only prove the write missed.</para>
+    /// <para>It was previously written the other way — pushing the child with body <c>""</c> and asserting the CFC
+    /// block came back byte-identical — and it PASSED, because the guard scanned only direct <c>&lt;body&gt;</c>
+    /// children and never saw the CFC nested in <c>addData</c>. A test that green-lights a write onto a read-only
+    /// diagram is worse than no test.</para></summary>
     [Fact]
-    public void A_CFC_child_body_survives_a_write_to_its_parent()
+    public void A_textual_write_onto_a_CFC_child_is_refused()
     {
         var xml = Fixture("FB_GraphicalChild.plcopen.xml");
-        var before = Cfc(xml);
-        Assert.NotEmpty(before);   // the fixture really does carry one — else this test proves nothing
+        Assert.NotEmpty(Cfc(xml));   // the fixture really does carry one — else this test proves nothing
 
-        var doc = PouDocument.Splice(xml, "FB_GraphicalChild",
+        var ex = Assert.Throws<System.InvalidOperationException>(() => PouDocument.Splice(xml, "FB_GraphicalChild",
             Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
                   "//new parent body",
                   new StSplitter.StChild(ItemKind.Kinds.Method, "doSomething",
-                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "")));
+                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", ""))));
 
-        Assert.Contains("//new parent body", doc);
-        Assert.Equal(before, Cfc(doc));
+        Assert.Contains("doSomething", ex.Message);
+        Assert.Contains("CFC", ex.Message);
     }
 
     /// <summary>A no-op splice returns the document UNCHANGED — the property the whole approach rests on. If a
@@ -131,11 +134,11 @@ public class PouDocumentTests
         var xml = Fixture("FB_TwoDeclCopies.plcopen.xml");
         Assert.Equal(2, Copies(xml, "bProbe : BOOL;"));   // the fixture really does carry two — else this proves nothing
 
+        // Straight at SetDeclaration, not through Splice: this fixture also carries the CFC method child, and a
+        // whole-POU splice is (correctly) refused because of it. The invariant under test is the declaration
+        // write, so drive that member directly rather than weakening the CFC refusal to reach it.
         var without = "FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n";
-        var doc = PouDocument.Splice(xml, "FB_GraphicalChild",
-            Split(without, "//body",
-                new StSplitter.StChild(ItemKind.Kinds.Method, "doSomething",
-                    "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "")));
+        var doc = PlcOpenDocument.SetDeclaration(xml, "FB_GraphicalChild", without);
 
         Assert.Equal(0, Copies(doc, "bProbe : BOOL;"));
     }

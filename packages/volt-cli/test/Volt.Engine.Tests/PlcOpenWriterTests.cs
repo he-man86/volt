@@ -125,6 +125,34 @@ public class PlcOpenWriterTests
         Assert.True((long)comment.Attribute("localId")! / 10_000_000_000L == 0);     // in network 0 (with the content)
     }
 
+    /// <summary>REGRESSION: an LD network's comment must survive a push. The ladder writer never emitted one —
+    /// the reader folds a comment into its network, <c>SafeToDrop</c> lets the splice remove the original, and
+    /// nothing put it back, so pushing an LD body silently DELETED the engineer's network comments. FBD has
+    /// always re-emitted them; only LD was missing it.
+    /// <para>Position matters as well as presence: the comment precedes its <c>networktitle</c> marker, which is
+    /// the shape both vendors emit (recorded in <c>tc-ld/ld_four_networks_shared_rails.plcopen.xml</c>) and the
+    /// order <c>PlcOpenReader.SplitNetworks</c> reads back.</para></summary>
+    [Fact]
+    public void An_LD_network_comment_survives_the_round_trip()
+    {
+        var g = new GraphBody("LD", new[]
+        {
+            new GraphNetwork(0, null, "rung one", false, new GraphNode[]
+            {
+                new InVar(1, null, "a", Mods.None),
+                new OutVar(2, null, "q", Mods.None, new Conn(1, null)),
+            }),
+        });
+
+        var ld = PlcOpenWriter.WriteBody(g);
+        var kids = ld.Elements().Select(e => e.Name.LocalName).ToList();
+        Assert.Contains("comment", kids);
+        Assert.True(kids.IndexOf("comment") < kids.IndexOf("vendorElement"), "the comment precedes its network title");
+        Assert.Equal("rung one", ld.Elements().First(e => e.Name.LocalName == "comment").Value.Trim());
+
+        Assert.Equal("rung one", PlcOpenReader.ReadBody(ld).Networks.Single().Comment);   // and it reads back
+    }
+
     /// <summary>A single-use operator result is INLINED into its consumer (valid ST: `out := (a OR b)`),
     /// never carrying a `.Out1` pin suffix (member access on a BOOL isn't ST). FB-instance outputs keep
     /// their pin (`t1.Q`). On write the operator's output pin is re-derived so the connection stays named.</summary>

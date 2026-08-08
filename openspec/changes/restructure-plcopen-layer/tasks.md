@@ -23,18 +23,21 @@ Hard constraints, both verified:
 
 A rename commit must not carry a behaviour change. Each of these lands, with its own test, BEFORE anything moves.
 
-- [ ] 1.1 **CFC body classified as textual.** Add tolerance for the nested shape
+- [x] 1.1 **DONE — CFC body classified as textual.** Add tolerance for the nested shape
       (`<body>/<addData>/<data name="…/cfc">/<CFC>`) to the body-language lookup and to `GraphicalBodyLang`.
       Regression test over the RECORDED `codesys-pou/FB_GraphicalChild.plcopen.xml`, asserting the language reads
       as `CFC` and that a textual write onto it is REFUSED. Red before the fix — today it reads `ST`.
       > Note the existing `PouDocumentTests` CFC case passes only because the guard does not fire. It must be
       > re-read after this fix: its assertion (the CFC block survives byte-identical) should still hold, but for
       > the right reason. If the fix turns it red, the FIX is right and the test's premise was wrong.
-- [ ] 1.2 Decide the **LD-as-FBD read override**: thread the vendor's COM body language through `Materializer`, or
+- [x] 1.2 **DONE — deleted.** Every caller, production and test, either omitted the parameter or passed the element's own name, so the override never carried anything and the case it documented was never handled. Threading a real COM language in would cost a per-item vendor call on the read path (~20 ms on CODESYS) to fix an EMPTY body's label; the gap is recorded in `DIALECT.md` instead.
+      Original text: decide the **LD-as-FBD read override**: thread the vendor's COM body language through `Materializer`, or
       delete the parameter. Do not leave a parameter documented as handling a case it never receives.
-- [ ] 1.3 **LD network `<comment>` dropped on push** — `WriteLadderBody` re-emits it like `WriteFbdBody` does, or
+- [x] 1.3 **DONE — the ladder writer re-emits it**, before the network-title marker (the shape both vendors emit, recorded in `tc-ld/ld_four_networks_shared_rails.plcopen.xml:33`). Regression test asserts presence, ORDER, and that it reads back.
+      Original text: **LD network `<comment>` dropped on push** — `WriteLadderBody` re-emits it like `WriteFbdBody` does, or
       the drop is recorded as deliberate in `DIALECT.md`. Silent deletion of a user's comment is neither.
-- [ ] 1.4 Gate: three offline suites + live CODESYS e2e at the current baseline (**98 pass / 8 skip / 0 fail**).
+- [x] 1.4 **DONE** — Engine 392 / Cli 124 / Connector 80, and live CODESYS e2e **98 pass / 8 skip / 0 fail**.
+      Original gate: three offline suites + live CODESYS e2e at the current baseline (**98 pass / 8 skip / 0 fail**).
 
 ## 2. Dead surfaces — delete before moving, so less moves
 
