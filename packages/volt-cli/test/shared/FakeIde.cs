@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -128,10 +128,57 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
         _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.Folder)).ToList();
-    public int KindCode(ItemRef item) => Find(item).KindCode;
-    public int ChildCount(ItemRef item) => FindOrNull(item)?.Children?.Length ?? 0;
-    public string Name(ItemRef item) => Find(item).Name;
-    public ItemRef? Lookup(string name) => _items.Any(i => i.Name == name) ? new ItemRef(name) : (ItemRef?)null;
+    public int KindCode(ItemRef item) => IsTreeNode(item) ? ItemKind.PlcFolder : Find(item).KindCode;
+    public int ChildCount(ItemRef item) =>
+        IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
+    public string Name(ItemRef item) =>
+        IsTreeNode(item) ? LastSegment((string)item.Native) : Find(item).Name;
+    public ItemRef ChildAt(ItemRef parent, int index1Based) =>
+        IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
+                           : new ItemRef(Find(parent).Children![index1Based - 1]);
+
+    // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
+    // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
+    // flat `Lookup` answered "is there an item called X". Nothing that WALKS could be exercised — which is
+    // precisely what a driver does, and why moving a walk up into Engine would otherwise buy testability that
+    // does not exist. The path strings are materialized into real folder nodes on demand.
+    //
+    // A tree node's Native is its full folder path (or a root name); an item's is its bare name. They cannot
+    // collide, because an item is only ever addressed by the name it was registered under.
+    private bool IsTreeNode(ItemRef r) =>
+        r.Native is string s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s));
+
+    private readonly HashSet<string> _folderPaths = new(StringComparer.Ordinal);
+
+    private static string LastSegment(string path)
+    {
+        var i = path.LastIndexOf('/');
+        return i < 0 ? path : path.Substring(i + 1);
+    }
+
+    /// <summary>The children of a root or folder node: the items sitting directly in it, plus one node per
+    /// immediate sub-folder. Folder paths come from the items themselves, so the tree is exactly as deep as the
+    /// items say it is — no folder is invented that holds nothing.</summary>
+    private List<ItemRef> TreeChildren(ItemRef node)
+    {
+        var path = (string)node.Native;
+        var basePath = path == PlcRootName || path == TreeRootName ? "" : path;
+        var kids = new List<ItemRef>();
+        var subFolders = new List<string>();
+        foreach (var it in _items)
+        {
+            var folder = it.Folder ?? "";
+            if (folder == basePath) { kids.Add(new ItemRef(it.Name)); continue; }
+            if (basePath.Length > 0 && !folder.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
+            var rest = basePath.Length == 0 ? folder : folder.Substring(basePath.Length + 1);
+            if (rest.Length == 0) continue;
+            var next = rest.Split('/')[0];
+            var full = basePath.Length == 0 ? next : basePath + "/" + next;
+            if (!subFolders.Contains(full)) subFolders.Add(full);
+        }
+        foreach (var f in subFolders) { _folderPaths.Add(f); kids.Add(new ItemRef(f)); }
+        return kids;
+    }
     // Both default to the same synthetic root, so the whole tree is flat. A test that models a spine (the tree
     // root ABOVE the PLC-project root, e.g. CODESYS Device/Plc Logic/Application) sets these apart to prove push
     // descends the full path from the tree root instead of re-creating the spine under the PLC-project root.
@@ -139,7 +186,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string TreeRootName { get; init; } = "<root>";
     public ItemRef GetPlcProjectRoot() => new ItemRef(PlcRootName);
     public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
-    public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null)
     {

@@ -184,7 +184,7 @@ public static class PushService
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
         var inCache = itemCache.TryGetValue(name, out var cached);
-        ItemRef? existing = inCache ? cached.Item : ide.Lookup(name);
+        ItemRef? existing = inCache ? cached.Item : ItemLookup.Find(ide, name);
         var currentFolder = inCache ? cached.Folder : "";
 
         switch (op)
@@ -223,7 +223,7 @@ public static class PushService
         {
             ide.Rename(item, toName);                  // native rename → IDE rewrites references
             currentName = toName;
-            item = ide.Lookup(currentName) ?? item;    // refresh the (possibly staled) handle
+            item = ItemLookup.Find(ide, currentName) ?? item;    // refresh the (possibly staled) handle
             renamed = true;
         }
 
@@ -267,7 +267,7 @@ public static class PushService
         {
             ide.Move(item, ResolveTopLevelFolder(ide, parent, newFolder));
             if (sourceText is not { } edited) return;                  // pure move: the content never left
-            var moved = ide.Lookup(name) ?? item;                      // refresh the (possibly staled) handle
+            var moved = ItemLookup.Find(ide, name) ?? item;                      // refresh the (possibly staled) handle
             WriteItemFromSource(ide, parent, name, moved, edited, newFolder);   // move+edit → the in-place update
             return;
         }
@@ -538,7 +538,7 @@ public static class PushService
         if (foldered.Count == 0) return;
         // The merge does not delete the POU, but re-find it anyway: the import rewrites the object, and a handle
         // captured before it is not something to trust on the write path.
-        if (ide.Lookup(name) is not { } pou) return;
+        if (ItemLookup.Find(ide, name) is not { } pou) return;
         foreach (var child in foldered)
         {
             if (FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder

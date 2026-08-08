@@ -64,13 +64,13 @@ public abstract class DriverBase : IIdeSession
     // RowStatus derives the row's degraded word from the _isDegraded bool alone.
     public void MarkDegraded(string reason)
     {
-        if (!_isDegraded) { Console.Error.WriteLine($"[bridge] DEGRADED: {reason}"); VoltLog.Warn($"degraded: {reason}"); }
+        if (!_isDegraded) BridgeLog.Warn($"DEGRADED: {reason}");
         _isDegraded = true;
     }
 
     public void ClearDegraded()
     {
-        if (_isDegraded) { Console.Error.WriteLine("[bridge] DEGRADED cleared"); VoltLog.Info("degraded cleared"); }
+        if (_isDegraded) BridgeLog.Info("DEGRADED cleared");
         _isDegraded = false;
     }
 

@@ -42,13 +42,10 @@ namespace Volt.Cli.Ide.Codesys
         }
 
         /// <summary>A null dispatcher leaves the driver permanently unable to reach the IDE thread, which the
-        /// client only ever sees as PLC_DISCONNECTED — so say WHY, to both sinks exactly as the tree walk does:
-        /// VoltLog is the only one an engineer can read after a pull (CODESYS.exe is a GUI process with no
-        /// console attached), stderr is what the headless dev loop (codesys-pipe.ps1) still captures.</summary>
+        /// client only ever sees as PLC_DISCONNECTED — so say WHY, through <c>BridgeLog</c> (both sinks).</summary>
         private static CodesysDispatcher? Unavailable(string reason)
         {
-            Console.Error.WriteLine($"[bridge] CODESYS primary-thread dispatcher unavailable: {reason}");
-            VoltLog.Warn($"CODESYS primary-thread dispatcher unavailable: {reason}");
+            Volt.Engine.Ide.BridgeLog.Warn($"CODESYS primary-thread dispatcher unavailable: {reason}");
             return null;
         }
 

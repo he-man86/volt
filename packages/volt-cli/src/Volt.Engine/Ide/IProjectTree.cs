@@ -18,8 +18,9 @@ public interface IProjectTree
     /// from here, exactly as the walk emits it, so push placement is symmetric with fetch.</summary>
     ItemRef GetTreeRoot();
 
-    /// <summary>The item with this name, or null if absent.</summary>
-    ItemRef? Lookup(string name);
+    // NO Lookup member. Finding an item by name is a WALK over the four members above, so it is shared code
+    // (Ide/ItemLookup) rather than something each driver reimplements — which is how the two copies came to
+    // disagree about case sensitivity and about which kinds count. See ItemLookup for what each got wrong.
 
     int ChildCount(ItemRef item);
     ItemRef ChildAt(ItemRef parent, int index1Based);

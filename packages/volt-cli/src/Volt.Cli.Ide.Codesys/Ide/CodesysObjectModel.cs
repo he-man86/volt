@@ -247,12 +247,13 @@ namespace Volt.Cli.Ide.Codesys
         public object? FindApplication() =>
             FindFirst(PrimaryProject, c => !IsFolder(c) && ObjectInterfaceNames(ReadObject(c)).Contains("IApplicationObject"), 0);
 
-        // A transient/hidden object with this name is never returned (no fallback to one).
-        public object? FindByName(string name) =>
-            FindFirst(PrimaryProject, c => string.Equals(GetName(c), name, StringComparison.Ordinal) && !IsTransient(c), 0);
+        // `FindByName` lived here — a name search over the whole project, case-SENSITIVE and matching any
+        // non-transient node. Both of those were wrong (see Engine's Ide/ItemLookup, which replaced it and
+        // TwinCAT's differently-wrong twin with one tested walk), and `IsTransient` went with it: nothing else
+        // asked whether a node was transient.
 
-        // Depth cap shared by the tree walks (both carried the same literal): a guard against a
-        // cyclic / pathologically nested tree, not a limit any real project reaches.
+        // Depth cap for the tree walk below: a guard against a cyclic / pathologically nested tree, not a limit
+        // any real project reaches.
         private const int MaxTreeDepth = 14;
 
         /// <summary>Depth-first search for the first descendant matching <paramref name="match"/>.</summary>
@@ -266,13 +267,6 @@ namespace Volt.Cli.Ide.Codesys
                 if (hit != null) return hit;
             }
             return null;
-        }
-
-        private bool IsTransient(object node)
-        {
-            if (IsFolder(node)) return false;
-            var ifaces = ObjectInterfaceNames(ReadObject(node));
-            return ifaces.Contains("ITransientObject") || ifaces.Contains("IHiddenObject");
         }
 
         public object? ParentOf(object node) => GetMember(Unwrap(node), "parent");
@@ -289,21 +283,26 @@ namespace Volt.Cli.Ide.Codesys
             var dev = Facet(node, "ScriptDeviceObject");
             var info = GetMember(InvokeMethod(dev, "GetReadable"), "DeviceInfo");
             var devId = InvokeMethod(dev, "get_device_identification");
+            // First name that yields anything wins — the identification object spells these differently across
+            // versions, which is why each is asked for under several names.
             string Field(object? o, params string[] names)
             {
-                foreach (var n in names) { var v = GetMember(o, n); var s = v == null ? null : System.Convert.ToString(v); if (!string.IsNullOrEmpty(s)) return s!.Replace("\r", "").Replace("\n", " ").Trim(); }
+                foreach (var n in names)
+                {
+                    var v = Descriptor.Flatten(System.Convert.ToString(GetMember(o, n)));
+                    if (v.Length > 0) return v;
+                }
                 return "";
             }
-            var sb = new System.Text.StringBuilder();
-            void Line(string key, string val) { if (!string.IsNullOrEmpty(val)) sb.Append(key.PadRight(14)).Append(val).Append('\n'); }
-            Line("Name:", Field(info, "Name"));
-            Line("Vendor:", Field(info, "Vendor"));
-            Line("Type:", Field(devId, "Type", "TypeId", "type"));
-            Line("ID:", Field(devId, "Id", "Identification", "id"));
-            Line("Version:", Field(devId, "Version", "version"));
-            Line("Order number:", Field(info, "OrderNumber"));
-            Line("Description:", Field(info, "Description"));
-            return sb.ToString();
+            return new Descriptor(14)
+                .Add("Name", Field(info, "Name"))
+                .Add("Vendor", Field(info, "Vendor"))
+                .Add("Type", Field(devId, "Type", "TypeId", "type"))
+                .Add("ID", Field(devId, "Id", "Identification", "id"))
+                .Add("Version", Field(devId, "Version", "version"))
+                .Add("Order number", Field(info, "OrderNumber"))
+                .Add("Description", Field(info, "Description"))
+                .ToString();
         }
 
         /// <summary>The read-only descriptor for the project's "Project Information" node — the standard
@@ -330,47 +329,35 @@ namespace Volt.Cli.Ide.Codesys
         public string TaskDescriptor(object node)
         {
             var f = Facet(node, "ScriptTaskObject");
-            var sb = new System.Text.StringBuilder();
-            void Line(string label, string? value)
-            {
-                if (!string.IsNullOrWhiteSpace(value)) sb.Append((label + ":").PadRight(11)).Append(value!.Trim()).Append('\n');
-            }
+            var d = new Descriptor(11)
+                .Add("Type", System.Convert.ToString(GetMember(f, "kind_of_task")))
+                .Add("Interval", Unitize(GetMember(f, "interval"), GetMember(f, "interval_unit")))
+                .Add("Priority", System.Convert.ToString(GetMember(f, "priority")));
 
-            Line("Type", System.Convert.ToString(GetMember(f, "kind_of_task")));
-            Line("Interval", Unitize(GetMember(f, "interval"), GetMember(f, "interval_unit")));
-            Line("Priority", System.Convert.ToString(GetMember(f, "priority")));
             // Event-triggered tasks carry the triggering (external) event variable; empty for cyclic/freewheeling.
             var ev = System.Convert.ToString(GetMember(f, "event"));
             if (string.IsNullOrWhiteSpace(ev)) ev = System.Convert.ToString(GetMember(f, "external_event"));
-            Line("Event", ev);
+            d.Add("Event", ev);
 
             var wd = GetMember(f, "watchdog");
-            if (wd != null && GetMember(wd, "enabled") is bool on && on)
-                Line("Watchdog", $"{Unitize(GetMember(wd, "time"), GetMember(wd, "time_unit"))} (sensitivity {System.Convert.ToString(GetMember(wd, "sensitivity"))?.Trim()})");
-            else
-                Line("Watchdog", "off");
+            d.Add("Watchdog", wd != null && GetMember(wd, "enabled") is bool on && on
+                ? $"{Unitize(GetMember(wd, "time"), GetMember(wd, "time_unit"))} (sensitivity {System.Convert.ToString(GetMember(wd, "sensitivity"))?.Trim()})"
+                : "off");
 
             // The POUs this task calls each cycle (ScriptPouObjectList yields the POU names, in call order).
             if (GetMember(f, "pous") is IEnumerable pous)
             {
                 var names = new List<string>();
                 foreach (var p in pous) { var n = System.Convert.ToString(p)?.Trim(); if (!string.IsNullOrEmpty(n)) names.Add(n!); }
-                if (names.Count > 0) Line("Calls", string.Join(", ", names));
+                if (names.Count > 0) d.Add("Calls", string.Join(", ", names));
             }
-            return sb.ToString();
+            return d.ToString();
         }
 
-        /// <summary>Append a unit to a value ONLY when the value is a bare number (digits/sign/dot). A value
-        /// already rendered as a TIME literal (`t#20ms`) or otherwise carrying letters is returned unchanged,
-        /// so `interval`/`watchdog.time` read unambiguously whether the facet returns `t#20ms` or `3` + `ms`.</summary>
-        private static string Unitize(object? value, object? unit)
-        {
-            var v = (System.Convert.ToString(value) ?? "").Trim();
-            var u = (System.Convert.ToString(unit) ?? "").Trim();
-            if (v.Length == 0) return "";
-            var bare = v.All(c => char.IsDigit(c) || c == '.' || c == '-' || c == '+');
-            return bare && u.Length > 0 ? $"{v} {u}" : v;
-        }
+        // The rule is Engine's (Workspace/Descriptor.Unitize, where it has tests); this only turns the facet's
+        // boxed values into strings first.
+        private static string Unitize(object? value, object? unit) =>
+            Descriptor.Unitize(System.Convert.ToString(value), System.Convert.ToString(unit));
 
         /// <summary>The symbol-configuration flags (`.symbols`): which access features a project exposes
         /// (OPC UA, direct I/O, attribute filter). The resolved exposed-symbol LIST is compiled-model state,
@@ -408,16 +395,9 @@ namespace Volt.Cli.Ide.Codesys
         private string FacetDescriptor(object node, string facetName, params (string Label, string Prop)[] fields)
         {
             var f = Facet(node, facetName);
-            var pad = 0;
-            foreach (var fld in fields) pad = System.Math.Max(pad, fld.Label.Length);
-            var sb = new System.Text.StringBuilder();
-            foreach (var fld in fields)
-            {
-                var v = GetMember(f, fld.Prop);
-                var s = v == null ? "" : (System.Convert.ToString(v)?.Replace("\r", "").Replace("\n", " ").Trim() ?? "");
-                if (s.Length > 0) sb.Append((fld.Label + ":").PadRight(pad + 2)).Append(s).Append('\n');
-            }
-            return sb.ToString();
+            var d = new Descriptor();     // auto width: the widest DECLARED label + 2, blank fields included
+            foreach (var fld in fields) d.Add(fld.Label, System.Convert.ToString(GetMember(f, fld.Prop)));
+            return d.ToString();
         }
 
         /// <summary>A named scripting facet of a node — device / project-info APIs live on the Extender's DLR
@@ -464,7 +444,7 @@ namespace Volt.Cli.Ide.Codesys
                     var text = GetMember(m, "Text") as string ?? "";
                     outv.Add(new Dictionary<string, object?>
                     {
-                        ["severity"] = SeverityToString(GetMember(m, "Severity")),
+                        ["severity"] = Volt.Engine.Wire.Severity.Of(GetMember(m, "Severity")?.ToString()),
                         ["message"] = text,
                         ["line"] = ParseLine(text),
                         ["column"] = ParseColumn(text),
@@ -557,16 +537,6 @@ namespace Volt.Cli.Ide.Codesys
                     baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags, methods));
             }
             return result;
-        }
-
-        private static string SeverityToString(object? sev)
-        {
-            var s = sev?.ToString() ?? "";
-            if (s.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0
-                || s.IndexOf("Fatal", StringComparison.OrdinalIgnoreCase) >= 0
-                || s.IndexOf("Exception", StringComparison.OrdinalIgnoreCase) >= 0) return "error";
-            if (s.IndexOf("Warning", StringComparison.OrdinalIgnoreCase) >= 0) return "warning";
-            return "info";
         }
 
         private static int ParseLine(string text)

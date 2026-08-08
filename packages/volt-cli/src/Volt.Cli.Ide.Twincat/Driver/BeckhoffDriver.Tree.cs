@@ -88,32 +88,6 @@ public sealed partial class BeckhoffDriver
         }
     }
 
-    public ItemRef? Lookup(string name)
-    {
-        var node = FindItemByName(_om.PlcRoot(), name);
-        return node == null ? null : new ItemRef(node);
-    }
-
-    private object? FindItemByName(object parent, string name)
-    {
-        // 1-based COM, bounded by ChildCount (0 for a leaf), so the loop never over-indexes.
-        int count = _om.ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            object child = _om.ChildAt(parent, i);
-            string childName = _om.GetName(child);
-            int type = _om.ItemType(child); // one cross-process COM read, reused by both checks below
-            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase) && ItemKind.IsTopLevelCrud(type))
-                return child;
-            if (type == ItemKind.PlcFolder)
-            {
-                var found = FindItemByName(child, name);
-                if (found != null) return found;
-            }
-        }
-        return null;
-    }
-
     public int ChildCount(ItemRef item) { try { return _om.ChildCount(item.Native); } catch { return 0; } }
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
     public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));
@@ -147,13 +121,8 @@ public sealed partial class BeckhoffDriver
     /// sent a reader looking for a skip that never happens. To BOTH sinks, as the CODESYS walk does: VoltLog is the
     /// only one an engineer can read after a pull, stderr is what the headless dev loop and the connector's worker
     /// redirect capture.</summary>
-    private static void WarnUnmappedTcCode(int code, string name)
-    {
-        bool isNew;
-        lock (_loggedTcCodes) isNew = _loggedTcCodes.Add(code);
-        if (!isNew) return;
-        var msg = $"unmapped TwinCAT TREEITEMTYPE {code} (emitted, then dropped by Core as unmapped-kind): example item='{name}' — add it to ItemKind if it should be tracked";
-        Console.Error.WriteLine($"[bridge] {msg}");
-        VoltLog.Warn(msg);
-    }
+    private static void WarnUnmappedTcCode(int code, string name) =>
+        BridgeLog.WarnOnce(code.ToString(),
+            $"unmapped TwinCAT TREEITEMTYPE {code} (emitted, then dropped by Core as unmapped-kind): " +
+            $"example item='{name}' — add it to ItemKind if it should be tracked");
 }

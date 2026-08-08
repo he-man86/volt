@@ -509,10 +509,10 @@ internal sealed class TcObjectModel
                     int lineNum = 0, colNum = 0;
                     if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
                     if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
-                    var sev = m.Groups[4].Value.ToLowerInvariant();
                     result.Add(new BridgeDiagnostic
                     {
-                        Severity = sev == "message" ? "info" : sev,
+                        // "message" is TwinCAT's word for informational; Severity.Of maps it.
+                        Severity = Volt.Engine.Wire.Severity.Of(m.Groups[4].Value),
                         Message = m.Groups[5].Value.Trim(),
                         Line = lineNum,
                         Column = colNum,

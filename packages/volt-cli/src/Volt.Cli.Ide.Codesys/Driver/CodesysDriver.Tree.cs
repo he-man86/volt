@@ -28,12 +28,11 @@ public sealed partial class CodesysDriver
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
-        // Surface the failure (no-fallback policy) rather than swallowing it silently — to BOTH sinks, as
-        // DriverBase does for a degrade: VoltLog is the only one an engineer can read after a pull (CODESYS.exe
-        // is a GUI process with no console attached), stderr is what the headless dev loop still captures.
+        // Surface the failure (no-fallback policy) rather than swallowing it silently. BridgeLog writes both
+        // sinks; see it for why one is not enough.
         IReadOnlyList<object> children;
         try { children = _om.GetChildren(node); }
-        catch (Exception ex) { Console.Error.WriteLine($"[bridge] could not read children of a node (subtree skipped): {ex.Message}"); VoltLog.Warn($"could not read children of a node (subtree skipped): {ex.Message}"); return; }
+        catch (Exception ex) { BridgeLog.Warn($"could not read children of a node (subtree skipped): {ex.Message}"); return; }
         foreach (var child in children)
         {
             var name = _om.GetName(child);
@@ -94,12 +93,6 @@ public sealed partial class CodesysDriver
     // re-created as user folders under the Application (which doubled the path).
     public ItemRef GetTreeRoot() =>
         new(_om.PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project"));
-
-    public ItemRef? Lookup(string name)
-    {
-        var node = _om.FindByName(name);
-        return node == null ? null : new ItemRef(node);
-    }
 
     /// <summary>Does the node have any children? Guarded (an unreadable subtree ⇒ treat as a leaf) so the
     /// device-descriptor placement decision never crashes the walk.</summary>

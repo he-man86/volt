@@ -114,26 +114,17 @@ namespace Volt.Cli.Ide.Codesys
             return ItemKind.GenericContainer;
         }
 
-        private static readonly HashSet<string> _loggedUnknown = new HashSet<string>(StringComparer.Ordinal);
-
         /// <summary>Log an unrecognized CODESYS object once per distinct *Object-interface signature, so a kind
-        /// we should handle is visible without spamming or crashing the walk.</summary>
+        /// we should handle is visible without spamming or crashing the walk. The signature IS the key: two nodes
+        /// of the same unhandled shape are one finding.</summary>
         private static void WarnUnrecognized(string? name, HashSet<string> ifaces)
         {
             var objIfaces = new List<string>();
             foreach (var i in ifaces) if (i.EndsWith("Object", StringComparison.Ordinal)) objIfaces.Add(i);
             objIfaces.Sort(StringComparer.Ordinal);
             var sig = string.Join("+", objIfaces);
-            bool isNew;
-            lock (_loggedUnknown) isNew = _loggedUnknown.Add(sig);
-            if (isNew)
-            {
-                // Both sinks, as DriverBase does for a degrade: VoltLog is the only one an engineer can read
-                // after a pull (CODESYS.exe is a GUI process with no console attached), stderr is what the
-                // headless dev loop (codesys-pipe.ps1) still captures.
-                Console.Error.WriteLine($"[bridge] unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
-                VoltLog.Warn($"unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
-            }
+            Volt.Engine.Ide.BridgeLog.WarnOnce(sig,
+                $"unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
         }
 
         /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →
