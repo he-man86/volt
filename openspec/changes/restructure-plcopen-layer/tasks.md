@@ -138,9 +138,10 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 
 ## 6. Explicitly NOT in this change
 
-- Extending the single-document write to **create** and **move**. Both still route through `existing: null`, so a
-  push that creates an FB with 5 methods still issues ~12 COM writes and then runs the orphan walk. Real, and its
-  own change.
+- ~~Extending the single-document write to **create** and **move**.~~ **DONE as a follow-up** — see
+  `pou-writes-via-plcopen` §3.3/§3.4. Create is now `CreateChild` + one import (a fresh POU exports with the
+  `<InterfaceAsPlainText>` and `<body>` the splice needs — measured), and move is a real `IProjectTree.Move`
+  instead of delete-and-recreate, which also lifted the blanket refusal on moving a GRAPHICAL item.
 - Collapsing the two splice-and-import implementations (`PouDocument.Splice` vs `GraphicalCode.Write`).
 - §5 TwinCAT measurement, and deleting `ICodeStore.WritesPouAsOneDocument` — gated on it.
 - `PlcOpenTransport.ReplaceByReimport`'s unguarded restore (a known TwinCAT-only data-safety defect: if the
@@ -172,8 +173,8 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 3. Doing behaviour first and layout second was right. §1 turned two of my own tests red for the correct reason;
    had that landed inside the rename commit it would have looked like rename fallout.
 
-**Still open, deliberately** (each named in `proposal.md` §"NOT in scope"): extending the single-document write to
-CREATE and MOVE — the seam this whole programme exists to remove is still the entire create path, where a push
-that creates an FB with 5 methods still issues ~12 COM writes; collapsing the two splice-and-import
-implementations; and §5 of `pou-writes-via-plcopen` (TwinCAT's IMPORT, D1–D4 in `DIALECT.md`), which no export
-can answer and which gates deleting `ICodeStore.WritesPouAsOneDocument`.
+**Still open, deliberately**: collapsing the two splice-and-import implementations (`PouDocument.Splice` and
+`GraphicalCode.Write`); and §5 of `pou-writes-via-plcopen` (TwinCAT's IMPORT — D1–D4 in `DIALECT.md`), which no
+export can answer and which gates deleting `ICodeStore.WritesPouAsOneDocument` and the per-child path it still
+selects. Create and move were closed as a follow-up (above), so on CODESYS the per-child seam now survives only
+for interfaces, DUTs and GVLs.
