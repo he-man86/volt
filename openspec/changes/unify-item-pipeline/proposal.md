@@ -69,7 +69,8 @@ src/Volt.Engine/
   Ide/          the vendor contract — unchanged in shape, THINNER (see below)
   Item/         ONE model both directions: ItemContent { Declaration, Body, Members }, Member, Accessor
   PlcOpen/      the document: PlcOpenDocument, PouReader, PouSplice, DocumentShape (NEW), DIALECT.md
-  Body/         the codecs: IBodyCodec, StCodec, NetworkTextCodec, ReadOnlyCodec, Graph/, NetworkText/
+  Body/         the codecs: BodyCodec (registry + StCodec/NetworkCodec/ReadOnlyCodec/CfcCodec),
+                NetworkCode (the FBD/LD facade), Graph/, NetworkText/
   Text/         canonical ST: StWriter + StReader (the inverse pair, ONE owner)
   Sync/         services — PushService loses ~200 lines
   Workspace/    Materializer, ItemKind, FolderPath
