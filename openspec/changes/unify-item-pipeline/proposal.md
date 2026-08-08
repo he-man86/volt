@@ -13,10 +13,17 @@ Not "graphical vs textual". Two things, both **data**:
 
 1. **Document shape — per KIND.** Where members live in the XML: a POU's in `addData/data`, an interface's in
    `Methods`/`Properties`, a DUT/GVL has none.
-2. **Body codec — per LANGUAGE.** `decode(element)→text`, `encode(text)→element`, `validate`, `canReplace`,
-   `readOnly`. ST is the *identity* codec (four one-liners — both halves already exist as one-liners today);
-   FBD/LD is the existing `VgParser`/`VgWriter` + `PlcOpenReader`/`PlcOpenWriter` pivoting on `GraphBody`;
+2. **Body codec — per LANGUAGE.** `locate(body)`, `decode(element)→text`, `encode(text)→element`, `validate`,
+   `canReplace`, `readOnly`. ST is the *identity* codec (four one-liners — both halves already exist as one-liners
+   today); FBD/LD is the existing `VgParser`/`VgWriter` + `PlcOpenReader`/`PlcOpenWriter` pivoting on `GraphBody`;
    CFC/SFC is `{read: marker, write: none}` — which is what "read-only" *means*.
+
+   **`locate` is load-bearing and was measured, after being inferred wrongly once.** PLCopen TC6 defines ST, IL,
+   FBD, LD and **SFC** as body languages, so each is a direct `<body>` child whose element NAME is the language.
+   **CFC alone is a CODESYS extension** and lives in `<body>/<addData>/<data name="…/cfc">` — with an empty `<ST>`
+   sibling the schema still wants, which is exactly the decoy that made a direct-children scan report a CFC body
+   as textual. So a codec owns its element's LOCATION, not just its name. Interfaces, DUTs and GVLs emit no
+   `<body>` at all. Full table in `PlcOpen/DIALECT.md`.
 
 `GraphicalCode.Validate`'s gates are not "checks ST lacks" — they are the codec laws `write(read(x)) == x` and
 `decode(encode(g))` reaching a fixed point, which ST satisfies **by construction** because it is stored verbatim.

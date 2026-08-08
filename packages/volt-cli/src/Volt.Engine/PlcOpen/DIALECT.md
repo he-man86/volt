@@ -150,6 +150,35 @@ CODESYS-only. What remains unmeasured on TwinCAT is all about the IMPORT (D1-D4)
 6. `Ide/TcPlcOpen.cs:14-21` — "NEEDS LIVE VERIFICATION" on a call the recorded fixtures were captured through. At
    least partly settled, never retracted, which makes §5.1's risk read larger than it is.
 
+## The body LOCATOR table — where a body element actually lives
+
+Measured on CODESYS 3.5.21.40 against hand-authored fixtures, not inferred. Placement was inferred once and the
+inference was WRONG (SFC was assumed to sit with CFC; it does not), so every row here cites its fixture.
+
+| language | placement | fixture |
+|---|---|---|
+| ST | direct `<body>` child | everywhere, e.g. `codesys-pou/FB_FolderChild.plcopen.xml` |
+| FBD | direct | `codesys-pou/POU_SfcRoot_StFbdMethods.plcopen.xml` (`fbdmeth`) |
+| LD | direct | `tc-ld/*.plcopen.xml` |
+| **SFC** | **direct** | `codesys-pou/POU_SfcRoot_StFbdMethods.plcopen.xml` (root) |
+| **CFC** | **`<body>/<addData>/<data name="…/cfc">`, AND a sibling empty `<ST>`** | `codesys-pou/FB_GraphicalChild.plcopen.xml` (`doSomething`) |
+| IL | direct — INFERRED (a TC6 language; no fixture anywhere) | — |
+
+The rule is the standard, not a vendor quirk: **PLCopen TC6 defines ST, IL, FBD, LD and SFC as body languages, so
+each gets a real element whose NAME is the language. CFC is a CODESYS extension with no place in the schema, so it
+goes in vendor `addData`** — and the schema still wants a body language present, which is why an empty `<ST>` sits
+beside it. That decoy is what made a direct-children scan answer `"ST"` for a CFC body.
+
+**Consequence for the body codec:** a codec owns its element's LOCATION, not just its name. ST patches the direct
+child in place (byte-identity on no-op); FBD/LD/SFC replace the whole element (the name is the language, and the
+language can change); CFC reads from `addData` and refuses to write.
+
+**Kinds with NO body element at all:** interface, DUT (incl. enum), GVL — measured. The locator must tolerate an
+absent body rather than assume one.
+
+A document legitimately mixes languages: `POU_SfcRoot_StFbdMethods` is one file carrying an SFC root, an ST method
+and an FBD method.
+
 ## The extension point, deliberately NOT built
 
 If a measurement ever shows TwinCAT needs a different WRITTEN shape, the seam is **one dialect parameter consumed
