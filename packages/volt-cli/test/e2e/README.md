@@ -24,7 +24,13 @@ Instead of running against whatever you happen to have open, the suite targets c
 | Fixture | Vendor | Use |
 |---|---|---|
 | `CodesysTestProject.project`, `testproject1.project` | CODESYS | single / multi-instance |
+| `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild`, an ST FB with a **CFC method child** |
 | `TwinCAT Project13/`, `TwinCAT Project14/` | TwinCAT | single / **multi-XAE** |
+
+`Untitled1.project` exists because a test **cannot provision that shape itself** — CFC is read-only, so Volt never
+creates one, and a graphical CHILD under a textual parent is the exact shape of the first write-path data-loss bug.
+Its recorded export is committed as `Volt.Engine.Tests/fixtures/codesys-pou/FB_GraphicalChild.plcopen.xml`, so the
+offline splice tests get the same ground truth without an IDE.
 
 The TwinCAT fixtures are committed **source-only** — a `test/.gitignore` strips the regenerated build cache
 (`_CompileInfo`, `_Boot`, `_Libraries`), which is ~140 MB. TwinCAT re-resolves system libraries and rebuilds on open.

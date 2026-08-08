@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP21 Patch 4" creationDateTime="2026-08-08T08:38:39.8135044" />
+  <contentHeader name="Probe1.project" modificationDateTime="2026-08-08T08:37:55.3551786">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation />
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="FB_GraphicalChild" pouType="functionBlock">
+        <interface />
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">//this is the body - for test
+</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+            <Method name="doSomething">
+              <interface>
+                <returnType>
+                  <BOOL />
+                </returnType>
+              </interface>
+              <body>
+                <ST>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+                </ST>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/cfc" handleUnknown="implementation">
+                    <CFC>
+                      <inVariable localId="2">
+                        <position x="25" y="4" />
+                        <connectionPointOut>
+                          <expression />
+                        </connectionPointOut>
+                        <expression>true</expression>
+                      </inVariable>
+                      <connector localId="1" name="">
+                        <position x="0" y="0" />
+                        <connectionPointIn>
+                          <connection refLocalId="2" formalParameter="true" />
+                        </connectionPointIn>
+                      </connector>
+                      <inVariable localId="4">
+                        <position x="25" y="5" />
+                        <connectionPointOut>
+                          <expression />
+                        </connectionPointOut>
+                        <expression>false</expression>
+                      </inVariable>
+                      <connector localId="3" name="">
+                        <position x="0" y="0" />
+                        <connectionPointIn>
+                          <connection refLocalId="4" formalParameter="false" />
+                        </connectionPointIn>
+                      </connector>
+                      <block localId="0" executionOrderId="1" typeName="and">
+                        <position x="31" y="3" />
+                        <inputVariables>
+                          <variable formalParameter="In1">
+                            <connectionPointIn>
+                              <relPosition x="0" y="0" />
+                              <connection refLocalId="1" />
+                            </connectionPointIn>
+                          </variable>
+                          <variable formalParameter="In2">
+                            <connectionPointIn>
+                              <relPosition x="0" y="1" />
+                              <connection refLocalId="3" />
+                            </connectionPointIn>
+                          </variable>
+                        </inputVariables>
+                        <inOutVariables />
+                        <outputVariables>
+                          <variable formalParameter="Out1">
+                            <connectionPointOut>
+                              <relPosition x="0" y="0" />
+                              <expression />
+                            </connectionPointOut>
+                          </variable>
+                        </outputVariables>
+                        <addData>
+                          <data name="http://www.3s-software.com/plcopenxml/cfccalltype" handleUnknown="implementation">
+                            <CallType xmlns="">operator</CallType>
+                          </data>
+                        </addData>
+                      </block>
+                    </CFC>
+                  </data>
+                </addData>
+              </body>
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">METHOD doSomething : BOOL
+VAR_INPUT
+END_VAR
+</xhtml>
+              </InterfaceAsPlainText>
+              <addData />
+            </Method>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">FUNCTION_BLOCK FB_GraphicalChild
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+          </data>
+        </addData>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+</project>

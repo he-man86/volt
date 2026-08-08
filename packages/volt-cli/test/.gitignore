@@ -11,3 +11,6 @@ _Libraries/
 .vs/
 *.suo
 *.user
+
+# CODESYS regenerates this on open (and it is 130 KB of derived state).
+*.precompilecache

@@ -99,7 +99,8 @@ transport" with "one API", which the change never claimed.
 So the flattening is a step the write must UNDO, not a blocker:
   import the document (content)  →  re-place each child into its `%FOLDER` (structure).
 
-- [ ] 3.1 **STOPPED — the re-placement needs a primitive that does not exist.**
+- [ ] 3.1 **UNBLOCKED — one import, no delete. Route `PushService` through it.** (History below: the stop and
+      the two reopenings, kept because each correction is a measurement someone will otherwise redo.)
 
       The plan was: import the document (content), then re-place children into their `%FOLDER` via the existing
       structural API. Checked what that API can actually do:
@@ -136,17 +137,39 @@ So the flattening is a step the write must UNDO, not a blocker:
       So no move primitive is needed after all: nothing flattens because nothing is deleted. What does NOT
       land on a merge is the DECLARATION, which `ide.WriteText(pou, decl, null)` already writes today.
 
-      **Candidate shape, with two unknowns to measure before designing on it:**
-      - declaration → `WriteText` (COM aspect, as today)
-      - body + children + accessors + graphical bodies → ONE import, `Replace`, no delete
-      - child REMOVE → `ide.Delete` (structural, which §3.4 keeps on scripting regardless)
-      - child folders → preserved for free
-      - **UNKNOWN 1:** does a merge ADD a child that is in the document but not in the IDE?
-      - **UNKNOWN 2:** does it leave a child that is in the IDE but not in the document (i.e. is orphan removal
-        still a separate structural step)?
+      **UNBLOCKED — both unknowns measured, and the declaration row above is WRONG.** Measured live on CODESYS
+      3.5.21.40 against a purpose-built fixture (`test/Untitled1.project`: `FB_GraphicalChild`, an ST function
+      block with a **CFC method child** — the exact shape of the first data-loss bug, and one no test could
+      provision itself because CFC is read-only and Volt never creates one). Every step is a merge into the
+      POU's PARENT with `ConflictResolve.Replace` and **no delete**:
 
-      That would still remove the per-child content path — the seam all three data-loss bugs lived in — and
-      keep folders. It does NOT make the declaration single-transport; that is the honest cost.
+      | question | measured |
+      |---|---|
+      | **UNKNOWN 1** — does a merge ADD a child only in the document? | **yes** — `VltProbeAdd` appeared |
+      | **UNKNOWN 2** — does it leave a child not in the document? | **no** — it was REMOVED |
+      | declaration lands? | **yes** — and CODESYS regenerated `<interface><localVars>` from the plaintext |
+      | textual body lands? | yes |
+      | CFC child survives? | yes, and unchanged by writes to the enclosing POU |
+
+      So the whole child lifecycle — add, update, remove — plus the declaration and the body travel in the ONE
+      import. The earlier `✗` for the declaration was an artifact of a probe that exported without
+      `declarations_as_plaintext`, so the document carried no `InterfaceAsPlainText` for the POU and there was
+      nothing for the import to read. The driver's own `ExportNodes` already passes that flag true, so the
+      shape under test IS the shape the driver produces.
+
+      That kills the honest-cost caveat and the separate orphan walk with it:
+      - declaration + body + children + accessors + graphical bodies → ONE import, `Replace`, no delete
+      - child add / update / **remove** → all expressed in that document; no `ide.Delete` per orphan
+      - child folders → preserved for free (nothing is deleted, so nothing is re-placed)
+
+      **One measured caveat, and it is a diff, not data loss.** The first merge RENUMBERS the CFC child's
+      `localId`s (the graph is equivalent; ids and element order are normalized). It converges immediately —
+      a second merge of the re-exported document leaves the CFC block byte-identical. So a POU with a graphical
+      child shows one-time churn on its first push through this path, then is stable. Must be stated in §4.3's
+      manual check rather than discovered by a user reading a surprise diff.
+
+      Probe: three headless CODESYS runs driving `export_xml`/`import_xml` directly (no bridge, no pipe) against
+      a COPY of the fixture, never saved.
 
       **Superseded avenue** (kept because it is still untested and might matter for child placement): `import_xml` takes an
       `into` target (`ImportXmlString(data, into)`), so a CHILD document might be importable directly into a
