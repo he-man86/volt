@@ -52,28 +52,37 @@ namespace Volt.Engine.Body
 
         /// <summary>Write <paramref name="text"/> into <paramref name="body"/>, replacing or patching whatever
         /// this codec owns there. Returns true when anything actually changed, so a no-op write can hand back the
-        /// ORIGINAL document bytes — the property that makes splicing safer than regenerating.</summary>
-        public abstract bool Encode(XElement body, string text);
+        /// ORIGINAL document bytes — the property that makes splicing safer than regenerating.
+        /// <para><paramref name="declaration"/> is the declaration text the body's FB INSTANCES resolve against.
+        /// Network text does not carry an instance's TYPE — only its name — so the FBD/LD codec has to restore
+        /// each <c>typeName</c> from the declaration, exactly as <see cref="NetworkCode.Write"/> does on the
+        /// per-transport path. Textual codecs ignore it. It is NOT optional and has NO default: this parameter
+        /// exists because the one-document path passed no resolver at all and silently rewrote every FB box as
+        /// <c>typeName=""</c>, destroying the type the export had.</para></summary>
+        public abstract bool Encode(XElement body, string text, string? declaration);
 
         // ── the registry ────────────────────────────────────────────────────────────────────────────────
         private static readonly BodyCodec[] All =
         {
-            new StCodec(), new IlCodec(), new NetworkCodec("FBD"), new NetworkCodec("LD"),
-            new ReadOnlyCodec("SFC"), new CfcCodec(),
+            new StCodec(), new NetworkCodec("FBD"), new NetworkCodec("LD"),
+            // IL is READ-ONLY, not a textual language Volt round-trips. Volt writes ST and FBD/LD and nothing
+            // else, so an IL body has no text form Volt can produce or accept — the same situation as SFC, and
+            // handled by the same codec rather than by a bespoke one that differed only in its throw message.
+            // It matters at the READ end: an IL body used to materialize as its raw text, indistinguishable from
+            // ST source, so the engineer got an editable-looking file and a push then rewrote their IL body as
+            // ST. Now it materializes as the read-only marker and the push leaves it alone.
+            new ReadOnlyCodec("IL"), new ReadOnlyCodec("SFC"), new CfcCodec(),
         };
 
         public static BodyCodec For(string language) =>
             All.FirstOrDefault(c => string.Equals(c.Language, language, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"no body codec for language '{language}'");
 
-        /// <summary>The codec whose element is actually PRESENT in this body, or null for a body with none
-        /// (an interface member, a DUT, a GVL — all measured to emit no <c>&lt;body&gt;</c> content at all).
+        /// <summary>The codec present in this body together with the element it found, or null for a body with
+        /// none (an interface member, a DUT, a GVL — all measured to emit no <c>&lt;body&gt;</c> content at all).
+        /// The element is what answers <see cref="IsUncommitted"/>.
         /// <para>Order matters: the nested CFC is tried BEFORE the direct children, because a CFC body ships an
         /// empty <c>&lt;ST&gt;</c> sibling that would otherwise win.</para></summary>
-        public static BodyCodec? Present(XElement body) => PresentWith(body)?.Codec;
-
-        /// <summary>The codec present in this body together with the element it found — the element is what
-        /// answers <see cref="IsUncommitted"/>.</summary>
         public static (BodyCodec Codec, XElement Element)? PresentWith(XElement body)
         {
             foreach (var c in All.OrderByDescending(x => x is CfcCodec))
@@ -91,7 +100,7 @@ namespace Volt.Engine.Body
         public override string Decode(XElement element) => element.Value;
         public override bool IsUncommitted(XElement element) => string.IsNullOrWhiteSpace(element.Value);
 
-        public override bool Encode(XElement body, string text)
+        public override bool Encode(XElement body, string text, string? declaration)
         {
             var ns = body.Name.Namespace;
             XNamespace xh = "http://www.w3.org/1999/xhtml";
@@ -122,15 +131,6 @@ namespace Volt.Engine.Body
     /// <summary>IL — textual like ST, and carried verbatim. It exists as its own codec so an IL body is refused
     /// as a LANGUAGE MISMATCH by the one rule, rather than slipping through a graphical-only narrowing as
     /// "textual" and being silently rewritten as ST two layers down.</summary>
-    internal sealed class IlCodec : BodyCodec
-    {
-        public override string Language => "IL";
-        public override string Decode(XElement element) => element.Value;
-        public override bool Encode(XElement body, string text) =>
-            throw new InvalidOperationException(
-                "writing an IL body is not supported — Volt round-trips ST and FBD/LD only");
-    }
-
     /// <summary>FBD / LD — the network-text codec, pivoting on <see cref="GraphBody"/>. It may REJECT its input:
     /// the IDE never sees network text, so an unparseable body cannot be transmitted at all. That is not a check
     /// ST is missing — ST's equivalent is vacuous because ST is stored verbatim.</summary>
@@ -140,10 +140,13 @@ namespace Volt.Engine.Body
         public override string Language { get; }
         public override string Decode(XElement element) => NetworkCode.RenderBody(element);
 
-        public override bool Encode(XElement body, string text)
+        public override bool Encode(XElement body, string text, string? declaration)
         {
             var graph = NetworkCode.Validate(text);                     // parse + canonical + convergence gates
-            var replacement = GraphWriter.WriteBody(graph, null);
+            // The resolver is the WHOLE point of `declaration`: network text names an FB instance but not its
+            // type, so without this every FB box was re-imported as typeName="" — silent, on every push.
+            var types = Text.InstanceTypes.Of(declaration);
+            var replacement = GraphWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
             var existing = Locate(body) ?? body.Elements()
                 .FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");  // a language change swaps the element
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
@@ -162,7 +165,7 @@ namespace Volt.Engine.Body
         public override string Language { get; }
         public override bool ReadOnly => true;
         public override string Decode(XElement element) => Workspace.Materializer.GraphicalBodyMarker(Language);
-        public override bool Encode(XElement body, string text) =>
+        public override bool Encode(XElement body, string text, string? declaration) =>
             throw new InvalidOperationException(
                 $"'{Language}' is a read-only body — edit it in the IDE, not via push.");
     }

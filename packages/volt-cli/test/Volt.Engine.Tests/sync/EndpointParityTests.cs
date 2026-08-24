@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
@@ -45,5 +45,29 @@ public class EndpointParityTests
         Assert.Equal(
             refs.Items.OrderBy(kv => kv.Key, System.StringComparer.Ordinal),
             receipt.NewItems!.OrderBy(kv => kv.Key, System.StringComparer.Ordinal));
+    }
+
+    /// <summary>A referenced library must be reported in the SAME folder by every endpoint — and it must be the
+    /// folder its file is actually written to.
+    /// <para>It was not. <c>/fetch</c> wrote the stub to <c>Library Manager/&lt;lib&gt;/</c> (so it sits beside the
+    /// element signatures rendered for it) but reported it at <c>Library Manager/</c> in the same response's
+    /// <c>folders</c> map, and hashed its version over that outer folder; <c>/refs</c> and the push receipt gave
+    /// the outer folder too. A client trusting <c>folders</c> looked for the file where it was never written.
+    /// Four separate walks each applied — or forgot — the layout rule on their own, which is why the rule now
+    /// lives once on <see cref="Versioning.FolderOf"/>, inside the hash every one of them already computes.</para></summary>
+    [Fact]
+    public void A_library_is_reported_in_the_folder_its_file_is_written_to()
+    {
+        var ide = Mixed();
+        var refs = RefsService.Handle(ide);
+        var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
+        var receipt = PushService.Handle(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
+
+        var lib = fetch.Changed.Single(c => c.Name.EndsWith(".library", System.StringComparison.Ordinal));
+        Assert.Equal("Library Manager/CmpX", lib.Folder);          // where the file is WRITTEN
+
+        Assert.Equal(lib.Folder, fetch.Folders[lib.Name]);         // ...and where /fetch SAYS it is
+        Assert.Equal(lib.Folder, refs.Folders[lib.Name]);          // ...and /refs
+        Assert.Equal(lib.Folder, receipt.NewFolders![lib.Name]);      // ...and the push receipt
     }
 }

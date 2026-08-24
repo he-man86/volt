@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
@@ -70,9 +70,9 @@ public class DeclarationOnlyDocumentTests
     public void C_code_pushed_to_a_bodiless_kind_is_refused_not_discarded()
     {
         var ex = Assert.Throws<System.InvalidOperationException>(() =>
-            PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "n := 1;"));
+            PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "n := 1;", null));
 
         Assert.Contains("no <body>", ex.Message);
-        Assert.Equal(Fixture("DUT.plcopen.xml"), PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", ""));
+        Assert.Equal(Fixture("DUT.plcopen.xml"), PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "", null));
     }
 }

@@ -192,7 +192,11 @@ public static class PushService
             case SetItemOp set:
                 return ApplySetItem(ide, parent, name, existing, currentFolder, set);
             case DeleteItemOp when existing is { } del:
-                ide.Delete(ide.Parent(del), name);
+                // `ide.Name(del)`, NOT the wire `name`: `del` is the already-resolved handle, so this is the item's
+                // ACTUAL IDE name. itemCache resolves case-INSENSITIVELY while the drivers' child scan matches
+                // case-SENSITIVELY, so a case-divergent wire name found the item here and then matched nothing in
+                // the driver — silently on CODESYS, as a raw COM error on TwinCAT. Shared Core, so this fixes both.
+                ide.Delete(ide.Parent(del), ide.Name(del));
                 return "deleted";
             default:
                 return "no-op";  // delete of an item that isn't there
@@ -223,7 +227,13 @@ public static class PushService
         {
             ide.Rename(item, toName);                  // native rename → IDE rewrites references
             currentName = toName;
-            item = ItemLookup.Find(ide, currentName) ?? item;    // refresh the (possibly staled) handle
+            // Refresh the staled handle, and FAIL on a miss. The rename reported success, so the item MUST be
+            // findable under its new name; keeping the pre-rename handle writes the pushed content onto the OLD
+            // identity and still returns "renamed+updated", which the receipt then bakes into the baseline.
+            item = ItemLookup.Find(ide, currentName)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
+                    "write through the pre-rename handle");
             renamed = true;
         }
 
@@ -265,10 +275,14 @@ public static class PushService
         // One flag, both facts, deleted together when §5 measures TwinCAT.
         if (ide.WritesPouAsOneDocument)
         {
+            // CONTENT FIRST, then the move — because the content write is the step that can REFUSE.
+            // It used to move first, which meant a rejected move+edit (a read-only CFC body, a language change,
+            // malformed network text — all refused by the splice) left the item ALREADY RELOCATED, and
+            // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
+            // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
+            // the refusal atomic: the item has not moved, so there is nothing to undo.
+            if (sourceText is { } edited) WriteItemFromSource(ide, parent, name, item, edited, newFolder);
             ide.Move(item, ResolveTopLevelFolder(ide, parent, newFolder));
-            if (sourceText is not { } edited) return;                  // pure move: the content never left
-            var moved = ItemLookup.Find(ide, name) ?? item;                      // refresh the (possibly staled) handle
-            WriteItemFromSource(ide, parent, name, moved, edited, newFolder);   // move+edit → the in-place update
             return;
         }
 
@@ -337,11 +351,17 @@ public static class PushService
             // language at creation; CODESYS ignores the argument and takes the language from the body element on
             // import. There is no create-arm per language any more — the language is data.
             pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl));
-            // The COM reference from CreateChild is stale for interface items — re-find before writing anything.
+            // The COM reference from CreateChild is stale for interface items — re-find before writing anything,
+            // and FAIL if the re-find misses rather than writing through the handle this very line calls dead. On
+            // TwinCAT a write to a detached COM object can succeed silently, so the interface would land EMPTY
+            // while the push reports "created" and the receipt bakes that into the client's baseline.
             if (itemType == ItemKind.PlcItf)
-                pou = FindChild(ide, targetParent, name) ?? pou;
+                pou = FindChild(ide, targetParent, name)
+                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        $"created interface '{name}' but it cannot be found under its parent — refusing to write " +
+                        "through the stale create handle");
 
-            if (!OneDocument(ide, itemType))
+            if (!ide.WritesPouAsOneDocument)
             {
                 // The per-transport path, for a driver whose import has not been measured. A network-text body
                 // still needs its declaration written separately here, because NetworkCode.Write carries only
@@ -365,7 +385,7 @@ public static class PushService
             // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
             // paid 22 exports to write one body. Reading the document once and answering every language question
             // from it is the same information for a 22nd of the IDE traffic.
-            var doc = OneDocument(ide, itemType) ? ide.ReadXml(pou) : null;
+            var doc = ide.WritesPouAsOneDocument ? ide.ReadXml(pou) : null;
             var parsed = doc is null ? null : PouReader.Parse(doc);
 
             // Body-type guard for the PER-TRANSPORT path only: never overwrite an item with a MISMATCHED body
@@ -382,7 +402,7 @@ public static class PushService
             if (doc is null && ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
             {
                 var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
-                if (currentLang is "CFC" or "SFC")
+                if (IsReadOnlyLanguage(currentLang))
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
                 if (currentLang is not null && !pouVg)
@@ -424,7 +444,7 @@ public static class PushService
         // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
         // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
         // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
-        if (OneDocument(ide, itemType))
+        if (ide.WritesPouAsOneDocument)
         {
             ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
             RestoreChildFolders(ide, name, split);
@@ -479,7 +499,10 @@ public static class PushService
             {
                 // TC interface property references are stale after CreateChild — re-find.
                 if (isInterface && existingChild is null)
-                    childItem = FindChild(ide, childParent, child.Name) ?? childItem;
+                    childItem = FindChild(ide, childParent, child.Name)
+                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                            $"created interface property '{child.Name}' but it cannot be found — refusing to " +
+                            "write its accessors through the stale create handle");
 
                 var getCode = isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet;
                 var setCode = isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet;
@@ -496,36 +519,27 @@ public static class PushService
         // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
         // (declaration-only), so they are kept, not deleted.
         //
-        // Only for a textual root POU: a graphical (network text) body push goes through NetworkCode.Write, which
-        // deletes-and-reimports the object (staleing `pou`), and the network sourceText carries no textual
-        // child list to reconcile against — so child reconciliation doesn't apply there.
-        // Runs for EVERY language now. It used to be skipped for a network-text root on two stated reasons, both
-        // false: `WriteXml` is a merge with no delete (so `pou` is not stale), and `StReader` parses children
-        // identically regardless of body language (so `split.Members` is the list to reconcile against — the
-        // loop above already uses it). The cost of the skip was silent: deleting a method from a graphical POU
-        // was ACCEPTED and the method survived in the IDE, reappearing on the next pull.
+        // Runs for EVERY language. It used to be skipped for a network-text root on two stated reasons, one of
+        // which was false: `StReader` parses children identically regardless of body language, so `split.Members`
+        // IS the list to reconcile against (the loop above already uses it). The cost of the skip was silent —
+        // deleting a method from a graphical POU was ACCEPTED and the method survived in the IDE.
+        //
+        // The OTHER reason — "`WriteXml` is a merge with no delete, so `pou` is not stale" — is true on CODESYS
+        // and FALSE on TwinCAT, where the PLCopen import REPLACES the object and invalidates every handle to it
+        // ("Item 'x' is deleted or invalidated by an ealier operation!"). A graphical push reaches here straight
+        // after `NetworkCode.Write` has imported, so `pou` is dead on that vendor. It went unnoticed because the
+        // driver's ChildCount answered 0 for a faulted handle: the orphan walk became a silent no-op, and a
+        // method deleted from a graphical POU survived in the IDE — exactly the bug the skip was removed to fix,
+        // still happening, just one layer down. Re-acquire before reconciling, and fail loudly if it is gone.
         {
+            var live = ItemLookup.Find(ide, name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{name}' cannot be found after its content was written — refusing to reconcile its " +
+                    "children through a handle the write may have invalidated");
             var keep = new HashSet<string>(split.Members.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-            RemoveOrphanChildren(ide, pou, keep);
+            RemoveOrphanChildren(ide, live, keep);
         }
     }
-
-    private static bool IsPou(int itemType) =>
-        itemType is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb;
-
-    /// <summary>Whether THIS item, on THIS driver, takes the single-document write. The one predicate the create,
-    /// update and move paths all ask, so they cannot drift apart about which items it covers.
-    /// <para>EVERY writable kind, not just POUs. PLCopen import/export is defined for all of them and all four
-    /// were measured to round-trip on CODESYS 3.5.21.40 — an interface (members in <c>Methods</c>/<c>Properties</c>
-    /// rather than <c>addData/data</c>, and an added member IS created by the merge), a DUT, an enum DUT with its
-    /// pragmas intact, and a GVL. The three shapes differ only in where members live and whether there is a
-    /// <c>&lt;body&gt;</c>, which the document layer reads off the owner element.</para>
-    /// <para>What this leaves behind is the point: on a driver that writes one document there is now exactly ONE
-    /// way an item's content reaches the IDE. The per-child <c>WriteText</c>/<c>CreateChild</c> loop below it runs
-    /// only for a driver that does not (TwinCAT, whose import is still unmeasured — D1–D4 in DIALECT.md).</para></summary>
-    private static bool OneDocument(IIdeDriver ide, int itemType) =>
-        ide.WritesPouAsOneDocument &&
-        (IsPou(itemType) || itemType is ItemKind.PlcItf or ItemKind.PlcDut or ItemKind.PlcGvl);
 
     /// <summary>Put the POU's children back in their folders after the merge import flattened them.
     /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's
@@ -543,7 +557,14 @@ public static class PushService
         if (foldered.Count == 0) return;
         // The merge does not delete the POU, but re-find it anyway: the import rewrites the object, and a handle
         // captured before it is not something to trust on the write path.
-        if (ItemLookup.Find(ide, name) is not { } pou) return;
+        // A MISS here is not "nothing to do". The document has ALREADY landed and the import has already
+        // flattened the POU's internal folders, so returning quietly leaves every member at the POU root while
+        // the push reports success and the receipt bakes the flattened tree into the client's baseline — the
+        // engineer's structure is gone and `volt status` says clean.
+        if (ItemLookup.Find(ide, name) is not { } pou)
+            throw new BridgeException(BridgeErrorCodes.NotFound,
+                $"'{name}' cannot be found after its document was imported, so its members cannot be put back " +
+                "into their folders — the import has already flattened them");
         foreach (var child in foldered)
         {
             if (FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
@@ -551,8 +572,8 @@ public static class PushService
         }
     }
 
-    /// <summary>Walk the POU subtree and delete in-POU children (method/action/property/transition) whose
-    /// name is not in <paramref name="keep"/>. Folders are descended (recursed first, so a deletion never
+    /// <summary>Walk the POU subtree and delete in-POU children (method/action/property — NOT transitions,
+    /// which no reader models, so they can never be in <paramref name="keep"/>) whose name is not in it. Folders are descended (recursed first, so a deletion never
     /// invalidates a not-yet-visited folder handle); accessors live under properties and are handled
     /// per-property, not here, so we never recurse into a property.</summary>
     private static void RemoveOrphanChildren(IIdeDriver ide, ItemRef parent, ISet<string> keep)
@@ -567,7 +588,11 @@ public static class PushService
         foreach (var s in snapshot)
             if (s.Kind == ItemKind.PlcFolder) RemoveOrphanChildren(ide, s.Ref, keep);
         foreach (var s in snapshot)
-            if (s.Kind != ItemKind.PlcFolder && ItemKind.IsInlinedInPou(s.Kind) && !keep.Contains(s.Name))
+            // Only the members the SOURCE models — see ItemKind.IsPouSourceMember. Reconciling against the wider
+            // IsInlinedInPou set deleted things no reader can ever put in `keep`: a TRANSITION is never written
+            // to the file, so the first push of an SFC-bearing POU silently deleted the engineer's transitions.
+            // The folder exclusion is implied by the predicate now.
+            if (ItemKind.IsPouSourceMember(s.Kind) && !keep.Contains(s.Name))
                 ide.Delete(parent, s.Name);
     }
 
@@ -611,8 +636,16 @@ public static class PushService
     /// <summary>The six-language body answer reduced to the GRAPHICAL ones — the same shape
     /// <see cref="ICodeStore.BodyLanguage"/> returns (null for a textual ST/IL body), so the two sources are
     /// interchangeable at every guard.</summary>
-    private static string? GraphicalOnly(string? language) =>
-        language is "FBD" or "LD" or "CFC" or "SFC" ? language : null;
+    /// <summary>The language when it is one a textual write must not touch — i.e. anything but ST. Asking the
+    /// codec registry instead of listing names is what stops a new language (IL was one) being silently
+    /// classified textual and overwritten.</summary>
+    private static string? NonSt(string? language) =>
+        language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
+
+    /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
+    /// read-only set has ONE definition shared by the splice and both live guards.</summary>
+    private static bool IsReadOnlyLanguage(string? language) =>
+        language is { } l && Body.BodyCodec.For(l).ReadOnly;
 
     /// <summary>Resolve a folder WITHOUT creating one — the read-only twin of <see cref="ResolveFolder"/>, for
     /// callers that are only looking (a guard must not mutate the project it is about to refuse).</summary>
@@ -662,7 +695,7 @@ public static class PushService
             // anything, so a refusal is atomic" could leave new empty folders behind and then refuse the push.
             var known = parsed.Children.FirstOrDefault(c => string.Equals(c.Name, child.Name, StringComparison.OrdinalIgnoreCase));
             if (known is null) return;       // not in the IDE yet — a create, nothing to overwrite
-            lang = GraphicalOnly(known.BodyLanguage);
+            lang = NonSt(known.BodyLanguage);
         }
         else
         {
@@ -678,7 +711,7 @@ public static class PushService
         // otherwise silently do nothing.
         if (marker)
         {
-            if (lang is "CFC" or "SFC") return;                 // the normal round-trip — leave the diagram alone
+            if (IsReadOnlyLanguage(lang)) return;               // the normal round-trip — leave the body alone
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' carries a read-only graphical marker but its body in the IDE is " +
                 $"{lang ?? "textual"} — remove the marker and push real source, or pull first.");

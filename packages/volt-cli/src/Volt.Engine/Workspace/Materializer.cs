@@ -79,8 +79,22 @@ public static class Materializer
     {
         var xml = ide.ReadXml(item);
         var parsed = PouReader.Parse(xml);
+        // ONE source. A POU's declaration is its DOCUMENT's — there is no second transport here, and the COM
+        // aspect is not consulted. This used to be `?? ide.ReadDeclaration(item)`, justified as covering a
+        // TwinCAT FB that carries a structured <interface><localVars> and no plaintext of its own. MEASURED: that
+        // shape does not occur. All 8 recorded TwinCAT exports carry a POU-level <InterfaceAsPlainText>
+        // (including FB_TcMembers, whose POU-level <interface/> IS empty), CODESYS was measured to export one for
+        // even a freshly created POU (§3.3), and instrumenting the arm to throw produced ZERO hits across 195
+        // live e2e tests on both vendors plus the whole offline suite. The only thing asserting that shape was
+        // one hand-written test that TOLERATED null rather than demonstrating it.
+        //
+        // So a document without a declaration is a broken export, not a case to paper over: the fallback made a
+        // POU whose declaration failed to parse silently materialize with the COM text instead, and any
+        // divergence between the two representations became invisible.
         var declaration = parsed.Declaration
-            ?? ide.ReadDeclaration(item);
+            ?? throw new InvalidOperationException(
+                $"'{ide.Name(item)}': its PLCopen export carries no <InterfaceAsPlainText> — a POU document " +
+                "without a declaration is a broken export");
         var kind = CodeHelper.ParseCodeHeader(declaration).Type;
 
         var folderMap = BuildFolderMap(ide, item);
@@ -130,14 +144,20 @@ public static class Materializer
         return code is null && decl is null ? null : new Item.Accessor(decl, code);
     }
 
+    /// <summary>The workspace text for a body, dispatched through the LANGUAGE's codec — the same registry the
+    /// write side uses, so read and write cannot disagree about what a language is.
+    /// <para>This used to hand-roll a second dispatch: FBD/LD, then CFC/SFC, then "anything else is text". That
+    /// else-arm was the bug. <b>IL fell through it</b> and materialized as its raw body text, indistinguishable
+    /// from ST source — so an engineer got an editable-looking file for a language Volt cannot write, and the
+    /// push then rewrote their IL body as ST. IL is UNSUPPORTED, exactly like CFC and SFC: it materializes as the
+    /// marker and a push leaves it alone. Asking the codec means a language added to the registry can never
+    /// silently acquire a fake text form again.</para></summary>
     private static string? BodyTextOf(string? lang, XElement? bodyEl)
     {
         if (lang == null || bodyEl == null) return null;
-        if (lang is "FBD" or "LD")
-            return NetworkCode.RenderBody(bodyEl);
-        if (lang is "CFC" or "SFC")
-            return GraphicalBodyMarker(lang);
-        var text = bodyEl.Value.Trim();
+        var codec = Body.BodyCodec.For(lang);
+        if (codec.ReadOnly) return GraphicalBodyMarker(codec.Language);
+        var text = codec.Decode(bodyEl).Trim();
         return text.Length == 0 ? null : text;
     }
 
@@ -155,27 +175,34 @@ public static class Materializer
         return lines.Length <= 2 && trimmed.StartsWith("VAR") && trimmed.EndsWith("END_VAR");
     }
 
+    /// <summary>Member name → in-POU folder path, walked off the SCRIPTING tree because PLCopen carries no
+    /// folder information at all (the same reason <c>WriteXml</c> has to re-import into the original parent).
+    /// <para><b>No catch, deliberately.</b> A swallowed fault here does not degrade gracefully — it MUTATES the
+    /// project on the next push. Every member the walk failed to reach materializes with a null folder, so the
+    /// writer emits no <c>%FOLDER</c> directive and the pulled file looks legitimately folder-less. Then a push
+    /// resolves that null to the POU ROOT and creates a DUPLICATE beside the real member — and because the
+    /// version hash is taken over the folder-less text, <c>volt status</c> reports clean the whole way through.
+    /// A partial map is not a degraded answer, it is a wrong one.</para>
+    /// <para>The isolation boundary already exists ONE LEVEL UP, in <c>Versioning.SafeVersion</c>, which catches
+    /// per item, LOGS the item's name, and lets the rest of the walk continue — so a genuinely unreadable POU
+    /// still cannot crash a refs/fetch, and now says which one it was.</para></summary>
     private static Dictionary<string, string?> BuildFolderMap(IIdeDriver ide, ItemRef parent, string basePath = "")
     {
         var map = new Dictionary<string, string?>(StringComparer.Ordinal);
-        try
+        int count = ide.ChildCount(parent);
+        for (int i = 1; i <= count; i++)
         {
-            int count = ide.ChildCount(parent);
-            for (int i = 1; i <= count; i++)
+            var child = ide.ChildAt(parent, i);
+            var childName = ide.Name(child);
+            var itemType = ide.KindCode(child);
+            if (itemType == ItemKind.PlcFolder)
             {
-                var child = ide.ChildAt(parent, i);
-                var childName = ide.Name(child);
-                var itemType = ide.KindCode(child);
-                if (itemType == ItemKind.PlcFolder)
-                {
-                    foreach (var kv in BuildFolderMap(ide, child, FolderPath.Append(basePath, childName)))
-                        map[kv.Key] = kv.Value;
-                    continue;
-                }
-                map[childName] = string.IsNullOrEmpty(basePath) ? null : basePath;
+                foreach (var kv in BuildFolderMap(ide, child, FolderPath.Append(basePath, childName)))
+                    map[kv.Key] = kv.Value;
+                continue;
             }
+            map[childName] = string.IsNullOrEmpty(basePath) ? null : basePath;
         }
-        catch { }
         return map;
     }
 }

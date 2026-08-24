@@ -15,14 +15,16 @@ public class NetworkCodeTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
-    private static string Pou(string body, bool withIface, string oldDecl = "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR")
-    {
-        var iface = withIface
-            ? "<addData><data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">" +
-              $"<InterfaceAsPlainText><xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{System.Security.SecurityElement.Escape(oldDecl)}</xhtml></InterfaceAsPlainText></data></addData>"
-            : "";
-        return $"<pou xmlns=\"{Ns}\" name=\"P\"><interface/><body>{body}</body>{iface}</pou>";
-    }
+    /// <summary>A POU export, ALWAYS carrying its plaintext declaration - because every real one does. There
+    /// used to be a <c>withIface: false</c> mode producing a POU with NO <c>&lt;InterfaceAsPlainText&gt;</c>;
+    /// measured, no vendor emits that (all 8 recorded TwinCAT exports carry one, and CODESYS exports one even
+    /// for a freshly created POU). Seven fixtures used that mode, and between them they were the ONLY thing
+    /// keeping a COM-read fall-back alive in the production read path. A fake that can synthesize an impossible
+    /// document will eventually be used to justify handling it, so the mode is gone rather than left unused.</summary>
+    private static string Pou(string body, string oldDecl = "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR") =>
+        $"<pou xmlns=\"{Ns}\" name=\"P\"><interface/><body>{body}</body>" +
+        "<addData><data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">" +
+        $"<InterfaceAsPlainText><xhtml xmlns=\"http://www.w3.org/1999/xhtml\">{System.Security.SecurityElement.Escape(oldDecl)}</xhtml></InterfaceAsPlainText></data></addData></pou>";
 
     private const string FbdBody =
         "<FBD><inVariable localId=\"1\"><expression>a</expression></inVariable>" +
@@ -58,7 +60,7 @@ public class NetworkCodeTests
     [Fact]
     public void Fbd_body_reads_as_vg_with_declaration_from_the_same_export()
     {
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: true, oldDecl: "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR") };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR") };
         var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.NotNull(gb);
         Assert.Equal("FBD", gb!.Language);
@@ -74,7 +76,7 @@ public class NetworkCodeTests
     {
         // CFC/SFC have no text form: NetworkCode.Read returns an EMPTY body (the Materializer later wraps
         // it in the @volt-graphical marker). A Core rule, not a vendor trait — proven offline here.
-        var s = new FakeCodeStore { Lang = lang, Xml = Pou($"<{lang}/>", withIface: false), Decl = "FUNCTION_BLOCK C\nVAR\nEND_VAR" };
+        var s = new FakeCodeStore { Lang = lang, Xml = Pou($"<{lang}/>", "FUNCTION_BLOCK C\nVAR\nEND_VAR") };
         var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal(lang, gb!.Language);
         Assert.Equal("", gb.Body);                                       // not transpiled — empty
@@ -101,7 +103,7 @@ public class NetworkCodeTests
         // element — it carries inline ST in an <STCode> addData. The bridge must render that ST (readable,
         // analyzable), NOT collapse it into a bare `EXECUTE()` call that drops the code. The body stays a
         // normal, readable network-text body.
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var gb = NetworkCode.Read(s, Item, ItemName);
         Assert.Equal("FBD", gb!.Language);
         Assert.Contains("NETWORK", gb.Body);          // a normal, readable network-text body
@@ -115,7 +117,7 @@ public class NetworkCodeTests
         // Full round-trip: PLCopen XML → network text → graph → PLCopen XML. The Execute box renders as
         // `IF en THEN EXECUTE … END_EXECUTE END_IF` (EN handled like any block), and reconstructs as
         // <block typeName="EXECUTE"> + fbdcalltype=execute + <STCode> — so its inline ST survives verbatim.
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var vg = NetworkCode.Read(s, Item, ItemName)!.Body;
         Assert.Contains("EXECUTE", vg);
         Assert.Contains("END_EXECUTE", vg);
@@ -146,26 +148,41 @@ public class NetworkCodeTests
         // Full write-path round-trip: read an execute-box body to canonical network text, then Write it back. The box is
         // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
         // not refused. So an Execute box is editable, not read-only.
-        var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var vg = NetworkCode.Read(read, Item, ItemName)!.Body;
-        var write = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: true) };
+        var write = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody) };
         NetworkCode.Write(write, Item, ItemName, vg, "PROGRAM P\nVAR\nEND_VAR");
         Assert.NotNull(write.WrittenXml);
         Assert.Contains("typeName=\"EXECUTE\"", write.WrittenXml!);   // the box is reconstructed
         Assert.Contains("target := 42;", write.WrittenXml!);         // …with its STCode
     }
 
+    /// <summary>An export with NO plaintext declaration is a broken document and must SAY so — it must not
+    /// quietly fall back to the object-model aspect.
+    /// <para>This replaces <c>Declaration_falls_to_the_textual_aspect_when_the_export_omits_it</c>, which
+    /// asserted exactly that fall-back. Its premise was measured false on grounds independent of the code: all
+    /// 8 recorded TwinCAT exports carry a POU-level <c>&lt;InterfaceAsPlainText&gt;</c>, CODESYS exports one
+    /// even for a freshly created POU, and instrumenting the arm to throw produced ZERO hits across 195 live
+    /// e2e tests on both vendors. The fall-back served a document shape that does not occur — and while it
+    /// existed, a POU whose declaration failed to PARSE silently materialized with the COM text instead, so the
+    /// two representations could diverge with nothing to show for it.</para>
+    /// <para>The malformed document is built inline rather than by <c>Pou</c>: the helper no longer has a mode
+    /// for it, and a test about malformedness is the one place that shape belongs.</para></summary>
     [Fact]
-    public void Declaration_falls_to_the_textual_aspect_when_the_export_omits_it()
+    public void An_export_without_a_plaintext_declaration_throws_and_never_falls_back_to_the_aspect()
     {
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false), Decl = "FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR" };
-        Assert.Equal("FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR", NetworkCode.Read(s, Item, ItemName)!.Declaration);
+        var noDecl = $"<pou xmlns=\"{Ns}\" name=\"P\"><interface/><body>{FbdBody}</body></pou>";
+        var s = new FakeCodeStore { Lang = "FBD", Xml = noDecl, Decl = "FUNCTION_BLOCK T\nVAR\n\ta : BOOL;\nEND_VAR" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => NetworkCode.Read(s, Item, ItemName));
+        Assert.Contains("InterfaceAsPlainText", ex.Message);
+        Assert.DoesNotContain("FUNCTION_BLOCK T", ex.Message);   // the aspect was never consulted
     }
 
     [Fact]
     public void Graphical_language_but_no_fbd_body_throws_not_a_silent_marker()
     {
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou("<ST>x:=1;</ST>", withIface: true) };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou("<ST>x:=1;</ST>") };
         Assert.Throws<InvalidOperationException>(() => NetworkCode.Read(s, Item, ItemName));
     }
 
@@ -174,7 +191,7 @@ public class NetworkCodeTests
     {
         // A3: a bad language token is rejected BEFORE the IDE import, with a clear message — not downstream
         // with a misleading "not writable". The guard fires before ReadXml, so the store needn't be valid.
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody) };
         var ex = Assert.Throws<InvalidOperationException>(() => NetworkCode.Write(
             s, Item, ItemName, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
@@ -188,7 +205,7 @@ public class NetworkCodeTests
         // The strict round-trip gate: this parses fine, but it spells out named temps where the writer inlines
         // the single-use operands, so it would not round-trip identically. Refused before the import, with the
         // readable canonical form shown.
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody) };
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
         var ex = Assert.Throws<NetworkTextException>(() =>
@@ -212,8 +229,7 @@ public class NetworkCodeTests
         // from the typed <interface> on import, ignoring the plaintext — so we never splice the decl).
         var s = new FakeCodeStore
         {
-            Xml = Pou("<FBD><inVariable localId=\"1\"><expression>old</expression></inVariable></FBD>",
-                      withIface: true, oldDecl: "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR"),
+            Xml = Pou("<FBD><inVariable localId=\"1\"><expression>old</expression></inVariable></FBD>", "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR"),
         };
         const string vg = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
         const string decl = "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tx : BOOL;\nEND_VAR";

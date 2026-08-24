@@ -1,4 +1,4 @@
-namespace Volt.Engine.Ide;
+﻿namespace Volt.Engine.Ide;
 
 /// <summary>
 /// The TWO code transports, plus the language gate and the non-source manifest read. This is the only
@@ -39,8 +39,14 @@ public interface ICodeStore
     /// <para>A CAPABILITY, deliberately not a vendor name: Core must not branch on who the vendor is. It exists
     /// because the merge semantics were measured on CODESYS and NOT on TwinCAT, whose import is a temp file and
     /// which already answers <c>E_FAIL</c> for DUT/GVL exports — `pou-writes-via-plcopen` §5 stages that
-    /// verification deliberately after CODESYS is green. <b>Delete this property when §5 lands</b>: two write paths
-    /// is the cost being paid for staging, not a design.</para>
+    /// verification deliberately after CODESYS is green. Two write paths is the cost being paid for staging, not
+    /// a design.
+    /// <para>It used to say "<b>delete this property when §5 lands</b>". That instruction is now premature rather
+    /// than wrong, and the measurements since say why. TwinCAT's import CAN replace in place (DIALECT <b>D4c</b> —
+    /// the options argument had simply never been varied off <c>NONE</c>), which removes the original blocker.
+    /// But the flag also stands for "and this driver has a real <see cref="IProjectTree.Move"/>", and TwinCAT
+    /// still has none (D4): <c>ExportChild</c>/<c>ImportChild</c> carry the item's source path, so they recreate
+    /// the hierarchy rather than move. Delete the property when THAT is answered, not merely when the import is.</para>
     /// <para>It also stands for "<b>and this driver has a real <see cref="IProjectTree.Move"/></b>", because the
     /// two are the same measurement: the merge FLATTENS a POU's child folders, so the single-document write
     /// depends on <c>Move</c> to put them back — a driver without one could not take this path at all.

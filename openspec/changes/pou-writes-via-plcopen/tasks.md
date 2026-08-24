@@ -272,7 +272,7 @@ So the flattening is a step the write must UNDO, not a blocker:
       export, and the splice edits it.
       Measured on 3.5.21.40 before relying on it: a freshly created POU exports with both an
       `<InterfaceAsPlainText>` and a `<body>` — the two elements the splice needs. (A DUT/GVL exports the
-      plaintext but NO body, which is why `IsPou` excludes them.)
+      plaintext but NO body.)
       This was the last place the per-child seam survived: creating an FB with 5 methods used to cost ~12 COM
       writes plus an orphan walk; it is now one `CreateChild` and one import.
 - [x] 3.4 **DONE — structure stays on the scripting API, and MOVE became a real one.** Rename still uses
@@ -300,8 +300,36 @@ So the flattening is a step the write must UNDO, not a blocker:
 
 ## 5. TwinCAT — only after CODESYS is green
 
-- [ ] 5.1 Verify TwinCAT's IMPORT accepts a spliced POU document at all. Its transport is a temp file and it
-      already answers `E_FAIL` for DUT/GVL exports, so its import is NOT assumed to mirror its export.
+- [x] 5.1 **DONE, and the blocking premise was wrong: TwinCAT's import CAN replace in place.** Measured live
+      (TcXaeShell, XAE pid 2036, fixture `TwinCAT Project13`, POU `PLC_PRG`) — see DIALECT **D4c**.
+
+      `TcPlcOpen` hardcoded `PLCIMPORTOPTIONS_NONE = 0`, the only value Volt had ever passed, and every earlier
+      TwinCAT measurement (D1-D4, D4b) went through it. Sweeping the options argument:
+
+      | options | result |
+      |---|---|
+      | `0` (NONE, what Volt used) | **FAILS** — "Creation of object 'PLC_PRG' failed. Reason: Import conflict!" |
+      | **`1` (REPLACE)** | **replaces IN PLACE** — item count unchanged (7→7, re-measured 10→10), no delete, no duplicate |
+      | `2`, `4`, `8` | each ADDS a copy (+1 every time) |
+
+      **And it is not a silent SKIP** — the trap CODESYS's `ConflictResolve.Skip` set, where the tree is preserved
+      and nothing lands. A marker comment spliced into the body via `PouSplice.SetBody` was present in the
+      re-export afterwards (`CONTENT LANDED = True`).
+
+      What that changes, beyond this task:
+      - `BeckhoffDriver.WriteXml` no longer deletes. It is now one merge import, the same shape as CODESYS.
+      - **The foldered-item REFUSAL is gone.** A graphical push to a POU in any folder used to be rejected
+        outright ("move it to the PLC-project root or edit it in the IDE") because delete-then-import relocated
+        it. Nothing is deleted now, so nothing is relocated. D4b's "placement is unrecoverable on TwinCAT" was a
+        property of the DELETE, not of `PlcOpenImport`.
+      - `PlcOpenTransport.ReplaceByReimport` was TwinCAT's last caller. With the delete gone it is dead on BOTH
+        vendors, so it and its test are deleted — which also closes the audit finding that its restore-on-failure
+        swallowed the primary exception and could leave the POU deleted. `TcObjectModel.IsPlcProjectRoot` went
+        with it.
+      - Live TwinCAT e2e after the change: **96 pass / 12 skip / 0 fail** (unchanged).
+
+      Probe method: a temporary `--probe-import` flag on the worker exe, reverted immediately afterwards; the
+      fixture was never saved and was restored to pristine (`git status` clean) after the run.
 - [ ] 5.1b Verify TwinCAT has a **move** equivalent for a POU child. CODESYS's `ScriptObject.move` is what makes
       §3.1 work; `TcObjectModel` has no move today and TwinCAT's COM surface is a different API entirely. If it
       has none, that is a §5.5 vendor limit — record it, do NOT reintroduce delete+CreateChild+WriteText on the
@@ -337,7 +365,79 @@ Two more looked like fallbacks and are deliberate; documented in place so they a
 
 ## 6. Close out
 
-- [ ] 6.1 Delete whatever the change made unreachable (the per-child write path, orphan walk) — compiler-verified,
-      as with the COM property walk.
-- [ ] 6.2 `ARCHITECTURE.md`: state the transport rule plainly — a POU is read and written through one PLCopen
-      document; structure and non-source kinds are not.
+- [~] 6.1 **PARTIAL — everything dead on BOTH vendors is deleted; the per-child path and orphan walk are NOT
+      dead and must not be touched until §5.** A multi-lens line-by-line audit of the CODESYS package plus the
+      shared PLCopen/Sync layer settled the classification this task had been assuming rather than checking.
+
+      **The task's own premise was wrong.** "The per-child write path, orphan walk" are not unreachable:
+      `WritesPouAsOneDocument` is false on `DriverBase` and `BeckhoffDriver` never overrides it, so TwinCAT runs
+      every one of them today. Reachability is in fact "TwinCAT **and** `FakeIde(OneDocumentWrite=false)`" —
+      `PouMergeWriteTests.Without_the_capability_the_per_child_path_still_runs` plus 13 default-FakeIde pushes in
+      `PushServiceTests` make deleting any of it a compile-green/test-RED change, which is the strongest available
+      proof it is live. Blocked until §5: `PushService` 344-358, 371-400, 415-416, 434-491, 493-510, `EnsureAccessor`,
+      `RemoveOrphanChildren`, `RemoveChildIfPresent`, `FindFolder`, `ChildKindToCode`,
+      `RequireChildFormatWritable`'s else arm, `CodesysObjectModel.SetAspectText`/`WriteSourceText`, and
+      `PlcOpenTransport` (whose one remaining caller is TwinCAT's delete-before-import `WriteXml`).
+
+      **A REAL defect the audit found first, and it is why this is more than a deletion pass.** The root body
+      learned the `BodyCodec` dispatch; `SetChildText` was left on a blanket `NonStBodyLanguage` predicate that
+      refused *any* non-ST body. So on the single-document path an **editable FBD/LD METHOD or ACTION could not be
+      pushed at all** — restating one unchanged aborted the whole push. The live suite cannot see it: the graphical
+      e2e only ever creates top-level FBD/LD **programs**, never a graphical child. Fixed by giving the child path
+      the same dispatch as the root — read-only (CFC/SFC) and language-change are still refusals. Pinned offline by
+      three cases in `PouSpliceTests` against `codesys-pou/POU_SfcRoot_StFbdMethods.plcopen.xml` (a recorded export
+      with an ST method *and* an FBD method) — a fixture that was committed but referenced by no test.
+
+      Deleted, compiler-verified dead on both vendors:
+      - `PouSplice.NonStBodyLanguage` — its only caller was the predicate replaced above.
+      - `BodyCodec.Present(XElement)` — zero callers; `PresentWith` is what everything uses.
+      - `PushService.IsPou` + `OneDocument` — a tautology. `itemType` comes from `PouKindToCode`, whose entire
+        range IS the six kinds the disjunction tested, so `OneDocument` was identically `ide.WritesPouAsOneDocument`.
+        Three call sites now read the flag directly; its measured six-kind evidence moved onto the flag itself, so
+        evidence and flag die together at §5.
+      - `CodesysObjectModel.ExportInterfaceXml` + the `KindCodeOf == PlcItf` fork in `CodesysDriver.ReadXml` —
+        byte-for-byte the same call as `ExportXmlWithChildren`, so one POU-like kind took a separate route to an
+        identical result and paid an extra object-model checkout per read to decide it. **Interfaces now have no
+        special read path at all.** Both measured facts folded into the surviving doc-comment.
+      - Stale/contradicted comments: the "Only for a textual root POU" paragraph in `PushService` (refuted by the
+        paragraph directly under it), a doc-comment attached to the wrong member in `PlcOpenDocument`, and three
+        `PlcOpenPouParser` references to a type that no longer exists (renamed to `PouReader`).
+
+      Three no-fallback violations fixed in the same pass (repo policy: fail loud, never guess past a bug):
+      - `CodesysObjectModel.Vars` typed an unreadable library variable **`BOOL`** and shipped it to the LSP as
+        ground truth — a wrong type is worse than a missing library, because it resolves and then lies. Now throws
+        naming the variable, the pin group and the owning signature. (`LibSignatureRenderer.cs:98` has the same
+        `?? "BOOL"` for a FUNCTION return type — still open, see below.)
+      - `GetLibraryRefs` had three bare/comment-only catches, so a library could vanish from the manifest set with
+        no trace. Kept best-effort (one unreadable property must not fail the whole `refs`/`fetch` walk) but every
+        skip is now logged, including that the identity failure abandons the whole dependency SUBTREE.
+      - `DeleteChild` returned silently when no child matched, **and** matched case-SENSITIVELY while the
+        `itemCache` that resolved the name matches case-INSENSITIVELY. A case-divergent name therefore reported
+        success on CODESYS while the object stayed in the project — and raised a raw COM error on TwinCAT, which is
+        the actual parity break. Fixed in shared Core (`PushService` now passes `ide.Name(del)`, the resolved
+        handle's real name, not the wire name) plus a loud throw on a miss. Delete-idempotency is untouched: it
+        lives in `ApplyOp`, which answers "no-op" for an absent item and never calls the driver.
+
+      Gates after the pass: Engine **537** (was 534, +3 new), Cli **124**, live CODESYS e2e **99 pass / 8 skip /
+      0 fail** — all unchanged except the additions. Release build clean.
+
+      **Still open on §6.1, and it is one measurement, not a decision:** §5.1 — does TwinCAT's `PlcOpenImport`
+      accept a parent? DIALECT.md D4b records it always landing the item at the PLC-project root and taking no
+      parent argument. That single answer unblocks the entire blocked list above and decides whether
+      `WritesPouAsOneDocument`'s "delete this when §5 lands" instruction is achievable or becomes a §5.5 vendor limit.
+- [x] 6.2 **DONE — and the task's premise was wrong: ARCHITECTURE.md already stated the rule, twice.** The
+      `PlcOpen/` layer row says a POU's whole content is "read and written through ONE PLCopen XML document", and
+      the invariants list carries "Content travels as ONE PLCopen document; STRUCTURE travels on the scripting
+      API" as its own axis. Writing it a third time would have been the only thing this task produced.
+
+      What was genuinely missing, and is now written:
+      - `ARCHITECTURE.md`'s `Body/` row said read-only means "CFC/SFC". It is **CFC, SFC and IL** — Volt
+        round-trips ST and FBD/LD and nothing else, and IL is in the model only because TC6 defines it and the
+        READER must recognise one. Recognising is not supporting, and the row now says so.
+      - `DIALECT.md`'s headline cited the capability gate by FILE AND LINE in three places, two of which had
+        drifted onto unrelated code, and pointed at the wrong `PushService` arm. Now cited by SYMBOL — these
+        citations have gone stale twice, and a stale line number is worse than none.
+      - `ICodeStore.WritesPouAsOneDocument` carried the instruction "**delete this property when §5 lands**".
+        Premature rather than wrong: §5.1 is answered (D4c — TwinCAT's import CAN replace in place), but the flag
+        also stands for "this driver has a real `Move`", and TwinCAT still has none (D4). The doc now says to
+        delete it when THAT is answered, not merely when the import is.

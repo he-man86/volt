@@ -16,10 +16,6 @@ namespace Volt.Engine.PlcOpen
     /// </summary>
     public static class PlcOpenDocument
     {
-        /// <summary>The element that OWNS the item named <paramref name="itemName"/> — the same resolution
-        /// <see cref="ItemBody"/> uses, widened to the declaration-only kinds. One export describes several
-        /// items, so every write is scoped by name; writing to the first match in the document is exactly the
-        /// bug that spliced a body over a sibling method.</summary>
         /// <summary>The element names a TOP-LEVEL item can appear under, across every kind and both vendors.
         /// <para>ONE list, because it was three and they disagreed — a union DUT parsed nowhere while resolving
         /// fine for a declaration read. What the list encodes is the TC6 schema's own division: <c>pou</c> and
@@ -29,6 +25,10 @@ namespace Volt.Engine.PlcOpen
         internal static bool IsItemElement(XElement e) =>
             e.Name.LocalName is "pou" or "Interface" or "dataType" or "globalVars" or "union";
 
+        /// <summary>The element that OWNS the item named <paramref name="itemName"/> — the same resolution
+        /// <see cref="ItemBody"/> uses, widened to the declaration-only kinds. One export describes several
+        /// items, so every write is scoped by name; writing to the first match in the document is exactly the
+        /// bug that spliced a body over a sibling method.</summary>
         internal static XElement? OwnerOf(XDocument doc, string itemName) =>
             doc.Descendants().FirstOrDefault(e =>
                 (IsItemElement(e) || e.Name.LocalName is "method" or "Method" or "action" or "Action")
@@ -46,11 +46,10 @@ namespace Volt.Engine.PlcOpen
         internal static string Serialize(XDocument doc) =>
             doc.Declaration is null ? doc.ToString() : doc.Declaration + System.Environment.NewLine + doc.ToString();
 
-        /// <summary>A descendant belonging to <paramref name="owner"/> ITSELF, not to a child member nested
-        /// inside it — the same containment rule <c>PlcOpenPouParser.DeclFromElement</c> applies, because a
-        /// method and an accessor each carry their own InterfaceAsPlainText.</summary>
-        /// <summary>EVERY descendant of <paramref name="owner"/> with this name that belongs to the owner itself
-        /// rather than to one of its children.
+        /// <summary>EVERY descendant of <paramref name="owner"/> with this name that belongs to the owner ITSELF
+        /// rather than to one of its children — the same containment rule <c>PouReader.DeclFromElement</c>
+        /// applies, because a method and an accessor each carry their own <c>InterfaceAsPlainText</c>, which is
+        /// why the ancestor filter below names the accessor elements too.
         /// <para>Plural matters for <c>InterfaceAsPlainText</c>: once a POU declares any variable, CODESYS exports
         /// its declaration TWICE — once inside the typed <c>&lt;interface&gt;</c>'s own addData, and once in the
         /// item's trailing addData. Taking the FIRST wrote to the nested copy while the IDE kept reading the
@@ -81,7 +80,7 @@ namespace Volt.Engine.PlcOpen
         /// </para>
         /// <para>
         /// Name is the right key because name IS the item's identity across this whole wire. Matched over the same
-        /// element vocabulary <see cref="PlcOpenPouParser"/> reads children from, by LOCAL name so it works whether
+        /// element vocabulary <see cref="PouReader"/> reads children from, by LOCAL name so it works whether
         /// or not the vendor put the child in the PLCopen namespace.
         /// </para>
         /// Null when the document holds no such named element, or it has no body — a DUT/GVL export legitimately
@@ -109,7 +108,7 @@ namespace Volt.Engine.PlcOpen
             // latter, and so answered null for a CODESYS CFC body — which nests under <body>/<addData> and carries
             // an empty sibling <ST>. This IS the driver's `BodyLanguage`, i.e. the signal the read-only-CFC push
             // refusal reads, so "textual" was the one wrong answer it could give.
-            return PouReader.GraphicalLanguageOf(body);
+            return PouReader.NonStLanguageOf(body);
         }
 
         /// <summary>The POU's declaration, read from the exported PLCopen's <c>interfaceasplaintext</c>
@@ -124,7 +123,7 @@ namespace Volt.Engine.PlcOpen
             // for the same reason ItemBody is: one export can describe several items, and the FIRST
             // InterfaceAsPlainText in the document is not necessarily the one that was asked for.
             // Declaration-only kinds (DUT/GVL) have no children, so the first descendant under the named
-            // element IS theirs; POU declarations go through PlcOpenPouParser, which does its own scoping.
+            // element IS theirs; POU declarations go through PouReader, which does its own scoping.
             var doc = XDocument.Parse(xml);
             var owner = doc.Descendants().FirstOrDefault(e =>
                 IsItemElement(e) && (string?)e.Attribute("name") == itemName);

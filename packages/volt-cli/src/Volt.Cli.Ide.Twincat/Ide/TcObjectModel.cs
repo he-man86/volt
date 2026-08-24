@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -151,7 +151,10 @@ internal sealed class TcObjectModel
         for (int i = 1; i <= count; i++)
         {
             string? nm = null;
-            try { nm = (string)_dte.Solution.Projects.Item(i).Name; } catch { }
+            // A project the user can SEE in the IDE but that we cannot name would simply not appear in the
+            // connect list, with nothing said. Still skipped (one bad entry must not empty the list), but named.
+            try { nm = (string)_dte.Solution.Projects.Item(i).Name; }
+            catch (Exception ex) { VoltLog.Warn($"twincat: solution project #{i} name unreadable — omitted from the project list: {ex.Message}"); }
             if (nm != null) yield return nm;
         }
     }
@@ -208,10 +211,10 @@ internal sealed class TcObjectModel
                     dynamic plc = tipc.Child[i];
                     _plcNode = plc; _plcProjectPath = (string)plc.Name; break;
                 }
-                catch { }
+                catch { /* not this child - keep looking; a total miss throws below */ }
             }
         }
-        catch { }
+        catch (Exception ex) { VoltLog.Warn($"twincat: the TIPC walk failed: {ex.Message}"); }
         // No re-lookup fallback on _plcProjectPath: it and _plcNode are only ever written in the SAME statement
         // (the TIPC walk above) and only ever cleared together, and EnsurePlc calls this only when _plcNode is
         // null — so "path known, node missing" cannot occur and any such branch was unreachable.
@@ -399,13 +402,6 @@ internal sealed class TcObjectModel
     /// caller refuses a foldered item rather than letting it be relocated — see BeckhoffDriver.WriteXml.</para></summary>
     public void ImportPlcOpenXml(string xml) => TcPlcOpen.ImportXmlString(PlcRoot(), xml);
 
-    /// <summary>Is this node the PLC-project root itself? Compared by PATH, which is what TwinCAT gives a tree
-    /// item as its stable identity — two RCWs for one node are not reference-equal.</summary>
-    public bool IsPlcProjectRoot(object node)
-    {
-        try { return string.Equals(PathOf(node), PathOf(PlcRoot()), StringComparison.OrdinalIgnoreCase); }
-        catch { return false; }
-    }
 
     private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
 
@@ -533,7 +529,13 @@ internal sealed class TcObjectModel
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // A PARTIAL diagnostic list is worse than none: the caller reports it as the build result, so a
+            // truncated parse makes a failing build look cleaner than it is — errors the engineer never sees.
+            VoltLog.Warn($"twincat: build-output parsing stopped early after {result.Count} diagnostic(s) — " +
+                         $"the reported list may be INCOMPLETE: {ex.Message}");
+        }
         return result;
     }
 }

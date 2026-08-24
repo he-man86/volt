@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -89,9 +89,16 @@ public static class FetchService
             // can't be materialized), never throw for the whole batch.
             // Hasher REQUIRES a folder: defaulting a missing one to "" would hash identically to a legitimately
             // empty folder and silently drift the item's version instead of surfacing the walk bug. So fail loud.
-            var folder = it.Folder ?? throw new BridgeException(BridgeErrorCodes.InternalError,
+            var walkedFolder = it.Folder ?? throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"the project walk returned item '{it.Name}' with no folder");
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, folder, out var mat);
+            // ONE folder per item, from here on. A `.library` lives in its OWN folder beside the signatures it
+            // describes, and that has to be true for every view of it: the version hash below, the `folders` map,
+            // and the Changed entry. It used to be applied to the Changed entry ALONE, so a single response told
+            // the client the file was at `Library Manager/` while writing it to `Library Manager/<lib>/`, and
+            // hashed the version over the folder it is not in. Same rule now runs in ProjectSnapshot, so /refs
+            // and the push receipt agree too.
+            var folder = Versioning.FolderOf(kind, walkedFolder, it.Name);
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder, out var mat);
             // The aggregate project/structure version must cover EVERY walked item — readable or not, and
             // regardless of the onlyItems subset — so it matches /refs and the push receipt (an unreadable item
             // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
@@ -111,7 +118,7 @@ public static class FetchService
                 // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
                 // its `.library` file.
                 var res = ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
-                if (res.Length > 0) libByResolution[res] = (folder, it.Name);
+                if (res.Length > 0) libByResolution[res] = (walkedFolder, it.Name);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
                 // resolved name+version); collect it to decide whether the signatures need re-extracting.
                 liveLibVersions[fullName] = version;
@@ -122,10 +129,7 @@ public static class FetchService
             changed.Add(new FetchedItem
             {
                 Name = fullName,
-                // A `.library` ref is nested INTO its own library folder so `<lib>.library` sits beside the
-                // signatures it describes (`Library Manager/<lib>/<lib>.library`). Only the FOLDER changes; the
-                // item NAME (the protocol identity) is untouched, and library refs are read-only (no push impact).
-                Folder = kind == ItemKind.Kinds.Library ? LibraryFolder(folder, it.Name) : folder,
+                Folder = folder,
                 Version = version,
                 SourceText = mat.Text,
             });
@@ -148,9 +152,15 @@ public static class FetchService
         // library's API is immutable per version, so the client's existing signature files still stand), and always
         // on init. This is the whole optimization: the precompile (Build) runs iff a .library version changed.
         var librariesUnchanged = !isInit && LibrariesUnchanged(liveLibVersions, knownItems);
-        IReadOnlyList<LibSignature> libSigs = (onlyItems != null || librariesUnchanged)
-            ? Array.Empty<LibSignature>()
-            : ide.ExtractLibrarySignatures();
+        // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
+        // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
+        // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
+        // keep what it has. Without this flag the client cannot tell the cases apart and had to keep them
+        // always — which is why a removed library's signatures were immortal.
+        var librariesRefreshed = onlyItems == null && !librariesUnchanged;
+        IReadOnlyList<LibSignature> libSigs = librariesRefreshed
+            ? ide.ExtractLibrarySignatures()
+            : Array.Empty<LibSignature>();
         total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
 
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
@@ -174,6 +184,7 @@ public static class FetchService
             Removed = removed,
             Items = fullVersions,
             Folders = folders,
+            LibrariesRefreshed = librariesRefreshed,
             // Echo the project we actually walked, so the client can confirm it before merging. This is the LIVE
             // identity the guard checked, not a cached health row — the echo can't disagree with what was walked.
             Platform = bound.Vendor,
@@ -270,8 +281,7 @@ public static class FetchService
     /// <summary>A library's own workspace folder — its element folder, holding both the `.library` stub and the
     /// element signatures (`Library Manager/&lt;lib&gt;/`). One definition so the stub and its elements always
     /// colocate.</summary>
-    private static string LibraryFolder(string? folder, string name) =>
-        string.IsNullOrEmpty(folder) ? Sanitize(name) : $"{folder}/{Sanitize(name)}";
+    private static string LibraryFolder(string? folder, string name) => Library.LibraryLayout.FolderFor(folder, name);
 
     /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
     /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>

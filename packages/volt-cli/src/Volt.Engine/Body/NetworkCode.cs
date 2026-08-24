@@ -175,11 +175,15 @@ public static class NetworkCode
     /// <summary>A graphical POU's declaration, from the export's plaintext interface — which BOTH vendors
     /// carry (the recorded TwinCAT export in <c>fixtures/tc-fbd</c> has it; the older "TwinCAT omits it"
     /// reading of this was wrong). Reading it from the export also avoids touching the object-model aspect,
-    /// which a just-reimported graphical POU poisons. The COM read remains only as the answer for an export
-    /// that genuinely has no plaintext block — a structural property, not an error path.</summary>
-    private static string DeclarationFrom(ICodeStore code, ItemRef item, string itemName, string xml)
-    {
-        var fromXml = PlcOpenDocument.DeclFromExport(xml, itemName);
-        return fromXml is not null ? fromXml : code.ReadDeclaration(item);
-    }
+    /// which a just-reimported graphical POU poisons.
+    /// <para>The COM read that used to sit here as a fall-back is GONE, and it had to go from HERE as well as
+    /// from the Materializer: this method is the test SEAM for the production read pipeline, so a seam that still
+    /// fell back would exercise a rule production no longer has. An export with no plaintext block was called "a
+    /// structural property, not an error path" — measured, it does not occur on either vendor (the evidence is
+    /// on <c>Materializer.BuildPouFromXml</c>), so it is an error path after all.</para></summary>
+    private static string DeclarationFrom(ICodeStore code, ItemRef item, string itemName, string xml) =>
+        PlcOpenDocument.DeclFromExport(xml, itemName)
+        ?? throw new InvalidOperationException(
+            $"'{itemName}': its PLCopen export carries no <InterfaceAsPlainText> — a POU document without a " +
+            "declaration is a broken export");
 }

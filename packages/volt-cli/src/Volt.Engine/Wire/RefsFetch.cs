@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Volt.Engine.Wire;
@@ -99,6 +99,17 @@ public class FetchResponse
     /// can reconstruct the tree without a separate <c>refs</c> call.</summary>
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
+
+    /// <summary>True when this fetch RE-RENDERED the referenced-library signatures (the precompile ran), so
+    /// <c>Changed</c> carries the COMPLETE signature set for every library folder.
+    /// <para>It is the only removal signal those files have. A signature is PATH-identified, not name-identified
+    /// (two libraries legitimately export the same short name), so it is absent from <c>Items</c> and
+    /// <c>Removed</c> can never name one — meaning a signature whose element disappeared (library upgraded, or
+    /// the reference deleted) stayed in the workspace forever and kept resolving in the LSP. When this is set the
+    /// client replaces the library folders wholesale; when it is not, it leaves them alone, because the fetch
+    /// skipped the precompile and carries no signatures at all.</para></summary>
+    [JsonPropertyName("librariesRefreshed")]
+    public bool LibrariesRefreshed { get; set; }
 
     /// <summary>The project the bridge actually walked, echoed back so the client can confirm — before it MERGES —
     /// that it fetched the project it is bound to. An older bridge omits these (null) → the client refuses rather

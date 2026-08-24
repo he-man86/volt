@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Volt.Cli.Transport;
 using Volt.Engine.Workspace;
 using Volt.Engine.PlcOpen;
 
@@ -77,10 +78,27 @@ namespace Volt.Cli.Ide.Codesys
             return list;
         }
 
-        public string GetName(object node) =>
-            TryInvokeMethod(Unwrap(node), "get_name", false) as string   // arity probe (see GetChildren)
-            ?? TryInvokeMethod(Unwrap(node), "get_name") as string
-            ?? "";
+        /// <summary>The node's name. NEVER "": the item name IS the wire identity (refs, knownItems, every push
+        /// op, structureVersion, the one-item-per-file layout), and the tree walk uses it as both the item name
+        /// and a folder-path segment — so a fabricated blank corrupts identity rather than merely losing text.
+        /// Two same-named blanks collapse last-write-wins, silently.
+        /// <para>The two calls are an ARITY probe (see GetChildren): some scripting objects expose
+        /// <c>get_name(bool)</c>, others <c>get_name()</c>. "No such overload on EITHER" is a broken object-model
+        /// contract, not an item that happens to be called nothing.</para></summary>
+        public string GetName(object node)
+        {
+            var n = Unwrap(node);
+            var r = TryInvokeMethod(n, "get_name", out var found, false);
+            if (!found) r = TryInvokeMethod(n, "get_name", out found);
+            if (!found)
+                throw new InvalidOperationException(
+                    $"CODESYS: {n?.GetType().Name ?? "node"} exposes no get_name() or get_name(bool) — " +
+                    "object-model version mismatch");
+            return r as string
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: get_name() on {n?.GetType().Name ?? "node"} returned " +
+                    $"{(r is null ? "null" : r.GetType().Name)} — the item name is the wire identity and cannot be blank");
+        }
 
         public bool IsFolder(object node) => GetMember(Unwrap(node), "is_folder") is bool b && b;
         public Guid GuidOf(object node) => GetMember(Unwrap(node), "guid") is Guid g ? g : Guid.Empty;
@@ -139,10 +157,22 @@ namespace Volt.Cli.Ide.Codesys
             void Walk(object item)
             {
                 string ns, nm;
+                // Skips stay best-effort here (one unreadable property must not fail the whole refs/fetch walk),
+                // but they are LOGGED — a library that vanishes from the manifest set with no trace is the
+                // "silently dropped" failure ARCHITECTURE.md forbids.
                 try { ns = GetMember(item, "Namespace") as string ?? ""; nm = GetMember(item, "Name") as string ?? ""; }
-                catch { return; }
+                catch (Exception ex)
+                {
+                    VoltLog.Warn($"library ref skipped (identity unreadable on {item.GetType().Name}) — this ref " +
+                                 $"and its dependency subtree are absent from the manifest set: {ex.Message}");
+                    return;
+                }
                 if (!seen.Add(ns + "|" + nm)) return; // cycle / re-reference guard (logical key, not instance)
-                try { var r = ToLibRef(item); byName[r.Name] = r; } catch { /* skip a malformed ref */ }
+                try { var r = ToLibRef(item); byName[r.Name] = r; }
+                catch (Exception ex)
+                {
+                    VoltLog.Warn($"library ref '{ns}.{nm}' skipped — no .library item will materialize: {ex.Message}");
+                }
                 if (InvokeMethod(item, "GetDependencies") is IEnumerable deps)
                     foreach (var d in deps) if (d != null) Walk(d);
             }
@@ -178,7 +208,19 @@ namespace Volt.Cli.Ide.Codesys
             var deps = new List<string>();
             if (InvokeMethod(item, "GetDependencies") is IEnumerable ds)
                 foreach (var d in ds)
-                    if (d != null) { string dn = ""; try { dn = RefDisplayName(d); } catch { } if (dn.Length > 0) deps.Add(dn); }
+                    if (d != null)
+                    {
+                        string dn = "";
+                        // This one changes MANIFEST BYTES (and therefore the version hash), so an unreadable
+                        // dependency name must say so rather than just shortening the DEPENDENCIES line.
+                        try { dn = RefDisplayName(d); }
+                        catch (Exception ex)
+                        {
+                            VoltLog.Warn($"library '{name}': a dependency name is unreadable and is omitted from " +
+                                         $"its DEPENDENCIES line: {ex.Message}");
+                        }
+                        if (dn.Length > 0) deps.Add(dn);
+                    }
 
             // Deterministic manifest — the fetch body AND the version-hash input. Built by the SHARED Core
             // formatter so CODESYS and TwinCAT emit the same canonical shape.
@@ -233,12 +275,20 @@ namespace Volt.Cli.Ide.Codesys
             }
         }
 
+        /// <summary>Write one aspect's text (Interface = declaration, Implementation = body).
+        /// <para>A MISSING ASPECT is a legitimate answer — a GVL has no implementation — and the CALLER decides
+        /// that by passing null for a slot the kind does not have. But an aspect that EXISTS while its
+        /// TextDocument does not is a broken object-model contract, and returning quietly there made the write
+        /// land nothing while the enclosing transaction still committed and the push reported success. That is
+        /// the exact silent-no-op shape this codebase has shipped before.</para></summary>
         private static void SetAspectText(object? iobject, string aspectName, string text)
         {
             var aspect = GetMember(iobject, aspectName);
             if (aspect == null) return;                            // object has no such aspect (e.g. GVL has no impl)
-            var doc = GetMember(aspect, "TextDocument");
-            if (doc == null) return;
+            var doc = GetMember(aspect, "TextDocument")
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: the '{aspectName}' aspect has no TextDocument — the write would be accepted and " +
+                    "land nothing");
             SetMember(doc, "Text", text);
         }
 
@@ -489,8 +539,15 @@ namespace Volt.Cli.Ide.Codesys
                 {
                     if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
                     var init = GetMember(v, "Initial")?.ToString();
-                    outv.Add(new Volt.Engine.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL",
-                        string.IsNullOrEmpty(init) ? null : init));
+                    // NOT `?? "BOOL"`. An unreadable Type used to be fabricated as BOOL and shipped to the LSP as
+                    // ground truth — a wrong type is worse than no library, because it resolves and then lies.
+                    // IsNullOrEmpty, not null: GetMember can hand back a present-but-empty value.
+                    var type = GetMember(v, "Type")?.ToString();
+                    if (string.IsNullOrEmpty(type))
+                        throw new InvalidOperationException(
+                            $"CODESYS: library variable '{n}' in {prop} of '{GetMember(sig, "Name")}' has no " +
+                            "readable Type — object-model version mismatch");
+                    outv.Add(new Volt.Engine.Library.LibVar(n, type!, string.IsNullOrEmpty(init) ? null : init));
                 }
                 return outv;
             }
@@ -642,6 +699,12 @@ namespace Volt.Cli.Ide.Codesys
             foreach (var child in GetChildren(parent))
                 if (string.Equals(GetName(child), name, StringComparison.Ordinal))
                 { InvokeMethod(child, "remove"); return; }
+            // A miss is LOUD. It used to return silently, so a delete that matched nothing reported success while
+            // the object stayed in the project — and it reported success on CODESYS while the same wire name made
+            // TwinCAT raise a raw COM error, which is the actual parity break. Delete-idempotency is NOT weakened:
+            // it lives one level up in PushService.ApplyOp, which answers "no-op" when the item is absent and
+            // never calls here at all.
+            throw new InvalidOperationException($"CODESYS: no child named '{name}' under '{GetName(parent)}'");
         }
 
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
@@ -700,29 +763,23 @@ namespace Volt.Cli.Ide.Codesys
         /// BYTE-IDENTICAL to this, on 8 POUs including the one whose subtree contains folders — the case the
         /// manual flattening existed for — and 4.6× faster on it (0.129s → 0.028s, 24 collected nodes), because
         /// the walk cost one `Unwrap` + `get_children` + `is_folder` + `CreateExtendedObject` per node before
-        /// the export even ran. Same call as <see cref="ExportInterfaceXml"/> now: ONE export, one shape.</para></summary>
+        /// the export even ran.</para>
+        /// <para>EVERY kind comes through here, interfaces included — there is no second exporter. Recursion is
+        /// load-bearing for them too: the same INTERFACE exported non-recursively carries 0 methods and 0
+        /// properties. An interface-specific export existed twice over and neither was needed. The first was a
+        /// hand-built <c>StringBuilder</c> document, justified by "CODESYS <c>export_xml</c> rejects
+        /// <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c>", which is FALSE: verified on 3.5.21.40,
+        /// all 31 interfaces in the corpus export through this call and re-import with their children intact,
+        /// and the real export carries interface PROPERTIES with their <c>&lt;GetAccessor&gt;</c>/
+        /// <c>&lt;SetAccessor&gt;</c>, which the synthesized one dropped. The second was a wrapper making this
+        /// exact call under another name. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
+        /// <para>NB an interface document has NO <c>&lt;pou&gt;</c> element: CODESYS writes one as
+        /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
+        /// like TwinCAT (DIALECT.md A8). <see cref="Volt.Engine.PlcOpen.PouReader"/> already reads that shape.</para></summary>
         public string ExportXmlWithChildren(object parentNode) =>
             ExportNodes(
                 PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export"),
                 new[] { Unwrap(parentNode)! }, recursive: true);
-
-        /// <summary>Export an INTERFACE as the IDE's own PLCopen, RECURSIVELY — recursion is load-bearing here:
-        /// the same interface exported non-recursively carries 0 methods and 0 properties.
-        /// <para>This replaced a hand-built <c>StringBuilder</c> document that existed because "CODESYS
-        /// <c>export_xml</c> rejects <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c>". That is not
-        /// true (verified against 3.5.21.40: all 31 interfaces in the corpus export, and re-import with their
-        /// children intact). Two things the real export gets right that the synthesized one could not:
-        /// it carries interface PROPERTIES and their <c>&lt;GetAccessor&gt;</c>/<c>&lt;SetAccessor&gt;</c> —
-        /// which the hand-built document deliberately dropped — and it is the vendors' COMMON shape, so the
-        /// same parser path serves both. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
-        /// <para>NB the emitted document has NO <c>&lt;pou&gt;</c> element: CODESYS writes an interface as
-        /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
-        /// like TwinCAT. <see cref="Volt.Engine.Body.PouReader"/> already reads that shape.</para></summary>
-        public string ExportInterfaceXml(object node)
-        {
-            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
-            return ExportNodes(proj, new[] { Unwrap(node)! }, recursive: true);
-        }
 
         /// <summary>Wrap a fully-unwrapped tree node back into the <c>IExtendedObject&lt;IScriptObject&gt;</c> the
         /// scripting API takes, via the engine's own <c>CreateExtendedObject</c> factory — the same call the
@@ -760,13 +817,18 @@ namespace Volt.Cli.Ide.Codesys
 
         /// <summary>Import a PLCopenXML <b>string</b> <paramref name="data"/> (NOT a file path) IN-MEMORY,
         /// replacing an existing object of the same name when the IDE offers a conflict resolution.
-        /// Imports INTO <paramref name="into"/> when supplied (else at the project root) — PLCopenXML
-        /// carries no folder membership, so a project-level import of a single POU would land it at the
-        /// root and relocate it out of its folder. import_xml is available on object/folder nodes too.</summary>
-        public void ImportXmlString(string data, object? into = null)
+        /// <para>Imports INTO <paramref name="into"/>, which is REQUIRED and has NO project-root default.
+        /// PLCopenXML carries no folder membership, so a project-level import of a single POU lands it at the
+        /// ROOT and relocates it out of the engineer's folder — the measured regression behind "a graphical push
+        /// no longer relocates a POU". The optional parameter meant the one input known to cause that was also
+        /// the one the compiler could not stop; an unresolvable target is now a hard failure instead of a quiet
+        /// fall-back. import_xml is available on object/folder nodes too.</para></summary>
+        public void ImportXmlString(string data, object into)
         {
-            var target = into != null ? Unwrap(into)!
-                : (PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project"));
+            var target = Unwrap(into)
+                ?? throw new InvalidOperationException(
+                    "CODESYS: the import target node unwrapped to null — refusing a project-root import, which " +
+                    "would relocate the object out of its folder");
             var t = target.GetType();
             // The 3-arg import with an explicit conflict-resolution enum, and NOTHING ELSE. The caller no longer
             // deletes the existing object first, so the mode is what makes the import a MERGE — measured on
@@ -778,11 +840,15 @@ namespace Volt.Cli.Ide.Codesys
                 ?? throw new InvalidOperationException(
                     "CODESYS import_xml(ConflictResolve, string, bool) overload not found — object-model version mismatch");
             var et = m3.GetParameters()[0].ParameterType;
-            var pick = Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Replace", StringComparison.OrdinalIgnoreCase) >= 0)
-                    ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0)
+            // EXACT member name, no substring probe and no second guess. The enum is ConflictResolve and its
+            // members are MEASURED, not inferred: on 3.5.21.40 only `Replace` lands the body — `Copy` and `Skip`
+            // import nothing while the push still reports success. "Overwrite" was a guess at an enum nobody had
+            // seen, and a substring probe would also match a hypothetical `ReplaceNothing`/`NeverOverwrite`, i.e.
+            // it could silently select the very modes measured to lose the write.
+            var pick = Enum.GetNames(et).FirstOrDefault(n => string.Equals(n, "Replace", StringComparison.Ordinal))
                     ?? throw new InvalidOperationException(
-                        $"CODESYS {et.Name} has no Replace/Overwrite member ({string.Join(", ", Enum.GetNames(et))}) — " +
-                        "cannot merge without it, and the other modes import nothing");
+                        $"CODESYS {et.Name} has no 'Replace' member ({string.Join(", ", Enum.GetNames(et))}) — " +
+                        "cannot merge without it, and the other modes measurably import nothing");
             InvokeWith(target, m3, Enum.Parse(et, pick), data, false);
         }
 
@@ -864,18 +930,9 @@ namespace Volt.Cli.Ide.Codesys
             throw new MissingMethodException($"No '{method}' overload taking {leadingArgs.Length}+ args on {target.GetType().FullName}");
         }
 
-        private static object EnumValue(string enumSimpleName, string member)
-        {
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type[] types;
-                try { types = a.GetTypes(); } catch { continue; }
-                foreach (var t in types)
-                    if (t.IsEnum && t.Name == enumSimpleName)
-                        return Enum.Parse(t, member);
-            }
-            throw new InvalidOperationException($"enum {enumSimpleName} not found");
-        }
+        private static object EnumValue(string enumSimpleName, string member) =>
+            Enum.Parse(Reflection.FindEnum(enumSimpleName)
+                ?? throw new InvalidOperationException($"CODESYS enum {enumSimpleName} not found"), member);
 
         // ── reflection helpers ─────────────────────────────────────────────────
         /// <summary>Reads a member, RESOLVING explicit interface implementations
@@ -970,19 +1027,17 @@ namespace Volt.Cli.Ide.Codesys
             return o;
         }
 
+        /// <summary>A static property or field on a CODESYS type, or null when the type is not loaded.
+        /// <para>The AppDomain scan is <see cref="Reflection.FindType"/>'s, not a second copy: this one had a
+        /// BARE catch around <c>GetType</c>, so an unexpected reflection failure read as "type not present" and
+        /// the caller went on believing the IDE simply lacked it.</para></summary>
         private static object? GetStaticMember(string typeName, string member)
         {
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type? t = null;
-                try { t = a.GetType(typeName, false); } catch { }
-                if (t == null) continue;
-                var p = t.GetProperty(member, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-                if (p != null) return p.GetValue(null);
-                var f = t.GetField(member, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-                if (f != null) return f.GetValue(null);
-            }
-            return null;
+            var t = Reflection.FindType(typeName);
+            if (t == null) return null;
+            const BindingFlags Static = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+            return t.GetProperty(member, Static)?.GetValue(null)
+                ?? t.GetField(member, Static)?.GetValue(null);
         }
     }
 

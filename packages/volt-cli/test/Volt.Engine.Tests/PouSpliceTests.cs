@@ -45,7 +45,7 @@ public class PouSpliceTests
     {
         var xml = CodesysPou;
         var body = PouReader.Parse(xml).BodyElement!.Value;
-        Assert.Equal(Canon(xml), Canon(PouSplice.SetBody(xml, "PLC_PRG", body)));
+        Assert.Equal(Canon(xml), Canon(PouSplice.SetBody(xml, "PLC_PRG", body, null)));
     }
 
     // ── 2.1 declaration ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ public class PouSpliceTests
     public void The_textual_body_can_be_written_and_read_back()
     {
         const string body = "x := 42;\nIF x > 0 THEN\n\tx := 0;\nEND_IF";
-        var outXml = PouSplice.SetBody(CodesysPou, "PLC_PRG", body);
+        var outXml = PouSplice.SetBody(CodesysPou, "PLC_PRG", body, null);
         Assert.Equal(body, PouReader.Parse(outXml).BodyElement!.Value);
         Assert.Equal("ST", PouReader.Parse(outXml).BodyLanguage);
     }
@@ -96,7 +96,7 @@ public class PouSpliceTests
     public void Writing_the_body_leaves_the_declaration_alone_and_vice_versa()
     {
         var decl = PlcOpenDocument.DeclFromExport(CodesysPou, "PLC_PRG")!;
-        var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;");
+        var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;", null);
         Assert.Equal(decl, PlcOpenDocument.DeclFromExport(afterBody, "PLC_PRG"));
 
         var afterBoth = PouSplice.SetDeclaration(afterBody, "PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\ty : INT;\nEND_VAR");
@@ -109,7 +109,7 @@ public class PouSpliceTests
     public void A_textual_body_write_refuses_to_flatten_a_graphical_body()
     {
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetBody(TwincatPou, "ACT_FBD", "x := 1;"));
+            () => PouSplice.SetBody(TwincatPou, "ACT_FBD", "x := 1;", null));
         Assert.Contains("FBD", ex.Message);
         Assert.Contains("replace", ex.Message);   // wording covers IL too, where "flatten" would be wrong
     }
@@ -124,7 +124,7 @@ public class PouSpliceTests
         // The TwinCAT fixture is a POU whose graphical body belongs to its ACTION; the POU's own body is ST.
         var beforeAction = GraphSplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
 
-        var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;");
+        var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;", null);
 
         Assert.Equal("poubody := 1;", PouReader.Parse(outXml).BodyElement!.Value);      // the POU took it
         Assert.Equal(beforeAction, GraphSplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
@@ -143,7 +143,7 @@ public class PouSpliceTests
     {
         const string decl = "METHOD Cyclic : BOOL\nVAR_INPUT\n\tspliced : INT;\nEND_VAR";
         const string body = "Cyclic := TRUE;";
-        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "Cyclic", decl, body);
+        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "Cyclic", decl, body, null);
 
         var cyclic = PouReader.Parse(outXml).Children.Single(c => c.Name == "Cyclic");
         Assert.Equal(decl, cyclic.Declaration);
@@ -156,7 +156,7 @@ public class PouSpliceTests
     public void Writing_one_child_leaves_the_others_and_the_parent_alone()
     {
         var before = PouReader.Parse(BoxFb);
-        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "AddItem", null, "touched := 1;");
+        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "AddItem", null, "touched := 1;", null);
         var after = PouReader.Parse(outXml);
 
         Assert.Equal("touched := 1;", after.Children.Single(c => c.Name == "AddItem").BodyElement!.Value);
@@ -174,7 +174,7 @@ public class PouSpliceTests
     public void A_null_argument_leaves_that_part_untouched()
     {
         var declBefore = PouReader.Parse(BoxFb).Children.Single(c => c.Name == "Cyclic").Declaration;
-        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "Cyclic", null, "x := 1;");
+        var outXml = PouSplice.SetChildText(BoxFb, "BoxFB", "Cyclic", null, "x := 1;", null);
         Assert.Equal(declBefore, PouReader.Parse(outXml).Children.Single(c => c.Name == "Cyclic").Declaration);
     }
 
@@ -211,7 +211,7 @@ public class PouSpliceTests
         Assert.Contains("NoSuchChild", Assert.Throws<System.InvalidOperationException>(
             () => PouSplice.RemoveChild(BoxFb, "BoxFB", "NoSuchChild")).Message);
         Assert.Contains("NoSuchChild", Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetChildText(BoxFb, "BoxFB", "NoSuchChild", "METHOD X", "y := 1;")).Message);
+            () => PouSplice.SetChildText(BoxFb, "BoxFB", "NoSuchChild", "METHOD X", "y := 1;", null)).Message);
     }
 
     /// <summary>A no-op child write must not move bytes either — the same identity property as 2.5.</summary>
@@ -220,7 +220,7 @@ public class PouSpliceTests
     {
         var cyclic = PouReader.Parse(BoxFb).Children.Single(c => c.Name == "Cyclic");
         var same = PouSplice.SetChildText(
-            BoxFb, "BoxFB", "Cyclic", cyclic.Declaration, cyclic.BodyElement!.Value);
+            BoxFb, "BoxFB", "Cyclic", cyclic.Declaration, cyclic.BodyElement!.Value, null);
         Assert.Equal(Canon(BoxFb), Canon(same));
     }
 
@@ -478,11 +478,116 @@ public class PouSpliceTests
     {
         var xml = $"<pou xmlns=\"{Ns}\" name=\"P\"><body><{lang}/></body></pou>";
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetBody(xml, "P", "x := 1;"));
+            () => PouSplice.SetBody(xml, "P", "x := 1;", null));
         Assert.Contains(lang, ex.Message);
     }
 
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
+
+    // ── the editable GRAPHICAL child ────────────────────────────────────────────────────────────────
+    // `POU_SfcRoot_StFbdMethods` is a recorded CODESYS export: an SFC root POU with an ST method (`stmeth`)
+    // and an FBD method (`fbdmeth`). It is the one shape the live e2e suite structurally cannot reach — the
+    // graphical tests only ever create top-level FBD/LD PROGRAMS, never a graphical METHOD or ACTION.
+    private static string SfcRootStFbdMethods => Fixture("codesys-pou", "POU_SfcRoot_StFbdMethods.plcopen.xml");
+
+    /// <summary>An EDITABLE graphical child must be writable at all. The root body learned the BodyCodec
+    /// dispatch while the child path was left on a blanket "ST or refuse" predicate, so pushing an FBD method
+    /// threw — restating one UNCHANGED aborted the whole push. Nothing in the live suite covers it.</summary>
+    [Fact]
+    public void An_editable_FBD_child_round_trips_instead_of_being_refused()
+    {
+        var child = PouReader.Parse(SfcRootStFbdMethods).Children.Single(c => c.Name == "fbdmeth");
+        Assert.Equal("FBD", child.BodyLanguage);                   // the fixture really does carry an FBD child
+
+        // BodyElement is the LANGUAGE element (<FBD>), not the <body> wrapper — decode it directly.
+        var vg = BodyCodec.For("FBD").Decode(child.BodyElement!);  // the child's body as network text
+        var outXml = PouSplice.SetChildText(SfcRootStFbdMethods, "POU", "fbdmeth", null, vg, null);
+
+        // The body SURVIVES as FBD carrying the same graph. Byte identity is deliberately NOT asserted: a
+        // graphical body is normalized on its first write (ids and element order — tasks.md §3.1 records the
+        // same one-time churn for CFC) and converges afterwards. Semantic identity via the network text is the
+        // property that actually holds, and it is the one that matters — the graph did not change.
+        var after = PouReader.Parse(outXml).Children.Single(c => c.Name == "fbdmeth");
+        Assert.Equal("FBD", after.BodyLanguage);   // still graphical — not flattened to ST, not dropped
+
+        // It has CONVERGED: re-writing what the document now says is a byte-level no-op, so a POU with a
+        // graphical child shows at most one-time normalization churn and is stable thereafter. (tasks.md §3.1
+        // records the same one-time churn for a CFC child.) Byte identity on the FIRST write is deliberately
+        // not asserted: this fixture's FBD body is an empty network, which re-encodes as NETWORK 0.
+        var settled = BodyCodec.For("FBD").Decode(after.BodyElement!);
+        Assert.Equal(outXml, PouSplice.SetChildText(outXml, "POU", "fbdmeth", null, settled, null));
+    }
+
+    /// <summary>The refusals that MUST survive the switch: a language CHANGE is refused rather than flattening
+    /// the graph, and it names both languages so the message is actionable.</summary>
+    [Fact]
+    public void Pushing_ST_at_an_FBD_child_is_refused_naming_both_languages()
+    {
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PouSplice.SetChildText(SfcRootStFbdMethods, "POU", "fbdmeth", null, "x := 1;", null));
+        Assert.Contains("FBD", ex.Message);
+        Assert.Contains("ST", ex.Message);
+    }
+
+    /// <summary>A textual sibling under the SAME graphical-rooted POU still writes normally — the switch must
+    /// not have made every child of a graphical parent unwritable.</summary>
+    [Fact]
+    public void A_textual_sibling_of_a_graphical_child_still_writes()
+    {
+        var outXml = PouSplice.SetChildText(SfcRootStFbdMethods, "POU", "stmeth", null, "touched := 1;", null);
+        var after = PouReader.Parse(outXml);
+        Assert.Equal("touched := 1;", after.Children.Single(c => c.Name == "stmeth").BodyElement!.Value);
+        // and the FBD sibling is byte-identical — the scoping rule, on the shape most likely to break it
+        var fbdBefore = PouReader.Parse(SfcRootStFbdMethods).Children.Single(c => c.Name == "fbdmeth").BodyElement!;
+        var fbdAfter = after.Children.Single(c => c.Name == "fbdmeth").BodyElement!;
+        Assert.True(XNode.DeepEquals(fbdBefore, fbdAfter));
+    }
+
+    // ── the FB-instance TYPE, which network text does not carry ─────────────────────────────────────
+    // `tc-fbd/fbd_ton_embedded_output.plcopen.xml` is a recorded TwinCAT export whose body holds a real FB
+    // INSTANCE box: <block typeName="TON" instanceName="t1">. Every graphical case in the live e2e suite and in
+    // FbdCorpusRoundTripTests uses OPERATORS only (AND/OR/contacts) or an EXECUTE box, so none of them can see
+    // an emptied typeName — and the corpus test asserts on element NAMES and VG text, neither of which carries
+    // the attribute. That is why this bug survived: the blind spot was structural, not accidental.
+    private static string TonFbd => Fixture("tc-fbd", "fbd_ton_embedded_output.plcopen.xml");
+
+    /// <summary>The FB instance's TYPE must survive a body write. Network text names the instance but not its
+    /// type, so the codec has to restore it from the declaration; the one-document path passed no resolver at
+    /// all and wrote <c>typeName=""</c> on every push, destroying what the export had.</summary>
+    [Fact]
+    public void An_FB_instance_keeps_its_type_when_the_body_is_written()
+    {
+        var parsed = PouReader.Parse(TonFbd);
+        var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
+        Assert.DoesNotContain("TON", vg);            // network text genuinely does NOT carry the type
+
+        // The declaration is supplied explicitly rather than read from the fixture: this recording's own
+        // <InterfaceAsPlainText> is `PROGRAM fbdton VAR END_VAR` — an EMPTY var block that does not declare `t1`
+        // at all. On a real push the declaration comes from the workspace source, which must declare every
+        // instance it uses (IEC requires it), so this is the shape the resolver actually sees.
+        const string decl = "PROGRAM fbdton\nVAR\n\tt1 : TON;\nEND_VAR";
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, decl);
+
+        var blocks = XDocument.Parse(outXml).Descendants()
+            .Where(e => e.Name.LocalName == "block")
+            .Select(e => (string?)e.Attribute("typeName")).ToList();
+        Assert.NotEmpty(blocks);
+        Assert.All(blocks, t => Assert.False(string.IsNullOrEmpty(t), "a block was written with an EMPTY typeName"));
+        Assert.Contains("TON", blocks);
+    }
+
+    /// <summary>The same write with NO declaration to resolve against must not silently invent an empty type —
+    /// this is the exact input that produced the bug, so it is pinned as the failing case it is.</summary>
+    [Fact]
+    public void Without_a_declaration_the_FB_type_cannot_be_restored()
+    {
+        var parsed = PouReader.Parse(TonFbd);
+        var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, null);
+        var t = XDocument.Parse(outXml).Descendants()
+            .First(e => e.Name.LocalName == "block").Attribute("typeName")!.Value;
+        Assert.True(string.IsNullOrEmpty(t));   // documents WHY the declaration is threaded, and is not optional
+    }
 
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element
     /// whitespace. Anything else differing is a real change.</summary>

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -95,7 +95,12 @@ public static class LibSignatureRenderer
             case "Function":
             {
                 var (ret, outs) = LiftReturn(name, s.Outputs, s.ReturnType);
-                var rt = ret ?? "BOOL"; // a FUNCTION must declare a return; default only if the model gives neither
+                // NOT `?? "BOOL"`. This text is shipped to the LSP as the library's ground truth, so an invented
+                // return type does not degrade — it RESOLVES, and then lies: every call site type-checks against
+                // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine).
+                // A FUNCTION with no readable return type is an object-model failure, not a BOOL.
+                var rt = ret ?? throw new InvalidOperationException(
+                    $"library function '{name}' has no readable return type — cannot render its signature");
                 var lines = new[] { $"FUNCTION {name} : {rt}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });

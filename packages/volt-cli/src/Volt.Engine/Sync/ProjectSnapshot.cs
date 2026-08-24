@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Volt.Engine.Ide;
 using Volt.Engine.Wire;
@@ -73,9 +73,12 @@ public sealed class ProjectSnapshot
             // The two skips above == !IsTracked(it.KindCode) — kept expanded here for the per-reason counters/logs;
             // PushService's lease hash reuses IsTracked to stay byte-identical.
 
+            // Report the folder the item ACTUALLY occupies — Versioning.FolderOf is the one definition, and
+            // SafeVersion applies it to the hash itself, so refs, fetch and the receipt cannot drift apart.
+            var folder = Versioning.FolderOf(kind, it.Folder, it.Name);
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             snap.Versions[it.Name] = version;
-            if (mat != null) { snap.FullVersions[mat.FullName] = version; snap.Folders[mat.FullName] = it.Folder; }
+            if (mat != null) { snap.FullVersions[mat.FullName] = version; snap.Folders[mat.FullName] = folder; }
             else snap.Unreadable++;
         }
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);

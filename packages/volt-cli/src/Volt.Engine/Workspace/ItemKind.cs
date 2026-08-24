@@ -1,4 +1,4 @@
-namespace Volt.Engine.Workspace;
+﻿namespace Volt.Engine.Workspace;
 
 using System;
 using System.Collections.Generic;
@@ -205,6 +205,18 @@ public static class ItemKind
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef
              or PlcItfPropGet or PlcItfPropSet;
+
+    /// <summary>The in-POU children Volt's SOURCE actually models — the ones <see cref="PlcOpen.PouReader"/>
+    /// parses and the Materializer assembles into the item's file, and therefore the only ones a push's member
+    /// list can ever mention.
+    /// <para>Strictly narrower than <see cref="IsInlinedInPou"/>, and the difference is the whole point. A
+    /// TRANSITION is "inlined in a POU" for the WALK (it is not emitted as a top-level item), but no reader ever
+    /// puts one in the file — so it could never appear in the pushed member set, and reconciling against the
+    /// wider predicate deleted every transition of an SFC POU on its FIRST push. A program-call reference is
+    /// excluded for the same reason. Accessors are excluded for a different one: they belong to a property and
+    /// are reconciled with it, never independently.</para></summary>
+    public static bool IsPouSourceMember(int code) =>
+        code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
 
     // ── The canonical workspace-file table ─────────────────────────────────────────────────────────────
     // Every kind that materializes as a file, in output order, paired with its extension. This is THE single

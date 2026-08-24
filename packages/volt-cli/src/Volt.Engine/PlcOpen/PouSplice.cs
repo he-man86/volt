@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
+using Body_ = Volt.Engine.Body;
 
 namespace Volt.Engine.PlcOpen
 {
@@ -18,8 +19,13 @@ namespace Volt.Engine.PlcOpen
     /// silently drop every one of them.
     /// <para>Two properties make splicing safer than regenerating, and both are tested: a write is scoped to the
     /// NAMED item, and a write that changes nothing returns the ORIGINAL string byte-for-byte.</para>
-    /// <para>Graphical bodies are NOT this class's business — a textual write onto one is refused, not flattened.
-    /// <c>Graphical.GraphSplice</c> owns that.</para>
+    /// <para><b>Every language goes through here</b>, graphical included. This used to say graphical bodies were
+    /// not this class's business and that a write onto one is refused — true when the only writable language was
+    /// ST, and false since the root and child body writers were put on the shared <c>BodyCodec</c> dispatch: an
+    /// editable FBD/LD body is ENCODED (via <c>GraphSplice</c>/<c>GraphWriter</c>, which still own the graph
+    /// itself), and only a READ-ONLY language (CFC, SFC, IL) or a language CHANGE is refused. While the old rule
+    /// stood in the child writer, an FBD method could not be pushed at all — restating one unchanged aborted the
+    /// whole push.</para>
     /// </summary>
     public static class PouSplice
     {
@@ -65,7 +71,7 @@ namespace Volt.Engine.PlcOpen
         /// from the one in the IDE, or when the IDE's is read-only. That subsumes every case the old guards
         /// covered by hand — including IL, which used to slip through a graphical-only narrowing as "textual" and
         /// then be silently rewritten as ST.</para></summary>
-        public static string SetBody(string xml, string itemName, string bodyText)
+        public static string SetBody(string xml, string itemName, string bodyText, string? declaration)
         {
             var doc = XDocument.Parse(xml);
             var body = PlcOpenDocument.ItemBody(doc, itemName);
@@ -93,7 +99,7 @@ namespace Volt.Engine.PlcOpen
                     $"'{itemName}' has a {present.Language} body in the IDE but the push carries {pushed.Language} — " +
                     "edit it in the IDE, or delete it first to replace it.");
 
-            return pushed.Encode(body, bodyText) ? PlcOpenDocument.Serialize(doc) : xml;
+            return pushed.Encode(body, bodyText, declaration) ? PlcOpenDocument.Serialize(doc) : xml;
         }
 
         /// <summary>The CHILD member named <paramref name="childName"/> under the item named
@@ -113,18 +119,6 @@ namespace Volt.Engine.PlcOpen
             var removable = member.Parent is { } p && p.Name.LocalName == "data" ? p : member;
             return (member, removable);
         }
-
-        /// <summary>The body's language when it is anything other than ST, else null — the ONE refusal predicate
-        /// both textual writers share. IL counts: it is textual but it is not ST, and a graphical-only guard once
-        /// let it through to be silently rewritten as ST. Looks in <c>&lt;body&gt;/&lt;addData&gt;</c> as well as
-        /// the direct children, because that is where CODESYS puts a CFC diagram.</summary>
-        private static string? NonStBodyLanguage(XElement body) =>
-            body.Elements()
-                .Concat(body.Elements().Where(e => e.Name.LocalName == "addData")
-                    .SelectMany(a => a.Elements().Where(d => d.Name.LocalName == "data"))
-                    .SelectMany(d => d.Elements()))
-                .FirstOrDefault(e => e.Name.LocalName is "IL" or "FBD" or "LD" or "CFC" or "SFC")
-                ?.Name.LocalName;
 
         private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
 
@@ -165,8 +159,18 @@ namespace Volt.Engine.PlcOpen
             XNamespace xh = "http://www.w3.org/1999/xhtml";
             XElement Text(string name, string value) =>
                 new(ns + name, new XElement(xh + "xhtml", value));
-            XElement Body(string value) =>
-                new(ns + "body", new XElement(ns + "ST", new XElement(xh + "xhtml", value)));
+            // The SAME codec dispatch SetChildText uses for an UPDATE. Writing the text verbatim into <ST> meant
+            // a member CREATED with an editable FBD/LD body landed as ST source literally reading
+            // "NETWORK 1 FBD ..." — accepted by the import and silently wrong. The ordinary way to reach it is a
+            // RENAME, which is remove + add, so renaming a graphical method destroyed the very diagram it was
+            // renaming. Empty text still yields the vendors' <ST><xhtml/> shape byte-for-byte, because StCodec is
+            // the identity codec and takes its "no ST element yet" arm here.
+            XElement Body(string value)
+            {
+                var body = new XElement(ns + "body");
+                Body_.BodyCodec.For(Body_.NetworkText.LanguageOf(value) ?? "ST").Encode(body, value, declaration);
+                return body;
+            }
 
             if (kind == PouMember.Action)
             {
@@ -359,7 +363,7 @@ namespace Volt.Engine.PlcOpen
         /// member element built to the vendor's shape, and silently creating one here would hide the difference
         /// between "update this" and "create this" at exactly the layer that must not guess.</para></summary>
         public static string SetChildText(string xml, string itemName, string childName,
-                                          string? declaration, string? bodyText)
+                                          string? declaration, string? bodyText, string? scopeDeclaration)
         {
             var doc = XDocument.Parse(xml);
             var hit = FindChild(doc, itemName, childName)
@@ -389,22 +393,24 @@ namespace Volt.Engine.PlcOpen
             {
                 var body = member.Elements().FirstOrDefault(e => e.Name.LocalName == "body")
                     ?? throw new InvalidOperationException($"child '{childName}' of '{itemName}' has no <body>");
-                // Same rule as SetTextualBody, including the nested lookup — a CFC METHOD child is the shape that
-                // first exposed the direct-children blind spot.
-                if (NonStBodyLanguage(body) is { } existingLang)
+                // The SAME dispatch the ROOT body uses (SetBody above) — not a second, stricter rule. A child was
+                // held to "ST or refuse" long after the root learned to encode editable graphical bodies, so an
+                // FBD/LD METHOD or ACTION could not be pushed AT ALL: restating one unchanged aborted the whole
+                // push. Only a READ-ONLY body (CFC/SFC) and a language CHANGE are refusals; a CFC method child is
+                // still the shape that first exposed the direct-children blind spot, and CfcCodec.Locate is what
+                // keeps that covered.
+                var pushed = Body.BodyCodec.For(Body.NetworkText.LanguageOf(bodyText) ?? "ST");
+                var found = Body.BodyCodec.PresentWith(body);
+                var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
+                if (present is not null && present.ReadOnly)
                     throw new InvalidOperationException(
-                        $"child '{childName}' has a {existingLang} body — a textual (ST) write would replace it");
-                var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
-                if (st is null)
-                {
-                    st = new XElement(body.Name.Namespace + "ST");
-                    body.RemoveNodes();
-                    body.Add(st);
-                    changed = true;
-                }
-                var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-                if (innerBody is null) { if (st.Value != bodyText) { st.ReplaceNodes(bodyText); changed = true; } }
-                else if (innerBody.Value != bodyText) { innerBody.ReplaceNodes(bodyText); changed = true; }
+                        $"child '{childName}' of '{itemName}' has a read-only {present.Language} body — " +
+                        "edit it in the IDE, not via push.");
+                if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"child '{childName}' of '{itemName}' has a {present.Language} body in the IDE but the " +
+                        $"push carries {pushed.Language} — edit it in the IDE, or delete it first to replace it.");
+                changed |= pushed.Encode(body, bodyText, scopeDeclaration);
             }
 
             return changed ? PlcOpenDocument.Serialize(doc) : xml;

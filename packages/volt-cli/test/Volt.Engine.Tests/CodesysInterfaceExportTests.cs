@@ -10,10 +10,13 @@ namespace Volt.Cli.Tests;
 /// IDE GROUND TRUTH: what CODESYS's own <c>export_xml</c> produces for an INTERFACE, captured live from
 /// 3.5.21.40 against the corpus project.
 /// <para>
-/// This exists to retire <c>CodesysObjectModel.ExportInterfaceXml</c>, a hand-built PLCopen document
-/// justified by "CODESYS export_xml REJECTS IInterfaceObject — it only accepts IPOUObject". That is false:
-/// all 31 interfaces in the corpus export, and re-import with their children intact. Two consequences the
-/// fixtures below pin, because both were stated the other way round in the code:
+/// This retired <c>CodesysObjectModel.ExportInterfaceXml</c>, a hand-built PLCopen document justified by
+/// "CODESYS export_xml REJECTS IInterfaceObject — it only accepts IPOUObject". That is false: all 31
+/// interfaces in the corpus export, and re-import with their children intact. The replacement then survived
+/// one round as a thin wrapper making the same call under its own name, and an interface-only fork in
+/// <c>ReadXml</c> to reach it; BOTH are now gone too, so an interface has no separate read path at all —
+/// every kind goes through <c>ExportXmlWithChildren</c>. These fixtures are what makes that safe to assert.
+/// Two consequences they pin, because both were stated the other way round in the code:
 /// </para>
 /// <list type="number">
 /// <item><description>CODESYS emits an interface with <b>NO <c>&lt;pou&gt;</c> element at all</b> — it is

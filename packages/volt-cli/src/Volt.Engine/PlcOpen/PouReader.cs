@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -21,7 +21,14 @@ public static class PouReader
         string? Declaration,
         string? BodyLanguage,
         XElement? BodyElement
-    );
+    )
+    {
+        /// <summary>The member SHAPE this child has in the document. Lives here because <c>PouType</c> is the
+        /// TC6 <c>pouType</c> vocabulary, not Volt's wire kinds — the two coincide in spelling and must not be
+        /// conflated, which is why the document layer never takes <c>ItemKind.Kinds</c>. Callers comparing what
+        /// the document HAS against what a push WANTS need this, because the shapes are not interchangeable.</summary>
+        public PouMember Shape => PouType == "action" ? PouMember.Action : PouMember.Method;
+    }
 
     /// <summary>A property and its accessors, read from the export both vendors already produce.
     /// <para>Verified live on BOTH: a POU export carries <c>&lt;Property name&gt;</c> with
@@ -77,19 +84,12 @@ public static class PouReader
 
         var children = new List<ParsedChild>();
 
-        // Standard PLCopen: child <pou> elements (nested or siblings)
-        foreach (var e in rootPou.Elements().Where(e => e.Name.LocalName == "pou")
-            .Concat(rootPou.Parent?.Elements().Where(e => e.Name.LocalName == "pou" && e != rootPou)
-                    ?? Enumerable.Empty<XElement>()))
-        {
-            var pouType = (string?)e.Attribute("pouType");
-            if (pouType is not ("method" or "action")) continue;
-            var childName = (string?)e.Attribute("name");
-            if (string.IsNullOrEmpty(childName)) continue;
-            var childDecl = DeclFromElement(e);
-            var (childLang, childEl) = FindBody(e, ns);
-            children.Add(new ParsedChild(childName!, pouType, childDecl, childLang, childEl));
-        }
+        // A child <pou pouType="method"/"action"> loop used to sit here, for "standard PLCopen". There is no such
+        // shape: TC6 restricts pouType to function|functionBlock|program (tc6_xml_v201.xsd), so a method or
+        // action can never BE a <pou>, and none of the 30 recorded vendor exports contains one. Both vendors put
+        // a method in <addData>/<data>/<Method> and an action in <actions>/<action> — read by the loop below.
+        // The only things that ever exercised it were three tests carrying hand-written XML in that invented
+        // shape, which is exactly how it survived as "tolerance for a vendor we have not met".
 
         // Vendor addData children: <Method>/<Action> (TwinCAT, and CODESYS's synthesized interface export) and
         // lowercase <method>/<action> (CODESYS POU exports). BOTH capitalizations are load-bearing — the
@@ -185,8 +185,13 @@ public static class PouReader
     /// <summary>The body element's graphical language for an item in an export, or null when the body is textual —
     /// the ONE answer to that question, shared with the driver's <c>BodyLanguage</c> gate so a body cannot be
     /// graphical to one caller and textual to the other.</summary>
-    internal static string? GraphicalLanguageOf(XElement bodyEl) =>
-        LangIn(bodyEl).language is { } l && l is "FBD" or "LD" or "CFC" or "SFC" ? l : null;
+    /// <summary>The body's language when it is anything OTHER than ST, else null.
+    /// <para>Fails CLOSED, and that is the whole change: this used to enumerate <c>FBD/LD/CFC/SFC</c>, so any
+    /// language missing from the list was reported as "textual" and a textual push then overwrote it. IL was
+    /// exactly that case — Volt does not support IL any more than CFC or SFC, but the list said otherwise.
+    /// Asking "is it ST?" means a language nobody has thought about yet is refused rather than flattened.</para></summary>
+    internal static string? NonStLanguageOf(XElement bodyEl) =>
+        LangIn(bodyEl).language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
 
     // A child member (method/action/property/accessor, or a nested pou) exports its OWN InterfaceAsPlainText —
     // e.g. a TwinCAT FB's method sits under <addData>/<Method>/<InterfaceAsPlainText>. It must NOT be mistaken

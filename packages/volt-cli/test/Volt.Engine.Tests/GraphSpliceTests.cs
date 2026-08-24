@@ -216,9 +216,15 @@ public class GraphSpliceTests
 
     // ── document scoping: the ROOT POU's body, never a child method's ──
 
-    /// <summary>A children-bearing export — the shape `ReadXml` actually returns on BOTH vendors, since neither
-    /// can export a method or action standalone. The POU's own body is textual (ST); the graphical bodies belong
-    /// to its two METHODS. Every one of these read/write entry points used to scan the WHOLE document and so
+    /// <summary>A children-bearing document: the POU's own body is textual (ST) while the graphical bodies
+    /// belong to its two METHODS — the situation `ReadXml` returns on both vendors, since neither can export a
+    /// method or action standalone.
+    /// <para><b>The member SHAPE below is not a vendor's.</b> It nests <c>&lt;pou pouType="method"&gt;</c>, which
+    /// TC6 forbids and no recorded export contains; the real ones are <c>&lt;addData&gt;/&lt;data&gt;/&lt;Method&gt;</c>
+    /// and <c>&lt;actions&gt;/&lt;action&gt;</c>. It is kept here ONLY because these cases test NAME SCOPING via
+    /// <c>PlcOpenDocument.ItemBody</c>, which matches a named element out of the whole document and is indifferent
+    /// to where it sits — so the shape is irrelevant to what is under test. This comment used to claim it WAS the
+    /// vendors' shape; that was false, and believing it is what kept a dead branch in <c>PouReader</c> alive.</para> Every one of these read/write entry points used to scan the WHOLE document and so
     /// answered about whichever body came first, not the one asked for: the read reported the textual POU as FBD
     /// and handed back a method's body, and the write spliced the regenerated body over that method, destroying
     /// it while leaving the intended target untouched. Two methods, not one, because "first in document order"

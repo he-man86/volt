@@ -1,4 +1,4 @@
-namespace Volt.Cli.Sync;
+﻿namespace Volt.Cli.Sync;
 
 /// <summary>
 /// refs/remotes/volt/ide — the live IDE modelled as a git remote-tracking branch. Each commit's tree is the
@@ -25,6 +25,7 @@ public static class IdeTree
         string? parentIde,
         IReadOnlyList<MaterializedFile> ideFiles,
         IReadOnlyList<string> removedNames,
+        bool librariesRefreshed,
         Action<int, int>? onBlobs = null)
     {
         var seen = new HashSet<string>();
@@ -43,6 +44,27 @@ public static class IdeTree
         var removedNamesSet = new HashSet<string>(removedNames);
         static string NameOf(string rel) { var i = rel.LastIndexOf('/'); return i < 0 ? rel : rel.Substring(i + 1); }
 
+        // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
+        // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions
+        // (.fb/.fun/.itf/.dut/.gvl). So a bare-name sweep hits them by accident — deleting the project's own
+        // `ERROR.dut` also deleted `Library Manager/CAA/ERROR.dut`, which nothing regenerates until that library's
+        // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so
+        // they are exempt by LOCATION. A library root is any directory holding a `.library` stub.
+        var libraryRoots = parentIde is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : LibraryRoots(Git.ListTree(gitDir, parentIde).Select(e => e.Path));
+        bool UnderLibrary(string rel) => IsUnderLibraryRoot(rel, libraryRoots);
+
+        // When the fetch RE-RENDERED the signatures, `ideFiles` carries the COMPLETE set for every library
+        // folder, so a signature the client still holds and this response does not carry is an element that no
+        // longer exists — the library was upgraded, or its reference removed. Dropping it is the only removal
+        // signal these files have: they are PATH-identified, not name-identified (two libraries may export the
+        // same short name), so they never appear in `Items` and `Removed` can never name one. Without this they
+        // were immortal and kept resolving in the LSP long after the element was gone.
+        // When the fetch SKIPPED the precompile there are no signatures in the response at all, so the folders
+        // are carried forward untouched — replacing them then would delete every one of them.
+        bool DroppedLibraryFile(string rel) => librariesRefreshed && UnderLibrary(rel) && !replaced.Contains(rel);
+
         // Changed IDE items — fresh content from the fetch, streamed INLINE into git objects (no temp file, no
         // per-file hash-object). Added first so they win the `seen` de-dup over any same-path parent/scaffold entry.
         foreach (var f in ideFiles) AddInline($"{Files.SrcDir}/{f.Path}", f.Content);
@@ -53,7 +75,9 @@ public static class IdeTree
             foreach (var e in Git.ListTree(gitDir, parentIde))
             {
                 var rel = SrcRel(e.Path);
-                if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel) && !removedNamesSet.Contains(NameOf(rel)))
+                if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel)
+                    && !(removedNamesSet.Contains(NameOf(rel)) && !UnderLibrary(rel))
+                    && !DroppedLibraryFile(rel))
                     AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }
 
@@ -70,6 +94,33 @@ public static class IdeTree
         // update-index / write-tree passes, byte-identical to the old path (proven by the golden test).
         return Git.WriteTreeViaFastImport(gitDir, inline, byRef, onBlobs);
     }
+
+    /// <summary>The workspace folders that hold a REFERENCED LIBRARY's rendered files — any directory containing
+    /// a <c>.library</c> stub, taken from a tree listing of <c>src/</c> paths.
+    /// <para>Library files are read-only and identity-less by LOCATION, not by extension: the element signatures
+    /// the bridge renders beside each stub carry ordinary SOURCE extensions (.fb/.fun/.itf/.dut/.gvl), so the
+    /// extension-keyed classifier calls them writable and a bare-name sweep matches them by accident. Two
+    /// separate places need that answer — the pull's removal sweep and the push's read-only guard — so it is
+    /// defined ONCE here; two spellings of it would drift and each drift is a data-loss bug.</para></summary>
+    public static HashSet<string> LibraryRoots(IEnumerable<string> treePaths)
+    {
+        var roots = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var path in treePaths)
+        {
+            var rel = path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal)
+                ? path.Substring(Files.SrcDir.Length + 1) : path;
+            if (!rel.EndsWith(".library", StringComparison.Ordinal)) continue;
+            var i = rel.LastIndexOf('/');
+            if (i > 0) roots.Add(rel.Substring(0, i));
+        }
+        return roots;
+    }
+
+    /// <summary>Is this src-relative path inside one of <paramref name="roots"/>? A directory boundary is
+    /// required, so `Library Manager/CAA2/x` is not inside `Library Manager/CAA`.</summary>
+    public static bool IsUnderLibraryRoot(string rel, HashSet<string> roots) =>
+        roots.Any(r => rel.Length > r.Length + 1 && rel[r.Length] == '/' &&
+                       rel.StartsWith(r, StringComparison.Ordinal));
 
     public static string CommitVoltIde(string gitDir, string treeSha, string? parent, string message) =>
         Git.CommitTree(gitDir, treeSha, parent is not null ? new[] { parent } : Array.Empty<string>(), message);

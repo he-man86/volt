@@ -1,5 +1,6 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 using Volt.Engine.Workspace;
@@ -76,5 +77,47 @@ public class BodyCodecTests
             () => PouDocument.Splice(il, "VltFbd", Split(DeclA, "n := 1;")));
 
         Assert.Contains("IL", ex.Message);
+    }
+
+    // ── IL is UNSUPPORTED, exactly like CFC and SFC ──────────────────────────────────────────────────
+    // Volt writes ST and FBD/LD and nothing else. IL is a TC6 body language, so the READER has to recognise one
+    // — but recognising it is not supporting it. It used to have a bespoke codec that decoded to the raw body
+    // text, so an IL POU materialized as an editable-looking file indistinguishable from ST source; a push then
+    // rewrote the engineer's IL body as ST. It now shares CFC/SFC's treatment: marker on read, refusal on write.
+
+    [Theory]
+    [InlineData("IL")]
+    [InlineData("CFC")]
+    [InlineData("SFC")]
+    public void An_unsupported_body_language_is_read_only(string language)
+    {
+        Assert.True(Volt.Engine.Body.BodyCodec.For(language).ReadOnly);
+    }
+
+    [Theory]
+    [InlineData("IL")]
+    [InlineData("CFC")]
+    [InlineData("SFC")]
+    public void An_unsupported_body_language_refuses_to_be_written(string language)
+    {
+        var body = new XElement("body");
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => Volt.Engine.Body.BodyCodec.For(language).Encode(body, "x := 1;", null));
+        Assert.Contains("read-only", ex.Message);
+    }
+
+    /// <summary>An IL body materializes as the MARKER, not as its raw text — the difference between "Volt shows
+    /// you a body it cannot write" and "Volt hands you a file that looks editable and silently converts it".</summary>
+    [Fact]
+    public void An_IL_body_materializes_as_the_marker_not_as_source()
+    {
+        var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
+        var body = new XElement(ns + "body", new XElement(ns + "IL", "LD a\nST b"));
+        var found = Volt.Engine.Body.BodyCodec.PresentWith(body);
+
+        Assert.Equal("IL", found!.Value.Codec.Language);
+        var decoded = found.Value.Codec.Decode(found.Value.Element);
+        Assert.Contains("@volt-graphical", decoded);   // the read-only marker, same as CFC/SFC
+        Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
 }

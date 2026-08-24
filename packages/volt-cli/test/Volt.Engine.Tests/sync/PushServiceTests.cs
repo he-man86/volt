@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Sync;
 using Volt.Engine.Wire;
 using Volt.Engine.Workspace;
@@ -321,5 +321,57 @@ public class PushServiceTests
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Name == "B.prg");
         Assert.Empty(ide.Recorded); // the valid op A was NOT applied — atomic rollback
+    }
+
+    /// <summary>An SFC POU's TRANSITIONS must survive a push that does not mention them. No reader models a
+    /// transition — it never reaches the item's file — so it can never be in the pushed member set, and the
+    /// orphan walk used to reconcile against the wider "inlined in a POU" set and delete every one of them on
+    /// the FIRST push of the enclosing POU. Silent, and the engineer's SFC logic was gone.
+    /// <para>The fake had to be fixed first: it rendered a transition as <c>&lt;action&gt;</c>, a shape no vendor
+    /// emits, so the reader read it back as an action MEMBER and it landed in `keep` — the fake was asserting
+    /// the bug away.</para></summary>
+    [Fact]
+    public void A_push_does_not_delete_the_POUs_transitions()
+    {
+        var pou = new FakeIde.Item("SFC_PRG", ItemKind.PlcPouProg, "", true,
+            "PROGRAM SFC_PRG\nVAR\nEND_VAR", "x := 1;", null, null, new[] { "ACT_A", "T1" });
+        var act = new FakeIde.Item("ACT_A", ItemKind.PlcAction, "", false, null, "a := 1;", null, null);
+        var trans = new FakeIde.Item("T1", ItemKind.PlcTrans, "", false, null, "TRUE", null, null);
+        var ide = new FakeIde(pou, act, trans);
+
+        var (v, pv) = Ver(ide, "SFC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp
+        {
+            Name = "SFC_PRG.prg",
+            IfVersion = v,
+            SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\n\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\na := 1;\nEND_ACTION\n",
+        });
+
+        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Name + ": " + c.Reason)));
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") && r.Contains("T1"));
+    }
+
+    /// <summary>A move+edit whose CONTENT is refused must leave the item where it was — the refusal has to be
+    /// atomic. The move used to run FIRST, so a rejected edit (a read-only body, a language change, malformed
+    /// network text) left the item already relocated and its destination folder already created, while the push
+    /// reported failure. Nothing put that back.</summary>
+    [Fact]
+    public void A_refused_move_plus_edit_does_not_relocate_the_item()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "n := 1;"))
+        { OneDocumentWrite = true };
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+
+        // Malformed network text: the splice refuses it, so the whole push must be rejected.
+        var resp = Push(ide, pv, new SetItemOp
+        {
+            Name = "PLC_PRG.prg",
+            IfVersion = v,
+            ToFolder = "Machine",
+            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nNETWORK 0 FBD\n  out := (a AND b);\n",
+        });
+
+        Assert.False(resp.Accepted);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));   // never relocated
     }
 }

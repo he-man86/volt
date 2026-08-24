@@ -21,10 +21,12 @@ openspec task as measured against a running IDE, with no artefact in the repo. *
 
 ## The headline
 
-**The single-document POU write has only ever been measured on CODESYS**, and the code says so in three places:
-`src/Volt.Engine/Ide/ICodeStore.cs:30-39`, `src/Volt.Engine/Ide/DriverBase.cs:24-27` (defaults false),
-`src/Volt.Cli.Ide.Codesys/Driver/CodesysDriver.Code.cs:55` (true). TwinCAT falls through to the per-child path at
-`src/Volt.Engine/Sync/PushService.cs:372-377`.
+**The single-document POU write has only ever been measured on CODESYS**, and the code says so in three places,
+cited by SYMBOL rather than line because these citations have already drifted twice and a stale line number sends
+the next reader to unrelated code: `ICodeStore.WritesPouAsOneDocument` (the contract + the evidence),
+`DriverBase.WritesPouAsOneDocument` (defaults false), `CodesysDriver.WritesPouAsOneDocument` (true). TwinCAT falls
+through to the per-child path in `PushService.WriteItemFromSource`, in the `if (!ide.WritesPouAsOneDocument)` arm
+and the per-child loop below it.
 
 `PlcOpenSpliceTests.cs:23-24` uses exactly two fixtures — one CODESYS, one TwinCAT — and the TwinCAT one exercises
 only `SetDeclaration`, the non-ST refusal, name-scoping and action removal. **`AddChild`, `SetAccessor`, property
@@ -100,6 +102,8 @@ repo contains a method, a property or an accessor.
 | ~~D3~~ | **CLOSED — the PLAINTEXT drives it**, exactly as on CODESYS. A var spliced into `InterfaceAsPlainText` alone, leaving the typed `<interface>` stale, landed in the IDE's declaration. This is what lets a splice write declarations at all |
 | ~~D4~~ | **CLOSED — no USABLE move, but the first answer was measured wrongly and the correction matters.** There is no `Move`/`Reparent` member (that part held). But `ExportChild`/`ImportChild` DO exist on every tree item including a folder, and the first probe missed them because it looked for methods with a PROPERTY read (`CallType::Get`), which can never find one. Signatures from the installed TLB (`Components/Base/TypeLib/TCatSysManager.tlb`): `ExportChild(bstrName, bstrFile)`, `ImportChild(bstrFile, bstrBefore, bReconnect, bstrName)`. **They are still not a move**: the archive carries the item's SOURCE PATH, so importing into another folder recreates that hierarchy underneath it — moving `POUs/X` into `Moved` yields `Moved/POUs/POUs/X`. Usable only with a way to rewrite the path inside the archive, which has not been found. Two more facts if anyone tries: `ExportChild` REQUIRES a `.zip` filename (`.xml`, `.tszip`, `.tpzip`, `.tczip`, `.tcpou`, `.xti`, `.tsproj` are all refused), and `ImportChild`'s 4th argument RENAMES the child, which TwinCAT rejects outright ("Cannot change imported child name!") |
 | **D4b** | **NEW, and a LIVE BUG.** `PlcOpenImport` lands the item at the **PLC-PROJECT ROOT**, never in the folder it came from. It is not on a folder tree item at all (`ITcSmTreeItem` has no such member) and takes only `(path, options)` — a third argument naming a target folder is `DISP_E_TYPEMISMATCH`. So placement is **unrecoverable** on TwinCAT: the primitive cannot target a parent and there is no move to fix it afterwards |
+| **D4c** | **NEW, and it REOPENS D4b — the import options were never varied.** `TcPlcOpen` hardcodes `PLCIMPORTOPTIONS_NONE = 0`, the only value Volt has ever passed, and D4b/D1-D4 were all measured through it. Measured live on TcXaeShell (XAE pid 2036, fixture `TwinCAT Project13`, POU `PLC_PRG`), sweeping the options argument: `0` → **fails** with "Creation of object 'PLC_PRG' failed. Reason: Import conflict!" (the collision D4b's delete-first exists to avoid); **`1` → REPLACES IN PLACE** — item count unchanged (7→7, re-measured 10→10), no delete, no duplicate; `2`, `4`, `8` → each ADDS a copy (count +1 every time). **`1` is not a silent skip**, which is the trap CODESYS's `ConflictResolve.Skip` set: a marker comment spliced into the body via `PouSplice.SetBody` was present in the re-export afterwards (`CONTENT LANDED = True`). So TwinCAT HAS the `ConflictResolve.Replace` equivalent that made the CODESYS single-document write possible, and D4b's "placement is unrecoverable" was a property of **delete-then-import**, not of `PlcOpenImport` — nothing is deleted under `1`, so there is nothing to relocate. Still OPEN and NOT to be assumed: whether a merge under `1` flattens a POU's INTERNAL child folders the way CODESYS's does (CODESYS repairs that with `move()`, which TwinCAT lacks — D4) |
+| **D4d** | **NEW — a TwinCAT PLCopen import INVALIDATES every handle to the item it replaced.** Any later COM call on that handle answers *"Item 'x' is deleted or invalidated by an ealier operation!"*. CODESYS's merge does NOT do this, and `PushService` carried the CODESYS reading as a general one ("`WriteXml` is a merge with no delete, so `pou` is not stale") — true there, false here. A graphical push reaches `RemoveOrphanChildren` immediately after `NetworkCode.Write` has imported, so on TwinCAT it was reconciling through a dead handle. **It went unseen for as long as it did because `BeckhoffDriver.ChildCount` caught the fault and answered `0`**: the orphan walk became a silent no-op, so a method deleted from a graphical POU survived in the IDE — the very bug the walk had been made unconditional to fix, still happening one layer down. Fixed by re-acquiring the item after the content write (`ItemLookup.Find`, hard-failing on a miss); the driver's accessor no longer fabricates `0`, so the next such fault is loud |
 | ~~D5~~ | **CLOSED — measured, and IDENTICAL.** TwinCAT's member shape matches CODESYS's exactly: `<data name="…/method"><Method name= ObjectId=>`, `<data name="…/property"><Property>` with `<GetAccessor>`/`<SetAccessor>` nested. Recorded live from TcXaeShell as `tc-pou/FB_TcMembers.plcopen.xml`. `PouSplice.AddChild`'s shape is right for both vendors → **category A** |
 | ~~D6~~ | **CLOSED — measured, and it DIFFERS.** TwinCAT emits **Get before Set** (`tc-pou/FB_TcMembers.plcopen.xml:69`, `:83`); CODESYS emits **Set before Get** (`codesys-pou/BoxFB.plcopen.xml:304`, `:331`). Order only, so → **category A** — but `SetAccessor` claimed "vendors emit Set before Get" as a universal, which was false |
 | D7 | Does TwinCAT nest a CFC body under `<body>/<addData>` the way CODESYS does? No TwinCAT CFC/SFC fixture exists |
@@ -190,6 +194,20 @@ inference was WRONG (SFC was assumed to sit with CFC; it does not), so every row
 | **SFC** | **direct** | `codesys-pou/POU_SfcRoot_StFbdMethods.plcopen.xml` (root) |
 | **CFC** | **`<body>/<addData>/<data name="…/cfc">`, AND a sibling empty `<ST>`** | `codesys-pou/FB_GraphicalChild.plcopen.xml` (`doSomething`) |
 | IL | direct — **SPECIFIED** by the schema (`tc6_xml_v201.xsd:416`); no fixture, but no longer a guess |
+
+**Support is a separate axis from placement, and IL sits on the unsupported side with CFC and SFC.** Volt
+round-trips **ST and FBD/LD only**. IL appears in the model because TC6 defines it and the READER must be able to
+recognise one — recognising is not supporting. It is registered as a `ReadOnlyCodec`, exactly like SFC: an IL body
+materializes as the `(* @volt-graphical: IL *)` marker and a push leaves it untouched.
+
+It did not always. IL had a bespoke codec that decoded to the **raw body text**, and `Materializer.BodyTextOf`
+ended in "anything not FBD/LD/CFC/SFC is text" — so an IL POU materialized as an editable-looking file
+indistinguishable from ST source, and a push then rewrote the engineer's IL body as ST. The guards could not stop
+it either: `PouReader.GraphicalLanguageOf` and `PushService.GraphicalOnly` both **enumerated** `FBD/LD/CFC/SFC`,
+so a language missing from the list was reported as "textual". Both now ask "is it ST?" (`NonStLanguageOf` /
+`NonSt`) and the read-only set is read off the codec (`IsReadOnlyLanguage`), so the classification **fails closed**
+— a language nobody has considered yet is refused rather than flattened.
+
 
 The rule is the standard, not a vendor quirk: **PLCopen TC6 defines ST, IL, FBD, LD and SFC as body languages, so
 each gets a real element whose NAME is the language. CFC is a CODESYS extension with no place in the schema, so it

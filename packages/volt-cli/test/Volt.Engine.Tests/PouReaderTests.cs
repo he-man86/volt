@@ -11,109 +11,55 @@ public class PouReaderTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
-    [Fact]
-    public void Parses_textual_ST_POU_with_methods()
-    {
-        const string xml = $$"""
-        <pou name="MyPgm" pouType="program" xmlns="{{Ns}}">
-          <addData>
-            <data><InterfaceAsPlainText><xhtml>PROGRAM MyPgm\nVAR\n  x : INT;\nEND_VAR</xhtml></InterfaceAsPlainText></data>
-          </addData>
-          <body><ST>x := 1;</ST></body>
-          <pou name="DoWork" pouType="method">
-            <addData>
-              <data><InterfaceAsPlainText><xhtml>METHOD DoWork : INT\nVAR_INPUT\n  a : INT;\nEND_VAR</xhtml></InterfaceAsPlainText></data>
-            </addData>
-            <body><ST>DoWork := a * 2;</ST></body>
-          </pou>
-        </pou>
-        """;
-
-        var result = PouReader.Parse(xml);
-
-        Assert.NotNull(result.Declaration);
-        Assert.Contains("PROGRAM MyPgm", result.Declaration);
-        Assert.Equal("ST", result.BodyLanguage);
-        Assert.NotNull(result.BodyElement);
-        Assert.Single(result.Children);
-
-        var child = result.Children[0];
-        Assert.Equal("DoWork", child.Name);
-        Assert.Equal("method", child.PouType);
-        Assert.NotNull(child.Declaration);
-        Assert.Contains("METHOD DoWork", child.Declaration);
-        Assert.Equal("ST", child.BodyLanguage);
-    }
-
+    /// <summary>An FBD root body whose children are ACTIONS — in the shape both vendors actually emit:
+    /// <c>&lt;actions&gt;/&lt;action&gt;</c>, which they place BEFORE the POU's own <c>&lt;body&gt;</c>
+    /// (recorded in <c>codesys-pou/FB_FolderChild.plcopen.xml</c> and <c>tc-fbd/PLC_PRG.plcopen.xml</c>).
+    /// <para>This used to carry nested <c>&lt;pou pouType="action"&gt;</c> children, a shape TC6 forbids
+    /// (<c>pouType</c> is function|functionBlock|program) and no recorded export contains. It was the only thing
+    /// keeping a dead reader branch alive — a test asserting an invented shape reads as coverage.</para>
+    /// <para>Ordering is the point of using two: the root's own FBD body must not be mistaken for an action's,
+    /// and the actions must come back in document order.</para></summary>
     [Fact]
     public void Parses_FBD_POU_with_action_children()
     {
         const string xml = $$"""
         <pou name="FbPou" pouType="functionBlock" xmlns="{{Ns}}">
-          <addData>
-            <data><InterfaceAsPlainText><xhtml>FUNCTION_BLOCK FbPou\nVAR\n  y : INT;\nEND_VAR</xhtml></InterfaceAsPlainText></data>
-          </addData>
+          <interface/>
+          <actions>
+            <action name="Tick">
+              <InterfaceAsPlainText><xhtml>ACTION Tick</xhtml></InterfaceAsPlainText>
+              <body><ST>y := y + 1;</ST></body>
+            </action>
+            <action name="Reset">
+              <InterfaceAsPlainText><xhtml>ACTION Reset</xhtml></InterfaceAsPlainText>
+              <body><ST>y := 0;</ST></body>
+            </action>
+          </actions>
           <body>
             <FBD>
               <inVariable localId="1"><expression>y</expression></inVariable>
             </FBD>
           </body>
-          <pou name="Tick" pouType="action">
-            <addData>
-              <data><InterfaceAsPlainText><xhtml>ACTION Tick</xhtml></InterfaceAsPlainText></data>
-            </addData>
-            <body><ST>y := y + 1;</ST></body>
-          </pou>
-          <pou name="Reset" pouType="action">
-            <addData>
-              <data><InterfaceAsPlainText><xhtml>ACTION Reset</xhtml></InterfaceAsPlainText></data>
-            </addData>
-            <body><ST>y := 0;</ST></body>
-          </pou>
+          <addData>
+            <data><InterfaceAsPlainText><xhtml>FUNCTION_BLOCK FbPou</xhtml></InterfaceAsPlainText></data>
+          </addData>
         </pou>
         """;
 
         var result = PouReader.Parse(xml);
 
         Assert.Contains("FUNCTION_BLOCK FbPou", result.Declaration);
-        Assert.Equal("FBD", result.BodyLanguage);
+        Assert.Equal("FBD", result.BodyLanguage);          // the ROOT's body, not the first action's
         Assert.NotNull(result.BodyElement);
         Assert.Equal(2, result.Children.Count);
 
         Assert.Equal("Tick", result.Children[0].Name);
         Assert.Equal("action", result.Children[0].PouType);
         Assert.Equal("ST", result.Children[0].BodyLanguage);
+        Assert.Contains("ACTION Tick", result.Children[0].Declaration);
 
         Assert.Equal("Reset", result.Children[1].Name);
         Assert.Equal("action", result.Children[1].PouType);
-    }
-
-    [Fact]
-    public void Parses_interface_with_methods()
-    {
-        const string xml = $$"""
-        <pou name="IMyInterface" pouType="interface" xmlns="{{Ns}}">
-          <addData>
-            <data><InterfaceAsPlainText><xhtml>INTERFACE IMyInterface</xhtml></InterfaceAsPlainText></data>
-          </addData>
-          <body/>
-          <pou name="Compute" pouType="method">
-            <addData>
-              <data><InterfaceAsPlainText><xhtml>METHOD Compute : INT\nVAR_INPUT\n  x : INT;\nEND_VAR</xhtml></InterfaceAsPlainText></data>
-            </addData>
-            <body/>
-          </pou>
-        </pou>
-        """;
-
-        var result = PouReader.Parse(xml);
-
-        Assert.Contains("INTERFACE IMyInterface", result.Declaration);
-        Assert.Null(result.BodyLanguage);
-        Assert.Single(result.Children);
-        Assert.Equal("Compute", result.Children[0].Name);
-        Assert.Equal("method", result.Children[0].PouType);
-        Assert.Contains("METHOD Compute", result.Children[0].Declaration);
     }
 
     [Fact]

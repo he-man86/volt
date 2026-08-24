@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Volt.Engine;
 using Volt.Engine.Wire;
 using Volt.Cli.Transport;
@@ -88,7 +88,8 @@ public static class Commands
         var gitDir = Git.ResolveGitDir(root);
         var head = Git.HeadCommit(root);
 
-        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>(),
+        // init: there is no previous volt/ide tree to carry anything forward from, so the flag is moot.
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>(), fetched.LibrariesRefreshed,
             (done, total) => progress.Report(1, "Importing objects", done, total));
         var commit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {fetched.ProjectVersion}");
         Git.UpdateRef(gitDir, IdeTree.Range, commit);
@@ -289,6 +290,7 @@ public static class Commands
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
         var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed,
+            fetched.LibrariesRefreshed,
             (done, total) => progress.Report(1, "Importing objects", done, total));
         progress.Enter(2, "Merging");
         var parent = parentIde ?? head;
@@ -349,7 +351,14 @@ public static class Commands
         var affected = rows.SelectMany(r => r.Kind == DiffKinds.Rename
             ? new[] { Files.StripSrcPrefix(r.OldPath), Files.StripSrcPrefix(r.NewPath) }
             : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
-        var readOnly = affected.Where(Extensions.IsReadOnly).ToList();
+        // A referenced library's files are read-only by LOCATION, not by extension. The element signatures the
+        // bridge renders beside each `.library` stub carry SOURCE extensions (.fb/.fun/.itf/.dut/.gvl - every arm
+        // of LibSignatureRenderer), so `Extensions.IsReadOnly`, which keys on the extension alone, calls them
+        // WRITABLE. Pushing one is never right and is destructive, because a push op is keyed by BARE NAME:
+        // `Library Manager/CAA/HANDLE.dut` pushes as item "HANDLE.dut", which either creates junk inside the
+        // Library Manager or OVERWRITES the project's own DUT that happens to share the short name.
+        var libraryRoots = IdeTree.LibraryRoots(Git.ListTree(gitDir, IdeTree.Range).Select(e => e.Path));
+        var readOnly = affected.Where(p => Extensions.IsReadOnly(p) || IdeTree.IsUnderLibraryRoot(p, libraryRoots)).ToList();
         if (readOnly.Count > 0)
             return PushResult.Rejected("read-only items can't be pushed — revert these:\n" + string.Join("\n", readOnly.Select(p => "  " + p)));
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -271,10 +271,19 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
         var xml = $"<pou name=\"{it.Name}\" pouType=\"{pouType}\" xmlns=\"{ns}\"><interface />";
 
-        var actions = kids.Where(c => c.KindCode is ItemKind.PlcAction or ItemKind.PlcTrans).ToList();
+        // A TRANSITION is its OWN TC6 container (<transitions><transition>), NOT an <action> — a shape no vendor
+        // emits and this fake used to invent. It mattered: rendered as an action, PouReader read the transition
+        // back as an action MEMBER, so it landed in the pushed member set and the orphan walk left it alone —
+        // the fake was asserting away the very bug that walk has (deleting transitions no reader models).
+        var actions = kids.Where(c => c.KindCode is ItemKind.PlcAction).ToList();
         if (actions.Count > 0)
             xml += "<actions>" + string.Join("", actions.Select(a =>
                 $"<action name=\"{a.Name}\">{BodyXml(a)}</action>")) + "</actions>";
+
+        var transitions = kids.Where(c => c.KindCode is ItemKind.PlcTrans).ToList();
+        if (transitions.Count > 0)
+            xml += "<transitions>" + string.Join("", transitions.Select(t =>
+                $"<transition name=\"{t.Name}\">{BodyXml(t)}</transition>")) + "</transitions>";
 
         xml += BodyXml(it);
 

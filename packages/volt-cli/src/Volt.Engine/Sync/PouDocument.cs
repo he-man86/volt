@@ -34,17 +34,22 @@ public static class PouDocument
     public static string Splice(string xml, string name, ItemContent split)
     {
         var parsed = PouReader.Parse(xml);
-        // The document's own view of what the item HAS — the only honest basis for add-vs-update. A property is a
-        // child too: the parser reports it in Properties, not Children.
-        var present = new HashSet<string>(
-            parsed.Children.Select(c => c.Name).Concat(parsed.Properties.Select(p => p.Name)),
-            StringComparer.OrdinalIgnoreCase);
+        // The document's own view of what the item HAS, name → member SHAPE. The shape is the other half of the
+        // add-vs-update answer: name alone made a member whose KIND changed look like an ordinary update, and the
+        // three shapes are not interchangeable — a <Method> owns a <body>, a <Property> owns accessors and no
+        // body of its own, an <action> owns no declaration at all. Turning a method into a property in the
+        // workspace therefore spliced property text into a method element. A property is a child too: the parser
+        // reports it in Properties, not Children.
+        var present = new Dictionary<string, PouMember>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in parsed.Children)
+            present[c.Name] = c.Shape;
+        foreach (var pr in parsed.Properties) present[pr.Name] = PouMember.Property;
         var pushed = new HashSet<string>(split.Members.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
         var isInterface = split.Kind == ItemKind.Kinds.Interface;
 
         // Children the push dropped. This replaces the COM orphan walk, and it is strictly better: the walk had to
         // recurse the POU's folders to find them, whereas the export lists every child flat regardless of folder.
-        foreach (var gone in present.Where(n => !pushed.Contains(n)).ToList())
+        foreach (var gone in present.Keys.Where(n => !pushed.Contains(n)).ToList())
             xml = PouSplice.RemoveChild(xml, name, gone);
 
         foreach (var child in split.Members)
@@ -66,9 +71,22 @@ public static class PouDocument
             // refused the entire push, so such a POU could not be touched even to edit its own root body.
             if (Materializer.IsGraphicalBodyMarker(body)) body = null;
 
-            xml = present.Contains(child.Name)
-                ? PouSplice.SetChildText(xml, name, child.Name, decl, body)
-                : PouSplice.AddChild(xml, name, child.Name, MemberOf(child.Kind), decl, body);
+            // The scope an FB instance in a CHILD body resolves against is BOTH declarations: an instance used
+            // in a method can be declared in the method's own VAR block or in the enclosing POU's. Network text
+            // carries only the instance NAME, so without this the child's FB boxes are written typeName="".
+            var childScope = split.Declaration + Environment.NewLine + (child.Declaration ?? "");
+            var wanted = MemberOf(child.Kind);
+            // A member whose SHAPE changed is a remove + add, not an update — the same thing §3.2 already
+            // defines a child RENAME as. Updating in place would splice, say, property text into the <Method>
+            // element that still carries the old shape.
+            if (present.TryGetValue(child.Name, out var had) && had != wanted)
+            {
+                xml = PouSplice.RemoveChild(xml, name, child.Name);
+                present.Remove(child.Name);
+            }
+            xml = present.ContainsKey(child.Name)
+                ? PouSplice.SetChildText(xml, name, child.Name, decl, body, childScope)
+                : PouSplice.AddChild(xml, name, child.Name, wanted, decl, body);
 
             if (child.Kind != ItemKind.Kinds.Property) continue;
             // null code REMOVES the accessor — that is how a push drops a getter, and why the reader keeps an
@@ -78,7 +96,7 @@ public static class PouDocument
         }
 
         xml = PouSplice.SetDeclaration(xml, name, split.Declaration);
-        return PouSplice.SetBody(xml, name, split.Body);
+        return PouSplice.SetBody(xml, name, split.Body, split.Declaration);
     }
 
     /// <summary>Volt's wire kind → the PLCopen member shape. This mapping lives HERE, in the layer that knows what

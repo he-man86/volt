@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Volt.Cli.Transport;
 using Volt.Engine.Ide;
@@ -94,12 +94,12 @@ public sealed partial class CodesysDriver
     public ItemRef GetTreeRoot() =>
         new(_om.PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project"));
 
-    /// <summary>Does the node have any children? Guarded (an unreadable subtree ⇒ treat as a leaf) so the
-    /// device-descriptor placement decision never crashes the walk.</summary>
-    private bool HasChildren(object node)
-    {
-        try { return _om.GetChildren(node).Count > 0; } catch { return false; }
-    }
+    /// <summary>Does the node have any children? This decides where a device descriptor is PLACED, so a wrong
+    /// answer moves the item to a different folder — which reads to the workspace as a move, not as an error.
+    /// The read is unguarded: an unreadable subtree is a real failure and belongs to the caller, who logs it per
+    /// item (<c>Versioning.SafeVersion</c>) and names which one. Answering "false" here silently placed the
+    /// descriptor somewhere else instead.</summary>
+    private bool HasChildren(object node) => _om.GetChildren(node).Count > 0;
 
     public int ChildCount(ItemRef item) => _om.GetChildren(item.Native).Count;
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.GetChildren(parent.Native)[index1Based - 1]);

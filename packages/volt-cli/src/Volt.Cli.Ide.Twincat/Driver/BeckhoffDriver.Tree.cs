@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Volt.Cli.Transport;
 using Volt.Engine;
@@ -61,8 +61,17 @@ public sealed partial class BeckhoffDriver
             if (itemType > 0 && ItemKind.Map(itemType) is null)
                 WarnUnmappedTcCode(itemType, name);
 
-            int childCount = 0;
-            try { childCount = _om.ChildCount(child); } catch { }
+            // NOT `catch { childCount = 0; }`. A COM fault here used to read as "this node has no children", so
+            // isHybrid went false and the whole SUBTREE was skipped — every item under it silently absent from
+            // refs/fetch, and absent means DELETED to a pull. One unreadable node must not break the walk (the
+            // WarnUnmappedTcCode line above is the established policy), but it must be SAID.
+            int childCount;
+            try { childCount = _om.ChildCount(child); }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: '{name}' child count unreadable — its subtree is OMITTED from this walk: {ex.Message}");
+                childCount = 0;
+            }
             bool isHybrid = childCount > 0 && !ItemKind.IsTopLevelCrud(itemType);
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
@@ -82,16 +91,25 @@ public sealed partial class BeckhoffDriver
             object device;
             try { device = _om.ChildAt(tiid, i); } catch { continue; }
             string name;
-            try { name = _om.GetName(device); } catch { continue; }
+            try { name = _om.GetName(device); }
+            catch (Exception ex) { VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is omitted: {ex.Message}"); continue; }
             // Encode the synthetic label like any other segment — "I/O Devices" carries a literal '/'.
             items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), FolderPath.Encode("I/O Devices")));
         }
     }
 
-    public int ChildCount(ItemRef item) { try { return _om.ChildCount(item.Native); } catch { return 0; } }
+    // No guard: a COM fault is a real failure and the caller (the walk, the folder map) decides. Answering 0
+    // made an unreadable node look like a leaf, which drops its whole subtree; answering "" for a name (below)
+    // fabricated the wire IDENTITY, and two blank names collapse onto each other.
+    // No guard. A COM fault is a real failure and must reach the caller: answering 0 made an
+    // unreadable or INVALIDATED node look like a childless one, which turned the push's orphan walk
+    // into a silent no-op on every graphical TwinCAT push (the handle is invalidated by the PLCopen
+    // import that precedes it). The walk in this file catches per node and logs, because a walk can
+    // meaningfully skip one item; a caller asking about ONE item cannot.
+    public int ChildCount(ItemRef item) => _om.ChildCount(item.Native);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
     public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));
-    public string Name(ItemRef item) { try { return _om.GetName(item.Native); } catch { return ""; } }
+    public string Name(ItemRef item) => _om.GetName(item.Native);   // never "" — the name is the wire identity
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));

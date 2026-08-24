@@ -24,7 +24,13 @@ namespace Volt.Cli.Ide.Twincat;
 /// </summary>
 internal static class TcPlcOpen
 {
+    // Measured live, DIALECT D4c — the options argument was hardcoded to NONE and never varied, which is what
+    // made "TwinCAT cannot replace in place" look like a vendor limit for so long:
+    //   0 (NONE)    -> FAILS on a name collision ("Import conflict!")
+    //   1 (REPLACE) -> replaces IN PLACE: item count unchanged, no delete, and the content really lands
+    //   2 / 4 / 8   -> each ADDS a copy
     private const int PLCIMPORTOPTIONS_NONE = 0;
+    private const int PLCIMPORTOPTIONS_REPLACE = 1;
 
     /// <summary>Serialize <paramref name="selection"/> (PLC-project-relative item path(s),
     /// ';'-separated) to a PLCopenXML string; returns the document text. (File-based internally.)</summary>
@@ -39,17 +45,21 @@ internal static class TcPlcOpen
         finally { TryDelete(tmp); }
     }
 
-    /// <summary>Import a PLCopenXML string into the project. TwinCAT ADDS; it does NOT replace in place, and a
-    /// name collision FAILS — so a caller replacing an item must delete the existing one first (see
-    /// <c>BeckhoffDriver.WriteXml</c> → <c>Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport</c>, which owns
-    /// that capture/delete/restore policy once). (File-based internally.)</summary>
+    /// <summary>Import a PLCopenXML string into the project, REPLACING a same-named item in place.
+    /// <para>This used to pass <c>NONE</c> and say "TwinCAT ADDS; it does NOT replace in place, and a name
+    /// collision FAILS — so a caller replacing an item must delete the existing one first". The first half was
+    /// true only of <c>NONE</c>. The options argument had simply never been varied: under <c>REPLACE</c> the
+    /// item is replaced with no delete, no duplicate, and the content genuinely lands (DIALECT D4c, measured
+    /// live). The delete is what relocated a foldered POU to the PLC-project root — the "unrecoverable
+    /// placement" of D4b — so removing it removes that failure, exactly as it did on CODESYS.</para>
+    /// (File-based internally.)</summary>
     public static void ImportXmlString(dynamic plcProject, string xml)
     {
         var tmp = Temp();
         try
         {
             File.WriteAllText(tmp, xml);
-            plcProject.PlcOpenImport(tmp, PLCIMPORTOPTIONS_NONE);
+            plcProject.PlcOpenImport(tmp, PLCIMPORTOPTIONS_REPLACE);
         }
         finally { TryDelete(tmp); }
     }

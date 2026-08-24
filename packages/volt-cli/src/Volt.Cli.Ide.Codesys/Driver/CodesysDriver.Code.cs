@@ -18,9 +18,11 @@ public sealed partial class CodesysDriver
     public void WriteText(ItemRef item, string? declaration, string? implementation) => _om.WriteSourceText(item.Native, declaration, implementation);
 
     // ── PLCopen XML transport ──
-    // Scoped to THIS item's name: the export carries the POU's methods and actions too, so a whole-document
-    // scan reports a graphical CHILD's language for a textual POU — and that language is what routes the item
-    // to the graphical transport.
+    // Scoped to THIS item's name, and the reason is recorded rather than assumed: a POU's <actions> and its
+    // methods' <addData> are nested INSIDE its <pou> element, so they ride along even in this NON-recursive
+    // export. Both vendors emit <actions> BEFORE the POU's own <body> (codesys-pou/FB_FolderChild.plcopen.xml,
+    // tc-fbd/PLC_PRG.plcopen.xml), so a whole-document scan answers about the first ACTION's body, not the
+    // item's — and that language is what routes the item to the graphical transport.
     public string? BodyLanguage(ItemRef item) =>
         item.Native is LibRefNode ? null : PlcOpenDocument.GraphicalBodyLang(_om.ExportXmlString(item.Native), Name(item));
 
@@ -29,11 +31,7 @@ public sealed partial class CodesysDriver
     // node by handing it to the object-model exporter — the very call it was guarding against, which wraps it into an
     // IExtendedObject<IScriptObject> and throws. If one ever does reach this, it fails loud there rather than
     // returning a manifest dressed up as PLCopen XML.
-    public string ReadXml(ItemRef item)
-    {
-        if (KindCodeOf(item.Native) == ItemKind.PlcItf) return _om.ExportInterfaceXml(item.Native);
-        return _om.ExportXmlWithChildren(item.Native);
-    }
+    public string ReadXml(ItemRef item) => _om.ExportXmlWithChildren(item.Native);
 
     /// <summary>Import a full PLCopen POU in place: MERGE into the original parent, so the name collision engages
     /// <c>ConflictResolve.Replace</c>. No delete.
@@ -42,8 +40,9 @@ public sealed partial class CodesysDriver
     /// in the document, REMOVES one absent from it, and leaves a sibling POU's CFC body untouched. Deleting first
     /// bought nothing and rendered the conflict mode moot (the old comment here said as much), while opening the
     /// window where a rejected import leaves the POU GONE — which is why
-    /// <see cref="PlcOpenTransport.ReplaceByReimport"/>'s capture/restore dance existed. Nothing to restore now:
-    /// a refused import leaves the original object exactly as it was.</para>
+    /// the shared <c>PlcOpenTransport.ReplaceByReimport</c> capture/restore dance existed. Nothing to restore
+    /// now: a refused import leaves the original object exactly as it was — and once TwinCAT's import stopped
+    /// deleting too (DIALECT D4c), that helper had no caller on either vendor and was deleted.</para>
     /// <para>The import still targets the original PARENT — a project-level import relocates the POU to the root.
     /// It does NOT preserve the POU's INTERNAL child folders; <see cref="IProjectTree.Move"/> restores those, in
     /// <c>PushService</c>, where the pushed source says which folder each child belongs in.</para></summary>

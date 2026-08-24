@@ -27,35 +27,21 @@ public sealed partial class BeckhoffDriver
 
     public string ReadXml(ItemRef item) => _om.ExportPouXml(item.Native);
 
-    /// <summary>Import a full PLCopen POU (same-name replace). Delete the existing POU first (TC's PlcOpenImport does
-    /// not replace in-place — it adds, and a name collision fails). The capture/restore/rethrow data-safety policy
-    /// lives once in <see cref="Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport"/>.
-    /// <para><b>REFUSED for an item that lives in a folder</b>, because on TwinCAT the placement cannot be
-    /// preserved and cannot be repaired. Measured live on TcXaeShell 15.0 (DIALECT D4b): <c>PlcOpenImport</c> is
-    /// a member of the PLC PROJECT only — it does not exist on a folder tree item — and its signature is
-    /// <c>(path, options)</c> with no target argument (a third one is <c>DISP_E_TYPEMISMATCH</c>). So the
-    /// re-imported item always lands at the PLC-project root. CODESYS survives the same flattening because it has
-    /// <c>move()</c>; TwinCAT has no move primitive at all (D4).</para>
-    /// <para>It used to just do it, and the POU silently MOVED out of the engineer's folder on every graphical
-    /// push. A loud refusal is the smaller harm: relocating someone's code without telling them is the failure
-    /// mode this bridge exists to prevent, and "your body is unchanged, move the POU to the project root or edit
-    /// it in the IDE" is a thing they can act on.</para></summary>
-    public void WriteXml(ItemRef item, string xml)
-    {
-        var parent = _om.Parent(item.Native);
-        var name = _om.GetName(item.Native);
-        if (!_om.IsPlcProjectRoot(parent))
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{name}' is inside a folder, and TwinCAT's PLCopen import can only place an item at the " +
-                "PLC-project root — it would silently move the POU out of its folder. Edit it in the IDE, or " +
-                "move it to the PLC-project root first.");
-
-        Volt.Engine.Ide.PlcOpenTransport.ReplaceByReimport(
-            exportOriginal: () => _om.ExportPouXml(item.Native),
-            delete: () => _om.DeleteChild(parent, name),
-            import: _om.ImportPlcOpenXml,
-            xml);
-    }
+    /// <summary>Import a full PLCopen POU in place: a REPLACE merge into the PLC project, with NO delete —
+    /// the same shape CODESYS uses (<c>ConflictResolve.Replace</c>).
+    /// <para><b>The delete is gone, and with it the foldered-item refusal.</b> This used to delete the POU and
+    /// then re-import it, because the import was believed unable to replace in place. It can: the options
+    /// argument had never been varied off <c>NONE</c>, and under <c>REPLACE</c> the item is replaced with no
+    /// delete, no duplicate, and the content lands (DIALECT D4c, measured live). D4b's "placement is
+    /// unrecoverable on TwinCAT" was therefore a property of DELETE-then-import, not of <c>PlcOpenImport</c> —
+    /// nothing is deleted now, so nothing is relocated and there is nothing for a (nonexistent) move to fix.</para>
+    /// <para>What that refusal cost: a graphical push to a POU living in ANY folder was rejected outright
+    /// ("move it to the PLC-project root or edit it in the IDE"), because the alternative was silently moving
+    /// the engineer's code. Neither is needed any more.</para>
+    /// <para>The capture/restore dance in <c>PlcOpenTransport.ReplaceByReimport</c> is unreachable from here for
+    /// the same reason it became unreachable on CODESYS: nothing is deleted, so a refused import leaves the
+    /// original POU exactly as it was.</para></summary>
+    public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(xml);
 
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)
@@ -69,7 +55,21 @@ public sealed partial class BeckhoffDriver
         // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
         if (kind == ItemKind.Kinds.Library) return LibraryManifestFromXml(xml);
 
-        var name = ExtractTag(xml, "ItemName") ?? ExtractTag(xml, "LibItemName") ?? "?";
+        // NOT `?? "?"`. This manifest IS the item's version-hash input, so a fabricated name makes every
+        // unnameable item of the kind hash IDENTICALLY — an edit to one could then never show up in `volt status`.
+        //
+        // It is also NOT `?? _om.GetName(item.Native)`, which was tried and is worse: that adds a COM call to a
+        // method that is otherwise pure string work over XML the caller already fetched, and it runs during the
+        // walk — where TwinCAT legitimately invalidates a handle after a preceding mutation ("Item 'x' is deleted
+        // or invalidated by an ealier operation!"). It turned a naming question into a liveness one and failed
+        // eleven graphical pushes.
+        //
+        // The XML came from ProduceXml for THIS item. If it carries neither tag it is not the document this
+        // method is written for, and saying so is the whole answer.
+        var name = ExtractTag(xml, "ItemName") ?? ExtractTag(xml, "LibItemName")
+            ?? throw new InvalidOperationException(
+                $"twincat: item metadata for kind '{kind}' carries neither <ItemName> nor <LibItemName> — " +
+                "cannot build a manifest whose name is the version-hash input");
         var sb = new StringBuilder();
         sb.Append("Name=").Append(name).Append('\n');
         if (kind == ItemKind.Kinds.Task)
