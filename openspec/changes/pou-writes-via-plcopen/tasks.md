@@ -330,7 +330,8 @@ So the flattening is a step the write must UNDO, not a blocker:
 
       Probe method: a temporary `--probe-import` flag on the worker exe, reverted immediately afterwards; the
       fixture was never saved and was restored to pristine (`git status` clean) after the run.
-- [ ] 5.1b Verify TwinCAT has a **move** equivalent for a POU child. CODESYS's `ScriptObject.move` is what makes
+- [x] 5.1b **DONE — NO usable move (DIALECT D4/D4e).** `ExportChild`/`ImportChild` exist on every tree item but carry the item's SOURCE PATH, so importing into another folder recreates the hierarchy underneath it rather than moving. Confirmed by consequence in the §5.4 run: a foldered POU pushed through the one-document path comes back at the PLC-project root and nothing can put it back. Original text follows.
+- [ ] 5.1b-orig Verify TwinCAT has a **move** equivalent for a POU child. CODESYS's `ScriptObject.move` is what makes
       §3.1 work; `TcObjectModel` has no move today and TwinCAT's COM surface is a different API entirely. If it
       has none, that is a §5.5 vendor limit — record it, do NOT reintroduce delete+CreateChild+WriteText on the
       TwinCAT side to fake one.
@@ -339,7 +340,26 @@ So the flattening is a step the write must UNDO, not a blocker:
       copy just because CODESYS reads that one.
 - [ ] 5.4 Live TwinCAT e2e at the POST-§3.1b baseline (**96 pass / 11 skip / 0 fail**), folder + child-folder
       cases included. Earlier numbers (90, then 94) are superseded.
-- [ ] 5.5 If any of 5.1-5.3 fails, STOP and record it as a vendor limit like the DUT/GVL one — do not add a
+- [x] 5.5 **INVOKED. This is the outcome.** 5.2 and 5.3 fail, so per this rule the answer is recorded and NOT worked around.
+
+      Measured by enabling `WritesPouAsOneDocument` on `BeckhoffDriver` and running the full live suite:
+      **36 fail / 60 pass / 12 skip**, against **96 pass / 0 fail** on the per-child arm. Three modes:
+
+      | mode | evidence |
+      |---|---|
+      | placement lost | a POU in `POUs/Sub` returns with folder `""` — the import lands it at the PLC-project root (D4b) and `Move` throws `Unsupported` (D4) |
+      | handles die mid-push | *"Item 'VltE2E_p_upd' is deleted or invalidated by an ealier operation!"* on a 3-op push (D4d) |
+      | language not established on create | every LD create lands as FBD — *"has a FBD body in the IDE but the push carries LD"* |
+
+      **Consequence, and it is the important part: §5 does not end with TwinCAT joining the one-document path.**
+      It ends with the measurement that it cannot, so `WritesPouAsOneDocument` and the per-child arm are
+      PERMANENT until Beckhoff ships a reparent verb. They should be named and pinned as a supported path
+      rather than carried as legacy awaiting removal. The A5 transport-matrix rows now pin that arm.
+
+      Recorded as DIALECT **D4e**; `ICodeStore.WritesPouAsOneDocument`'s "delete when §5 lands" instruction is
+      corrected in place.
+
+- [ ] 5.5-orig If any of 5.1-5.3 fails, STOP and record it as a vendor limit like the DUT/GVL one — do not add a
       per-vendor write mechanism to work around it, which would recreate the seam this change exists to remove.
 
 ## 5b. Zero-fallback audit of the splice surface (done)

@@ -41,12 +41,16 @@ public interface ICodeStore
     /// which already answers <c>E_FAIL</c> for DUT/GVL exports — `pou-writes-via-plcopen` §5 stages that
     /// verification deliberately after CODESYS is green. Two write paths is the cost being paid for staging, not
     /// a design.
-    /// <para>It used to say "<b>delete this property when §5 lands</b>". That instruction is now premature rather
-    /// than wrong, and the measurements since say why. TwinCAT's import CAN replace in place (DIALECT <b>D4c</b> —
-    /// the options argument had simply never been varied off <c>NONE</c>), which removes the original blocker.
-    /// But the flag also stands for "and this driver has a real <see cref="IProjectTree.Move"/>", and TwinCAT
-    /// still has none (D4): <c>ExportChild</c>/<c>ImportChild</c> carry the item's source path, so they recreate
-    /// the hierarchy rather than move. Delete the property when THAT is answered, not merely when the import is.</para>
+    /// <para><b>This property is NOT transitional. It stays.</b> It used to say "delete this property when §5
+    /// lands"; §5 has now landed and the answer is that TwinCAT cannot take this path at all. Measured by
+    /// enabling the flag on <c>BeckhoffDriver</c> and running the full live suite — <b>36 failures against 96
+    /// passes on the per-child arm</b> — in three modes Core cannot compensate for: the import relocates a
+    /// foldered POU to the PLC-project root and there is no move to put it back; it invalidates every handle to
+    /// the object it replaced, mid-push; and it does not establish the body language on create, so every LD
+    /// create lands as FBD. See DIALECT <b>D4e</b>, and <b>D4</b> for why the move does not exist.</para>
+    /// <para>So this is a genuine, measured vendor limit of the kind §5.5 says to RECORD rather than work
+    /// around. The two write paths are the shape of the product until Beckhoff ships a reparent verb — which
+    /// means the per-child arm deserves a NAME and a pin of its own, not to be treated as legacy on the way out.</para>
     /// <para>It also stands for "<b>and this driver has a real <see cref="IProjectTree.Move"/></b>", because the
     /// two are the same measurement: the merge FLATTENS a POU's child folders, so the single-document write
     /// depends on <c>Move</c> to put them back — a driver without one could not take this path at all.
