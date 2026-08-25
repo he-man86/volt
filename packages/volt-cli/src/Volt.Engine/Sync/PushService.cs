@@ -191,54 +191,28 @@ public static class PushService
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
     }
 
-    /// <summary>Move an item to another folder.
-    /// <para><b>The real move</b> — <see cref="IProjectTree.Move"/> — where the driver has one: the IDE relocates
-    /// the object whole, so nothing is read, deleted or rebuilt, and there is no window in which the item does not
-    /// exist. A graphical item moves too, which the recreate below can never do.</para>
-    /// <para><b>The recreate</b>, for a driver without a move: read the source, delete, re-create in the new
-    /// folder, write the content back. Full-fidelity (children included) so a moved FB does not lose its members,
-    /// but a graphical body cannot be rebuilt from text, so a graphical move is REFUSED before any deletion rather
-    /// than silently corrupted.</para>
-    /// <para>Both keep the NAME, so name-based references survive either way.</para></summary>
+    /// <summary>Move an item to another folder — <see cref="IProjectTree.Move"/>, on every driver. The IDE
+    /// relocates the object WHOLE: nothing is read, deleted or rebuilt, there is no window in which the item does
+    /// not exist, and a graphical item moves like any other. The NAME is kept, so name-based references survive.
+    /// <para><b>The delete-and-recreate arm is gone.</b> It existed for "a driver without a move", gated on
+    /// <c>WritesPouAsOneDocument</c> on the reasoning that the two were the same measurement — and its own comment
+    /// admitted what it cost: it REFUSED a graphical move outright (a diagram cannot be rebuilt from text), and a
+    /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
+    /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
     private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder, string? sourceText)
     {
-        var code = ide.KindCode(item);
-        var kind = ItemKind.Map(code);
+        var kind = ItemKind.Map(ide.KindCode(item));
         if (kind == null || !ItemKind.IsSourceKind(kind))
             throw new BridgeException(BridgeErrorCodes.Unsupported, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
-        // Gated on the same capability as the single-document write, because they are the same measurement: the
-        // driver that merges a POU document is the driver that has `Move` (the merge FLATTENS child folders, so
-        // `RestoreChildFolders` already depends on it — a driver without a move could not take that path at all).
-        // One flag, both facts, deleted together when §5 measures TwinCAT.
-        if (ide.WritesPouAsOneDocument)
-        {
-            // CONTENT FIRST, then the move — because the content write is the step that can REFUSE.
-            // It used to move first, which meant a rejected move+edit (a read-only CFC body, a language change,
-            // malformed network text — all refused by the splice) left the item ALREADY RELOCATED, and
-            // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
-            // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
-            // the refusal atomic: the item has not moved, so there is nothing to undo.
-            if (sourceText is { } edited) WriteItemFromSource(ide, parent, name, item, edited, newFolder);
-            ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
-            return;
-        }
-
-        // The moved item's content: the push's new sourceText if it carried one (move+edit), else the item's
-        // current source (pure move), read back for the full-fidelity recreate.
-        var src = sourceText ?? Materializer.Materialize(ide, name, kind, item).Text;
-        var split = StReader.Read(src);
-        if (NetworkText.Is(split.Body) || split.Members.Any(c => NetworkText.Is(c.Body)))
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
-
-        // `ide.Name(item)`, not the wire `name` — the same fix ApplyOp's delete already carries. The item cache
-        // resolves case-INSENSITIVELY while a driver's child scan matches case-SENSITIVELY, so a case-divergent
-        // wire name finds the item here and then matches nothing in the driver. This arm is the one place that
-        // is unrecoverable: a failed delete is followed immediately by a re-create of the same name, so the
-        // outcome is a DUPLICATE rather than a no-op — and it is the arm only TwinCAT takes.
-        ide.Delete(ide.Parent(item), ide.Name(item));
-        WriteItemFromSource(ide, parent, name, existing: null, src, newFolder);
+        // CONTENT FIRST, then the move — because the content write is the step that can REFUSE.
+        // It used to move first, which meant a rejected move+edit (a read-only CFC body, a language change,
+        // malformed network text — all refused by the splice) left the item ALREADY RELOCATED, and
+        // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
+        // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
+        // the refusal atomic: the item has not moved, so there is nothing to undo.
+        if (sourceText is { } edited) WriteItemFromSource(ide, parent, name, item, edited, newFolder);
+        ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
     }
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
@@ -246,6 +220,14 @@ public static class PushService
     private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
     {
         var split = StReader.Read(src);
+
+        // The document path applies to what HAS a document. A DUT or a GVL is declaration-only, and the READ
+        // has always known it (`Materializer` routes those through the declaration aspect, because TwinCAT's
+        // `PlcOpenExport` answers E_FAIL for a non-POU item — DIALECT C2). The WRITE branched on the vendor
+        // capability alone, so it spliced a document for a DUT too: harmless on CODESYS, a hard COM failure on
+        // TwinCAT, and on BOTH a kind READ through one representation and WRITTEN through another — the very
+        // split this whole change exists to remove. One predicate now, shared with the read.
+        var asDocument = ide.WritesPouAsOneDocument && ide.CanExportDocument(split.Kind);
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
         // collapse: the second's CreateChild finds the first and WriteText overwrites it, losing a source item
@@ -304,7 +286,7 @@ public static class PushService
                         $"created interface '{name}' but it cannot be found under its parent — refusing to write " +
                         "through the stale create handle");
 
-            if (!ide.WritesPouAsOneDocument)
+            if (!asDocument)
             {
                 // The per-transport path, for a driver whose import has not been measured. A network-text body
                 // still needs its declaration written separately here, because NetworkCodeIo.Write carries only
@@ -328,7 +310,7 @@ public static class PushService
             // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
             // paid 22 exports to write one body. Reading the document once and answering every language question
             // from it is the same information for a 22nd of the IDE traffic.
-            var doc = ide.WritesPouAsOneDocument ? ide.ReadXml(pou) : null;
+            var doc = asDocument ? ide.ReadXml(pou) : null;
             var parsed = doc is null ? null : PouReader.Parse(doc);
 
             // Body-type guard for the PER-TRANSPORT path only: never overwrite an item with a MISMATCHED body
@@ -371,7 +353,7 @@ public static class PushService
                 // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
                 // the merge: a network-text body no longer takes a separate write that carried only the body and
                 // silently dropped the declaration and the member reconciliation.
-                ide.WriteXml(pou, PouDocument.Splice(doc, name, split));
+                ide.WriteXml(pou, PouDocument.Splice(doc, name, split, establishing: false));
                 RestoreChildFolders(ide, name, split);
                 return;
             }
@@ -387,9 +369,9 @@ public static class PushService
         // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
         // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
         // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
-        if (ide.WritesPouAsOneDocument)
+        if (asDocument)
         {
-            ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split));
+            ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split, establishing: true));
             RestoreChildFolders(ide, name, split);
             return;
         }

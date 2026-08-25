@@ -42,6 +42,25 @@ public sealed partial class BeckhoffDriver
     /// instead of leaking into Core.</para></summary>
     public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(item.Native, xml);
 
+    /// <summary>OFF, and the reason is now exactly ONE measured vendor limit rather than a list.
+    /// <para>With it on the live suite reads 91 pass / 5 fail, against 94 / 2 on the per-child arm (it was 36 fail
+    /// when the change last measured it). THREE of the five are the same thing: a POU-INTERNAL MEMBER FOLDER
+    /// cannot survive a document import here and cannot be put back — the import flattens it in all four
+    /// pre-created/nested combinations, and <c>ExportChild</c> refuses a member ("it has no document file"), so
+    /// the archive move that relocates any top-level item has no member equivalent (DIALECT D4i). The other two
+    /// fail on the per-child arm too.</para>
+    /// <para>So this stays off: <c>RestoreChildFolders</c> would refuse the push — loudly and correctly — and a
+    /// POU whose methods live in folders is an ordinary project, not an edge case. Flipping it is a ONE-line
+    /// change the day Beckhoff's import honours the folder element or its COM surface grows a member move;
+    /// everything else the document path needs is in place and tested.</para></summary>
+    public override bool WritesPouAsOneDocument => false;
+
+    /// <summary>POUs and interfaces only. <c>PlcOpenExport</c> answers <c>E_FAIL</c> for a DUT or a GVL — the
+    /// export is POU-shaped and a declaration-only item has no POU to name (DIALECT C2, measured live against
+    /// `GVL_PackML` and all five e2e DUT kinds). So those keep the declaration-text write on this vendor, which
+    /// is also how the READ has always fetched them.</summary>
+    public override bool CanExportDocument(string kind) => ItemKind.TravelsAsDocument(kind);
+
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)
     {

@@ -25,6 +25,10 @@ public abstract class DriverBase : IIdeSession
     /// interface member because the bridge targets net48. Delete with the property when §5 lands.</summary>
     public virtual bool WritesPouAsOneDocument => false;
 
+    /// <summary>Default for <see cref="ICodeStore.CanExportDocument"/> — TRUE for every kind. A driver that
+    /// cannot export some kind has a MEASURED limit and says so; silence means no limit.</summary>
+    public virtual bool CanExportDocument(string kind) => true;
+
     private volatile bool _isDegraded;
 
     // ── honest-health signals (all lock-free reads; no IDE thread needed to answer /health) ──

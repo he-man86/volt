@@ -71,7 +71,7 @@ namespace Volt.Engine.Document
         /// from the one in the IDE, or when the IDE's is read-only. That subsumes every case the old guards
         /// covered by hand — including IL, which used to slip through a graphical-only narrowing as "textual" and
         /// then be silently rewritten as ST.</para></summary>
-        public static string SetBody(string xml, string itemName, string bodyText, string? declaration)
+        public static string SetBody(string xml, string itemName, string bodyText, string? declaration, bool establishing)
         {
             var doc = XDocument.Parse(xml);
             var body = PlcOpenDocument.ItemBody(doc, itemName);
@@ -87,14 +87,26 @@ namespace Volt.Engine.Document
             var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(bodyText) ?? "ST");
             // A body recording NO language decision (a blank ST — what a fresh POU is created with) counts as no
             // body at all, so establishing FBD on it is the ordinary create rather than a mismatch. An empty
-            // <FBD/> does NOT qualify: that POU was made graphical on purpose.
+            // <FBD/> does NOT qualify BY CONTENT: that POU was, as far as the document can tell, made graphical on
+            // purpose — see `establishing` for the one case where the document cannot tell.
             var found = BodyCodec.PresentWith(body);
             var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
 
             if (present is not null && present.ReadOnly)
                 throw new InvalidOperationException(
                     $"'{itemName}' is a read-only {present.Language} body — edit it in the IDE, not via push.");
-            if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
+            // The language guard protects a body the ENGINEER made. On a create there is no such body — the only
+            // one present is the seed `CreateChild` laid down microseconds ago, in this same push.
+            //
+            // That distinction cannot be read off the document, and assuming it could cost every LD create on
+            // TwinCAT. `CreateChild` is handed the pushed language, and TwinCAT REFUSES "LD" (DIALECT C6), so the
+            // driver creates FBD and the ladder view rides along as archive metadata. The document then shows an
+            // empty <FBD/> — which by content is "made graphical on purpose", and the guard refused the very LD
+            // body the push was creating: *'X' has a FBD body in the IDE but the push carries LD*. Volt refusing a
+            // Volt decision, one line after making it. The per-child write never hit it because it establishes the
+            // body through its own import instead of splicing over the seed.
+            if (!establishing && present is not null
+                && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"'{itemName}' has a {present.Language} body in the IDE but the push carries {pushed.Language} — " +
                     "edit it in the IDE, or delete it first to replace it.");

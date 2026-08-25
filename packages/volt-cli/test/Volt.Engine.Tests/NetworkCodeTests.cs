@@ -251,6 +251,7 @@ internal sealed class FakeCodeStore : ICodeStore
     // The graphical path never consults it (NetworkCode owns the PLCopen write for a network-text body), so false is the
     // honest answer here, not a stub for a capability this fake has.
     public bool WritesPouAsOneDocument => false;
+    public bool CanExportDocument(string kind) => true;
     public string? Lang;
     public string Xml = "";
     public string Decl = "";

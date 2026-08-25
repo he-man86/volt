@@ -85,7 +85,10 @@ public class WireVocabularyGuardTests
             // document primitives (`PlcOpenDocument`), the whole-POU read (`PouReader`) and the whole-POU write
             // (`PouSplice`). Each resolves elements BY NAME — that is the point of them — so each carries the
             // schema's element names. Same exemption, same reason, more files.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs", "NetworkTextReader.cs" }),
+            // `ProjectStructure` is a fourth: it locates each member's ELEMENT to read the object id off it, so it
+            // spells the same schema names for the same reason.
+            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs",
+                                  "ProjectStructure.cs", "NetworkTextReader.cs" }),
     };
 
     [Fact]

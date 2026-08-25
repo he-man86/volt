@@ -38,7 +38,7 @@ public class PouDocumentTests
     public void An_existing_child_is_updated_in_place()
     {
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
-            Split(FbDecl, "//body", Action("ACT", "//new action body")));
+            Split(FbDecl, "//body", Action("ACT", "//new action body")), establishing: false);
 
         var parsed = PouReader.Parse(doc);
         Assert.Equal(new[] { "ACT" }, parsed.Children.Select(c => c.Name));
@@ -51,7 +51,7 @@ public class PouDocumentTests
     public void A_child_only_in_the_push_is_added()
     {
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
-            Split(FbDecl, "//body", Action("ACT", "//test action"), Action("Second", "//brand new")));
+            Split(FbDecl, "//body", Action("ACT", "//test action"), Action("Second", "//brand new")), establishing: false);
 
         var names = PouReader.Parse(doc).Children.Select(c => c.Name).OrderBy(n => n);
         Assert.Equal(new[] { "ACT", "Second" }, names);
@@ -64,7 +64,7 @@ public class PouDocumentTests
     public void A_child_dropped_from_the_push_is_removed()
     {
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
-            Split(FbDecl, "//body"));
+            Split(FbDecl, "//body"), establishing: false);
 
         Assert.Empty(PouReader.Parse(doc).Children);
         Assert.DoesNotContain("//test action", doc);
@@ -76,7 +76,7 @@ public class PouDocumentTests
     {
         var decl = FbDecl.Replace("VAR\nEND_VAR", "VAR\n\tbFlag : BOOL;\nEND_VAR");
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
-            Split(decl, "//rewritten body", Action("ACT", "//test action")));
+            Split(decl, "//rewritten body", Action("ACT", "//test action")), establishing: false);
 
         var parsed = PouReader.Parse(doc);
         Assert.Contains("bFlag : BOOL;", parsed.Declaration);
@@ -103,7 +103,7 @@ public class PouDocumentTests
             Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
                   "//new parent body",
                   new Member(ItemKind.Kinds.Method, "doSomething",
-                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", ""))));
+                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "")), establishing: false));
 
         Assert.Contains("doSomething", ex.Message);
         Assert.Contains("CFC", ex.Message);
@@ -127,7 +127,7 @@ public class PouDocumentTests
             Split("FUNCTION_BLOCK FB_GraphicalChild\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n",
                   "//edited root body",
                   new Member(ItemKind.Kinds.Method, "doSomething",
-                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "(* @volt-graphical: CFC *)")));
+                      "METHOD doSomething : BOOL\nVAR_INPUT\nEND_VAR\n", "(* @volt-graphical: CFC *)")), establishing: false);
 
         Assert.Contains("//edited root body", doc);          // the edit landed…
         Assert.Equal(cfcBefore, Cfc(doc));                   // …and the diagram is untouched, byte for byte
@@ -141,7 +141,7 @@ public class PouDocumentTests
     {
         var xml = Fixture("FB_FolderChild.plcopen.xml");
         var doc = PouDocument.Splice(xml, "FB_FolderChild",
-            Split(FbDecl, "//this is the body - for test\n", Action("ACT", "//test action\n")));
+            Split(FbDecl, "//this is the body - for test\n", Action("ACT", "//test action\n")), establishing: false);
 
         Assert.Equal(xml, doc);
     }

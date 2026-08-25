@@ -198,7 +198,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
         // Only TOP-LEVEL items are registered: a created child/folder must not surface in the item walk.
         if (ItemKind.IsTopLevelCrud(kindCode) && !_items.Any(i => i.Name == name))
-            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", null, null));
+            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", SeedLanguage(language), null));
         return new ItemRef(name);
     }
 
@@ -360,6 +360,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     }
 
     private static string Escape(string s) => System.Net.WebUtility.HtmlEncode(s);
+    /// <summary>Model the vendor that STAMPS A BODY LANGUAGE at create time, the way TwinCAT does — and that
+    /// cannot take "LD", so it creates FBD and carries the ladder view as archive metadata (DIALECT C6).
+    /// <para>Off by default, which models CODESYS: there <c>CreateChild</c> ignores the language argument and the
+    /// created POU carries a blank <c>&lt;ST&gt;</c>, so the body language is established later by the imported
+    /// body element. The difference is not cosmetic — it is the whole reason a create must not be language-guarded
+    /// (see <c>PouSplice.SetBody</c>'s <c>establishing</c>), and with this off no test could reach that case.</para></summary>
+    public bool SeedsBodyLanguage { get; init; }
+
+    private string? SeedLanguage(string? language) =>
+        !SeedsBodyLanguage || language is null ? null : language == "LD" ? "FBD" : language;
+
     /// <summary>Opt a fake into the single-document POU write (`pou-writes-via-plcopen` §3.1). Off by default so
     /// every existing test keeps exercising the per-child path it was written against; a test that wants the merge
     /// path says so, and then <see cref="WrittenXml"/> is the whole write.</summary>

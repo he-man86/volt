@@ -44,7 +44,7 @@ public class BodyCodecTests
     [Fact]
     public void A_declaration_edit_lands_on_a_graphical_POU()
     {
-        var doc = PouDocument.Splice(Fbd, "VltFbd", Split(DeclB, BodyOfFixture()));
+        var doc = PouDocument.Splice(Fbd, "VltFbd", Split(DeclB, BodyOfFixture()), establishing: false);
 
         Assert.Contains("cAdded", doc);
         Assert.Contains("<FBD", doc);          // …and the diagram is still a diagram
@@ -55,7 +55,7 @@ public class BodyCodecTests
     [Fact]
     public void A_graphical_body_pushed_back_unchanged_stays_equivalent()
     {
-        var doc = PouDocument.Splice(Fbd, "VltFbd", Split(DeclA, BodyOfFixture()));
+        var doc = PouDocument.Splice(Fbd, "VltFbd", Split(DeclA, BodyOfFixture()), establishing: false);
 
         var before = PouReader.Parse(Fbd).BodyElement!;
         var after = PouReader.Parse(doc).BodyElement!;
@@ -73,7 +73,7 @@ public class BodyCodecTests
         var il = Fbd.Replace("<FBD>", "<IL>").Replace("</FBD>", "</IL>");
 
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouDocument.Splice(il, "VltFbd", Split(DeclA, "n := 1;")));
+            () => PouDocument.Splice(il, "VltFbd", Split(DeclA, "n := 1;"), establishing: false));
 
         Assert.Contains("IL", ex.Message);
     }

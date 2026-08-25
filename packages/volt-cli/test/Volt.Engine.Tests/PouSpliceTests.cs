@@ -43,7 +43,7 @@ public class PouSpliceTests
     {
         var xml = CodesysPou;
         var body = PouReader.Parse(xml).BodyElement!.Value;
-        Assert.Equal(Canon(xml), Canon(PouSplice.SetBody(xml, "PLC_PRG", body, null)));
+        Assert.Equal(Canon(xml), Canon(PouSplice.SetBody(xml, "PLC_PRG", body, null, establishing: false)));
     }
 
     // ── 2.1 declaration ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ public class PouSpliceTests
     public void The_textual_body_can_be_written_and_read_back()
     {
         const string body = "x := 42;\nIF x > 0 THEN\n\tx := 0;\nEND_IF";
-        var outXml = PouSplice.SetBody(CodesysPou, "PLC_PRG", body, null);
+        var outXml = PouSplice.SetBody(CodesysPou, "PLC_PRG", body, null, establishing: false);
         Assert.Equal(body, PouReader.Parse(outXml).BodyElement!.Value);
         Assert.Equal("ST", PouReader.Parse(outXml).BodyLanguage);
     }
@@ -94,7 +94,7 @@ public class PouSpliceTests
     public void Writing_the_body_leaves_the_declaration_alone_and_vice_versa()
     {
         var decl = PlcOpenDocument.DeclFromExport(CodesysPou, "PLC_PRG")!;
-        var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;", null);
+        var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;", null, establishing: false);
         Assert.Equal(decl, PlcOpenDocument.DeclFromExport(afterBody, "PLC_PRG"));
 
         var afterBoth = PouSplice.SetDeclaration(afterBody, "PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\ty : INT;\nEND_VAR");
@@ -107,7 +107,7 @@ public class PouSpliceTests
     public void A_textual_body_write_refuses_to_flatten_a_graphical_body()
     {
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetBody(TwincatPou, "ACT_FBD", "x := 1;", null));
+            () => PouSplice.SetBody(TwincatPou, "ACT_FBD", "x := 1;", null, establishing: false));
         Assert.Contains("FBD", ex.Message);
         Assert.Contains("replace", ex.Message);   // wording covers IL too, where "flatten" would be wrong
     }
@@ -122,7 +122,7 @@ public class PouSpliceTests
         // The TwinCAT fixture is a POU whose graphical body belongs to its ACTION; the POU's own body is ST.
         var beforeAction = GraphSplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
 
-        var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;", null);
+        var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;", null, establishing: false);
 
         Assert.Equal("poubody := 1;", PouReader.Parse(outXml).BodyElement!.Value);      // the POU took it
         Assert.Equal(beforeAction, GraphSplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
@@ -476,7 +476,7 @@ public class PouSpliceTests
     {
         var xml = $"<pou xmlns=\"{Ns}\" name=\"P\"><body><{lang}/></body></pou>";
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PouSplice.SetBody(xml, "P", "x := 1;", null));
+            () => PouSplice.SetBody(xml, "P", "x := 1;", null, establishing: false));
         Assert.Contains(lang, ex.Message);
     }
 
@@ -564,7 +564,7 @@ public class PouSpliceTests
         // at all. On a real push the declaration comes from the workspace source, which must declare every
         // instance it uses (IEC requires it), so this is the shape the resolver actually sees.
         const string decl = "PROGRAM fbdton\nVAR\n\tt1 : TON;\nEND_VAR";
-        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, decl);
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, decl, establishing: false);
 
         var blocks = XDocument.Parse(outXml).Descendants()
             .Where(e => e.Name.LocalName == "block")
@@ -581,7 +581,7 @@ public class PouSpliceTests
     {
         var parsed = PouReader.Parse(TonFbd);
         var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
-        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, null);
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, null, establishing: false);
         var t = XDocument.Parse(outXml).Descendants()
             .First(e => e.Name.LocalName == "block").Attribute("typeName")!.Value;
         Assert.True(string.IsNullOrEmpty(t));   // documents WHY the declaration is threaded, and is not optional

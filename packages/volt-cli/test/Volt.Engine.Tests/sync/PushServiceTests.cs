@@ -64,15 +64,17 @@ public class PushServiceTests
         Assert.Equal("POUs", resp.NewFolders!["MOTOR.prg"]); // a rename keeps the folder
     }
 
+    /// <summary>A move RELOCATES — it does not delete and rebuild. Both drivers have `IProjectTree.Move`, so the
+    /// item never stops existing, and the name is kept so name-based references survive.</summary>
     [Fact]
-    public void Set_move_recreates_in_new_folder()
+    public void Set_move_relocates_into_the_new_folder()
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "Sub" });
         Assert.True(resp.Accepted);
-        Assert.Contains("delete:PLC_PRG", ide.Recorded);
-        Assert.Contains("create:PLC_PRG", ide.Recorded); // recreated (same name ⇒ name-based refs survive)
+        Assert.Contains("move:PLC_PRG->Sub", ide.Recorded);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
 
     [Fact]
@@ -139,8 +141,8 @@ public class PushServiceTests
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", ToFolder = "Sub" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
-        Assert.Contains("delete:MOTOR", ide.Recorded);  // moved by its new name
-        Assert.Contains("create:MOTOR", ide.Recorded);
+        Assert.Contains("move:MOTOR->Sub", ide.Recorded);   // moved by its NEW name
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
 
     [Fact]

@@ -29,7 +29,11 @@ public static class PouDocument
     // ponytail: each splice call re-parses the document, so this is O(children × document). On the corpus's worst
     // POU (68 KB, 54 children) that is well under the pipe's own latency. If it ever shows up in a profile, the
     // upgrade is one XDocument threaded through the splice surface — not a second, batched writer.
-    public static string Splice(string xml, string name, ItemContent split)
+    /// <param name="establishing">This item was CREATED by the push in hand, so the body now in the document is
+    /// the seed <c>CreateChild</c> just laid down — not an engineer's. The language guard is skipped for it; see
+    /// <see cref="PouSplice.SetBody"/>. No default: the two call sites mean different things and a caller that has
+    /// to say which cannot get it wrong by omission.</param>
+    public static string Splice(string xml, string name, ItemContent split, bool establishing)
     {
         var parsed = PouReader.Parse(xml);
         // The document's own view of what the item HAS, name → member SHAPE. The shape is the other half of the
@@ -94,7 +98,14 @@ public static class PouDocument
         }
 
         xml = PouSplice.SetDeclaration(xml, name, split.Declaration);
-        return PouSplice.SetBody(xml, name, split.Body, split.Declaration);
+        xml = PouSplice.SetBody(xml, name, split.Body, split.Declaration, establishing);
+
+        // LAST, because it describes what the splices above left behind: the document's own structure block has to
+        // agree with the members the document now carries. It is not decoration on TwinCAT — its importer creates a
+        // POU child ONLY if the block declares it (DIALECT D4h), so every method, action and property of a
+        // one-document write was being dropped there in silence. CODESYS emits the block `handleUnknown="discard"`
+        // and throws it away, which is exactly why the disagreement could stand this long.
+        return ProjectStructure.Sync(xml, name, split.Members.Select(c => c.Name).ToList());
     }
 
     /// <summary>Volt's wire kind → the PLCopen member shape. This mapping lives HERE, in the layer that knows what

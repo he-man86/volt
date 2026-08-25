@@ -128,6 +128,22 @@ public class PouMergeWriteTests
         Assert.Contains("Second", doc);
     }
 
+    /// <summary>A create ESTABLISHES the body language — the guard that protects an engineer's diagram must not
+    /// fire against the seed the same push just laid down.
+    /// <para>`CreateChild` is handed the pushed language, and TwinCAT REFUSES "LD" (DIALECT C6), so it creates FBD
+    /// and carries the ladder view as archive metadata. The document then shows an empty <c>&lt;FBD/&gt;</c>, which
+    /// by content reads as "made graphical on purpose" — and the splice refused the very LD body it was creating:
+    /// *has a FBD body in the IDE but the push carries LD*. Volt refusing a Volt decision, one line after making
+    /// it, and it failed every LD create on that vendor.</para></summary>
+    [Fact]
+    public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
+    {
+        var ide = new FakeIde() { OneDocumentWrite = true, SeedsBodyLanguage = true };
+        PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n\nNETWORK 1 LD\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
+
+        Assert.Contains("<LD", ide.WrittenXml["VG_New"]);
+    }
+
     /// <summary>A MOVE is one <c>Move</c> — the item is never read, deleted or rebuilt, so there is no window in
     /// which it does not exist and nothing to lose. It used to be a full delete-and-recreate.</summary>
     [Fact]
@@ -165,16 +181,24 @@ public class PouMergeWriteTests
         Assert.Contains("n := n + 9;", ide.WrittenXml["FB_Test"]);
     }
 
-    /// <summary>Without the capability the move is still the delete-and-recreate, so the staging stays real.</summary>
+    /// <summary>A move is a MOVE on every driver — with or without the single-document capability, which is a
+    /// separate question about the CONTENT write.
+    /// <para>This replaces a test that pinned the delete-and-recreate arm for "a driver without a move". There is
+    /// no such driver: <c>IProjectTree.Move</c> is a required member and both vendors implement it (CODESYS's
+    /// scripting object has one; TwinCAT's is its export/import archive with the entry paths flattened, DIALECT
+    /// D4f). The arm it pinned was also strictly worse: it REFUSED a graphical move outright, because a diagram
+    /// cannot be rebuilt from text.</para></summary>
     [Fact]
-    public void Without_the_capability_a_move_still_recreates()
+    public void A_move_relocates_whether_or_not_the_driver_writes_one_document()
     {
-        var ide = Fb(oneDoc: false);
-        var refs = RefsService.Handle(ide);
-        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+        foreach (var oneDoc in new[] { true, false })
+        {
+            var ide = Fb(oneDoc: oneDoc);
+            var refs = RefsService.Handle(ide);
+            PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
 
-        Assert.Contains("delete:FB_Test", ide.Recorded);
-        Assert.Contains("create:FB_Test", ide.Recorded);
-        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));
+            Assert.Contains("move:FB_Test->Motors", ide.Recorded);
+            Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
+        }
     }
 }

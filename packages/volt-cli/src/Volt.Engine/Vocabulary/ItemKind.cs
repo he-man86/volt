@@ -29,13 +29,24 @@ public static class ItemKind
     public const int PlcPouFb = 604;
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
-    // A DUT is ONE code, ONE wire kind (`dut`), ONE `.dut` extension. The struct/enum/union/alias distinction
-    // is NOT a Volt concept at all — it lives solely in the declaration body, and BOTH the IDE's create and
-    // its read derive it from that text. TwinCAT reports every DUT as 623 and creates every DUT with 623;
-    // CODESYS classifies every IDUTObject here and creates with one create_dut call, re-deriving the subtype
-    // from the written declaration. (605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — never produced,
-    // never needed; deleted with the four-way split.)
+    // A DUT is ONE wire kind (`dut`), ONE `.dut` extension. The struct/enum/union/alias distinction is NOT a Volt
+    // concept at all — it lives solely in the declaration body, and BOTH the IDE's create and its read derive it
+    // from that text. CODESYS classifies every IDUTObject as PlcDut and creates with one create_dut call.
+    //
+    // But it is FOUR tree codes on TwinCAT, not one, and that correction cost real data. This used to say
+    // "605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — NEVER PRODUCED, never needed", and every walk that
+    // met one logged "unmapped TREEITEMTYPE … dropped by Core as unmapped-kind" and moved on. Measured live, two
+    // independent ways: a hand-authored enum in the committed `TwinCAT Project14` fixture (`E_PackML_Mode`) has
+    // ALWAYS reported 605, and a DUT re-created from TwinCAT's own item archive comes back 606 (struct) or 607
+    // (union) rather than the 623 it was created with. So a DUT authored in the TwinCAT IDE — the ordinary case —
+    // was INVISIBLE to `refs` and `fetch`, and absent means DELETED to a pull.
+    //
+    // 623 is the generic code `CreateChild` accepts; 605/606/607 are the subtypes TwinCAT stores. All four are the
+    // one wire kind, so the "one code" the design cares about is the WIRE one, and it is still one.
     public const int PlcDut = 623;
+    public const int PlcDutEnum = 605;
+    public const int PlcDutStruct = 606;
+    public const int PlcDutUnion = 607;
 
     // ── [both] children inlined in a POU / interface ──
     public const int PlcAction = 608;
@@ -142,7 +153,7 @@ public static class ItemKind
         PlcPouProg => Kinds.Program,
         PlcPouFunc => Kinds.Function,
         PlcPouFb => Kinds.FunctionBlock,
-        PlcDut => Kinds.Dut,
+        PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion => Kinds.Dut,
         PlcAction => Kinds.Action,
         PlcMethod => Kinds.Method,
         PlcItfMeth => Kinds.InterfaceMethod,
@@ -178,10 +189,21 @@ public static class ItemKind
 
     /// <summary>Top-level source kinds (full ST text): FB, function, program, DUTs, GVL, interface.</summary>
     public static bool IsTopLevelCrud(int code) =>
-        code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcDut or PlcGvl or PlcItf;
+        code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcGvl or PlcItf
+              or PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion;
 
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
     public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
+
+    /// <summary>Does this kind NEED a PLCopen document to be represented at all? A POU or an interface does —
+    /// only a document can carry a body and children. A DUT or a GVL is DECLARATION-ONLY: its whole content is
+    /// the declaration text.
+    /// <para>This is a statement about the KIND, not about a transport. It does NOT mean the declaration-only
+    /// kinds cannot travel as a document — on CODESYS they do, deliberately and with live fixtures for all four
+    /// root shapes (<c>DeclarationOnlyDocumentTests</c>). It is the FLOOR: below it a driver has a real choice,
+    /// above it there is none. <c>ICodeStore.CanExportDocument</c> is where a vendor answers for itself.</para></summary>
+    public static bool TravelsAsDocument(string kind) =>
+        kind is Kinds.Program or Kinds.FunctionBlock or Kinds.Function or Kinds.Interface;
 
     /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
     /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this

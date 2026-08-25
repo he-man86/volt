@@ -11,9 +11,6 @@ namespace Volt.Engine.Materialize;
 
 public static class Materializer
 {
-    private static readonly HashSet<string> PouKinds =
-        new() { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function, ItemKind.Kinds.Interface };
-
     public static WorkspaceItem Materialize(IIdeDriver ide, string name, string kind, ItemRef item)
     {
         if (ItemKind.IsSourceKind(kind))
@@ -56,7 +53,7 @@ public static class Materializer
     /// bug). Keep it that way: if a kind ever gains a body, it belongs on the export path.</para></summary>
     private static ItemContent BuildSource(IIdeDriver ide, ItemRef item, string kind)
     {
-        if (PouKinds.Contains(kind))
+        if (ItemKind.TravelsAsDocument(kind))
             return BuildPouFromXml(ide, item);
 
         var decl = ide.ReadDeclaration(item);

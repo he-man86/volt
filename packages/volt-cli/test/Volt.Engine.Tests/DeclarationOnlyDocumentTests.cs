@@ -56,7 +56,7 @@ public class DeclarationOnlyDocumentTests
             ItemKind.Kinds.Dut, $"TYPE {name} :\nSTRUCT\n\tvltMarker : INT;\nEND_STRUCT\nEND_TYPE\n", "",
             new System.Collections.Generic.List<Member>());
 
-        var doc = PouDocument.Splice(Fixture(file), name, split);
+        var doc = PouDocument.Splice(Fixture(file), name, split, establishing: false);
 
         Assert.Contains("vltMarker", doc);
     }
@@ -68,9 +68,9 @@ public class DeclarationOnlyDocumentTests
     public void C_code_pushed_to_a_bodiless_kind_is_refused_not_discarded()
     {
         var ex = Assert.Throws<System.InvalidOperationException>(() =>
-            PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "n := 1;", null));
+            PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "n := 1;", null, establishing: false));
 
         Assert.Contains("no <body>", ex.Message);
-        Assert.Equal(Fixture("DUT.plcopen.xml"), PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "", null));
+        Assert.Equal(Fixture("DUT.plcopen.xml"), PouSplice.SetBody(Fixture("DUT.plcopen.xml"), "DUT", "", null, establishing: false));
     }
 }
