@@ -115,6 +115,13 @@ internal sealed partial class TcObjectModel
     public void DeleteChild(object parent, string name) => ((dynamic)parent).DeleteChild(name);
     public void Rename(object node, string newName) => ((dynamic)node).Name = newName;
 
+    /// <summary>Relocate a child whole. TwinCAT's tree item has no <c>Move</c>/<c>Reparent</c> member — the full
+    /// dispatch surface of <c>ITcSmTreeItem</c> was enumerated off the shipped type library to settle that, rather
+    /// than inferred from a handful of name guesses — but <see cref="TcItemArchive"/> builds one out of the
+    /// export/import pair, which carries children and graphical bodies. See DIALECT D4f.</summary>
+    public void Move(object parent, object target, string name) =>
+        TcItemArchive.Move((dynamic)parent, (dynamic)target, name);
+
     // ── source text ─────────────────────────────────────────────────
     public string ReadDeclaration(object node) => (string)((dynamic)node).DeclarationText ?? "";
     /// <summary>An item's body text. Only a MISSING implementation slot yields <c>""</c> — an interface, DUT or
@@ -167,11 +174,32 @@ internal sealed partial class TcObjectModel
         return TcPlcOpen.ExportXmlString(PlcRoot(), PouSelectionPath(pou));
     }
 
-    /// <summary>Import a full PLCopen POU back into the PLC project (same-name replace).
-    /// <para>Always into the PLC-PROJECT ROOT, and that is TwinCAT's limit rather than a choice here: measured
-    /// live, <c>PlcOpenImport</c> exists only on the PLC project and takes only <c>(path, options)</c>. The
-    /// caller refuses a foldered item rather than letting it be relocated — see BeckhoffDriver.WriteXml.</para></summary>
-    public void ImportPlcOpenXml(string xml) => TcPlcOpen.ImportXmlString(PlcRoot(), xml);
+    /// <summary>Import a full PLCopen POU back into the PLC project (same-name REPLACE), and put it back in the
+    /// folder it came from.
+    /// <para><b>TwinCAT's <c>PlcOpenImport</c> always deposits the item at the PLC-PROJECT ROOT.</b> That is
+    /// measured exhaustively, not inferred: the whole matrix of <c>options</c> x <c>bFolderStructure</c> x flat /
+    /// nested <c>&lt;ProjectStructure&gt;</c> was run against a POU genuinely sitting in a folder, and under
+    /// <c>REPLACE</c> every one of the eight cells relocated it to the root (the ADD options leave the original
+    /// alone and drop the copy at the root instead). The export is why: it writes a FLAT
+    /// <c>&lt;ProjectStructure&gt;</c> with no enclosing folder, so the placement is not in the document for any
+    /// import flag to honour — and hand-nesting it changes nothing. See DIALECT D4g.</para>
+    /// <para>So the relocation is undone HERE, in the vendor layer, with <see cref="Move"/>. That keeps
+    /// <c>ICodeStore.WriteXml</c> meaning the same thing on both vendors — <em>write this document to THIS item,
+    /// in place</em> — which is where the parity boundary is drawn (ARCHITECTURE.md). Core must not learn that
+    /// one IDE's import moves things.</para>
+    /// <para>The parent is resolved by PATH rather than kept as a handle, because the import invalidates handles
+    /// to what it replaced (D4d) and a handle into that neighbourhood is not worth trusting across it.</para></summary>
+    public void ImportPlcOpenXml(object item, string xml)
+    {
+        var parentPath = PathOf(Parent(item));
+        var rootPath = PathOf(PlcRoot());
+        var name = GetName(item);
+
+        TcPlcOpen.ImportXmlString(PlcRoot(), xml);
+
+        if (string.Equals(parentPath, rootPath, StringComparison.Ordinal)) return;   // was at the root; still is
+        Move(PlcRoot(), LookupTreeItem(parentPath), name);
+    }
 
 
     private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";

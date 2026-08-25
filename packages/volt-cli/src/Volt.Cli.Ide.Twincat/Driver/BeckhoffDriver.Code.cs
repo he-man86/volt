@@ -28,20 +28,19 @@ public sealed partial class BeckhoffDriver
     public string ReadXml(ItemRef item) => _om.ExportPouXml(item.Native);
 
     /// <summary>Import a full PLCopen POU in place: a REPLACE merge into the PLC project, with NO delete —
-    /// the same shape CODESYS uses (<c>ConflictResolve.Replace</c>).
+    /// the same shape CODESYS uses (<c>ConflictResolve.Replace</c>), and landing in the same place.
     /// <para><b>The delete is gone, and with it the foldered-item refusal.</b> This used to delete the POU and
     /// then re-import it, because the import was believed unable to replace in place. It can: the options
     /// argument had never been varied off <c>NONE</c>, and under <c>REPLACE</c> the item is replaced with no
-    /// delete, no duplicate, and the content lands (DIALECT D4c, measured live). D4b's "placement is
-    /// unrecoverable on TwinCAT" was therefore a property of DELETE-then-import, not of <c>PlcOpenImport</c> —
-    /// nothing is deleted now, so nothing is relocated and there is nothing for a (nonexistent) move to fix.</para>
+    /// delete, no duplicate, and the content lands (DIALECT D4c, measured live).</para>
     /// <para>What that refusal cost: a graphical push to a POU living in ANY folder was rejected outright
     /// ("move it to the PLC-project root or edit it in the IDE"), because the alternative was silently moving
     /// the engineer's code. Neither is needed any more.</para>
-    /// <para>The capture/restore dance in <c>PlcOpenTransport.ReplaceByReimport</c> is unreachable from here for
-    /// the same reason it became unreachable on CODESYS: nothing is deleted, so a refused import leaves the
-    /// original POU exactly as it was.</para></summary>
-    public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(xml);
+    /// <para><b>The import still relocates to the PLC-project root</b> — that part of D4b was real, and no import
+    /// option or document shape changes it (D4g). <c>TcObjectModel.ImportPlcOpenXml</c> moves the item back, so
+    /// this method is in-place on both vendors; the asymmetry stops below the <see cref="ICodeStore"/> seam
+    /// instead of leaking into Core.</para></summary>
+    public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(item.Native, xml);
 
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)

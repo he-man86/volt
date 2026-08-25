@@ -49,6 +49,12 @@ public interface IProjectTree
     /// import does. So placement is restored afterwards, here.</para>
     /// <para>This interface previously had no move, which is why the change was twice stopped on "there is no
     /// move primitive" — a conclusion read off THIS file rather than off the vendor. CODESYS's scripting
-    /// <c>ScriptObject</c> has one and it works.</para></summary>
+    /// <c>ScriptObject</c> has one and it works.</para>
+    /// <para><b>BOTH vendors implement this now.</b> TwinCAT was refused here for a third time, on a note saying
+    /// its COM surface "has not been measured for an equivalent" — and it had not been. Enumerating
+    /// <c>ITcSmTreeItem</c>'s real dispatch table confirms there is no <c>Move</c> member, but its
+    /// <c>ExportChild</c>/<c>ImportChild</c> pair IS one: the archive is a zip whose ENTRY NAME carries the item's
+    /// source path, and flattening that name turns "recreate the path under the target" into a move (DIALECT D4f).
+    /// So a driver-specific refusal is no longer an expected state of this method.</para></summary>
     void Move(ItemRef item, ItemRef target);
 }
