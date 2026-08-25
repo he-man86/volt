@@ -19,7 +19,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 602 | `PLCPOUPROG` | `PlcPouProg` | `program` | both | ✅ | ✅ | ✅ | |
 | 603 | `PLCPOUFUNC` | `PlcPouFunc` | `function` | both | ✅ | ✅ | ✅ | create needs `Type.Missing` vInfo (no body lang) |
 | 604 | `PLCPOUFB` | `PlcPouFb` | `function_block` | both | ✅ | ✅ | ✅ | |
-| 605–607 | `PLCDUTENUM/STRUCT/UNION` | — (unused) | — | — | — | — | — | the old per-subkind DUT codes; **not used by Volt** — every DUT is code 623 (`PlcDut`), and struct/enum/union/alias lives only in the declaration text |
+| 605–607 | `PLCDUTENUM/STRUCT/UNION` | `PlcDutEnum`/`PlcDutStruct`/`PlcDutUnion` | `dut` | `.dut` | ✅ | ✅ | ✅ | the DUT SUBTYPE codes TwinCAT actually stores — a DUT authored in the IDE, or re-created from its item archive, carries one of these; 623 is only the code `CreateChild` accepts. All four map onto the one wire kind `dut`; struct/enum/union/alias lives only in the declaration text. This row said "not used by Volt" and they were therefore unmapped, so every such item was silently dropped from `refs`/`fetch` — measured on `E_PackML_Mode` in the committed `TwinCAT Project14` fixture |
 | 608 | `PLCACTION` | `PlcAction` | `action` | both | ✅ | ✅ | ✅ | body-only (no declaration) |
 | 609 | `PLCMETHOD` | `PlcMethod` | `method` | both | ✅ | ✅ | ✅ | |
 | 610 | `PLCITFMETH` | `PlcItfMeth` | `method` | both | ✅ | ✅ | ✅ | decl-only; vInfo = return type |
@@ -66,7 +66,7 @@ Numbers are the LIVE build's values; the published-enum name is shown where it d
 | Code | Published name | wire kind | St. | Note |
 |---|---|---|:--:|---|
 | 600 | `PLCAPP` | — | ✅ | PLC project root (recurse) |
-| 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/dut(605-607 create-only)/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
+| 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/dut (623 create-only; 605–607 are the stored subtypes)/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
 | 616 | `PLCTRANS` | transition | ✅ | live-confirmed (transition under POU_1) |
 | 617–621 | `PLCLIBMAN`…`PLCTASK` | library_manager/interface/visualization/visualization_manager/task | ✅ | |
 | 622 | `PLCPROGREF` | — | ❌ | published code; **live build uses 650** instead |

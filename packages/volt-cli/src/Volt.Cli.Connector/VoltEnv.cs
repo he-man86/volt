@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Cli.Connector

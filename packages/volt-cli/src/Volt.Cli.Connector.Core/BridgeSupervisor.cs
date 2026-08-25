@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Cli.Connector

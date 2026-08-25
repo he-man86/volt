@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Windows.Forms;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Cli.Connector

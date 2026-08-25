@@ -3,10 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Library;
-using Volt.Engine.Manifest;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 

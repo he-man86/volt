@@ -28,7 +28,7 @@ To collect a session, zip that folder.
 Every `/fetch`, `/refs`, and `/push` logs one completion line.
 
 ```
-fetch init: 138 items, 5 changed, 1 removed (skipped: 2 unmapped-kind, 1 exclude-from-build, 4 lib-unmatched) (2009ms)
+fetch init: 138 items, 5 changed, 1 removed (skipped: 2 unmapped-kind, 4 lib-unmatched) (2009ms)
 refs: 138 items (skipped: 1 unreadable) (140ms)
 push 3 ops — accepted [created: FooFB.fb; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
 push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version) (12ms)
@@ -44,7 +44,6 @@ push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version) (1
 | Kind | Meaning | Action |
 |------|---------|--------|
 | `unmapped-kind`      | an IDE item whose `KindCode` isn't in the item-type table (opaque/unknown) | usually benign; Debug shows the name + code |
-| `exclude-from-build` | a POU the IDE won't compile — omitted **on purpose** (no compiler ground truth) | expected; confirms the item was *excluded*, not lost |
 | `unreadable`         | the item exists but its body couldn't be read — **body did NOT reach the pull** | a real error — logged at **Warn** with name + reason; investigate |
 | `lib-render-null`    | a library sub-signature (method/property, covered by its parent FB) or unknown `POUType` | benign; the element rides in its parent |
 | `lib-unmatched`      | a referenced-library element whose owning library matched no `.library` ref by `RESOLUTION` (CODESYS facade / Interfaces↔Implementation split) | it's **not dropped** — look under `Library Manager/(unresolved)/…` in the workspace; the deep fix (concrete-resolution map) is a separate change |
@@ -53,8 +52,13 @@ push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version) (1
 
 1. Search the fetch log for the name: `Select-String -Path codesys-*.log -Pattern 'MyPou'`.
 2. No hit at Info? Turn on Debug and re-pull — per-item skip lines (`fetch skip: …`) name each dropped item.
-3. Match the kind to the table above. `exclude-from-build` ⇒ excluded in the IDE (expected). `lib-unmatched`
-   ⇒ it's under `(unresolved)`. `unreadable` ⇒ a materialize bug — the Warn line has the reason.
+3. Match the kind to the table above. `lib-unmatched` ⇒ it's under `(unresolved)`. `unreadable` ⇒ a
+   materialize bug — the Warn line has the reason.
+
+> **"It was excluded from the build in the IDE" is never the explanation.** Exclude-from-build is not modelled:
+> an excluded object syncs as an ordinary file like any other, and `FetchService` has no such drop kind — the
+> tally has exactly the four above. This table used to list one, with the verdict "expected; confirms the item
+> was excluded, not lost", which is a ready-made way to close a genuine missing-item report as normal.
 
 ## Turning on Debug
 

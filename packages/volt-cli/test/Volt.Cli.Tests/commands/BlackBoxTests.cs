@@ -61,6 +61,51 @@ public class BlackBoxTests
     private static void EditPrg(string root, string to) =>
         File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.prg"), File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.prg")).Replace("x := 1;", to));
 
+    /// <summary>`volt rebind --project-name <name>` — the SEPARATE-token form, which is what the desktop's
+    /// reconnect list sends (volt-control/src/bridge/actions.ts spawns
+    /// <c>["rebind","--vendor",v,"--project-name",name,"--workspace",dir]</c>).
+    /// <para>It shipped BROKEN and both suites were green over it. `--project-name` was missing from
+    /// <c>Program.ValueFlags</c>, so the value became a stray operand and every rebind died on "rebind needs
+    /// --project-name". Nothing caught it because the C# tests call <c>Commands.Rebind()</c> directly — past the
+    /// parser — and the TS test asserts what volt-control SENDS, not what the CLI parses. This is the only test
+    /// that spans the two, which is exactly where the defect lived.</para></summary>
+    [Fact]
+    public void Rebind_takes_its_project_name_as_a_separate_token()
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var r = RunVolt(root, pipe, "rebind", "--vendor", "codesys", "--project-name", "Renamed");
+            Assert.True(r.Code == 0, $"rebind exit {r.Code}: {r.Err}");
+            Assert.Equal("Renamed", Config.LoadConfig(root).Project.ProjectName);
+        }
+        finally { host.Dispose(); }
+    }
+
+    /// <summary>Every flag READ as a value is declared as one. The set used to be checked in one direction only
+    /// ("no entry without a reader"); this is the other, and it is the direction that shipped broken.</summary>
+    [Fact]
+    public void Every_value_flag_reader_is_declared_in_ValueFlags()
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            // `Args.Value` throws for an undeclared flag, so exercising the verbs that read one is the check:
+            // an undeclared reader surfaces as a crash here rather than as a silent null in production.
+            foreach (var argv in new[]
+            {
+                new[] { "rebind", "--vendor", "codesys", "--project-name", "X" },
+                new[] { "status" },
+                new[] { "pull" },
+            })
+            {
+                var r = RunVolt(root, pipe, argv);
+                Assert.DoesNotContain("is read as a value flag but is not in ValueFlags", r.Err);
+            }
+        }
+        finally { host.Dispose(); }
+    }
+
     [Fact]
     public void Pull_then_status_json_exit_zero_with_the_wire_shape()
     {

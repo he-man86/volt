@@ -2,7 +2,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;

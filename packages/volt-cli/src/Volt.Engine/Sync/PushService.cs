@@ -8,7 +8,6 @@ using Volt.Engine;
 using Volt.Engine.Document;
 using Volt.Engine.Graph;
 using Volt.Engine.Ide;
-using Volt.Engine.Materialize;
 using Volt.Engine.Model;
 using Volt.Engine.Text;
 using Volt.Engine.Vocabulary;

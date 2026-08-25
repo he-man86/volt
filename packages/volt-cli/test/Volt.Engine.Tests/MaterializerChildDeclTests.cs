@@ -1,6 +1,6 @@
 ﻿using Xunit;
 using Volt.Engine.Ide;
-using Volt.Engine.Materialize;
+using Volt.Engine.Sync;
 using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;

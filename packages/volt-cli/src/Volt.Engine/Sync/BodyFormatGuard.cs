@@ -3,7 +3,6 @@ using Volt.Contracts;
 using Volt.Engine.Document;
 using Volt.Engine.Graph;
 using Volt.Engine.Ide;
-using Volt.Engine.Materialize;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 

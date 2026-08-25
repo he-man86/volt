@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text;
 using Volt.Engine.Model;
 
-namespace Volt.Engine.Manifest;
+namespace Volt.Engine.Text;
 
 /// <summary>
 /// The read-only descriptor FORMAT: aligned <c>Label: value</c> lines, empty values omitted. It is the file body

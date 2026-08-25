@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Volt.Wire;
 using Volt.Engine;
 using Volt.Contracts;
 using Volt.Engine.Ide;
@@ -162,8 +161,13 @@ public sealed partial class BeckhoffDriver
                 $"moved '{name}' but it is not under the target folder afterwards");
     }
 
-    // TwinCAT reports EVERY DUT as one tree type (623 = ItemKind.PlcDut) — a DUT is a single wire kind (`dut`),
-    // so we emit the raw code as-is. The struct/enum/union/alias distinction is NOT computed on a read (its only
+    // TwinCAT has FOUR DUT tree codes, not one: 623 is what CreateChild accepts, and 605/606/607 are the
+    // enum/struct/union subtypes it actually STORES — so a DUT authored in the IDE, or re-created from TwinCAT's
+    // own item archive, carries a subtype code (ItemKind.cs, measured two ways). This comment used to claim
+    // "EVERY DUT is 623"; those three codes were unmapped, so every such item was dropped by Core as an unknown
+    // kind — invisible to refs and fetch, and absent means DELETED to a pull.
+    // All four map onto the one wire kind `dut`, so we emit the raw code as-is and Core maps it. The
+    // struct/enum/union/alias distinction is NOT computed on a read (its only
     // consumer was the four-way extension, now unified to `.dut`); it is derived from the declaration on push-
     // create only. This drops the per-DUT declaration read the walk used to pay.
     private int ClassifiedKind(object node) => _om.ItemType(node);

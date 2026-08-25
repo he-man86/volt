@@ -3,12 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Library;
-using Volt.Engine.Manifest;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Text;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -97,7 +96,7 @@ namespace Volt.Cli.Ide.Codesys
             return d.ToString();
         }
 
-        // The rule is Engine's (Workspace/Descriptor.Unitize, where it has tests); this only turns the facet's
+        // The rule is Engine's (Text/Descriptor.Unitize, where it has tests); this only turns the facet's
         // boxed values into strings first.
         private static string Unitize(object? value, object? unit) =>
             Descriptor.Unitize(System.Convert.ToString(value), System.Convert.ToString(unit));

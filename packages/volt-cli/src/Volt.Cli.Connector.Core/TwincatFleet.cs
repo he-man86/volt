@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Cli.Connector

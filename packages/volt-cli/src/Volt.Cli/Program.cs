@@ -199,10 +199,19 @@ internal static class Program
 
     // ── arg parsing ──────────────────────────────────
 
-    // The flags that take a SEPARATE value token (`--flag <v>`); `--flag=<v>` works for anything. Every entry here
-    // has a reader — "--limit" and "--timeout" sat here with no consumer anywhere in src/, so a `--limit 5` was
-    // silently eaten instead of landing in the operands where an unknown value belongs.
-    private static readonly HashSet<string> ValueFlags = new() { "--workspace", "--vendor", "--resolve", "--force-with-lease" };
+    // The flags that take a SEPARATE value token (`--flag <v>`); `--flag=<v>` works for anything.
+    //
+    // The set has to agree with the readers in BOTH directions, and it only ever checked one. "Every entry here has
+    // a reader" was enforced by hand — "--limit" and "--timeout" sat here with no consumer, so a `--limit 5` was
+    // silently eaten. The INVERSE was never checked, and it shipped broken: `--project-name` had a reader
+    // (CmdRebind) and no entry, so the value token became a stray operand, `Value` answered null, and EVERY rebind
+    // from the desktop's reconnect list died on "rebind needs --project-name". `--pipe` was one keystroke from the
+    // same fate — it survives only because the one caller happens to send `--pipe=<v>`.
+    //
+    // So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
+    // this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.
+    private static readonly HashSet<string> ValueFlags =
+        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe" };
 
     private sealed class Args
     {
@@ -213,7 +222,18 @@ internal static class Program
         public string Workspace = "";
         public string? Vendor;
         public bool Has(string f) => Flags.Contains(f);
-        public string? Value(string f) => Values.TryGetValue(f, out var v) ? v : null;
+        /// <summary>The value of a flag that TAKES one. Reading a flag absent from <see cref="ValueFlags"/> is a
+        /// bug in this file, not bad user input — the argument is always a literal from our own source — so it
+        /// throws rather than answering null. A null here is indistinguishable from "the user did not pass it",
+        /// which is exactly how the broken `--project-name` rebind stayed invisible.</summary>
+        public string? Value(string f)
+        {
+            if (!ValueFlags.Contains(f))
+                throw new InvalidOperationException(
+                    $"'{f}' is read as a value flag but is not in ValueFlags — `{f} <value>` would be parsed as a " +
+                    "stray operand. Add it to the set.");
+            return Values.TryGetValue(f, out var v) ? v : null;
+        }
         public string? Operand(int i) => i < Operands.Count ? Operands[i] : null;
     }
 

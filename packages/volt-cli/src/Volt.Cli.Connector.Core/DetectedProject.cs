@@ -1,5 +1,4 @@
-﻿using Volt.Wire;
-using Volt.Contracts;
+﻿using Volt.Contracts;
 
 namespace Volt.Cli.Connector
 {

@@ -17,26 +17,33 @@ the CLI and connector are clients.
 
 ```
 src/
-  Volt.Cli.Transport/    netstandard2.0  the named-pipe RPC (PipeServer + PipeClient + frames + names). The
-                                         Connector references THIS ALONE, so it stays decoupled from the engine.
-  Volt.Engine/         netstandard2.0  the bridge engine (ST/PLCopen/VG, push/fetch/build services, versioning,
-                                         the Ide-driver contract) + Wire/BridgePipeHost (serves it over the pipe)
-  Volt.Cli/              net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge) + Sync/ (the
-                                         git-native client: volt/ide merge tree, changeset/status, materialize)
-  Volt.Cli.Ide.Codesys/  net48 lib       CodesysDriver + PipeHost — loaded in-proc by the CODESYS script host
-  Volt.Cli.Ide.Twincat/  net8 exe        BeckhoffDriver + the worker the connector spawns (attaches to XAE via COM)
-  Volt.Cli.Connector/    net8 winexe     the tray supervisor (spawns/monitors the workers; probes `health`)
+  Volt.Contracts/           netstandard2.0  the wire CONTRACT — vocabularies (Ops/BridgeErrorCodes/HealthStatus/
+                                            Vendors), the request/response DTOs, VoltLog. No ProjectReference,
+                                            ever: that is what makes it visible to every assembly, connector
+                                            included.
+  Volt.Wire/                netstandard2.0  the named-pipe RPC itself (PipeServer/PipeClient/frames/names).
+  Volt.Engine/              netstandard2.0  the engine (ST/PLCopen/VG, push/fetch/build/refs, versioning, the
+                                            Ide-driver contract) — and NO transport.
+  Volt.Engine.Host/         netstandard2.0  BridgePipeHost: op → service, marshalled onto the IDE thread.
+  Volt.Cli/                 net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge/rebind) +
+                                            Sync/ (git-native client: the volt/ide merge tree, status, materialize)
+  Volt.Cli.Ide.Codesys/     net48 lib       CodesysDriver + pipe host — loaded in-proc by the CODESYS script host
+  Volt.Cli.Ide.Twincat/     net8 exe        BeckhoffDriver + the worker the connector spawns (XAE via COM)
+  Volt.Cli.Connector.Core/  net8 lib        the connector's UI-free model + the TwinCAT worker fleet (unit-tested)
+  Volt.Cli.Connector/       net8 winexe     the tray shell over that model, and the install/auto-update agent
 test/
-  shared/FakeIde.cs      the ONE in-memory IDE double, linked into both C# test projects
-  Volt.Cli.Tests/        net8 xUnit      the CLI layer — commands/ (every verb × situation), wire/ (pipe + client), plumbing/ (git/tree/status)
-  Volt.Engine.Tests/   net8 xUnit      the shared engine — sync/ (push/fetch/refs services) + the parsing / PLCopen / VG round-trip suites
-  e2e/                   bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
+  shared/FakeIde.cs         the ONE in-memory IDE double, linked into both C# test projects
+  Volt.Cli.Tests/           net8 xUnit      the CLI layer — commands/ (every verb × situation), wire/, plumbing/
+  Volt.Engine.Tests/        net8 xUnit      the engine — sync/ + the parsing / PLCopen / VG round-trip suites
+  Volt.Cli.Connector.Tests/ net8 xUnit      connector core: session model, reconciler, TwinCAT supervisor
+  e2e/                      bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
 
-Both layers cover the same situation matrix from their own angle: the transport layer (`Core.Tests/sync/` + `wire/`) proves each conflict/receipt MECHANISM; the CLI layer (`Tests/commands/`) proves the Kind + user-facing message each one produces.
+Both layers cover the same situation matrix from their own angle: the engine layer (`Volt.Engine.Tests/sync/` + `Volt.Cli.Tests/wire/`) proves each conflict/receipt MECHANISM; the CLI layer (`Volt.Cli.Tests/commands/`) proves the Kind + user-facing message each one produces.
 
-`Transport` and `Core` target `netstandard2.0` so the SAME assemblies load in the CODESYS net48 host, the net8
-TwinCAT host, and the net8 CLI/tests.
+`Volt.Contracts`, `Volt.Wire`, `Volt.Engine` and `Volt.Engine.Host` target `netstandard2.0` so the SAME assemblies
+load in the CODESYS net48 host, the net8 TwinCAT host, and the net8 CLI/tests. See `ARCHITECTURE.md` for why the
+contract, the pipe and the host are three assemblies and not one.
 
 ## Build & test
 

@@ -7,7 +7,7 @@ using Volt.Engine.Model;
 using Volt.Engine.Text;
 using Volt.Engine.Vocabulary;
 
-namespace Volt.Engine.Materialize;
+namespace Volt.Engine.Sync;
 
 public static class Materializer
 {

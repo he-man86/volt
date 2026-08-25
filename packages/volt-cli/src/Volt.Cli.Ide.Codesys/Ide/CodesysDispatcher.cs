@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 

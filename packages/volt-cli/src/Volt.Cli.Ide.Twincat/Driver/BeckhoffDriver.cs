@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Volt.Engine;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Host;

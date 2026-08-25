@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;

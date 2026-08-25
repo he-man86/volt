@@ -42,14 +42,19 @@ namespace Volt.Engine.Document
         public abstract string Decode(XElement element);
 
         /// <summary>Does this body element record NO language decision — so changing the language loses nothing?
-        /// <para>Load-bearing for the language-mismatch rule, and deliberately asymmetric. A newly created POU
-        /// comes into the world with an empty <c>&lt;ST&gt;</c> whatever language it is destined for (CODESYS
-        /// takes the language from the imported body element, not from creation), so "the IDE says ST, the push
-        /// says FBD" is the NORMAL create rather than a conflict.</para>
-        /// <para>Only ST answers true, and only when blank. An empty <c>&lt;FBD/&gt;</c> is NOT the same thing:
-        /// someone made that POU graphical, and overwriting it with ST would discard that decision silently. ST
-        /// is the default, so a blank one is indistinguishable from "not decided yet"; every other language is
-        /// there because it was chosen.</para></summary>
+        /// <para>Load-bearing for the language-mismatch rule, and deliberately asymmetric. ON CODESYS a newly
+        /// created POU comes into the world with an empty <c>&lt;ST&gt;</c> whatever language it is destined for
+        /// (its <c>create_pou</c> ignores the language; the imported body element sets it), so "the IDE says ST,
+        /// the push says FBD" is the NORMAL create rather than a conflict.</para>
+        /// <para>Only ST answers true, and only when blank. An empty <c>&lt;FBD/&gt;</c> is not the same thing BY
+        /// CONTENT: as far as the document can tell, someone made that POU graphical, and overwriting it with ST
+        /// would discard that decision silently.</para>
+        /// <para><b>Vendor-specific, and the qualifier is the whole point.</b> This sentence used to read as a
+        /// both-vendor fact and it is false on TwinCAT, where <c>CreateChild</c> IS handed the pushed language
+        /// and refuses "LD" (DIALECT C6) — so it seeds <c>&lt;FBD/&gt;</c>, and an empty FBD frequently means
+        /// "Volt created this microseconds ago", not "an engineer chose graphical". Believing it here failed
+        /// EVERY LD create on that vendor. The document cannot tell the two apart, which is why the caller says
+        /// so instead: see <c>PouSplice.SetBody</c>'s <c>establishing</c> parameter.</para></summary>
         public virtual bool IsUncommitted(XElement element) => false;
 
         /// <summary>Write <paramref name="text"/> into <paramref name="body"/>, replacing or patching whatever
