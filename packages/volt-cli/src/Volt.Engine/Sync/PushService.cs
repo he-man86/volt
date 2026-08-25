@@ -220,13 +220,18 @@ public static class PushService
     {
         var split = StReader.Read(src);
 
-        // The document path applies to what HAS a document. A DUT or a GVL is declaration-only, and the READ
-        // has always known it (`Materializer` routes those through the declaration aspect, because TwinCAT's
-        // `PlcOpenExport` answers E_FAIL for a non-POU item — DIALECT C2). The WRITE branched on the vendor
-        // capability alone, so it spliced a document for a DUT too: harmless on CODESYS, a hard COM failure on
-        // TwinCAT, and on BOTH a kind READ through one representation and WRITTEN through another — the very
-        // split this whole change exists to remove. One predicate now, shared with the read.
-        var asDocument = ide.WritesPouAsOneDocument && ide.CanExportDocument(split.Kind);
+        // ONE question, and it is about the DRIVER, never about the kind. Every source kind travels as one
+        // PLCopen document on both vendors — POU, interface, DUT, GVL alike.
+        //
+        // It briefly asked a second, "can this driver produce a document for THIS kind", because turning the
+        // document path on for TwinCAT made every DUT/GVL create fail. Neither reason offered for that held.
+        // DIALECT C2 said its `PlcOpenExport` answers E_FAIL for a non-POU item: it does not — a root DUT, a root
+        // GVL and a foldered DUT all export. The E_FAIL was Volt's own parent-walk running off the top of the
+        // tree. Then the failure looked like TC6 schema validation refusing an empty `<baseType/>`, which is real
+        // — but the object was malformed before any export, because Volt created every DUT with tree code 623,
+        // which on TwinCAT is the ALIAS type. Seeding the struct skeleton and letting the declaration re-derive
+        // the subtype fixes it at the source (TcObjectModel.CreateChild). No vendor limit survives.
+        var asDocument = ide.WritesPouAsOneDocument;
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
         // collapse: the second's CreateChild finds the first and WriteText overwrites it, losing a source item

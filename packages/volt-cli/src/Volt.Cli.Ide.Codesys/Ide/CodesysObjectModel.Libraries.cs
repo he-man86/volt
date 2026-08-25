@@ -238,10 +238,12 @@ namespace Volt.Cli.Ide.Codesys
         /// <summary>Create a child object under <paramref name="parent"/> via the IEC
         /// container's typed scripting factory (create_pou/create_dut/…). Returns the
         /// new node; the caller writes its text via <see cref="WriteSourceText"/>.
-        /// <paramref name="language"/> is UNUSED here — CODESYS's <c>create_pou</c> has no
-        /// implementation-language parameter, so a graphical POU is created as ST and its language is set
-        /// afterwards by the PLCopen import (see PushService / NetworkCodeIo.Write). The parameter stays
-        /// for the IProjectTree signature, which TwinCAT does honour.</summary>
+        /// <paramref name="language"/> is UNUSED here — deliberately, not for want of a parameter. This said
+        /// "CODESYS's <c>create_pou</c> has no implementation-language parameter"; enumerated off the live
+        /// scripting container it has one, third and optional:
+        /// <c>create_pou(name, type?, language?, return_type?, base_type?, interfaces?)</c> (DIALECT C2d).
+        /// Volt still seeds and lets the PLCopen import establish the language, which is what the whole
+        /// single-document write depends on — but that is a CHOICE, not the absence of an option.</summary>
         public object CreateChild(object parent, string name, int itemType, string? language = null)
         {
             // Folders are created on the tree object itself. The object create_folder

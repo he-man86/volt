@@ -161,9 +161,11 @@ guard that throws** — real projects legitimately repeat these names, and throw
   (null) kept distinct from a present-but-bodiless one (`""`), which is what lets a push drop a getter).
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
   library (`Library/LibraryManifest`); `verbose` fetch (`FetchRequest.Verbose`) adds each element's declaration-only
-  signature as a read-only item, excluded from `structureVersion`. Volt implements no signature extraction on TwinCAT, so the set is empty there. That is a gap in VOLT, not a
-  proven vendor limit: the library-manager COM surface has never been enumerated for an equivalent. (The same
-  shape of claim about the tree item — "TwinCAT has no move" — held for months and was wrong; DIALECT D4f.)
+  signature as a read-only item, excluded from `structureVersion`. Volt implements no signature extraction on TwinCAT, so the set is empty there. That is a gap in VOLT and
+  nothing else: the surface EXISTS and has now been measured — `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()`
+  returns ~181k chars of structured signatures on the fixture, out-of-process (DIALECT C2c). This line used to
+  read "TwinCAT (out-of-process) can't extract", which was the same shape of invented incapacity as "TwinCAT has
+  no move" (D4f) — both wrong, both for months.
 - **Round-trips are lossless** — push→fetch returns byte-identical `sourceText`/`folder`/`name`; an **emptied body
   is cleared, not silently retained**. A vendor divergence is a parity defect.
 - **Skipped/errored items are logged, never silently dropped** (`Volt.Contracts/VoltLog`) with `name` + reason.

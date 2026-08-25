@@ -55,12 +55,6 @@ public sealed partial class BeckhoffDriver
     /// in it, so the round trip happens on the POU and rewrites that attribute (D4j, <c>TcItemArchive</c>).</para></summary>
     public override bool WritesPouAsOneDocument => true;
 
-    /// <summary>POUs and interfaces only. <c>PlcOpenExport</c> answers <c>E_FAIL</c> for a DUT or a GVL — the
-    /// export is POU-shaped and a declaration-only item has no POU to name (DIALECT C2, measured live against
-    /// `GVL_PackML` and all five e2e DUT kinds). So those keep the declaration-text write on this vendor, which
-    /// is also how the READ has always fetched them.</summary>
-    public override bool CanExportDocument(string kind) => ItemKind.TravelsAsDocument(kind);
-
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)
     {

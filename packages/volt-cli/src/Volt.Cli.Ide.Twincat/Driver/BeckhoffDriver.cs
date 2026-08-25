@@ -188,7 +188,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
-    // TwinCAT has no resolved-library-signature surface yet — it inherits DriverBase's empty
+    // Volt implements NO signature extraction on TwinCAT — it inherits DriverBase's empty
     // ExtractLibrarySignatures, so `verbose` fetch returns no signatures here (a documented parity gap; the
     // parity boundary is the wire). There is no fingerprint and no signature cache: FetchService reuses the
     // `.library` files' own per-file version hashes as the change signal.

@@ -97,9 +97,24 @@ internal sealed partial class TcObjectModel
         // TC does not accept "LD" directly — create as FBD; the ladder view is stored as
         // DefaultViewMode metadata in the NWL archive, which TcPouReader preserves on read-back.
         var lang = language is "LD" ? "FBD" : (language ?? "ST");
+
+        // A DUT is created as the STRUCT skeleton (606), never as 623. On TwinCAT 623 is not a generic DUT — it is
+        // TREEITEMTYPE_PLCDUTALIAS, which is why `CreateChild` refuses a null vInfo there ("Base class not
+        // specified!") and takes any string as the alias's BASE CLASS. Volt passed the body language, so every DUT
+        // was created as an alias to a type named "ST": a malformed object whose `<baseType/>` is empty, whose own
+        // export TwinCAT then refuses to re-import ("incomplete content" against TC6). The per-child write only
+        // survived it because `WriteText` landed the real declaration afterwards.
+        //
+        // Seeding the struct and letting the pushed DECLARATION re-derive the subtype is exactly what CODESYS does
+        // (`create_dut` with `DutType.Structure`), and it is measured to work here for all four shapes: struct
+        // stays 606, an enum declaration becomes 605, a union 607, and an alias — `: INT;` or `: STRING(80);` —
+        // becomes 623 with the right base. One seed, no per-subtype dispatch. DIALECT C2.
+        if (kindCode == ItemKind.PlcDut) kindCode = ItemKind.PlcDutStruct;
+
         object? vInfo = kindCode switch
         {
             ItemKind.PlcPouFunc => System.Type.Missing,
+            ItemKind.PlcDutStruct or ItemKind.PlcDutEnum or ItemKind.PlcDutUnion => System.Type.Missing,
             ItemKind.PlcItf => null,
             // Interface method/property: TC wants the return/data type as a STRING vInfo (carried in the
             // `language` arg by PushService, null when untyped) — NOT a body language. Matches the working
@@ -198,18 +213,31 @@ internal sealed partial class TcObjectModel
     public string ProduceXml(object node) => (string)((dynamic)node).ProduceXml() ?? "";
 
     // ── PLCopen XML transport ───────────────────────────────────────
-    /// <summary>Export the enclosing POU of <paramref name="item"/> as a PLCopen XML string (via a temp
-    /// file). Throws if the item has no enclosing graphical POU.</summary>
-    /// <summary>Export an item's enclosing POU as PLCopen. A member (method/action/property/accessor) has no
-    /// document of its own — it lives inside its POU's — so the POU is what gets exported.
-    /// <para>An item with NO enclosing POU (a DUT, a GVL) throws, and that is a real limit rather than a missing
-    /// feature: exporting the item itself was tried, and TwinCAT's <c>PlcOpenExport</c> answers <c>E_FAIL</c> for
-    /// every DUT and GVL — the export is POU-shaped. Those kinds are read through the declaration aspect
-    /// instead; see <c>Materializer.BuildSource</c>. Do not "fix" this by falling back to the item.</para></summary>
+    /// <summary>Export an item as PLCopen. A MEMBER (method/action/property/accessor) has no document of its
+    /// own — it lives inside its POU's — so for one of those the enclosing POU is what gets exported. Everything
+    /// else exports itself.
+    ///
+    /// <para><b>Including a DUT and a GVL, and that correction matters.</b> This used to throw for them, on a note
+    /// saying "exporting the item itself was tried, and TwinCAT's <c>PlcOpenExport</c> answers <c>E_FAIL</c> for
+    /// every DUT and GVL — the export is POU-shaped. Do not 'fix' this by falling back to the item." Measured
+    /// live, it does no such thing: a root DUT and a root GVL both export (2012 and 1983 chars, carrying
+    /// <c>&lt;dataType&gt;</c> and <c>&lt;globalVars&gt;</c>), and a FOLDERED DUT exports too — as
+    /// <c>VltProbeF.VltProbeDutF</c>.</para>
+    ///
+    /// <para>What actually fails is a BARE name for a foldered item: <c>PlcOpenExport('VltProbeDutF')</c> answers
+    /// "Selection 'VltProbeDutF' not found!", and so does <c>PlcOpenExport('PLC_PRG')</c> for the POU sitting in
+    /// <c>POUs/</c>. The selection grammar is the DOTTED project-relative path — which is exactly what
+    /// <see cref="PouSelectionPath"/> builds. So the recorded "E_FAIL for every DUT" was a broken selection, not
+    /// a vendor limit, and it cost the toolchain a whole capability flag (DIALECT C2).</para></summary>
     public string ExportPouXml(object item)
     {
-        var pou = EnclosingPou(item) ?? throw new InvalidOperationException("TwinCAT: no enclosing POU to export");
-        return TcPlcOpen.ExportXmlString(PlcRoot(), PouSelectionPath(pou));
+        // Decided by KIND, never by walking. `EnclosingPou` climbs `node.Parent` until it finds a POU — and for an
+        // item that HAS no enclosing POU it does not politely return null: the walk runs off the top of the tree
+        // and `Parent` throws COMException E_FAIL. That throw is the whole of the "TwinCAT's PlcOpenExport answers
+        // E_FAIL for every DUT and GVL" record — `PlcOpenExport` was never reached, so the vendor never refused
+        // anything. Asking the item what it IS costs one COM read and cannot run off the tree.
+        var target = ItemKind.IsInlinedInPou(ItemType(item)) ? EnclosingPou(item) ?? item : item;
+        return TcPlcOpen.ExportXmlString(PlcRoot(), PouSelectionPath(target));
     }
 
     /// <summary>Import a full PLCopen POU back into the PLC project (same-name REPLACE), and put it back in the

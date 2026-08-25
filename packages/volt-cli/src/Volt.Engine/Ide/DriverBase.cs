@@ -28,10 +28,6 @@ public abstract class DriverBase : IIdeSession
     /// when §5 lands", which was the third of three incompatible accounts of one bool.</para></summary>
     public virtual bool WritesPouAsOneDocument => false;
 
-    /// <summary>Default for <see cref="ICodeStore.CanExportDocument"/> — TRUE for every kind. A driver that
-    /// cannot export some kind has a MEASURED limit and says so; silence means no limit.</summary>
-    public virtual bool CanExportDocument(string kind) => true;
-
     private volatile bool _isDegraded;
 
     // ── honest-health signals (all lock-free reads; no IDE thread needed to answer /health) ──

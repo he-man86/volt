@@ -58,23 +58,6 @@ public interface ICodeStore
     /// interface members.</para></summary>
     bool WritesPouAsOneDocument { get; }
 
-    /// <summary>Can this driver EXPORT a PLCopen document for an item of this KIND? The other half of the
-    /// question above: <see cref="WritesPouAsOneDocument"/> says the driver takes the document path at all, this
-    /// says whether a document exists for the item in hand.
-    /// <para>A POU or an interface: yes on both vendors — <c>ItemKind.TravelsAsDocument</c> is the floor and
-    /// nothing below it can be represented any other way. A DECLARATION-ONLY DUT or GVL is where they part:
-    /// CODESYS exports one (deliberately, with live fixtures for all four root shapes — see
-    /// <c>DeclarationOnlyDocumentTests</c>), and TwinCAT's <c>PlcOpenExport</c> answers <c>E_FAIL</c> for every
-    /// non-POU item because the export is POU-shaped and a DUT has no POU to name (DIALECT C2).</para>
-    /// <para>It is a member rather than a shared rule BECAUSE it is a vendor fact. The write used to branch on
-    /// <see cref="WritesPouAsOneDocument"/> alone, so turning that on for TwinCAT made every DUT and GVL create
-    /// fail with a COM error — the driver was being asked for a document it had already been measured unable to
-    /// produce, and the read path had known that for as long as it had existed.</para>
-    /// <para>Defaulted PERMISSIVELY in <c>DriverBase</c> (true), the opposite way to the capability above: that
-    /// one gates a whole write strategy and must be opted into, this one narrows it and only a vendor with a
-    /// measured limit should say so.</para></summary>
-    bool CanExportDocument(string kind);
-
     // ── Non-source kinds (libraries, tasks, …) ──
     /// <summary>The item's MANIFEST: a canonical text body for a non-source item (library ref, task, device,
     /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is
