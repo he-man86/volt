@@ -1,13 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- netstandard2.0 so this one assembly loads in BOTH CODESYS's net48 IronPython
          host and the net8 TwinCAT/test hosts. No vendor references; pure transform +
          sync + protocol + the IDE-driver interface. -->
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>Volt.Engine</RootNamespace>
-    <LangVersion>latest</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
@@ -15,11 +12,12 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="System.ValueTuple" />
   </ItemGroup>
   <ItemGroup>
     <!-- Wire/BridgePipeHost serves Core's services over the pipe (PipeServer). Transport is the wire-only layer. -->
-    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
   </ItemGroup>
 </Project>

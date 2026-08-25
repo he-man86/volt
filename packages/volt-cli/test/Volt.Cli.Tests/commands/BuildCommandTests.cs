@@ -1,7 +1,7 @@
-using Volt.Engine.Wire;
-using Volt.Cli.Sync;
+﻿using Volt.Cli.Sync;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
+using Volt.Contracts;
 
 namespace Volt.Cli.Tests;
 

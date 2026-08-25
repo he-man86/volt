@@ -2,11 +2,11 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Volt.Cli.Transport;
-using Volt.Engine;
+using Volt.Wire;
+using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
-using Volt.Engine.Workspace;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Ide.Twincat;
 

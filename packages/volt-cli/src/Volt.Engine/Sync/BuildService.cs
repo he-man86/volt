@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
 
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Ide;
 
 namespace Volt.Engine.Sync;
 
@@ -28,8 +28,8 @@ public static class BuildService
             var success = ide.Build();
             sw.Stop();
             var diagnostics = ide.GetBuildDiagnostics().ToList();
-            var errors = diagnostics.Count(d => d.Severity == "error");
-            var warnings = diagnostics.Count(d => d.Severity == "warning");
+            var errors = diagnostics.Count(d => d.Severity == Severity.Error);
+            var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
             VoltLog.Debug($"build {request.BuildType} {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
             return new BuildResponse
             {
@@ -46,7 +46,7 @@ public static class BuildService
             {
                 Success = false,
                 Duration = sw.ElapsedMilliseconds,
-                Diagnostics = new List<BridgeDiagnostic> { new() { Severity = "error", Message = "Build failed: " + ex.Message } },
+                Diagnostics = new List<BridgeDiagnostic> { new() { Severity = Severity.Error, Message = "Build failed: " + ex.Message } },
             };
         }
     }

@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Engine.Ide;
 
 namespace Volt.Engine.Tests;
 
@@ -23,12 +24,14 @@ public class VendorParityGuardTests
     {
         var engine = FindEngineSourceDir();
         var offenders = new List<string>();
+        var scanned = 0;
 
         foreach (var file in Directory.EnumerateFiles(engine, "*.cs", SearchOption.AllDirectories))
         {
             if (file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") ||
                 file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
 
+            scanned++;
             var lineNo = 0;
             foreach (var raw in File.ReadLines(file))
             {
@@ -40,6 +43,15 @@ public class VendorParityGuardTests
                     offenders.Add($"{Path.GetFileName(file)}:{lineNo}: {raw.Trim()}");
             }
         }
+
+        // A guard that scanned NOTHING passes. The directory check above proves the folder exists; this proves
+        // it still holds the code. A restructure that moves sources out from under this path — leaving the
+        // folder, or leaving a stub — would otherwise turn the strongest structural gate in the repo into a
+        // no-op, silently, at exactly the moment it is most needed. The floor is deliberately loose: it asserts
+        // "a project's worth of code", not a number anyone has to maintain.
+        Assert.True(scanned >= 20,
+            $"vendor-parity guard scanned only {scanned} file(s) under {engine} — it is not looking at Core. " +
+            "Did the sources move? A guard that scans nothing passes for the wrong reason.");
 
         Assert.True(offenders.Count == 0,
             "Core (Volt.Engine) must be vendor-neutral — the parity boundary is the pipe, so vendor-specific behavior " +

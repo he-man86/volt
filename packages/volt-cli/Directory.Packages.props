@@ -1,0 +1,32 @@
+<Project>
+
+  <!--
+    Central package versions for the Volt toolchain.
+
+    Every version below was hand-copied into two or three csprojs, so a bump was a multi-file edit that had to be
+    done consistently by hand — and the one version that MUST not drift was among them.
+
+    System.Text.Json 8.0.5 is load-bearing, not routine. The in-process CODESYS bridge is net48 and binds this
+    assembly by exact identity; PipeHost installs an AssemblyResolve handler specifically so the host process can
+    find it. Two projects declaring that version separately is one edit away from a bridge that loads in the IDE
+    and then fails to deserialize. One declaration removes that failure mode.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Wire serialization. Pinned: the net48 in-proc bridge binds this by exact identity (see above). -->
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+
+    <!-- netstandard2.0 needs this for ValueTuple; net8.0 has it in the BCL. -->
+    <PackageVersion Include="System.ValueTuple" Version="4.5.0" />
+
+    <!-- Test tooling — one version across all three test projects. -->
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+  </ItemGroup>
+
+</Project>

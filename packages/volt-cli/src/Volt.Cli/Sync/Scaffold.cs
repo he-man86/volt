@@ -1,5 +1,5 @@
-using System.Text.Json;
-using Volt.Engine.Workspace;
+﻿using System.Text.Json;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Sync;
 

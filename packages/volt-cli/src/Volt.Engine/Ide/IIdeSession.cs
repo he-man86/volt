@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Volt.Engine.Wire;
-using Volt.Cli.Transport.Wire;
+using Volt.Contracts;
+using Volt.Engine.Model;
 
 namespace Volt.Engine.Ide;
 
@@ -15,7 +15,7 @@ public interface IIdeSession
 {
     bool IsConnected { get; }
 
-    /// <summary>This bridge's vendor (a <see cref="Volt.Cli.Transport.Vendors"/> value). Constant for the driver's
+    /// <summary>This bridge's vendor (a <see cref="Volt.Wire.Vendors"/> value). Constant for the driver's
     /// lifetime — a bridge never changes vendor — so it is always safe to read live.</summary>
     string Vendor { get; }
 
@@ -76,5 +76,5 @@ public interface IIdeSession
     /// <summary>Extract every referenced-library element's SIGNATURE (declaration only, no body) from the
     /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT returns none for
     /// now (no equivalent surface yet).</summary>
-    IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
+    IReadOnlyList<Model.LibSignature> ExtractLibrarySignatures();
 }

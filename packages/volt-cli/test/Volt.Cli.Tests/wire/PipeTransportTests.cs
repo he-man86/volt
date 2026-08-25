@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Volt.Engine.Library;
-using Volt.Engine.Wire;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine.Wire;
+using Volt.Engine.Model;
 
 namespace Volt.Cli.Tests;
 

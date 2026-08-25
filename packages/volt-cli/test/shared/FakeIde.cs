@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Volt.Wire;
+using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Library;
-using Volt.Engine.Wire;
-using Volt.Engine.Workspace;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;
 
@@ -42,7 +41,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         public static Item TextualPou(string name, string decl, string impl, string folder = "") =>
             new Item(name, ItemKind.PlcPouProg, folder, true, decl, impl, null, null);
 
-        /// <summary>A graphical POU whose export has NO FBD/LD body — <c>NetworkCode.Read</c> throws on it, the
+        /// <summary>A graphical POU whose export has NO FBD/LD body — <c>NetworkCodeIo.Read</c> throws on it, the
         /// same way the orphaned LD POU bricked <c>/refs</c>.</summary>
         public static Item MalformedGraphical(string name, string folder = "") =>
             new Item(name, ItemKind.PlcPouProg, folder, true, null, null, "LD",

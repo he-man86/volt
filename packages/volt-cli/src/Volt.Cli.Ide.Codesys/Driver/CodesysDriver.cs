@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
 
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Ide;
+using Volt.Engine.Model;
 
 namespace Volt.Cli.Ide.Codesys;
 
@@ -119,7 +119,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
     // The precompile + read — FetchService calls this only when a .library version changed.
-    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+    public override IReadOnlyList<Volt.Engine.Model.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
@@ -128,7 +128,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
             var m = (Dictionary<string, object?>)d;
             return new BridgeDiagnostic
             {
-                Severity = m.TryGetValue("severity", out var s) ? s as string ?? "info" : "info",
+                Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
                 Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
                 Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
                 Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,

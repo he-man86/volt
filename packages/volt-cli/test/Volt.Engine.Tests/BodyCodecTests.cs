@@ -1,12 +1,11 @@
 ﻿using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.PlcOpen;
-using Volt.Engine.Sync;
-using Volt.Engine.Workspace;
-using Volt.Engine.Text;
-using Volt.Engine.Item;
 using Xunit;
+using Volt.Engine.Document;
+using Volt.Engine.Graph;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;
 
@@ -14,7 +13,7 @@ namespace Volt.Cli.Tests;
 /// The BODY CODEC: one splice writes any body, dispatching on its LANGUAGE — there is no "graphical path".
 /// <para>Every case here runs against a RECORDED CODESYS export with a real <c>&lt;FBD&gt;</c> body
 /// (<c>VltFbd_FbdRoot.plcopen.xml</c>). Before the codec, a POU whose body was FBD took an entirely separate
-/// write (<c>NetworkCode.Write</c>) that wrote ONLY the body — so its declaration edits were silently
+/// write (<c>NetworkCodeIo.Write</c>) that wrote ONLY the body — so its declaration edits were silently
 /// discarded and its dropped members silently kept. Those are not edge cases; they are what the fork cost.</para>
 /// </summary>
 public class BodyCodecTests
@@ -32,7 +31,7 @@ public class BodyCodecTests
     private static string BodyOfFixture()
     {
         var parsed = PouReader.Parse(Fbd);
-        return Volt.Engine.Body.NetworkCode.RenderBody(parsed.BodyElement!);
+        return Volt.Engine.Graph.NetworkCode.RenderBody(parsed.BodyElement!);
     }
 
     private static ItemContent Split(string decl, string body) =>
@@ -61,8 +60,8 @@ public class BodyCodecTests
         var before = PouReader.Parse(Fbd).BodyElement!;
         var after = PouReader.Parse(doc).BodyElement!;
         Assert.Equal("FBD", after.Name.LocalName);
-        Assert.Equal(Volt.Engine.Body.NetworkCode.RenderBody(before),
-                     Volt.Engine.Body.NetworkCode.RenderBody(after));
+        Assert.Equal(Volt.Engine.Graph.NetworkCode.RenderBody(before),
+                     Volt.Engine.Graph.NetworkCode.RenderBody(after));
     }
 
     /// <summary>DEFECT 5 — an IL body is refused as a LANGUAGE MISMATCH, by the body writer, with a message that
@@ -91,7 +90,7 @@ public class BodyCodecTests
     [InlineData("SFC")]
     public void An_unsupported_body_language_is_read_only(string language)
     {
-        Assert.True(Volt.Engine.Body.BodyCodec.For(language).ReadOnly);
+        Assert.True(Volt.Engine.Document.BodyCodec.For(language).ReadOnly);
     }
 
     [Theory]
@@ -102,7 +101,7 @@ public class BodyCodecTests
     {
         var body = new XElement("body");
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Volt.Engine.Body.BodyCodec.For(language).Encode(body, "x := 1;", null));
+            () => Volt.Engine.Document.BodyCodec.For(language).Encode(body, "x := 1;", null));
         Assert.Contains("read-only", ex.Message);
     }
 
@@ -113,11 +112,11 @@ public class BodyCodecTests
     {
         var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
         var body = new XElement(ns + "body", new XElement(ns + "IL", "LD a\nST b"));
-        var found = Volt.Engine.Body.BodyCodec.PresentWith(body);
+        var found = Volt.Engine.Document.BodyCodec.PresentWith(body);
 
         Assert.Equal("IL", found!.Value.Codec.Language);
         var decoded = found.Value.Codec.Decode(found.Value.Element);
-        Assert.Contains("@volt-graphical", decoded);   // the read-only marker, same as CFC/SFC
+        Assert.True(Volt.Engine.Vocabulary.BodyMarker.Is(decoded));   // the read-only marker, same as CFC/SFC
         Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
 }

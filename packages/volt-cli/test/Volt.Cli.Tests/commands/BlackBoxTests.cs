@@ -1,11 +1,12 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using Volt.Engine.Wire;
 using Volt.Cli.Sync;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
+using Volt.Contracts;
+using Volt.Engine.Wire;
 
 namespace Volt.Cli.Tests;
 

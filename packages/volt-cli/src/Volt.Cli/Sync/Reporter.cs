@@ -1,6 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using Volt.Engine.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli.Sync;
 

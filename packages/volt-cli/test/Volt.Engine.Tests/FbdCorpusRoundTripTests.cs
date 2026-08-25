@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Body;
 using Xunit;
 using Xunit.Abstractions;
+using Volt.Contracts;
+using Volt.Engine.Graph;
 
 namespace Volt.Cli.Tests;
 

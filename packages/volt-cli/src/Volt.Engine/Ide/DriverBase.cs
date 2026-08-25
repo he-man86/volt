@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Volt.Engine.Wire;
 
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Model;
 
 namespace Volt.Engine.Ide;
 
@@ -119,8 +119,8 @@ public abstract class DriverBase : IIdeSession
     /// library's `.library` version changed (the client sends the versions it has in knownItems; the `.library` files
     /// are hashed like any other file), so the precompile runs only on a real library change. Default empty
     /// (TwinCAT has no library signatures yet).</summary>
-    public virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
-        Array.Empty<Library.LibSignature>();
+    public virtual IReadOnlyList<Model.LibSignature> ExtractLibrarySignatures() =>
+        Array.Empty<Model.LibSignature>();
 
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). A probe failure never faults the /health request — but

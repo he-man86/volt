@@ -1,7 +1,6 @@
-using System.Text.Json;
-using Volt.Engine.Wire;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+﻿using System.Text.Json;
+using Volt.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli.Sync;
 
@@ -20,12 +19,12 @@ public sealed class BridgeError : Exception
 /// </summary>
 public sealed class BridgeClient
 {
-    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
     private readonly PipeClient _pipe;
 
     public BridgeClient(string pipeName) => _pipe = new PipeClient(pipeName);
 
-    private static T De<T>(JsonElement e) => JsonSerializer.Deserialize<T>(e.GetRawText(), Json)!;
+    private static T De<T>(JsonElement e) => JsonSerializer.Deserialize<T>(e.GetRawText(), WireJson.Read)!;
 
     public HealthResponse GetHealth() => De<HealthResponse>(_pipe.Call(Ops.Health));
 

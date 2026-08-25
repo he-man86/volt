@@ -1,6 +1,7 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Volt.Cli.Connector;
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
 
 /// <summary>
 /// A fake <see cref="IProjectSource"/> for the e2e harness: the DATA is scripted, the DECISION is not. It re-reads

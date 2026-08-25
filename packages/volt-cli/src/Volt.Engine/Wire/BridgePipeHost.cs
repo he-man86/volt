@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using Volt.Engine;
+using Volt.Wire;
+using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
-using Volt.Cli.Transport;
 
 namespace Volt.Engine.Wire;
 
@@ -15,7 +16,7 @@ namespace Volt.Engine.Wire;
 /// </summary>
 public sealed class BridgePipeHost : IDisposable
 {
-    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
 
     private readonly IIdeDriver _ide;
     private readonly PipeServer _server;
@@ -169,6 +170,6 @@ public sealed class BridgePipeHost : IDisposable
 
     private static T Body<T>(PipeRequest req) where T : new()
         => req.Body.HasValue && req.Body.Value.ValueKind != JsonValueKind.Null
-            ? JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), Json) ?? new T()
+            ? JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Read) ?? new T()
             : new T();
 }

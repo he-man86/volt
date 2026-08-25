@@ -1,4 +1,4 @@
-using Volt.Engine.Wire;
+﻿using Volt.Contracts;
 
 namespace Volt.Cli.Sync;
 

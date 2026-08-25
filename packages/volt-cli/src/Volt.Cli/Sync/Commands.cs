@@ -1,7 +1,6 @@
 ﻿using System.Text;
-using Volt.Engine;
-using Volt.Engine.Wire;
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli.Sync;
 

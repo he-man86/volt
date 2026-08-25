@@ -1,9 +1,8 @@
-using System.IO;
-using Volt.Engine.Wire;
+﻿using System.IO;
 using Volt.Cli.Sync;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
 
 namespace Volt.Cli.Tests;
 

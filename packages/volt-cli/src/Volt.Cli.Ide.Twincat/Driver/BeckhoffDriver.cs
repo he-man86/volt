@@ -1,13 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Volt.Engine;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
 
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Ide;
 
 namespace Volt.Cli.Ide.Twincat;
 

@@ -4,8 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
-using Volt.Engine.PlcOpen;
-using Volt.Engine.Body;
+using Volt.Contracts;
+using Volt.Engine.Document;
+using Volt.Engine.Graph;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Tests;
 
@@ -47,8 +50,20 @@ public class WireVocabularyGuardTests
             new HashSet<string> { "Vendors.cs", "TcObjectModel.cs" }),
 
         ("health status (HealthStatus)",
-            new[] { "healthy", "degraded", "unavailable" },
-            new HashSet<string> { "HealthStatus.cs" }),
+            // `idle` was absent — the DEFAULT row state and the pivot of the whole serving rule (`status != idle`),
+            // so the one word most likely to be re-spelled was the one word unguarded. LogWindow's dropdown is a
+            // LOG-level list that shares "degraded"/"healthy" with nothing but reads alike; it is its own vocabulary.
+            new[] { "healthy", "degraded", "unavailable", "idle" },
+            new HashSet<string> { "HealthStatus.cs", "LogWindow.cs" }),
+
+        ("build severity (Severity)",
+            // Zero symbolic uses and six literal spellings before this entry existed — because Severity is the one
+            // wire vocabulary declared ABOVE Volt.Wire, so this guard structurally could not reach it.
+            // Allowlisted for a DIFFERENT vocabulary that shares the word: `ResultKinds.Error` is the CLI's result
+            // discriminator (ok/error/refused/rejected/conflict/clean), not a diagnostic severity; LogWindow lists
+            // LOG levels ("warn", not "warning"); and the pipe frame has an `error` FIELD, which is not a value.
+            new[] { "error", "warning", "info" },
+            new HashSet<string> { "BuildModels.cs", "Types.cs", "LogWindow.cs", "PipeClient.cs", "PipeMessages.cs" }),
 
         ("item kinds (ItemKind.Kinds)",
             new[] { "program", "function_block", "function", "dut", "gvl", "interface", "action", "method",
@@ -78,6 +93,14 @@ public class WireVocabularyGuardTests
     {
         var src = FindSrcDir();
         var offenders = new List<string>();
+
+        // A guard that scanned NOTHING passes. FindSrcDir proves the folder exists; this proves it still holds
+        // the code. A restructure that moves projects out from under `src/` would otherwise leave the repo's two
+        // structural gates green while looking at an empty tree.
+        var scanned = EnumerateCs(src).Count();
+        Assert.True(scanned >= 60,
+            $"wire-vocabulary guard found only {scanned} .cs file(s) under {src} — it is not looking at the " +
+            "toolchain. Did the projects move? A guard that scans nothing passes for the wrong reason.");
 
         foreach (var (label, values, allow) in Vocabularies)
         {

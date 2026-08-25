@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using Volt.Cli.Transport;
-using Volt.Engine.Body;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Document;
 using Volt.Engine.Ide;
-using Volt.Engine.Workspace;
-using Volt.Engine.PlcOpen;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Ide.Codesys;
 

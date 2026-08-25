@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Volt.Cli.Transport;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
 
 namespace Volt.Cli.Connector.Tests;
 

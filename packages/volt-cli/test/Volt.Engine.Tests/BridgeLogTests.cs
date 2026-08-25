@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.IO;
-using Volt.Engine.Ide;
 using Xunit;
+using Volt.Engine.Ide;
 
 namespace Volt.Cli.Tests;
 

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
+using Volt.Engine.Ide;
 
 namespace Volt.Engine.Tests;
 

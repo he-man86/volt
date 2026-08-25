@@ -3,9 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Volt.Cli.Transport;
-using Volt.Engine.Workspace;
-using Volt.Engine.PlcOpen;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Library;
+using Volt.Engine.Manifest;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -475,7 +478,7 @@ namespace Volt.Cli.Ide.Codesys
             InvokeMethod(cmdMgr, "ExecuteCommand", BuildActiveApplication,
                 new[] { "--applicationGuid=" + appGuid.ToString() });
             foreach (var d in GetBuildDiagnostics())
-                if (d is Dictionary<string, object?> dict && (dict["severity"] as string) == "error") return false;
+                if (d is Dictionary<string, object?> dict && (dict["severity"] as string) == Volt.Contracts.Severity.Error) return false;
             return true;
         }
 
@@ -494,7 +497,7 @@ namespace Volt.Cli.Ide.Codesys
                     var text = GetMember(m, "Text") as string ?? "";
                     outv.Add(new Dictionary<string, object?>
                     {
-                        ["severity"] = Volt.Engine.Wire.Severity.Of(GetMember(m, "Severity")?.ToString()),
+                        ["severity"] = Volt.Contracts.Severity.Of(GetMember(m, "Severity")?.ToString()),
                         ["message"] = text,
                         ["line"] = ParseLine(text),
                         ["column"] = ParseColumn(text),
@@ -512,7 +515,7 @@ namespace Volt.Cli.Ide.Codesys
         /// <c>SystemInstances.LanguageModelMgr.AllPrecompiledSignatures</c> — the same DLL the IDE's Library Manager
         /// renders from, and the same reflection the rest of the bridge uses. Vendor libraries only; system libraries
         /// are dropped by the caller. Filters compiler-mangled entries (<c>__</c>-prefixed) and non-library objects.</summary>
-        public List<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
+        public List<Volt.Engine.Model.LibSignature> ExtractLibrarySignatures()
         {
             // Ensure the libraries are PRECOMPILED: a freshly-opened project has an EMPTY precompiled set until a
             // build runs, so AllPrecompiledSignatures returns nearly nothing (verified: 2 sigs before a build, 5220
@@ -531,9 +534,9 @@ namespace Volt.Cli.Ide.Codesys
             if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs)
                 throw new InvalidOperationException("CODESYS: AllPrecompiledSignatures returned nothing");
 
-            List<Volt.Engine.Library.LibVar> Vars(object? sig, string prop)
+            List<Volt.Engine.Model.LibVar> Vars(object? sig, string prop)
             {
-                var outv = new List<Volt.Engine.Library.LibVar>();
+                var outv = new List<Volt.Engine.Model.LibVar>();
                 if (GetMember(sig, prop) is not IEnumerable coll) return outv;
                 foreach (var v in coll)
                 {
@@ -547,7 +550,7 @@ namespace Volt.Cli.Ide.Codesys
                         throw new InvalidOperationException(
                             $"CODESYS: library variable '{n}' in {prop} of '{GetMember(sig, "Name")}' has no " +
                             "readable Type — object-model version mismatch");
-                    outv.Add(new Volt.Engine.Library.LibVar(n, type!, string.IsNullOrEmpty(init) ? null : init));
+                    outv.Add(new Volt.Engine.Model.LibVar(n, type!, string.IsNullOrEmpty(init) ? null : init));
                 }
                 return outv;
             }
@@ -556,23 +559,23 @@ namespace Volt.Cli.Ide.Codesys
             // themselves carry no methods — SubSignatures is always empty). Skip inherited methods (ParentObjectGuid
             // ≠ this signature's) — the base FB renders its own, and the LSP resolves them through EXTENDS. The raw
             // pins pass through as-is; the renderer owns the return-pin convention (LibSignatureRenderer.LiftReturn).
-            List<Volt.Engine.Library.LibMethod>? Methods(object sig)
+            List<Volt.Engine.Model.LibMethod>? Methods(object sig)
             {
                 if (InvokeMethod(lmm, "GetAllMethods", sig) is not object[] ms || ms.Length == 0) return null;
                 var ownGuid = GetMember(sig, "ObjectGuid")?.ToString();
-                var methods = new List<Volt.Engine.Library.LibMethod>();
+                var methods = new List<Volt.Engine.Model.LibMethod>();
                 foreach (var m in ms)
                 {
                     var parent = GetMember(m, "ParentObjectGuid")?.ToString();
                     if (!string.IsNullOrEmpty(ownGuid) && !string.IsNullOrEmpty(parent) && parent != ownGuid) continue; // inherited
                     if (GetMember(m, "Name") is not string mn || mn.Length == 0 || mn.Contains("__")) continue;
-                    methods.Add(new Volt.Engine.Library.LibMethod(mn, Vars(m, "Inputs"), Vars(m, "Outputs"), Vars(m, "InOuts"),
+                    methods.Add(new Volt.Engine.Model.LibMethod(mn, Vars(m, "Inputs"), Vars(m, "Outputs"), Vars(m, "InOuts"),
                         GetMember(m, "ReturnType")?.ToString()));
                 }
                 return methods.Count > 0 ? methods : null;
             }
 
-            var result = new List<Volt.Engine.Library.LibSignature>();
+            var result = new List<Volt.Engine.Model.LibSignature>();
             foreach (var s in sigs)
             {
                 if (GetMember(s, "IsLibraryObject") as bool? != true) continue;
@@ -588,7 +591,7 @@ namespace Volt.Cli.Ide.Codesys
                     foreach (var v in av) { aliasBase = GetMember(v, "Type")?.ToString(); break; }
                 var pou = GetMember(s, "POUType")?.ToString() ?? "";
                 var methods = pou.Contains("FunctionBlock") || pou.Contains("Interface") ? Methods(s) : null;
-                result.Add(new Volt.Engine.Library.LibSignature(
+                result.Add(new Volt.Engine.Model.LibSignature(
                     name, libPath, pou,
                     Vars(s, "Inputs"), Vars(s, "Outputs"), Vars(s, "InOuts"), Vars(s, "AllVariables"),
                     baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags, methods));
@@ -623,7 +626,7 @@ namespace Volt.Cli.Ide.Codesys
         /// new node; the caller writes its text via <see cref="WriteSourceText"/>.
         /// <paramref name="language"/> is UNUSED here — CODESYS's <c>create_pou</c> has no
         /// implementation-language parameter, so a graphical POU is created as ST and its language is set
-        /// afterwards by the PLCopen import (see PushService / NetworkCode.Write). The parameter stays
+        /// afterwards by the PLCopen import (see PushService / NetworkCodeIo.Write). The parameter stays
         /// for the IProjectTree signature, which TwinCAT does honour.</summary>
         public object CreateChild(object parent, string name, int itemType, string? language = null)
         {

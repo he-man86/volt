@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- The connector's UI-FREE connection model — DetectedProject / IProjectSource / ConnectionManager and the
          pipe-backed vendor sources. Split out of the WinForms shell (Volt.Cli.Connector) so the model is testable
@@ -6,11 +6,9 @@
          pipe wire, no WinForms. Namespace stays `Volt.Cli.Connector` so the shell references it seamlessly. -->
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Volt.Cli.Connector</RootNamespace>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
   </ItemGroup>
 </Project>

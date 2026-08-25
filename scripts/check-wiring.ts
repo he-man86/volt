@@ -16,7 +16,7 @@
  * gone: every host registers Volt itself, and the installer's only contribution is `bin` on PATH.
  */
 import { resolve, join } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
@@ -139,7 +139,22 @@ function literalArray(src: string, name: string): string[] {
 
 // Canonical: the C# ItemKind.SourceKindExtensions table — (kind, "ext") pairs; take each ext (the quoted string).
 // The kind column is a `Kinds.*` const (not a literal), so the first tuple element is a dotted identifier.
-const itemKindSrc = readRepo("packages/volt-cli/src/Volt.Engine/Workspace/ItemKind.cs");
+// Located by NAME, not by folder. This was a hard-coded `Workspace/ItemKind.cs` and the file moved to
+// `Vocabulary/` during the layering restructure — it failed loudly (ENOENT), which is the right failure, but a
+// path that has already gone stale once will go stale again. The canonical table is whatever file declares it.
+const itemKindPath = (() => {
+	const roots = [join(REPO_ROOT, "packages/volt-cli/src/Volt.Engine")];
+	while (roots.length) {
+		const dir = roots.pop()!;
+		for (const e of readdirSync(dir, { withFileTypes: true })) {
+			const p = join(dir, e.name);
+			if (e.isDirectory()) { if (e.name !== "bin" && e.name !== "obj") roots.push(p); }
+			else if (e.name === "ItemKind.cs") return p;
+		}
+	}
+	throw new Error("check-wiring: could not find ItemKind.cs under src/Volt.Engine");
+})();
+const itemKindSrc = readFileSync(itemKindPath, "utf-8");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
 const CANON = normExts([...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));

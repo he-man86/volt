@@ -1,6 +1,7 @@
-using System.Collections.Generic;
-using Volt.Engine.Library;
+﻿using System.Collections.Generic;
 using Xunit;
+using Volt.Engine.Library;
+using Volt.Engine.Model;
 
 namespace Volt.Cli.Tests;
 

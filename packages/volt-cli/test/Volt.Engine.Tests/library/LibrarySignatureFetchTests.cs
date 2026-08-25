@@ -1,7 +1,7 @@
-using System.Collections.Generic;
-using Volt.Engine.Sync;
-using Volt.Engine.Wire;
+﻿using System.Collections.Generic;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;
 

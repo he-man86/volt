@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
-using Volt.Cli.Transport;
-using Volt.Engine.Library;
-using Volt.Engine.Sync;
-using Volt.Engine.Wire;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine.Model;
+using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;
 

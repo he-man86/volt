@@ -1,6 +1,6 @@
+﻿using Volt.Engine.Vocabulary;
 namespace Volt.Cli.Sync;
 
-using Volt.Engine.Workspace;
 
 public enum Access { R, Rw }
 

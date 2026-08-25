@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -6,7 +6,8 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli.Connector
 {

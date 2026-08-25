@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Volt.Engine.Sync;
-using Volt.Engine.Wire;
-using Volt.Engine.Workspace;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine.Sync;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;
 
@@ -246,4 +246,65 @@ public class TransportMatrixTests
         Assert.False(resp.Accepted, "a read-only CFC child must refuse the push");
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("write") || r.StartsWith("delete:"));
     }
+
+    // ── THE LEGACY ARM ──────────────────────────────────────────────────────────────────────────────
+    // Everything above runs with OneDocumentWrite = TRUE. In production that is CODESYS only: TwinCAT inherits
+    // false and takes the per-transport path, so the arm the matrix pinned was the arm one vendor runs, and the
+    // arm the OTHER vendor runs had no complete-call-list assertion at all. Two arms, one pinned, is the exact
+    // condition under which they drift — and they already have: a refusal message had to be hand-aligned
+    // word-for-word between them because clients got a different sentence depending on the attached IDE.
+    //
+    // Read the two tables together and the cost of the second arm is the point:
+    //
+    //     kind          one-document          legacy (per-transport)
+    //     fb/prg/fun    writexml:K            bodylang:K, write:K
+    //     itf           writexml:K            write:K, create:M, write:M     <- the member costs 2 extra calls
+    //     dut/gvl       writexml:K            write:K
+    //
+    // `bodylang:K` is not free: on CODESYS it is a FULL PLCopen export, which is why the document arm reads the
+    // export once and answers every language question from it. `create:M`/`write:M` is the per-child loop — one
+    // method here, but N calls for N members, which is what the document arm collapsed.
+
+    /// <summary>The legacy arm's UPDATE calls, per kind, complete. Same negative-half rule as the matrix above:
+    /// the assertion is the WHOLE recorded list, so a new call appearing beside these fails.</summary>
+    [Theory]
+    [InlineData(ItemKind.PlcPouFb,   "fb",  new[] { "bodylang:K", "write:K" })]
+    [InlineData(ItemKind.PlcPouProg, "prg", new[] { "bodylang:K", "write:K" })]
+    [InlineData(ItemKind.PlcPouFunc, "fun", new[] { "bodylang:K", "write:K" })]
+    [InlineData(ItemKind.PlcItf,     "itf", new[] { "write:K", "create:M", "write:M" })]
+    [InlineData(ItemKind.PlcDut,     "dut", new[] { "write:K" })]
+    [InlineData(ItemKind.PlcGvl,     "gvl", new[] { "write:K" })]
+    public void Legacy_arm_update_uses_exactly_these_calls(int code, string ext, string[] expected)
+    {
+        var src = SourceFor(ext);
+        var ide = new FakeIde(new FakeIde.Item("K", code, "", true, src.Split("\n\n")[0], "n := 1;", null, null))
+            { OneDocumentWrite = false };
+        var refs = RefsService.Handle(ide);
+        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], SourceText = src });
+
+        Assert.Equal(expected, recorded.ToArray());
+    }
+
+    /// <summary>The legacy arm's CREATE calls, per kind, complete.</summary>
+    [Theory]
+    [InlineData("fb",  new[] { "create:K", "write:K" })]
+    [InlineData("prg", new[] { "create:K", "write:K" })]
+    [InlineData("fun", new[] { "create:K", "write:K" })]
+    [InlineData("itf", new[] { "create:K", "write:K", "create:M", "write:M" })]
+    [InlineData("dut", new[] { "create:K", "write:K" })]
+    [InlineData("gvl", new[] { "create:K", "write:K" })]
+    public void Legacy_arm_create_uses_exactly_these_calls(string ext, string[] expected)
+    {
+        var ide = new FakeIde() { OneDocumentWrite = false };
+        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", SourceText = SourceFor(ext) });
+
+        Assert.Equal(expected, recorded.ToArray());
+    }
+
+    private static string SourceFor(string ext) => ext switch
+    {
+        "fb" => FbSrc, "prg" => PrgSrc, "fun" => FunSrc,
+        "itf" => ItfSrc, "dut" => DutSrc, "gvl" => GvlSrc,
+        _ => throw new System.ArgumentOutOfRangeException(nameof(ext), ext, "not a writable kind in the matrix"),
+    };
 }

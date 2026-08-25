@@ -1,13 +1,14 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Volt.Cli.Sync;
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli;
 
 /// <summary>
 /// The `volt` CLI entry — Resolves the bridge from the workspace
 /// binding, dispatches the verb, renders (pretty or --json), sets the exit code. Talks to the bridge over the
-/// NAMED PIPE (Volt.Cli.Transport), reusing Volt.Engine's DTOs — one wire contract.
+/// NAMED PIPE (Volt.Wire), reusing Volt.Engine's DTOs — one wire contract.
 /// </summary>
 internal static class Program
 {

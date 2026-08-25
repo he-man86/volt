@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    THE WIRE CONTRACT — the one assembly every other assembly can see.
+
+    Criterion for living here: everything shared by ALL of the toolchain, with no dependency of its own. That is
+    exactly the closed wire vocabularies, the request/response DTOs, and the logger.
+
+    It exists because the contract had no home. The vocabularies and two DTOs sat in Volt.Wire (a pipe
+    library) while every other DTO sat in Volt.Engine — split by REACHABILITY, not concept: the tray connector may
+    not reference the Engine and still has to read health, so whatever the connector needed drifted downward and
+    the rest stayed up. The cost was measurable. `Severity` landed above the vocabulary guard's reach and ended up
+    with ZERO symbolic uses and six literal spellings; `connect`/`disconnect` had no response type at all; and a
+    test project's dependency graph was distorted to pin an untyped payload against a type in the wrong assembly.
+
+    netstandard2.0 because the in-process CODESYS bridge is net48 and loads this. No ProjectReference, ever —
+    that is what makes it visible to everyone, including the connector.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Volt.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+
+</Project>

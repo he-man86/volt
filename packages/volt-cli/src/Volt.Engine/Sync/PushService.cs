@@ -2,15 +2,17 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Volt.Engine.Body;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
-using Volt.Engine.Workspace;
-using Volt.Engine.Text;
-using Volt.Engine.Item;
 
-using Volt.Cli.Transport;
-using Volt.Engine.PlcOpen;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine;
+using Volt.Engine.Document;
+using Volt.Engine.Graph;
+using Volt.Engine.Ide;
+using Volt.Engine.Materialize;
+using Volt.Engine.Model;
+using Volt.Engine.Text;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Sync;
 
@@ -71,7 +73,7 @@ public static class PushService
             {
                 // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
-                var vg = ex as Body.NetworkTextException;
+                var vg = ex as Graph.NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
@@ -294,7 +296,12 @@ public static class PushService
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
 
-        ide.Delete(ide.Parent(item), name);
+        // `ide.Name(item)`, not the wire `name` — the same fix ApplyOp's delete already carries. The item cache
+        // resolves case-INSENSITIVELY while a driver's child scan matches case-SENSITIVELY, so a case-divergent
+        // wire name finds the item here and then matches nothing in the driver. This arm is the one place that
+        // is unrecoverable: a failed delete is followed immediately by a re-create of the same name, so the
+        // outcome is a DUPLICATE rather than a no-op — and it is the arm only TwinCAT takes.
+        ide.Delete(ide.Parent(item), ide.Name(item));
         WriteItemFromSource(ide, parent, name, existing: null, src, newFolder);
     }
 
@@ -364,13 +371,13 @@ public static class PushService
             if (!ide.WritesPouAsOneDocument)
             {
                 // The per-transport path, for a driver whose import has not been measured. A network-text body
-                // still needs its declaration written separately here, because NetworkCode.Write carries only
+                // still needs its declaration written separately here, because NetworkCodeIo.Write carries only
                 // the body and a fresh POU's <interface> is empty — leaving every var the contacts reference
                 // undeclared. On the single-document path below, the one splice writes both.
                 if (pouVg)
                 {
                     if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
-                    NetworkCode.Write(ide, pou, name, impl, decl);
+                    NetworkCodeIo.Write(ide, pou, name, impl, decl);
                 }
                 // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
                 // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
@@ -432,7 +439,7 @@ public static class PushService
                 RestoreChildFolders(ide, name, split);
                 return;
             }
-            if (pouVg) NetworkCode.Write(ide, pou, name, impl, decl);
+            if (pouVg) NetworkCodeIo.Write(ide, pou, name, impl, decl);
             else ide.WriteText(pou, decl, bodyImpl);
         }
 
@@ -456,7 +463,7 @@ public static class PushService
             var cimpl = child.Body;
             var childVg = NetworkText.Is(cimpl);
             // A read-only graphical (CFC/SFC) child has NO text form — it materializes as
-            // Materializer.GraphicalBodyMarker, and NetworkText.Is matches only a `NETWORK n LANG` header, so it REJECTS
+            // Vocabulary.BodyMarker.For, and NetworkText.Is matches only a `NETWORK n LANG` header, so it REJECTS
             // that marker. The old guard here was `NetworkText.Is(cimpl) && !IsEditable(...)`, which therefore never fired
             // for the one case it existed to stop: the marker fell through to the textual path below and
             // ide.WriteText replaced the engineer's graphical body with a comment.
@@ -466,7 +473,7 @@ public static class PushService
             // permanently uneditable. `RequireChildFormatWritable` has already refused the case that IS wrong: a
             // marker whose IDE body is not actually read-only. Leaving the loop means the member keeps its
             // diagram, and staying in `keep` below means the orphan pass does not delete it.
-            if (Materializer.IsGraphicalBodyMarker(cimpl)) continue;
+            if (Vocabulary.BodyMarker.Is(cimpl)) continue;
 
             var childParent = ResolveFolder(ide, pou, child.Folder);
             var existingChild = FindChild(ide, childParent, child.Name);
@@ -475,7 +482,7 @@ public static class PushService
             {
                 if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
-                NetworkCode.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
+                NetworkCodeIo.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
                 continue;
             }
 
@@ -527,7 +534,7 @@ public static class PushService
         // The OTHER reason — "`WriteXml` is a merge with no delete, so `pou` is not stale" — is true on CODESYS
         // and FALSE on TwinCAT, where the PLCopen import REPLACES the object and invalidates every handle to it
         // ("Item 'x' is deleted or invalidated by an ealier operation!"). A graphical push reaches here straight
-        // after `NetworkCode.Write` has imported, so `pou` is dead on that vendor. It went unnoticed because the
+        // after `NetworkCodeIo.Write` has imported, so `pou` is dead on that vendor. It went unnoticed because the
         // driver's ChildCount answered 0 for a faulted handle: the orphan walk became a silent no-op, and a
         // method deleted from a graphical POU survived in the IDE — exactly the bug the skip was removed to fix,
         // still happening, just one layer down. Re-acquire before reconciling, and fail loudly if it is gone.
@@ -645,7 +652,7 @@ public static class PushService
     /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
     /// read-only set has ONE definition shared by the splice and both live guards.</summary>
     private static bool IsReadOnlyLanguage(string? language) =>
-        language is { } l && Body.BodyCodec.For(l).ReadOnly;
+        language is { } l && Document.BodyCodec.For(l).ReadOnly;
 
     /// <summary>Resolve a folder WITHOUT creating one — the read-only twin of <see cref="ResolveFolder"/>, for
     /// callers that are only looking (a guard must not mutate the project it is about to refuse).</summary>
@@ -674,7 +681,7 @@ public static class PushService
     /// outright: CFC/SFC read-only-ness "is enforced by live IDE state on push, not by any content marker".
     /// <para>The old guard tried to do it from content — <c>NetworkText.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
     /// never work, because a CFC/SFC body has no text form and materializes as
-    /// <see cref="Materializer.GraphicalBodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
+    /// <see cref="Vocabulary.BodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
     /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
     /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
     /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
@@ -682,7 +689,7 @@ public static class PushService
                                                    PouReader.ParsedPou? parsed)
     {
         var cimpl = child.Body;
-        var marker = Materializer.IsGraphicalBodyMarker(cimpl);
+        var marker = Vocabulary.BodyMarker.Is(cimpl);
 
         if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
 

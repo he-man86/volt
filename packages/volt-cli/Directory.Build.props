@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Solution-wide C# defaults for the Volt toolchain.
+
+    These were hand-copied into all eleven csprojs. `Nullable` and `LangVersion` happened to agree; ImplicitUsings
+    did NOT — four projects enabled it, two disabled it, and five said nothing (which means disabled). That is not
+    a decision anyone made, it is drift, and every new project inherited a coin flip.
+
+    Settled on ImplicitUsings=enable: the two largest projects (Volt.Engine, Volt.Cli) already relied on it, and it
+    is the SDK default for new work. Projects that were previously off simply gain the implicit set; nothing is
+    taken away. A project needing the old behaviour overrides it locally and says why.
+
+    NOT set here, deliberately:
+      - TargetFramework. It is load-bearing and different per project — net48 for the in-process CODESYS bridge,
+        net8.0-windows for the TwinCAT worker and the tray, netstandard2.0 for everything both must share. A
+        default would only ever be wrong somewhere and would hide the one constraint that shapes the whole tree.
+      - TreatWarningsAsErrors. Turning it on today FAILS the build: Volt.Engine ships five CS8604 warnings
+        (PouDocument and four sites in PushService), all on the push path. They want fixing on their own merits,
+        not as collateral of a build-settings change. Enable this once they are gone.
+  -->
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

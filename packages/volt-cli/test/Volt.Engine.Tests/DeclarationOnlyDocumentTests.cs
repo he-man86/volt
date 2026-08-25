@@ -1,10 +1,8 @@
 ﻿using System.IO;
-using Volt.Engine.PlcOpen;
-using Volt.Engine.Sync;
-using Volt.Engine.Workspace;
-using Volt.Engine.Text;
-using Volt.Engine.Item;
 using Xunit;
+using Volt.Engine.Document;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;
 

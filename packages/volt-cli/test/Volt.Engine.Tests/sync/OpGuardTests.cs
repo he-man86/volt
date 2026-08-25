@@ -1,10 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Volt.Engine;
-using Volt.Engine.Sync;
-using Volt.Engine.Wire;
 using Xunit;
 
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;
 

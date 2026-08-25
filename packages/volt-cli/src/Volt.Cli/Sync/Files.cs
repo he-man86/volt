@@ -1,3 +1,4 @@
+﻿using Volt.Contracts;
 namespace Volt.Cli.Sync;
 
 public sealed record SrcFile(string Path, string Content);

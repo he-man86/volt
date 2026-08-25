@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Volt.Cli.Transport;
+using Volt.Wire;
 using Volt.Engine;
-using Volt.Engine.Ide;
-using Volt.Engine.Wire;
-using Volt.Engine.Workspace;
+using Volt.Contracts;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Ide.Twincat;
 
@@ -485,8 +484,17 @@ internal sealed class TcObjectModel
             try { for (int i = 0; i < 100; i++) { if ((int)sb.BuildState != 2) break; System.Threading.Thread.Sleep(100); } } catch { }
             sb.Build(true);
             try { for (int i = 0; i < 100; i++) { if ((int)sb.BuildState != 2) break; System.Threading.Thread.Sleep(100); } } catch { }
+            // NOT `catch { failed = 0; }`. That turned "I could not read the build result" into "the build
+            // passed" — on a WIRE-VISIBLE boolean, so a client is told a failing project compiles. The sibling
+            // GetBuildDiagnostics already applies the opposite reasoning to its own partial-parse case.
             int failed;
-            try { failed = sb.LastBuildInfo; } catch { failed = 0; }
+            try { failed = sb.LastBuildInfo; }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: build finished but LastBuildInfo is unreadable — reporting FAILURE " +
+                             $"rather than assuming success: {ex.Message}");
+                return false;
+            }
             return failed == 0;
         }
         catch { return false; }
@@ -521,7 +529,7 @@ internal sealed class TcObjectModel
                     result.Add(new BridgeDiagnostic
                     {
                         // "message" is TwinCAT's word for informational; Severity.Of maps it.
-                        Severity = Volt.Engine.Wire.Severity.Of(m.Groups[4].Value),
+                        Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
                         Message = m.Groups[5].Value.Trim(),
                         Line = lineNum,
                         Column = colNum,

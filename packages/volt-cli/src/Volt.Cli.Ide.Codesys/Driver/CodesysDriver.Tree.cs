@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using Volt.Cli.Transport;
+using Volt.Wire;
+using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Workspace;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Ide.Codesys;
 

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- The single user-facing Volt app: a Windows system-tray supervisor that owns
          every vendor bridge. Bridges run as headless worker PROCESSES it spawns
@@ -7,17 +7,15 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-    <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>VoltConnector</AssemblyName>
     <!-- Deliberately NO reference to any vendor bridge or Volt.Engine: the connector only speaks the WIRE
          (the `health` op over the named pipe) to its workers, so it survives however different the vendor internals
-         get (TwinCAT COM vs Siemens Openness vs Allen-Bradley LDSDK). Volt.Cli.Transport is the pipe wire only —
+         get (TwinCAT COM vs Siemens Openness vs Allen-Bradley LDSDK). Volt.Wire is the pipe wire only —
          no vendor code — so referencing it keeps that decoupling. -->
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
     <!-- The UI-free connection model (DetectedProject / IProjectSource / ConnectionManager + pipe-backed vendor
          sources). Same `Volt.Cli.Connector` namespace, so the WinForms shell uses it without extra usings. -->
     <ProjectReference Include="..\Volt.Cli.Connector.Core\Volt.Cli.Connector.Core.csproj" />

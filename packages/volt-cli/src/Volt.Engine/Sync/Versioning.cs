@@ -1,6 +1,10 @@
-﻿using Volt.Cli.Transport;
+﻿using Volt.Wire;
+using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Workspace;
+using Volt.Engine.Library;
+using Volt.Engine.Materialize;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Sync;
 

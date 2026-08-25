@@ -1,4 +1,5 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
+using Volt.Contracts;
 
 namespace Volt.Cli.Sync;
 
@@ -131,7 +132,7 @@ public sealed class BuildResult
 {
     public bool Success { get; set; }
     public double Duration { get; set; }
-    public List<Volt.Engine.Wire.BridgeDiagnostic> Diagnostics { get; set; } = new();
+    public List<Volt.Contracts.BridgeDiagnostic> Diagnostics { get; set; } = new();
 
     public static BuildResult Refuse(string message) => new()
     {

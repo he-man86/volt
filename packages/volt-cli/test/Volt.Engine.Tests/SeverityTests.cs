@@ -1,5 +1,5 @@
-using Volt.Engine.Wire;
-using Xunit;
+﻿using Xunit;
+using Volt.Contracts;
 
 namespace Volt.Cli.Tests;
 

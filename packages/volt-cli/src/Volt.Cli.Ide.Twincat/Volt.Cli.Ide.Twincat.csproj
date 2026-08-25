@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- The TwinCAT integration: a standalone net8 worker exe the connector spawns. Holds the BeckhoffDriver
          (attaches to a running XAE over COM) + Program.cs, which serves that driver over the NAMED PIPE. -->
@@ -6,12 +6,10 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>Volt.Cli.Ide.Twincat</RootNamespace>
     <AssemblyName>VoltBridgeTwincat</AssemblyName>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
-    <ProjectReference Include="..\Volt.Cli.Transport\Volt.Cli.Transport.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
   </ItemGroup>
 </Project>

@@ -1,13 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Volt.Engine.Body;
-using Volt.Engine.Sync;
-using Volt.Engine.Workspace;
-using Volt.Engine.Text;
-using Volt.Engine.Item;
 using Xunit;
-using Volt.Engine.PlcOpen;
+using Volt.Engine.Document;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Cli.Tests;
 

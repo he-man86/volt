@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
-using Volt.Cli.Transport;
+using Volt.Wire;
 using Xunit;
+using Volt.Contracts;
 
 namespace Volt.Cli.Tests;
 

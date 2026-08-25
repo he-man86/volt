@@ -1,5 +1,6 @@
-using Volt.Cli.Connector;
-using Volt.Cli.Transport;
+﻿using Volt.Cli.Connector;
+using Volt.Wire;
+using Volt.Contracts;
 
 // ControlServer's two background-failure lines are its ONLY record; VoltLog is a no-op until Init, so the harness
 // opts in under the same source the tray uses (it wrote those lines unconditionally before the connector's private

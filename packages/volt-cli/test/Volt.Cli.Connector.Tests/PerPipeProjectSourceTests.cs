@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -190,7 +190,7 @@ public class PerPipeProjectSourceTests
 
     // ── Flatten's row-level behaviour, ported from the deleted WireContractParityTests ───────────────────
     // That file existed to pin the connector's hand-written MIRROR of the health row against the bridge's
-    // declaration; the mirror is gone (one declaration now, in Volt.Cli.Transport.Wire) and with it the premise.
+    // declaration; the mirror is gone (one declaration now, in Volt.Wire.Wire) and with it the premise.
     // These two assertions were never about the mirror — they are Flatten's own behaviour and live nowhere else:
     // an explicitly idle row is not serving, and an unrecognised status word rides through verbatim (the
     // forward-compat property under a version-skewed bridge). The DTO round-trip is replaced by the raw JSON a

@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Volt.Cli.Transport;
-using Volt.Cli.Transport.Wire; // the health row itself — ONE declaration, shared with the bridge that writes it
+using Volt.Wire;
+using Volt.Contracts;
 
 namespace Volt.Cli.Connector
 {
@@ -68,7 +68,11 @@ namespace Volt.Cli.Connector
             // worker, and on a gated bridge it is the verb that resumes serving. That is why the reconciler groups
             // bind candidates one-per-host. Target the project's own pipe.
             if (string.IsNullOrEmpty(project.Pipe)) return Task.CompletedTask;
-            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new { project = project.Attach.Project });
+            // The REAL type, not `new { project = ... }`. The connector could not see ConnectRequest while it
+            // lived in Volt.Engine — a project it deliberately cannot reference — so it wrote an anonymous
+            // payload and a test in Volt.Cli.Connector.Tests pinned the two spellings together. That test was the
+            // sole reason a connector test project referenced the Engine at all. One declaration, no pin needed.
+            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new ConnectRequest { Project = project.Attach.Project });
         }
 
         public async Task UnbindAsync(DetectedProject project)
@@ -92,12 +96,12 @@ namespace Volt.Cli.Connector
         // READ tolerance, deliberately not the pipe's WRITE options: the wire writes camelCase, this reads any casing.
         // The pair is asymmetric on purpose, so this is NOT a stale hand-copy of `PipeJson.Options` waiting to be
         // deduplicated — swapping it narrows what a version-skewed bridge can be parsed from, and needs its own move.
-        private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
 
         public static List<DetectedProject> Flatten(JsonElement healthRoot, string vendor, string? pipe)
         {
             HealthResponse? parsed;
-            try { parsed = JsonSerializer.Deserialize<HealthResponse>(healthRoot.GetRawText(), Json); }
+            try { parsed = JsonSerializer.Deserialize<HealthResponse>(healthRoot.GetRawText(), WireJson.Read); }
             catch (Exception e)
             {
                 // One bad payload drops a whole bridge's rows; say so, or the bridge just disappears with no trace.
