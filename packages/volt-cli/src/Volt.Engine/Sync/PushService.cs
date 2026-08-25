@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Document;
@@ -55,7 +54,7 @@ public static class PushService
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(gatedVersions);
-        var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
+        var conflicts = PushConflicts.DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
         {
             VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
@@ -113,70 +112,7 @@ public static class PushService
             }));
     }
 
-    private static List<PushConflict> DetectConflicts(
-        List<PushOp> ops, string? expectedProjectVersion, bool force,
-        Dictionary<string, string> currentVersions, string currentProjectVersion)
-    {
-        var conflicts = new List<PushConflict>();
 
-        // The project-level gate runs regardless of force — it IS the --force-with-lease check.
-        if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
-            conflicts.Add(new PushConflict
-            {
-                Name = "<project>", YourVersion = expectedProjectVersion,
-                CurrentVersion = currentProjectVersion,
-                Reason = "expected project version does not match current project version",
-            });
-
-        // Force skips the per-item ifVersion checks entirely (apply unconditionally); the project gate above still ran.
-        if (force) return conflicts;
-
-        // Forward simulation: name → version, mutated per op so in-batch dependencies validate. Every op
-        // is a SetItemOp or a DeleteItemOp.
-        var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
-        foreach (var op in ops)
-        {
-            var name = op.Name;                       // FULL wire name — echoed back in the conflict
-            var bare = Materializer.Bare(name);       // the IDE/version-map key (bare-keyed)
-            var clientVersion = op.IfVersion;
-            var currentVersion = pending.TryGetValue(bare, out var v) ? v : null;
-
-            if (op is SetItemOp set)
-            {
-                if (clientVersion == null)            // create
-                {
-                    if (currentVersion != null)
-                        conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
-                    else pending[bare] = "";
-                }
-                else if (currentVersion != clientVersion)   // update / rename / move guard
-                {
-                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
-                }
-                else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
-                {
-                    pending.Remove(bare);             // rename: the new identity exists for later ops
-                    pending[Materializer.Bare(toName)] = "";
-                }
-            }
-            else                                      // DeleteItemOp
-            {
-                // Delete is idempotent: if the item is already gone (currentVersion == null) the goal state
-                // already holds, so it's a no-op success — never a conflict, whatever the ifVersion guard. This
-                // also covers the UNREADABLE-sentinel force-delete of an accepted-but-unenumerable item (absent
-                // from /refs → currentVersion null here, but Apply still finds and removes it via ide.Lookup).
-                // Only a version MISMATCH on a still-PRESENT item is a real conflict.
-                if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
-                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
-                else pending.Remove(bare);
-            }
-        }
-        return conflicts;
-    }
-
-    private static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
-        new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
-                Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
 
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
@@ -284,7 +220,7 @@ public static class PushService
             // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
             // the refusal atomic: the item has not moved, so there is nothing to undo.
             if (sourceText is { } edited) WriteItemFromSource(ide, parent, name, item, edited, newFolder);
-            ide.Move(item, ResolveTopLevelFolder(ide, parent, newFolder));
+            ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
             return;
         }
 
@@ -348,7 +284,7 @@ public static class PushService
         {
             // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
-            var targetParent = ResolveTopLevelFolder(ide, parent, folder);
+            var targetParent = TreeNav.ResolveTopLevelFolder(ide, parent, folder);
 
             // Validate a network-text body BEFORE creating the item — a refused push must not leave an orphaned,
             // unlisted stub POU behind that blocks the next create.
@@ -363,7 +299,7 @@ public static class PushService
             // TwinCAT a write to a detached COM object can succeed silently, so the interface would land EMPTY
             // while the push reports "created" and the receipt bakes that into the client's baseline.
             if (itemType == ItemKind.PlcItf)
-                pou = FindChild(ide, targetParent, name)
+                pou = TreeNav.FindChild(ide, targetParent, name)
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                         $"created interface '{name}' but it cannot be found under its parent — refusing to write " +
                         "through the stale create handle");
@@ -409,7 +345,7 @@ public static class PushService
             if (doc is null && ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
             {
                 var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
-                if (IsReadOnlyLanguage(currentLang))
+                if (BodyFormatGuard.IsReadOnlyLanguage(currentLang))
                     throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
                 if (currentLang is not null && !pouVg)
@@ -428,7 +364,7 @@ public static class PushService
             // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
             // root guard above. Checking inside the apply loop instead would leave the root body already written
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
-            foreach (var child in split.Members) RequireChildFormatWritable(ide, pou, child, itemType, parsed);
+            foreach (var child in split.Members) BodyFormatGuard.RequireChildFormatWritable(ide, pou, child, itemType, parsed);
 
             if (doc is not null)
             {
@@ -475,8 +411,8 @@ public static class PushService
             // diagram, and staying in `keep` below means the orphan pass does not delete it.
             if (Vocabulary.BodyMarker.Is(cimpl)) continue;
 
-            var childParent = ResolveFolder(ide, pou, child.Folder);
-            var existingChild = FindChild(ide, childParent, child.Name);
+            var childParent = TreeNav.ResolveFolder(ide, pou, child.Folder);
+            var existingChild = TreeNav.FindChild(ide, childParent, child.Name);
 
             if (childVg)
             {
@@ -506,7 +442,7 @@ public static class PushService
             {
                 // TC interface property references are stale after CreateChild — re-find.
                 if (isInterface && existingChild is null)
-                    childItem = FindChild(ide, childParent, child.Name)
+                    childItem = TreeNav.FindChild(ide, childParent, child.Name)
                         ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                             $"created interface property '{child.Name}' but it cannot be found — refusing to " +
                             "write its accessors through the stale create handle");
@@ -514,9 +450,9 @@ public static class PushService
                 var getCode = isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet;
                 var setCode = isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet;
                 if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Code, isInterface);
-                else RemoveChildIfPresent(ide, childItem, "Get");
+                else TreeNav.RemoveChildIfPresent(ide, childItem, "Get");
                 if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Code, isInterface);
-                else RemoveChildIfPresent(ide, childItem, "Set");
+                else TreeNav.RemoveChildIfPresent(ide, childItem, "Set");
             }
         }
 
@@ -574,8 +510,8 @@ public static class PushService
                 "into their folders — the import has already flattened them");
         foreach (var child in foldered)
         {
-            if (FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
-            ide.Move(flattened, ResolveFolder(ide, pou, child.Folder));
+            if (TreeNav.FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
+            ide.Move(flattened, TreeNav.ResolveFolder(ide, pou, child.Folder));
         }
     }
 
@@ -603,161 +539,21 @@ public static class PushService
                 ide.Delete(parent, s.Name);
     }
 
-    private static void RemoveChildIfPresent(IIdeDriver ide, ItemRef parent, string name)
-    {
-        if (FindChild(ide, parent, name) is not null) ide.Delete(parent, name);
-    }
 
-    /// <summary>Resolve a TOP-LEVEL item's placement folder. A non-empty <paramref name="folder"/> is the FULL
-    /// tree path exactly as <see cref="IProjectTree.WalkItems"/> emits it (e.g. CODESYS
-    /// "Device/Plc Logic/Application/POUs/Sub"), so push placement is symmetric with fetch: descend from the same
-    /// tree root the walk measures from, MATCHING each existing container (structural node OR user folder) by name
-    /// and only CREATING a user folder for a segment that does not yet exist. Empty ⇒ the default PLC-project root
-    /// (<paramref name="defaultParent"/>) so a bare create still lands in the Application / PLC project.</summary>
-    private static ItemRef ResolveTopLevelFolder(IIdeDriver ide, ItemRef defaultParent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return defaultParent;
-        var node = ide.GetTreeRoot();
-        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
-            node = DescendOrCreateFolder(ide, node, part);
-        return node;
-    }
 
-    /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
-    /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
-    /// through and create a user folder beside it.</summary>
-    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
-            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
-    // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
-    private static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
-        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
-            node = FindOrCreateFolder(ide, node, part);
-        return node;
-    }
 
-    /// <summary>The six-language body answer reduced to the GRAPHICAL ones — the same shape
-    /// <see cref="ICodeStore.BodyLanguage"/> returns (null for a textual ST/IL body), so the two sources are
-    /// interchangeable at every guard.</summary>
-    /// <summary>The language when it is one a textual write must not touch — i.e. anything but ST. Asking the
-    /// codec registry instead of listing names is what stops a new language (IL was one) being silently
-    /// classified textual and overwritten.</summary>
-    private static string? NonSt(string? language) =>
-        language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
 
-    /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
-    /// read-only set has ONE definition shared by the splice and both live guards.</summary>
-    private static bool IsReadOnlyLanguage(string? language) =>
-        language is { } l && Document.BodyCodec.For(l).ReadOnly;
 
-    /// <summary>Resolve a folder WITHOUT creating one — the read-only twin of <see cref="ResolveFolder"/>, for
-    /// callers that are only looking (a guard must not mutate the project it is about to refuse).</summary>
-    private static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
-        foreach (var part in FolderPath.Segments(folder))
-        {
-            if (FirstChild(ide, node, c => NameIs(ide, c, part) && ide.KindCode(c) == ItemKind.PlcFolder) is not { } found)
-                return null;                                   // a segment that does not exist ⇒ the child is not there
-            node = found;
-        }
-        return node;
-    }
 
-    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
-            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
-    private static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name));
 
-    /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it
-    /// decides from the IDE's LIVE body language, never from the incoming text. <c>NetworkText</c>'s contract says it
-    /// outright: CFC/SFC read-only-ness "is enforced by live IDE state on push, not by any content marker".
-    /// <para>The old guard tried to do it from content — <c>NetworkText.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
-    /// never work, because a CFC/SFC body has no text form and materializes as
-    /// <see cref="Vocabulary.BodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
-    /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
-    /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
-    /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
-    private static void RequireChildFormatWritable(IIdeDriver ide, ItemRef pou, Member child, int itemType,
-                                                   PouReader.ParsedPou? parsed)
-    {
-        var cimpl = child.Body;
-        var marker = Vocabulary.BodyMarker.Is(cimpl);
 
-        if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
 
-        string? lang;                        // null=textual; FBD/LD=editable; CFC/SFC=read-only
-        if (parsed is not null)
-        {
-            // From the document already read for this write. Besides costing nothing, this is how the guard stops
-            // MUTATING the project: the vendor path below resolves the child's folder to find it, and
-            // `ResolveFolder` CREATES missing folders — so a guard advertised as "validate before writing
-            // anything, so a refusal is atomic" could leave new empty folders behind and then refuse the push.
-            var known = parsed.Children.FirstOrDefault(c => string.Equals(c.Name, child.Name, StringComparison.OrdinalIgnoreCase));
-            if (known is null) return;       // not in the IDE yet — a create, nothing to overwrite
-            lang = NonSt(known.BodyLanguage);
-        }
-        else
-        {
-            if (FindChild(ide, FindFolder(ide, pou, child.Folder) ?? pou, child.Name) is not { } live) return;
-            lang = ide.BodyLanguage(live);
-        }
-
-        var childVg = NetworkText.Is(cimpl);
-
-        // A read-only body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
-        // splice leaves that member's body untouched. So the marker is only a refusal when it does NOT match a
-        // read-only body in the IDE: a stale or hand-written marker over something writable, which would
-        // otherwise silently do nothing.
-        if (marker)
-        {
-            if (IsReadOnlyLanguage(lang)) return;               // the normal round-trip — leave the body alone
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' carries a read-only graphical marker but its body in the IDE is " +
-                $"{lang ?? "textual"} — remove the marker and push real source, or pull first.");
-        }
-
-        if (lang is "CFC" or "SFC")
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' is a read-only {lang} body — edit it in the IDE, not via push.");
-        if (lang is not null && !childVg)
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' is a graphical {lang} body in the IDE — a textual push would overwrite it. " +
-                "Edit it in the IDE, or delete it first to replace it.");
-        if (lang is null && childVg)
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
-    }
-
-    /// <summary>The one 1-based child scan every lookup here shares: first child matching
-    /// <paramref name="match"/>, or null. (<see cref="RemoveOrphanChildren"/> keeps its own loop on purpose —
-    /// it snapshots the whole level before mutating.)</summary>
-    private static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
-    {
-        int count = ide.ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ide.ChildAt(parent, i);
-            if (match(child)) return child;
-        }
-        return null;
-    }
-
-    // Names are matched case-insensitively: IEC identifiers are case-insensitive, so Core never trusts the
-    // IDE's casing.
-    private static bool NameIs(IIdeDriver ide, ItemRef item, string name) =>
-        string.Equals(ide.Name(item), name, StringComparison.OrdinalIgnoreCase);
 
     private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string? decl, string impl, bool isInterface)
     {
-        var accessor = FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
+        var accessor = TreeNav.FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
         // An INTERFACE property accessor is a bodiless stub: it only declares that a getter/setter exists,
         // with no declaration or implementation text. TwinCAT COM rejects DeclarationText/ImplementationText
         // writes on it and can HARD-CRASH the IDE (RPC 0x800706BE), so for interfaces we ensure the accessor

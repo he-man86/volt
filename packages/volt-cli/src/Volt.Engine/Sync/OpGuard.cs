@@ -11,7 +11,7 @@ namespace Volt.Engine.Sync;
 /// marshals) can't slip between the check and the op, which a separate pre-op health call structurally cannot
 /// guarantee. When the caller supplies no expected identity (init/discovery, or an older client) only the
 /// connected check runs.</summary>
-public static class OpGuard
+internal static class OpGuard
 {
     /// <summary>Throws <c>PLC_DISCONNECTED</c> if no project is attached, or <c>WRONG_PROJECT</c> if the live
     /// bridge is serving a project other than the one the caller is bound to. Returns the LIVE identity it checked,

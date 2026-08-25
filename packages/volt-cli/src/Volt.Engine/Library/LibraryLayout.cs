@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Volt.Engine.Library
 {
@@ -9,7 +9,7 @@ namespace Volt.Engine.Library
     /// <para>They disagreed in the same response: the stub was written to <c>Library Manager/&lt;lib&gt;/</c> and
     /// reported at <c>Library Manager/</c>, with the version hashed over the folder it is NOT in. A client that
     /// trusts <c>Folders</c> looks for the file where it was never written.</para></summary>
-    public static class LibraryLayout
+    internal static class LibraryLayout
     {
         /// <summary>A library's own workspace folder — holding both the <c>.library</c> stub and the element
         /// signatures rendered beside it, so the two always colocate.</summary>
@@ -17,6 +17,11 @@ namespace Volt.Engine.Library
             string.IsNullOrEmpty(folder) ? Sanitize(name) : $"{folder}/{Sanitize(name)}";
 
         /// <summary>Strip what a Windows path cannot carry — library names and resolutions are free text.</summary>
-        public static string Sanitize(string s) => Regex.Replace(s, "[<>:\"/\\|?*]", "_").Trim();
+        /// <summary>Strip what a Windows path cannot carry — library names and resolutions are free text.
+        /// <para>There were TWO of these, and they disagreed: this one wrote the class as <c>[&lt;&gt;:"/\|?*]</c>,
+        /// where the <c>\|</c> escapes the PIPE and so leaves a backslash untouched, while the fetch's copy
+        /// stripped it. A backslash in a library name is a path separator on Windows, so the lenient rule was the
+        /// wrong one; the strict rule wins and there is now one of them.</para></summary>
+        public static string Sanitize(string s) => Regex.Replace(s, "[<>:\"/\\\\|?*]", "_").Trim();
     }
 }

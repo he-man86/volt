@@ -3,7 +3,7 @@ using System.Threading;
 using Volt.Cli.Ide.Twincat;
 using Volt.Wire;
 using Volt.Contracts;
-using Volt.Engine.Wire;
+using Volt.Engine.Host;
 
 // Per-XAE headless worker: the connector spawns one per running XAE window with `--xae-pid <pid>` (CODESYS-symmetric:
 // one host per IDE, one pipe each). ExternalAttach — it does NOT crash if the XAE isn't attachable yet: it starts

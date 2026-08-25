@@ -119,4 +119,36 @@ public class BodyCodecTests
         Assert.True(Volt.Engine.Vocabulary.BodyMarker.Is(decoded));   // the read-only marker, same as CFC/SFC
         Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
+
+    // ── the reader and the writer must agree on WHERE a body lives ─────────────────────────────────
+    /// <summary>Only CFC nests under <c>&lt;body&gt;/&lt;addData&gt;</c>; every TC6 language is a direct child.
+    /// <para>The reader accepted CFC, SFC, FBD <em>and</em> LD in the nested position while only the CFC codec
+    /// ever writes there. A nested SFC/FBD/LD would have been READ as that language and been INVISIBLE to the
+    /// writer — whose empty sibling <c>&lt;ST&gt;</c> then counts as uncommitted and gets overwritten, losing the
+    /// body. No vendor emits that shape, which is precisely why the disagreement went unnoticed; the rule now
+    /// lives once in <c>Languages.NestsInAddData</c> and both halves ask it.</para></summary>
+    [Theory]
+    [InlineData("CFC", true)]
+    [InlineData("SFC", false)]
+    [InlineData("FBD", false)]
+    [InlineData("LD", false)]
+    [InlineData("ST", false)]
+    [InlineData("IL", false)]
+    public void Only_CFC_nests_in_addData(string language, bool nests)
+    {
+        Assert.Equal(nests, Volt.Engine.Vocabulary.Languages.NestsInAddData(language));
+    }
+
+    /// <summary>Whatever the reader finds nested, the WRITER's codec must own that same position — otherwise a
+    /// body is readable and unwritable at once.</summary>
+    [Fact]
+    public void A_nested_body_the_reader_finds_is_one_the_writer_owns()
+    {
+        var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
+        var body = new XElement(ns + "body",
+            new XElement(ns + "ST"),
+            new XElement(ns + "addData", new XElement(ns + "data", new XElement(ns + "CFC"))));
+        var found = Volt.Engine.Document.BodyCodec.PresentWith(body);
+        Assert.Equal("CFC", found!.Value.Codec.Language);   // the writer locates it where the reader looks
+    }
 }

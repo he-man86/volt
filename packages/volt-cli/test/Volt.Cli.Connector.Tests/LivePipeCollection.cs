@@ -1,4 +1,5 @@
 ﻿using Xunit;
+using Volt.Engine.Host;
 
 // Run this assembly's tests SERIALLY (no cross-class parallelism). The connector suite includes live-named-pipe
 // integration tests (DisconnectLifecycleTests, CodesysSourceLiveTests) that stand up real BridgePipeHosts and poll

@@ -7,6 +7,7 @@ using Volt.Engine;
 using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
+using Volt.Engine.Host;
 
 namespace Volt.Cli.Ide.Twincat;
 

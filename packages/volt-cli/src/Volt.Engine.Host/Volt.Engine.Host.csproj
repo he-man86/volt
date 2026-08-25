@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The pipe HOST: the one place that maps a wire op to a service and marshals it onto the IDE thread.
+
+    Its own assembly so that Volt.Engine — the domain — references NO transport. Before this, the Engine
+    referenced the pipe library solely because the dispatcher lived inside it, which meant the CODESYS in-proc
+    DLL and every test dragged a named-pipe server along with the domain model.
+
+    The connector still cannot see the Engine: it references Contracts and Wire, and this project is downstream of
+    both. That boundary is a deliberate product property, so it is checked by the reference graph rather than by
+    convention.
+
+    netstandard2.0 because the in-process CODESYS bridge (net48) loads it.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Volt.Engine.Host</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
+  </ItemGroup>
+
+</Project>

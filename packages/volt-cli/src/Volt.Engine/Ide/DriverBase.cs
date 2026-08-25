@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Model;
 

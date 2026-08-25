@@ -6,7 +6,7 @@ namespace Volt.Engine.Model
     /// (<c>index = localId / 10^10</c>). LD does NOT stride — its networks are delimited by
     /// <c>vendorElement(networktitle)</c> markers and share one power-rail pair; the stride is the
     /// FBD-only fallback in <c>GraphReader.SplitNetworks</c>.</summary>
-    public static class GraphConstants
+    internal static class GraphConstants
     {
         public const long NetworkStride = 10_000_000_000L;
     }
@@ -85,6 +85,6 @@ namespace Volt.Engine.Model
     /// reader stays TOTAL over the XSD and <c>GraphWriter</c> can re-emit it verbatim; <c>NetworkTextWriter</c>
     /// has no network text spelling for it, so it is DROPPED from network text and from any pushed body (see the
     /// <c>ponytail:</c> note in NetworkTextWriter).</summary>
-    public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
+    internal sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);
 }

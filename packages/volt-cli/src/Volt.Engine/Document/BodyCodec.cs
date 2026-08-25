@@ -150,7 +150,7 @@ namespace Volt.Engine.Document
             var types = Graph.InstanceTypes.Of(declaration);
             var replacement = GraphWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
             var existing = Locate(body) ?? body.Elements()
-                .FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");  // a language change swaps the element
+                .FirstOrDefault(e => Languages.IsNetwork(e.Name.LocalName));  // a language change swaps the element
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
             GraphSplice.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
             if (XNode.DeepEquals(existing, replacement)) return false;

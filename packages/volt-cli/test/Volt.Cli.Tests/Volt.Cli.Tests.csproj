@@ -10,6 +10,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\..\src\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\..\src\Volt.Wire\Volt.Wire.csproj" />

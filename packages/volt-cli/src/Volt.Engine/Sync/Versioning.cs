@@ -1,5 +1,4 @@
-﻿using Volt.Wire;
-using Volt.Contracts;
+﻿using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Materialize;

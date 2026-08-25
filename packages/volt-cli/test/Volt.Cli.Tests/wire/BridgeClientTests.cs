@@ -5,7 +5,7 @@ using Volt.Cli.Sync;
 using Volt.Wire;
 using Xunit;
 using Volt.Contracts;
-using Volt.Engine.Wire;
+using Volt.Engine.Host;
 
 namespace Volt.Cli.Tests;
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Graph;
 
@@ -29,5 +30,5 @@ public static class NetworkText
 
     /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — an informational
     /// marker is materialized for them instead of a network-text body.)</summary>
-    public static bool IsEditable(string? language) => language is "FBD" or "LD";
+    public static bool IsEditable(string? language) => Languages.IsNetwork(language);
 }

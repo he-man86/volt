@@ -9,6 +9,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\..\src\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Volt.Cli.Connector.Core\Volt.Cli.Connector.Core.csproj" />
     <!-- Also the bridge Core, ONLY so WireContractTests can pin the connector's anonymous `connect` body against

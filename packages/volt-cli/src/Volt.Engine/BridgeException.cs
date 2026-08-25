@@ -1,5 +1,4 @@
 ﻿using System;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Engine;

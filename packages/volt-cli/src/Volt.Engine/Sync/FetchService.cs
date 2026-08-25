@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Ide;
@@ -119,7 +118,7 @@ public static class FetchService
                 // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
                 // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
                 // its `.library` file.
-                var res = ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
+                var res = LibraryFetch.ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
                 if (res.Length > 0) libByResolution[res] = (walkedFolder, it.Name);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
                 // resolved name+version); collect it to decide whether the signatures need re-extracting.
@@ -153,7 +152,7 @@ public static class FetchService
         // never on a fetch whose .library versions all match the client's knownItems (no library changed — a
         // library's API is immutable per version, so the client's existing signature files still stand), and always
         // on init. This is the whole optimization: the precompile (Build) runs iff a .library version changed.
-        var librariesUnchanged = !isInit && LibrariesUnchanged(liveLibVersions, knownItems);
+        var librariesUnchanged = !isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems);
         // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
         // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
         // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
@@ -168,7 +167,7 @@ public static class FetchService
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
         // the AI gets the full public API of the used libraries). Render the signatures now, ticking the SAME
         // progress bar (no separate phase); `done` == walked.Count here (the walk finished).
-        var (libRenderNull, libUnmatched) = AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
+        var (libRenderNull, libUnmatched) = LibraryFetch.AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
         var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
@@ -194,81 +193,13 @@ public static class FetchService
         };
     }
 
-    /// <summary>Render the SIGNATURE (declaration only) of EVERY referenced-library element and add it as a
-    /// read-only <see cref="FetchedItem"/> beside its library's `.library` file (folder
-    /// <c>&lt;lib folder&gt;/&lt;lib name&gt;</c>, name <c>&lt;Element&gt;&lt;ext&gt;</c>). No referenced-only gate:
-    /// the full public API of every used library is materialized so the AI/LSP can resolve into any of it. The
-    /// library is matched to its `.library` ref by RESOLUTION; an unmatched lib falls back to the shared Library
-    /// Manager folder. Takes the signatures <c>Handle</c> already extracted up front (so their count folds into the
-    /// one progress total); renders them, ticking the shared bar. TwinCAT returns none. The version is a content
-    /// hash — read-only, never a push target.</summary>
-    /// <returns>(renderNull, unmatched): how many element signatures couldn't be rendered, and how many
-    /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</returns>
-    private static (int RenderNull, int Unmatched) AppendLibrarySignatures(
-        IReadOnlyList<LibSignature> sigs, Dictionary<string, (string Folder, string Name)> libByResolution,
-        List<FetchedItem> changed, Action<ProgressFrame>? onProgress, int startDone, int total)
-    {
-        // The Library Manager base folder (all refs share it) — home of the LOUD `(unresolved)` marker below.
-        var libManBase = libByResolution.Values.Select(v => v.Folder).FirstOrDefault(f => f.Length > 0) ?? "";
-        var renderNull = 0;
-        var unmatched = 0;
-        var i = 0;
-        foreach (var sig in sigs)
-        {
-            // Tick the shared progress bar (throttled, ~every 25) as each signature renders — the same continuous
-            // fraction as the item walk, picking up where it left off (startDone == walked.Count).
-            i++;
-            if (onProgress != null && (i % 25 == 0 || i == sigs.Count))
-                onProgress(new ProgressFrame { Operation = Ops.Fetch, Done = startDone + i, Total = total });
-
-            // Render-null: a sub-signature (method/property — covered by its parent FB) or an unknown POUType.
-            if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Debug($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }
-            string libFolder;
-            if (libByResolution.TryGetValue(sig.LibraryPath, out var lib))
-                // Identified: fold the element beside its library's `.library` file (matched by RESOLUTION).
-                libFolder = LibraryFolder(lib.Folder, lib.Name);
-            else
-            {
-                // NOT identified: its owning library matched no `.library` ref by RESOLUTION (CODESYS facade /
-                // Interfaces-Implementation split). Do NOT silently drop it and do NOT guess it into a real
-                // library's folder — surface it LOUD under an explicit `(unresolved)` marker so the matching gap
-                // is impossible to miss (nothing lost, no hidden bug). See openspec bridge-diagnostics-observability.
-                libFolder = LibraryFolder(LibraryFolder(libManBase, "(unresolved)"), Sanitize(sig.LibraryPath.Split(',')[0].Trim()));
-                unmatched++;
-                VoltLog.Debug($"fetch: lib element '{sig.Name}' — owning library '{sig.LibraryPath}' matched no .library ref, foldered under (unresolved)");
-            }
-            var fileName = $"{Sanitize(sig.Name)}{r.Ext}";
-            changed.Add(new FetchedItem
-            {
-                Name = fileName,
-                Folder = libFolder,
-                SourceText = r.Text,
-                Version = Hasher.ComputeItemVersion(libFolder, r.Text),
-            });
-        }
-        return (renderNull, unmatched);
-    }
 
     // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
     // in the client's knownItems (only .library keys are relevant to the library-change decision).
-    private static readonly string LibraryExt = "." + ItemKind.ExtFor(ItemKind.Kinds.Library);
 
     // The RESOLUTION line of a `.library` manifest (written by LibraryManifest.Build). Hoisted to a static so it
     // isn't recompiled per library item on every walk.
-    private static readonly Regex ResolutionLine = new Regex(@"^RESOLUTION (.+)$", RegexOptions.Multiline);
 
-    /// <summary>True when the referenced-library set is unchanged versus the client's <paramref name="knownItems"/>:
-    /// every live <c>.library</c> version matches what the client already has, AND no <c>.library</c> the client
-    /// knows has been removed. An add, a version bump, or a removal all make it false ⇒ re-extract. Reuses the same
-    /// per-file version hash carried in knownItems — no separate fingerprint.</summary>
-    public static bool LibrariesUnchanged(IReadOnlyDictionary<string, string> liveLibVersions, IReadOnlyDictionary<string, string> knownItems)
-    {
-        foreach (var kv in liveLibVersions)
-            if (!knownItems.TryGetValue(kv.Key, out var known) || known != kv.Value) return false; // added or changed
-        foreach (var key in knownItems.Keys)
-            if (key.EndsWith(LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(key)) return false; // removed
-        return true;
-    }
 
     /// <summary>Format the non-zero drop tallies for the completion log — e.g. <c> (skipped: 2 unmapped-kind,
     /// 1 unreadable)</c>, or empty when nothing was dropped. Keeps the common clean-pull line uncluttered.</summary>
@@ -278,12 +209,7 @@ public static class FetchService
         return hit.Count == 0 ? "" : $" (skipped: {string.Join(", ", hit)})";
     }
 
-    private static string Sanitize(string s) => Regex.Replace(s, "[<>:\"/\\\\|?*]", "_").Trim();
 
-    /// <summary>A library's own workspace folder — its element folder, holding both the `.library` stub and the
-    /// element signatures (`Library Manager/&lt;lib&gt;/`). One definition so the stub and its elements always
-    /// colocate.</summary>
-    private static string LibraryFolder(string? folder, string name) => Library.LibraryLayout.FolderFor(folder, name);
 
     /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
     /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>

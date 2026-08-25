@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Model;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Document;
 
@@ -181,7 +182,7 @@ public static class PouReader
         bodyEl.Elements().Where(e => e.Name.LocalName == "addData")
             .SelectMany(a => a.Elements().Where(d => d.Name.LocalName == "data"))
             .SelectMany(d => d.Elements())
-            .FirstOrDefault(e => e.Name.LocalName is "CFC" or "SFC" or "FBD" or "LD");
+            .FirstOrDefault(e => Languages.NestsInAddData(e.Name.LocalName));
 
     /// <summary>The body element's graphical language for an item in an export, or null when the body is textual —
     /// the ONE answer to that question, shared with the driver's <c>BodyLanguage</c> gate so a body cannot be

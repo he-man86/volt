@@ -11,7 +11,7 @@ namespace Volt.Engine.Graph;
 /// <see cref="TypeName"/> is the PLCopen/CODESYS operator type (OR, ADD, GT…); the
 /// <see cref="Symbol"/> is how it renders infix in ST/network text (OR, +, &gt;…).
 /// </summary>
-public static class FbdOperators
+internal static class FbdOperators
 {
     private static readonly (string TypeName, string Symbol)[] Table =
     {

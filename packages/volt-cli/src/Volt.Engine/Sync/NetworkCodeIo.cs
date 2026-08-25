@@ -3,6 +3,7 @@ using Volt.Engine.Document;
 using Volt.Engine.Graph;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Sync;
 
@@ -39,7 +40,7 @@ public static class NetworkCodeIo
         var xml = code.ReadXml(item);                        // graphical → the PLCopen transport (throws on failure)
         var decl = DeclarationFrom(code, item, itemName, xml);
 
-        if (lang is "CFC" or "SFC")                          // CFC/SFC: no network-text round-trip → empty body, real decl
+        if (Languages.IsDiagram(lang))                          // CFC/SFC: no network-text round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
         var fbd = GraphSplice.FindFbdLdBody(xml, itemName)

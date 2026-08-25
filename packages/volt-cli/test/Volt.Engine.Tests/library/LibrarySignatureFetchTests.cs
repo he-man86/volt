@@ -2,6 +2,7 @@
 using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Sync;
+using Volt.Engine.Library;
 
 namespace Volt.Cli.Tests;
 
@@ -27,10 +28,10 @@ public class LibrarySignatureFetchTests
     public void LibrariesUnchanged_decision()
     {
         var known = new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["PLC_PRG.prg"] = "p" };
-        Assert.True(FetchService.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1" }, known));
-        Assert.False(FetchService.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v2", ["B.library"] = "v1" }, known)); // bump
-        Assert.False(FetchService.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["C.library"] = "v1" }, known)); // added
-        Assert.False(FetchService.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1" }, known)); // B removed
+        Assert.True(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1" }, known));
+        Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v2", ["B.library"] = "v1" }, known)); // bump
+        Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["C.library"] = "v1" }, known)); // added
+        Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1" }, known)); // B removed
     }
 
     [Fact]

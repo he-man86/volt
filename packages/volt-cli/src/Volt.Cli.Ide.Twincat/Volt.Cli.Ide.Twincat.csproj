@@ -8,6 +8,7 @@
     <AssemblyName>VoltBridgeTwincat</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />

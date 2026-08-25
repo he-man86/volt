@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Vocabulary;
@@ -21,7 +20,7 @@ namespace Volt.Engine.Sync;
 /// keeps its own walk (it layers changed-body + onlyItems + library-signature logic on top) but is documented to
 /// produce the same version map for the same gates.
 /// </summary>
-public sealed class ProjectSnapshot
+internal sealed class ProjectSnapshot
 {
     /// <summary><see cref="Walk"/> is the only producer — it is what computes the aggregate versions below, so a
     /// snapshot can never exist with unhashed maps.</summary>

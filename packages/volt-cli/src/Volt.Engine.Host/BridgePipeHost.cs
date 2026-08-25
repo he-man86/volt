@@ -6,8 +6,10 @@ using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
-namespace Volt.Engine.Wire;
+namespace Volt.Engine.Host;
 
 /// <summary>
 /// Serves the bridge ops over the named pipe, for the CLI and the connector alike: maps each op to its Sync service

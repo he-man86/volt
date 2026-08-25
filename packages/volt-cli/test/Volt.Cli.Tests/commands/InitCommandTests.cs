@@ -5,7 +5,7 @@ using Volt.Wire;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
 using Volt.Contracts;
-using Volt.Engine.Wire;
+using Volt.Engine.Host;
 
 namespace Volt.Cli.Tests;
 

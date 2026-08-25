@@ -18,6 +18,5 @@
   <ItemGroup>
     <!-- Wire/BridgePipeHost serves Core's services over the pipe (PipeServer). Transport is the wire-only layer. -->
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
-    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
   </ItemGroup>
 </Project>

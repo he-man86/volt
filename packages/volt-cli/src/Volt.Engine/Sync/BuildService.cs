@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 

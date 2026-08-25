@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Volt.Wire;
 using Volt.Contracts;
 
 namespace Volt.Engine.Ide;

@@ -7,6 +7,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Host;
 
 namespace Volt.Cli.Tests;
 

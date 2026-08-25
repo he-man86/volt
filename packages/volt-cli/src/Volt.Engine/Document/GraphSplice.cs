@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Document
 {
@@ -151,6 +152,6 @@ namespace Volt.Engine.Document
         }
 
         private static XElement? FindFbdLd(XDocument doc, string itemName) =>
-            PlcOpenDocument.ItemBody(doc, itemName)?.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
+            PlcOpenDocument.ItemBody(doc, itemName)?.Elements().FirstOrDefault(e => Languages.IsNetwork(e.Name.LocalName));
     }
 }

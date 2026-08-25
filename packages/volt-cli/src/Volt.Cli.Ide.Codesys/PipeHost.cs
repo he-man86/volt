@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Threading;
 using Volt.Wire;
 using Volt.Contracts;
-using Volt.Engine.Wire;
+using Volt.Engine.Host;
 
 namespace Volt.Cli.Ide.Codesys;
 

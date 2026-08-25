@@ -107,7 +107,7 @@ public class WireVocabularyGuardTests
             var rx = new Regex("\"(" + string.Join("|", values.Select(Regex.Escape)) + ")\"");
             foreach (var file in EnumerateCs(src))
             {
-                if (allow.Contains(Path.GetFileName(file))) continue;
+                if (allow.Contains(AllowKey(file))) continue;
                 var lineNo = 0;
                 foreach (var raw in File.ReadLines(file))
                 {
@@ -127,6 +127,19 @@ public class WireVocabularyGuardTests
             "re-spells one instead of using its constant (ItemKind.Kinds / Ops / Vendors / HealthStatus / " +
             "BridgeErrorCodes). Use the constant, or — if it is genuinely a different vocabulary — add the file to " +
             "that vocabulary's allowlist in this test:\n  " + string.Join("\n  ", offenders));
+    }
+
+    /// <summary>The allowlist key for a file: its name with any PARTIAL-CLASS suffix removed, so
+    /// <c>TcObjectModel.Build.cs</c> and <c>TcObjectModel.Session.cs</c> both key as <c>TcObjectModel.cs</c>.
+    /// <para>The allowlist used to be the bare basename, which meant splitting a big gateway into partial files —
+    /// exactly what the restructure does — silently moved allowlisted content OUT of its exemption and failed the
+    /// guard for no real reason. An exemption belongs to a TYPE, and a partial class is one type.</para></summary>
+    private static string AllowKey(string file)
+    {
+        var name = Path.GetFileName(file);
+        var stem = name.Substring(0, name.Length - ".cs".Length);
+        var dot = stem.IndexOf('.');
+        return (dot < 0 ? stem : stem.Substring(0, dot)) + ".cs";
     }
 
     private static IEnumerable<string> EnumerateCs(string dir) =>
