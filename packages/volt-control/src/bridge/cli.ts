@@ -61,32 +61,35 @@ export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts & {
 export function runVolt(workspaceRoot: string, args: string[], opts: RunOpts = {}): Promise<{ stdout: string | Buffer; stderr: string; code: number }> {
 	const { onProgress, binary, env } = opts
 	return new Promise((resolve) => {
-		const child = spawnCli(workspaceRoot, args, { ...(onProgress ? { VOLT_PROGRESS_JSON: "1" } : {}), ...env })
+		// VOLT_PROGRESS_JSON is set ALWAYS, not only when a caller wants progress. The CLI streams progress on
+		// stderr either way; under the flag it is prefixed frames this strips, without it it is human text that
+		// stays MIXED IN with real diagnostics. Every error path here then reads `firstLine(stderr)` — which is a
+		// progress label, always, because progress is emitted before anything can go wrong. That is how a failed
+		// pull reached the desktop, the extension and the e2e suite alike as the message "Fetching from IDE…".
+		// One channel discipline: frames are machine-readable and stripped, so stderr carries diagnostics ONLY.
+		const child = spawnCli(workspaceRoot, args, { VOLT_PROGRESS_JSON: "1", ...env })
 		const chunks: Buffer[] = []
 		let stderr = ""
-		let pending = "" // stderr carry across chunk boundaries, only when parsing progress lines
+		let pending = "" // stderr carry across chunk boundaries
 		child.stdout.on("data", (d: Buffer) => chunks.push(d))
 		// setEncoding installs a stateful StringDecoder, so a multibyte UTF-8 sequence split across two chunks
 		// isn't corrupted into replacement chars (a non-ASCII item name in an error line would otherwise mojibake).
 		child.stderr.setEncoding("utf-8")
 		child.stderr.on("data", (d: string) => {
-			if (!onProgress) {
-				stderr += d
-				return
-			}
 			pending += d
 			let nl: number
 			while ((nl = pending.indexOf("\n")) >= 0) {
 				const line = pending.slice(0, nl)
 				pending = pending.slice(nl + 1)
-				if (line.startsWith(PROGRESS_PREFIX)) {
-					try {
-						onProgress(JSON.parse(line.slice(PROGRESS_PREFIX.length)) as ProgressUpdate)
-					} catch {
-						/* ignore a malformed frame */
-					}
-				} else {
+				if (!line.startsWith(PROGRESS_PREFIX)) {
 					stderr += line + "\n"
+					continue
+				}
+				if (onProgress === undefined) continue // a frame nobody asked for: dropped, never left in stderr
+				try {
+					onProgress(JSON.parse(line.slice(PROGRESS_PREFIX.length)) as ProgressUpdate)
+				} catch {
+					/* ignore a malformed frame */
 				}
 			}
 		})

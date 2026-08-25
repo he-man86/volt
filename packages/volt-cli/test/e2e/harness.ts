@@ -58,6 +58,14 @@ let cachedPipe: string | undefined
 function resolvePipe(): string {
 	if (cachedPipe && livePipes().includes(cachedPipe)) return cachedPipe
 	cachedPipe = livePipes()[0] ?? PIPE_PREFIX
+	// Stamp the RESOLVED name back into the environment, because a spawned `volt` inherits it — and VOLT_PIPE is
+	// how the CLI is told which bridge to drive. Without this, the suite is normally started with the vendor
+	// PREFIX (`VOLT_PIPE=volt.bridge.codesys`, exactly as the README says to), the harness resolves that to the
+	// live per-pid pipe for its own calls, and every CLI child still inherits the prefix — which is not a pipe.
+	// The CLI then reports "bridge is not reachable", correctly: naming a pipe means that pipe. That is the whole
+	// of why the two conflict tests were red; they are the only e2e tests that drive the CLI rather than the wire.
+	// The invariant below is not "the harness uses one pipe" — it is that EVERYTHING driving this bridge does.
+	process.env.VOLT_PIPE = cachedPipe
 	return cachedPipe
 }
 

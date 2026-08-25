@@ -69,7 +69,10 @@ describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish
 	async function setupConflict(itemId: string): Promise<string> {
 		const name = `${itemId}.fb`
 		await createItem(name, fb(itemId, 0)) // base, in the IDE
-		expect((await pull(root)).kind).toBe("ok") // base lands clean in the workspace
+		const base = await pull(root)
+		// The REASON, not just the kind: this assertion sat red for a long time saying only "expected ok, got
+		// error", which is the least useful thing it could have said.
+		expect(base.kind, `pull: ${JSON.stringify(base)}`).toBe("ok") // base lands clean in the workspace
 
 		const file = srcFileOf(root, itemId)
 		writeFileSync(file.abs, fb(itemId, 222)) // MINE
