@@ -95,6 +95,16 @@ namespace Volt.Engine.Document
             if (present is not null && present.ReadOnly)
                 throw new InvalidOperationException(
                     $"'{itemName}' is a read-only {present.Language} body — edit it in the IDE, not via push.");
+
+            // A body element NO codec owns is a language Volt does not model — refuse it the same way, and for a
+            // stronger reason: with a CFC we at least know what we are declining to touch. `found` is null here,
+            // so every check below (which all read `present`) would pass and the write would proceed straight over
+            // it. `establishing` does not exempt this one: `CreateChild` seeds a language Volt asked for, so an
+            // unmodelled body on a create is not our seed — it is somebody else's body under our name.
+            if (BodyCodec.UnmodelledLanguageIn(body) is { } unmodelled)
+                throw new InvalidOperationException(
+                    $"'{itemName}' has a {unmodelled} body, which Volt does not model — it would be overwritten. " +
+                    "Edit it in the IDE.");
             // The language guard protects a body the ENGINEER made. On a create there is no such body — the only
             // one present is the seed `CreateChild` laid down microseconds ago, in this same push.
             //

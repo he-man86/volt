@@ -1,0 +1,123 @@
+using System;
+using System.Collections.Generic;
+using System.Xml.Linq;
+using Xunit;
+using Volt.Engine.Document;
+using Volt.Engine.Model;
+using Volt.Engine.Vocabulary;
+
+namespace Volt.Cli.Tests;
+
+/// <summary>
+/// A body in a language Volt does not model must FAIL CLOSED — be recognised as non-textual and refused — rather
+/// than be read as ST and overwritten.
+///
+/// <para><b>This is the IL failure mode, and it was still open.</b> `PouReader.NonStLanguageOf` promises exactly
+/// this: "a language nobody has thought about yet is refused rather than flattened". It could not deliver it.
+/// `LangIn` iterated a hardcoded <c>{ ST, IL, FBD, LD, CFC, SFC }</c> and returned <c>default</c> for anything
+/// else, so an unmodelled element read as null — which every caller takes to mean "textual". The write path had
+/// the same hole one layer over: `BodyCodec.PresentWith` matches REGISTERED codecs, so an unmodelled element
+/// matches none, `PouSplice.SetBody` sees no present language, and the mismatch guard never fires.</para>
+///
+/// <para>The closed list was the bug both times. These tests use a body language that does not exist — if the
+/// fix were "add one more name to the list", they would still fail.</para>
+/// </summary>
+public class UnmodelledLanguageTests
+{
+    private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
+
+    /// <summary>A POU whose body is a language no vendor ships and Volt has never heard of.</summary>
+    private static string PouWithBody(string bodyInner) =>
+        $"""
+        <?xml version="1.0" encoding="utf-8"?>
+        <project xmlns="{Ns}">
+          <types><pous>
+            <pou name="FB_Odd" pouType="functionBlock">
+              <interface />
+              <body>{bodyInner}</body>
+              <addData>
+                <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+                  <InterfaceAsPlainText><xhtml>FUNCTION_BLOCK FB_Odd
+        VAR
+        END_VAR</xhtml></InterfaceAsPlainText>
+                </data>
+              </addData>
+            </pou>
+          </pous></types>
+        </project>
+        """;
+
+    private static XElement BodyOf(string xml) =>
+        XDocument.Parse(xml).Descendants().First(e => e.Name.LocalName == "body");
+
+    // ── the read side ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>An unmodelled body language is reported AS a language, not as null. Null is what every caller
+    /// reads as "textual", which is the flattening this method exists to prevent.</summary>
+    [Fact]
+    public void An_unmodelled_body_language_is_not_reported_as_textual()
+    {
+        var body = BodyOf(PouWithBody("<QUUX><whatever /></QUUX>"));
+        Assert.Equal("QUUX", PouReader.NonStLanguageOf(body));
+    }
+
+    /// <summary>The schema's non-language children are still not languages. `addData` is where CFC/SFC and every
+    /// vendor extension live, so mistaking it for the body language would break every real export.</summary>
+    [Fact]
+    public void AddData_and_documentation_are_not_mistaken_for_a_language()
+    {
+        Assert.Null(PouReader.NonStLanguageOf(BodyOf(PouWithBody(
+            "<ST><xhtml>x := 1;</xhtml></ST><documentation /><addData />"))));
+    }
+
+    /// <summary>The shapes that already worked keep working — this is the regression half.</summary>
+    [Theory]
+    [InlineData("<ST><xhtml>x := 1;</xhtml></ST>", null)]
+    [InlineData("<FBD />", "FBD")]
+    [InlineData("<LD />", "LD")]
+    [InlineData("<SFC />", "SFC")]
+    [InlineData("<IL><xhtml>LD x</xhtml></IL>", "IL")]
+    public void The_known_languages_are_unchanged(string bodyInner, string? expected) =>
+        Assert.Equal(expected, PouReader.NonStLanguageOf(BodyOf(PouWithBody(bodyInner))));
+
+    /// <summary>A CFC body ships an EMPTY sibling &lt;ST&gt; and hangs the real body off addData. The nested
+    /// lookup must still win — this is the ordering the open-ended scan must not disturb.</summary>
+    [Fact]
+    public void The_nested_CFC_body_still_wins_over_its_empty_ST_sibling()
+    {
+        var body = BodyOf(PouWithBody(
+            "<ST><xhtml /></ST><addData><data name=\"http://www.3s-software.com/plcopenxml/cfc\">" +
+            "<CFC /></data></addData>"));
+        Assert.Equal("CFC", PouReader.NonStLanguageOf(body));
+    }
+
+    // ── the write side ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>And the push REFUSES it. The read half alone is not the fix: `BodyCodec.PresentWith` matches
+    /// registered codecs, so an unmodelled element matches none, the language-mismatch guard sees nothing present,
+    /// and the ST write proceeds — flattening the body the read half just correctly identified.</summary>
+    [Fact]
+    public void A_push_refuses_to_overwrite_an_unmodelled_body_language()
+    {
+        var xml = PouWithBody("<QUUX><whatever /></QUUX>");
+        var split = new ItemContent(ItemKind.Kinds.FunctionBlock,
+            "FUNCTION_BLOCK FB_Odd\nVAR\nEND_VAR", "x := 1;", new List<Member>());
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => PouDocument.Splice(xml, "FB_Odd", split, establishing: false));
+        Assert.Contains("QUUX", ex.Message);
+    }
+
+    /// <summary>A CREATE still establishes over the seed. `establishing` exists because a body Volt itself laid
+    /// down microseconds ago is not an engineer's decision to protect — the refusal above must not swallow that.</summary>
+    [Fact]
+    public void Establishing_a_body_on_a_create_is_still_allowed()
+    {
+        var xml = PouWithBody("<ST><xhtml /></ST>");
+        var split = new ItemContent(ItemKind.Kinds.FunctionBlock,
+            "FUNCTION_BLOCK FB_Odd\nVAR\nEND_VAR", "x := 1;", new List<Member>());
+
+        var doc = PouDocument.Splice(xml, "FB_Odd", split, establishing: true);
+        Assert.Contains("x := 1;", doc);
+    }
+}

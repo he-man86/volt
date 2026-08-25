@@ -96,6 +96,15 @@ namespace Volt.Engine.Document
                 if (c.Locate(body) is { } el) return (c, el);
             return null;
         }
+
+        /// <summary>The language of a body element NO codec owns, or null. The write-side half of failing closed.
+        /// <para><see cref="PresentWith"/> answers by asking each REGISTERED codec, so a body in a language Volt
+        /// does not model matches none and comes back null — indistinguishable from a body with no language at
+        /// all. The mismatch guard in <c>PouSplice.SetBody</c> then sees nothing present and writes straight over
+        /// it. Fixing only the READ side (<c>PouReader.LangIn</c>, which now reports the language correctly)
+        /// would have left this path exactly as it was: correctly identified, still flattened.</para></summary>
+        public static string? UnmodelledLanguageIn(XElement body) =>
+            PresentWith(body) is null && PouReader.LanguageOf(body) is { } lang ? lang : null;
     }
 
     /// <summary>ST — the IDENTITY codec. Text in, text out; the IDE's compiler is the judge. Both halves were

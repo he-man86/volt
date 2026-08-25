@@ -151,21 +151,39 @@ public static class PouReader
     }
 
     /// <summary>The ONE body-language lookup, matched by LOCAL name so it serves both callers — CODESYS
-    /// addData bodies may not be in the PLCopen namespace, and the namespaced case matches by local name
-    /// too. Keeping the six-language list in one place is the point: it was edited in two.</summary>
+    /// addData bodies may not be in the PLCopen namespace, and the namespaced case matches by local name too.
+    ///
+    /// <para><b>Open-ended, and that is the whole point.</b> It used to iterate a hardcoded
+    /// <c>{ ST, IL, FBD, LD, CFC, SFC }</c> and answer <c>default</c> for anything outside it — so an unmodelled
+    /// body language read as NO language, which every caller takes to mean textual, and a textual push then
+    /// overwrote it. That is precisely the flattening <see cref="NonStLanguageOf"/> promises cannot happen, and
+    /// it is the failure IL already caused once: a closed list cannot fail closed.</para>
+    ///
+    /// <para>So the language is whatever element is THERE. That is SPECIFIED, not inferred: the normative schema
+    /// at <c>docs/tc6_xml_v201.xsd:410-449</c> defines <c>body</c> as
+    /// <c>sequence(choice(IL|ST|FBD|LD|SFC), addData?, documentation?)</c> — so <c>addData</c> and
+    /// <c>documentation</c> are the ONLY two non-language children a conformant body can have, and they are the
+    /// two skipped below. And it is corroborated: across every recorded export under <c>fixtures/</c> a body
+    /// carries exactly one language element, and the only body with more than one child is the CFC/SFC shape
+    /// (<c>ST</c> + <c>addData</c>) the nested lookup above already resolves first.</para>
+    /// <para>An element outside that choice is a vendor extension the schema does not admit — which is precisely
+    /// the case this method must not answer "textual" for. Reporting it AS the language is what lets the caller
+    /// refuse it; guessing that it is not one is what flattened IL.</para></summary>
     private static (string? language, XElement? element) LangIn(XElement bodyEl)
     {
         // The NESTED graphical body wins, and must be looked for FIRST — see NestedGraphicalBody. A body that
         // carries one also carries an EMPTY sibling <ST>, so a direct-children scan answers "ST" and reports a
         // read-only diagram as textual.
         if (NestedGraphicalBody(bodyEl) is { } nested) return (nested.Name.LocalName, nested);
-        foreach (var lang in new[] { "ST", "IL", "FBD", "LD", "CFC", "SFC" })
-        {
-            var langEl = bodyEl.Elements().FirstOrDefault(e => e.Name.LocalName == lang);
-            if (langEl != null) return (lang, langEl);
-        }
-        return default;
+        var langEl = bodyEl.Elements().FirstOrDefault(e => !IsBodyMetadata(e.Name.LocalName));
+        return langEl is null ? default : (langEl.Name.LocalName, langEl);
     }
+
+    /// <summary>The <c>&lt;body&gt;</c> children that are NOT the body's language: TC6's own
+    /// <c>documentation</c>, and <c>addData</c> (where CFC/SFC and every vendor extension live). Everything else
+    /// under a body IS the language element, whether or not Volt models it.</summary>
+    private static bool IsBodyMetadata(string localName) =>
+        localName is "addData" or "documentation";
 
     /// <summary>A graphical body that is NOT a direct <c>&lt;body&gt;</c> child but hangs off
     /// <c>&lt;body&gt;/&lt;addData&gt;/&lt;data name="…/cfc"&gt;</c>, or null.
@@ -192,6 +210,10 @@ public static class PouReader
     /// language missing from the list was reported as "textual" and a textual push then overwrote it. IL was
     /// exactly that case — Volt does not support IL any more than CFC or SFC, but the list said otherwise.
     /// Asking "is it ST?" means a language nobody has thought about yet is refused rather than flattened.</para></summary>
+    /// <summary>The body's language, whatever it is — ST included, and a language Volt does not model included.
+    /// Null only when the body holds no language element at all (an interface member, a DUT, a GVL).</summary>
+    internal static string? LanguageOf(XElement bodyEl) => LangIn(bodyEl).language;
+
     internal static string? NonStLanguageOf(XElement bodyEl) =>
         LangIn(bodyEl).language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
 
