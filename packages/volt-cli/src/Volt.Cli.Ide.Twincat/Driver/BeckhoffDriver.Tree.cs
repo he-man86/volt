@@ -129,6 +129,30 @@ public sealed partial class BeckhoffDriver
     public void Move(ItemRef item, ItemRef target)
     {
         var name = Name(item);
+
+        // A POU MEMBER takes a different route, and the vendor forces it: `ExportChild` refuses a member because
+        // TwinCAT keeps the whole POU — members and all — in ONE `.TcPOU`, so a member has no archive of its own.
+        // Its placement is an attribute IN that file (`FolderPath`), which is what makes this expressible at all
+        // (DIALECT D4j). So the round trip happens on the enclosing POU and only the attribute changes.
+        if (_om.EnclosingPouOf(item.Native) is { } pou)
+        {
+            var pouName = _om.GetName(pou);
+            var folder = _om.RelativePath(pou, target.Native);   // "" when the target IS the POU (back to its root)
+            _om.MoveMember(_om.Parent(pou), pouName, name, folder);
+
+            // CONFIRM it. The round trip reports success by side effect and has already deleted and re-imported
+            // the POU by this point, so a placement that silently did not land would be indistinguishable from one
+            // that did. Re-find the POU first: every handle into it is dead (D4d).
+            var written = ItemLookup.Find(this, pouName)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"placed '{name}' but its POU '{pouName}' cannot be found afterwards");
+            var atPouRoot = Enumerable.Range(1, ChildCount(written)).Any(i => Name(ChildAt(written, i)) == name);
+            if (atPouRoot != (folder.Length == 0))
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{name}' did not land in '{folder}' inside '{pouName}'");
+            return;
+        }
+
         _om.Move(_om.Parent(item.Native), target.Native, name);
         // The archive round trip returns no handle and reports success by side effect, so CONFIRM it: a move that
         // silently landed nowhere would otherwise be indistinguishable from one that worked, and the caller has

@@ -122,6 +122,45 @@ internal sealed partial class TcObjectModel
     public void Move(object parent, object target, string name) =>
         TcItemArchive.Move((dynamic)parent, (dynamic)target, name);
 
+    /// <summary>Place a POU MEMBER into a folder inside its own POU. Delegates to
+    /// <see cref="TcItemArchive.MoveMember"/>, which rewrites the POU's own <c>.TcPOU</c> — a member is not a
+    /// separate file, so it has no archive of its own to move.</summary>
+    public void MoveMember(object pouParent, string pouName, string memberName, string folderPath) =>
+        TcItemArchive.MoveMember((dynamic)pouParent, pouName, memberName, folderPath);
+
+    /// <summary>The POU that ENCLOSES <paramref name="node"/>, or null when the node is not inside one — the test
+    /// that separates a top-level item (which has its own file, and moves by archive) from a member (which does
+    /// not). Walks up through the POU-internal folders a member may sit in.</summary>
+    public object? EnclosingPouOf(object node)
+    {
+        dynamic current = node;
+        for (var hops = 0; hops < 32; hops++)
+        {
+            object? parent;
+            try { parent = (object?)current.Parent; } catch { return null; }
+            if (parent is null) return null;
+            var kind = ItemType(parent);
+            if (kind is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb or ItemKind.PlcItf)
+                return parent;
+            if (kind != ItemKind.PlcFolder) return null;   // left the POU without finding one
+            current = parent;
+        }
+        return null;
+    }
+
+    /// <summary>The <c>^</c>-separated tail of <paramref name="node"/>'s path below <paramref name="ancestor"/>,
+    /// as a backslash-joined folder path — TwinCAT's own spelling for a member's <c>FolderPath</c>. Empty when the
+    /// node IS the ancestor.</summary>
+    public string RelativePath(object ancestor, object node)
+    {
+        var above = PathOf(ancestor);
+        var below = PathOf(node);
+        if (string.Equals(above, below, StringComparison.Ordinal)) return "";
+        if (!below.StartsWith(above + "^", StringComparison.Ordinal))
+            throw new InvalidOperationException($"'{below}' is not inside '{above}'");
+        return below.Substring(above.Length + 1).Replace('^', '\\');
+    }
+
     // ── source text ─────────────────────────────────────────────────
     public string ReadDeclaration(object node) => (string)((dynamic)node).DeclarationText ?? "";
     /// <summary>An item's body text. Only a MISSING implementation slot yields <c>""</c> — an interface, DUT or

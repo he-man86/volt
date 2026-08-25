@@ -70,10 +70,42 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             { IsBackground = true, Name = "fake-sta" }.Start();
     }
     private readonly System.Collections.Concurrent.BlockingCollection<Action>? _sta;
-    private Item Find(ItemRef r) => _items.First(i => i.Name == (string)r.Native);
+    /// <summary>A handed-out handle, and the GENERATION it was handed out at.
+    /// <para>The fake used to put the bare name in <see cref="ItemRef.Native"/>, so a handle could never go stale
+    /// — and a whole class of real bridge bug is exactly that. TwinCAT invalidates every handle into a POU when
+    /// its document is imported (DIALECT D4d) or its archive re-imported to place a member (D4j); a fake that
+    /// resolves by name answers happily through a dead handle and asserts the bug away. With
+    /// <see cref="InvalidatesHandlesOnMove"/> set, a handle older than the last move throws the way COM does.</para></summary>
+    private sealed class Handle
+    {
+        public Handle(string name, int gen) { Name = name; Gen = gen; }
+        public string Name { get; }
+        public int Gen { get; }
+        public override string ToString() => Name;
+    }
+
+    private int _generation;
+
+    /// <summary>Model the vendor whose MOVE invalidates every handle into the moved object's owner — TwinCAT, whose
+    /// member placement is a round trip through the enclosing POU's own archive. Off by default (CODESYS's move
+    /// touches nothing but the moved object).</summary>
+    public bool InvalidatesHandlesOnMove { get; init; }
+
+    private string NameOf(ItemRef r)
+    {
+        if (r.Native is not Handle h) return (string)r.Native;
+        if (InvalidatesHandlesOnMove && h.Gen < _generation)
+            throw new System.InvalidOperationException(
+                $"Item '{h.Name}' is deleted or invalidated by an ealier operation!");
+        return h.Name;
+    }
+
+    private ItemRef Ref(string name) => new ItemRef(new Handle(name, _generation));
+
+    private Item Find(ItemRef r) => _items.First(i => i.Name == NameOf(r));
     // Tolerant lookup: refs that never entered _items (a freshly CreateChild'd POU, a folder, "<root>") have
     // no children — return 0 rather than throw, matching the pre-children hard-coded ChildCount => 0.
-    private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => i.Name == (string)r.Native);
+    private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => i.Name == NameOf(r));
 
     /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
     public List<string> Recorded { get; } = new();
@@ -127,15 +159,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
-        _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.Folder)).ToList();
+        _items.Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder)).ToList();
     public int KindCode(ItemRef item) => IsTreeNode(item) ? ItemKind.PlcFolder : Find(item).KindCode;
     public int ChildCount(ItemRef item) =>
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) =>
-        IsTreeNode(item) ? LastSegment((string)item.Native) : Find(item).Name;
+        IsTreeNode(item) ? LastSegment(NameOf(item)) : Find(item).Name;
     public ItemRef ChildAt(ItemRef parent, int index1Based) =>
         IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
-                           : new ItemRef(Find(parent).Children![index1Based - 1]);
+                           : Ref(Find(parent).Children![index1Based - 1]);
 
     // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
     // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
@@ -146,7 +178,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // A tree node's Native is its full folder path (or a root name); an item's is its bare name. They cannot
     // collide, because an item is only ever addressed by the name it was registered under.
     private bool IsTreeNode(ItemRef r) =>
-        r.Native is string s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s));
+        NameOf(r) is { } s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s));
 
     private readonly HashSet<string> _folderPaths = new(StringComparer.Ordinal);
 
@@ -161,14 +193,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// items say it is — no folder is invented that holds nothing.</summary>
     private List<ItemRef> TreeChildren(ItemRef node)
     {
-        var path = (string)node.Native;
+        var path = NameOf(node);
         var basePath = path == PlcRootName || path == TreeRootName ? "" : path;
         var kids = new List<ItemRef>();
         var subFolders = new List<string>();
         foreach (var it in _items)
         {
             var folder = it.Folder ?? "";
-            if (folder == basePath) { kids.Add(new ItemRef(it.Name)); continue; }
+            if (folder == basePath) { kids.Add(Ref(it.Name)); continue; }
             if (basePath.Length > 0 && !folder.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
             var rest = basePath.Length == 0 ? folder : folder.Substring(basePath.Length + 1);
             if (rest.Length == 0) continue;
@@ -176,7 +208,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             var full = basePath.Length == 0 ? next : basePath + "/" + next;
             if (!subFolders.Contains(full)) subFolders.Add(full);
         }
-        foreach (var f in subFolders) { _folderPaths.Add(f); kids.Add(new ItemRef(f)); }
+        foreach (var f in subFolders) { _folderPaths.Add(f); kids.Add(Ref(f)); }
         return kids;
     }
     // Both default to the same synthetic root, so the whole tree is flat. A test that models a spine (the tree
@@ -184,9 +216,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // descends the full path from the tree root instead of re-creating the spine under the PLC-project root.
     public string PlcRootName { get; init; } = "<root>";
     public string TreeRootName { get; init; } = "<root>";
-    public ItemRef GetPlcProjectRoot() => new ItemRef(PlcRootName);
-    public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
-    public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
+    public ItemRef GetPlcProjectRoot() => Ref(PlcRootName);
+    public ItemRef GetTreeRoot() => Ref(TreeRootName);
+    public ItemRef Parent(ItemRef item) => Ref("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null)
     {
         Recorded.Add($"create:{name}");
@@ -199,7 +231,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // Only TOP-LEVEL items are registered: a created child/folder must not surface in the item walk.
         if (ItemKind.IsTopLevelCrud(kindCode) && !_items.Any(i => i.Name == name))
             _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", SeedLanguage(language), null));
-        return new ItemRef(name);
+        return Ref(name);
     }
 
     /// <summary>The declaration a fresh item comes into the world with — the IDE writes one, and the fake must
@@ -218,10 +250,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
     // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the
     // call could assert the bug away.
-    public void Move(ItemRef item, ItemRef target) => Recorded.Add($"move:{(string)item.Native}->{(string)target.Native}");
+    public void Move(ItemRef item, ItemRef target)
+    {
+        Recorded.Add($"move:{NameOf(item)}->{NameOf(target)}");
+        // The vendor that places a member by re-importing its POU leaves every handle into that POU dead. Bumping
+        // the generation LAST means this call's own arguments were still valid.
+        if (InvalidatesHandlesOnMove) _generation++;
+    }
     public void Rename(ItemRef item, string newName)
     {
-        var old = (string)item.Native;
+        var old = NameOf(item);
         Recorded.Add($"rename:{old}->{newName}");
         var idx = _items.FindIndex(i => i.Name == old);
         if (idx >= 0) _items[idx] = _items[idx] with { Name = newName }; // so a follow-up Lookup(newName) resolves
@@ -229,13 +267,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     // ── ICodeStore ──
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
-    public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{(string)item.Native}");
+    public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{NameOf(item)}");
     // RECORDED, because it is not free: on CODESYS `BodyLanguage` is a full PLCopen export. The child
     // body-format guard used to call it once per child, so a POU with 20 methods paid 22 exports to write one
     // body. Counting the calls is how that stays fixed.
     public string? BodyLanguage(ItemRef item)
     {
-        Recorded.Add($"bodylang:{(string)item.Native}");
+        Recorded.Add($"bodylang:{NameOf(item)}");
         return Find(item).BodyLang;
     }
     public string ReadXml(ItemRef item)
@@ -382,8 +420,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public Dictionary<string, string> WrittenXml { get; } = new();
     public void WriteXml(ItemRef item, string xml)
     {
-        Recorded.Add($"writexml:{(string)item.Native}");
-        WrittenXml[(string)item.Native] = xml;
+        Recorded.Add($"writexml:{NameOf(item)}");
+        WrittenXml[NameOf(item)] = xml;
     }
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 

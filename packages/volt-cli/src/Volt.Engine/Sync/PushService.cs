@@ -480,18 +480,23 @@ public static class PushService
     {
         var foldered = split.Members.Where(c => !string.IsNullOrEmpty(c.Folder)).ToList();
         if (foldered.Count == 0) return;
-        // The merge does not delete the POU, but re-find it anyway: the import rewrites the object, and a handle
-        // captured before it is not something to trust on the write path.
-        // A MISS here is not "nothing to do". The document has ALREADY landed and the import has already
-        // flattened the POU's internal folders, so returning quietly leaves every member at the POU root while
-        // the push reports success and the receipt bakes the flattened tree into the client's baseline — the
-        // engineer's structure is gone and `volt status` says clean.
-        if (ItemLookup.Find(ide, name) is not { } pou)
-            throw new BridgeException(BridgeErrorCodes.NotFound,
-                $"'{name}' cannot be found after its document was imported, so its members cannot be put back " +
-                "into their folders — the import has already flattened them");
+        // The POU is re-found ONCE PER MEMBER, not once. The import rewrites the object, and a handle captured
+        // before it is not something to trust on the write path — but the MOVE can rewrite it too: on a vendor
+        // where a member is not a separate file, placing one is a round trip through the enclosing POU's own
+        // archive (TwinCAT, DIALECT D4j), which leaves every handle into that POU dead. Hoisting the lookup out
+        // of the loop worked only for as long as CODESYS, whose move touches nothing but the moved object, was
+        // the only driver that reached here.
+        //
+        // A MISS is not "nothing to do". The document has ALREADY landed and the import has already flattened the
+        // POU's internal folders, so returning quietly leaves every member at the POU root while the push reports
+        // success and the receipt bakes the flattened tree into the client's baseline — the engineer's structure
+        // is gone and `volt status` says clean.
         foreach (var child in foldered)
         {
+            if (ItemLookup.Find(ide, name) is not { } pou)
+                throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{name}' cannot be found after its document was imported, so its members cannot be put back " +
+                    "into their folders — the import has already flattened them");
             if (TreeNav.FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
             ide.Move(flattened, TreeNav.ResolveFolder(ide, pou, child.Folder));
         }

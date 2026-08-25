@@ -42,18 +42,19 @@ public sealed partial class BeckhoffDriver
     /// instead of leaking into Core.</para></summary>
     public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(item.Native, xml);
 
-    /// <summary>OFF, and the reason is now exactly ONE measured vendor limit rather than a list.
-    /// <para>With it on the live suite reads 91 pass / 5 fail, against 94 / 2 on the per-child arm (it was 36 fail
-    /// when the change last measured it). THREE of the five are the same thing: a POU-INTERNAL MEMBER FOLDER
-    /// cannot survive a document import here and cannot be put back — the import flattens it in all four
-    /// pre-created/nested combinations, and <c>ExportChild</c> refuses a member ("it has no document file"), so
-    /// the archive move that relocates any top-level item has no member equivalent (DIALECT D4i). The other two
-    /// fail on the per-child arm too.</para>
-    /// <para>So this stays off: <c>RestoreChildFolders</c> would refuse the push — loudly and correctly — and a
-    /// POU whose methods live in folders is an ordinary project, not an edge case. Flipping it is a ONE-line
-    /// change the day Beckhoff's import honours the folder element or its COM surface grows a member move;
-    /// everything else the document path needs is in place and tested.</para></summary>
-    public override bool WritesPouAsOneDocument => false;
+    /// <summary>ON. TwinCAT takes the single-document POU write, and the live suite reads the same 94 pass / 2
+    /// fail as the per-child arm it replaces (both remaining failures are CLI/git, not the bridge).
+    /// <para>It was 36 failures when the change first measured this vendor, and the four things in the way were
+    /// each a different layer's: the document never declared its members in <c>&lt;ProjectStructure&gt;</c>, which
+    /// is the ONLY thing this importer creates children from (D4h); the DUT subtype codes were unmapped, so those
+    /// items were dropped by Core; the write asked for a document <c>PlcOpenExport</c> refuses to make for a
+    /// DUT/GVL (C2); and Volt's own body-language guard refused the LD body it was itself creating over the FBD
+    /// seed <c>CreateChild</c> had just laid down (C6).</para>
+    /// <para>The last was a real vendor limit — a POU-INTERNAL member folder does not survive the import and
+    /// cannot be restored by the archive move, because <c>ExportChild</c> refuses a member. It IS restorable:
+    /// TwinCAT keeps the whole POU in one <c>.TcPOU</c> and a member's placement is a <c>FolderPath</c> attribute
+    /// in it, so the round trip happens on the POU and rewrites that attribute (D4j, <c>TcItemArchive</c>).</para></summary>
+    public override bool WritesPouAsOneDocument => true;
 
     /// <summary>POUs and interfaces only. <c>PlcOpenExport</c> answers <c>E_FAIL</c> for a DUT or a GVL — the
     /// export is POU-shaped and a declaration-only item has no POU to name (DIALECT C2, measured live against
