@@ -16,6 +16,32 @@ public class CodeHelperTests
         return (h.Type, h.Name);
     }
 
+    // ---- a comment and the declaration on ONE line ----
+
+    /// <summary>`(* doc *) FUNCTION_BLOCK FB` — the comment CLOSES and the declaration follows on the same line.
+    /// That line is the header, and it was being skipped entirely.
+    /// <para><c>HeaderLine</c> treated any line STARTING with <c>(*</c> as trivia, so it returned the NEXT line
+    /// (<c>VAR</c>) and <c>ParseCodeHeader</c> rejected it as INVALID_CODE_HEADER. The suite only ever covered the
+    /// comment on its own line, which is the shape that works.</para>
+    /// <para>It is not a parsing nicety. <c>CodesysTypeMap.LeadingKeyword</c> reads exactly this line to classify
+    /// an item, is TOTAL by design (the classifier must never throw mid-walk), and falls back to FUNCTION_BLOCK —
+    /// so a PROGRAM written this way is reported as <c>function_block</c> on refs/fetch. That is the same failure
+    /// the leading-<c>{attribute}</c> case was fixed for, arriving through the other kind of trivia.</para>
+    /// <para>And the repo already disagreed with itself about it: <c>StReader</c>'s own scanner calls this line
+    /// CODE (<c>Text/StReader.cs</c>, <c>ScanContext.Update</c>), which is correct. Two scanners, one question.</para></summary>
+    [Theory]
+    [InlineData("(* doc *) FUNCTION_BLOCK FB\nVAR\nEND_VAR", "FUNCTION_BLOCK FB")]
+    [InlineData("(* a *) (* b *) PROGRAM P", "PROGRAM P")]
+    [InlineData("(* multi\n   line *) INTERFACE ITest", "INTERFACE ITest")]
+    [InlineData("{attribute 'x'}\n(* doc *) TYPE T :", "TYPE T :")]
+    public void A_declaration_sharing_its_line_with_a_closing_comment_IS_the_header(string src, string expected) =>
+        Assert.Equal(expected, CodeHelper.HeaderLine(src));
+
+    /// <summary>And it classifies — the consequence the line above only implies.</summary>
+    [Fact]
+    public void A_program_declared_after_an_inline_comment_is_a_program_not_a_function_block() =>
+        Assert.Equal(("program", "P"), Parse("(* the main task *) PROGRAM P\nVAR\nEND_VAR"));
+
     // ---- the wrapping cases (the whole point of the structural fix) ----
 
     [Fact]

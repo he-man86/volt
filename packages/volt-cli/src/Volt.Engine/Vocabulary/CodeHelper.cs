@@ -28,31 +28,63 @@ public static class CodeHelper
     {
         if (string.IsNullOrWhiteSpace(code)) return "";
 
-        var lines = code!.Split('\n');
-        bool inBlockComment = false;
-        for (int i = 0; i < lines.Length; i++)
+        var inBlockComment = false;
+        foreach (var line in code!.Split('\n'))
         {
-            // '﻿' (U+FEFF) is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header
-            // keyword and every match below fails. Belt-and-braces with the strip at the push boundary: this
-            // function's whole contract is that it always finds the header line, and no caller should have to
-            // know that an invisible character can defeat it.
-            var trimmed = lines[i].Trim().TrimStart('﻿');
-            if (inBlockComment)
-            {
-                if (trimmed.Contains("*)")) inBlockComment = false;
-                continue;
-            }
-            if (trimmed.Length == 0) continue;
-            if (trimmed.StartsWith("{")) continue;
-            if (trimmed.StartsWith("//")) continue;
-            if (trimmed.StartsWith("(*"))
-            {
-                if (!trimmed.Contains("*)")) inBlockComment = true;
-                continue;
-            }
-            return trimmed;
+            var onLine = CodeOn(line, ref inBlockComment);
+            if (onLine.Length > 0) return onLine;
         }
         return "";
+    }
+
+    /// <summary>The CODE on one line — the line with leading trivia (blank, <c>//</c>, <c>(* … *)</c>, a pragma)
+    /// removed — or <c>""</c> when the line is trivia all the way through. <paramref name="inBlockComment"/>
+    /// carries <c>(* … *)</c> state across lines and is updated in place.
+    ///
+    /// <para><b>THE one trivia scanner.</b> There were two, and they disagreed about the same line. This one
+    /// skipped any line STARTING with <c>(*</c> — so <c>(* doc *) FUNCTION_BLOCK FB</c>, where the comment closes
+    /// and the declaration follows, was skipped whole and <see cref="HeaderLine"/> answered with the NEXT line.
+    /// <c>StReader</c>'s scanner called that same line CODE, which is correct. Two answers to one question, and
+    /// the wrong one was the one <c>CodesysTypeMap.LeadingKeyword</c> reads: it is TOTAL by design and falls back
+    /// to FUNCTION_BLOCK, so a PROGRAM written that way was reported as <c>function_block</c> on refs/fetch —
+    /// the same failure the leading-<c>{attribute}</c> case was fixed for, arriving through the other trivia.</para>
+    ///
+    /// <para>It LOOPS rather than testing the head once, so a line may carry several comments before its code
+    /// (<c>(* a *) (* b *) PROGRAM P</c>) and a block comment may close mid-line with code after it. Each pass
+    /// consumes at least two characters, so it always terminates. Nested <c>(*</c> is NOT tracked — neither
+    /// scanner ever did, and no recorded export contains one.</para>
+    ///
+    /// <para>A PRAGMA is deliberately trivia for the WHOLE line, which is what both scanners already did: a
+    /// <c>{attribute …}</c> sits on its own line in every form either vendor emits, and the multi-line pragma
+    /// that would need real tracking is not valid IEC 61131-3.</para></summary>
+    public static string CodeOn(string line, ref bool inBlockComment)
+    {
+        // U+FEFF is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header keyword and
+        // every keyword match fails. Belt-and-braces with the strip at the push boundary: this function's whole
+        // contract is that it finds the code, and no caller should have to know an invisible character can defeat
+        // it. (StReader's copy of this scan did NOT strip it — one more way the two could differ.)
+        var s = line.Trim().TrimStart('\uFEFF');
+        while (true)
+        {
+            if (inBlockComment)
+            {
+                var close = s.IndexOf("*)", StringComparison.Ordinal);
+                if (close < 0) return "";
+                inBlockComment = false;
+                s = s.Substring(close + 2).TrimStart();
+                continue;
+            }
+            if (s.Length == 0) return "";
+            if (s.StartsWith("//", StringComparison.Ordinal)) return "";
+            if (s.StartsWith("{", StringComparison.Ordinal)) return "";
+            if (s.StartsWith("(*", StringComparison.Ordinal))
+            {
+                inBlockComment = true;
+                s = s.Substring(2);
+                continue;
+            }
+            return s;
+        }
     }
 
     public static CodeHeader ParseCodeHeader(string code)

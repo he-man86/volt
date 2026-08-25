@@ -494,48 +494,12 @@ public static class StReader
 		private bool _inBlockComment;
 		public bool InsideTrivia { get; private set; }
 
-		public void Update(string line)
-		{
-			InsideTrivia = false;
-			var trimmed = line.TrimStart();
-
-			// If the line opens with a comment or pragma and the whole line
-			// is just that, treat as trivia.
-			if (_inBlockComment)
-			{
-				int close = line.IndexOf("*)", StringComparison.Ordinal);
-				if (close < 0) { InsideTrivia = true; return; }
-				_inBlockComment = false;
-				// Anything after *) on the same line is real source. But for
-				// our purposes — leading-keyword detection — we only care
-				// about lines that start with code. If the close-comment isn't
-				// at the very beginning of the line, mark as trivia.
-				if (trimmed.IndexOf("*)", StringComparison.Ordinal) >= 0
-					&& trimmed.IndexOf("*)", StringComparison.Ordinal) + 2 >= trimmed.Length)
-					InsideTrivia = true;
-				return;
-			}
-
-			if (trimmed.Length == 0) { InsideTrivia = true; return; }
-			if (trimmed.StartsWith("//", StringComparison.Ordinal)) { InsideTrivia = true; return; }
-			if (trimmed.StartsWith("{", StringComparison.Ordinal))
-			{
-				// Pragma { ... } — same-line pragmas are trivia. Multi-line
-				// pragmas aren't valid IEC-61131-3, so don't track them.
-				InsideTrivia = true;
-				return;
-			}
-			if (trimmed.StartsWith("(*", StringComparison.Ordinal))
-			{
-				int close = trimmed.IndexOf("*)", StringComparison.Ordinal);
-				if (close < 0) { _inBlockComment = true; InsideTrivia = true; return; }
-				// Single-line block comment. If the comment is the whole line,
-				// trivia; otherwise tail is real source.
-				if (close + 2 >= trimmed.Length) { InsideTrivia = true; return; }
-				InsideTrivia = false;
-				return;
-			}
-		}
+		/// <summary>Advance over one line. Delegates to <see cref="CodeHelper.CodeOn"/> — THE trivia scanner —
+		/// so this cannot drift from the one <c>HeaderLine</c> uses. It had: this copy called
+		/// <c>(* doc *) FUNCTION_BLOCK FB</c> code (correctly) while <c>HeaderLine</c> skipped the line whole, and it
+		/// did not strip a BOM. Same question, two answers, and the wrong one classified items on the wire.</summary>
+		public void Update(string line) =>
+			InsideTrivia = CodeHelper.CodeOn(line, ref _inBlockComment).Length == 0;
 	}
 
 	/// <summary>Index of the first line that is real code (not blank / comment / pragma), or -1 if the
