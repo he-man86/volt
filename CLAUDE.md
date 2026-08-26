@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -84,6 +84,7 @@ dotnet build Volt.Cli.sln -c Release                       # the whole toolchain
 dotnet test test/Volt.Cli.Tests/                           # pipe transport + ported sync + black-box CLI
 dotnet test test/Volt.Engine.Tests/                      # shared engine (parsing/PLCopen/VG + push/fetch)
 dotnet test test/Volt.Cli.Connector.Tests/                 # connector core: session model, reconciler, TC supervisor
+dotnet test test/Volt.Cli.Ide.Twincat.Tests/                # TwinCAT driver, offline (dynamic doubles — no live XAE)
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```

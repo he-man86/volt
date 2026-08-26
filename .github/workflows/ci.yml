@@ -1,4 +1,4 @@
-# CI — the PR gate. Every check `dev` branch protection requires lives here, and nothing else does.
+﻿# CI — the PR gate. Every check `dev` branch protection requires lives here, and nothing else does.
 #
 # WHY ONE FILE: these five ran as five workflows that were ~70% identical boilerplate (name/on/concurrency +
 # checkout/setup-bun/install), on the belief that a separate workflow was needed for a separate PR check. It
@@ -119,6 +119,8 @@ jobs:
         run: dotnet test packages/volt-cli/test/Volt.Engine.Tests/Volt.Engine.Tests.csproj -c Release --nologo
       - name: Test — connector (connection model, discovery source, single-active + disconnect)
         run: dotnet test packages/volt-cli/test/Volt.Cli.Connector.Tests/Volt.Cli.Connector.Tests.csproj -c Release --nologo
+      - name: Test — TwinCAT driver (archive round-trip; the item-relocation window)
+        run: dotnet test packages/volt-cli/test/Volt.Cli.Ide.Twincat.Tests/Volt.Cli.Ide.Twincat.Tests.csproj -c Release --nologo
 
   # Desktop boot smoke: launch the built electron app headless (xvfb) in VOLT_SMOKE mode — proves the frameless
   # window + Volt shell.html actually render, which the pure-logic unit suites can't. Electron needs a display +

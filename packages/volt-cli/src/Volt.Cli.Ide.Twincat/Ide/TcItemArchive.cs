@@ -67,6 +67,9 @@ internal static class TcItemArchive
     private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite)
     {
         var zip = Path.Combine(Path.GetTempPath(), "volt_move_" + Guid.NewGuid().ToString("N") + ".zip");
+        // Set when the archive becomes the ONLY surviving copy of the item — the source has been deleted and the
+        // undo failed too. In that state the file is not a temp artefact, it is the engineer's work.
+        var archiveIsLastCopy = false;
         try
         {
             from.ExportChild(name, zip);
@@ -84,6 +87,11 @@ internal static class TcItemArchive
                 try { from.ImportChild(zip, Type.Missing, false, Type.Missing); }
                 catch (Exception restore)
                 {
+                    // The item is gone from the source and never arrived at the destination: this archive is all
+                    // that is left of it. The `finally` below used to delete it anyway — so the one instruction
+                    // that could recover the engineer's work pointed at a path that no longer existed by the time
+                    // they read it. A recovery route that deletes its own evidence is worse than no message.
+                    archiveIsLastCopy = true;
                     throw new InvalidOperationException(
                         $"move of '{name}' failed AND could not be undone — the item is in the archive at {zip}, " +
                         $"import it manually ({restore.Message})", restore);
@@ -91,7 +99,10 @@ internal static class TcItemArchive
                 throw;
             }
         }
-        finally { try { File.Delete(zip); } catch { /* temp file */ } }
+        // Deleted on every path EXCEPT the unrecoverable one. Keeping every archive would litter %TEMP% after
+        // an ordinary hiccup the undo already repaired; keeping this one is the difference between a failed move
+        // and a lost POU.
+        finally { if (!archiveIsLastCopy) { try { File.Delete(zip); } catch { /* temp file */ } } }
     }
 
     /// <summary>Strip every entry's directory prefix, so <c>ImportChild</c> has no source path left to recreate

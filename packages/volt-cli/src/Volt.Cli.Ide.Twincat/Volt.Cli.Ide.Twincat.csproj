@@ -8,6 +8,12 @@
     <AssemblyName>VoltBridgeTwincat</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <!-- The driver is internal-by-default and stays that way; its test project is the only consumer.
+         Without this, TcItemArchive - the archive round-trip that RELOCATES an item, and so the one place
+         a failed move can lose one - has no offline coverage at all. -->
+    <InternalsVisibleTo Include="Volt.Cli.Ide.Twincat.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
