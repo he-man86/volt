@@ -127,6 +127,23 @@ for (const lang of ["FBD", "LD"]) {
 			expect(v1.sourceText).toContain("out := (P_G AND a)")   // …and the SET is driven by it
 			await isFixedPoint(full, v1)
 			await ensureCompiles(name)
+
+			// THE assertion that cannot pass vacuously, and the reason this test was rewritten. Until the accessor
+			// path was routed through BodyCodec, `SetAccessor` hardcoded <ST>: a graphical accessor was stored as its
+			// own network TEXT and read straight back, so everything above was a fixed point over a body that had
+			// already been destroyed — `networkLangs` and `isFixedPoint` both passed, on both vendors, while doing it.
+			//
+			// A body that is genuinely graphical must REFUSE a textual push. That refusal is the wire-visible
+			// difference between a real diagram and its text sitting in an <ST>; a flattened accessor accepts it.
+			const refs = await bridge.refs()
+			const flat = src.property(name).replace(new RegExp(`NETWORK 0 ${lang}[^]*?END_NETWORK`, "g"), "P_G := a;")
+			const r = await bridge.push({
+				expectedProjectVersion: refs.projectVersion,
+				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],
+			})
+			expect(r.accepted).toBe(false)
+			expect(JSON.stringify(r.conflicts ?? r)).toContain(lang)
+			expect((await fetchItem(full)).sourceText).toBe(v1.sourceText)   // and the refusal changed nothing
 		})
 
 		// Build-verified separately because only an FB can be INSTANTIATED, which is how `ensureCompiles` forces

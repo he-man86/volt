@@ -44,6 +44,16 @@ internal static class BodyFormatGuard
         var cimpl = child.Body;
         var marker = Vocabulary.BodyMarker.Is(cimpl);
 
+        // An INTERFACE member and a PROPERTY node carry no body of their own — a property's code lives in its
+        // GET/SET accessors, which arrive as `child.Getter`/`child.Setter`, not as `child.Body`. So there is
+        // nothing here to check, and evaluating `cimpl` for one would ask the wrong question.
+        //
+        // That was true before too, and it was NOT enough: nothing else checked the accessors either.
+        // `PouSplice.SetAccessor` hardcoded <ST>, deleting an FBD/LD accessor's diagram and writing the raw
+        // network text in its place, and `PouReader.Accessor` read that text straight back — a fixed point no
+        // round-trip test could see. Both legs now dispatch through `BodyCodec`, so an accessor gets the same
+        // unsupported-body and language-mismatch refusals as a root or a child, at the splice. This return is a
+        // statement about where the check LIVES, not an exemption from it.
         if (itemType == ItemKind.PlcItf || child.Kind == ItemKind.Kinds.Property) return;
 
         string? lang;                        // null=textual; FBD/LD=editable; CFC/SFC=read-only

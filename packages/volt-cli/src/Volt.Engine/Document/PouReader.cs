@@ -133,8 +133,17 @@ public static class PouReader
         var acc = property.Elements().FirstOrDefault(e => e.Name.LocalName == tag);
         if (acc is null) return (null, null);
         var bodyEl = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
-        var langEl = bodyEl is null ? null : LangIn(bodyEl).element;
-        return (langEl?.Value.Trim() ?? "", DeclFromElement(acc));
+
+        // Decoded through the accessor's own CODEC, like every other body. This used to be `langEl?.Value.Trim()`
+        // — the raw concatenation of the element's text nodes — which for a diagram accessor materialized as
+        // junk (measured: "", "about", "networktitleFALSETRUEoutpur…") straight into the engineer's workspace on
+        // a plain pull, and never produced the @volt-graphical marker, so the guard that refuses to overwrite an
+        // unsupported body could not fire for an accessor at all.
+        //
+        // `?? ""` stays, and is not a fallback: an accessor with no <body> EXISTS but holds no code, and null
+        // means the accessor is absent. Collapsing those two deletes a user's getter on the next push.
+        var found = bodyEl is null ? null : BodyCodec.PresentWith(bodyEl);
+        return (found is { } f ? f.Codec.Decode(f.Element).Trim() : "", DeclFromElement(acc));
     }
 
     private static (string? language, XElement? element) FindBody(XElement pou, XNamespace ns)

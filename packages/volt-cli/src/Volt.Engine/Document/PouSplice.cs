@@ -364,11 +364,39 @@ namespace Volt.Engine.Document
             {
                 var body = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
                 if (body is null) { body = new XElement(ns + "body"); acc.Add(body); changed = true; }
-                var st = body.Elements().FirstOrDefault(e => e.Name.LocalName == "ST");
-                if (st is null) { st = new XElement(ns + "ST"); body.RemoveNodes(); body.Add(st); changed = true; }
-                var innerBody = st.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml");
-                if (innerBody is null) { if (st.Value != code) { st.ReplaceNodes(new XElement(xh + "xhtml", code)); changed = true; } }
-                else if (innerBody.Value != code) { innerBody.ReplaceNodes(code); changed = true; }
+
+                // THE SAME dispatch the root body and every child use — see SetChildText below. An accessor was
+                // the last body path in the engine that never touched BodyCodec, and it hardcoded <ST>: when the
+                // accessor held an <FBD>/<LD> element there was no direct <ST> child, so it called
+                // `body.RemoveNodes()` — deleting the diagram outright — and wrote the raw NETWORK text into a
+                // fresh <ST>. The read half then handed that text straight back, so the round-trip was a FIXED
+                // POINT and every assertion about it passed while the ladder was gone. That is why
+                // `graphical-kinds.test.ts` was green on both vendors for a body it was destroying, and why
+                // DIALECT D17's accessor claim had to be retracted.
+                var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(code) ?? "ST");
+                var found = BodyCodec.PresentWith(body);
+                var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
+                if (present is not null && present.Unsupported)
+                {
+                    // Restating the marker is the ordinary round-trip, exactly as it is for a root and a child.
+                    if (!Vocabulary.BodyMarker.Is(code))
+                        throw new InvalidOperationException(
+                            $"'{propertyName}' {(getter ? "getter" : "setter")} of '{itemName}' has a " +
+                            $"{present.Language} body, which Volt does not support — edit it in the IDE, not via push.");
+                }
+                else if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"'{propertyName}' {(getter ? "getter" : "setter")} of '{itemName}' has a " +
+                        $"{present.Language} body in the IDE but the push carries {pushed.Language} — " +
+                        "edit it in the IDE, or delete it first to replace it.");
+                }
+                else
+                {
+                    // `declaration` is the accessor's OWN declaration, which is the scope its FB instances
+                    // resolve against — the network codec needs it to restore each box's typeName.
+                    changed |= pushed.Encode(body, code, declaration);
+                }
             }
 
             if (declaration is not null)
