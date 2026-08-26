@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CFC and SFC are UNSUPPORTED — and the only thing that matters is that a push never destroys one.
  *
  * <p>Everything protecting these bodies was offline until now. That is a real gap and not a formality: the guard
@@ -13,39 +13,50 @@
  * which accept a diagram language — measured, DIALECT D19). Hand-writing the files would have been inventing a
  * shape rather than capturing one.</p>
  *
+ * <p>Their KIND differs by vendor and deliberately is not unified: CODESYS's `create_pou` defaults to a function
+ * block (`.fb`), TwinCAT's `CreateChild(…, 602, …)` makes a program (`.prg`). Nothing here depends on which —
+ * the body language is the subject — so the names are RESOLVED from `refs` rather than spelled with an
+ * extension. A hardcoded `.prg` would have made this suite silently vendor-specific for a reason that has
+ * nothing to do with what it tests.</p>
+ *
  * <p>They are the only fixture POUs a test must not delete, so this suite never pushes a `deleteItem` for them
  * and never renames them; the shared `cleanup()` ignores them because it only removes names under the test
  * PREFIX.</p>
  *
- * <p><b>TWINCAT ONLY, and this is a blocked item rather than a vendor limit.</b> The CODESYS fixture POUs were
- * created the same way and worked — but `CodesysTestProject.project` predates SP21, and SAVING it under SP21 (the
- * only way to add an object) re-resolves its referenced libraries. That pulls in a HIDDEN library function,
- * `AppendErrorString` (`IsHidden="true"` in the System/Analyzation browsercache), which has no readable return
- * type; `LibSignatureRenderer` then throws and the whole `fetch` fails — 593 items to zero, on a project that is
- * otherwise fine. Volt already skips hidden objects in the PROJECT tree (`CodesysTypeMap` → `IHiddenObject`) but
- * the library-signature path does not carry hidden-ness at all, so it cannot make the same call. Until that is
- * threaded through, adding these POUs to the CODESYS fixture trades live CFC coverage for a broken suite.</p>
+ * <p>Adding them to the CODESYS fixture took a real bug with it, which is the sort of thing a first live test
+ * finds. `CodesysTestProject.project` predates SP21, and saving it under SP21 — the only way to add an object —
+ * re-resolves its referenced libraries; that pulled in `AppendErrorString`, a hidden CODESYS OPERATOR with two
+ * VAR_IN_OUT and no return type. `LibSignatureRenderer` threw on it, and because every signature renders in one
+ * pass during `fetch`, one unrenderable operator took the whole fetch down: 593 items to zero. Return-less
+ * library functions are now skipped and counted (DIALECT D20).</p>
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, fetchItem, requireHealthy, BASE, VENDOR } from "../harness"
+import { bridge, fetchItem, requireHealthy, BASE } from "../harness"
 
 setDefaultTimeout(30000)
 
-// Programs on TwinCAT (`CreateChild(name, 602, …)`) — the extension follows the KIND, not the language.
-const CASES = [
-	["CFC", "VltFixtureCfc.prg"],
-	["SFC", "VltFixtureSfc.prg"],
-] as const
+const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 
-if (VENDOR !== "twincat")
-	console.log("graphical/unsupported: SKIPPED on CODESYS — its fixture project has no CFC/SFC POU (see the header).")
+describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {
+	// bare fixture name -> full wire name, resolved once (`.fb` on CODESYS, `.prg` on TwinCAT).
+	const wire = new Map<string, string>()
+	const nameOf = (bare: string) => wire.get(bare) ?? `${bare}.?`
 
-describe.skipIf(VENDOR !== "twincat")(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {
-	beforeAll(async () => { await requireHealthy() })
+	beforeAll(async () => {
+		await requireHealthy()
+		const refs = await bridge.refs()
+		for (const [, bare] of CASES) {
+			const full = Object.keys(refs.items).find((n) => n.startsWith(`${bare}.`))
+			if (!full) throw new Error(
+				`fixture POU '${bare}' is missing from this project — it is committed, and the suite cannot ` +
+				`create one (Volt never creates a diagram). Re-add it in the IDE, not by hand.`)
+			wire.set(bare, full)
+		}
+	})
 
-	for (const [lang, name] of CASES) {
+	for (const [lang, bare] of CASES) {
 		it(`a ${lang} body materializes as the MARKER, not as source`, async () => {
-			const it0 = await fetchItem(name)
+			const it0 = await fetchItem(nameOf(bare))
 			// The marker is a FILE FORMAT — it lands in the user's git history — so it is matched literally.
 			expect(it0.sourceText).toContain(`(* @volt-graphical: ${lang} *)`)
 			// And it carries none of the diagram. An engineer must not be handed an editable-looking file: that
@@ -58,6 +69,7 @@ describe.skipIf(VENDOR !== "twincat")(`graphical / unsupported bodies are never 
 			// This is what keeps the POU pullable at all: `volt pull` writes the marker to disk, and the next
 			// `volt push` of an unrelated item restates every file it has. If restating the marker were refused,
 			// a project containing one diagram could never be pushed again.
+			const name = nameOf(bare)
 			const before = await fetchItem(name)
 			const refs = await bridge.refs()
 			const r = await bridge.push({
@@ -72,6 +84,7 @@ describe.skipIf(VENDOR !== "twincat")(`graphical / unsupported bodies are never 
 		})
 
 		it(`pushing real ST over a ${lang} body is REFUSED and changes nothing`, async () => {
+			const name = nameOf(bare)
 			const before = await fetchItem(name)
 			const refs = await bridge.refs()
 			const r = await bridge.push({
@@ -109,7 +122,7 @@ describe.skipIf(VENDOR !== "twincat")(`graphical / unsupported bodies are never 
 		// must not fail on them.
 		const all = await bridge.fetch({ knownItems: {} })
 		const names = all.changed.map((i: any) => i.name)
-		expect(names).toContain("VltFixtureCfc.prg")
-		expect(names).toContain("VltFixtureSfc.prg")
+		expect(names).toContain(nameOf("VltFixtureCfc"))
+		expect(names).toContain(nameOf("VltFixtureSfc"))
 	})
 })

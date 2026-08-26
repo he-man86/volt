@@ -107,6 +107,11 @@ pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 13
 bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
 ```
 
-**`graphical/unsupported.test.ts` is TwinCAT-only** — it needs a CFC/SFC POU to exist, and only the TwinCAT
-fixture has one (`VltFixtureCfc` / `VltFixtureSfc`, authored by the IDE itself). Volt can never create one: a
-diagram has no text form to push. The CODESYS fixture is blocked on DIALECT D20, not on anything about CODESYS.
+**`graphical/unsupported.test.ts` runs on both**, but only because both fixture projects carry a committed
+CFC and SFC POU (`VltFixtureCfc` / `VltFixtureSfc`). Volt can never create one — a diagram has no text form to
+push — so each IDE authored its own: CODESYS via `create_pou(language=cfc|sfc)` in a `--runscript`, TwinCAT via
+`CreateChild(name, 602, "", "CFC")` over the COM ROT. Their KIND differs by vendor (`.fb` on CODESYS, `.prg` on
+TwinCAT) and the suite resolves the wire names from `refs` rather than assuming an extension. **If you ever
+regenerate a fixture project, these two POUs must survive** — without them the suite fails loudly rather than
+skipping, which is deliberate: silently losing the only live coverage of a data-loss guard is the failure mode
+worth being noisy about.

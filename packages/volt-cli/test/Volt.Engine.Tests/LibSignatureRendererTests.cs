@@ -41,6 +41,35 @@ public class LibSignatureRendererTests
         Assert.Equal("FUNCTION F : REAL\nEND_FUNCTION", r!.Value.Text);
     }
 
+    /// <summary>A library FUNCTION with NO return type — and no output named after itself — is SKIPPED, not
+    /// thrown on.
+    /// <para>This used to throw "has no readable return type — cannot render its signature", on the reading that
+    /// such a signature meant an object-model version mismatch. Measured against a live SP21 compile context, it
+    /// does not: `AppendErrorString` and `ConcatX` (analyzation 4.1.0.0) are real CODESYS OPERATORS — POUType
+    /// `LanguageModel.Operator.Function`, `Flags` `None` — carrying two VAR_IN_OUT and no return at all. IEC has
+    /// no void FUNCTION, so there is no honest text to emit for one.</para>
+    /// <para>The throw was not a cheap failure. `ExtractLibrarySignatures` renders every signature in one pass
+    /// during `fetch`, so ONE unrenderable operator aborted the whole thing: a project that referenced that
+    /// library fetched 0 items instead of 593. The blast radius is what makes skipping right — `Render` already
+    /// returns null for kinds it does not materialize, and `FetchService` tallies those as `lib-render-null`, so
+    /// this is a counted drop rather than a silent one.</para>
+    /// <para>Still NOT `?? "BOOL"`: inventing a return type would resolve and then lie at every call site. The
+    /// choice here is between skipping and crashing, never between skipping and guessing.</para></summary>
+    [Fact]
+    public void Function_with_no_return_type_is_skipped_rather_than_throwing()
+    {
+        Assert.Null(LibSignatureRenderer.Render(Fn("APPENDERRORSTRING", new LibVar[0], null)));
+    }
+
+    /// <summary>And a function whose outputs simply do not include a self-named pin is the same case — the skip
+    /// keys on "no return could be lifted", not on the pin list being empty.</summary>
+    [Fact]
+    public void Function_with_outputs_but_no_liftable_return_is_also_skipped()
+    {
+        var outs = new[] { new LibVar("STROLD", "STRING"), new LibVar("STRNEW", "STRING") };
+        Assert.Null(LibSignatureRenderer.Render(Fn("CONCATX", outs, null)));
+    }
+
     // A DUT ALIAS (CODESYS `Flags == "Alias"`, e.g. `TYPE HANDLE : __XWORD`) must render as an alias, NOT an
     // empty struct. The base can be a `__`-prefixed system type — emitted verbatim (the LSP resolves it).
     [Fact]

@@ -98,10 +98,26 @@ public static class LibSignatureRenderer
                 var (ret, outs) = LiftReturn(name, s.Outputs, s.ReturnType);
                 // NOT `?? "BOOL"`. This text is shipped to the LSP as the library's ground truth, so an invented
                 // return type does not degrade — it RESOLVES, and then lies: every call site type-checks against
-                // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine).
-                // A FUNCTION with no readable return type is an object-model failure, not a BOOL.
-                var rt = ret ?? throw new InvalidOperationException(
-                    $"library function '{name}' has no readable return type — cannot render its signature");
+                // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine). That
+                // much stands.
+                //
+                // What changed is the OTHER branch. This used to throw, on the reading that a return-less
+                // FUNCTION is "an object-model failure". Measured, it is not: `AppendErrorString` and `ConcatX`
+                // (analyzation 4.1.0.0) are real, well-formed CODESYS OPERATORS — POUType is
+                // `LanguageModel.Operator.Function`, `Flags` is `None`, they carry two VAR_IN_OUT and no return
+                // at all, and both are marked `{attribute 'hide'}`. IEC has no void FUNCTION, so there is no
+                // honest text for one; the previous behaviour turned that into a thrown exception that took the
+                // WHOLE fetch with it — 593 items to zero because of two hidden operators nobody can call.
+                //
+                // So: skip, via the null this method already returns for a kind it does not materialize.
+                // `FetchService` counts those as `lib-render-null` and prints the tally, so it is a visible drop
+                // rather than a silent one. Exactly 2 of 588 library signatures hit this on the reference project.
+                //
+                // Skipping on `{attribute 'hide'}` instead was measured and rejected: 40 of 586 signatures carry
+                // it, including `SysFileOpen`/`SysFileRead`, which real code calls directly. Dropping those would
+                // make the LSP report unknown-identifier on valid programs — a worse failure than the crash.
+                if (ret is null) return null;
+                var rt = ret;
                 var lines = new[] { $"FUNCTION {name} : {rt}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });
