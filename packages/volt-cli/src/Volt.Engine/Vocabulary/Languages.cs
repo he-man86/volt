@@ -18,28 +18,24 @@ namespace Volt.Engine.Vocabulary
         public const string Sfc = "SFC";
 
         /// <summary>Can this body be authored as NETWORK TEXT and written back? FBD and LD, and nothing else.
-        /// Volt round-trips ST textually and FBD/LD graphically; every other language is read-only.</summary>
+        /// Volt round-trips ST textually and FBD/LD graphically; CFC, SFC and IL are unsupported.</summary>
         public static bool IsNetwork(string? language) =>
             language is Fbd or Ld;
 
         /// <summary>Is this a DIAGRAM Volt cannot express as text? CFC and SFC.
-        /// <para>Deliberately NOT "every read-only language": IL is read-only too, but it is textual, so it has no
-        /// diagram to protect and it does not take the marker path for the same reason. Asking
-        /// <c>BodyCodec.For(l).ReadOnly</c> answers the wider question, and the two are not interchangeable.</para></summary>
+        /// <para>Also the answer to WHERE such a body may sit. TC6 gives ST, IL, FBD, LD and SFC a direct
+        /// <c>&lt;body&gt;</c> child named for the language; CFC is a CODESYS extension the schema has no place
+        /// for, so it goes under a vendor <c>addData</c> block — beside an empty <c>&lt;ST&gt;</c> the schema
+        /// still wants, the decoy that once made a direct-children scan call a CFC body textual.
+        /// <see cref="T:Volt.Engine.Document.BodyElement"/> looks for a diagram in BOTH positions, which widens a
+        /// rule that had been narrowed to CFC alone: a diagram has no write path, so finding one anywhere can
+        /// only lead to a refusal, whereas a nested SFC that goes unfound is flattened through that same decoy.
+        /// FBD and LD are excluded for the mirror-image reason — Volt writes those, so recognising one in a
+        /// position Volt would not write it back to is how the reader and the writer came to disagree.</para>
+        /// <para>Deliberately NOT "every unsupported language": IL is unsupported too, but it is textual, so it
+        /// has no diagram to protect and never sits in the nested position. <c>BodyCodec.For(l).Unsupported</c>
+        /// answers that wider question, and the two are not interchangeable.</para></summary>
         public static bool IsDiagram(string? language) =>
             language is Cfc or Sfc;
-
-        /// <summary>Is this language's body element nested under <c>&lt;body&gt;/&lt;addData&gt;/&lt;data&gt;</c>
-        /// rather than being a direct child of <c>&lt;body&gt;</c>?
-        /// <para><b>CFC only</b>, and it is measured: PLCopen TC6 defines ST, IL, FBD, LD and SFC as body
-        /// languages, so each gets a direct element named for it; CFC is a CODESYS extension with no place in the
-        /// schema, so it goes in a vendor <c>addData</c> block — beside an empty <c>&lt;ST&gt;</c> the schema still
-        /// wants, which is the decoy that once made a direct-children scan call a CFC body textual. See DIALECT.md.
-        /// <para>The reader used to look for CFC, SFC, FBD <em>and</em> LD in that position while only the CFC
-        /// codec ever wrote there. A nested SFC/FBD/LD would therefore have been READ as that language and been
-        /// invisible to the writer, whose empty sibling <c>&lt;ST&gt;</c> then qualifies as uncommitted and gets
-        /// overwritten. No vendor emits that shape, which is exactly why nothing caught the disagreement.</para></para></summary>
-        public static bool NestsInAddData(string? language) =>
-            string.Equals(language, Cfc, StringComparison.Ordinal);
     }
 }

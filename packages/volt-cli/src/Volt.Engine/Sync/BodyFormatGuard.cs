@@ -25,13 +25,13 @@ internal static class BodyFormatGuard
         language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
 
     /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
-    /// read-only set has ONE definition shared by the splice and both live guards.</summary>
-    internal static bool IsReadOnlyLanguage(string? language) =>
-        language is { } l && Document.BodyCodec.For(l).ReadOnly;
+    /// unsupported set has ONE definition shared by the splice and both live guards.</summary>
+    internal static bool IsUnsupportedLanguage(string? language) =>
+        language is { } l && Document.BodyCodec.For(l).Unsupported;
 
     /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it
     /// decides from the IDE's LIVE body language, never from the incoming text. <c>NetworkText</c>'s contract says it
-    /// outright: CFC/SFC read-only-ness "is enforced by live IDE state on push, not by any content marker".
+    /// outright: CFC/SFC unsupportedness "is enforced by live IDE state on push, not by any content marker".
     /// <para>The old guard tried to do it from content — <c>NetworkText.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
     /// never work, because a CFC/SFC body has no text form and materializes as
     /// <see cref="Vocabulary.BodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
@@ -65,21 +65,21 @@ internal static class BodyFormatGuard
 
         var childVg = NetworkText.Is(cimpl);
 
-        // A read-only body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
+        // An unsupported body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
         // splice leaves that member's body untouched. So the marker is only a refusal when it does NOT match a
-        // read-only body in the IDE: a stale or hand-written marker over something writable, which would
+        // unsupported body in the IDE: a stale or hand-written marker over something writable, which would
         // otherwise silently do nothing.
         if (marker)
         {
-            if (IsReadOnlyLanguage(lang)) return;               // the normal round-trip — leave the body alone
+            if (IsUnsupportedLanguage(lang)) return;               // the normal round-trip — leave the body alone
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' carries a read-only graphical marker but its body in the IDE is " +
+                $"'{child.Name}' carries an unsupported-body marker but its body in the IDE is " +
                 $"{lang ?? "textual"} — remove the marker and push real source, or pull first.");
         }
 
         if (Languages.IsDiagram(lang))
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{child.Name}' is a read-only {lang} body — edit it in the IDE, not via push.");
+                $"'{child.Name}' has a {lang} body, which Volt does not support — edit it in the IDE, not via push.");
         if (lang is not null && !childVg)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' is a graphical {lang} body in the IDE — a textual push would overwrite it. " +

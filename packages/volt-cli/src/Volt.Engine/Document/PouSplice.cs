@@ -66,9 +66,9 @@ namespace Volt.Engine.Document
         /// text, the codec for it is looked up, and the codec owns the element: ST patches its <c>&lt;xhtml&gt;</c>
         /// in place (so a no-op write returns the ORIGINAL bytes), network text replaces the whole
         /// <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> element (its NAME is the language, and the language can change),
-        /// and a read-only language refuses.</para>
+        /// and an unsupported language refuses.</para>
         /// <para>The ONE rule that used to be three copies: a write is refused when the pushed language differs
-        /// from the one in the IDE, or when the IDE's is read-only. That subsumes every case the old guards
+        /// from the one in the IDE, or when the IDE's is unsupported. That subsumes every case the old guards
         /// covered by hand — including IL, which used to slip through a graphical-only narrowing as "textual" and
         /// then be silently rewritten as ST.</para></summary>
         public static string SetBody(string xml, string itemName, string bodyText, string? declaration, bool establishing)
@@ -92,9 +92,9 @@ namespace Volt.Engine.Document
             var found = BodyCodec.PresentWith(body);
             var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
 
-            if (present is not null && present.ReadOnly)
+            if (present is not null && present.Unsupported)
                 throw new InvalidOperationException(
-                    $"'{itemName}' is a read-only {present.Language} body — edit it in the IDE, not via push.");
+                    $"'{itemName}' has a {present.Language} body, which Volt does not support — edit it in the IDE, not via push.");
 
             // A body element NO codec owns is a language Volt does not model — refuse it the same way, and for a
             // stronger reason: with a CFC we at least know what we are declining to touch. `found` is null here,
@@ -418,16 +418,18 @@ namespace Volt.Engine.Document
                 // The SAME dispatch the ROOT body uses (SetBody above) — not a second, stricter rule. A child was
                 // held to "ST or refuse" long after the root learned to encode editable graphical bodies, so an
                 // FBD/LD METHOD or ACTION could not be pushed AT ALL: restating one unchanged aborted the whole
-                // push. Only a READ-ONLY body (CFC/SFC) and a language CHANGE are refusals; a CFC method child is
-                // still the shape that first exposed the direct-children blind spot, and CfcCodec.Locate is what
-                // keeps that covered.
+                // push. (test/e2e/graphical/ld-kinds.test.ts drives this path live on both vendors — an LD METHOD,
+                // an LD ACTION and two LD PROPERTY accessors, each inside a parent whose own body is textual.)
+                // Only an UNSUPPORTED body (CFC/SFC/IL) and a language CHANGE are refusals; a CFC method child is
+                // still the shape that first exposed the direct-children blind spot, and BodyElement — the one
+                // scan the reader shares — is what keeps that covered here too.
                 var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(bodyText) ?? "ST");
                 var found = BodyCodec.PresentWith(body);
                 var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
-                if (present is not null && present.ReadOnly)
+                if (present is not null && present.Unsupported)
                     throw new InvalidOperationException(
-                        $"child '{childName}' of '{itemName}' has a read-only {present.Language} body — " +
-                        "edit it in the IDE, not via push.");
+                        $"child '{childName}' of '{itemName}' has a {present.Language} body, which Volt does " +
+                        "not support — edit it in the IDE, not via push.");
                 if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException(
                         $"child '{childName}' of '{itemName}' has a {present.Language} body in the IDE but the " +

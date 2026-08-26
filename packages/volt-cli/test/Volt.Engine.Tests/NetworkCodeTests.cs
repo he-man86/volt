@@ -147,7 +147,7 @@ public class NetworkCodeTests
     {
         // Full write-path round-trip: read an execute-box body to canonical network text, then Write it back. The box is
         // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
-        // not refused. So an Execute box is editable, not read-only.
+        // not refused. So an Execute box is editable, not unsupported.
         var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var vg = NetworkCodeIo.Read(read, Item, ItemName)!.Body;
         // Written through PouSplice.SetBody — the production write. `NetworkCodeIo.Write` was the per-child
@@ -195,7 +195,7 @@ public class NetworkCodeTests
         var ex = Assert.Throws<InvalidOperationException>(() => PouSplice.SetBody(
             s.Xml!, ItemName, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR", establishing: false));
-        Assert.Contains("unknown graphical language", ex.Message);
+        Assert.Contains("unknown body language", ex.Message);
         Assert.Contains("BANANA", ex.Message);
     }
 

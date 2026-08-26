@@ -203,7 +203,7 @@ public static class PushService
             throw new BridgeException(BridgeErrorCodes.Unsupported, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
         // CONTENT FIRST, then the move — because the content write is the step that can REFUSE.
-        // It used to move first, which meant a rejected move+edit (a read-only CFC body, a language change,
+        // It used to move first, which meant a rejected move+edit (an unsupported CFC body, a language change,
         // malformed network text — all refused by the splice) left the item ALREADY RELOCATED, and
         // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
         // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
@@ -244,7 +244,7 @@ public static class PushService
         var bodyImpl = split.Kind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
 
         // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
-        // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
+        // back via the PLCopen transport. (Root CFC/SFC are unsupported and never reach push.)
         var pouVg = NetworkText.Is(impl);
 
         // Read-only enforcement for graphical bodies is by LIVE IDE STATE, not content: an existing CFC/SFC

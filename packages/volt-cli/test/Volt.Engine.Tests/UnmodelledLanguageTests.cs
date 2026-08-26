@@ -91,6 +91,48 @@ public class UnmodelledLanguageTests
         Assert.Equal("CFC", PouReader.NonStLanguageOf(body));
     }
 
+    /// <summary>The nested lookup must not depend on the DEPTH the vendor chose. This is the CODESYS shape with
+    /// one more wrapper element around it — a shape nothing has measured, which is exactly the point: no TwinCAT
+    /// CFC or SFC export has ever been captured (DIALECT D7), so the depth is an assumption everywhere it is
+    /// relied on. If the element is not found the empty sibling &lt;ST&gt; wins, the body reads as textual, and
+    /// the next push overwrites a diagram that cannot be rebuilt from text.</summary>
+    [Fact]
+    public void A_nested_CFC_is_found_at_any_depth()
+    {
+        var body = BodyOf(PouWithBody(
+            "<ST><xhtml /></ST><addData><data name=\"http://www.3s-software.com/plcopenxml/cfc\">" +
+            "<Wrapper><CFC /></Wrapper></data></addData>"));
+        Assert.Equal("CFC", PouReader.NonStLanguageOf(body));
+    }
+
+    /// <summary>SFC in the nested position, for the same reason. TC6 makes SFC a DIRECT body child, so this shape
+    /// is unmeasured too — but CFC proves a vendor will put a diagram under addData when the schema has nowhere
+    /// else for it, and SFC is the other language with no write path. The reader used to look here for SFC and
+    /// stopped, correctly, because the WRITER did not: it would have been read as SFC and still overwritten
+    /// through the ST decoy. Sharing one locator between the two halves is what makes looking safe again.</summary>
+    [Fact]
+    public void A_nested_SFC_is_found_rather_than_read_as_its_empty_ST_sibling()
+    {
+        var body = BodyOf(PouWithBody(
+            "<ST><xhtml /></ST><addData><data name=\"vendor/sfc\"><SFC /></data></addData>"));
+        Assert.Equal("SFC", PouReader.NonStLanguageOf(body));
+    }
+
+    /// <summary>And the halves agree. A body the READER calls a diagram must be one the WRITER also finds, or the
+    /// refusal never fires: `PresentWith` would match the empty ST, `IsUncommitted` would call it uncommitted, and
+    /// the push would flatten the diagram. Reader-only recognition is not protection.</summary>
+    [Theory]
+    [InlineData("<ST><xhtml /></ST><addData><data name=\"x/cfc\"><Wrapper><CFC /></Wrapper></data></addData>", "CFC")]
+    [InlineData("<ST><xhtml /></ST><addData><data name=\"x/sfc\"><SFC /></data></addData>", "SFC")]
+    public void A_push_refuses_to_overwrite_a_nested_diagram(string bodyInner, string language)
+    {
+        var split = new ItemContent(ItemKind.Kinds.FunctionBlock,
+            "FUNCTION_BLOCK FB_Odd\nVAR\nEND_VAR", "x := 1;", new List<Member>());
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => PouDocument.Splice(PouWithBody(bodyInner), "FB_Odd", split, establishing: false));
+        Assert.Contains(language, ex.Message);
+    }
+
     // ── the write side ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>And the push REFUSES it. The read half alone is not the fix: `BodyCodec.PresentWith` matches

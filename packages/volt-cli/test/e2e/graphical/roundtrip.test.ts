@@ -1,9 +1,9 @@
 /**
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
- * CFC/SFC are read-only (declaration-only, never created).
+ * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -245,10 +245,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
 	})
 
-	// SKIPPED on TwinCAT, and not as a known-failure: TwinCAT has no move primitive at all. `IProjectTree.Move`
-	// throws there by design (DIALECT C5/D4 — measured: no MoveChild/Move/Reparent member on a tree item), so a
-	// pure move is REFUSED rather than performed. Asserting it would be asserting a capability the vendor lacks.
-	it.skipIf(VENDOR === "twincat")("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
+	// This used to be SKIPPED on TwinCAT, on a finding that has since been retracted: no MoveChild/Move/Reparent
+	// member exists on a TwinCAT tree item, which was read as "the vendor cannot move", so asserting a move
+	// looked like asserting a capability that did not exist. The absent member is real; the conclusion was not.
+	// Relocation there is not a method call at all — TcItemArchive round-trips the item through its own archive
+	// export, which moves it whole. The skip then outlived that finding by an entire implementation, because a
+	// skipped test reports nothing: it just keeps describing the world as it was on the day it was written.
+	it("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
 		// A move used to be a delete-and-recreate, and a graphical body cannot be rebuilt from text, so a
 		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IProjectTree.Move the
 		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it
@@ -275,7 +278,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {
 		// Self-provisioned (NOT discover()) so it runs identically on every bridge: a fetched graphical
 		// body pushed back unchanged must round-trip byte-identical — the no-phantom-drift guarantee on a
-		// POU that already lives in the project. (CFC/SFC read-only behaviour is covered vendor-agnostically
+		// POU that already lives in the project. (CFC/SFC unsupported behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
 		const name = id("vg_existing")
 		const fullName = fid("vg_existing", "prg")

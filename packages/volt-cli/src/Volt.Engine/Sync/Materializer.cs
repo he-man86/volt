@@ -141,7 +141,7 @@ public static class Materializer
     private static string? BodyTextOf(string? lang, XElement? bodyEl)
     {
         if (lang == null || bodyEl == null) return null;
-        // No ReadOnly branch: a read-only codec DECODES to its marker, so one uniform call serves every
+        // No Unsupported branch: an unsupported codec DECODES to its marker, so one uniform call serves every
         // language. Branching here meant the caller had to know which languages have a text form — the exact
         // knowledge the codec registry exists to hold.
         var text = Document.BodyCodec.For(lang).Decode(bodyEl).Trim();

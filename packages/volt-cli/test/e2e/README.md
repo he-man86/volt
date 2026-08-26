@@ -28,7 +28,7 @@ Instead of running against whatever you happen to have open, the suite targets c
 | `TwinCAT Project13/`, `TwinCAT Project14/` | TwinCAT | single / **multi-XAE** |
 
 `Untitled1.project` holds the two shapes the write path is hardest on, both hand-authored because a test cannot
-provision the first at all (CFC is read-only, so Volt never creates one):
+provision the first at all (CFC is unsupported, so Volt never creates one):
 
 - `FB_GraphicalChild` — a graphical CHILD under a textual parent, the exact shape of the first write-path data-loss bug.
 - `FB_FolderChild` — a child inside a POU-internal folder, the structure a PLCopen import flattens.

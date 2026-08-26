@@ -88,9 +88,9 @@ public class BodyCodecTests
     [InlineData("IL")]
     [InlineData("CFC")]
     [InlineData("SFC")]
-    public void An_unsupported_body_language_is_read_only(string language)
+    public void An_unsupported_body_language_is_marked_unsupported(string language)
     {
-        Assert.True(Volt.Engine.Document.BodyCodec.For(language).ReadOnly);
+        Assert.True(Volt.Engine.Document.BodyCodec.For(language).Unsupported);
     }
 
     [Theory]
@@ -102,7 +102,7 @@ public class BodyCodecTests
         var body = new XElement("body");
         var ex = Assert.Throws<System.InvalidOperationException>(
             () => Volt.Engine.Document.BodyCodec.For(language).Encode(body, "x := 1;", null));
-        Assert.Contains("read-only", ex.Message);
+        Assert.Contains("not a language Volt supports", ex.Message);
     }
 
     /// <summary>An IL body materializes as the MARKER, not as its raw text — the difference between "Volt shows
@@ -116,31 +116,47 @@ public class BodyCodecTests
 
         Assert.Equal("IL", found!.Value.Codec.Language);
         var decoded = found.Value.Codec.Decode(found.Value.Element);
-        Assert.True(Volt.Engine.Vocabulary.BodyMarker.Is(decoded));   // the read-only marker, same as CFC/SFC
+        Assert.True(Volt.Engine.Vocabulary.BodyMarker.Is(decoded));   // the unsupported marker, same as CFC/SFC
         Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
 
     // ── the reader and the writer must agree on WHERE a body lives ─────────────────────────────────
-    /// <summary>Only CFC nests under <c>&lt;body&gt;/&lt;addData&gt;</c>; every TC6 language is a direct child.
-    /// <para>The reader accepted CFC, SFC, FBD <em>and</em> LD in the nested position while only the CFC codec
-    /// ever writes there. A nested SFC/FBD/LD would have been READ as that language and been INVISIBLE to the
-    /// writer — whose empty sibling <c>&lt;ST&gt;</c> then counts as uncommitted and gets overwritten, losing the
-    /// body. No vendor emits that shape, which is precisely why the disagreement went unnoticed; the rule now
-    /// lives once in <c>Languages.NestsInAddData</c> and both halves ask it.</para></summary>
+    // ── the reader and the writer must agree on WHERE a body lives ─────────────────────────────────
+    /// <summary>A diagram is found in EITHER position, at any depth, by BOTH halves.
+    /// <para>This replaces a table asserting "only CFC nests under <c>&lt;body&gt;/&lt;addData&gt;</c>", which
+    /// was a measured CODESYS fact standing in for the thing that actually matters. Two problems with it. The
+    /// depth was measured on ONE vendor — no TwinCAT CFC or SFC export has ever been captured (DIALECT D7) — and
+    /// the reader's scan matched CODESYS's exactly. And the rule had been narrowed to CFC because the reader once
+    /// accepted a nested SFC the writer could not locate, which is worse than not looking: the body reads as a
+    /// diagram,  matches the empty sibling <c>&lt;ST&gt;</c> instead, that counts as uncommitted,
+    /// and the push overwrites it.</para>
+    /// <para>Both are answered by looking in both positions from ONE shared scan. The asymmetry cannot come back
+    /// — there is only one scan to change — so the search can afford to be liberal, and the cases below are the
+    /// ones no vendor is known to emit.</para>
+    /// <para>The empty <c>&lt;ST&gt;</c> rides along only with a NESTED body, and that is not incidental: TC6
+    /// makes the language element a CHOICE of one, so a conformant body holds exactly one. The decoy exists
+    /// because a nested vendor body still has to satisfy that choice — which is why the direct case carries no
+    /// sibling, and why the reader is entitled to take the first non-metadata child it finds.</para></summary>
     [Theory]
-    [InlineData("CFC", true)]
-    [InlineData("SFC", false)]
-    [InlineData("FBD", false)]
-    [InlineData("LD", false)]
-    [InlineData("ST", false)]
-    [InlineData("IL", false)]
-    public void Only_CFC_nests_in_addData(string language, bool nests)
+    [InlineData("CFC", "<ST><xhtml /></ST><addData><data><CFC /></data></addData>")]        // the measured CODESYS shape
+    [InlineData("CFC", "<ST><xhtml /></ST><addData><data><W><CFC /></W></data></addData>")] // one level deeper
+    [InlineData("CFC", "<ST><xhtml /></ST><addData><CFC /></addData>")]                     // one level shallower
+    [InlineData("SFC", "<ST><xhtml /></ST><addData><data><SFC /></data></addData>")]        // SFC where only CFC was sought
+    [InlineData("SFC", "<SFC />")]                                                          // and SFC where TC6 puts it
+    public void A_diagram_is_found_in_either_position_by_both_halves(string language, string bodyInner)
     {
-        Assert.Equal(nests, Volt.Engine.Vocabulary.Languages.NestsInAddData(language));
+        var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
+        var body = XElement.Parse($"<body xmlns=\"{ns}\">{bodyInner}</body>");
+
+        // the READER calls it a diagram…
+        Assert.Equal(language, Volt.Engine.Document.PouReader.NonStLanguageOf(body));
+        // …and the WRITER locates the same element, rather than the empty <ST> decoy beside it
+        Assert.Equal(language, Volt.Engine.Document.BodyCodec.PresentWith(body)!.Value.Codec.Language);
     }
 
-    /// <summary>Whatever the reader finds nested, the WRITER's codec must own that same position — otherwise a
-    /// body is readable and unwritable at once.</summary>
+    /// <summary>The original of the case above, kept because it is the exact shape recorded from CODESYS: an
+    /// empty <c>&lt;ST&gt;</c> beside the real body. If the general rule above is ever narrowed, this is the one
+    /// that must still hold.</summary>
     [Fact]
     public void A_nested_body_the_reader_finds_is_one_the_writer_owns()
     {

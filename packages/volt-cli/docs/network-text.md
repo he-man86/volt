@@ -19,7 +19,7 @@ server can work over a graphical body **as text**, even though it was authored g
 (`.fb`/`.prg`/`.fun`) — a textual body as ST, an editable FBD/LD body as network text (the body language
 rides on the network text `NETWORK` marker in the content, not the extension). When pushed, the bridge parses the network text back to the graphical node
 graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a graphical body
-can be read, edited, and written entirely as network text. (CFC/SFC are surfaced read-only.)
+can be read, edited, and written entirely as network text. (CFC, SFC and IL are unsupported: a marker, not content.)
 
 ```
   Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──NetworkTextWriter──►  network text   (pull / read)

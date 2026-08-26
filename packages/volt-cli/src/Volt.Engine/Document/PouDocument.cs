@@ -10,7 +10,7 @@ namespace Volt.Engine.Document;
 
 /// <summary>Build the ONE PLCopen document a POU write travels in, by SPLICING the pushed source into the item's
 /// CURRENT export — never by generating a document from scratch. Everything Volt does not model (attributes,
-/// pragmas, object ids, vendor <c>addData</c>, a read-only CFC child's body) is carried through untouched because
+/// pragmas, object ids, vendor <c>addData</c>, an unsupported CFC child's body) is carried through untouched because
 /// it is never rewritten.
 /// <para>This is the whole reason the change exists: reading and writing a POU through the SAME representation
 /// removes the seam all three data-loss bugs lived in — a graphical child flattened because the read said

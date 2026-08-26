@@ -271,13 +271,17 @@ function dialectRows(): Row[] {
 
 function citations(): { file: string; line: number; id: string; text: string }[] {
 	const out: { file: string; line: number; id: string; text: string }[] = [];
-	const roots = ["packages/volt-cli/src", "packages/volt-cli/docs"];
+	// TEST is in scope, and leaving it out cost a real hole. An e2e test skipped TwinCAT's graphical move citing
+	// C5/D4 ("no move primitive at all") — both retracted — and stayed skipped straight through the entire
+	// implementation of that move. A skipped test reports nothing, so nothing else was going to notice.
+	const roots = ["packages/volt-cli/src", "packages/volt-cli/docs", "packages/volt-cli/test"];
 	const walk = (dir: string): string[] => {
 		if (!existsSync(dir)) return [];
 		return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
 			const p = join(dir, e.name);
-			if (e.isDirectory()) return e.name === "obj" || e.name === "bin" ? [] : walk(p);
-			return /\.(cs|md)$/.test(e.name) ? [p] : [];
+			const skip = e.name === "obj" || e.name === "bin" || e.name === "node_modules";
+			if (e.isDirectory()) return skip ? [] : walk(p);
+			return /\.(cs|ts|md)$/.test(e.name) ? [p] : [];
 		});
 	};
 	const files = [...roots.flatMap((r) => walk(join(REPO_ROOT, r))),
@@ -337,6 +341,7 @@ function citationsOfUnmeasured(): string[] {
 		});
 	};
 	for (const f of walk(join(REPO_ROOT, "packages/volt-cli/src"))) {
+		if (f.endsWith("DIALECT.md")) continue;   // it DEFINES the marker; the source, not a consumer
 		readFileSync(f, "utf8").split(/\r?\n/).forEach((text, i) => {
 			if (!/\[UNMEASURED:/.test(text)) return;
 			out.push(`${f.slice(REPO_ROOT.length + 1).replaceAll("\\", "/")}:${i + 1}  ${text.trim().slice(0, 120)}`);

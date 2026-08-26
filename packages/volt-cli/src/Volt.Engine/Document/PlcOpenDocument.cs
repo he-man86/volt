@@ -95,7 +95,7 @@ namespace Volt.Engine.Document
         }
 
         /// <summary>The language of a POU's graphical body, read from the exported PLCopen alone (the
-        /// body element's name): <c>FBD</c>/<c>LD</c> (editable) or <c>CFC</c>/<c>SFC</c> (read-only).
+        /// body element's name): <c>FBD</c>/<c>LD</c> (editable) or <c>CFC</c>/<c>SFC</c> (unsupported).
         /// Null for a textual body (ST/IL) or none. Lets the graphical read rely solely on the
         /// (in-memory) export — no extra object-model read that could return a stale post-import body.</summary>
         public static string? GraphicalBodyLang(string xml, string itemName)
@@ -106,7 +106,7 @@ namespace Volt.Engine.Document
             if (body is null) return null;
             // Delegates to the parser's ONE lookup rather than re-scanning direct children here. It used to do the
             // latter, and so answered null for a CODESYS CFC body — which nests under <body>/<addData> and carries
-            // an empty sibling <ST>. This IS the driver's `BodyLanguage`, i.e. the signal the read-only-CFC push
+            // an empty sibling <ST>. This IS the driver's `BodyLanguage`, i.e. the signal the unsupported-CFC push
             // refusal reads, so "textual" was the one wrong answer it could give.
             return PouReader.NonStLanguageOf(body);
         }

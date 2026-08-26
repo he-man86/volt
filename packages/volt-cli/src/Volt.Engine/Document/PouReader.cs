@@ -143,11 +143,12 @@ public static class PouReader
         return bodyEl == null ? default : LangIn(bodyEl);
     }
 
-    /// <summary>For CODESYS addData children, the body element may not use the PLCopen namespace.
-    /// <para>[UNMEASURED: whether TwinCAT nests a CFC/SFC body the same way — no TwinCAT CFC or SFC fixture has
-    /// ever been captured, so this shape is measured on CODESYS alone and merely ASSUMED to be shared. It is
-    /// matched by local name, which is what keeps a namespace difference from mattering, but a different
-    /// nesting DEPTH would still be missed. DIALECT D7.]</para></summary>
+    /// <summary>For CODESYS addData children, the body element may not use the PLCopen namespace — hence the
+    /// match by LOCAL name.
+    /// <para>DIALECT D7 (does TwinCAT nest a diagram the way CODESYS does?) used to be load-bearing right here,
+    /// because the nested scan matched CODESYS's depth exactly and no TwinCAT CFC or SFC export has ever been
+    /// captured. <see cref="BodyElement"/> now searches any depth, so it is no longer a question this code's
+    /// correctness rests on. D7 stays open as a fact about the vendor; it has stopped being a risk.</para></summary>
     private static (string? language, XElement? element) FindBodyChild(XElement parent)
     {
         var bodyEl = parent.Elements().FirstOrDefault(e => e.Name.LocalName == "body");
@@ -175,10 +176,10 @@ public static class PouReader
     /// refuse it; guessing that it is not one is what flattened IL.</para></summary>
     private static (string? language, XElement? element) LangIn(XElement bodyEl)
     {
-        // The NESTED graphical body wins, and must be looked for FIRST — see NestedGraphicalBody. A body that
-        // carries one also carries an EMPTY sibling <ST>, so a direct-children scan answers "ST" and reports a
-        // read-only diagram as textual.
-        if (NestedGraphicalBody(bodyEl) is { } nested) return (nested.Name.LocalName, nested);
+        // The NESTED diagram wins, and must be looked for FIRST — via BodyElement, the SAME scan the codecs
+        // use, so the reader cannot recognise a body the writer then fails to find. A body carrying a nested
+        // diagram also carries an EMPTY sibling <ST>, so a direct-children scan answers "ST" instead.
+        if (BodyElement.NestedDiagramIn(bodyEl) is { } nested) return (nested.Name.LocalName, nested);
         var langEl = bodyEl.Elements().FirstOrDefault(e => !IsBodyMetadata(e.Name.LocalName));
         return langEl is null ? default : (langEl.Name.LocalName, langEl);
     }
@@ -188,23 +189,6 @@ public static class PouReader
     /// under a body IS the language element, whether or not Volt models it.</summary>
     private static bool IsBodyMetadata(string localName) =>
         localName is "addData" or "documentation";
-
-    /// <summary>A graphical body that is NOT a direct <c>&lt;body&gt;</c> child but hangs off
-    /// <c>&lt;body&gt;/&lt;addData&gt;/&lt;data name="…/cfc"&gt;</c>, or null.
-    /// <para>This is how CODESYS exports a real CFC body — verified against the recorded
-    /// <c>codesys-pou/FB_GraphicalChild.plcopen.xml</c>, captured from a hand-authored IDE project because no test
-    /// can create a CFC POU (CFC is read-only, so Volt never creates one). CFC and SFC are not TC6 body languages,
-    /// so the schema has nowhere to put them but an <c>addData</c>.</para>
-    /// <para>Load-bearing, not cosmetic: the export ALSO carries an empty sibling <c>&lt;ST&gt;</c>, so scanning
-    /// direct children alone classified the item as TEXTUAL. Everything downstream then went wrong quietly — the
-    /// body materialized as empty ST instead of the graphical marker, and the read-only-CFC push refusal could not
-    /// fire from that signal. The synthetic <c>&lt;body&gt;&lt;CFC/&gt;&lt;/body&gt;</c> in older tests is a shape
-    /// no vendor produces, which is why the suite stayed green.</para></summary>
-    private static XElement? NestedGraphicalBody(XElement bodyEl) =>
-        bodyEl.Elements().Where(e => e.Name.LocalName == "addData")
-            .SelectMany(a => a.Elements().Where(d => d.Name.LocalName == "data"))
-            .SelectMany(d => d.Elements())
-            .FirstOrDefault(e => Languages.NestsInAddData(e.Name.LocalName));
 
     /// <summary>The body element's graphical language for an item in an export, or null when the body is textual —
     /// the ONE answer to that question, shared with the driver's <c>BodyLanguage</c> gate so a body cannot be

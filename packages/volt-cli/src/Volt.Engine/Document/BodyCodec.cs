@@ -20,23 +20,30 @@ namespace Volt.Engine.Document
     /// <c>&lt;body&gt;/&lt;addData&gt;/&lt;data name="…/cfc"&gt;</c>, beside an EMPTY <c>&lt;ST&gt;</c> the schema
     /// still wants — the decoy that once made a direct-children scan call a CFC body textual. See
     /// <c>PlcOpen/DIALECT.md</c> for the table and the fixture behind each row.</para>
-    /// <para><b>Read-only-ness and placement are INDEPENDENT.</b> SFC is read-only and direct; CFC is read-only
-    /// and nested; FBD is writable and direct. Fusing them back into one "is graphical" flag is exactly the
-    /// mistake this type exists to prevent.</para>
+    /// <para><b>Support and placement are INDEPENDENT.</b> SFC is unsupported and direct; CFC is unsupported and
+    /// nested; FBD is writable and direct. Fusing them back into one "is graphical" flag is exactly the mistake
+    /// this type exists to prevent — and no codec answers the placement question itself any more: that is
+    /// <see cref="BodyElement"/>, which the READER shares, because a body only survives if both halves find it.</para>
     /// </summary>
     public abstract class BodyCodec
     {
         /// <summary>The language this codec speaks, as it appears as an element name (`ST`, `FBD`, `CFC`, …).</summary>
         public abstract string Language { get; }
 
-        /// <summary>Can a push WRITE this language? False for CFC/SFC, which have no text form to write back —
-        /// which is all "read-only" means.</summary>
-        public virtual bool ReadOnly => false;
+        /// <summary>Is this language UNSUPPORTED — no text form Volt can produce or accept, in either direction?
+        /// True for CFC, SFC and IL.
+        /// <para>It used to be called <c>ReadOnly</c>, and that name oversold it. Nothing here is readable: the
+        /// body materializes as <see cref="Vocabulary.BodyMarker"/>, a stand-in carrying none of the content.
+        /// Volt round-trips ST, FBD and LD; everything else it declines to touch, and declining IS the feature —
+        /// an unsupported body must come back out of a push exactly as it went in.</para></summary>
+        public virtual bool Unsupported => false;
 
-        /// <summary>The body element this codec owns inside <paramref name="body"/>, or null. Default: a direct
-        /// child named for the language — the TC6 shape. <see cref="CfcCodec"/> overrides it.</summary>
-        public virtual XElement? Locate(XElement body) =>
-            body.Elements().FirstOrDefault(e => e.Name.LocalName == Language);
+        /// <summary>The body element this codec owns inside <paramref name="body"/>, or null.
+        /// <para>Not virtual, and no codec overrides it: WHERE a language sits is a property of the language, not
+        /// of what its codec can do with the text once found, and <see cref="BodyElement"/> is the one place that
+        /// answers it — for the reader too. CFC used to override this with its own copy of the nested scan, which
+        /// is precisely how the two halves came to disagree about SFC.</para></summary>
+        public XElement? Locate(XElement body) => BodyElement.Of(body, Language);
 
         /// <summary>Element → the workspace text for this body.</summary>
         public abstract string Decode(XElement element);
@@ -77,8 +84,8 @@ namespace Volt.Engine.Document
             // handled by the same codec rather than by a bespoke one that differed only in its throw message.
             // It matters at the READ end: an IL body used to materialize as its raw text, indistinguishable from
             // ST source, so the engineer got an editable-looking file and a push then rewrote their IL body as
-            // ST. Now it materializes as the read-only marker and the push leaves it alone.
-            new ReadOnlyCodec("IL"), new ReadOnlyCodec("SFC"), new CfcCodec(),
+            // ST. Now it materializes as the marker and the push leaves it alone.
+            new UnsupportedCodec("IL"), new UnsupportedCodec("SFC"), new UnsupportedCodec("CFC"),
         };
 
         /// <summary>The codec for a language, or a refusal a USER can act on.
@@ -89,8 +96,8 @@ namespace Volt.Engine.Document
         public static BodyCodec For(string language) =>
             All.FirstOrDefault(c => string.Equals(c.Language, language, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException(
-                $"unknown graphical language '{language}' — Volt round-trips FBD and LD; " +
-                "CFC, SFC and IL are read-only");
+                $"unknown body language '{language}' — Volt round-trips ST, FBD and LD; " +
+                "CFC, SFC and IL are not supported");
 
         /// <summary>The codec present in this body together with the element it found, or null for a body with
         /// none (an interface member, a DUT, a GVL — all measured to emit no <c>&lt;body&gt;</c> content at all).
@@ -99,7 +106,7 @@ namespace Volt.Engine.Document
         /// empty <c>&lt;ST&gt;</c> sibling that would otherwise win.</para></summary>
         public static (BodyCodec Codec, XElement Element)? PresentWith(XElement body)
         {
-            foreach (var c in All.OrderByDescending(x => x is CfcCodec))
+            foreach (var c in All.OrderByDescending(x => Languages.IsDiagram(x.Language)))
                 if (c.Locate(body) is { } el) return (c, el);
             return null;
         }
@@ -180,37 +187,24 @@ namespace Volt.Engine.Document
         }
     }
 
-    /// <summary>SFC — read-only, and a DIRECT body child (it is a TC6 language, unlike CFC). Reads as the marker;
-    /// there is no write.</summary>
-    internal class ReadOnlyCodec : BodyCodec
+    /// <summary>CFC, SFC and IL — the languages Volt does not support, in ONE codec.
+    /// <para>They differ in ways that turn out not to matter here: CFC is a vendor extension nested under
+    /// <c>addData</c> while SFC is a TC6 direct child (<see cref="BodyElement"/> settles that, for the reader
+    /// too), and IL is textual rather than a diagram. What they share is the only thing this type acts on —
+    /// there is no text form to hand an engineer, and none to accept back. CFC had its own subclass purely to
+    /// carry a second copy of the nested lookup; once that is shared, it adds nothing.</para>
+    /// <para>IL matters at the READ end specifically. Being textual, it used to materialize as its raw source,
+    /// indistinguishable from ST — the engineer got an editable-looking file and the next push rewrote their IL
+    /// body as ST. The marker is what makes "unsupported" visible instead of silent.</para></summary>
+    internal sealed class UnsupportedCodec : BodyCodec
     {
-        public ReadOnlyCodec(string language) => Language = language;
+        public UnsupportedCodec(string language) => Language = language;
         public override string Language { get; }
-        public override bool ReadOnly => true;
+        public override bool Unsupported => true;
         public override string Decode(XElement element) => Vocabulary.BodyMarker.For(Language);
         public override bool Encode(XElement body, string text, string? declaration) =>
             throw new InvalidOperationException(
-                $"'{Language}' is a read-only body — edit it in the IDE, not via push.");
-    }
-
-    /// <summary>CFC — read-only like SFC, but NOT a direct body child. It is a CODESYS extension with no place in
-    /// the TC6 schema, so it lives in <c>&lt;body&gt;/&lt;addData&gt;/&lt;data name="…/cfc"&gt;</c>. This override
-    /// IS the bug fix: scanning direct children found the empty <c>&lt;ST&gt;</c> beside it and reported a
-    /// read-only diagram as textual.</summary>
-    internal sealed class CfcCodec : ReadOnlyCodec
-    {
-        public CfcCodec() : base("CFC") { }
-
-        public override XElement? Locate(XElement body) =>
-            // The addData nesting FIRST — it is the recorded CODESYS shape, and it must beat the empty <ST>
-            // sibling that ships with it. Then a direct child as a fallback: nothing measured emits one, but the
-            // reader stays liberal in what it accepts. Being strict here would mean a CFC body we failed to
-            // RECOGNISE gets treated as textual and written over — the exact data loss this codec exists to stop,
-            // so tolerance is the safe direction to err in.
-            body.Elements().Where(e => e.Name.LocalName == "addData")
-                .SelectMany(a => a.Elements().Where(d => d.Name.LocalName == "data"))
-                .SelectMany(d => d.Elements())
-                .FirstOrDefault(e => e.Name.LocalName == "CFC")
-            ?? base.Locate(body);
+                $"'{Language}' is not a language Volt supports — edit this body in the IDE. " +
+                "Volt round-trips ST, FBD and LD.");
     }
 }

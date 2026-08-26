@@ -9,7 +9,7 @@ using Volt.Engine.Vocabulary;
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// DATA LOSS regression: a read-only graphical (CFC/SFC) POU **child** — a method or action — must never be
+/// DATA LOSS regression: an unsupported graphical (CFC/SFC) POU **child** — a method or action — must never be
 /// overwritten by a push.
 ///
 /// <para>The root POU is protected by asking the IDE for its live <c>BodyLanguage</c>. The child path used to
@@ -67,38 +67,38 @@ public class GraphicalChildGuardTests
     private const string Bare = "FB_WithGraphicalChild";
     private const string Name = Bare + ".fb";
 
-    /// <summary>Pushing the marker BACK over a matching read-only child is the ordinary round-trip: ACCEPTED, the
+    /// <summary>Pushing the marker BACK over a matching unsupported child is the ordinary round-trip: ACCEPTED, the
     /// root is written, and the child is left alone.
     /// <para>This test used to assert the opposite — that the whole push was refused. That premise was wrong on
-    /// grounds independent of the code: the marker is simply what a read-only body materializes as on every pull,
+    /// grounds independent of the code: the marker is simply what an unsupported body materializes as on every pull,
     /// so refusing it meant a POU that merely CONTAINED a CFC/SFC member could never be edited through Volt at
     /// all, not even to change its own root body. The refusal is still right when the marker does NOT match a
-    /// read-only body (see the sibling test) — that is a stale marker and would silently do nothing.</para></summary>
+    /// unsupported body (see the sibling test) — that is a stale marker and would silently do nothing.</para></summary>
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
-    public void Pushing_the_marker_back_over_a_read_only_child_is_a_no_op_not_a_refusal(string lang)
+    public void Pushing_the_marker_back_over_an_unsupported_child_is_a_no_op_not_a_refusal(string lang)
     {
         var ide = IdeWithChild("M", lang);
 
         var resp = Push(ide, Marker(lang));
 
-        Assert.True(resp.Accepted, "a POU containing a read-only child must remain editable");
+        Assert.True(resp.Accepted, "a POU containing an unsupported child must remain editable");
         Assert.Contains("writexml:" + Bare, ide.Recorded);                  // the root's own edit landed…
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …and the child was not dropped as an orphan
 
         // …and the DIAGRAM is still there, unwritten. On the per-child path this was "no write:M call"; with one
         // document there are no per-child calls at all, so that assertion would now pass without proving anything.
-        // The document itself is the evidence: the read-only body survives and the marker text never reaches it.
+        // The document itself is the evidence: the unsupported body survives and the marker text never reaches it.
         var doc = ide.WrittenXml[Bare];
         Assert.Contains("<" + lang, doc);
         Assert.DoesNotContain("@volt-graphical", doc);
     }
 
-    /// <summary>A marker that does NOT match a read-only body is refused — a stale or hand-written marker over a
+    /// <summary>A marker that does NOT match an unsupported body is refused — a stale or hand-written marker over a
     /// writable body would otherwise be accepted and silently change nothing.</summary>
     [Fact]
-    public void A_marker_over_a_body_that_is_not_read_only_is_refused()
+    public void A_marker_over_a_body_that_is_supported_is_refused()
     {
         var ide = IdeWithChild("M", null);   // the child's body in the IDE is textual
 
@@ -113,13 +113,17 @@ public class GraphicalChildGuardTests
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
-    public void Pushing_real_text_over_a_read_only_child_is_refused_not_written(string lang)
+    public void Pushing_real_text_over_a_unsupported_child_is_refused_not_written(string lang)
     {
         var ide = IdeWithChild("M", lang);
 
         var resp = Push(ide, "y := 2;");
 
-        Assert.Contains("read-only", Assert.Single(resp.Conflicts!).Reason);
+        // The refusal has to NAME the language and say Volt does not support it — a bare "refused" leaves the
+        // engineer with no way to tell a Volt limitation from a mistake in what they pushed.
+        var reason = Assert.Single(resp.Conflicts!).Reason;
+        Assert.Contains("does not support", reason);
+        Assert.Contains(lang, reason);
         AssertNothingMutated(ide);
     }
 
