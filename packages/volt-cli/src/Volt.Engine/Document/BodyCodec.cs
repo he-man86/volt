@@ -175,10 +175,19 @@ namespace Volt.Engine.Document
             var graph = NetworkCode.Validate(text);                     // parse + canonical + convergence gates
             // The resolver is the WHOLE point of `declaration`: network text names an FB instance but not its
             // type, so without this every FB box was re-imported as typeName="" — silent, on every push.
-            var types = Graph.InstanceTypes.Of(declaration);
-            var replacement = GraphWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
             var existing = Locate(body) ?? body.Elements()
                 .FirstOrDefault(e => Languages.IsNetwork(e.Name.LocalName));  // a language change swaps the element
+
+            // TWO sources, in this order. The body being replaced already carries every existing box's type,
+            // written by the IDE — nothing is inferred from it. The declaration is a TEXT parse, and a text parse
+            // of ST is an approximation forever, so it is asked only about boxes that are new in this push.
+            // Reversing the order would put the guess ahead of the fact.
+            var fromBody = Graph.InstanceTypes.FromBody(existing);
+            var fromDecl = Graph.InstanceTypes.Of(declaration);
+            var replacement = GraphWriter.WriteBody(graph,
+                inst => fromBody.TryGetValue(inst, out var t) ? t
+                      : fromDecl.TryGetValue(inst, out var d) ? d
+                      : null);
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
             GraphSplice.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
             if (XNode.DeepEquals(existing, replacement)) return false;

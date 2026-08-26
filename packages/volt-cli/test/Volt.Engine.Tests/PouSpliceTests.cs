@@ -574,17 +574,25 @@ public class PouSpliceTests
         Assert.Contains("TON", blocks);
     }
 
-    /// <summary>The same write with NO declaration to resolve against must not silently invent an empty type —
-    /// this is the exact input that produced the bug, so it is pinned as the failing case it is.</summary>
+    /// <summary>The same write with NO declaration still keeps the FB type, because the BODY BEING REPLACED
+    /// carries it.
+    /// <para>This test used to assert the opposite — <c>Assert.True(string.IsNullOrEmpty(t))</c>, with a comment
+    /// saying it "documents WHY the declaration is threaded". It pinned the BUG as the contract: an empty
+    /// typeName written over an export that had a real one, on a push reporting success.</para>
+    /// <para>The declaration was never the right primary source. It is a TEXT parse of Structured Text, which is
+    /// an approximation forever; the element being replaced holds the attribute the IDE itself wrote. Reading it
+    /// there first takes the parse off the critical path entirely — it is now consulted only for a box that is
+    /// NEW in this push and has no existing element to inherit from — and an instance neither source can answer
+    /// for throws instead of being written empty.</para></summary>
     [Fact]
-    public void Without_a_declaration_the_FB_type_cannot_be_restored()
+    public void Without_a_declaration_the_FB_type_comes_from_the_body_being_replaced()
     {
         var parsed = PouReader.Parse(TonFbd);
         var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
         var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, null, establishing: false);
         var t = XDocument.Parse(outXml).Descendants()
             .First(e => e.Name.LocalName == "block").Attribute("typeName")!.Value;
-        Assert.True(string.IsNullOrEmpty(t));   // documents WHY the declaration is threaded, and is not optional
+        Assert.Equal("TON", t);
     }
 
     /// <summary>Normalise only what a serializer may legitimately move: line endings and inter-element

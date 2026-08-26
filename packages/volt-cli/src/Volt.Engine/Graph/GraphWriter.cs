@@ -123,7 +123,16 @@ namespace Volt.Engine.Graph
                 case Block b:
                     var typeName = b.TypeName;
                     if (string.IsNullOrEmpty(typeName) && b.InstanceName != null && resolveType != null)
-                        typeName = resolveType(b.InstanceName) ?? "";
+                        // NOT `?? ""`. An unresolved instance used to be written as typeName="" — over an export
+                        // that CARRIED the type — and the push reported success. Nothing downstream could catch
+                        // it: network text does not mention FB types, so both of NetworkCode.Validate's gates see
+                        // an identical round-trip whether the type survived or not. The validation was blind to
+                        // exactly the thing being destroyed, which is why this has to fail here or nowhere.
+                        typeName = resolveType(b.InstanceName)
+                            ?? throw new InvalidOperationException(
+                                $"cannot write FB instance '{b.InstanceName}': its type is neither in the body " +
+                                "being replaced nor readable from the declaration. Declare it as " +
+                                $"`{b.InstanceName} : <FB type>;` in the VAR block, or edit this body in the IDE.");
                     var el = new XElement(Ns + "block", IdAttrs(b),
                         new XAttribute("typeName", typeName));
                     if (b.InstanceName != null) el.Add(new XAttribute("instanceName", b.InstanceName));
