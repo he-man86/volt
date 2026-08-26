@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 
 namespace Volt.Cli.Sync;
@@ -126,17 +126,26 @@ public static class Git
             ? path
             : "\"" + path.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n") + "\"";
 
-    /// <summary>Recursive blob listing of a tree/commit (no subtree rows).</summary>
+    /// <summary>Recursive blob listing of a tree/commit (no subtree rows).
+    /// <para><c>-z</c> is load-bearing, not tidiness. Without it <c>core.quotepath</c> — ON by default — hands
+    /// back a non-ASCII path as a DOUBLE-QUOTED, octal-escaped token: <c>"src/W\\303\\244rme/FB_X.fb"</c>.
+    /// That token then travels as if it WERE the path, so the item is not carried forward into the new
+    /// <c>volt/ide</c> tree — the merge deletes it — and it is re-added under a path containing a literal
+    /// quote, which Windows refuses to check out: the pull dies with <c>invalid path</c> and the workspace can
+    /// never sync again. One German folder name is enough, and folder names are free text.
+    /// <para>With <c>-z</c> records are NUL-terminated and paths are emitted RAW. The mode/type/object header
+    /// keeps its TAB separator, so only the record terminator changes.</para></para></summary>
     public static List<TreeEntry> ListTree(string gitDir, string treeish)
     {
-        var outp = Run(new[] { "--git-dir", gitDir, "ls-tree", "-r", "--full-tree", treeish }).StdOut;
+        var outp = Run(new[] { "--git-dir", gitDir, "ls-tree", "-r", "-z", "--full-tree", treeish }).StdOut;
         var entries = new List<TreeEntry>();
-        foreach (var line in outp.Split('\n'))
+        foreach (var rec in outp.Split('\0'))
         {
-            if (line.Length == 0) continue;
-            var tab = line.IndexOf('\t');
-            var meta = line.Substring(0, tab).Split(' ');
-            entries.Add(new TreeEntry(meta[0], meta[1], meta[2], line.Substring(tab + 1)));
+            if (rec.Length == 0) continue;
+            var tab = rec.IndexOf('\t');
+            if (tab < 0) continue;
+            var meta = rec.Substring(0, tab).Split(' ');
+            entries.Add(new TreeEntry(meta[0], meta[1], meta[2], rec.Substring(tab + 1)));
         }
         return entries;
     }
@@ -312,26 +321,42 @@ public static class Git
         return r.Code == 0 && r.StdOut.Trim().Length > 0 ? r.StdOut.Trim() : null;
     }
 
+    /// <summary>Parse <c>--name-status -z</c> output: NUL-separated FIELDS, not lines.
+    /// <para>The record shape genuinely differs from the plain form. Without <c>-z</c> a rename is ONE
+    /// tab-joined line; with it, a status field is followed by one path — or, for a rename, by TWO. So this
+    /// walks a cursor rather than splitting into records, and a truncated tail is dropped rather than
+    /// half-applied: a rename missing its second path would otherwise become a rename to nowhere.</para>
+    /// <para><c>-z</c> is also what lets a non-ASCII path survive — see <see cref="ListTree"/> for what
+    /// <c>core.quotepath</c> does to one otherwise.</para></summary>
     private static List<DiffRow> ParseDiffRows(string outp)
     {
         var rows = new List<DiffRow>();
-        foreach (var line in outp.Split('\n'))
+        var f = outp.Split('\0');
+        for (var i = 0; i < f.Length; i++)
         {
-            if (line.Length == 0) continue;
-            var parts = line.Split('\t');
-            var status = parts[0];
+            var status = f[i];
+            if (status.Length == 0) continue;
             if (status.StartsWith("R", StringComparison.Ordinal))
-                rows.Add(new DiffRow(DiffKinds.Rename, OldPath: parts[1], NewPath: parts[2], Identical: int.TryParse(status.Substring(1), out var pct) && pct >= 100));
-            else if (status.StartsWith("A", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Add, Path: parts[1]));
-            else if (status.StartsWith("D", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Delete, Path: parts[1]));
-            else rows.Add(new DiffRow(DiffKinds.Modify, Path: parts[1]));
+            {
+                if (i + 2 >= f.Length) break;
+                rows.Add(new DiffRow(DiffKinds.Rename, OldPath: f[i + 1], NewPath: f[i + 2],
+                    Identical: int.TryParse(status.Substring(1), out var pct) && pct >= 100));
+                i += 2;
+                continue;
+            }
+            if (i + 1 >= f.Length) break;
+            var path = f[i + 1];
+            i += 1;
+            if (status.StartsWith("A", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Add, Path: path));
+            else if (status.StartsWith("D", StringComparison.Ordinal)) rows.Add(new DiffRow(DiffKinds.Delete, Path: path));
+            else rows.Add(new DiffRow(DiffKinds.Modify, Path: path));
         }
         return rows;
     }
 
     /// <summary>Rename-aware name-status diff between two committed refs (-M). Both sides are commits.</summary>
     public static List<DiffRow> DiffRefs(string root, string fromRef, string toRef, string pathspec) =>
-        ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--name-status", fromRef, toRef, "--", pathspec }).StdOut);
+        ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--name-status", "-z", fromRef, toRef, "--", pathspec }).StdOut);
 
     /// <summary>Rename-aware diff of the WORKING TREE (incl. untracked) vs a committed ref — the status view.
     /// Stages the worktree into a throwaway index seeded from <paramref name="ref"/>, then diffs --cached.</summary>
@@ -345,7 +370,7 @@ public static class Git
             Directory.CreateDirectory(Path.Combine(root, pathspec));
             Run(new[] { "-C", root, "read-tree", @ref }, env: env);
             Run(new[] { "-C", root, "add", "-A", "--", pathspec }, env: env);
-            return ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--cached", "--name-status", @ref, "--", pathspec }, env: env).StdOut);
+            return ParseDiffRows(Run(new[] { "-C", root, "diff", "-M", "--cached", "--name-status", "-z", @ref, "--", pathspec }, env: env).StdOut);
         }
         finally { Directory.Delete(idxDir, true); }
     }

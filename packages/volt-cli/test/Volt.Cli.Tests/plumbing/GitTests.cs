@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -79,6 +79,11 @@ public class GitTests
                 ("100644", "src/Uni.st", "// ünïcödé\nVAR y : REAL; END_VAR\n"),      // UTF-8 multibyte
                 ("100644", "src/NoNl.st", "END_FUNCTION_BLOCK"),                     // no trailing newline
                 ("100644", "src/Plc Logic/010 PC01/pgMain.prg", "PROGRAM pgMain\nEND_PROGRAM\n"), // spaced path
+                // A NON-ASCII PATH, not merely non-ASCII content (src/Uni.st above already covers that).
+                // `core.quotepath` is ON by default, so any porcelain reader without -z gets this path back as
+                // the octal-escaped, DOUBLE-QUOTED token "src/W\\303\\244rme/FB_X.fb".
+                // German folder names are ordinary in this market, and folder names are free text.
+                ("100644", "src/W\u00e4rme/FB_X.fb", "FUNCTION_BLOCK FB_X\nEND_FUNCTION_BLOCK\n"),
             };
             var existing = Git.WriteBlob(gitDir, "unchanged-object\n");
             var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.fb") };
