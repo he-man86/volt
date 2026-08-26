@@ -108,7 +108,7 @@ internal sealed partial class TcObjectModel
         // Seeding the struct and letting the pushed DECLARATION re-derive the subtype is exactly what CODESYS does
         // (`create_dut` with `DutType.Structure`), and it is measured to work here for all four shapes: struct
         // stays 606, an enum declaration becomes 605, a union 607, and an alias — `: INT;` or `: STRING(80);` —
-        // becomes 623 with the right base. One seed, no per-subtype dispatch. DIALECT C2.
+        // becomes 623 with the right base. One seed, no per-subtype dispatch. DIALECT C2b.
         if (kindCode == ItemKind.PlcDut) kindCode = ItemKind.PlcDutStruct;
 
         object? vInfo = kindCode switch
@@ -228,7 +228,7 @@ internal sealed partial class TcObjectModel
     /// "Selection 'VltProbeDutF' not found!", and so does <c>PlcOpenExport('PLC_PRG')</c> for the POU sitting in
     /// <c>POUs/</c>. The selection grammar is the DOTTED project-relative path — which is exactly what
     /// <see cref="PouSelectionPath"/> builds. So the recorded "E_FAIL for every DUT" was a broken selection, not
-    /// a vendor limit, and it cost the toolchain a whole capability flag (DIALECT C2).</para></summary>
+    /// a vendor limit, and it cost the toolchain a whole capability flag (DIALECT C2a).</para></summary>
     public string ExportPouXml(object item)
     {
         // Decided by KIND, never by walking. `EnclosingPou` climbs `node.Parent` until it finds a POU — and for an
@@ -286,7 +286,10 @@ internal sealed partial class TcObjectModel
     }
 
     /// <summary>PLC-project-relative selection path for PlcOpenExport ('.'-separated, folder-qualified).
-    /// NEEDS LIVE VERIFICATION: if a bare/qualified name is rejected this must change.</summary>
+    /// MEASURED (DIALECT C2a/D9): the dotted project-relative path is the grammar. `POUs.PLC_PRG` and
+    /// `VltProbeF.VltProbeDutF` both export; the BARE name of a foldered item does not — `PlcOpenExport('PLC_PRG')`
+    /// answers "Selection 'PLC_PRG' not found!". A root-level item's bare name works because its dotted path IS
+    /// its name. Reading that refusal as a vendor limit is what produced the retracted C2.</summary>
     private string PouSelectionPath(dynamic pou)
     {
         try

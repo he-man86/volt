@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Committed fixture: a real LD rung (rail → contacts → coil). The harness reads it (lowered to
-     `out := (a AND b)`) and confirms a push is REFUSED (read-only) — never silently dropped. -->
+<!-- Committed fixture: a real LD rung (rail → contacts → coil), read by FbdCorpusRoundTripTests, which scans
+     this whole directory. LD is WRITABLE — this header used to say a push of it is "REFUSED (read-only)", which
+     was true when the fixture landed and stopped being true when LD joined FBD on the write path. -->
 <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="RT_LD">
   <interface/>
   <body>

@@ -217,7 +217,11 @@ namespace Volt.Engine.Graph
         // contacts (series = AND), parallel branches (OR), and FB/operator blocks whose primary output continues
         // it; a block's typed data inputs are variable boxes (LdCtx.EmitData), and a non-boolean output assigned
         // to a variable embeds in its pin. Negated / Set / Reset coils and normally-closed / edge contacts carry
-        // their pin mods. Round-trip-verified live on TwinCAT + CODESYS.
+        // their pin mods. Round-trip-verified live on TwinCAT.
+        // [UNMEASURED: the CODESYS half. This said "TwinCAT + CODESYS" but every committed LD capture is
+        //  TwinCAT (fixtures/tc-ld/*); fixtures/roundtrip/ld_ladder_rung names no vendor. CODESYS LD is
+        //  written through this same spine on the strength of FBD parity, which is an inference, not a
+        //  measurement. Capture one CODESYS LD POU through the live bridge to close it.]
         private const long RightRailId = 2147483646L;
 
         private static XElement WriteLadderBody(GraphBody body, System.Func<string, string?>? resolveType)

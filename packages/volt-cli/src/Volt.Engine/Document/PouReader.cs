@@ -143,7 +143,11 @@ public static class PouReader
         return bodyEl == null ? default : LangIn(bodyEl);
     }
 
-    /// <summary>For CODESYS addData children, the body element may not use the PLCopen namespace.</summary>
+    /// <summary>For CODESYS addData children, the body element may not use the PLCopen namespace.
+    /// <para>[UNMEASURED: whether TwinCAT nests a CFC/SFC body the same way — no TwinCAT CFC or SFC fixture has
+    /// ever been captured, so this shape is measured on CODESYS alone and merely ASSUMED to be shared. It is
+    /// matched by local name, which is what keeps a namespace difference from mattering, but a different
+    /// nesting DEPTH would still be missed. DIALECT D7.]</para></summary>
     private static (string? language, XElement? element) FindBodyChild(XElement parent)
     {
         var bodyEl = parent.Elements().FirstOrDefault(e => e.Name.LocalName == "body");

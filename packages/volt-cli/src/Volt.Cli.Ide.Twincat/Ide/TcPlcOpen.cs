@@ -18,9 +18,10 @@ namespace Volt.Cli.Ide.Twincat;
 /// here said this "needs live verification"; it had already been verified by the act of producing
 /// those fixtures, and leaving it made the TwinCAT read path read as riskier than it is.
 ///
-/// STILL UNVERIFIED — the export SELECTION grammar (the '.'-separated project-relative path built by
-/// <c>TcObjectModel.PouSelectionPath</c>) has not been exercised beyond the shapes those fixtures
-/// cover. (Import semantics are settled — see <see cref="ImportXmlString"/>.)
+/// SETTLED — the export SELECTION grammar (the '.'-separated project-relative path built by
+/// <c>TcObjectModel.PouSelectionPath</c>) is measured: a dotted path resolves at any depth, a BARE name resolves
+/// only at the PLC-project root, and a bare name for a foldered item answers "Selection 'x' not found!"
+/// (DIALECT C2a/D9). Import semantics are settled too — see <see cref="ImportXmlString"/>.
 /// </summary>
 internal static class TcPlcOpen
 {

@@ -230,6 +230,121 @@ if (process.platform === "win32") {
 	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
 }
 
+// ── Vendor-fact citations ─────────────────────────────────────────────────────────────────────────
+// `packages/volt-cli/src/Volt.Engine/Document/DIALECT.md` is the home for MEASURED vendor behaviour, and the code
+// cites its rows by id ("DIALECT D4f"). Two ways that goes wrong, both observed:
+//
+//   - a citation to a row that does not exist — a typo, or a row renamed/removed. The reader follows it nowhere.
+//   - a citation to a row that has been STRUCK THROUGH. Striking is how a measurement is retracted when a later one
+//     overturns it, and the retraction only reaches a reader who follows the link. `ICodeStore` spent weeks
+//     asserting "TwinCAT cannot take this path" while citing D4 and D4e — both struck by then, both saying the
+//     opposite. Nothing connected the two, because nothing was checking.
+//
+// Deliberately NOT a grep for confident words. That was tried and measured first: over the vendor-facing trees, an
+// "absolute claim + vendor name" rule flags 84 comment blocks and 52 of them cite no measurement — but reading
+// them, most are section markers and long `<summary>` paragraphs where a vendor and the word "never" merely
+// co-occur. A check with that hit rate gets muted within a week and then catches nothing. This rule fires on 3 of
+// 24 citations, and all three are worth a look.
+type Row = { id: string; retracted: boolean };
+
+// A row id can be struck through (~~D4~~) for TWO different reasons, and only one of them makes a citation
+// wrong:
+//   CLOSED    — an open question that has since been ANSWERED (D1, D2, D9). Citing it is CORRECT: the row IS
+//               the record of the answer. It carries no token and stays citable.
+//   RETRACTED — a finding later OVERTURNED (C2, C5, D4, D4e). Citing it hands the reader the opposite of what
+//               is now known — which is how ICodeStore spent weeks pointing at D4 and D4e.
+//
+// Only the second carries the literal `[RETRACTED -> X]`. That is a marker rather than something inferred from
+// the prose, and the reason is empirical: reading the verdict out of the words misfired three times. These rows
+// say "wrong"/"retracted"/"CLOSED" constantly for incidental reasons — a LIVE row very often opens by saying
+// what an earlier row got wrong (C2c, D4f and D10 all do), and pinning the rule to whichever word came first
+// did not fix it. Strikethrough alone is not the signal either: D4e was superseded without one.
+function dialectRows(): Row[] {
+	const md = readFileSync(join(REPO_ROOT, "packages/volt-cli/src/Volt.Engine/Document/DIALECT.md"), "utf8");
+	const rows: Row[] = [];
+	for (const line of md.split(/\r?\n/)) {
+		const m = /^\|\s*(\*\*)?(~~)?([A-D]\d+[a-z]?)(~~)?(\*\*)?\s*\|(.*)$/.exec(line);
+		if (m) rows.push({ id: m[3], retracted: /\[RETRACTED -> /.test(m[6] ?? "") });
+	}
+	return rows;
+}
+
+function citations(): { file: string; line: number; id: string; text: string }[] {
+	const out: { file: string; line: number; id: string; text: string }[] = [];
+	const roots = ["packages/volt-cli/src", "packages/volt-cli/docs"];
+	const walk = (dir: string): string[] => {
+		if (!existsSync(dir)) return [];
+		return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+			const p = join(dir, e.name);
+			if (e.isDirectory()) return e.name === "obj" || e.name === "bin" ? [] : walk(p);
+			return /\.(cs|md)$/.test(e.name) ? [p] : [];
+		});
+	};
+	const files = [...roots.flatMap((r) => walk(join(REPO_ROOT, r))),
+		join(REPO_ROOT, "packages/volt-cli/ARCHITECTURE.md"),
+		join(REPO_ROOT, "packages/volt-cli/README.md")].filter(existsSync);
+	for (const f of files) {
+		// DIALECT.md cites its own rows constantly; it is the source, not a consumer.
+		if (f.endsWith("DIALECT.md")) continue;
+		readFileSync(f, "utf8").split(/\r?\n/).forEach((text, i) => {
+			if (!text.includes("DIALECT")) return;
+			for (const m of text.matchAll(/\b([A-D]\d+[a-z]?)\b/g))
+				out.push({ file: f.slice(REPO_ROOT.length + 1).replaceAll("\\", "/"), line: i + 1, id: m[1], text: text.trim() });
+		});
+	}
+	return out;
+}
+
+console.log("\nVendor-fact citations (DIALECT)");
+
+check("every cited DIALECT row exists", () => {
+	const known = new Set(dialectRows().map((r) => r.id));
+	const dangling = citations().filter((c) => !known.has(c.id));
+	return dangling.length === 0
+		|| `${dangling.length} citation(s) name no such row: ` +
+			dangling.map((c) => `${c.file}:${c.line} → ${c.id}`).join("; ");
+});
+
+check("no code cites a RETRACTED DIALECT row", () => {
+	const struck = new Set(dialectRows().filter((r) => r.retracted).map((r) => r.id));
+	const stale = citations().filter((c) => struck.has(c.id));
+	return stale.length === 0
+		|| `${stale.length} citation(s) point at a retracted row — the row says the opposite of what it did when ` +
+			`this was written, so re-read it and cite the row that carries the CURRENT measurement: ` +
+			stale.map((c) => `${c.file}:${c.line} → ${c.id}`).join("; ");
+});
+
+// The standing worklist: claims someone deliberately marked as NOT measured. `[UNMEASURED: …]` is cheap to write
+// and, unlike a heuristic, has no false positives — it only finds what an author chose to flag. This prints them
+// rather than failing: an honest "nobody has checked this" is the right state for a claim until someone checks it.
+check("UNMEASURED markers are enumerable", () => {
+	const marked = citationsOfUnmeasured();
+	if (marked.length > 0) {
+		console.log(`      ${marked.length} open — the list of vendor claims nobody has verified:`);
+		for (const m of marked) console.log(`        ${m}`);
+	}
+	return true;
+});
+
+function citationsOfUnmeasured(): string[] {
+	const out: string[] = [];
+	const walk = (dir: string): string[] => {
+		if (!existsSync(dir)) return [];
+		return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+			const p = join(dir, e.name);
+			if (e.isDirectory()) return e.name === "obj" || e.name === "bin" ? [] : walk(p);
+			return /\.(cs|md)$/.test(e.name) ? [p] : [];
+		});
+	};
+	for (const f of walk(join(REPO_ROOT, "packages/volt-cli/src"))) {
+		readFileSync(f, "utf8").split(/\r?\n/).forEach((text, i) => {
+			if (!/\[UNMEASURED:/.test(text)) return;
+			out.push(`${f.slice(REPO_ROOT.length + 1).replaceAll("\\", "/")}:${i + 1}  ${text.trim().slice(0, 120)}`);
+		});
+	}
+	return out;
+}
+
 console.log("\nManual verification — an AI agent (any host):");
 console.log("  1. Open a PLC workspace in the agent with `volt` on PATH.");
 console.log("  2. Ask: 'run volt status' → the agent shells out to volt; output appears inline.");
