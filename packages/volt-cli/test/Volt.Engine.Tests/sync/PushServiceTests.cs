@@ -117,7 +117,7 @@ public class PushServiceTests
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "", SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
-        Assert.Contains("write:PLC_PRG", ide.Recorded);
+        Assert.Contains("writexml:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
     }
 
@@ -130,7 +130,7 @@ public class PushServiceTests
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
-        Assert.Contains("write:MOTOR", ide.Recorded); // content written onto the renamed identity
+        Assert.Contains("writexml:MOTOR", ide.Recorded); // content written onto the renamed identity
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public class PushServiceTests
 
         Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
-        Assert.Contains(ide.Recorded, r => r.StartsWith("write:PLC_PRG"));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("writexml:PLC_PRG"));
         Assert.Contains(ide.Recorded, r => r.StartsWith("delete:FB_Old"));
     }
 
@@ -361,7 +361,7 @@ public class PushServiceTests
     public void A_refused_move_plus_edit_does_not_relocate_the_item()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "n := 1;"))
-        { OneDocumentWrite = true };
+       ;
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
 
         // Malformed network text: the splice refuses it, so the whole push must be rejected.

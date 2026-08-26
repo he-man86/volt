@@ -20,13 +20,7 @@ namespace Volt.Engine.Ide;
 /// read + throttle + overlay); a vendor no longer returns a <see cref="HealthResponse"/> at all.</para></summary>
 public abstract class DriverBase : IIdeSession
 {
-    /// <summary>Default for <see cref="ICodeStore.WritesPouAsOneDocument"/> — OFF, so a vendor gets the
-    /// single-document POU write only by measuring its import and saying so. Lives here rather than as a default
-    /// interface member because the bridge targets net48.
-    /// <para>Both shipped drivers now override it to true, so this default has no implementor — it is the safe
-    /// answer for a vendor added tomorrow, not a state anything is in. It used to say "delete with the property
-    /// when §5 lands", which was the third of three incompatible accounts of one bool.</para></summary>
-    public virtual bool WritesPouAsOneDocument => false;
+
 
     private volatile bool _isDegraded;
 

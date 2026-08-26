@@ -41,20 +41,6 @@ public sealed partial class BeckhoffDriver
     /// instead of leaking into Core.</para></summary>
     public void WriteXml(ItemRef item, string xml) => _om.ImportPlcOpenXml(item.Native, xml);
 
-    /// <summary>ON. TwinCAT takes the single-document POU write, and the live suite reads the same 94 pass / 2
-    /// fail as the per-child arm it replaces (both remaining failures are CLI/git, not the bridge).
-    /// <para>It was 36 failures when the change first measured this vendor, and the four things in the way were
-    /// each a different layer's: the document never declared its members in <c>&lt;ProjectStructure&gt;</c>, which
-    /// is the ONLY thing this importer creates children from (D4h); the DUT subtype codes were unmapped, so those
-    /// items were dropped by Core; the write asked for a document <c>PlcOpenExport</c> refuses to make for a
-    /// DUT/GVL (C2); and Volt's own body-language guard refused the LD body it was itself creating over the FBD
-    /// seed <c>CreateChild</c> had just laid down (C6).</para>
-    /// <para>The last was a real vendor limit — a POU-INTERNAL member folder does not survive the import and
-    /// cannot be restored by the archive move, because <c>ExportChild</c> refuses a member. It IS restorable:
-    /// TwinCAT keeps the whole POU in one <c>.TcPOU</c> and a member's placement is a <c>FolderPath</c> attribute
-    /// in it, so the round trip happens on the POU and rewrites that attribute (D4j, <c>TcItemArchive</c>).</para></summary>
-    public override bool WritesPouAsOneDocument => true;
-
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)
     {

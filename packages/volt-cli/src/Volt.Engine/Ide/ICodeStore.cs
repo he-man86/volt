@@ -34,30 +34,6 @@ public interface ICodeStore
     /// refused import leaves the original untouched.</summary>
     void WriteXml(ItemRef item, string xml);
 
-    /// <summary>Whether a POU's whole content — declaration, body, children, accessors — can be written as ONE
-    /// merged <see cref="WriteXml"/>, instead of the per-child text writes.
-    /// <para>A CAPABILITY, deliberately not a vendor name: Core must not branch on who the vendor is. It exists
-    /// because the merge semantics were measured on CODESYS and NOT on TwinCAT, whose import is a temp file and
-    /// which already answers <c>E_FAIL</c> for DUT/GVL exports — `pou-writes-via-plcopen` §5 stages that
-    /// verification deliberately after CODESYS is green. Two write paths is the cost being paid for staging, not
-    /// a design.
-    /// <para><b>BOTH shipped drivers answer true.</b> The false arm exists so Core never branches on a vendor
-    /// NAME — it survives for a driver whose import has not been measured, and there is no such driver today.
-    /// <para>This paragraph twice recorded a verdict that later measurement overturned, so read it as a warning
-    /// as much as a contract. It first said "delete this property when §5 lands"; then it said §5 had landed and
-    /// "TwinCAT cannot take this path at all — 36 failures against 96 passes", in three modes "Core cannot
-    /// compensate for". Every one of those three had a cause in a different layer, and all three were fixed:
-    /// the document never declared its members in <c>&lt;ProjectStructure&gt;</c> (D4h), the DUT/GVL export limit
-    /// belongs to <see cref="CanExportDocument"/> and not here (C2), and the LD-lands-as-FBD failure was Volt's
-    /// own guard refusing the body it was itself creating (C6). The move it said did not exist does
-    /// (D4f/D4j).</para>
-    /// <para>The CURRENT measurement lives once, on the driver that carries it —
-    /// <c>BeckhoffDriver.WritesPouAsOneDocument</c>. Do not restate it here; a scoreboard in two places is how
-    /// the stale one survives.</para>
-    /// <para>Defaulted to false in <c>DriverBase</c>, not here: the bridge targets net48, which has no default
-    /// interface members.</para></summary>
-    bool WritesPouAsOneDocument { get; }
-
     // ── Non-source kinds (libraries, tasks, …) ──
     /// <summary>The item's MANIFEST: a canonical text body for a non-source item (library ref, task, device,
     /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is

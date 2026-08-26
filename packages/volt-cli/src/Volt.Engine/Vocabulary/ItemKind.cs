@@ -198,10 +198,11 @@ public static class ItemKind
     /// <summary>Does this kind NEED a PLCopen document to be represented at all? A POU or an interface does —
     /// only a document can carry a body and children. A DUT or a GVL is DECLARATION-ONLY: its whole content is
     /// the declaration text.
-    /// <para>This is a statement about the KIND, not about a transport. It does NOT mean the declaration-only
-    /// kinds cannot travel as a document — on CODESYS they do, deliberately and with live fixtures for all four
-    /// root shapes (<c>DeclarationOnlyDocumentTests</c>). It is the FLOOR: below it a driver has a real choice,
-    /// above it there is none. <c>ICodeStore.CanExportDocument</c> is where a vendor answers for itself.</para></summary>
+    /// <para>It is NOT the write rule, and reading it as one cost a capability member: declaration-only kinds
+    /// travel as a document too, on BOTH vendors (<c>DeclarationOnlyDocumentTests</c> pins all four root shapes).
+    /// This says only that a POU cannot be represented any OTHER way. Its one consumer is the READ split in
+    /// <c>Sync/Materializer</c>, which routes DUT/GVL through the declaration aspect — a COST decision (~1 ms
+    /// against ~20 ms per item on the walk every <c>volt status</c> pays), not a capability one.</para></summary>
     public static bool TravelsAsDocument(string kind) =>
         kind is Kinds.Program or Kinds.FunctionBlock or Kinds.Function or Kinds.Interface;
 

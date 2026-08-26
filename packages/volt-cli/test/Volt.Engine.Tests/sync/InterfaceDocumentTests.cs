@@ -21,7 +21,7 @@ public class InterfaceDocumentTests
 
     private static string PushAndCapture(string src)
     {
-        var ide = new FakeIde() { OneDocumentWrite = true };
+        var ide = new FakeIde();
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,

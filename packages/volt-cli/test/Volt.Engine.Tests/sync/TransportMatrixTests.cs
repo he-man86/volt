@@ -59,7 +59,7 @@ public class TransportMatrixTests
             new("K", code, "", true, src.Split("\n\n")[0], "n := 1;", null, null),
         };
         items.AddRange(extra);
-        return new FakeIde(items.ToArray()) { OneDocumentWrite = true };
+        return new FakeIde(items.ToArray());
     }
 
     private static List<string> Apply(FakeIde ide, SetItemOp op)
@@ -95,7 +95,7 @@ public class TransportMatrixTests
     public void Create_uses_exactly_the_matrix_calls(int code, string ext, string src, string[] onUpdate, string[] onCreate)
     {
         _ = (code, onUpdate);
-        var ide = new FakeIde() { OneDocumentWrite = true };
+        var ide = new FakeIde();
         var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", SourceText = src });
 
         Assert.Equal(onCreate, recorded.ToArray());
@@ -106,7 +106,7 @@ public class TransportMatrixTests
     [Fact]
     public void Creating_a_POU_with_members_still_costs_two_calls()
     {
-        var ide = new FakeIde() { OneDocumentWrite = true };
+        var ide = new FakeIde();
         var recorded = Apply(ide, new SetItemOp
         {
             Name = "K.fb",
@@ -173,7 +173,7 @@ public class TransportMatrixTests
     public void A_read_only_kind_is_never_written(int code, string ext)
     {
         var ide = new FakeIde(new FakeIde.Item("K", code, "", true, "MANIFEST", null, null, null))
-            { OneDocumentWrite = true };
+           ;
         var refs = RefsService.Handle(ide);
         var resp = PushService.Handle(ide, new PushRequest
         {
@@ -201,7 +201,7 @@ public class TransportMatrixTests
             new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL", "A := TRUE;", null, null),
             new FakeIde.Item("B", ItemKind.PlcMethod, "", false, "METHOD B : BOOL", "B := TRUE;", null, null),
             new FakeIde.Item("C", ItemKind.PlcMethod, "", false, "METHOD C : BOOL", "C := TRUE;", null, null))
-            { OneDocumentWrite = true };
+           ;
         var refs = RefsService.Handle(ide);
 
         var recorded = Apply(ide, new SetItemOp
@@ -265,41 +265,6 @@ public class TransportMatrixTests
     // export once and answers every language question from it. `create:M`/`write:M` is the per-child loop — one
     // method here, but N calls for N members, which is what the document arm collapsed.
 
-    /// <summary>The legacy arm's UPDATE calls, per kind, complete. Same negative-half rule as the matrix above:
-    /// the assertion is the WHOLE recorded list, so a new call appearing beside these fails.</summary>
-    [Theory]
-    [InlineData(ItemKind.PlcPouFb,   "fb",  new[] { "bodylang:K", "write:K" })]
-    [InlineData(ItemKind.PlcPouProg, "prg", new[] { "bodylang:K", "write:K" })]
-    [InlineData(ItemKind.PlcPouFunc, "fun", new[] { "bodylang:K", "write:K" })]
-    [InlineData(ItemKind.PlcItf,     "itf", new[] { "write:K", "create:M", "write:M" })]
-    [InlineData(ItemKind.PlcDut,     "dut", new[] { "write:K" })]
-    [InlineData(ItemKind.PlcGvl,     "gvl", new[] { "write:K" })]
-    public void Legacy_arm_update_uses_exactly_these_calls(int code, string ext, string[] expected)
-    {
-        var src = SourceFor(ext);
-        var ide = new FakeIde(new FakeIde.Item("K", code, "", true, src.Split("\n\n")[0], "n := 1;", null, null))
-            { OneDocumentWrite = false };
-        var refs = RefsService.Handle(ide);
-        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], SourceText = src });
-
-        Assert.Equal(expected, recorded.ToArray());
-    }
-
-    /// <summary>The legacy arm's CREATE calls, per kind, complete.</summary>
-    [Theory]
-    [InlineData("fb",  new[] { "create:K", "write:K" })]
-    [InlineData("prg", new[] { "create:K", "write:K" })]
-    [InlineData("fun", new[] { "create:K", "write:K" })]
-    [InlineData("itf", new[] { "create:K", "write:K", "create:M", "write:M" })]
-    [InlineData("dut", new[] { "create:K", "write:K" })]
-    [InlineData("gvl", new[] { "create:K", "write:K" })]
-    public void Legacy_arm_create_uses_exactly_these_calls(string ext, string[] expected)
-    {
-        var ide = new FakeIde() { OneDocumentWrite = false };
-        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", SourceText = SourceFor(ext) });
-
-        Assert.Equal(expected, recorded.ToArray());
-    }
 
     private static string SourceFor(string ext) => ext switch
     {

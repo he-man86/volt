@@ -14,14 +14,14 @@ namespace Volt.Cli.Tests;
 /// a fake that pretended to would assert the behaviour away.</para></summary>
 public class PouMergeWriteTests
 {
-    private static FakeIde Fb(bool oneDoc, string childFolder = "") =>
+    private static FakeIde Fb(string childFolder = "") =>
         new FakeIde(
             new FakeIde.Item("FB_Test", ItemKind.PlcPouFb, "", true,
                 "FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR", "n := n + 1;", null, null,
                 Children: new[] { "DoIt" }),
             new FakeIde.Item("DoIt", ItemKind.PlcMethod, childFolder, false,
                 "METHOD DoIt : BOOL", "DoIt := TRUE;", null, null))
-        { OneDocumentWrite = oneDoc };
+        ;
 
     // Canonical workspace ST, in StWriter's layout: the POU's own END keyword precedes its children.
     private static string Source(string body, string childBody, string? childFolder = null)
@@ -50,24 +50,12 @@ public class PouMergeWriteTests
     [Fact]
     public void A_pou_update_is_one_document_write()
     {
-        var ide = Fb(oneDoc: true);
+        var ide = Fb();
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
 
         Assert.Equal(new[] { "writexml:FB_Test" }, ide.Recorded.Where(r => !r.StartsWith("walk")).ToArray());
         Assert.Contains("n := n + 2;", ide.WrittenXml["FB_Test"]);
         Assert.Contains("DoIt := FALSE;", ide.WrittenXml["FB_Test"]);
-    }
-
-    /// <summary>The capability gates it: a driver that has NOT had its import measured keeps the per-child path.
-    /// This is what makes the CODESYS-first staging real rather than a comment.</summary>
-    [Fact]
-    public void Without_the_capability_the_per_child_path_still_runs()
-    {
-        var ide = Fb(oneDoc: false);
-        Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
-
-        Assert.Contains("write:FB_Test", ide.Recorded);
-        Assert.DoesNotContain("writexml:FB_Test", ide.Recorded);
     }
 
     /// <summary>A child carrying a <c>%FOLDER</c> is MOVED back after the import. The import flattens POU-internal
@@ -76,7 +64,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_foldered_child_is_moved_back_after_the_import()
     {
-        var ide = Fb(oneDoc: true, childFolder: "Helpers");
+        var ide = Fb(childFolder: "Helpers");
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;", childFolder: "Helpers"));
 
         Assert.Contains("writexml:FB_Test", ide.Recorded);
@@ -100,7 +88,7 @@ public class PouMergeWriteTests
                 Children: new[] { "One", "Two" }),
             new FakeIde.Item("One", ItemKind.PlcMethod, "", false, "METHOD One : BOOL", "One := TRUE;", null, null),
             new FakeIde.Item("Two", ItemKind.PlcMethod, "", false, "METHOD Two : BOOL", "Two := TRUE;", null, null))
-        { OneDocumentWrite = true, InvalidatesHandlesOnMove = true };
+        { InvalidatesHandlesOnMove = true };
 
         var refs = RefsService.Handle(ide);
         var src = "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR\n\nn := 2;\n\nEND_FUNCTION_BLOCK\n"
@@ -126,7 +114,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_child_at_the_pou_root_is_not_moved()
     {
-        var ide = Fb(oneDoc: true);
+        var ide = Fb();
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));
     }
@@ -150,7 +138,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_create_is_one_CreateChild_plus_one_document_write()
     {
-        var ide = new FakeIde() { OneDocumentWrite = true };
+        var ide = new FakeIde();
         PushOp(ide, new SetItemOp
         {
             Name = "FB_New.fb",
@@ -174,7 +162,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
-        var ide = new FakeIde() { OneDocumentWrite = true, SeedsBodyLanguage = true };
+        var ide = new FakeIde() { SeedsBodyLanguage = true };
         PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n\nNETWORK 1 LD\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
 
         Assert.Contains("<LD", ide.WrittenXml["VG_New"]);
@@ -185,7 +173,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_pure_move_relocates_the_item_instead_of_recreating_it()
     {
-        var ide = Fb(oneDoc: true);
+        var ide = Fb();
         var refs = RefsService.Handle(ide);
         PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
 
@@ -201,7 +189,7 @@ public class PouMergeWriteTests
     [Fact]
     public void A_move_with_an_edit_is_a_move_plus_one_document_write()
     {
-        var ide = Fb(oneDoc: true);
+        var ide = Fb();
         var refs = RefsService.Handle(ide);
         PushOp(ide, new SetItemOp
         {
@@ -225,16 +213,13 @@ public class PouMergeWriteTests
     /// D4f). The arm it pinned was also strictly worse: it REFUSED a graphical move outright, because a diagram
     /// cannot be rebuilt from text.</para></summary>
     [Fact]
-    public void A_move_relocates_whether_or_not_the_driver_writes_one_document()
+    public void A_move_relocates_the_item_rather_than_recreating_it()
     {
-        foreach (var oneDoc in new[] { true, false })
-        {
-            var ide = Fb(oneDoc: oneDoc);
-            var refs = RefsService.Handle(ide);
-            PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+        var ide = Fb();
+        var refs = RefsService.Handle(ide);
+        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
 
-            Assert.Contains("move:FB_Test->Motors", ide.Recorded);
-            Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
-        }
+        Assert.Contains("move:FB_Test->Motors", ide.Recorded);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
 }

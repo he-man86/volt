@@ -409,12 +409,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     private string? SeedLanguage(string? language) =>
         !SeedsBodyLanguage || language is null ? null : language == "LD" ? "FBD" : language;
 
-    /// <summary>Opt a fake into the single-document POU write (`pou-writes-via-plcopen` §3.1). Off by default so
-    /// every existing test keeps exercising the per-child path it was written against; a test that wants the merge
-    /// path says so, and then <see cref="WrittenXml"/> is the whole write.</summary>
-    public bool OneDocumentWrite { get; init; }
-    public override bool WritesPouAsOneDocument => OneDocumentWrite;
-
     /// <summary>The document the last <see cref="WriteXml"/> carried, by item name. On the merge path this IS the
     /// write — asserting on <c>Recorded</c> alone would miss everything the push actually did.</summary>
     public Dictionary<string, string> WrittenXml { get; } = new();

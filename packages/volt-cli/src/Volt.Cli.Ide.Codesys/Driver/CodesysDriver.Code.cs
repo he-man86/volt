@@ -47,11 +47,6 @@ public sealed partial class CodesysDriver
     /// <c>PushService</c>, where the pushed source says which folder each child belongs in.</para></summary>
     public void WriteXml(ItemRef item, string xml) => _om.ImportXmlString(xml, _om.ParentOf(item.Native));
 
-    /// <summary>Measured, not assumed — see <c>pou-writes-via-plcopen</c> §3.1 for the run: on 3.5.21.40 a merge
-    /// import lands the declaration and body, ADDS a document-only child, REMOVES a child absent from the
-    /// document, and leaves a sibling POU's CFC body byte-identical.</summary>
-    public override bool WritesPouAsOneDocument => true;
-
     // ── non-source manifest ──
     /// <summary>Kinds this SESSION has already reported as having no descriptor reader. Instance-scoped, not
     /// static: the DLL outlives a PipeHost.Stop()/Start() inside a running IDE, and a support session that

@@ -49,20 +49,6 @@ public static class NetworkCodeIo
         return new GraphicalBody(lang, NetworkCode.RenderBody(fbd), decl);
     }
 
-    public static void Write(ICodeStore code, ItemRef item, string itemName, string vgText, string declaration)
-    {
-        var graph = NetworkCode.Validate(vgText);                                        // pure checks first (no IDE write yet)
-        var types = InstanceTypes.Of(declaration);
-        var newBody = GraphWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
-
-        // The export is the item's WHOLE POU — the enclosing POU's own body and every sibling method/action come
-        // with it — so the splice is scoped by name. Without that it lands on whichever body is first in document
-        // order and silently destroys it.
-        var exported = code.ReadXml(item);                                   // current full POU PLCopen
-        var spliced = GraphSplice.SpliceFbdLdBody(exported, itemName, newBody);   // throws if no FBD/LD body
-        code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
-    }
-
     /// <summary>A graphical POU's declaration, from the export's plaintext interface — which BOTH vendors
     /// carry (the recorded TwinCAT export in <c>fixtures/tc-fbd</c> has it; the older "TwinCAT omits it"
     /// reading of this was wrong). Reading it from the export also avoids touching the object-model aspect,

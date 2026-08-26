@@ -150,11 +150,11 @@ public class NetworkCodeTests
         // not refused. So an Execute box is editable, not read-only.
         var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var vg = NetworkCodeIo.Read(read, Item, ItemName)!.Body;
-        var write = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody) };
-        NetworkCodeIo.Write(write, Item, ItemName, vg, "PROGRAM P\nVAR\nEND_VAR");
-        Assert.NotNull(write.WrittenXml);
-        Assert.Contains("typeName=\"EXECUTE\"", write.WrittenXml!);   // the box is reconstructed
-        Assert.Contains("target := 42;", write.WrittenXml!);         // …with its STCode
+        // Written through PouSplice.SetBody — the production write. `NetworkCodeIo.Write` was the per-child
+        // transport and is gone with that arm; the logic under test is unchanged.
+        var written = PouSplice.SetBody(Pou(ExecuteBoxBody), ItemName, vg, "PROGRAM P\nVAR\nEND_VAR", establishing: false);
+        Assert.Contains("typeName=\"EXECUTE\"", written);   // the box is reconstructed
+        Assert.Contains("target := 42;", written);         // …with its STCode
     }
 
     /// <summary>An export with NO plaintext declaration is a broken document and must SAY so — it must not
@@ -192,9 +192,9 @@ public class NetworkCodeTests
         // A3: a bad language token is rejected BEFORE the IDE import, with a clear message — not downstream
         // with a misleading "not writable". The guard fires before ReadXml, so the store needn't be valid.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody) };
-        var ex = Assert.Throws<InvalidOperationException>(() => NetworkCodeIo.Write(
-            s, Item, ItemName, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
-            "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+        var ex = Assert.Throws<InvalidOperationException>(() => PouSplice.SetBody(
+            s.Xml!, ItemName, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
+            "FUNCTION_BLOCK FB\nVAR\nEND_VAR", establishing: false));
         Assert.Contains("unknown graphical language", ex.Message);
         Assert.Contains("BANANA", ex.Message);
     }
@@ -209,7 +209,7 @@ public class NetworkCodeTests
         var nonCanonical = "NETWORK 0 FBD\n"
             + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
         var ex = Assert.Throws<NetworkTextException>(() =>
-            NetworkCodeIo.Write(s, Item, ItemName, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+            PouSplice.SetBody(s.Xml!, ItemName, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", establishing: false));
         Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);          // structured diagnostic
         Assert.NotNull(ex.Line);                            // names the first differing line
         Assert.Contains("out := (a AND b)", ex.Message);    // the writer's readable canonical form is shown verbatim
@@ -234,13 +234,12 @@ public class NetworkCodeTests
         const string vg = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
         const string decl = "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tx : BOOL;\nEND_VAR";
 
-        NetworkCodeIo.Write(s, Item, ItemName, vg, decl);
+        var written2 = PouSplice.SetBody(s.Xml!, ItemName, vg, decl, establishing: false);
 
-        Assert.NotNull(s.WrittenXml);
-        Assert.DoesNotContain("old", s.WrittenXml!);                       // old body gone
-        Assert.Contains("<expression>x</expression>", s.WrittenXml!);      // edited body in
+        Assert.DoesNotContain("old", written2);                       // old body gone
+        Assert.Contains("<expression>x</expression>", written2);      // edited body in
         Assert.Equal("FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR",   // interface untouched
-                     Volt.Engine.Document.PlcOpenDocument.DeclFromExport(s.WrittenXml!, ItemName));
+                     Volt.Engine.Document.PlcOpenDocument.DeclFromExport(written2, ItemName));
     }
 }
 

@@ -111,8 +111,6 @@ public static class PushService
             }));
     }
 
-
-
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide, ItemRef parent,
@@ -220,18 +218,6 @@ public static class PushService
     {
         var split = StReader.Read(src);
 
-        // ONE question, and it is about the DRIVER, never about the kind. Every source kind travels as one
-        // PLCopen document on both vendors — POU, interface, DUT, GVL alike.
-        //
-        // It briefly asked a second, "can this driver produce a document for THIS kind", because turning the
-        // document path on for TwinCAT made every DUT/GVL create fail. Neither reason offered for that held.
-        // DIALECT C2 said its `PlcOpenExport` answers E_FAIL for a non-POU item: it does not — a root DUT, a root
-        // GVL and a foldered DUT all export. The E_FAIL was Volt's own parent-walk running off the top of the
-        // tree. Then the failure looked like TC6 schema validation refusing an empty `<baseType/>`, which is real
-        // — but the object was malformed before any export, because Volt created every DUT with tree code 623,
-        // which on TwinCAT is the ALIAS type. Seeding the struct skeleton and letting the declaration re-derive
-        // the subtype fixes it at the source (TcObjectModel.CreateChild). No vendor limit survives.
-        var asDocument = ide.WritesPouAsOneDocument;
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
         // collapse: the second's CreateChild finds the first and WriteText overwrites it, losing a source item
@@ -290,21 +276,6 @@ public static class PushService
                         $"created interface '{name}' but it cannot be found under its parent — refusing to write " +
                         "through the stale create handle");
 
-            if (!asDocument)
-            {
-                // The per-transport path, for a driver whose import has not been measured. A network-text body
-                // still needs its declaration written separately here, because NetworkCodeIo.Write carries only
-                // the body and a fresh POU's <interface> is empty — leaving every var the contacts reference
-                // undeclared. On the single-document path below, the one splice writes both.
-                if (pouVg)
-                {
-                    if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
-                    NetworkCodeIo.Write(ide, pou, name, impl, decl);
-                }
-                // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
-                // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
-                else ide.WriteText(pou, decl, bodyImpl);
-            }
         }
         else
         {
@@ -314,55 +285,20 @@ public static class PushService
             // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
             // paid 22 exports to write one body. Reading the document once and answering every language question
             // from it is the same information for a 22nd of the IDE traffic.
-            var doc = asDocument ? ide.ReadXml(pou) : null;
-            var parsed = doc is null ? null : PouReader.Parse(doc);
+            var doc = ide.ReadXml(pou);
+            var parsed = PouReader.Parse(doc);
 
-            // Body-type guard for the PER-TRANSPORT path only: never overwrite an item with a MISMATCHED body
-            // format — that silently corrupts/flattens the IDE's representation and loses code. The bridge owns
-            // FORMAT; the LSP owns code correctness. Scoped to POUs (only they have graphical bodies; reading an
-            // interface body crashes TC), decided from the safe KindCode classification, not a body read.
-            //
-            // When there IS a document, `PouSplice.SetBody` is the guard and it is strictly better: it decides
-            // from the element actually present rather than from a vendor language string, so it also catches IL
-            // (which used to slip through this narrowing as "textual") and the addData-nested CFC (which a
-            // direct-children scan called textual). Keeping this copy as well would only re-add the false
-            // refusals it encodes — a fresh POU's blank <ST> is not "a textual body" that forbids establishing a
-            // diagram, which is exactly what the third check used to claim.
-            if (doc is null && ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
-            {
-                var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
-                if (BodyFormatGuard.IsReadOnlyLanguage(currentLang))
-                    throw new BridgeException(BridgeErrorCodes.Unsupported,
-                        $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
-                if (currentLang is not null && !pouVg)
-                    // WORD-FOR-WORD the message PouSplice.SetBody produces for the same refusal, and the pushed
-                    // language is resolved the same way it resolves the codec. The two paths refuse the same case
-                    // on different vendors, so a client that read the reason got a different sentence depending on
-                    // which IDE was attached — a parity break in the one place the wire is supposed to be
-                    // byte-identical, and it made the e2e assertion vendor-specific.
-                    throw new BridgeException(BridgeErrorCodes.Unsupported,
-                        $"'{name}' has a {currentLang} body in the IDE but the push carries " +
-                        $"{NetworkText.LanguageOf(impl) ?? "ST"} — edit it in the IDE, or delete it first to replace it.");
-                if (currentLang is null && pouVg)
-                    throw new BridgeException(BridgeErrorCodes.Unsupported,
-                        $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
-            }
             // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
             // root guard above. Checking inside the apply loop instead would leave the root body already written
             // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
             foreach (var child in split.Members) BodyFormatGuard.RequireChildFormatWritable(ide, pou, child, itemType, parsed);
 
-            if (doc is not null)
-            {
-                // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
-                // the merge: a network-text body no longer takes a separate write that carried only the body and
-                // silently dropped the declaration and the member reconciliation.
-                ide.WriteXml(pou, PouDocument.Splice(doc, name, split, establishing: false));
-                RestoreChildFolders(ide, name, split);
-                return;
-            }
-            if (pouVg) NetworkCodeIo.Write(ide, pou, name, impl, decl);
-            else ide.WriteText(pou, decl, bodyImpl);
+            // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
+            // the merge: a network-text body no longer takes a separate write that carried only the body and
+            // silently dropped the declaration and the member reconciliation.
+            ide.WriteXml(pou, PouDocument.Splice(doc, name, split, establishing: false));
+            RestoreChildFolders(ide, name, split);
+            return;
         }
 
         // THE single-document write for a CREATE: declaration, body, children, accessors, all in ONE merge import.
@@ -373,101 +309,8 @@ public static class PushService
         // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
         // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
         // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
-        if (asDocument)
-        {
-            ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split, establishing: true));
-            RestoreChildFolders(ide, name, split);
-            return;
-        }
-
-        foreach (var child in split.Members)
-        {
-            var cimpl = child.Body;
-            var childVg = NetworkText.Is(cimpl);
-            // A read-only graphical (CFC/SFC) child has NO text form — it materializes as
-            // Vocabulary.BodyMarker.For, and NetworkText.Is matches only a `NETWORK n LANG` header, so it REJECTS
-            // that marker. The old guard here was `NetworkText.Is(cimpl) && !IsEditable(...)`, which therefore never fired
-            // for the one case it existed to stop: the marker fell through to the textual path below and
-            // ide.WriteText replaced the engineer's graphical body with a comment.
-            //
-            // SKIP it — do not write it, and do not treat it as absent either. The marker is what every pull
-            // produces for such a member, so refusing it (as this did) made a POU containing ANY CFC/SFC member
-            // permanently uneditable. `RequireChildFormatWritable` has already refused the case that IS wrong: a
-            // marker whose IDE body is not actually read-only. Leaving the loop means the member keeps its
-            // diagram, and staying in `keep` below means the orphan pass does not delete it.
-            if (Vocabulary.BodyMarker.Is(cimpl)) continue;
-
-            var childParent = TreeNav.ResolveFolder(ide, pou, child.Folder);
-            var existingChild = TreeNav.FindChild(ide, childParent, child.Name);
-
-            if (childVg)
-            {
-                if (existingChild is not { } ec) throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"cannot create graphical child '{child.Name}' from scratch — author it in the IDE, then pull");
-                NetworkCodeIo.Write(ide, ec, child.Name, cimpl, decl);   // FB types from the enclosing POU's decl
-                continue;
-            }
-
-            var isInterface = itemType == ItemKind.PlcItf;
-            var childKindCode = ChildKindToCode(child.Kind, isInterface);
-            // TC requires the return type / data type as vInfo for interface children (not a body language).
-            // CODESYS ignores the language parameter — it only needs the correct item type code.
-            var childVInfo = isInterface ? (child.ReturnType ?? child.DataType) : null;
-            var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, childKindCode, childVInfo);
-            // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
-            // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
-            var childDecl = child.Kind == ItemKind.Kinds.Action ? null : child.Declaration;
-            // Interface members are declaration-only, and a PROPERTY node has no body of its own (its GET/SET
-            // accessors carry the impl, written below) — pass null so no ImplementationText is written to a
-            // slot the COM object doesn't expose (crashes TC). Methods/actions have a body: pass it (possibly
-            // "" to clear).
-            var childImpl = isInterface || child.Kind == ItemKind.Kinds.Property ? null : child.Body;
-            ide.WriteText(childItem, childDecl, childImpl);
-
-            if (child.Kind == ItemKind.Kinds.Property)
-            {
-                // TC interface property references are stale after CreateChild — re-find.
-                if (isInterface && existingChild is null)
-                    childItem = TreeNav.FindChild(ide, childParent, child.Name)
-                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                            $"created interface property '{child.Name}' but it cannot be found — refusing to " +
-                            "write its accessors through the stale create handle");
-
-                var getCode = isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet;
-                var setCode = isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet;
-                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Code, isInterface);
-                else TreeNav.RemoveChildIfPresent(ide, childItem, "Get");
-                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Code, isInterface);
-                else TreeNav.RemoveChildIfPresent(ide, childItem, "Set");
-            }
-        }
-
-        // Delete children that no longer exist in the pushed source. The upsert loop above only ever
-        // touches children PRESENT in the push, so without this a child removed in the workspace (a
-        // deleted method/action/property) would orphan in the IDE and reappear on the next pull — the
-        // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
-        // (declaration-only), so they are kept, not deleted.
-        //
-        // Runs for EVERY language. It used to be skipped for a network-text root on two stated reasons, one of
-        // which was false: `StReader` parses children identically regardless of body language, so `split.Members`
-        // IS the list to reconcile against (the loop above already uses it). The cost of the skip was silent —
-        // deleting a method from a graphical POU was ACCEPTED and the method survived in the IDE.
-        //
-        // The OTHER reason — "`WriteXml` is a merge with no delete, so `pou` is not stale" — is true on CODESYS
-        // and FALSE on TwinCAT, where the PLCopen import REPLACES the object and invalidates every handle to it
-        // ("Item 'x' is deleted or invalidated by an ealier operation!"). A graphical push reaches here straight
-        // after `NetworkCodeIo.Write` has imported, so `pou` is dead on that vendor. It went unnoticed because the
-        // driver's ChildCount answered 0 for a faulted handle: the orphan walk became a silent no-op, and a
-        // method deleted from a graphical POU survived in the IDE — exactly the bug the skip was removed to fix,
-        // still happening, just one layer down. Re-acquire before reconciling, and fail loudly if it is gone.
-        {
-            var live = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{name}' cannot be found after its content was written — refusing to reconcile its " +
-                    "children through a handle the write may have invalidated");
-            var keep = new HashSet<string>(split.Members.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-            RemoveOrphanChildren(ide, live, keep);
-        }
+        ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split, establishing: true));
+        RestoreChildFolders(ide, name, split);
     }
 
     /// <summary>Put the POU's children back in their folders after the merge import flattened them.
@@ -530,28 +373,6 @@ public static class PushService
                 ide.Delete(parent, s.Name);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string? decl, string impl, bool isInterface)
-    {
-        var accessor = TreeNav.FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
-        // An INTERFACE property accessor is a bodiless stub: it only declares that a getter/setter exists,
-        // with no declaration or implementation text. TwinCAT COM rejects DeclarationText/ImplementationText
-        // writes on it and can HARD-CRASH the IDE (RPC 0x800706BE), so for interfaces we ensure the accessor
-        // exists and write nothing — matching the proven Beckhoff reference (CreateInterfaceAccessors).
-        if (!isInterface) ide.WriteText(accessor, decl, impl);
-    }
-
     // Maps a top-level wire kind to its IDE create code. A DUT is one kind `dut` → one code (PlcDut); the IDE
     // derives struct/enum/union/alias from the written declaration, so Volt never picks a subkind.
     private static int PouKindToCode(string kind) => kind switch
@@ -565,11 +386,4 @@ public static class PushService
     // The splitter only ever emits method/action/property as textual children; interface vs non-interface is
     // the isInterface flag (the parent's kind), NOT a distinct child-kind string — so there is no
     // "interface_method"/"interface_property" arm. An unknown kind throws rather than defaulting to action.
-    private static int ChildKindToCode(string kind, bool isInterface) => kind switch
-    {
-        ItemKind.Kinds.Method => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
-        ItemKind.Kinds.Action => ItemKind.PlcAction,
-        ItemKind.Kinds.Property => isInterface ? ItemKind.PlcItfProp : ItemKind.PlcProp,
-        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown child kind '{kind}'"),
-    };
 }

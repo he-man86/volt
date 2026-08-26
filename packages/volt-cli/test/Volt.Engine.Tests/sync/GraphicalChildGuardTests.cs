@@ -84,9 +84,15 @@ public class GraphicalChildGuardTests
         var resp = Push(ide, Marker(lang));
 
         Assert.True(resp.Accepted, "a POU containing a read-only child must remain editable");
-        Assert.Contains("write:" + Bare, ide.Recorded);                     // the root's own edit landed…
-        Assert.DoesNotContain(ide.Recorded, r => r == "write:M");           // …and the diagram was not written over
-        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …nor dropped as an orphan
+        Assert.Contains("writexml:" + Bare, ide.Recorded);                  // the root's own edit landed…
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …and the child was not dropped as an orphan
+
+        // …and the DIAGRAM is still there, unwritten. On the per-child path this was "no write:M call"; with one
+        // document there are no per-child calls at all, so that assertion would now pass without proving anything.
+        // The document itself is the evidence: the read-only body survives and the marker text never reaches it.
+        var doc = ide.WrittenXml[Bare];
+        Assert.Contains("<" + lang, doc);
+        Assert.DoesNotContain("@volt-graphical", doc);
     }
 
     /// <summary>A marker that does NOT match a read-only body is refused — a stale or hand-written marker over a
@@ -141,6 +147,7 @@ public class GraphicalChildGuardTests
         var resp = Push(ide, "y := 2;");
 
         Assert.Empty(resp.Conflicts ?? new List<PushConflict>());
-        Assert.Contains("write:M", ide.Recorded);   // the child really was written
+        // The child really was written — asserted in the ONE document, since there is no per-child write to count.
+        Assert.Contains("y := 2;", ide.WrittenXml[Bare]);
     }
 }

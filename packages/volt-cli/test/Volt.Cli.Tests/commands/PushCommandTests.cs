@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using Volt.Cli.Sync;
 using Xunit;
@@ -33,7 +33,7 @@ public class PushCommandTests
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
             Assert.Contains("PLC_PRG.prg", r.Items!);
-            Assert.Contains(ide.Recorded, x => x.StartsWith("write:PLC_PRG"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("writexml:PLC_PRG"));
 
             Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
             // Nothing left to push — the ok/empty path with its own message (what volt-control now surfaces).
@@ -63,7 +63,7 @@ public class PushCommandTests
 
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
-            Assert.Contains(ide.Recorded, x => x.StartsWith("write:PLC_PRG"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("writexml:PLC_PRG"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -82,7 +82,7 @@ public class PushCommandTests
             var r = Commands.Push(root, client);
             Assert.Equal("rejected", r.Kind);
             Assert.Equal("the IDE changed since your last sync — run `volt pull` first (or push --force)", r.Reason);
-            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("write:")); // nothing applied
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("writexml:")); // nothing applied
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -100,7 +100,7 @@ public class PushCommandTests
 
             var r = Commands.Push(root, client, force: true);
             Assert.True(r.Kind == "ok", $"forced push rejected: {r.Reason}");
-            Assert.Contains(ide.Recorded, x => x.StartsWith("write:PLC_PRG")); // applied despite divergence
+            Assert.Contains(ide.Recorded, x => x.StartsWith("writexml:PLC_PRG")); // applied despite divergence
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -119,7 +119,7 @@ public class PushCommandTests
             Assert.Equal("rejected", r.Kind);
             Assert.StartsWith("--force-with-lease is stale:", r.Reason);
             Assert.Contains("not bogus-version", r.Reason);
-            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("write:"));
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("writexml:"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -138,7 +138,7 @@ public class PushCommandTests
 
             var r = Commands.Push(root, client, forceWithLease: current);
             Assert.True(r.Kind == "ok", $"lease-matched push rejected: {r.Reason}");
-            Assert.Contains(ide.Recorded, x => x.StartsWith("write:PLC_PRG"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("writexml:PLC_PRG"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

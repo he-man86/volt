@@ -81,9 +81,16 @@ namespace Volt.Engine.Document
             new ReadOnlyCodec("IL"), new ReadOnlyCodec("SFC"), new CfcCodec(),
         };
 
+        /// <summary>The codec for a language, or a refusal a USER can act on.
+        /// <para>The message matters because this is now the only guard on the way in. A bad language token in
+        /// network text (<c>NETWORK 0 BANANA</c>) used to be caught by the per-child transport, which said
+        /// "unknown graphical language"; that arm is gone, so this throw reaches the push receipt instead. It
+        /// names the token AND what Volt round-trips, rather than the internal word "codec".</para></summary>
         public static BodyCodec For(string language) =>
             All.FirstOrDefault(c => string.Equals(c.Language, language, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException($"no body codec for language '{language}'");
+            ?? throw new InvalidOperationException(
+                $"unknown graphical language '{language}' — Volt round-trips FBD and LD; " +
+                "CFC, SFC and IL are read-only");
 
         /// <summary>The codec present in this body together with the element it found, or null for a body with
         /// none (an interface member, a DUT, a GVL — all measured to emit no <c>&lt;body&gt;</c> content at all).
