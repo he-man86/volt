@@ -1,4 +1,4 @@
-# Live-bridge e2e — running it
+﻿# Live-bridge e2e — running it
 
 This suite drives a **live IDE bridge** over the named pipe (the same wire the CLI uses). It is a **local tier**,
 not CI: it needs a real CODESYS or TcXaeShell running, so it can't run headless on a build agent. The *same* suite
@@ -87,3 +87,26 @@ retries a transient read once after re-acquiring, and otherwise refuses cleanly 
 diagnostic in the log (`%LOCALAPPDATA%\Volt\logs\twincat-*.log`). If a run flaps, it's the IDE, not the bridge —
 restart the XAE windows for a clean multi-XAE environment. `library-signature` tests are CODESYS-only
 (`skipIf twincat`): TwinCAT has no signature-extraction surface yet (a tracked parity gap).
+
+## The two suites that are not single-vendor
+
+Every file here drives ONE bridge, chosen by `VOLT_VENDOR`/`VOLT_PIPE` — except two, and both say so on stdout
+when they skip rather than vanishing quietly. A silent skip is how the TwinCAT graphical-move test stayed off
+through the entire implementation of the move it was skipping.
+
+**`vendor-parity.test.ts` needs BOTH IDEs up at once.** It pushes identical source to CODESYS and TwinCAT and
+diffs what comes back, which is the invariant `ARCHITECTURE.md` opens with and which nothing else checks:
+`child-roundtrip-parity` runs the same assertions against one bridge at a time, so it catches an absolute failure
+(TwinCAT dropping FBs with methods) but not a difference the two vendors both handle plausibly — a stray blank
+line, a reordered VAR block — which passes twice and is invisible. Run both launchers, then either vendor's
+command; the suite finds the other pipe itself via `livePipesFor`.
+
+```bash
+pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up
+pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 13
+bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
+```
+
+**`graphical/unsupported.test.ts` is TwinCAT-only** — it needs a CFC/SFC POU to exist, and only the TwinCAT
+fixture has one (`VltFixtureCfc` / `VltFixtureSfc`, authored by the IDE itself). Volt can never create one: a
+diagram has no text form to push. The CODESYS fixture is blocked on DIALECT D20, not on anything about CODESYS.

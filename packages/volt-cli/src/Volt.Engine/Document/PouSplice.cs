@@ -93,8 +93,31 @@ namespace Volt.Engine.Document
             var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
 
             if (present is not null && present.Unsupported)
+            {
+                // Restating the MARKER is the ordinary round-trip, not an edit: it is what an unsupported body
+                // materializes as, so it is exactly what comes back on the next push of that file. Return the
+                // document UNTOUCHED — `PouDocument.Splice` has already spliced the declaration by the time this
+                // runs, so the caller's edit to a CFC POU's declaration (ordinary editable text) still lands.
+                // Refusing here made that edit unreachable: the whole push was rejected over a body nobody wrote.
+                //
+                // The child path (`Sync/BodyFormatGuard`) already drew this distinction, and says so in its own
+                // comment — "pushing the marker back is the ordinary no-op". Nothing justified the asymmetry; a
+                // live CFC/SFC POU simply had no test until now, and the offline suite only ever exercised a
+                // marker over a CHILD, where the path that handles it correctly is the one that runs.
+                if (Vocabulary.BodyMarker.Is(bodyText)) return xml;
                 throw new InvalidOperationException(
                     $"'{itemName}' has a {present.Language} body, which Volt does not support — edit it in the IDE, not via push.");
+            }
+
+            // The OTHER arm of the same rule, and the reason the marker cannot simply be waved through above: a
+            // marker over a body that is NOT unsupported is stale or hand-written, and Volt would otherwise treat
+            // it as ordinary ST — `NetworkText.LanguageOf` sees no network text, the ST codec takes it, and the
+            // engineer's real body is replaced by a COMMENT. `Sync/BodyFormatGuard` has refused exactly this for
+            // a CHILD all along; the root had no marker handling at all, so it had neither arm.
+            if (Vocabulary.BodyMarker.Is(bodyText))
+                throw new InvalidOperationException(
+                    $"'{itemName}' carries an unsupported-body marker but its body in the IDE is " +
+                    $"{present?.Language ?? "textual"} — remove the marker and push real source, or pull first.");
 
             // A body element NO codec owns is a language Volt does not model — refuse it the same way, and for a
             // stronger reason: with a CFC we at least know what we are declining to touch. `found` is null here,
@@ -418,8 +441,8 @@ namespace Volt.Engine.Document
                 // The SAME dispatch the ROOT body uses (SetBody above) — not a second, stricter rule. A child was
                 // held to "ST or refuse" long after the root learned to encode editable graphical bodies, so an
                 // FBD/LD METHOD or ACTION could not be pushed AT ALL: restating one unchanged aborted the whole
-                // push. (test/e2e/graphical/ld-kinds.test.ts drives this path live on both vendors — an LD METHOD,
-                // an LD ACTION and two LD PROPERTY accessors, each inside a parent whose own body is textual.)
+                // push. (test/e2e/graphical/graphical-kinds.test.ts drives this path live on both vendors, in BOTH languages — an
+                // FBD/LD METHOD, ACTION and two PROPERTY accessors, each inside a parent whose body is textual.)
                 // Only an UNSUPPORTED body (CFC/SFC/IL) and a language CHANGE are refusals; a CFC method child is
                 // still the shape that first exposed the direct-children blind spot, and BodyElement — the one
                 // scan the reader shares — is what keeps that covered here too.

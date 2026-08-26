@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
 using Xunit;
@@ -25,6 +25,7 @@ namespace Volt.Cli.Tests;
 public class UnmodelledLanguageTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
+    private const string Nl = "\n";
 
     /// <summary>A POU whose body is a language no vendor ships and Volt has never heard of.</summary>
     private static string PouWithBody(string bodyInner) =>
@@ -148,6 +149,68 @@ public class UnmodelledLanguageTests
         var ex = Assert.Throws<InvalidOperationException>(
             () => PouDocument.Splice(xml, "FB_Odd", split, establishing: false));
         Assert.Contains("QUUX", ex.Message);
+    }
+
+    /// <summary>Restating the MARKER over a ROOT unsupported body is the ordinary round-trip, and the DECLARATION
+    /// still lands.
+    /// <para>The child path (<c>Sync/BodyFormatGuard</c>) always drew this distinction — its comment says
+    /// "pushing the marker back is the ordinary no-op" — and <c>GraphicalChildGuardTests</c> pins it for a
+    /// METHOD. The ROOT path refused unconditionally, so a CFC/SFC POU's declaration could not be edited AT ALL:
+    /// the pushed text is `declaration + marker`, and the whole push was rejected over a body nobody wrote.
+    /// Nothing justified the asymmetry, and nothing caught it either — until a live CFC POU existed to push at
+    /// (test/e2e/graphical/unsupported.test.ts), the only marker any test had ever pushed was a child's.</para>
+    /// <para>The body must come back BYTE-IDENTICAL, not merely "still CFC": the whole reason a diagram is
+    /// refused is that Volt cannot reconstruct it, so a rewrite that happened to preserve the language would
+    /// still have destroyed the drawing.</para></summary>
+    [Theory]
+    [InlineData("<ST><xhtml /></ST><addData><data name=\"x/cfc\"><CFC><boxes /></CFC></data></addData>", "CFC")]
+    [InlineData("<SFC><step name=\"Init\" /></SFC>", "SFC")]
+    public void Restating_the_marker_over_a_root_unsupported_body_is_a_no_op(string bodyInner, string language)
+    {
+        var xml = PouWithBody(bodyInner);
+        var split = new ItemContent(ItemKind.Kinds.FunctionBlock,
+            "FUNCTION_BLOCK FB_Odd\nVAR\n\tnAdded : INT;\nEND_VAR",
+            Volt.Engine.Vocabulary.BodyMarker.For(language), new List<Member>());
+
+        var doc = PouDocument.Splice(xml, "FB_Odd", split, establishing: false);
+
+        // the declaration edit landed…
+        Assert.Contains("nAdded : INT;", doc);
+        // …and the diagram is untouched, element and contents both
+        Assert.Equal(language, PouReader.NonStLanguageOf(BodyOf(doc)));
+        Assert.Equal(BodyOf(xml).ToString(), BodyOf(doc).ToString());
+    }
+
+    /// <summary>A marker over a body that is NOT unsupported IS refused — the one case where a marker is an
+    /// error rather than a round-trip.
+    /// <para>The rule has two arms, and only two, stated where the child path implements it: a marker matching an
+    /// unsupported body leaves it alone; a marker over something WRITABLE is stale or hand-written, and accepting
+    /// it would silently discard whatever the engineer meant to push. An earlier draft of this test asserted a
+    /// third arm — that a CFC marker over an SFC body is refused for naming the wrong language — which no path
+    /// has ever implemented and nothing needs: both are unsupported, so the body is untouched either way, and the
+    /// next pull rewrites the file. Inventing invariants in a test is how a suite starts describing a system
+    /// nobody built.</para></summary>
+    [Fact]
+    public void A_marker_over_a_writable_body_is_refused()
+    {
+        var xml = PouWithBody("<ST><xhtml>x := 1;</xhtml></ST>");
+        var split = new ItemContent(ItemKind.Kinds.FunctionBlock,
+            "FUNCTION_BLOCK FB_Odd\nVAR\nEND_VAR",
+            Volt.Engine.Vocabulary.BodyMarker.For("CFC"), new List<Member>());
+
+        // Without this arm the marker is not refused at all — it is not network text, so it falls to the ST
+        // codec and REPLACES the engineer's body with a comment. Silently, which is the worst version.
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => PouDocument.Splice(xml, "FB_Odd", split, establishing: false));
+
+        // The message names what the IDE ACTUALLY has ("textual"), not what the marker claimed. That is the
+        // useful half: the engineer's mistake is believing this body is a diagram, and repeating "CFC" back to
+        // them would confirm the wrong belief. It also says what to do next.
+        Assert.Contains("ST", ex.Message);       // the body really is ST; "textual" is only for a body with none
+        Assert.Contains("pull first", ex.Message);
+        Assert.DoesNotContain("(* @volt-graphical", PouDocument.Splice(xml, "FB_Odd",
+            new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB_Odd" + Nl + "VAR" + Nl + "END_VAR",
+                "x := 2;", new List<Member>()), establishing: false));   // a REAL body still writes normally
     }
 
     /// <summary>A CREATE still establishes over the seed. `establishing` exists because a body Volt itself laid

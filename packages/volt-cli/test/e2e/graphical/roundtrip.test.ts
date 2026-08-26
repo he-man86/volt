@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
  * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, FOLDER, BASE } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -261,18 +261,22 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		await createItem(fullName, fbdProgram(name), "")
 		const before = (await fetchItem(fullName)).sourceText
 
-		// A PURE move: toFolder only, no sourceText — the content never leaves the IDE.
+		// Moved into a folder the fixture ALREADY has, rather than a fresh "Moved/Deep". The shared cleanup()
+		// deletes prefixed ITEMS, and a folder is not one — so a test-created folder survives, lands in the
+		// TwinCAT fixture's `.plcproj` as a `<Folder Include="Moved\Deep" />`, and dirties the working tree on
+		// every run. An existing folder proves relocation just as well, because the item starts at the root.
+		const target = await plcFolder(FOLDER)
 		const refs = await bridge.refs()
 		const r = await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "set", name: fullName, toFolder: "Moved/Deep", ifVersion: refs.items[fullName] }],
+			ops: [{ op: "set", name: fullName, toFolder: target, ifVersion: refs.items[fullName] }],
 		})
 		expect(r.accepted).toBe(true)
 
 		const after = await fetchItem(fullName)
 		expect(after.sourceText).toBe(before)                     // the graphical body is untouched
 		const folders = (await bridge.refs()).folders as Record<string, string>
-		expect(folders[fullName].endsWith("Moved/Deep")).toBe(true)
+		expect(folders[fullName]).toBe(target)                    // and it really moved
 	})
 
 	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {

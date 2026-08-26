@@ -95,6 +95,15 @@ function pipeCall(op: string, body?: unknown): Promise<any> {
 			`no live ${PIPE_PREFIX}* pipe — is the IDE running and its project loaded? ` +
 				`(CODESYS: scripts/codesys-pipe.ps1 up · TwinCAT: scripts/twincat-instances.ps1 up, connector running)`,
 		)
+	return callOn(pipe, op, body)
+}
+
+/** One request against an EXPLICITLY NAMED pipe — the same wire as `pipeCall`, minus the resolution.
+ *  <p>Split out for the cross-vendor parity suite, the one thing here that drives TWO bridges at once and so
+ *  cannot use the single resolved pipe every other test shares. Extracting it beats a second copy of the
+ *  framing: that suite's whole claim is that both vendors answer IDENTICALLY, which is worth nothing if it
+ *  reaches them through a different client than the rest of the suite uses.</p> */
+function callOn(pipe: string, op: string, body?: unknown): Promise<any> {
 	return new Promise((resolve, reject) => {
 		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = ""
@@ -141,6 +150,30 @@ export const bridge = {
 	connect: (req: { project?: string | null } = {}): Promise<any> => post("/connect", req),
 	disconnect: (): Promise<any> => post("/disconnect"),
 }
+
+/** A bridge client bound to ONE named pipe, for the cross-vendor parity suite. Same ops as `bridge`, same wire;
+ *  it just never asks which pipe is "the" pipe, because parity means talking to two at once.
+ *
+ *  <p>`livePipesFor` is how a suite finds the OTHER vendor. Both bridges publish `volt.bridge.<vendor>.<pid>`,
+ *  so a run with CODESYS and TwinCAT open sees both, and a run with one open sees one — which is exactly the
+ *  signal a parity suite needs to say "not both vendors are up" instead of failing obscurely.</p> */
+export function livePipesFor(vendor: "codesys" | "twincat"): string[] {
+	return readdirSync("\\\\.\\pipe\\").filter((n) => n.startsWith(`volt.bridge.${vendor}.`))
+}
+
+export function clientFor(pipe: string) {
+	const call = (op: string, body?: unknown) => callOn(pipe, op, body)
+	return {
+		pipe,
+		health: (): Promise<any> => call("health"),
+		refs: (): Promise<any> => call("refs"),
+		fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => call("fetch", req),
+		push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => call("push", req),
+		build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => call("build", req),
+		connect: (req: { project?: string | null } = {}): Promise<any> => call("connect", req),
+	}
+}
+export type PipeClient = ReturnType<typeof clientFor>
 
 /** The bridge's error code for an op, or null when it succeeded. The e2e client surfaces errors as
  *  `Error("CODE: message")` (see pipeCall), so the code is the prefix. */
