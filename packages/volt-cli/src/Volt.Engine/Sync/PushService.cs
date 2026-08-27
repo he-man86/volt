@@ -160,6 +160,20 @@ public static class PushService
         var toName = op.ToName is { } t ? Materializer.Bare(t) : null;
         if (toName != null && !string.Equals(toName, currentName, StringComparison.OrdinalIgnoreCase))
         {
+            // VALIDATE THE PUSHED TEXT FIRST. A native rename makes the IDE rewrite every reference to this POU
+            // across the project — it is the largest change in this method, and it used to run before anything
+            // that could refuse. A rename+edit whose edit was then rejected left the item renamed and its call
+            // sites rewritten while the push reported failure, with nothing to put it back.
+            //
+            // `MoveItem` already learned exactly this and says so: it used to move first, and "the push reported
+            // failure while the project had quietly half-changed". Same method, same lesson, one arm short.
+            //
+            // Parsing here is not a second guard: it is the SAME `StReader`/`NetworkCode` path the write runs,
+            // pulled ahead of the mutation. What it cannot pre-check is a refusal that depends on the item's live
+            // state (an unsupported body, a language change) — those are still caught by the write, which is why
+            // the ORDER below (content, then move) stays as it is.
+            if (op.SourceText is { } pre) ValidateSourceOrThrow(pre, name);
+
             ide.Rename(item, toName);                  // native rename → IDE rewrites references
             currentName = toName;
             // Refresh the staled handle, and FAIL on a miss. The rename reported success, so the item MUST be
@@ -226,6 +240,18 @@ public static class PushService
                     "replaced it and the move cannot proceed.");
         }
         ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
+    }
+
+    /// <summary>Parse the pushed source the way the write will, and throw if it cannot be parsed — WITHOUT
+    /// touching the IDE. Used to move a text-level refusal ahead of a rename, which is otherwise the first thing
+    /// a set op does and the hardest to undo.</summary>
+    private static void ValidateSourceOrThrow(string src, string name)
+    {
+        var split = StReader.Read(src);                       // throws InvalidSt on a malformed document
+        // …and every graphical body it carries, root and members alike: network text that does not parse is the
+        // most common way an edit is refused, and it is knowable before anything is mutated.
+        foreach (var body in new[] { split.Body }.Concat(split.Members.Select(m => m.Body)))
+            if (body is { } b && Graph.NetworkText.Is(b)) NetworkCode.Validate(b);
     }
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
