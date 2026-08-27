@@ -91,10 +91,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// touches nothing but the moved object).</summary>
     public bool InvalidatesHandlesOnMove { get; init; }
 
+    /// <summary>Model the vendor whose DOCUMENT IMPORT invalidates every handle into the item it replaced —
+    /// TwinCAT again, DIALECT D4d, and the more commonly hit of the two.
+    /// <para>Split from <see cref="InvalidatesHandlesOnMove"/> because they are separate events on the real
+    /// driver and a push does BOTH: `MoveItem` writes the content and then moves, through the same handle. With
+    /// only the move flag, the write could never stale anything and a handle re-use bug after a write was
+    /// unrepresentable — which is why one went unnoticed.</para></summary>
+    public bool InvalidatesHandlesOnWrite { get; init; }
+
     private string NameOf(ItemRef r)
     {
         if (r.Native is not Handle h) return (string)r.Native;
-        if (InvalidatesHandlesOnMove && h.Gen < _generation)
+        if ((InvalidatesHandlesOnMove || InvalidatesHandlesOnWrite) && h.Gen < _generation)
             throw new System.InvalidOperationException(
                 $"Item '{h.Name}' is deleted or invalidated by an ealier operation!");
         return h.Name;
@@ -430,6 +438,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         Recorded.Add($"writexml:{NameOf(item)}");
         WrittenXml[NameOf(item)] = xml;
+        // Bumped LAST, so this call's own handle was still valid — the import replaces the item, and every handle
+        // taken before it now points at an object the vendor has thrown away.
+        if (InvalidatesHandlesOnWrite) _generation++;
     }
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 

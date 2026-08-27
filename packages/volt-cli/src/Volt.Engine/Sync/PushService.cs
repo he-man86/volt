@@ -208,7 +208,23 @@ public static class PushService
         // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
         // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
         // the refusal atomic: the item has not moved, so there is nothing to undo.
-        if (sourceText is { } edited) WriteItemFromSource(ide, parent, name, item, edited, newFolder);
+        if (sourceText is { } edited)
+        {
+            WriteItemFromSource(ide, parent, name, item, edited, newFolder);
+            // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
+            // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
+            // by the time the move needs it. That made a move+edit fail with "Item 'X' is deleted or invalidated
+            // by an ealier operation!" on EVERY attempt, not intermittently: the same push always writes before
+            // it moves, so no retry could ever succeed.
+            //
+            // The ordering itself is right and stays: the write is the step that can REFUSE, so writing first is
+            // what makes a refusal atomic (nothing moved, nothing to undo). It just cannot reuse the handle
+            // across it.
+            item = ItemLookup.Find(ide, name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{name}' could not be found after its content was written — the write appears to have " +
+                    "replaced it and the move cannot proceed.");
+        }
         ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
     }
 

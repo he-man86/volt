@@ -55,6 +55,38 @@ describe(`endpoints / push (${BASE})`, () => {
 		expect(r.accepted).toBe(true)
 	})
 
+	// A MOVE and an EDIT in ONE op, on an item that already exists. `MoveItem` only runs for an existing item
+	// changing folder, so every other move+edit here — all creates — takes a different path entirely.
+	//
+	// It failed on TwinCAT every time, and not intermittently: the content write is a document IMPORT, which
+	// invalidates every handle into the item it replaced (DIALECT D4d), and the very next line moved through that
+	// same handle. "Item 'X' is deleted or invalidated by an ealier operation!" on every attempt, so no retry
+	// could help. The write-then-move ORDER is deliberate and correct (the write is the step that can refuse, so
+	// writing first makes a refusal atomic); the handle just cannot be reused across it.
+	it("moves an EXISTING item and edits it in one op", async () => {
+		const name = id("mv_edit")
+		const wire = fid("mv_edit")
+		await createItem(wire, fb(name), "")            // starts at the project root
+
+		const refs = await bridge.refs()
+		const r = await bridge.push({
+			expectedProjectVersion: refs.projectVersion,
+			ops: [{
+				op: "set",
+				name: wire,
+				toFolder: FOLDER,                        // …and moves into POUs
+				sourceText: fb(name, { body: "x := 42;" }),
+				ifVersion: refs.items[wire],
+			}],
+		})
+		expect(r.accepted).toBe(true)
+
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
+		expect(after).toBeDefined()
+		expect(after.sourceText).toContain("x := 42;")                     // the edit landed…
+		expect((await bridge.refs()).folders[wire].endsWith(FOLDER)).toBe(true)   // …and so did the move
+	})
+
 	it("applies create + update + delete atomically", async () => {
 		const add = id("p_add"), upd = id("p_upd"), del = id("p_del2")
 		const addKey = fid("p_add"), updKey = fid("p_upd"), delKey = fid("p_del2")
