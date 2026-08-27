@@ -277,13 +277,47 @@ namespace Volt.Engine.Graph
                                 new XElement(Ns + "variable", ov.Expression)));
                             break;
                         case Label:
-                        case Jump:
-                        case Return:
                             root.Add(WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, row++));
                             break;
+
+                        case Jump or Return:
+                        {
+                            var cond = node is Jump j2 ? j2.Condition : ((Return)node).Condition;
+                            if (cond is null)   // unconditional — nothing to hang off the spine
+                            {
+                                root.Add(WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, row++));
+                                break;
+                            }
+                            // A CONDITIONAL jump/return is a rung like any other: its condition is a power spine
+                            // and has to be emitted, exactly as a coil's is. This used to write the node alone, so
+                            // the element its connection named was never written — a dangling refLocalId that
+                            // Volt's own reader tolerates (`CombineIn` misses in `byId` and yields nothing) and
+                            // silently degrades to an UNCONDITIONAL jump on the next read. For a RETURN that
+                            // dead-codes every rung after it on a live PLC.
+                            var condFeed = ctx.EmitPower(cond, Mods.None, new List<long> { SharedLeftRail });
+                            row = ctx.Row;
+                            var jrEl = WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, row++);
+                            // Re-wire to the spine just emitted: WriteNode names the MODEL's source id, and in a
+                            // ladder that leaf became a contact with a freshly minted id.
+                            jrEl.Element(Ns + "connectionPointIn")?.Remove();
+                            jrEl.Add(ConnTo(condFeed, ctx.OutPin));
+                            root.Add(jrEl);
+                            break;
+                        }
                         // InVar and Block are pulled by EmitPower/EmitData — never emitted at the rung top level.
                     }
                 }
+
+                // Anything the rungs did not reach. The loop above emits coils, labels and jumps and PULLS their
+                // spines in; a block no OutVar consumes — an FB call made for its side effects, a timer stepped or
+                // a counter driven — is reached by nothing and was therefore written nowhere. Measured, the whole
+                // <LD> came out as leftPowerRail + networktitle + rightPowerRail: the call vanished from the
+                // running program on a push that reported success, with `Validate` accepting (its gates compare a
+                // round-trip through TEXT, and an idempotent loss looks identical both times) and
+                // `GraphSplice.SafeToDrop` listing "block" so the splice removed the stored one without complaint.
+                // WriteFbdBody never had this hole: it emits every node at top level for identical input.
+                ctx.EmitUnreached(net.Nodes);
+                row = ctx.Row;
             }
             root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", RightRailId),
                 Pos(row), new XElement(Ns + "connectionPointIn")));
@@ -315,6 +349,12 @@ namespace Volt.Engine.Graph
             private readonly Dictionary<long, GraphNode> _byId;
             private readonly Dictionary<(long, string), string> _embed = new Dictionary<(long, string), string>();
             private readonly HashSet<long> _emitted = new HashSet<long>();   // a block / data box is emitted once
+            // Every block a rung REACHED, whether or not it became an element of its own. The two sets differ for
+            // exactly the ladder-shaped operators: EmitPower lowers an AND into a chain of contacts and an OR into
+            // parallel branches, so those blocks are consumed WITHOUT being emitted. `EmitUnreached` has to skip
+            // them — emitting an AND as a standalone <block> changes what the reader lowers it back to, which is
+            // how the first version of this broke `Normally_closed_contact_is_a_negated_contact`.
+            private readonly HashSet<long> _reached = new HashSet<long>();
             private long _nextId;
             public int Row;
             public readonly System.Func<long, string?> OutPin;
@@ -355,6 +395,7 @@ namespace Volt.Engine.Graph
             {
                 if (source == null) return new List<long>(inIds);
                 var prod = _byId.TryGetValue(source.RefLocalId, out var p) ? p : null;
+                if (prod is Block reachedBlock) _reached.Add(reachedBlock.LocalId);
                 switch (prod)
                 {
                     case InVar iv:
@@ -388,13 +429,22 @@ namespace Volt.Engine.Graph
                 }
             }
 
+            /// <summary>Emit every BLOCK in this network that nothing pulled in, so a call with no consumer still
+            /// reaches the document. Idempotent — <see cref="EmitBlock"/> is guarded by the same emitted-set.</summary>
+            public void EmitUnreached(IReadOnlyList<GraphNode> nodes)
+            {
+                foreach (var n in nodes)
+                    if (n is Block b && !_emitted.Contains(b.LocalId) && !_reached.Contains(b.LocalId))
+                        EmitBlock(b);
+            }
+
             /// <summary>A typed DATA wire into a block pin: a leaf becomes a variable box, a nested block the block
             /// itself. Emitted at most once.</summary>
             private void EmitData(Conn? source)
             {
                 if (source == null) return;
                 if (!_byId.TryGetValue(source.RefLocalId, out var prod)) return;
-                if (prod is Block b) EmitBlock(b);
+                if (prod is Block b) { _reached.Add(b.LocalId); EmitBlock(b); }
                 else if (prod is InVar && _emitted.Add(prod.LocalId))
                     _root.Add(WriteNode(prod, _resolveType, OutPin, RefPins, Row++));
             }
