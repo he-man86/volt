@@ -24,6 +24,38 @@ namespace Volt.Engine.Source.Body.Network
     /// and none is reliable: 15 of 99 nodes agree on localId at ZERO edits, 57% of model nodes have no statement
     /// of their own, and 8% have no stored element at all.</para>
     /// </summary>
+    /// <summary>
+    /// Why the granularity is the NETWORK, and not the statement or the node — the measured verdict, written
+    /// down so it is not re-litigated.
+    ///
+    /// <para><b>Node matching is not viable.</b> Measured over the recorded corpus: at ZERO edits only 15 of 99
+    /// model nodes land under a localId denoting the same node on both sides, and for every LD fixture the
+    /// overlap is 0 because the reader re-mints ladder ids at read time. A content key `(kind, text)` is 1:1 on
+    /// 68 of 86, and the failures concentrate where the design FORCES them: `inVariable` literals collide 12 times
+    /// in 21 because the leaf fan-out guard requires every read of a value to have its own leaf (DIALECT C4). A
+    /// richer neighbourhood fingerprint is WORSE, 54 of 86 — it reads a lossy projection, so more of it is not
+    /// more signal. And 57% of model nodes have no statement of their own at all (they are tokens inside one
+    /// parenthesised expression), while 8% have no stored element to match to (embedded outputs and the `AND`
+    /// blocks LD lowering synthesizes).</para>
+    ///
+    /// <para><b>Statement granularity is the natural next stage and needs two things this code does not have:</b>
+    /// (a) `NetworkTextWriter` emitting a side-channel from each rendered statement to the localIds it consumed —
+    /// it knows that as it renders and discards it; (b) `GraphReader.LowerLadder` recording which stored
+    /// contact/coil/block each lowered node came from, where today the ids are synthetic.
+    /// [UNMEASURED: U17 — whether each lowered LD node traces to exactly ONE stored element. The two synthesized
+    ///  `AND` blocks suggest some are many-to-one. If it is not 1:1, statement granularity is FBD-only, and that
+    ///  should be said rather than discovered.]
+    /// [UNMEASURED: U16 — how the collision rates scale. The largest network in the corpus has 10 node-elements
+    ///  and the median 4; literal collisions grow superlinearly with size, so 57.1% is a FLOOR, not a figure.]</para>
+    ///
+    /// <para><b>A text-format anchor is refused, and the condition to revisit it is named.</b> A per-statement
+    /// `// @n` is buildable — the writer mints it, the reader carries it, `NETWORK_NOT_CANONICAL` is made
+    /// anchor-preserving, a duplicate-anchor refusal joins the existing ones — and it buys nothing the baseline
+    /// render does not already give, at the cost of readability. A per-NODE anchor
+    /// (`((FALSE@1 AND TRUE@2)@3 AND FALSE@4)@5`) is refused outright: it destroys the readability that is the
+    /// text form's whole justification. Revisit ONLY if the stored XML stops being reliably in hand at push time.
+    /// It is in hand today — `BodyCodec` holds it — so this is a named condition, not a plan.</para>
+    /// </summary>
     internal static class NetworkSplice
     {
         // [UNMEASURED: U6's second half — whether a vendor's importer NORMALIZES what was carried. The first half
@@ -43,8 +75,12 @@ namespace Volt.Engine.Source.Body.Network
         /// elements the vendor stored. Returns how many were carried.
         ///
         /// <para><paramref name="stored"/> is the body element as the IDE has it; <paramref name="baseline"/> is
-        /// its render (what a pull produced); <paramref name="pushed"/> is what the engineer sent back.</para></summary>
-        public static int Carry(XElement stored, XElement regenerated, string baseline, string pushed)
+        /// its render (what a pull produced); <paramref name="pushed"/> is what the engineer sent back.</para>
+        ///
+        /// <para>Returns the INDICES actually carried, not a count, because the caller needs to know WHICH: the
+        /// capability gate is scoped to the networks that are being discarded, and a network declined below (id
+        /// collision) is discarded like any other. A count would have let the gate skip one it should refuse.</para></summary>
+        public static HashSet<int> Carry(XElement stored, XElement regenerated, string baseline, string pushed)
         {
             var before = SplitText(baseline);
             var after = SplitText(pushed);
@@ -54,7 +90,7 @@ namespace Volt.Engine.Source.Body.Network
             var regenGroups = GraphReader.SplitNetworks(regenerated.Elements().ToList())
                 .ToDictionary(g => g.Index, g => g.Els);
 
-            var carried = 0;
+            var carried = new HashSet<int>();
             foreach (var index in after.Keys.OrderBy(i => i))
             {
                 if (!before.TryGetValue(index, out var was) || was != after[index]) continue;   // edited or new
@@ -78,7 +114,7 @@ namespace Volt.Engine.Source.Body.Network
                 var anchor = drop[0];
                 foreach (var e in keep) anchor.AddBeforeSelf(e);
                 foreach (var e in drop) e.Remove();
-                carried++;
+                carried.Add(index);
             }
             return carried;
         }

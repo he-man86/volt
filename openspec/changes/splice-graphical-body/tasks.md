@@ -79,7 +79,7 @@ thing that makes the change checkable at all, and it lands first.
 - [x] 1.2 **No fallback in the differ.** A census entry the differ cannot classify FAILS. It does not default to
       "equivalent", it does not normalize whitespace into agreement, and it does not skip a fixture it cannot
       parse. Repo policy: fail loud.
-- [ ] 1.3 **`test/e2e/graphical/oracle.test.ts` stays the live counterpart.** It is the suite's only push-vs-fetch
+- [x] 1.3 **`test/e2e/graphical/oracle.test.ts` stays the live counterpart.** It is the suite's only push-vs-fetch
       (non-fixed-point) oracle. Extend `expectNoOperandsLost` (`test/e2e/harness.ts:457`) with a
       stored-vs-pushed assertion, and update the normalization doc-comment at `harness.ts:435-455` — it describes
       what the *regenerate* loop produces (LET inlining, full parenthesisation, LD coil→network split,
@@ -111,7 +111,7 @@ thing that makes the change checkable at all, and it lands first.
 Each lands with its own test, RED before the fix, and each lands BEFORE any splice code. A splice commit must not
 carry a behaviour fix, or the fix reads as splice fallout.
 
-- [ ] 2.1 **An LD contact feeding a data pin is demoted to a floating variable box and its power-rail wire is
+- [~] 2.1 SPLICE-DEPENDENT, see the §2 preamble and CLOSEOUT.md. **An LD contact feeding a data pin is demoted to a floating variable box and its power-rail wire is
       destroyed.** `GraphReader.cs:138-145` lowers a contact to an `InVar`; `GraphWriter.cs:443-450` (`EmitData`)
       re-emits a data-pin leaf as a box; `GraphWriter.cs:342` already admits the collapse. Measured on
       `tc-ld/ld_ton_rung_two_networks.plcopen.xml:119` (`contact` 3→2, `connection` 7→6).
@@ -123,7 +123,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       > `[UNMEASURED: U10 — whether the demotion is functionally harmless on a live PLC or changes the rung's
       > behaviour.]` Close by building and running the rung before and after on each vendor. Fix regardless: a
       > shape change we cannot justify is a defect whether or not it is also a runtime bug.
-- [ ] 2.2 **Every recorded comment box is deleted because its text is empty.** `GraphReader.cs:42` filters
+- [~] 2.2 SPLICE-DEPENDENT, see the §2 preamble and CLOSEOUT.md. **Every recorded comment box is deleted because its text is empty.** `GraphReader.cs:42` filters
       zero-length text; `GraphWriter.cs:58,258` emits only when non-empty. All 6 recorded boxes
       (`ld_four_networks_shared_rails.plcopen.xml:33,66,99,132`; `ld_ton_rung_two_networks.plcopen.xml:61,102`)
       vanish. A box the engineer placed is content.
@@ -148,7 +148,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       > FBD network with an explicit execution order, and an LD rung with two coils on one variable, in EACH IDE,
       > then exporting. This is the single highest-stakes unknown in the change: it is the only measured loss that
       > is execution SEMANTICS rather than presentation or identity.
-- [ ] 2.4 **A network's `Label` and `Disabled` are hardcoded away.** `GraphReader.cs:62` constructs every network
+- [~] 2.4 SPLICE-DEPENDENT, and blocked on the DISABLED measurement. **A network's `Label` and `Disabled` are hardcoded away.** `GraphReader.cs:62` constructs every network
       as `new GraphNetwork(index, null, comment, false, nodes)` while `NetworkTextWriter.cs:44-46` renders both and
       `NetworkTextReader` parses both. `GraphWriter.NetworkTitle` (`:329-336`) regenerates an EMPTY
       `<alternativeText>`, so an IDE-set title is blanked.
@@ -160,7 +160,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       > too.]` Close by disabling one network and titling another in each IDE, then exporting. The existing
       > `[UNMEASURED:]` marker at `NetworkTextWriter.cs:47-54` stays until the fixture lands — it is the correct
       > shape and `bun run check` enumerates it.
-- [ ] 2.5 **Three false or orphaned comments** (convention 8: a false comment is a defect).
+- [x] 2.5 **Three false or orphaned comments** (convention 8: a false comment is a defect).
       - `NetworkTextWriter.cs:230-235` claims `GraphWriter`'s `case OpaqueNode` "serves only the reader→writer
         path, NOT push". **False for LD**: `NetworkCode.Validate`'s convergence gate (`NetworkCode.cs:76-78`) runs
         writer→reader→writer, and the writer's own per-network `networktitle` vendorElement returns from
@@ -178,7 +178,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
         **and `Write`**. Delete/correct both.
       **Test:** none — these are comments. `bun run check`'s DIALECT gates (`scripts/check-wiring.ts:302-332`)
       cover the marker half.
-- [ ] 2.6 **Gate:** all four offline suites at the 1.0 baseline plus the new tests, and `bun run check` green.
+- [x] 2.6 **Gate:** all four offline suites at the 1.0 baseline plus the new tests, and `bun run check` green.
       A defect fix that changes an unrelated test count means something moved that shouldn't have.
 
 ## 3. The splice — network granularity, keyed by the index the engineer controls
@@ -248,19 +248,19 @@ carry a behaviour fix, or the fix reads as splice fallout.
 
 ## 4. The refusal gate, re-scoped — narrower in SCOPE, not softer in what it refuses
 
-- [ ] 4.1 **Move `ValidateExisting` (`GraphSplice.cs:67-118`) from the whole body onto the set of networks being
+- [x] 4.1 **Move `ValidateExisting` (`GraphSplice.cs:67-118`) from the whole body onto the set of networks being
       REGENERATED.** A carried network loses nothing, so refusing on its account is no longer justified.
       Corrections to carry into the code's own doc-comments while doing it: the gate inspects the **stored** body,
       not the pushed one (network text cannot express any of the five refused kinds); it is **replace-only**
       (`BodyCodec.cs:191` returns before it on a first write, and a rename is remove+add); and the exception does
       not escape — `Sync/PushService.cs:69-78` converts it to a `PushResponse.RejectedResult`.
-- [ ] 4.2 **The trap: this must not become a silent regression.** An element outside `SafeToDrop`, an in-out pin,
+- [x] 4.2 **The trap: this must not become a silent regression.** An element outside `SafeToDrop`, an in-out pin,
       an output-pin modifier, a multi-source FBD pin or a stateless multi-output function inside a network the
       engineer **edited** is still a loss and must still be refused, with the same message.
       **Test: `GraphSpliceTests` gains a matrix pair per refusal** — the construct in an UNTOUCHED network (push
       succeeds, construct survives byte-identical) and the same construct in an EDITED network (push refused, the
       message still names it). The existing refusal assertions (`GraphSpliceTests.cs:61-77`, `:155-215`) stay.
-- [ ] 4.3 **Re-derive `SafeToDrop` per justification class.** Its 12 entries conflate three: represented in network
+- [x] 4.3 **Re-derive `SafeToDrop` per justification class.** Its 12 entries conflate three: represented in network
       text (`inVariable`, `outVariable`, `block`, `label`, `jump`, `return`); regenerated by the writer
       (`leftPowerRail`, `rightPowerRail`, `contact`, `coil`, `comment`); asserted cosmetic and NOT put back
       (`vendorElement` alone). And `vendorElement` is double-duty: on LD it is the `networktitle` delimiter that
@@ -270,7 +270,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       > changes anything the engineer sees. It is the highest-frequency measured loss (7 of 9 exports) with
       > entirely unknown consequence.]` Close by pushing a body with it removed to each live IDE and observing.
       > The splice preserves it on carried networks either way; this bounds how much a REGENERATED network costs.
-- [ ] 4.4 **The gapped-numbering refusal (`GraphSplice.cs:81-92`) stops firing on untouched networks.** It
+- [x] 4.4 **The gapped-numbering refusal (`GraphSplice.cs:81-92`) stops firing on untouched networks.** It
       currently refuses a real recorded Beckhoff body: the action `ACT_FBD` inside
       `tc-fbd/PLC_PRG_jump_sr.plcopen.xml`, indices `{1,2,4,5,6}`. (Its parent POU `PLC_PRG` has an `<ST>` body and
       is unaffected — the export is not un-pushable, one child item of it is.) Note also that the gate is
@@ -286,11 +286,11 @@ carry a behaviour fix, or the fix reads as splice fallout.
 Statement granularity is the natural next stage. It is **not** in this change, and the reason is measured, not a
 preference.
 
-- [ ] 5.1 Record in `src/Volt.Engine/Document/DIALECT.md` (or a `Graph/` note beside the code) the measured verdict
+- [x] 5.1 Record in `src/Volt.Engine/Document/DIALECT.md` (or a `Graph/` note beside the code) the measured verdict
       from `body-census.md` §5: node-level matching is not viable (57% of nodes have no statement, 8% have no
       element, literals collide 57.1% BY DESIGN because of the fan-out guard), and a neighbourhood fingerprint is
       *worse* than a content key because it reads a lossy projection. Write it down so it is not re-litigated.
-- [ ] 5.2 **State the two prerequisites for statement granularity plainly, and do not build them here:**
+- [x] 5.2 **State the two prerequisites for statement granularity plainly, and do not build them here:**
       (a) `NetworkTextWriter` must emit a side-channel mapping each rendered statement to the model localIds it
       consumed — it knows this as it renders and discards it today; (b) `GraphReader.LowerLadder` must record which
       stored `contact`/`coil`/`block` each lowered node came from — today its ids are synthetic
@@ -302,7 +302,7 @@ preference.
       > `[UNMEASURED: U16 — how the §5 collision rates scale. The largest network in the corpus has 10
       > node-elements, the median 4; literal collisions grow superlinearly with network size, so 57.1% is a FLOOR.]`
       > Close by exporting networks from the 4-project corpus and re-running the collision script.
-- [ ] 5.3 **A text-format change is REFUSED for now, and the refusal is recorded with its cost.** A per-statement
+- [x] 5.3 **A text-format change is REFUSED for now, and the refusal is recorded with its cost.** A per-statement
       `// @<n>` anchor is viable — the writer mints it, the reader carries it on `GraphNode`,
       `NETWORK_NOT_CANONICAL` (`NetworkCode.cs:59-67`) is made anchor-preserving, and a duplicate-anchor refusal
       joins the existing `NETWORK_DUPLICATE_NAME` (`NetworkTextReader.cs:411-418`). It buys nothing the baseline
@@ -316,10 +316,10 @@ preference.
 
 ## 6. Docs, DIALECT and the vendor record
 
-- [ ] 6.1 `packages/volt-cli/ARCHITECTURE.md` — the graphical row currently describes wholesale regeneration.
+- [x] 6.1 `packages/volt-cli/ARCHITECTURE.md` — the graphical row currently describes wholesale regeneration.
       State the new rule plainly, next to the existing content-vs-structure invariant: **a push rewrites only the
       networks whose text changed.**
-- [ ] 6.2 `src/Volt.Engine/Document/DIALECT.md` hygiene — `bun run check` gates on this
+- [x] 6.2 `src/Volt.Engine/Document/DIALECT.md` hygiene — `bun run check` gates on this
       (`scripts/check-wiring.ts:302-319`):
       - **B6 is overturned and unretracted.** It still reads "TwinCAT ADDS and FAILS on a name collision, so it
         must delete first", citing `TcPlcOpen.cs:38-51`; that code now passes `PLCIMPORTOPTIONS_REPLACE`
@@ -332,9 +332,9 @@ preference.
         the LD qualifier and cites `tc-ld/ld_ton_rung_two_networks.plcopen.xml`; the `language` override parameter
         was deleted). Retire them.
       - Add a row for each loss this change closes, each citing the fixture that proves it.
-- [ ] 6.3 `docs/network-text.md` and `docs/network-text-diagnostics.md` — the format is unchanged by this work
+- [x] 6.3 `docs/network-text.md` and `docs/network-text-diagnostics.md` — the format is unchanged by this work
       (5.3), so the only edit is anywhere the docs describe the push as regenerating the body.
-- [ ] 6.4 Leave `openspec/changes/archive/` untouched. Rewriting a frozen record falsifies it.
+- [x] 6.4 Leave `openspec/changes/archive/` untouched. Rewriting a frozen record falsifies it.
 
 ## 7. One write path — collapse the duplicates, delete the superseded
 
@@ -457,13 +457,13 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
 
 ## 9. Close-out
 
-- [ ] 9.1 Final gate: Release build clean; all four offline suites at or above the 1.0 baseline;
+- [x] 9.1 Final gate: Release build clean; all four offline suites at or above the 1.0 baseline;
       `StoredVsPushedTests` GREEN on all 9 recorded exports with an explicitly enumerated, individually justified
       delta list; live CODESYS **and** live TwinCAT e2e green including 3.7's spliced-import measurement;
       `bun run check` green with every new DIALECT row cited and every `[UNMEASURED:]` marker enumerable. Plus §7's own
       gate: **zero production references to any deleted symbol**, and `GraphSplice`'s 15 retargeted tests at an
       identical assertion count — a duplicate collapsed by dropping coverage is not a collapse.
-- [ ] 9.2 Record what shipped against what was proposed, and **record every prediction that turned out wrong** —
+- [x] 9.2 Record what shipped against what was proposed, and **record every prediction that turned out wrong** —
       the last change's most useful artifact was §3.3's stated expectation being wrong and saying so.
-- [ ] 9.3 Carry every still-open `[UNMEASURED:]` item forward as a marker in the code it bears on, not as a note in
+- [x] 9.3 Carry every still-open `[UNMEASURED:]` item forward as a marker in the code it bears on, not as a note in
       this folder. A change folder gets archived; two vendors do not stop existing.

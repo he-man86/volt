@@ -85,7 +85,7 @@ repo contains a method, a property or an accessor.
 | B3 | Body-language gate: CODESYS a full export + element name; TwinCAT a cheap `ImplementationText` sniff (`<NWL>`/`DefaultViewMode`) | `TcPouReader.cs:16-43`; deliberate, `ARCHITECTURE.md:179-181`. Cost: ~20 ms vs ~1 ms |
 | B4 | **LD-as-FBD read** — a TwinCAT empty LD body exports inside `<FBD>`; the COM language is authoritative. **Currently NOT handled on the production read path** — the override is dead | `GraphReader.cs:15-19`; `Materializer.cs:123-131` passes the element's own name |
 | B5 | **CFC body placement** — CODESYS nests it under `<body>/<addData>/<data name="…/cfc">`, not as a direct child. **Not handled at all** | see Defects below |
-| B6 | **Import mode** — CODESYS merges in place (`Replace`, no delete); TwinCAT ADDS and FAILS on a name collision, so it must delete first | `CodesysDriver.Code.cs:37-52` vs `TcPlcOpen.cs:38-51`. **The deepest genuine divergence in the path** |
+| ~~B6~~ | `[RETRACTED -> D4c]` ~~**Import mode** — CODESYS merges in place (`Replace`, no delete); TwinCAT ADDS and FAILS on a name collision, so it must delete first~~ — **OVERTURNED.** `TcPlcOpen.cs:34,63` passes `PLCIMPORTOPTIONS_REPLACE`, so TwinCAT replaces too; D4c is the measurement. The row also called this "the deepest genuine divergence in the path", which is no longer true either — it is not a divergence at all. Kept as a pointer so anything still citing B6 lands on the correction rather than on nothing |
 | B7 | `CreateChild` semantics — TwinCAT rejects String vInfo on a FUNCTION, rejects `"ST"` on interfaces, wants the return type as vInfo for interface members, rejects `"LD"`; CODESYS ignores the language entirely | `TcObjectModel.cs:319-340`; `test/e2e/vendor-notes.test.ts:4-7` |
 
 ### C — vendor limits (6)
@@ -146,8 +146,8 @@ repo contains a method, a property or an accessor.
 
 | # | Never verified |
 |---|---|
-| D11 | **The entire LD export/import shape.** No CODESYS LD capture exists anywhere; `GraphWriter` emits TwinCAT's shared-rail form (left rail id 0, right rail 2147483646, regenerated `networktitle` markers) to CODESYS. `GraphWriter.cs:219` claims live CODESYS verification with nothing to show for it |
-| D12 | EN/ENO pin naming — `NetworkTextReader.cs:228-232` hardcodes TwinCAT's `EN`/`In2…`/`Out2`/`ENO` and writes it into CODESYS |
+| D11 | **The entire LD export/import shape.** No CODESYS LD capture exists anywhere; `GraphWriter` emits TwinCAT's shared-rail form (left rail id 0, right rail 2147483646, regenerated `networktitle` markers) to CODESYS. `GraphWriter.cs:229-243` claims live CODESYS verification with nothing to show for it (the citation read `:219` until the code moved; that line is now inside `JoinTypes`) |
+| D12 | EN/ENO pin naming — `NetworkTextReader.cs:234-237` hardcodes TwinCAT's `EN`/`In2…`/`Out2`/`ENO` and writes it into CODESYS |
 | D13 | Embedded output assignment on write — the LD writer always embeds a non-primary output in its pin, a rule derived entirely from live TwinCAT |
 | D14 | `negated` on `<inVariable>` — the C3 workaround is exercised by **no fixture on either vendor** |
 | D15 | The FBD `<comment>` shape — "CODESYS rejects bare text" (`GraphWriter.cs:69`); no recorded CODESYS export contains a `<comment>` at all |

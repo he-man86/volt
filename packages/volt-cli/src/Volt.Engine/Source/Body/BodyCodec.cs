@@ -205,7 +205,9 @@ namespace Volt.Engine.Source.Body
                       : fromDecl.TryGetValue(inst, out var d) ? d
                       : null);
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
-            BodySpliceGuard.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
+            // Snapshot the stored networks BEFORE the carry, so the gate below can be scoped to the ones actually
+            // being discarded.
+            var storedNetworks = GraphReader.SplitNetworks(existing.Elements().ToList());
 
             // CARRY the networks the engineer did not touch. The whole-body no-op above catches "nothing changed
             // at all"; this catches the ordinary edit, where one network of several moved and regenerating the
@@ -219,7 +221,16 @@ namespace Volt.Engine.Source.Body
             // `NETWORK n FBD` and a pushed LD one says `NETWORK n LD`, so every network fails the comparison and
             // the whole body regenerates — which is required, because the wrapper element itself must change
             // (TwinCAT seeds <FBD/> even for a ladder, DIALECT C6, and ladder elements inside <FBD> are refused).
-            if (NetworkSplice.Carry(existing, replacement, baseline, text) > 0)
+            var carried = NetworkSplice.Carry(existing, replacement, baseline, text);
+
+            // The capability gate, scoped to what this write actually THROWS AWAY. A carried network keeps its
+            // stored XML, so it loses nothing and refusing on its account would refuse a push with nothing to
+            // refuse — the gate exists to stop a loss. Narrower in scope, identical in what it refuses: the same
+            // constructs inside an EDITED network are still a hard refusal with the same message.
+            BodySpliceGuard.RequireReplaceable(existing,
+                storedNetworks.Where(g => !carried.Contains(g.Index)).SelectMany(g => g.Els).ToList());
+
+            if (carried.Count > 0)
                 // The carried halves are held to the SAME rules as the regenerated ones. The leaf fan-out
                 // refusal exists because TwinCAT's importer CRASHES on a shared leaf (DIALECT C4) — a global
                 // property of the document, not of the half Volt happened to write this time.
