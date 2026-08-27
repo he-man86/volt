@@ -306,7 +306,13 @@ preference.
 
 ## 7. One write path — collapse the duplicates, delete the superseded
 
-Evidence: `write-path-census.md` §3–§4. Every item here is a DUPLICATE or a DEAD path, not a behaviour change — so
+Evidence: `write-path-census.md` §3–§4. **The folder and file shape these collapse into is decided up front in
+`target-layout.md`** — a duplicate is collapsed *by* giving it one owner, so the move and the collapse are the
+same edit, and §7 is interleaved with that layout's §5 sequencing rather than followed by a separate rename
+commit. `target-layout.md` §4 also adds one source-scanning guard per collapsed rule, so a second path fails the
+build instead of becoming a production incident.
+
+Every item here is a DUPLICATE or a DEAD path, not a behaviour change — so
 each lands with the offline suites green and no test rewritten to accommodate it. Where a duplicate pair
 *disagrees*, the divergence is a defect and belongs in §2, not here; the two such cases are called out below.
 
@@ -326,9 +332,17 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
       For the record: the audit's orphan-walk fix landed *inside* this method, so that fix was inert — the
       behaviour is correct anyway, because the document splice never had the bug. `DIALECT.md:131` still describes
       it as reachable; corrected in 6.2.
-- [ ] 7.3 **Delete `PlcOpenDocument.DeclFromExport`** (`:119-142`) — production-dead, and its no-filter rule is the
-      trap `MaterializerChildDeclTests.cs:12,23` names. Its one non-test caller is `NetworkCodeIo.cs:62`, a
-      documented test seam (`:27-34`); give that seam `PouReader.DeclFromElement` instead.
+- [ ] 7.3 **Delete `PlcOpenDocument.DeclFromExport`** (`:119-142`) — its no-filter rule is the trap
+      `MaterializerChildDeclTests.cs:12,23` names, and it is a THIRD answer to the ownership question §7.6
+      collapses.
+      Its only caller is `Sync/NetworkCodeIo.cs:62`, and **`NetworkCodeIo` itself has zero production callers** —
+      re-measured: the only reference from `src` is a `<see cref>` doc-comment at `BodyCodec.cs:72`. It is 66
+      lines of test-only code living in `src/`. So this is not "re-point the seam at another reader": **move
+      `NetworkCodeIo.cs` into the test project and delete `DeclFromExport` outright.** Its 12 test call sites move
+      with it unchanged.
+      (This supersedes the earlier plan to give the seam `PouReader.DeclFromElement`, which was written before the
+      seam was measured to be test-only. Third instance of the same pattern as 7.1 and 7.2 — shipped code nothing
+      calls. `target-layout.md` §4 G5 is the guard that catches the class.)
 - [ ] 7.4 **Delete the `WritesPouAsOneDocument` remnants** — the stale test-double property at
       `NetworkCodeTests.cs:252` and the dead `bodyImpl` assignment at `PushService.cs:295`; rewrite the comment at
       `PushService.cs:218` to describe what exists. `DIALECT.md`'s headline (`:31-37`) and rows **D4e**/**D4h** are

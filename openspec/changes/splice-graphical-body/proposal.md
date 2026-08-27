@@ -244,6 +244,14 @@ Sequenced in `tasks.md` §7. Evidence and the keep/drop judgement for each pair 
 - **Replace the regex-over-XML** at `BeckhoffDriver.Code.cs:105-110` with the `XDocument` parse already present at
   `:84-103` in the same file. `TcItemArchive.cs:133-134` states the repo's rule for exactly this.
 
+The folder and file shape these collapse into is decided **before** the featureset is built, in
+`target-layout.md`: one owner per construct (`Declaration.cs`, `BodyCodec.cs`, `Members.cs`), `Graph/` kept
+deliberately flat so the graphical projection is not put in a location of its own, and **one source-scanning guard
+per collapsed rule** so a second path fails the build rather than surfacing in production. The most valuable of
+those guards is the general form of this whole finding: *every public type under `src/Volt.Engine` has a non-test
+caller.* Three separate instances of shipped-but-uncalled code — `GraphSplice.SpliceFbdLdBody`,
+`RemoveOrphanChildren`, and `NetworkCodeIo` + `DeclFromExport` — went undetected because nothing checks that.
+
 Two things this section deliberately does **not** do. It does not centralize the twelve-plus "is this graphical?"
 decision sites — they are spread across guard, push and read concerns that legitimately ask different questions,
 and merging them is a separate change with its own risk. And it does not move `Document/` or rename any file in the
