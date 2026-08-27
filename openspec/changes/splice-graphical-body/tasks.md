@@ -183,7 +183,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
 
 ## 3. The splice — network granularity, keyed by the index the engineer controls
 
-- [ ] 3.1 **Add the baseline leg to `NetworkCodec.Encode`** (`Document/BodyCodec.cs:173-196`). It already holds the
+- [x] 3.1 **Add the baseline leg to `NetworkCodec.Encode`** (`Document/BodyCodec.cs:173-196`). It already holds the
       stored body at `:178-181`. Render the stored body's network text (`NetworkCode.RenderBody`), split both
       baseline and pushed text by network, and for each index in the pushed text:
       - baseline text for that index is **byte-identical** → carry the stored network's XML elements across
@@ -194,7 +194,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       **Test: `NetworkSpliceTests.An_untouched_network_survives_byte_identical`** over all 9 recorded exports, and
       `…Only_the_edited_network_is_rewritten` asserting that editing network *n* leaves every other network's XML
       byte-identical. Both drive `StoredVsPushedTests`' differ.
-- [ ] 3.2 **The wrapper element is still replaced when the LANGUAGE changes.** TwinCAT's `CreateChild` cannot
+- [x] 3.2 **The wrapper element is still replaced when the LANGUAGE changes.** TwinCAT's `CreateChild` cannot
       create `"LD"` and seeds `<FBD/>` (DIALECT C6/B4), so `existing` can be `<FBD>` while the replacement is
       `<LD>`; keeping the old wrapper puts ladder contacts inside `<FBD>`, which the schema rejects — the reason
       `GraphSplice.cs:47-51` replaces the whole element. **A language change carries nothing forward.**
@@ -202,18 +202,18 @@ carry a behaviour fix, or the fix reads as splice fallout.
       splice into, so "never constructs a body from nothing" is NOT the invariant. The achievable one is **never
       reconstructs over an existing populated network**.
       **Test:** extend `AccessorBodyLanguageTests` with an FBD→LD transition asserting nothing is carried.
-- [ ] 3.3 **LD rails are body-scoped, and carried with the body.** Both recorded LD exports bracket the whole body
+- [x] 3.3 **LD rails are body-scoped, and carried with the body.** Both recorded LD exports bracket the whole body
       with one `leftPowerRail localId="0"` and one `rightPowerRail localId="2147483646"`
       (`ld_four_networks_shared_rails.plcopen.xml:29,165`), and `GraphWriter.cs:235,244-248,322-323` emits exactly
       that pair. A carried LD network references rail id `0`, so the pair must survive with it.
       **Test: `NetworkSpliceTests.A_carried_ladder_network_still_reaches_the_shared_rail`** over both `tc-ld/*`.
-- [ ] 3.4 **Regenerated ids must not collide with carried ones.** `LdCtx` mints contact ids above every model id
+- [x] 3.4 **Regenerated ids must not collide with carried ones.** `LdCtx` mints contact ids above every model id
       (`GraphWriter.cs:367,389`); with stored ids now surviving, the floor becomes the max id in the whole spliced
       body. Also handle the index-drift case measured in `body-census.md` §1: when a network EMPTIES, `GraphReader.cs:65`
       renumbers it (`NETWORK 1` → `NETWORK 0`), so an index-keyed carry must not misfire on an emptied network.
       **Test: `NetworkSpliceTests.Ids_minted_for_a_regenerated_network_never_collide_with_carried_ids`** and
       `…An_emptied_network_carries_nothing`.
-- [ ] 3.5 **Re-validate the WHOLE spliced body before it is written.** The leaf fan-out refusal
+- [x] 3.5 **Re-validate the WHOLE spliced body before it is written.** The leaf fan-out refusal
       (`NetworkCode.cs:41-57`, DIALECT C4) exists because TwinCAT's importer *crashes*; it is a global rule and
       applies to carried halves as much as regenerated ones. So does the `NOT x` text-encoding of `inVariable`
       negation (DIALECT C3): a carried `negated="true"` on an `<inVariable>` would be dropped by TwinCAT's importer
@@ -222,12 +222,21 @@ carry a behaviour fix, or the fix reads as splice fallout.
       `inVariable/@negated` is re-encoded rather than passed through.
       > `[UNMEASURED: U11 — `<inVariable negated="true">` is exercised by no fixture on either vendor (DIALECT
       > D14).]` Close by negating an input variable in each IDE and exporting.
-- [ ] 3.6 **Nothing branches on a vendor.** Discriminate structurally — the presence of a `networktitle` marker,
+- [x] 3.6 **Nothing branches on a vendor.** Discriminate structurally — the presence of a `networktitle` marker,
       the presence of rails, the body element's own name — as `GraphReader.SplitNetworks` (`:76-98`) already does.
       `VendorParityGuardTests` fails the build otherwise. Do not rename `NetworkTextReader.cs`; partials named
       `NetworkTextReader.X.cs` are safe.
       **Test:** the two existing guards; assert their scanned-file floors still pass.
-- [ ] 3.7 **Live gate — this is where the change's central assumption is tested.**
+- [~] 3.7 **Live gate — HALF MEASURED, half still open, and the open half is recorded in the code.**
+      **Measured, live CODESYS** (`test/e2e/graphical/splice.test.ts`): a part-vendor, part-Volt document
+      imports cleanly, COMPILES, and is a fixed point on re-push. That was the main risk — a hand-assembled body
+      mixing stored and regenerated elements being rejected outright — and it is closed.
+      **Still open:** whether the importer NORMALIZES what was carried. The wire serves network TEXT, not XML, so
+      a normalization that preserved the text while rewriting ids or dropping vendor `addData` looks identical
+      from e2e — the same blind spot this change exists to close, one layer out. Needs the exported document (a
+      bridge-side XML dump, or an IDE export after a spliced push). **TwinCAT is entirely unmeasured.** Carried
+      forward as an `[UNMEASURED: U6]` marker on `NetworkSplice` itself, per §9.3.
+      Original text:
       > `[UNMEASURED: U6 — whether a spliced, id- and attribute-preserving body imports cleanly on either vendor,
       > or whether the importer normalizes it. Every live verification to date (`GraphWriter.cs:229-243`,
       > `test/e2e/graphical/*`) exercised the REGENERATED body; the splice path has never met a live importer.]`

@@ -73,7 +73,11 @@ namespace Volt.Engine.Source.Body.Network
         /// localIds. Use the markers when present (the shared rail + anything before the first marker leads
         /// network 0); otherwise fall back to the localId-stride grouping (and keep the stride-derived index, so
         /// a lone FBD network can legitimately be NETWORK 1).</summary>
-        private static List<(int Index, List<XElement> Els)> SplitNetworks(List<XElement> elements)
+        /// <para><b>internal</b>, not private: <see cref="NetworkSplice"/> needs the SAME grouping the reader
+        /// uses. Two groupings would mean the splice and the reader disagree about which elements belong to
+        /// network <i>n</i>, and a carry keyed on one while the text came from the other carries the wrong
+        /// elements — silently, because both halves would still be well-formed XML.</para>
+        internal static List<(int Index, List<XElement> Els)> SplitNetworks(List<XElement> elements)
         {
             static bool IsTitle(XElement e) => e.Name.LocalName == "vendorElement"
                 && e.Descendants().Any(d => d.Name.LocalName == "ElementType" && d.Value.Trim() == "networktitle");

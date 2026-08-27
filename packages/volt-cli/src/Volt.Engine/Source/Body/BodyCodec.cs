@@ -191,7 +191,8 @@ namespace Volt.Engine.Source.Body
             // byte-for-byte the text a pull wrote into the repo. Equality is the whole test — there is no partial
             // match and no fallback, so this cannot carry the wrong thing. A language change needs no special
             // case either: the stored body renders a different `NETWORK n LANG` header, so it simply regenerates.
-            if (existing is not null && NetworkCode.RenderBody(existing) == text) return false;
+            var baseline = existing is null ? null : NetworkCode.RenderBody(existing);
+            if (baseline == text) return false;
 
             // TWO sources, in this order. The body being replaced already carries every existing box's type,
             // written by the IDE — nothing is inferred from it. The declaration is a TEXT parse, and a text parse
@@ -205,6 +206,25 @@ namespace Volt.Engine.Source.Body
                       : null);
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
             BodySpliceGuard.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
+
+            // CARRY the networks the engineer did not touch. The whole-body no-op above catches "nothing changed
+            // at all"; this catches the ordinary edit, where one network of several moved and regenerating the
+            // rest would destroy their ids, vendor addData and comment boxes for nothing.
+            //
+            // Same identity channel, one level finer: a network whose rendered text is byte-identical to what the
+            // push carries keeps its stored elements. Equality is the whole test, so nothing can be carried onto
+            // the wrong network. See NetworkSplice.
+            //
+            // The language check is not a special case, it is the same equality: a stored FBD body renders
+            // `NETWORK n FBD` and a pushed LD one says `NETWORK n LD`, so every network fails the comparison and
+            // the whole body regenerates — which is required, because the wrapper element itself must change
+            // (TwinCAT seeds <FBD/> even for a ladder, DIALECT C6, and ladder elements inside <FBD> are refused).
+            if (NetworkSplice.Carry(existing, replacement, baseline, text) > 0)
+                // The carried halves are held to the SAME rules as the regenerated ones. The leaf fan-out
+                // refusal exists because TwinCAT's importer CRASHES on a shared leaf (DIALECT C4) — a global
+                // property of the document, not of the half Volt happened to write this time.
+                NetworkCode.Validate(NetworkTextWriter.Write(GraphReader.ReadBody(replacement)));
+
             if (XNode.DeepEquals(existing, replacement)) return false;
             existing.ReplaceWith(replacement);
             return true;
