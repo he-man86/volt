@@ -71,7 +71,11 @@ public static class PouDocument
             // and it must NOT be dropped: the member stays in `pushed`, so the removal pass above leaves it be.
             // This is what makes a POU that merely CONTAINS a CFC member editable at all — before it, the guard
             // refused the entire push, so such a POU could not be touched even to edit its own root body.
-            if (Vocabulary.BodyMarker.Is(body)) body = null;
+            // …on an UPDATE. On a CREATE the same null means "no body", and a marker cannot mean that: there is
+            // no diagram yet to leave alone, and a marker is not something a diagram can be built from. Which arm
+            // runs is decided below, so remember what the null came from.
+            var bodyWasMarker = Vocabulary.BodyMarker.Is(body);
+            if (bodyWasMarker) body = null;
 
             // The scope an FB instance in a CHILD body resolves against is BOTH declarations: an instance used
             // in a method can be declared in the method's own VAR block or in the enclosing POU's. Network text
@@ -86,6 +90,19 @@ public static class PouDocument
                 xml = PouSplice.RemoveChild(xml, name, child.Name);
                 present.Remove(child.Name);
             }
+            if (!present.ContainsKey(child.Name) && bodyWasMarker)
+                // Reached by a RENAME, which is a remove-plus-add by construction: the push carries a member
+                // LIST, so a renamed member reads as one name gone and another appeared, and §3.2 already defines
+                // it that way. Adding from a marker would create the member EMPTY and the diagram would be gone —
+                // silently, on a push reporting success. Volt cannot rename a diagram member without losing it,
+                // so it says so instead.
+                // The marker text names the language — `(* @volt-graphical: CFC *)` — so quote it rather than
+                // re-deriving one: `NetworkText.LanguageOf` reads `NETWORK n LANG`, and a marker is not that.
+                throw new InvalidOperationException(
+                    $"'{child.Name}' does not exist yet and its pushed body is {child.Body?.Trim()} — a marker " +
+                    "carries no body, so this would create it EMPTY. Volt cannot create or rename a member whose " +
+                    "body it cannot write; rename it in the IDE and pull.");
+
             xml = present.ContainsKey(child.Name)
                 ? PouSplice.SetChildText(xml, name, child.Name, decl, body, childScope)
                 : PouSplice.AddChild(xml, name, child.Name, wanted, decl, body);
