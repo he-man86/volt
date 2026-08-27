@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shared harness for the e2e bridge suite. One typed client over EVERY op, version-snapshot + delta helpers
  * (the backbone of the hash-stability assertions), and test-item fixture cleanup. The SAME suite runs against
  * whichever live bridge the pipe points at (`VOLT_PIPE`, or `VOLT_VENDOR`: twincat /
@@ -414,4 +414,59 @@ export function assertDelta(
 	else expect(after.project).toBe(before.project)
 	if (exp.structure) expect(after.structure).not.toBe(before.structure)
 	else expect(after.structure).toBe(before.structure)
+}
+
+/**
+ * The `NETWORK … END_NETWORK` region of a source — the diagram, isolated from the declaration.
+ */
+export function bodyOf(src: string): string {
+	const i = src.indexOf("NETWORK ")
+	const j = src.lastIndexOf("END_NETWORK")
+	if (i < 0 || j < 0) throw new Error(`no NETWORK block in:
+${src}`)
+	return src.slice(i, j + "END_NETWORK".length)
+}
+
+// Everything in a network line that is grammar rather than the engineer's program.
+const VG_KEYWORDS = new Set([
+	"NETWORK", "END_NETWORK", "FBD", "LD", "DISABLED", "LET", "NOT", "AND", "OR", "XOR", "MOD",
+	"IF", "THEN", "ELSE", "END_IF", "JMP", "RETURN", "EXECUTE", "END_EXECUTE", "TRUE", "FALSE",
+])
+
+/**
+ * Every operand the engineer wrote is still in the body the repo shows back.
+ *
+ * <p>Round-trip assertions in this suite compare a FETCH to a later FETCH. That is a FIXED-POINT check, and a
+ * fixed point is exactly what every graphical data-loss bug in this repo turned out to be: the write dropped
+ * something, the read handed back the reduced body, and pushing THAT back changed nothing. Only the FIRST
+ * comparison — what was pushed against what came back — can see the loss.</p>
+ *
+ * <p>But that comparison cannot be byte equality, because a body is legitimately normalized on the way through,
+ * and MEASURED to be (CODESYS, live): a single-use `LET` is inlined, a flat `a AND b AND c` comes back fully
+ * parenthesised, two coils in one LD network come back as two networks, and a created FBD body is renumbered
+ * from `NETWORK 0` to `NETWORK 1` because the vendor assigns its own network ids and Volt echoes them
+ * (GraphReader.SplitNetworks documents this: "a lone FBD network can legitimately be NETWORK 1"). None of that
+ * is loss — the same program runs — and the fetched form is then a stable fixed point.</p>
+ *
+ * <p>What survives every one of those rewrites is the SET OF OPERANDS. So that is what this asserts. It catches
+ * the whole measured loss class — a dropped unconsumed block, a jump’s discarded condition spine, an FB
+ * instance written with `typeName=""`, a flattened accessor — while staying blind to reformatting, which is the
+ * IDE’s business. Names introduced by `LET` are excluded: inlining them away is the canonicalizer doing its
+ * job.</p>
+ */
+export function expectNoOperandsLost(pushed: string, fetched: string): void {
+	const idents = (s: string): string[] =>
+		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !VG_KEYWORDS.has(w.toUpperCase()))
+
+	const body = bodyOf(pushed)
+	const bound = new Set((body.match(/\bLET\s+([A-Za-z_]\w*)/g) ?? []).map((m) => m.split(/\s+/)[1]))
+	const want = [...new Set(idents(body))].filter((w) => !bound.has(w))
+	const got = new Set(idents(bodyOf(fetched)))
+
+	const lost = want.filter((w) => !got.has(w))
+	expect(lost, `operands lost between push and fetch — pushed:
+${body}
+
+fetched:
+${bodyOf(fetched)}`).toEqual([])
 }

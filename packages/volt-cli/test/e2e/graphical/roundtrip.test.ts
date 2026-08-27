@@ -3,7 +3,7 @@
  * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, FOLDER, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, expectNoOperandsLost, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, FOLDER, BASE } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -167,6 +167,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(after).toBeDefined()
 			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
 			expect(after.sourceText).toMatch(new RegExp(`NETWORK\\s+\\d+\\s+${lang}\\b`))   // stayed ${lang}, not flattened to ST
+			expectNoOperandsLost(src, after.sourceText)   // …and nothing in the diagram was dropped on the way
 
 			// The program-scope DECLARATION must survive a push-create — NetworkCode.Write writes the BODY
 			// only, so without an explicit decl write the VAR section comes back empty and the vars the
@@ -200,6 +201,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(after.sourceText).toContain("END_EXECUTE")
 		expect(after.sourceText).toContain("iResult := 40 + 2")               // the box's ST survived verbatim…
 		expect(after.sourceText).toContain("the answer")                      // …comments and all
+		expectNoOperandsLost(executeProgram(name), after.sourceText)
 
 		// Fixed point: re-pushing the fetched body is byte-identical (the round-trip is stable). An UPDATE omits
 		// toFolder (folder unchanged) — matching how `volt push` builds an update; a `toFolder: ""` here would
@@ -223,6 +225,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(v1).toBeDefined()
 			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
 			expect(v1.sourceText).toMatch(/NETWORK\s+\d+\s+LD\b/)      // stayed ladder (LD), not flattened to ST
+			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
 
 			// Fixed point: pushing the fetched network text back leaves the body byte-identical.
 			const refs2 = await bridge.refs()

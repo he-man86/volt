@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FBD and LD on every element that can hold a body — the coverage neither language had.
  *
  * `graphical/roundtrip.test.ts` proves both languages thoroughly, but only ever on a PROGRAM: its featureset
@@ -22,7 +22,7 @@
  *      graphical POU once landed with an empty VAR section, its contacts referencing undeclared variables.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, expectNoOperandsLost } from "../harness"
 
 // A TwinCAT full build is ~9s, past bun's 5s default, and the compile assertions here build the project.
 setDefaultTimeout(30000)
@@ -95,6 +95,7 @@ for (const lang of ["FBD", "LD"]) {
 				const v1 = await fetchItem(full)
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // stayed graphical, not flattened to ST
 				expect(v1.sourceText).toContain("(a AND b)")
+				expectNoOperandsLost(src[ext](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 			})
 		}
@@ -109,6 +110,7 @@ for (const lang of ["FBD", "LD"]) {
 				expect(v1.sourceText).toContain("out := a;")          // the parent's own body stayed TEXTUAL…
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // …and only the member is graphical
 				expect(v1.sourceText).toContain(`${coil} := (`)
+				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 				await ensureCompiles(name)
 			})
@@ -125,6 +127,7 @@ for (const lang of ["FBD", "LD"]) {
 			expect(networkLangs(v1.sourceText)).toEqual([lang, lang])
 			expect(v1.sourceText).toContain("P_G := (a AND b)")     // the GET drives the property…
 			expect(v1.sourceText).toContain("out := (P_G AND a)")   // …and the SET is driven by it
+			expectNoOperandsLost(src.property(name), v1.sourceText)
 			await isFixedPoint(full, v1)
 			await ensureCompiles(name)
 
