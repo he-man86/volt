@@ -34,6 +34,42 @@ public class LibrarySignatureFetchTests
         Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1" }, known)); // B removed
     }
 
+    /// <summary>When the signatures are re-rendered, EVERY library's `.library` stub must ride along — including
+    /// the ones whose own version did not move.
+    /// <para>`librariesRefreshed` has a stated client contract, spelled out in `IdeTree`: "ideFiles carries the
+    /// COMPLETE set for every library folder, so a signature the client still holds and this response does not
+    /// carry is an element that no longer exists". The general skip a few lines earlier —
+    /// `if (!isInit && known == version) continue;` — contradicts it for the stub of an UNCHANGED library. The
+    /// response then describes CmpY's folder as empty, the client drops `CmpY.library`, and the merge deletes a
+    /// file nothing was wrong with.</para>
+    /// <para>Worse than a lost file, and this is why it is Tier 1: with the stub gone `IdeTree.LibraryRoots` no
+    /// longer recognises the folder, so everything under it loses both the removal exemption and the read-only
+    /// guard — a `.dut` there becomes PUSHABLE as a project item, keyed by bare name, either creating junk inside
+    /// the Library Manager or overwriting the project's own DUT of the same short name.</para>
+    /// <para>`volt status` stays clean throughout, because the sidecar still lists it.</para></summary>
+    [Fact]
+    public void A_version_bump_on_one_library_still_carries_every_other_librarys_stub()
+    {
+        // The client knows both libraries at their current versions…
+        var ide = TwoLibs();
+        var first = FetchService.Handle(ide, new FetchRequest { Init = true });
+        var known = new Dictionary<string, string>(first.Items);
+
+        // …then CmpX alone is upgraded. CmpY has not moved.
+        var bumped = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            Lib("CmpX", "1.0.0.1"), Lib("CmpY", "2.0.0.0"));
+
+        var res = FetchService.Handle(bumped, new FetchRequest { KnownItems = known });
+
+        var names = new HashSet<string>();
+        foreach (var c in res.Changed) names.Add(c.Name);
+        Assert.Contains("CmpX.library", names);      // the one that moved, obviously
+        Assert.True(names.Contains("CmpY.library"),
+            "the signatures were re-rendered, so Changed is the COMPLETE picture per library folder — but " +
+            "CmpY.library was skipped as unchanged, so the client sees its folder as empty and deletes the stub");
+    }
+
     [Fact]
     public void Init_always_extracts()
     {

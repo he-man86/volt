@@ -65,6 +65,8 @@ public static class FetchService
         // The live .library file versions (fullName → version), captured in the loop — the change signal for the
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
+        // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
+        var skippedLibraryStubs = new List<FetchedItem>();
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Fetch, Done = 0, Total = total });
 
         foreach (var it in walked)
@@ -125,15 +127,26 @@ public static class FetchService
                 liveLibVersions[fullName] = version;
             }
 
-            if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version) continue;
-
-            changed.Add(new FetchedItem
+            var item = new FetchedItem
             {
                 Name = fullName,
                 Folder = folder,
                 Version = version,
                 SourceText = mat.Text,
-            });
+            };
+
+            if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version)
+            {
+                // Unchanged, so normally there is nothing to send. A `.library` STUB is the exception: if the
+                // signatures end up re-rendered, `Changed` is the COMPLETE picture per library folder (the flag
+                // below says so, and `IdeTree` acts on it), and a folder arriving WITHOUT its stub reads as
+                // "this library is gone". Whether that happens is not known until the walk finishes, so hold the
+                // stub rather than deciding here.
+                if (kind == ItemKind.Kinds.Library) skippedLibraryStubs.Add(item);
+                continue;
+            }
+
+            changed.Add(item);
         }
 
         // The wire is keyed by NAME: `versions`/`Items` collapse same-name WALK items last-write-wins, so `changed`
@@ -146,6 +159,21 @@ public static class FetchService
         // Project source items in this diff — captured BEFORE the library signatures are appended, so the two are
         // never conflated: `changed` below would otherwise mix a handful of edited POUs with thousands of read-only
         // library API files and read as nonsense ("880 items, 8104 changed").
+        // Decided BEFORE `projectChanged` is taken: whether the held stubs belong in `changed` depends on it,
+        // and they are project-tree items rather than signatures, so counting them here keeps the log honest.
+        var libsWillRefresh = onlyItems == null && !(!isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems));
+        if (libsWillRefresh && skippedLibraryStubs.Count > 0)
+        {
+            // A library whose own version did not move still has to be described, or the client deletes it. That
+            // costs more than one file: with the stub gone `IdeTree.LibraryRoots` stops recognising the folder,
+            // so everything under it loses both the removal exemption and the read-only guard — and a `.dut`
+            // there becomes PUSHABLE as a project item, keyed by bare name, either creating junk inside the
+            // Library Manager or overwriting the project's own DUT of the same short name. `volt status` stays
+            // clean throughout, because the sidecar still lists it.
+            changed.AddRange(skippedLibraryStubs);
+            changed = DedupeByFullName(changed);
+        }
+
         var projectChanged = changed.Count;
 
         // Extract the referenced-library signatures ONLY when they're needed: never for a directed onlyItems preview,
