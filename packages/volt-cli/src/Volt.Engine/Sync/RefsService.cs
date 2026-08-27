@@ -4,6 +4,7 @@ using System.Diagnostics;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 

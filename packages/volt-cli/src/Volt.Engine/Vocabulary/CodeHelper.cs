@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 
 using Volt.Contracts;
 using Volt.Engine;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Vocabulary;
 

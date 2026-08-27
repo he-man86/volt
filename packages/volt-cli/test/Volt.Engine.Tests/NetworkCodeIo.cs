@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Tests;
 

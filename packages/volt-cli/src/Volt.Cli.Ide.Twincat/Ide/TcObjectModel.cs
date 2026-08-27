@@ -6,6 +6,7 @@ using Volt.Engine;
 using Volt.Contracts;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Host;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Ide.Twincat;
 

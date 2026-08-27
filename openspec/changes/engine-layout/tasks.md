@@ -33,9 +33,15 @@ Done before the move so the two never appear in one diff: a rename inside a relo
 
 Order chosen so each step compiles on its own: leaves first, then the things that depend on them.
 
-- [ ] 2.1 **`Item/`** ← `Vocabulary/ItemKind.cs`, `Vocabulary/FolderPath.cs`, `Model/WorkspaceItem.cs`,
-      `Ide/ItemRef.cs`, `Ide/ProjectItem.cs`, `Ide/WalkResult.cs`, `Ide/TreeNav.cs`, `Ide/ItemLookup.cs`,
-      `Sync/ProjectSnapshot.cs`.
+- [x] 2.1 **`Item/`** ← `Vocabulary/ItemKind.cs`, `Vocabulary/FolderPath.cs`, `Model/WorkspaceItem.cs`,
+      `Ide/ItemRef.cs`, `Ide/ProjectItem.cs`, `Ide/WalkResult.cs`. **DONE.**
+      **Two of the nine planned files were mis-assigned, and the compiler said so:**
+      - `TreeNav.cs` and `ItemLookup.cs` take `IIdeDriver` / `IProjectTree`. They navigate an IDE's project tree —
+        driver machinery, not item identity — so they stayed in `Ide/`.
+      - `ProjectSnapshot.cs` needs `Hasher`: it computes the version snapshot `refs` answers with. That is an
+        OPERATION, so it stays with them (→ `Ops/` in 2.6).
+      The test for "does this belong here" turned out to be mechanical: **if a file needs a `using` for a layer
+      above it, it is in the wrong folder.** Both were caught by a failed build, not by review.
 - [ ] 2.2 **`Source/Body/St/`** ← the whole of `Text/`, plus `Vocabulary/CodeHelper.cs` (it parses an ST header
       line, which is ST reading, not vocabulary).
 - [ ] 2.3 **`Source/Body/Network/`** ← the whole of `Graph/`, plus `Model/GraphModel.cs`.

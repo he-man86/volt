@@ -6,6 +6,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Model;
 using Volt.Engine.Text;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 

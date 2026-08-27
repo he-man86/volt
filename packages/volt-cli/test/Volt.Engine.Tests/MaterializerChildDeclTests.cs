@@ -2,6 +2,7 @@
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Tests;
 

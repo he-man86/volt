@@ -6,6 +6,7 @@ using Volt.Engine.Document;
 using Volt.Engine.Graph;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Tests;
 

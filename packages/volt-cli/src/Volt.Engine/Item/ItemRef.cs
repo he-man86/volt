@@ -1,4 +1,4 @@
-﻿namespace Volt.Engine.Ide;
+﻿namespace Volt.Engine.Item;
 
 /// <summary>
 /// An opaque handle to one item in a vendor IDE's project tree. Core passes these around by value and

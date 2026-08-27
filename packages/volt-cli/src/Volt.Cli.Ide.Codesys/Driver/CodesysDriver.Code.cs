@@ -4,6 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Document;
 using Volt.Engine.Ide;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Ide.Codesys;
 

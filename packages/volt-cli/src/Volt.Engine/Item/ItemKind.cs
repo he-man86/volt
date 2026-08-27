@@ -1,4 +1,4 @@
-﻿namespace Volt.Engine.Vocabulary;
+﻿namespace Volt.Engine.Item;
 
 using System;
 using System.Collections.Generic;

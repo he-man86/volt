@@ -1,4 +1,4 @@
-﻿namespace Volt.Engine.Ide;
+﻿namespace Volt.Engine.Item;
 
 /// <summary>One item discovered by <see cref="IProjectTree.WalkItems"/>: its stable wire identity
 /// (<paramref name="Name"/>), the handle to reach it (<paramref name="Item"/>), its raw vendor-neutral

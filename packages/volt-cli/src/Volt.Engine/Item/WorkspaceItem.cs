@@ -1,4 +1,4 @@
-﻿namespace Volt.Engine.Model;
+﻿namespace Volt.Engine.Item;
 
 /// <summary>An item's materialized workspace content: the exact text the CLI writes to the file, plus
 /// the full filename (name.ext). The single source of truth that both the content version (hashed)

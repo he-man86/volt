@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace Volt.Engine.Vocabulary;
+namespace Volt.Engine.Item;
 
 /// <summary>
 /// The folder path a tree item lives in, as a single `/`-joined string on the wire — with each SEGMENT

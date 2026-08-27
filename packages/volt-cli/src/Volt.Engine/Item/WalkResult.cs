@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Volt.Engine.Ide;
+namespace Volt.Engine.Item;
 
 /// <summary>What a project-tree walk found, AND whether it saw everything.
 ///
