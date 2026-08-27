@@ -47,7 +47,12 @@ namespace Volt.Engine.Graph
                     Flush();
                     continue;
                 }
-                if (line.StartsWith("NETWORK", StringComparison.Ordinal))
+                // On a WORD BOUNDARY, not a prefix. `NETWORK_OK := TRUE;` is an ordinary statement — and
+                // `NETWORK_OK`/`NETWORK_ERR` are ordinary PLC identifiers — but a bare StartsWith read it as a
+                // header, which inside an open network raises "network N is not closed by END_NETWORK" and
+                // refuses the whole push, pointing at a line that is not the problem.
+                if (line.StartsWith("NETWORK", StringComparison.Ordinal)
+                    && (line.Length == 7 || !(char.IsLetterOrDigit(line[7]) || line[7] == '_')))
                 {
                     if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real

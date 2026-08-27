@@ -44,6 +44,14 @@ namespace Volt.Engine.Graph
             sb.Append("NETWORK ").Append(index).Append(' ').Append(language);
             if (!string.IsNullOrEmpty(net.Label)) sb.Append(" \"").Append(net.Label).Append('"');
             if (net.Disabled) sb.Append(" DISABLED");
+            // [UNMEASURED: the XML half of this flag. NetworkTextReader parses DISABLED and this writer emits it,
+            //  so it survives text->model->text — but GraphReader never reads it from the PLCopen document and
+            //  GraphWriter never writes it, so it is LOST in both directions across the XML boundary: a network
+            //  disabled in the IDE materializes as enabled, and pushing a body marked DISABLED re-enables it on
+            //  the PLC. Not fixed here because NO recorded export contains a disabled network (grepped: zero
+            //  across every committed fixture), so the attribute or addData block that carries it is unknown, and
+            //  inventing one is exactly the unmeasured-claim class this convention exists to catch. To close it:
+            //  disable a network in each IDE, export, and record the fixture.]
             sb.Append('\n');
             if (!string.IsNullOrEmpty(net.Comment))
                 foreach (var line in net.Comment!.Replace("\r", "").Split('\n'))

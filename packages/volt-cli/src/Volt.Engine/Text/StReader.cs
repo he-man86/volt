@@ -452,7 +452,12 @@ public static class StReader
 	private static (string name, string dataType) ParsePropertySignature(string sig)
 	{
 		var m = Regex.Match(sig.TrimEnd(),
-			@"^PROPERTY\s+(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL)\s+)?(\w+)\s*:\s*(.+?)\s*;?\s*$",
+			// The SAME modifier set and repetition the METHOD parser above uses. It was `?` over four keywords
+			// while METHOD had `*` over six, so `PROPERTY PUBLIC ABSTRACT Ready : INT` — ordinary CODESYS — did
+			// not parse, and the failure is a THROWN InvalidSt from inside the write, landing mid-batch.
+			// The engineer never typed it either: a property declared that way in the IDE materializes that way
+			// on pull, so it is a file Volt wrote and then refused to take back.
+			@"^PROPERTY\s+(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*(\w+)\s*:\s*(.+?)\s*;?\s*$",
 			RegexOptions.IgnoreCase);
 		if (!m.Success)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse PROPERTY signature: {Truncate(sig, 80)}");
