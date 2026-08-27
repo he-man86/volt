@@ -178,6 +178,21 @@ namespace Volt.Engine.Document
             var existing = Locate(body) ?? body.Elements()
                 .FirstOrDefault(e => Languages.IsNetwork(e.Name.LocalName));  // a language change swaps the element
 
+            // NOTHING TO WRITE: the pushed text is exactly what a pull produced from the stored body.
+            //
+            // The DeepEquals guard below cannot cover this. It compares the stored element to the REGENERATED
+            // one, and regeneration is lossy — measured over every recorded vendor export, original !=
+            // regenerated on 9 of 9 — so on a real vendor document it never fires, and every push rewrote every
+            // graphical body. That is not a rare path: a push restates EVERY member, so editing one line of a
+            // declaration rewrote every diagram in the POU, discarding ids, vendor addData, comment boxes and
+            // param-type payloads the engineer never touched.
+            //
+            // The comparison that works is against what the engineer actually HOLDS: `RenderBody(existing)` is
+            // byte-for-byte the text a pull wrote into the repo. Equality is the whole test — there is no partial
+            // match and no fallback, so this cannot carry the wrong thing. A language change needs no special
+            // case either: the stored body renders a different `NETWORK n LANG` header, so it simply regenerates.
+            if (existing is not null && NetworkCode.RenderBody(existing) == text) return false;
+
             // TWO sources, in this order. The body being replaced already carries every existing box's type,
             // written by the IDE — nothing is inferred from it. The declaration is a TEXT parse, and a text parse
             // of ST is an approximation forever, so it is asked only about boxes that are new in this push.
