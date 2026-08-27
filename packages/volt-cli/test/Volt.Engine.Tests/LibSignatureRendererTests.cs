@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using Xunit;
 using Volt.Engine.Library;
-using Volt.Engine.Library;
 
 namespace Volt.Cli.Tests;
 

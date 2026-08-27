@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -58,14 +58,19 @@ namespace Volt.Engine.Source.Body.Network
     /// </summary>
     internal static class NetworkSplice
     {
-        // [UNMEASURED: U6's second half — whether a vendor's importer NORMALIZES what was carried. The first half
-        //  IS measured: `test/e2e/graphical/splice.test.ts` pushes a part-vendor, part-Volt document to live
-        //  CODESYS and it imports, compiles and is a fixed point. But the wire serves network TEXT, not XML, so a
-        //  normalization that preserved the text while rewriting the ids or dropping the vendor addData would look
-        //  identical from there — which is exactly the blind spot this whole change exists to close, reappearing
-        //  one layer out. Closing it needs the exported document: a bridge-side XML dump, or an export from the
-        //  IDE after a spliced push. TwinCAT is entirely unmeasured, and DIALECT D4d matters there — its import
-        //  invalidates every handle to the replaced item.]
+        // U6's second half — does a vendor's importer NORMALIZE what was carried? — is ANSWERED for TwinCAT,
+        // and the answer is yes, non-trivially. Measured 2026-08-27 on an export->import round trip with NO edit
+        // between the two: the importer reordered `<LineIds>`, re-indented the implementation, ZEROED the POU's
+        // `Id` while keeping the GUIDs supplied for members, and REGENERATED the declaration from the typed
+        // `<interface>` — turning `x : INT;` into `x: INT;`, `yLonger   : BOOL;` into `yLonger: BOOL;`, and
+        // dropping a blank line before `END_VAR`.
+        //
+        // That is why the declaration no longer travels this document at all
+        // (`openspec/changes/declaration-from-the-aspect`). For the GRAPHICAL body the question is narrower and
+        // still open: a text-preserving normalization that rewrote ids or dropped the vendor addData would look
+        // identical from the wire, which serves network TEXT rather than XML.
+        // [UNMEASURED: whether the id rewriting above touches FBD/LD element localIds specifically. Close it with
+        //  a bridge-side XML dump, or an IDE export taken after a spliced push.]
 
         /// <summary>`NETWORK &lt;index&gt;` — the header that opens a network in the text form. The index is the
         /// engineer's, preserved verbatim through the reader, so it is the one key measured to be stable.</summary>

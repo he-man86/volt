@@ -41,7 +41,15 @@ gate.
       for an existing method. One less thing on the contract than the proposal budgeted for.
 - [x] 2.2 **`PushService` writes the declaration through it**, and `PouDocument`/`PouSplice` no longer carry one.
 - [x] 2.3 `Source/Declaration.cs` — **NOT deleted; see §7.** Members still reach the document on CREATE.
-- [ ] 2.4 Retire A7 / U21 / U22 in `DIALECT.md` with a line saying why. **Open** — §7.
+- [x] 2.4 **`DIALECT.md` updated, and the retirement is narrower than planned.** A7 is retired for the root and
+      member declarations, with the reason. **U21 and U22 are NOT** — both are accessor questions, and the
+      accessor path still writes its declaration into the document (§7), so the copy-count rule stays live there.
+      Three rows added from this change's measurements: **A17** (the export omits `interfaceasplaintext`
+      entirely, root and members), **A18** (the importer regenerates the declaration from the typed
+      `<interface>`), **A19** (PLCopen carries no `Title`/`Label`/`OutCommented` and omits a disabled network).
+- [x] 2.6 **Two `[UNMEASURED]` markers closed with measured answers**, in the code they bear on: the `DISABLED`
+      flag in `NetworkTextWriter` (PLCopen carries nothing, and omits the network — so it also CONFIRMS the gap
+      refusal), and U6's second half in `NetworkSplice` (the importer normalizes, non-trivially).
 
 ### 2.5 The ordering, which is the part the proposal got wrong
 
@@ -75,7 +83,10 @@ and GVL.
       this change is uniform — every declaration now travels the aspect, so there is still exactly ONE. The
       document was the wrong single transport, not single-transport the wrong goal.
 - [x] 3.2 Counts recorded honestly below. They went UP, not down — the proposal predicted a drop.
-- [ ] 3.3 The `addData` guard. **Open** — §7.
+- [x] 3.3 **The `addData` guard shipped**: `RequiredAddDataGuardTests` scans `src/` for a THROW whose message
+      names a vendor `addData` block. It found the accessor path on its first run — a live latent outage nothing
+      else was watching — which is the case for having written it. `objectid` and `projectstructure` carry
+      declared entries with their reason and the bound on the degradation.
 
 ## 4. Fixtures and the vendor record — **open**, §7.
 
@@ -90,7 +101,7 @@ no `splice-graphical-body` §2.x.
 
 | | before | after |
 |---|---|---|
-| Offline (Engine / Cli / Connector / TC) | 691 / 142 / 80 / 3 | **698 / 142 / 80 / 3** |
+| Offline (Engine / Cli / Connector / TC) | 691 / 142 / 80 / 3 | **699 / 142 / 80 / 3** |
 | CODESYS e2e | 132 / 20 / 0 | **132 / 20 / 0** — unchanged |
 | **TwinCAT e2e** | **could not run** | **141 pass / 11 skip / 0 fail** |
 
@@ -109,6 +120,25 @@ The TwinCAT gate went 37/94 → 92/43 (read fixed) → 120/21 (ordering + clean 
 5. **The proposal scoped the regression to the ROOT declaration.** It applies to **members** too, in both
    directions — §7.
 
+### A live-gate trap worth writing down
+
+Three consecutive TwinCAT runs reported **4 pass / 35 fail** and looked like a catastrophic regression. They were
+not. `TcXaeShell` had started with **no solution loaded** — the window title still read
+`TwinCAT Project14 - TcXaeShell` (it is just the startup argument), but `DTE.Solution.FullName` was empty and
+`Projects.Count` was `0`. The connector therefore never got past `--list-xae-pids` discovery, its two
+`VoltBridgeTwincat` processes were *probes* rather than serving workers, and the harness fell back to the bare
+`volt.bridge.twincat` pipe name instead of the per-pid one.
+
+**Before trusting a TwinCAT e2e number, check three things**, in this order — each is cheap and each was wrong at
+some point today:
+
+1. `Marshal.GetActiveObject('TcXaeShell.DTE.15.0').Solution.FullName` is a real path, not empty.
+2. The worker command lines read `--xae-pid <n>`, not `--list-xae-pids`.
+3. The failure lines name a pipe WITH a pid suffix (`volt.bridge.twincat.30456`).
+
+A run that fails all three is measuring the harness, not the bridge. `twincat-instances.ps1 up` reporting
+"opened" means the process started, not that the solution loaded.
+
 ### Fixture damage, found and repaired
 
 The pre-ordering-fix runs wrote through the import and **destroyed declarations in the committed fixtures** —
@@ -124,14 +154,35 @@ and the first attempt produced a green run that would not have reproduced from a
 ## 7. Still open — carried forward
 
 - **`Source/Declaration.cs` is not deleted.** A member is still created through the document (`AddChild` carries
-  its declaration so the element is well-formed), so the "find a declaration in XML" code still has one caller.
-  The write-side splice for an EXISTING member no longer uses it.
+  its declaration so the element is well-formed), and the accessor write above still calls `Declaration.Write`.
+  `PouSplice.SetDeclaration` is now reachable only from its own tests — the "test-only code in src" shape
+  `NoTestOnlyCodeInSrcTests` exists to catch, which it MISSED because a comment elsewhere still mentioned the
+  name. Worth knowing as a limit of a name scan: prose keeps dead code looking alive. Deleting it cascades into
+  the accessor work above, so it waits for that.
 - **2.4 / 3.3 / all of §4** — the `DIALECT.md` rows, the A7/U21/U22 retirement, the `addData` source guard, the
   `POU_PBD` + `FB_PackML_Unit` fixtures, the `DISABLED` marker close-out, and the TLB recipe.
-- **Accessor declarations still travel the document.** `SetAccessor` takes `Getter.Declaration` /
-  `Setter.Declaration`. They are usually blank (`AccessorOf` drops empty ones), and the suite is green — but this
-  is the one declaration that did NOT move to the aspect, and it should for symmetry.
-  `[UNMEASURED: whether a non-empty accessor declaration survives this install's export.]`
+- **Accessor declarations still travel the document — ATTEMPTED, REVERTED, and the failure is the useful part.**
+  `SetAccessor` still takes `Getter.Declaration` / `Setter.Declaration` and writes them through
+  `Declaration.Write`, which is now the ONLY production code requiring an `addData` block. It is a known latent
+  outage on this install: an accessor with a non-empty declaration would refuse the push. Nothing fails today
+  because accessor declarations are blank in every fixture and every live project measured, and `AccessorOf`
+  drops a blank one.
+
+  The migration was measured as feasible and then failed in practice:
+
+  - **The aspect works.** A probe property's `Get` and `Set` accessors both round-trip `DeclarationText` set+get,
+    while the POU's export carries their variables only in the LOSSY typed `<interface>` (`nLocal` appears twice)
+    and ZERO verbatim blocks. So the remedy is available in principle.
+  - **Moving it CRASHED the IDE.** With accessor declarations read from and written to the aspect, TwinCAT died
+    with `0x800706BE` (RPC_S_CALL_FAILED) during the INTERFACE-property tests — both XAE processes were replaced,
+    and everything downstream failed `PLC_DISCONNECTED`. A green **141 pass / 0 fail** became **135 / 9**.
+  - **Reverted**, and the revert restored green — which is what identifies the cause. `[UNMEASURED: WHY it
+    crashes. The suspects are enumerating an INTERFACE property's children (`ChildCount`/`ChildAt` on kinds
+    654/655) and reading an interface accessor's `DeclarationText`; neither has been isolated. Close it by
+    probing an interface property's accessors directly, the way `member-decl` probed a method's.]`
+
+  Recorded in `RequiredAddDataGuardTests.Declared` with that reason, so the dependency is DECLARED rather than
+  assumed — which is the whole difference between this and the outage that started the change.
 - **Per-member cost on CODESYS.** Uniformity means every member now costs one `ReadDeclaration` per push. On
   CODESYS the value matches and no write follows, so it is a read, not a write — but it is N reads on a path that
   was previously zero.

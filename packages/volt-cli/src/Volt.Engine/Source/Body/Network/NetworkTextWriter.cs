@@ -45,14 +45,20 @@ namespace Volt.Engine.Source.Body.Network
             sb.Append("NETWORK ").Append(index).Append(' ').Append(language);
             if (!string.IsNullOrEmpty(net.Label)) sb.Append(" \"").Append(net.Label).Append('"');
             if (net.Disabled) sb.Append(" DISABLED");
-            // [UNMEASURED: the XML half of this flag. NetworkTextReader parses DISABLED and this writer emits it,
-            //  so it survives text->model->text — but GraphReader never reads it from the PLCopen document and
-            //  GraphWriter never writes it, so it is LOST in both directions across the XML boundary: a network
-            //  disabled in the IDE materializes as enabled, and pushing a body marked DISABLED re-enables it on
-            //  the PLC. Not fixed here because NO recorded export contains a disabled network (grepped: zero
-            //  across every committed fixture), so the attribute or addData block that carries it is unknown, and
-            //  inventing one is exactly the unmeasured-claim class this convention exists to catch. To close it:
-            //  disable a network in each IDE, export, and record the fixture.]
+            // MEASURED 2026-08-27, and the answer is NEGATIVE: PLCopen carries nothing for this flag at all.
+            // A network disabled via TwinCAT's "comment mode" is `<v n="OutCommented">true</v>` in the NATIVE
+            // object archive, alongside `Title` and `Label`; the PLCopen export has none of the three. Worse, the
+            // export OMITS the disabled network entirely — `POU_PBD` has 2 networks natively and its export has
+            // 1, with every localId in band 1.
+            //
+            // So this flag survives text->model->text and is unreachable across the XML boundary in both
+            // directions, and no attribute or addData block exists to carry it. That is a property of the
+            // transport, not a gap in Volt: closing it would mean adopting the native document, which
+            // `openspec/changes/declaration-from-the-aspect` measured and rejected.
+            //
+            // The omission also CONFIRMS `BodySpliceGuard`'s gap refusal, which was recorded as an unverified
+            // inference: regenerating across a numbering gap really would delete a disabled network from a
+            // running program. Do not weaken that refusal.
             sb.Append('\n');
             if (!string.IsNullOrEmpty(net.Comment))
                 foreach (var line in net.Comment!.Replace("\r", "").Split('\n'))

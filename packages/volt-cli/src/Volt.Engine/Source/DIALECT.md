@@ -60,7 +60,7 @@ repo contains a method, a property or an accessor.
 | A4 | `projectstructure` addData: TwinCAT always, CODESYS only with `bExportFolderStructure` | 6/6 `tc-*`; 1/5 `codesys-pou` |
 | A5 | `objectid` addData: TwinCAT always; CODESYS flag-gated. TwinCAT ALSO stamps `ObjectId=` as an ATTRIBUTE on every member element unconditionally (`tc-pou/FB_TcMembers.plcopen.xml:34, 63`), where CODESYS does so only with the folder flag. Never read; survives because the splice edits | `tc-fbd/PLC_PRG.plcopen.xml:212-214`; `FB_ChildFolderStructure.plcopen.xml:35` |
 | A6 | `handleUnknown` value distribution | grep counts |
-| A7 | **`InterfaceAsPlainText` copy count** — CODESYS TWICE once any variable is declared, TwinCAT ONCE | `corpus/POU.plcopen.xml:45`+`:197`, `FB_TwoDeclCopies.plcopen.xml:35`+`:142`; vs `tc-fbd/PLC_PRG.plcopen.xml:225` (sole copy, 3 localVars). Handled by `OwnDescendants` — **after a live failure**, see below |
+| A7 | ~~**`InterfaceAsPlainText` copy count**~~ — **RETIRED 2026-08-27.** A root or member declaration is no longer written into the document, so "which copy do we write" is unasked for both. It survives ONLY on the accessor path, which still writes (see A17 and the open item in `declaration-from-the-aspect`) | historical: `corpus/POU.plcopen.xml:45`+`:197`, `FB_TwoDeclCopies.plcopen.xml:35`+`:142` |
 | A8 | Interface export has no `<pou>` on BOTH vendors (was believed TwinCAT-only) | `codesys-itf/IModuleManager.plcopen.xml:45`; `PlcOpenPouParser.cs:53-59` |
 | A9 | `<actions><action>` lowercase, before `<body>`, on BOTH | `FB_FolderChild.plcopen.xml:27,38`; `tc-fbd/PLC_PRG.plcopen.xml:45,218` |
 | A10 | Access modifiers / attributes addData — CODESYS only; survives because the splice edits, never regenerates | `BoxFB.plcopen.xml:110-112` |
@@ -70,7 +70,20 @@ repo contains a method, a property or an accessor.
 | A14 | `fbdcalltype`/`inputparamtypes`/`outputparamtypes` in FBD — identical | both |
 | A15 | `typeName` casing: CODESYS **CFC** lowercase (`and`), FBD uppercase; TwinCAT uppercase | `FbdOperators` is `OrdinalIgnoreCase` |
 | A16 | TwinCAT LD blocks omit the param-type addData (its FBD blocks carry it) | `tc-ld/ld_ton_rung_two_networks.plcopen.xml:152-157` |
+| A17 | **TwinCAT's PLCopen export OMITS `interfaceasplaintext` entirely** — root AND members. Measured 2026-08-27: 8/8 recorded June exports carry it (two for POUs with NO variables, so it was unconditional); 0/2 live exports do, one declaring 45 variables. A probe FB's export carries `<Method>` but the string `VAR_INPUT` appears NOWHERE in it — a member's declaration is absent in every form, not even the lossy typed one | `openspec/changes/declaration-from-the-aspect/transport-census.md` §1, §6.2 |
+| A18 | **TwinCAT's importer REGENERATES the declaration from the typed `<interface>`** when the document carries no verbatim block. Measured on an export→import round trip with NO edit: `x : INT;` → `x: INT;`, `yLonger   : BOOL;` → `yLonger: BOOL;`, blank line before `END_VAR` dropped. It also reorders `<LineIds>`, re-indents the implementation and zeroes the POU's `Id`. This is why a declaration write must come AFTER the document write, never before | census §6.1 |
+| A19 | **PLCopen carries no per-network `Title` / `Label` / `OutCommented`**, and a DISABLED network is omitted from the export ENTIRELY (`POU_PBD`: 2 networks natively, 1 exported, every localId in band 1). The native archive has all three. This CONFIRMS `BodySpliceGuard`'s gap refusal, previously an unverified inference | census §5; `NetworkTextWriter` |
 
+> **A7 is RETIRED — unasked rather than fixed.** A root or member declaration travels the IDE's declaration
+> aspect now, so there is one aspect rather than N blocks in a document and there is no copy to choose. The
+> read/write containment-predicate split goes with it, for those two.
+>
+> **U21** (does an accessor with a declared VAR get two copies?) and **U22** (does any vendor emit
+> `<get>`/`<set>` containers?) are NOT retired. Both are accessor questions, and the accessor path still writes
+> its declaration into the document — the one place that does. Moving it was attempted, crashed TcXaeShell, and
+> was reverted; until that is understood, the copy-count rule stays live for accessors specifically.
+> `codesys-pou/FB_TwoDeclCopies.plcopen.xml` is kept as the record of the failure below.
+>
 > **A7 is the one that already bit.** Writing only the first copy meant a declaration change was accepted and did
 > nothing — 31 red e2e tests, a deleted FB's instance stuck in `PLC_PRG`, the project not compiling. Every offline
 > fixture had an EMPTY `<interface>` and therefore ONE copy, which is why the whole offline suite stayed green over
