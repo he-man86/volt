@@ -36,7 +36,7 @@ namespace Volt.Cli.Ide.Codesys
             if (Has(ifaces, "ITaskConfigObject")) return ItemKind.TaskConfig;
 
             // Inlined in a POU/interface source: ItemKind.IsInlinedInPou reads these codes to make the tree
-            // walk skip them, and the child text is assembled by Workspace/StWriter (fed on CODESYS by the
+            // walk skip them, and the child text is assembled by Text/StWriter (fed on CODESYS by the
             // PlcOpen export, ExportXmlWithChildren). Each gets its own distinct code
             // (interface_method/transition/interface_property), matching TwinCAT.
             if (Has(ifaces, "IInterfaceMethodObject")) return ItemKind.PlcItfMeth;

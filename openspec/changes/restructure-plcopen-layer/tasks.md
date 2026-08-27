@@ -178,3 +178,31 @@ A rename commit must not carry a behaviour change. Each of these lands, with its
 export can answer and which gates deleting `ICodeStore.WritesPouAsOneDocument` and the per-child path it still
 selects. Create and move were closed as a follow-up (above), so on CODESYS the per-child seam now survives only
 for interfaces, DUTs and GVLs.
+
+---
+
+## 9. Post-close note — a SECOND rename landed after this change (added 2026-08-27)
+
+This change is closed and its record above stands as written. It is annotated rather than edited, because a
+frozen record that gets rewritten stops being evidence.
+
+A second, unrecorded rename landed after §7's close-out, so the names in this document no longer resolve:
+
+| Named here | Actual |
+|---|---|
+| `Volt.Engine.Graphical` | `Volt.Engine.Graph` |
+| `Volt.Engine.PlcOpen` | `Volt.Engine.Document` |
+| `Workspace/` | split into `Vocabulary/`, `Model/`, `Text/` |
+| `Graphical/GraphicalBodySplice.cs` | was `Document/GraphSplice.cs` — **moved INTO `Document/`, the opposite of §2** — and is now `Document/BodySpliceGuard.cs`, its splice half deleted as dead code |
+| `Sync/PouDocument.cs` ("stays in Sync… what keeps `ItemKind` out of `PlcOpen/`") | `Document/PouDocument.cs` — so `ItemKind` is inside the document namespace after all |
+
+Two wrong-direction edges §3 recorded were resolved, but **differently than planned**: `GraphConstants.NetworkStride`
+moved to `Model/` (Level 0) rather than `ValidateExisting` moving out, and the `ItemKind` leak was closed by the
+`PouMember` enum rather than by file placement.
+
+Ten stale symbol references survived into the source and were retired by `splice-graphical-body` §7.11. The
+census that found them is `openspec/changes/splice-graphical-body/write-path-census.md` §5.
+
+**The lesson, recorded because it repeated:** this change's §7 close-out did not include "no stale symbol
+reference to a renamed namespace remains", so the rename after it inherited none of that discipline. A rename's
+gate has to be mechanical — a grep for the old names, in the close-out — or the next one drifts too.

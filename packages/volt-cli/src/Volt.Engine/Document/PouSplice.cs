@@ -7,7 +7,7 @@ using Volt.Engine.Graph;
 namespace Volt.Engine.Document
 {
     /// <summary>The three member shapes a PLCopen POU document can carry. Deliberately NOT
-    /// <c>Workspace.ItemKind.Kinds</c>: those are Volt's WIRE vocabulary, and taking them here made the document
+    /// <c>Vocabulary.ItemKind.Kinds</c>: those are Volt's WIRE vocabulary, and taking them here made the document
     /// layer depend UPWARD on Workspace policy for no reason — the document only ever needs to know which of three
     /// element shapes to build. The mapping from a pushed item's kind to one of these belongs to the caller that
     /// knows about pushes (<c>Sync.PouDocument</c>).</summary>

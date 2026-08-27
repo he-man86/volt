@@ -61,7 +61,7 @@ net8 standalone TwinCAT exe unchanged.
 ## How a request flows
 
 Every op is the same shape — `Core/Wire/BridgePipeHost` receives one request per connection, `Sync/*`
-services do the work over the `Ide/IIdeDriver` contract, `Workspace`/`PlcOpen`/`Body` turn IDE items into
+services do the work over the `Ide/IIdeDriver` contract, `Vocabulary`/`Text`/`Graph`/`Document` turn IDE items into
 canonical text:
 
 ```
@@ -212,7 +212,7 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 - **PlcOpen transport.** CODESYS round-trips XML *in memory* via the object model; Beckhoff's COM API is
   file-based, so `TcPlcOpen` round-trips through a temp file.
 - **`TcPouReader` has no CODESYS counterpart.** TwinCAT stores graphical bodies in a vendor NWL archive whose
-  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Body`. The parser is
+  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Document`. The parser is
   irreducibly TwinCAT-specific, so it stays in Beckhoff.
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of

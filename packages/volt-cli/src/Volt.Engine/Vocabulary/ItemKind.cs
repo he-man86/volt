@@ -229,7 +229,7 @@ public static class ItemKind
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef
              or PlcItfPropGet or PlcItfPropSet;
 
-    /// <summary>The in-POU children Volt's SOURCE actually models — the ones <see cref="PlcOpen.PouReader"/>
+    /// <summary>The in-POU children Volt's SOURCE actually models — the ones <c>Document.PouReader</c>
     /// parses and the Materializer assembles into the item's file, and therefore the only ones a push's member
     /// list can ever mention.
     /// <para>Strictly narrower than <see cref="IsInlinedInPou"/>, and the difference is the whole point. A

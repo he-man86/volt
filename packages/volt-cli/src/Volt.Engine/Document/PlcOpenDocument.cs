@@ -21,7 +21,7 @@ namespace Volt.Engine.Document
         /// fine for a declaration read. What the list encodes is the TC6 schema's own division: <c>pou</c> and
         /// <c>dataType</c> are TC6 elements (a struct, an enum and an alias are all a <c>dataType</c>, being all
         /// baseTypes), while <c>Interface</c>, <c>globalVars</c> and <c>union</c> have no TC6 equivalent and so
-        /// live in vendor <c>addData</c> blocks. Measured, not inferred — see PlcOpen/DIALECT.md.</para></summary>
+        /// live in vendor <c>addData</c> blocks. Measured, not inferred — see Document/DIALECT.md.</para></summary>
         internal static bool IsItemElement(XElement e) =>
             e.Name.LocalName is "pou" or "Interface" or "dataType" or "globalVars" or "union";
 
@@ -43,7 +43,10 @@ namespace Volt.Engine.Document
         /// There is NO evidence for that on either vendor — the only BOM refusal in the repo is over workspace
         /// SOURCE files, a different path entirely. Dropped rather than left as a confident unmeasured claim; the
         /// reason above stands on its own.</para></summary>
-        internal static string Serialize(XDocument doc) =>
+        /// <para>PUBLIC, not internal: the TwinCAT driver rewrites a vendor <c>.TcPOU</c> inside its archive and
+        /// has to serialize it the same way. It was open-coding a byte-identical copy of this line, in another
+        /// assembly, without the reason above attached to it.</para>
+        public static string Serialize(XDocument doc) =>
             doc.Declaration is null ? doc.ToString() : doc.Declaration + System.Environment.NewLine + doc.ToString();
 
         /// <summary>EVERY descendant of <paramref name="owner"/> with this name that belongs to the owner ITSELF

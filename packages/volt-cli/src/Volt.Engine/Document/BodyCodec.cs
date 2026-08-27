@@ -19,7 +19,7 @@ namespace Volt.Engine.Document
     /// child whose element NAME is the language. CFC alone is a CODESYS extension and lives in
     /// <c>&lt;body&gt;/&lt;addData&gt;/&lt;data name="…/cfc"&gt;</c>, beside an EMPTY <c>&lt;ST&gt;</c> the schema
     /// still wants — the decoy that once made a direct-children scan call a CFC body textual. See
-    /// <c>PlcOpen/DIALECT.md</c> for the table and the fixture behind each row.</para>
+    /// <c>Document/DIALECT.md</c> for the table and the fixture behind each row.</para>
     /// <para><b>Support and placement are INDEPENDENT.</b> SFC is unsupported and direct; CFC is unsupported and
     /// nested; FBD is writable and direct. Fusing them back into one "is graphical" flag is exactly the mistake
     /// this type exists to prevent — and no codec answers the placement question itself any more: that is

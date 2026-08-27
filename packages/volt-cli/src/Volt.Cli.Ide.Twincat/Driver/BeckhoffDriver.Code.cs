@@ -102,10 +102,20 @@ public sealed partial class BeckhoffDriver
         return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps);
     }
 
+    /// <summary>The first <c>&lt;tag&gt;</c>'s text in an item's metadata XML, or null when absent or blank.
+    ///
+    /// <para>Parsed as XML, not matched with a regex. This used to be
+    /// <c>Regex.Match(xml, $@"&lt;{tag}[^&gt;]*&gt;([^&lt;]*)&lt;/{tag}&gt;")</c> — sitting in the same file as
+    /// <see cref="LibraryManifestFromXml"/>, which parses the SAME document with <c>XDocument</c>. Two mechanisms
+    /// for one job, and the weaker one silently: the pattern misses a value carrying an entity or a nested
+    /// element, and matches a tag inside a comment or a CDATA section. <c>TcItemArchive</c> already states the
+    /// rule for this repo — "a regex over that works until a body happens to contain the pattern".</para>
+    ///
+    /// <para>A malformed document now throws where the regex quietly answered null, which is the right direction:
+    /// this feeds the item's NAME, and a null there is not a missing name, it is an unreadable one.</para></summary>
     private static string? ExtractTag(string xml, string tag)
     {
-        var m = Regex.Match(xml, $@"<{tag}[^>]*>([^<]*)</{tag}>");
-        if (m.Success) { var val = m.Groups[1].Value.Trim(); if (val.Length > 0) return val; }
-        return null;
+        var val = XDocument.Parse(xml).Descendants(tag).FirstOrDefault()?.Value.Trim();
+        return string.IsNullOrEmpty(val) ? null : val;
     }
 }
