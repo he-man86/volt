@@ -555,6 +555,15 @@ public static class Commands
         }
         if (resolve is not null)
         {
+            // ASK, never assume. This read `useTheirs ? "theirs" : "ours"` with `useOurs` never read at all, so
+            // omitting both flags silently took OURS — on the one command whose entire purpose is to choose a
+            // side. Defaulting to ours is also the more surprising direction: it discards the IDE's version.
+            if (useOurs == useTheirs)
+                return (2, useOurs
+                    ? $"--use-ours and --use-theirs are mutually exclusive — pick one for '{resolve}'"
+                    : $"which side for '{resolve}'? Pass --use-ours (keep your workspace's version) or " +
+                      "--use-theirs (take the IDE's).");
+
             var side = useTheirs ? "theirs" : "ours";
             Git.CheckoutSide(root, $"{Files.SrcDir}/{resolve}", side);
             return (0, $"resolved {resolve} using {side}");

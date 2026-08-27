@@ -456,11 +456,43 @@ public static class Git
     /// <summary>Finalize a resolved merge (caller must have checked there are no unmerged paths).</summary>
     public static void MergeContinue(string root) => Run(new[] { "-C", root, "commit", "--no-edit" }, env: DetEnv);
 
-    /// <summary>Resolve one conflicted path by taking a whole side, then stage it.</summary>
+    /// <summary>Resolve one conflicted path by taking a whole side, then stage it.
+    /// <para>A side may not EXIST. In a modify/delete conflict the index holds only one of stages 2 (ours) and 3
+    /// (theirs), and `git checkout --theirs` on the missing one fails with "path … does not have their version".
+    /// That is precisely the conflict `volt merge --continue` sends the engineer here to resolve — it refuses
+    /// structural conflicts by name and recommends this command — so the recommended command died on the case it
+    /// was recommended for.</para>
+    /// <para>Taking a side that deleted the file MEANS deleting it. Expressed as `git rm`, because checkout has
+    /// no way to say it.</para></summary>
     public static void CheckoutSide(string root, string repoPath, string side)
     {
-        Run(new[] { "-C", root, "checkout", $"--{side}", "--", repoPath });
-        Run(new[] { "-C", root, "add", "--", repoPath });
+        var stage = side == "ours" ? "2" : "3";
+        if (UnmergedStages(root, repoPath).Contains(stage))
+        {
+            Run(new[] { "-C", root, "checkout", $"--{side}", "--", repoPath });
+            Run(new[] { "-C", root, "add", "--", repoPath });
+            return;
+        }
+        // That side has no stage: it deleted the file. Resolving TO it removes the file and clears the conflict.
+        Run(new[] { "-C", root, "rm", "-q", "-f", "--", repoPath });
+    }
+
+    /// <summary>The unmerged stage numbers present for a path — "1" base, "2" ours, "3" theirs. Empty when the
+    /// path is not conflicted.</summary>
+    private static HashSet<string> UnmergedStages(string root, string repoPath)
+    {
+        var outp = Run(new[] { "-C", root, "ls-files", "-u", "-z", "--", repoPath }).StdOut;
+        var stages = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rec in outp.Split('\0'))
+        {
+            if (rec.Length == 0) continue;
+            // <mode> SP <sha> SP <stage> TAB <path>
+            var tab = rec.IndexOf('\t');
+            if (tab < 0) continue;
+            var meta = rec.Substring(0, tab).Split(' ');
+            if (meta.Length >= 3) stages.Add(meta[2]);
+        }
+        return stages;
     }
 
     /// <summary><c>git merge &lt;ref&gt;</c> into the current branch (deterministic identity). Requires a clean tree.</summary>
