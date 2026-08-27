@@ -40,20 +40,7 @@ namespace Volt.Engine.Document
             var doc = XDocument.Parse(xml);
             var owner = PlcOpenDocument.OwnerOf(doc, itemName)
                 ?? throw new InvalidOperationException($"PLCopen export has no item named '{itemName}'");
-            var blocks = PlcOpenDocument.OwnDescendants(owner, "InterfaceAsPlainText").ToList();
-            if (blocks.Count == 0)
-                throw new InvalidOperationException(
-                    $"PLCopen export for '{itemName}' has no <InterfaceAsPlainText> to write the declaration into");
-            // ALL of them — see OwnDescendants. A POU with declared variables carries two copies of its
-            // declaration, and updating only the first is a write that reports success and changes nothing.
-            var changed = false;
-            foreach (var iapt in blocks)
-            {
-                var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
-                if (inner.Value == declaration) continue;
-                inner.ReplaceNodes(declaration);
-                changed = true;
-            }
+            var changed = Declaration.Write(owner, declaration, $"PLCopen export for '{itemName}'");
             // Already right → hand back the ORIGINAL string untouched. Re-serializing would still be
             // semantically equal but not byte-equal (an empty <xhtml /> comes back as <xhtml></xhtml>), and
             // "only the bytes we were asked to change" is the property that makes splicing safer than
@@ -399,19 +386,18 @@ namespace Volt.Engine.Document
                 }
             }
 
+            // The SAME rule as the root and the child — see `Declaration`. This arm used to take the FIRST
+            // direct block only and silently CREATE one when absent, which is the exact write A7 describes as
+            // landing on the copy the IDE does not read. An accessor is not a different kind of declaration.
+            //
+            // The one thing that IS specific here: Volt builds accessor elements itself (AddChild materializes
+            // the pair a property implies; the arm above creates one a push introduces), and what it builds has
+            // no plaintext block yet. Completing Volt's own construction is explicit and separate from writing
+            // into a vendor's document — fusing the two is what let a malformed export through unnoticed.
             if (declaration is not null)
             {
-                var accIapt = acc.Elements().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
-                if (accIapt is null)
-                {
-                    acc.Add(new XElement(ns + "InterfaceAsPlainText", new XElement(xh + "xhtml", declaration)));
-                    changed = true;
-                }
-                else
-                {
-                    var inner = accIapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? accIapt;
-                    if (inner.Value != declaration) { inner.ReplaceNodes(declaration); changed = true; }
-                }
+                if (Declaration.IsUnestablished(acc)) { Declaration.Establish(acc, declaration); changed = true; }
+                else changed |= Declaration.Write(acc, declaration, $"accessor of property '{propertyName}'");
             }
             return changed ? PlcOpenDocument.Serialize(doc) : xml;
         }
@@ -448,19 +434,7 @@ namespace Volt.Engine.Document
             var changed = false;
 
             if (declaration is not null)
-            {
-                // Every copy, for the same reason as SetDeclaration: a method that declares VAR_INPUT gets a
-                // second plaintext block inside its own typed <interface>.
-                var blocks = PlcOpenDocument.OwnDescendants(member, "InterfaceAsPlainText").ToList();
-                if (blocks.Count == 0)
-                    throw new InvalidOperationException(
-                        $"child '{childName}' of '{itemName}' has no <InterfaceAsPlainText> to write into");
-                foreach (var iapt in blocks)
-                {
-                    var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
-                    if (inner.Value != declaration) { inner.ReplaceNodes(declaration); changed = true; }
-                }
-            }
+                changed |= Declaration.Write(member, declaration, $"child '{childName}' of '{itemName}'");
 
             if (bodyText is not null)
             {

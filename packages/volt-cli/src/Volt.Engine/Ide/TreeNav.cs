@@ -66,8 +66,7 @@ internal static class TreeNav
         FirstChild(ide, parent, c => NameIs(ide, c, name));
 
     /// <summary>The one 1-based child scan every lookup here shares: first child matching
-    /// <paramref name="match"/>, or null. (<see cref="RemoveOrphanChildren"/> keeps its own loop on purpose —
-    /// it snapshots the whole level before mutating.)</summary>
+    /// <paramref name="match"/>, or null.</summary>
     internal static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
     {
         int count = ide.ChildCount(parent);

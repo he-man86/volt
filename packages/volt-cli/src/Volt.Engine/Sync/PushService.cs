@@ -215,7 +215,7 @@ public static class PushService
     /// relocates the object WHOLE: nothing is read, deleted or rebuilt, there is no window in which the item does
     /// not exist, and a graphical item moves like any other. The NAME is kept, so name-based references survive.
     /// <para><b>The delete-and-recreate arm is gone.</b> It existed for "a driver without a move", gated on
-    /// <c>WritesPouAsOneDocument</c> on the reasoning that the two were the same measurement — and its own comment
+    /// a per-vendor write fork that no longer exists either — and its own comment
     /// admitted what it cost: it REFUSED a graphical move outright (a diagram cannot be rebuilt from text), and a
     /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
     /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
@@ -292,7 +292,6 @@ public static class PushService
         // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
         // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
-        var bodyImpl = split.Kind is ItemKind.Kinds.Program or ItemKind.Kinds.Function or ItemKind.Kinds.FunctionBlock ? impl : (string?)null;
 
         // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are unsupported and never reach push.)
@@ -398,30 +397,6 @@ public static class PushService
             if (TreeNav.FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
             ide.Move(flattened, TreeNav.ResolveFolder(ide, pou, child.Folder));
         }
-    }
-
-    /// <summary>Walk the POU subtree and delete in-POU children (method/action/property — NOT transitions,
-    /// which no reader models, so they can never be in <paramref name="keep"/>) whose name is not in it. Folders are descended (recursed first, so a deletion never
-    /// invalidates a not-yet-visited folder handle); accessors live under properties and are handled
-    /// per-property, not here, so we never recurse into a property.</summary>
-    private static void RemoveOrphanChildren(IIdeDriver ide, ItemRef parent, ISet<string> keep)
-    {
-        var count = ide.ChildCount(parent);
-        var snapshot = new List<(ItemRef Ref, int Kind, string Name)>();
-        for (int i = 1; i <= count; i++)
-        {
-            var c = ide.ChildAt(parent, i);
-            snapshot.Add((c, ide.KindCode(c), ide.Name(c)));
-        }
-        foreach (var s in snapshot)
-            if (s.Kind == ItemKind.PlcFolder) RemoveOrphanChildren(ide, s.Ref, keep);
-        foreach (var s in snapshot)
-            // Only the members the SOURCE models — see ItemKind.IsPouSourceMember. Reconciling against the wider
-            // IsInlinedInPou set deleted things no reader can ever put in `keep`: a TRANSITION is never written
-            // to the file, so the first push of an SFC-bearing POU silently deleted the engineer's transitions.
-            // The folder exclusion is implied by the predicate now.
-            if (ItemKind.IsPouSourceMember(s.Kind) && !keep.Contains(s.Name))
-                ide.Delete(parent, s.Name);
     }
 
     // Maps a top-level wire kind to its IDE create code. A DUT is one kind `dut` → one code (PlcDut); the IDE
