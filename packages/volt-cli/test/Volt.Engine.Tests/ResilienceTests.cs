@@ -17,7 +17,7 @@ public class ResilienceTests
     public void Materialize_propagates_an_unreadable_item_so_single_item_paths_surface_it()
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("Bad"));
-        var it = ide.WalkItems().Single();
+        var it = ide.WalkItems().Items.Single();
         Assert.ThrowsAny<Exception>(() =>
             Versioning.Materialize(ide, it.Name, ItemKind.Map(it.KindCode)!, it.Item, it.Folder));
     }
@@ -26,7 +26,7 @@ public class ResilienceTests
     public void SafeVersion_isolates_an_unreadable_item_with_the_sentinel()
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("Bad"));
-        var it = ide.WalkItems().Single();
+        var it = ide.WalkItems().Items.Single();
         var version = Versioning.SafeVersion(ide, it.Name, ItemKind.Map(it.KindCode)!, it.Item, it.Folder, out var mat);
         Assert.Equal(Versioning.Unreadable, version);
         Assert.Null(mat);   // no materialized body — so it's omitted from the Items map but stays in the project hash

@@ -7,8 +7,13 @@ namespace Volt.Engine.Ide;
 /// only on real IDE failure; there is no silent fallback that would drop an item from a walk.</summary>
 public interface IProjectTree
 {
-    /// <summary>Every tracked item in the project, depth-first, with folder paths resolved.</summary>
-    IReadOnlyList<ProjectItem> WalkItems();
+    /// <summary>Every tracked item in the project, depth-first, with folder paths resolved — AND whether the
+    /// walk saw the whole tree.
+    /// <para>The completeness half is not bookkeeping. A driver skips a subtree it cannot enumerate rather than
+    /// failing the pull, which is right; but `FetchService` derives DELETIONS from absence, so a caller that
+    /// cannot tell a partial walk from a complete one deletes the engineer's files for everything under the
+    /// folder that faulted. See <see cref="WalkResult"/>.</para></summary>
+    WalkResult WalkItems();
 
     /// <summary>The default parent for new top-level items (CODESYS Application / TwinCAT PLC project).</summary>
     ItemRef GetPlcProjectRoot();

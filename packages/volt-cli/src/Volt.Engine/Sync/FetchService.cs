@@ -57,7 +57,8 @@ public static class FetchService
         // fetch. Ordering is safe: the precompile reads its own language model, never the walked item handles, and
         // every item is already materialized by the time we (maybe) build — so a build can't stale a handle
         // mid-materialize (the same property that lets the onlyItems preview skip the build).
-        var walked = ide.WalkItems();
+        var walk = ide.WalkItems();
+        var walked = walk.Items;
         var total = walked.Count; // the signature count folds in AFTER we know whether we're extracting (below)
         var done = 0;
         var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
@@ -218,11 +219,23 @@ public static class FetchService
         // could not read. Absence from the response otherwise carries two meanings the wire cannot separate,
         // "this is gone" and "this defeated the reader", and the response already counts the second in its
         // `unreadable` drop tally while describing it as the first.
-        var removed = isInit
+        var removed = isInit || !walk.Complete
             ? new List<string>()
             : knownItems.Keys
                 .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(BareNameOf(k)))
                 .ToList();
+
+        // A PARTIAL walk can report no deletions at all, and that is the only honest answer available. Deletion
+        // is derived from absence, and a folder the driver could not enumerate makes absence meaningless for
+        // everything beneath it — a single faulting folder would otherwise delete the engineer's files for every
+        // POU under it. Loud, because the alternative is a pull that quietly syncs less of the project than it
+        // claims: the drivers already logged the skip (CODESYS at Warn, TwinCAT at Debug — off by default) and
+        // neither reached the code that had to act on it.
+        if (!walk.Complete)
+            VoltLog.Warn(
+                $"fetch: the project walk was INCOMPLETE — {walk.UnwalkedFolders.Count} folder(s) could not be " +
+                $"enumerated ({string.Join(", ", walk.UnwalkedFolders)}). Deletions are suppressed for this " +
+                "fetch: items under those folders were not seen, which is not the same as gone.");
 
         var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));

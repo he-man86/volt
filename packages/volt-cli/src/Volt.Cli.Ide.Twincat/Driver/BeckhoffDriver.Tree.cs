@@ -20,27 +20,50 @@ public sealed partial class BeckhoffDriver
     // PLC-project root are the same node — full and relative toFolder coincide, and this stays a no-op vs CODESYS.
     public ItemRef GetTreeRoot() => new(_om.PlcRoot());
 
-    public IReadOnlyList<ProjectItem> WalkItems()
+    public WalkResult WalkItems()
     {
         var items = new List<ProjectItem>();
-        WalkInner(_om.PlcRoot(), "", items);
+        var unwalked = new List<string>();
+        WalkInner(_om.PlcRoot(), "", items, unwalked);
         WalkIoDevices(items);
-        return items;
+        return new WalkResult(items, unwalked);
     }
 
-    private void WalkInner(object node, string folderPath, List<ProjectItem> items)
+    private void WalkInner(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
     {
         // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
         // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
         // like this once hid a real read bug (FB-with-method / interface) for a long time.
         int count;
-        try { count = _om.ChildCount(node); } catch (Exception ex) { VoltLog.Debug($"walk: ChildCount faulted at folder='{folderPath}': {ex.Message}"); return; }
+        try { count = _om.ChildCount(node); }
+        catch (Exception ex)
+        {
+            // The ENTIRE subtree is lost here, not one item. Recorded as well as logged: the log was at Debug,
+            // which is off by default, and the caller that derives DELETIONS from absence never saw it — so a
+            // single faulting folder made `volt pull` delete every file beneath it.
+            VoltLog.Warn($"walk: ChildCount faulted at folder='{folderPath}' — SUBTREE SKIPPED: {ex.Message}");
+            unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+            return;
+        }
         for (int i = 1; i <= count; i++)
         {
             object child;
-            try { child = _om.ChildAt(node, i); } catch (Exception ex) { VoltLog.Debug($"walk: ChildAt({i}) faulted at folder='{folderPath}': {ex.Message}"); continue; }
+            try { child = _om.ChildAt(node, i); }
+            catch (Exception ex)
+            {
+                // One child lost rather than a subtree — still enough to make absence meaningless.
+                VoltLog.Warn($"walk: ChildAt({i}) faulted at folder='{folderPath}': {ex.Message}");
+                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                continue;
+            }
             string name;
-            try { name = _om.GetName(child); } catch (Exception ex) { VoltLog.Debug($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}"); continue; }
+            try { name = _om.GetName(child); }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}");
+                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                continue;
+            }
             int itemType = ClassifiedKind(child);
 
             // A plain folder OR a container-manager (library / recipe / visualization manager) is a FOLDER, not a
@@ -50,7 +73,7 @@ public sealed partial class BeckhoffDriver
             if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
-                WalkInner(child, nested, items);
+                WalkInner(child, nested, items, unwalked);
                 continue;
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
@@ -75,7 +98,7 @@ public sealed partial class BeckhoffDriver
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
             items.Add(new ProjectItem(name, new ItemRef(child), itemType, emitFolder));
-            if (isHybrid) WalkInner(child, emitFolder, items);
+            if (isHybrid) WalkInner(child, emitFolder, items, unwalked);
         }
     }
 

@@ -11,12 +11,13 @@ namespace Volt.Cli.Ide.Codesys;
 /// <c>LibRefNode</c> for a library reference).</summary>
 public sealed partial class CodesysDriver
 {
-    public IReadOnlyList<ProjectItem> WalkItems()
+    public WalkResult WalkItems()
     {
         var items = new List<ProjectItem>();
+        var unwalked = new List<string>();
         var root = _om.PrimaryProject;
-        if (root != null) Walk(root, "", items);
-        return items;
+        if (root != null) Walk(root, "", items, unwalked);
+        return new WalkResult(items, unwalked);
     }
 
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
@@ -24,7 +25,7 @@ public sealed partial class CodesysDriver
     // own name, so the tree reads exactly as the IDE: Device → Plc Logic → Application → usercode, with the
     // hardware devices as siblings under Device. Nothing is flattened; the only per-kind logic is WHAT each leaf
     // emits (source text vs a device descriptor vs a library reference).
-    private void Walk(object node, string folderPath, List<ProjectItem> items)
+    private void Walk(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
@@ -32,7 +33,14 @@ public sealed partial class CodesysDriver
         // sinks; see it for why one is not enough.
         IReadOnlyList<object> children;
         try { children = _om.GetChildren(node); }
-        catch (Exception ex) { BridgeLog.Warn($"could not read children of a node (subtree skipped): {ex.Message}"); return; }
+        catch (Exception ex)
+        {
+            // Logged at Warn already — correctly, per the no-fallback policy — but a log cannot be acted on by
+            // the caller. `FetchService` derives DELETIONS from absence, so it has to be TOLD, not informed.
+            BridgeLog.Warn($"could not read children of folder='{folderPath}' (subtree skipped): {ex.Message}");
+            unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+            return;
+        }
         foreach (var child in children)
         {
             var name = _om.GetName(child);
@@ -48,14 +56,14 @@ public sealed partial class CodesysDriver
                 var hasChildren = HasChildren(child);
                 items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice,
                     hasChildren ? deviceFolder : folderPath));
-                if (hasChildren) Walk(child, deviceFolder, items);
+                if (hasChildren) Walk(child, deviceFolder, items, unwalked);
                 continue;
             }
             // Any other container — a user folder or a structural node (PLC Logic, Application, Task Configuration,
             // the SoftMotion "Kinematics" / drive "Functions" groupers) — nests its children under its own name.
             if (code == ItemKind.PlcFolder || CodesysTypeMap.IsRecurseOnlyContainer(code))
             {
-                Walk(child, FolderPath.Append(folderPath, name), items);
+                Walk(child, FolderPath.Append(folderPath, name), items, unwalked);
                 continue;
             }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
@@ -77,7 +85,7 @@ public sealed partial class CodesysDriver
                         items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
-                    Walk(child, managerFolder, items);
+                    Walk(child, managerFolder, items, unwalked);
                 continue;
             }
 

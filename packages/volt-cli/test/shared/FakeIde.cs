@@ -157,9 +157,23 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // what TwinCAT's ~5s-throttled snapshot does for a moment after a reconnect. Default false: the two agree.
     public bool StaleHealthSnapshot { get; init; }
 
+    /// <summary>Folders this fake pretends it could not enumerate — a driver's "COM faulted at this folder, skip
+    /// the subtree" without needing a live IDE to fault.
+    /// <para>Until this existed a partial walk could not be expressed at all, which is why every finding about
+    /// one was untestable: `WalkItems()` returned a plain list and a fake has no COM to break. Items under these
+    /// folders are still omitted from <c>Items</c>, exactly as a real skipped subtree would be, so a test can
+    /// tell the difference between "omitted because gone" and "omitted because unseen".</para></summary>
+    public IReadOnlyList<string> UnwalkableFolders { get; init; } = System.Array.Empty<string>();
+
     // ── IProjectTree (only the walk + accessors the services use are real) ──
-    public IReadOnlyList<ProjectItem> WalkItems() =>
-        _items.Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder)).ToList();
+    public WalkResult WalkItems()
+    {
+        var items = _items
+            .Where(i => !UnwalkableFolders.Any(f => i.Folder == f || i.Folder.StartsWith(f + "/", StringComparison.Ordinal)))
+            .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))
+            .ToList();
+        return new WalkResult(items, UnwalkableFolders);
+    }
     public int KindCode(ItemRef item) => IsTreeNode(item) ? ItemKind.PlcFolder : Find(item).KindCode;
     public int ChildCount(ItemRef item) =>
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;

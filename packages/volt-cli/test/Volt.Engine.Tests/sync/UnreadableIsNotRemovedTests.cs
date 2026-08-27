@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
@@ -49,6 +49,53 @@ public class UnreadableIsNotRemovedTests
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
 
         Assert.DoesNotContain("FB_Broken.prg", res.Removed);
+    }
+
+    /// <summary>A PARTIAL walk reports NO deletions at all.
+    /// <para>A driver skips a subtree it cannot enumerate rather than failing the pull — right, because a
+    /// transient COM fault on one folder should not stop everything. What it could not do was TELL anyone:
+    /// `WalkItems()` returned a plain list, so a partial tree was indistinguishable from a complete one, and
+    /// deletion is derived from absence. One faulting folder therefore deleted the engineer's files for every POU
+    /// beneath it.</para>
+    /// <para>The evidence existed and was unreachable: CODESYS logged the skip at Warn and TwinCAT at Debug —
+    /// off by default — and neither reached the code that had to act on it. Suppressing every deletion is the
+    /// only honest answer available, because absence means nothing once part of the tree went unseen.</para>
+    /// <para>This test could not be written before: a fake has no COM to break, so `FakeIde` gained
+    /// `UnwalkableFolders` — which is why the whole cluster of walk-fault findings was untestable.</para></summary>
+    [Fact]
+    public void A_partial_walk_reports_no_deletions()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("FB_Hidden", "FUNCTION_BLOCK FB_Hidden\nVAR\nEND_VAR", "y := 1;", "POUs"))
+        {
+            UnwalkableFolders = new[] { "POUs" },     // the driver could not enumerate it
+        };
+
+        var res = FetchService.Handle(ide, new FetchRequest
+        {
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.prg"] = "v", ["FB_Hidden.prg"] = "v" },
+        });
+        _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
+
+        Assert.Empty(res.Removed);
+    }
+
+    /// <summary>And completeness is not assumed: the SAME project walked fully still reports the real deletion.
+    /// <para>Without this, "suppress deletions" could be implemented as "never delete" and pass — making a
+    /// deleted POU immortal in every workspace.</para></summary>
+    [Fact]
+    public void The_same_project_walked_fully_still_reports_the_deletion()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
+
+        var res = FetchService.Handle(ide, new FetchRequest
+        {
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.prg"] = "v", ["FB_Hidden.prg"] = "v" },
+        });
+
+        Assert.Contains("FB_Hidden.prg", res.Removed);
     }
 
     /// <summary>The genuine case still works: a name the client knows and the walk did NOT see is removed.

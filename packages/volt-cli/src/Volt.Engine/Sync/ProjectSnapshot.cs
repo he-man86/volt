@@ -55,7 +55,9 @@ internal sealed class ProjectSnapshot
     public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs)
     {
         var snap = new ProjectSnapshot();
-        var walked = ide.WalkItems();
+        // Only the items: a snapshot answers "what is here and what does it hash to", and nothing derives a
+        // DELETION from it — the removal signal lives in FetchService alone. Completeness would be noise here.
+        var walked = ide.WalkItems().Items;
         var total = walked.Count;
         var done = 0;
         onProgress?.Invoke(new ProgressFrame { Operation = operation, Done = 0, Total = total, Phase = "reading" });

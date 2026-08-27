@@ -40,7 +40,7 @@ public static class PushService
         var currentVersions = new Dictionary<string, string>();
         var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var it in ide.WalkItems())
+        foreach (var it in ide.WalkItems().Items)
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
