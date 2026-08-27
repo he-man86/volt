@@ -137,7 +137,7 @@ public class PouMergeWriteTests
     /// <para>Measured on 3.5.21.40: a just-created POU exports with an <c>InterfaceAsPlainText</c> AND a
     /// <c>body</c>, which is what makes splicing into a brand-new item possible at all.</para></summary>
     [Fact]
-    public void A_create_is_one_CreateChild_plus_one_document_write()
+    public void A_create_is_one_CreateChild_plus_one_document_write_plus_one_declaration()
     {
         var ide = new FakeIde();
         PushOp(ide, new SetItemOp
@@ -147,7 +147,7 @@ public class PouMergeWriteTests
                        + "METHOD First : BOOL\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nSecond := FALSE;\nEND_METHOD\n",
         });
 
-        Assert.Equal(new[] { "create:FB_New", "writexml:FB_New" }, ide.Recorded.ToArray());
+        Assert.Equal(new[] { "create:FB_New", "writexml:FB_New", "decl:FB_New" }, ide.Recorded.ToArray());
         var doc = ide.WrittenXml["FB_New"];
         Assert.Contains("First", doc);
         Assert.Contains("Second", doc);

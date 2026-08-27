@@ -152,8 +152,7 @@ public class UnmodelledLanguageTests
         Assert.Contains("QUUX", ex.Message);
     }
 
-    /// <summary>Restating the MARKER over a ROOT unsupported body is the ordinary round-trip, and the DECLARATION
-    /// still lands.
+    /// <summary>Restating the MARKER over a ROOT unsupported body is the ordinary round-trip.
     /// <para>The child path (<c>Sync/BodyFormatGuard</c>) always drew this distinction — its comment says
     /// "pushing the marker back is the ordinary no-op" — and <c>GraphicalChildGuardTests</c> pins it for a
     /// METHOD. The ROOT path refused unconditionally, so a CFC/SFC POU's declaration could not be edited AT ALL:
@@ -175,8 +174,8 @@ public class UnmodelledLanguageTests
 
         var doc = PouDocument.Splice(xml, "FB_Odd", split, establishing: false);
 
-        // the declaration edit landed…
-        Assert.Contains("nAdded : INT;", doc);
+        // The declaration edit lands too, but on the ASPECT now, not in this document — asserting it here
+        // would be vacuous. PushDeclarationTransportTests pins it at the transport that carries it.
         // …and the diagram is untouched, element and contents both
         Assert.Equal(language, PouReader.NonStLanguageOf(BodyOf(doc)));
         Assert.Equal(BodyOf(xml).ToString(), BodyOf(doc).ToString());

@@ -71,16 +71,15 @@ public class PouDocumentTests
         Assert.DoesNotContain("//test action", doc);
     }
 
-    /// <summary>The declaration and the body both land, in the item's OWN elements.</summary>
+    /// <summary>The body lands, in the item's OWN elements. (The declaration no longer travels here at all —
+    /// see PushDeclarationTransportTests.)</summary>
     [Fact]
-    public void The_root_declaration_and_body_land()
+    public void The_root_body_lands()
     {
         var decl = FbDecl.Replace("VAR\nEND_VAR", "VAR\n\tbFlag : BOOL;\nEND_VAR");
         var doc = PouDocument.Splice(Fixture("FB_FolderChild.plcopen.xml"), "FB_FolderChild",
             Split(decl, "//rewritten body", Action("ACT", "//test action")), establishing: false);
 
-        var parsed = PouReader.Parse(doc);
-        Assert.Contains("bFlag : BOOL;", parsed.Declaration);
         Assert.Contains("//rewritten body", doc);
     }
 

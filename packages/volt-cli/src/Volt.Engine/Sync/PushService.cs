@@ -347,8 +347,15 @@ public static class PushService
             // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
             // the merge: a network-text body no longer takes a separate write that carried only the body and
             // silently dropped the declaration and the member reconciliation.
+            // The document write comes FIRST and the declaration aspect SECOND. That order is measured, not
+            // stylistic: TwinCAT's PlcOpenImport REGENERATES the declaration from the typed <interface> when
+            // the document carries no verbatim block — which is exactly this install — so an aspect write made
+            // before the import is silently undone by it. On an export->import round trip with NO edit at all,
+            // `x : INT;` came back `x: INT;`, `yLonger   : BOOL;` came back `yLonger: BOOL;`, and the blank
+            // line before END_VAR was dropped. Writing the aspect last restores the engineer's exact text.
             ide.WriteXml(pou, PouDocument.Splice(doc, name, split, establishing: false));
             RestoreChildFolders(ide, name, split);
+            WriteDeclarations(ide, name, split);
             return;
         }
 
@@ -360,10 +367,78 @@ public static class PushService
         // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
         // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
         // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
+        // Document first, declaration aspect second — see the update arm above for the measurement.
         ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split, establishing: true));
         RestoreChildFolders(ide, name, split);
+        WriteDeclarations(ide, name, split);
     }
 
+    /// <summary>Write the root declaration to the item's DECLARATION ASPECT — the one source that carries an
+    /// engineer's exact text on both vendors, in both directions.
+    ///
+    /// <para><b>Why not the document.</b> PLCopen carries a declaration twice: as the standard's TYPED
+    /// <c>&lt;interface&gt;</c>, and as a vendor <c>addData</c> block of verbatim text
+    /// (<c>InterfaceAsPlainText</c>). The TC6 XSD defines <c>addData</c> as discardable — <c>handleUnknown</c>
+    /// is <c>preserve</c>/<c>discard</c>/<c>implementation</c> — and this TwinCAT install stopped emitting it.
+    /// The typed form is not a substitute: it reproduces names and types, never the engineer's spacing.</para>
+    ///
+    /// <para><b>Why AFTER the document write, which is the part that is easy to get wrong.</b> With no verbatim
+    /// block in the document, TwinCAT's importer REGENERATES the declaration from the typed interface. Measured
+    /// on an export->import round trip with NO edit at all: <c>x : INT;</c> came back <c>x: INT;</c>,
+    /// <c>yLonger   : BOOL;</c> came back <c>yLonger: BOOL;</c>, and the blank line before <c>END_VAR</c> was
+    /// dropped. An aspect write placed BEFORE the import is therefore undone by it, silently — the push still
+    /// reports "updated" and every declaration in the project is quietly reformatted.</para>
+    ///
+    /// <para>The item is RE-FOUND rather than reused: TwinCAT's import invalidates handles to what it replaced
+    /// (DIALECT D4d), and a write through a detached COM object there can succeed silently — which would land
+    /// the declaration nowhere while reporting success. The lookup starts from a FRESH tree root rather than
+    /// from a captured parent, because the import invalidates the PARENT handle too — and <c>&lt;root&gt;</c>
+    /// with it, which is what <c>MoveAfterWriteTests</c> caught when this took a parent argument.</para>
+    ///
+    /// <para>The write is skipped when the declaration already matches, so a no-op push stays a no-op. The
+    /// comparison is trimmed on both sides because <c>Materializer</c> trims what it writes into the file;
+    /// comparing against the IDE's RAW text would report a change on trailing whitespace alone. The value
+    /// written is verbatim.</para></summary>
+    private static void WriteDeclarations(IIdeDriver ide, string name, ItemContent split)
+    {
+        var item = ItemLookup.Find(ide, name)
+            ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                $"wrote '{name}' but it cannot be found again to write its declaration — refusing to write " +
+                "through the handle the document import invalidated");
+        WriteDeclaration(ide, item, split.Declaration);
+
+        // Members take the SAME transport, one level down, and for the same measured reason: this install's
+        // export carries no <InterfaceAsPlainText> for a member either, so the splice had nowhere to write a
+        // member declaration and refused the whole push — "child 'First' of 'X' has no <InterfaceAsPlainText>
+        // to write the declaration into", on every POU with a method or property.
+        //
+        // These handles survive the loop: only the document import and a move invalidate handles, and both are
+        // already behind us — which is also why this runs AFTER RestoreChildFolders, so a member is looked up
+        // where it ended up rather than where the import dropped it.
+        foreach (var member in split.Members)
+        {
+            // An ACTION has no declaration in any IDE — its `ACTION name` header is composed on read, never
+            // stored (Beckhoff's own _ITcPlcImplementation exposes ImplementationText and no DeclarationText).
+            // There is nothing to write and no aspect to write it to.
+            if (member.Kind == ItemKind.Kinds.Action) continue;
+            var parent = TreeNav.FindFolder(ide, item, member.Folder) ?? item;
+            var child = TreeNav.FindChild(ide, parent, member.Name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"wrote member '{member.Name}' of '{name}' but it cannot be found afterwards — its " +
+                    "declaration would be silently dropped");
+            WriteDeclaration(ide, child, member.Declaration);
+        }
+    }
+
+    /// <summary>One declaration, written only if it differs — so a no-op push stays a no-op. Trimmed on both
+    /// sides because `Materializer` trims what it writes into the file; comparing against the IDE's RAW text
+    /// reports a change on trailing whitespace alone. The value written is verbatim.</summary>
+    private static void WriteDeclaration(IIdeDriver ide, ItemRef item, string? declaration)
+    {
+        if (declaration is not { } decl) return;
+        if (ide.ReadDeclaration(item).Trim() != decl.Trim())
+            ide.WriteText(item, decl, implementation: null);
+    }
     /// <summary>Put the POU's children back in their folders after the merge import flattened them.
     /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's
     /// internal folders and lands every child at the POU root — even when the document itself describes the

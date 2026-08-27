@@ -39,6 +39,12 @@
     <Compile Include="PLC_PRG.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\VltFixtureCfc.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\VltFixtureSfc.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="DUTs" />

@@ -301,8 +301,34 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     }
 
     // ── ICodeStore ──
+    /// <summary>Emit NO `interfaceasplaintext` addData block, as live TwinCAT now does. `ReadDeclaration`
+    /// still answers, because the aspect is the object model rather than a serialisation — which is the whole
+    /// reason the declaration must come from there.</summary>
+    public bool OmitsPlaintextDeclaration { get; init; }
+
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
-    public void WriteText(ItemRef item, string? declaration, string? implementation) => Recorded.Add($"write:{NameOf(item)}");
+    /// <summary>The declaration each WriteText carried. Recording only the call NAME cannot distinguish
+    /// "the edit landed" from "a write happened" — the same reason <see cref="WrittenXml"/> exists.</summary>
+    public Dictionary<string, string?> WrittenText { get; } = new();
+    public void WriteText(ItemRef item, string? declaration, string? implementation)
+    {
+        // The recorded name says WHICH transport ran, because that is the whole subject of the transport matrix.
+        // A declaration-only write (implementation: null) is the DECLARATION ASPECT — the one source that carries
+        // an engineer's exact text. A write carrying an implementation is the old per-child text path, which is
+        // the thing the matrix's negative half exists to keep out. Recording both as "write:" made the two
+        // indistinguishable, and a guard that cannot tell them apart has to allow the one it means to forbid.
+        Recorded.Add($"{(implementation is null ? "decl" : "write")}:{NameOf(item)}");
+        WrittenText[NameOf(item)] = declaration;
+        var it = FindOrNull(item);
+        if (it is not null)
+        {
+            _items[_items.IndexOf(it)] = it with
+            {
+                Declaration = declaration ?? it.Declaration,
+                Implementation = implementation ?? it.Implementation,
+            };
+        }
+    }
     // RECORDED, because it is not free: on CODESYS `BodyLanguage` is a full PLCopen export. The child
     // body-format guard used to call it once per child, so a POU with 20 methods paid 22 exports to write one
     // body. Counting the calls is how that stays fixed.
@@ -370,7 +396,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                  + $"<InterfaceAsPlainText><xhtml>{Escape(m.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
                  + $"</{element}></data>";
         }
-        if (!string.IsNullOrEmpty(it.Declaration))
+        // OmitsPlaintextDeclaration models LIVE TwinCAT (2026-08-27): its PLCopen export stopped emitting the
+        // `interfaceasplaintext` addData block while still emitting objectid, projectstructure, fbdcalltype and
+        // implementationattributes. The declaration is still THERE — in the typed <interface> and in the object
+        // model's aspect — just not as verbatim text in the document. Measured: 8/8 recorded June exports carry
+        // the block (two of them with no variables at all, so it was unconditional); 0/2 live exports do, one of
+        // which declares 45 variables. See openspec/changes/declaration-from-the-aspect.
+        if (!string.IsNullOrEmpty(it.Declaration) && !OmitsPlaintextDeclaration)
             xml += "<data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">"
                  + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data>";
         xml += "</addData></pou>";
@@ -451,10 +483,54 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         Recorded.Add($"writexml:{NameOf(item)}");
         WrittenXml[NameOf(item)] = xml;
+        RegisterMembersFrom(NameOf(item), xml);
         // Bumped LAST, so this call's own handle was still valid — the import replaces the item, and every handle
         // taken before it now points at an object the vendor has thrown away.
         if (InvalidatesHandlesOnWrite) _generation++;
     }
+    /// <summary>A document write brings its members into existence, because that is what the real import does:
+    /// after it, a POU's methods and properties ARE children of it in the tree and can be read and written.
+    /// <para>The fake used to record the document and nothing else, so a member added by a push was invisible to
+    /// any tree walk afterwards — which made the member declaration transport untestable offline, and would have
+    /// let "the member cannot be found after its own write" pass here and fail live.</para>
+    /// <para>Declarations are taken from the document when it carries them, so a vendor whose export DOES carry
+    /// <c>InterfaceAsPlainText</c> models correctly as "already up to date" and provokes no aspect write.</para>
+    /// </summary>
+    private void RegisterMembersFrom(string owner, string xml)
+    {
+        System.Xml.Linq.XDocument doc;
+        try { doc = System.Xml.Linq.XDocument.Parse(xml); } catch { return; }
+
+        var names = new List<string>();
+        foreach (var el in doc.Descendants())
+        {
+            var kind = el.Name.LocalName switch
+            {
+                "Method" => ItemKind.PlcMethod,
+                "Action" => ItemKind.PlcAction,
+                "Property" => ItemKind.PlcProp,
+                _ => 0,
+            };
+            if (kind == 0 || el.Attribute("name") is not { } n) continue;
+            var memberName = n.Value;
+            if (names.Contains(memberName)) continue;
+            names.Add(memberName);
+
+            var decl = el.Descendants()
+                .FirstOrDefault(d => d.Name.LocalName == "InterfaceAsPlainText")?.Value;
+            var existing = _items.FirstOrDefault(i => i.Name == memberName);
+            if (existing is null)
+                _items.Add(new Item(memberName, kind, "", false, decl ?? "", "", null, null));
+            else if (decl is not null)
+                _items[_items.IndexOf(existing)] = existing with { Declaration = decl };
+        }
+        if (names.Count == 0) return;
+
+        var parent = _items.FirstOrDefault(i => i.Name == owner);
+        if (parent is not null)
+            _items[_items.IndexOf(parent)] = parent with { Children = names.ToArray() };
+    }
+
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──

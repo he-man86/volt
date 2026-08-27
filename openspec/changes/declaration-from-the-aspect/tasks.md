@@ -26,88 +26,112 @@ gate.
 
 ## 1. Make TwinCAT readable again — the smallest change that does it
 
-- [ ] 1.1 **`Materializer.BuildPouFromXml` takes the declaration from `ide.ReadDeclaration(item)`**, not from
+- [x] 1.1 **`Materializer.BuildPouFromXml` takes the declaration from `ide.ReadDeclaration(item)`**, not from
       `parsed.Declaration`. The throw stays, but moves: an item whose ASPECT has no declaration is still a hard
-      failure, because that genuinely cannot happen — the aspect is the object model, not a serialisation.
-      **Test: `MaterializerDeclarationTransportTests` gains a case whose document has NO plaintext block and whose
-      fake aspect does** — RED today, and it is exactly the live TwinCAT shape.
-- [ ] 1.2 **Live gate, and the only one that matters here:** TwinCAT e2e runs. Not "passes" — *runs*. Record the
-      first real pass/fail counts as the TwinCAT baseline; they have never existed.
-      Prerequisites, learned the hard way: rebuild the connector bundle first (`scripts/build-cli.ps1` — a stale
-      `dist/Connector/VoltBridgeTwincat.exe` will silently test three-week-old code), open the fixtures with
-      `twincat-instances.ps1 up`, and have the connector running.
-- [ ] 1.3 **Do not touch the write path yet.** 1.1 is a one-line source change with a test; shipping it alone
-      un-breaks a vendor. Everything below is refactoring that can wait for review.
+      failure. Test: `MaterializerDeclarationTransportTests`, three cases, RED before the change.
+- [x] 1.2 **Live gate.** TwinCAT e2e RAN for the first time: **37 pass / 11 skip / 94 fail**. Every one of the 94
+      was the write path — `"PLCopen export for 'X' has no <InterfaceAsPlainText> to write the declaration into"`.
+      That is the number §2 had to move.
+- [x] 1.3 Shipped as its own step, as written.
 
 ## 2. The write half — one method, symmetric
 
-- [ ] 2.1 **`ICodeStore` gains `WriteDeclaration(ItemRef, string)`**, beside the existing `ReadDeclaration`.
-      TwinCAT: `set_DeclarationText`. CODESYS: `SetAspectText(iobj, "Interface", text)` — already written, already
-      used by the object-model write path.
-- [ ] 2.2 **`PushService` writes the declaration through it**, and `PouDocument`/`PouSplice` stop carrying one.
-      A push becomes: declaration via the aspect, body + members via the document.
-- [ ] 2.3 **Delete `Source/Declaration.cs`** — `Read`, `Write`, `Establish`, `IsUnestablished`,
-      `OwnDeclContainers`. The whole "find a declaration inside an XML document" problem class goes with it.
-      Also delete `PlcOpenDocument.OwnDescendants`' declaration role and `PouReader.ChildDeclContainers` if
-      nothing else needs them.
-- [ ] 2.4 **Retire what becomes unaskable**, with a line in `DIALECT.md` saying why rather than a silent deletion:
-      - **A7** (CODESYS emits the declaration twice; writing only the first is a silent no-op) — there is one
-        aspect, not N blocks.
-      - **U21** (does an accessor with a declared VAR get two copies?) — unasked.
-      - **U22** (does any vendor emit `<get>`/`<set>` containers?) — unasked.
-      - The read/write containment-predicate split unified in `splice-graphical-body` §7.6 — no containment
-        question survives.
+- [x] 2.1 **No new `ICodeStore` member was needed.** `WriteText(item, declaration, implementation: null)` already
+      IS the declaration write on both drivers, so the proposed `WriteDeclaration` would have been a second name
+      for an existing method. One less thing on the contract than the proposal budgeted for.
+- [x] 2.2 **`PushService` writes the declaration through it**, and `PouDocument`/`PouSplice` no longer carry one.
+- [x] 2.3 `Source/Declaration.cs` — **NOT deleted; see §7.** Members still reach the document on CREATE.
+- [ ] 2.4 Retire A7 / U21 / U22 in `DIALECT.md` with a line saying why. **Open** — §7.
+
+### 2.5 The ordering, which is the part the proposal got wrong
+
+Writing the aspect BEFORE the document was silently undone by it. On a TwinCAT export→import round trip **with no
+edit at all**:
+
+```
+sent: 	x : INT;            sent: 	yLonger   : BOOL;        sent: (blank line before END_VAR)
+back: 	x: INT;             back: 	yLonger: BOOL;           back: (gone)
+```
+
+With no verbatim block in the document, **TwinCAT's importer regenerates the declaration from the typed
+`<interface>`** — the exact lossy path the proposal ruled out for reads, arriving through writes instead. So the
+order is now **document first, declaration aspect second**, and the item is re-found from a fresh tree root in
+between (the import invalidates handles to what it replaced, D4d — and invalidates `<root>` with them, which
+`MoveAfterWriteTests` caught when the helper first took a parent argument).
+
+The aspect write is **guarded**: it is issued only when the declaration actually differs, so a no-op push stays a
+no-op. Both sides are compared trimmed, because `Materializer` trims what it writes into the file — comparing
+against the IDE's RAW text reported a change on trailing whitespace alone and made the guard vacuous on every DUT
+and GVL.
 
 ## 3. Tests are deleted with their subject, not adapted
 
-- [ ] 3.1 **`DeclarationRuleTests`, and the declaration half of `PouSpliceTests`, are about locating a declaration
-      in a document.** When that stops happening they are not "failing" — their subject no longer exists. Delete
-      them and replace with aspect round-trip tests: write a declaration with awkward formatting (irregular
-      alignment, a blank line before `END_VAR`), read it back, assert byte equality.
-      **A test that survives the deletion of its subject was testing the wrong thing.** Do not adapt one to keep a
-      number up.
-- [ ] 3.2 **Record the count honestly.** Offline totals will DROP. That is correct, and the close-out says so —
-      this repo has a standing rule that a test count is not a score.
-- [ ] 3.3 **One new guard:** no production code requires an `addData` block. `handleUnknown` is `preserve` /
-      `discard` / `implementation` by specification, so a required vendor extension is a latent outage. The guard
-      is a source scan; `objectid` and `projectstructure` are the two Volt genuinely depends on (D4h) and they get
-      an allowlist entry each, **with the reason**, so the dependency is at least declared rather than assumed.
+- [x] 3.1 Four tests asserted "a declaration edit lands" against the spliced DOCUMENT. The **defects they pin are
+      still defects** — only the transport moved — so the assertions moved with it into
+      `PushDeclarationTransportTests` rather than being deleted. What WAS deleted is the document-level assertion
+      itself, which is now vacuous. `DeclarationOnlyDocumentTests.B` is gone with a note recording that this
+      change **reverses an earlier migration on purpose**: DUT/GVL declarations were moved INTO the document so
+      there would be "no longer a second transport to keep in step with this one". That goal is intact and is why
+      this change is uniform — every declaration now travels the aspect, so there is still exactly ONE. The
+      document was the wrong single transport, not single-transport the wrong goal.
+- [x] 3.2 Counts recorded honestly below. They went UP, not down — the proposal predicted a drop.
+- [ ] 3.3 The `addData` guard. **Open** — §7.
 
-## 4. Fixtures and the vendor record
-
-- [ ] 4.1 **Record `POU_PBD`** — the live export and the native `.TcPOU`. First capture with a disabled network;
-      the evidence behind three findings.
-- [ ] 4.2 **Record `FB_PackML_Unit`** — a POU with 45 declared variables and NO plaintext block. The regression,
-      preserved. Without it, this change reads as a story.
-- [ ] 4.3 **`DIALECT.md`:** a row for "TwinCAT's PLCopen export omits `interfaceasplaintext`", cited to those
-      fixtures; a row for "PLCopen carries no per-network `Title`/`Label`/`OutCommented`, and OMITS a disabled
-      network entirely"; and **update the gap-refusal row — its stated reason is now CONFIRMED**, not inferred.
-- [ ] 4.4 **Close the `DISABLED` marker in `NetworkTextWriter`** with the measured answer: the flag exists only in
-      the native store; PLCopen carries nothing. `splice-graphical-body` §2.4 is not achievable via this transport.
-- [ ] 4.5 **Record the TLB/reflection recipe in `ARCHITECTURE.md` or `scripts/README.md`.** Two hidden arguments
-      have now cost real time (`PlcOpenImport`'s `options`, and the `PlcOpenExport2` hypothesis here). `TlbImp.exe`
-      + reflection settles these in minutes. See `transport-census.md` §4.
+## 4. Fixtures and the vendor record — **open**, §7.
 
 ## 5. Explicitly NOT in this change
 
-- **Adopting a native transport.** Measured and rejected (`transport-census.md` §3). `DocumentXml` keeps real
-  advantages — one read, 10× faster, carries `OutCommented`/`Title`/`Label`, and proved to carry children in both
-  directions — and is recorded as a TwinCAT-only option with numbers, for whenever the fidelity gap justifies two
-  converters. It does not today.
-- **Rendering declarations from the typed `<interface>`.** Lossy for source text, and needs the
-  elementary-vs-derived type table this repo has deliberately refused to build.
-- **Reporting the TwinCAT regression upstream.** Worth doing, and it needs the installed build number
-  (Help → About) which is not in hand. The claim is specific and ready: *`PlcOpenExport` no longer emits the
-  `interfaceasplaintext` addData block while `objectid`, `projectstructure`, `fbdcalltype` and
-  `fbd/implementationattributes` still are; the same project emitted it in June.*
-- **`splice-graphical-body` §2.1/§2.2/§2.4.** Still splice-dependent, still open, untouched by this.
+Unchanged from the proposal: no native transport, no rendering from the typed `<interface>`, no upstream report,
+no `splice-graphical-body` §2.x.
 
 ## 6. Close-out
 
-- [ ] 6.1 Offline suites green at the new (lower) total; **TwinCAT e2e green** — the first time it ever has been;
-      CODESYS e2e still 132/20/0; `bun run check` green.
-- [ ] 6.2 Record what shipped against what was proposed, **including every prediction that turned out wrong.**
-      Two are already logged in this change and belong in the close-out: `PlcOpenExport2` was expected to carry an
-      options flag and carries `bSubTree`; CODESYS was asserted to have no native transport and has one.
-- [ ] 6.3 Carry every open `[UNMEASURED:]` forward as a marker in the code it bears on — the TwinCAT build that
-      changed, pragmas/comments/initial-values fidelity, and the `ChildCount` discrepancy after a document write.
+### What shipped
+
+| | before | after |
+|---|---|---|
+| Offline (Engine / Cli / Connector / TC) | 691 / 142 / 80 / 3 | **698 / 142 / 80 / 3** |
+| CODESYS e2e | 132 / 20 / 0 | **132 / 20 / 0** — unchanged |
+| **TwinCAT e2e** | **could not run** | **141 pass / 11 skip / 0 fail** |
+
+The TwinCAT gate went 37/94 → 92/43 (read fixed) → 120/21 (ordering + clean fixtures) → **141/0**.
+
+### Every prediction that turned out wrong
+
+1. **`PlcOpenExport2` was expected to carry an options flag.** It carries `bSubTree`. (Type library, §4.)
+2. **CODESYS was asserted to have no native transport.** It has `export_native` / `CreateNativeXmlExportService`.
+3. **"The aspect write must be what reformats declarations."** Refuted by direct measurement:
+   `set_DeclarationText` round-trips byte-exact modulo line endings, preserving a space before the colon,
+   irregular alignment padding, and a blank line before `END_VAR`. The reformatter is the **import**. Had this not
+   been measured, the fix would have been to revert §2 — the opposite of correct.
+4. **"Offline totals will DROP."** They rose 691 → 698: the moved assertions cover more shapes than the document
+   tests did, and the member path gained coverage that never existed.
+5. **The proposal scoped the regression to the ROOT declaration.** It applies to **members** too, in both
+   directions — §7.
+
+### Fixture damage, found and repaired
+
+The pre-ordering-fix runs wrote through the import and **destroyed declarations in the committed fixtures** —
+`PLC_PRG` in Project13 lost its whole `VAR … END_VAR` block; in Project14 it came back empty. Restored from git;
+the change's own e2e now leaves the declaration byte-intact (only the vendor's `Id`/`LineIds` normalization
+churns). `POU_PBD.TcPOU` was preserved throughout — it is the disabled-network capture and is still uncommitted.
+
+Project14 had no `VltFixtureCfc`/`VltFixtureSfc`; they existed in Project13 only, so `graphical / unsupported`
+failed whenever it landed on 14. Authored through the IDE (a hand-written `.TcPOU` would invent a shape) and
+registered in `Untitled2.plcproj` — note that `Solution.SaveAs` does NOT register a new POU; `File.SaveAll` does,
+and the first attempt produced a green run that would not have reproduced from a cold start.
+
+## 7. Still open — carried forward
+
+- **`Source/Declaration.cs` is not deleted.** A member is still created through the document (`AddChild` carries
+  its declaration so the element is well-formed), so the "find a declaration in XML" code still has one caller.
+  The write-side splice for an EXISTING member no longer uses it.
+- **2.4 / 3.3 / all of §4** — the `DIALECT.md` rows, the A7/U21/U22 retirement, the `addData` source guard, the
+  `POU_PBD` + `FB_PackML_Unit` fixtures, the `DISABLED` marker close-out, and the TLB recipe.
+- **Accessor declarations still travel the document.** `SetAccessor` takes `Getter.Declaration` /
+  `Setter.Declaration`. They are usually blank (`AccessorOf` drops empty ones), and the suite is green — but this
+  is the one declaration that did NOT move to the aspect, and it should for symmetry.
+  `[UNMEASURED: whether a non-empty accessor declaration survives this install's export.]`
+- **Per-member cost on CODESYS.** Uniformity means every member now costs one `ReadDeclaration` per push. On
+  CODESYS the value matches and no write follows, so it is a read, not a write — but it is N reads on a path that
+  was previously zero.

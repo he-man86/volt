@@ -104,8 +104,15 @@ public static class PouDocument
                     "carries no body, so this would create it EMPTY. Volt cannot create or rename a member whose " +
                     "body it cannot write; rename it in the IDE and pull.");
 
+            // An EXISTING member's declaration is NOT written here — it goes to that member's own
+            // declaration aspect, exactly as the root's does, and for the same measured reason: this
+            // install's export carries no <InterfaceAsPlainText> for a member either, so the splice had
+            // nowhere to write it and refused the whole push ("child 'First' of 'X' has no
+            // <InterfaceAsPlainText> to write the declaration into"). A CREATE still carries it, because
+            // there the declaration is part of building a well-formed member element rather than an edit
+            // to one; the aspect write that follows makes it exact on both vendors.
             xml = present.ContainsKey(child.Name)
-                ? PouSplice.SetChildText(xml, name, child.Name, decl, body, childScope)
+                ? PouSplice.SetChildText(xml, name, child.Name, null, body, childScope)
                 : PouSplice.AddChild(xml, name, child.Name, wanted, decl, body);
 
             if (child.Kind != ItemKind.Kinds.Property) continue;
@@ -115,7 +122,17 @@ public static class PouDocument
             xml = PouSplice.SetAccessor(xml, name, child.Name, false, child.Setter?.Code, child.Setter?.Declaration);
         }
 
-        xml = PouSplice.SetDeclaration(xml, name, split.Declaration);
+        // The ROOT declaration is NOT written here. It goes to the IDE's declaration aspect, symmetrically with
+        // the read — see PushService, and openspec/changes/declaration-from-the-aspect.
+        //
+        // It used to be `PouSplice.SetDeclaration(xml, name, split.Declaration)`, which writes into the
+        // `interfaceasplaintext` addData block. That block is a VENDOR EXTENSION the TC6 XSD defines as
+        // discardable, and live TwinCAT stopped emitting it — so the write failed with "PLCopen export for 'X'
+        // has no <InterfaceAsPlainText> to write the declaration into" on every create, exactly as the read had
+        // failed before it. The aspect cannot be omitted by an exporter, and it holds the engineer's own text.
+        //
+        // `split.Declaration` is still PASSED to SetBody below: an FBD/LD body resolves its FB instance types
+        // from the declaration text. That is a read of it, not a write.
         xml = PouSplice.SetBody(xml, name, split.Body, split.Declaration, establishing);
 
         // LAST, because it describes what the splices above left behind: the document's own structure block has to

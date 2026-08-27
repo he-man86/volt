@@ -33,7 +33,7 @@ public class TransportMatrixTests
     /// CREATE makes. Read it as the table it is:
     /// <code>
     ///   kind                     update      create
-    ///   fb/prg/fun/itf/dut/gvl   writexml    create + writexml
+    ///   fb/prg/fun/itf/dut/gvl   writexml    create + writexml + decl
     /// </code>
     /// <b>One row, six kinds</b> — that uniformity IS the agreement, not a coincidence to be preserved by hand.
     /// It used to be three rows: POUs took the document while an interface's members went one COM call at a time
@@ -45,12 +45,12 @@ public class TransportMatrixTests
     /// `create:M` + `write:M`, and it is what this row proves now rides in the document.</para></summary>
     public static TheoryData<int, string, string, string[], string[]> Writable => new()
     {
-        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
+        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
+        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
+        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
         { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
+        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
+        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
     };
 
     private static FakeIde Ide(int code, string src, params FakeIde.Item[] extra)
@@ -89,8 +89,18 @@ public class TransportMatrixTests
 
     // ── CREATE ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A CREATE is ONE CreateChild (structure) + ONE WriteXml (content), for every writable kind. No
-    /// WriteText for the root, no CreateChild+WriteText per member, no orphan walk.</summary>
+    /// <summary>A CREATE is ONE CreateChild (structure) + ONE WriteText (the declaration aspect) + ONE WriteXml
+    /// (body and members), for every writable kind. No CreateChild+WriteText per member, no orphan walk.
+    /// <para><c>decl:K</c> is the declaration aspect (a WriteText carrying no implementation), and the rule
+    /// is exact: it is issued IF AND ONLY
+    /// IF the pushed declaration differs from what the item already has. An UPDATE that does not touch the
+    /// declaration therefore writes nothing — which is why the update column is unchanged by the move to the
+    /// aspect — and a CREATE pays it whenever the pushed declaration adds anything to the seed
+    /// <c>CreateChild</c> laid down.</para>
+    /// <para><b>The INTERFACE row is the exception, and it is not an accident of the fixture:</b> an interface's
+    /// declaration is its header and nothing else — there are no variables to add — so a created interface's
+    /// declaration is already exactly the seed, and no write is due. A row that paid one would mean Volt was
+    /// rewriting a declaration it had not changed. See openspec/changes/declaration-from-the-aspect.</para></summary>
     [Theory]
     [MemberData(nameof(Writable))]
     public void Create_uses_exactly_the_matrix_calls(int code, string ext, string src, string[] onUpdate, string[] onCreate)
@@ -103,7 +113,10 @@ public class TransportMatrixTests
     }
 
     /// <summary>A POU created WITH members costs the same two calls — the members ride in the document. This is
-    /// the case the old path was worst at: five methods meant five CreateChild + five WriteText on top.</summary>
+    /// the case the old path was worst at: five methods meant five CreateChild + five WriteText on top.
+    /// <para>No <c>write:K</c> here: this source's declaration is <c>FUNCTION_BLOCK K / VAR / END_VAR</c>, which
+    /// is exactly what the create seeded, so the declaration aspect has nothing to receive. The members are the
+    /// subject and they ride in the one document write.</para></summary>
     [Fact]
     public void Creating_a_POU_with_members_still_costs_two_calls()
     {
@@ -161,7 +174,10 @@ public class TransportMatrixTests
 
         Assert.Equal(new[] { "writexml:K" }, recorded.ToArray());
         // Named individually so a failure says WHICH old mechanism came back.
-        Assert.DoesNotContain(recorded, r => r.StartsWith("write:"));    // per-child / root WriteText
+        // Per-CHILD WriteText, which is the mechanism that flattened bodies. The ROOT's own `write:K` is the
+        // declaration aspect and is legitimate — but it is absent here anyway, because this push does not
+        // change the declaration and the no-op guard suppresses it.
+        Assert.DoesNotContain(recorded, r => r.StartsWith("write:"));
         Assert.DoesNotContain(recorded, r => r.StartsWith("create:"));   // per-child CreateChild / accessor create
         Assert.DoesNotContain(recorded, r => r.StartsWith("delete:"));   // orphan walk / accessor drop
     }

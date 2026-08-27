@@ -38,18 +38,10 @@ public class BodyCodecTests
     private static ItemContent Split(string decl, string body) =>
         new(ItemKind.Kinds.Program, decl, body, new System.Collections.Generic.List<Member>());
 
-    /// <summary>DEFECT 1 — a declaration edit on a GRAPHICAL POU must land. It used to be discarded silently:
-    /// the graphical write path took `declaration` only to resolve FB instance types and never wrote it, while
-    /// the push still reported "updated". Measured live on CODESYS 3.5.21.40: a declaration change DOES land on
-    /// an FBD-bodied POU through the merge import, body intact — so there was never a vendor reason for it.</summary>
-    [Fact]
-    public void A_declaration_edit_lands_on_a_graphical_POU()
-    {
-        var doc = PouDocument.Splice(Fbd, "VltFbd", Split(DeclB, BodyOfFixture()), establishing: false);
-
-        Assert.Contains("cAdded", doc);
-        Assert.Contains("<FBD", doc);          // …and the diagram is still a diagram
-    }
+    // DEFECT 1 — "a declaration edit on a GRAPHICAL POU must land" — used to be asserted here, against the
+    // spliced document. The declaration no longer travels the document, so that assertion would now pass or fail
+    // for reasons unrelated to the defect. It lives at the transport that carries it:
+    // PushDeclarationTransportTests.A_declaration_edit_lands_on_a_graphical_POU.
 
     /// <summary>The body still round-trips through the codec — the declaration write must not disturb it.
     /// Pushing the body back unchanged leaves the same graph, which is the codec's identity law.</summary>

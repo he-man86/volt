@@ -44,23 +44,14 @@ public class DeclarationOnlyDocumentTests
         else Assert.Contains("VAR_GLOBAL", parsed.Declaration);
     }
 
-    /// <summary>A declaration edit travels the document, for every one of those shapes. This is the write the
-    /// kinds joined the document FOR — it replaced a WriteText, so the value is not the write itself but that
-    /// there is no longer a second transport to keep in step with this one.</summary>
-    [Theory]
-    [InlineData("DUT.plcopen.xml", "DUT")]
-    [InlineData("VltProbeUnion.plcopen.xml", "VltProbeUnion")]
-    [InlineData("GVL.plcopen.xml", "GVL")]
-    public void B_a_declaration_edit_travels_the_document(string file, string name)
-    {
-        var split = new ItemContent(
-            ItemKind.Kinds.Dut, $"TYPE {name} :\nSTRUCT\n\tvltMarker : INT;\nEND_STRUCT\nEND_TYPE\n", "",
-            new System.Collections.Generic.List<Member>());
-
-        var doc = PouDocument.Splice(Fixture(file), name, split, establishing: false);
-
-        Assert.Contains("vltMarker", doc);
-    }
+    // B asserted that a declaration edit travels the DOCUMENT for each of these shapes. These kinds joined the
+    // document FOR that write — it replaced a WriteText — and the stated value was that "there is no longer a
+    // second transport to keep in step with this one".
+    //
+    // That goal is intact; the transport it settled on was wrong. The document's declaration carrier is an
+    // OPTIONAL vendor addData block, and TwinCAT stopped emitting it — so the single transport is now the
+    // declaration aspect, uniformly, for these kinds AND for POUs. Still one transport, on the side a
+    // conforming processor may not drop. Asserted in PushDeclarationTransportTests.
 
     /// <summary>Pushing CODE to a kind that has nowhere to put it FAILS, rather than being dropped. The empty
     /// case is the ordinary one and writes nothing — the two are different requests, and only one of them is

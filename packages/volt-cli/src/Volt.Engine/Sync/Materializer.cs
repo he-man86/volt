@@ -66,25 +66,35 @@ public static class Materializer
     {
         var xml = ide.ReadXml(item);
         var parsed = PouReader.Parse(xml);
-        // ONE source. A POU's declaration is its DOCUMENT's — there is no second transport here, and the COM
-        // aspect is not consulted. This used to be `?? ide.ReadDeclaration(item)`, justified as covering a
-        // TwinCAT FB that carries a structured <interface><localVars> and no plaintext of its own. MEASURED: that
-        // shape does not occur. All 8 recorded TwinCAT exports carry a POU-level <InterfaceAsPlainText>
-        // (including FB_TcMembers, whose POU-level <interface/> IS empty), CODESYS was measured to export one for
-        // even a freshly created POU (§3.3), and instrumenting the arm to throw produced ZERO hits across 195
-        // live e2e tests on both vendors plus the whole offline suite. The only thing asserting that shape was
-        // one hand-written test that TOLERATED null rather than demonstrating it.
+        // ONE source, and it is the IDE — not the document.
         //
-        // So a document without a declaration is a broken export, not a case to paper over: the fallback made a
-        // POU whose declaration failed to parse silently materialize with the COM text instead, and any
-        // divergence between the two representations became invisible.
-        var declaration = parsed.Declaration
-            ?? throw new InvalidOperationException(
-                $"'{ide.Name(item)}': its PLCopen export carries no <InterfaceAsPlainText> — a POU document " +
-                "without a declaration is a broken export");
+        // `InterfaceAsPlainText` is NOT part of PLCopen. It is a vendor `addData` block, and the TC6 XSD defines
+        // addData as "application specific data defined in external schemata" with a REQUIRED `handleUnknown`
+        // attribute enumerating preserve / discard / implementation. The standard has a vocabulary for DISMISSING
+        // vendor data, so requiring one such block requires something the specification says a processor may drop.
+        //
+        // This used to read `parsed.Declaration ?? throw`, on the measurement that a document without the block
+        // "does not occur" — 8/8 recorded exports carried it, and instrumenting the arm produced zero hits across
+        // 195 live e2e tests. MEASURED AGAIN 2026-08-27 and FALSIFIED: live TwinCAT stopped emitting the block
+        // while still emitting objectid, projectstructure, fbdcalltype and implementationattributes, and EVERY
+        // POU of both fixture projects became unreadable — `refs` answered with libraries, DUTs, GVLs and no POUs
+        // at all. Reproduced through the COM interface and the IDE's own export alike.
+        //
+        // The declaration was never lost; only its verbatim copy in the document was. The aspect is the object
+        // model rather than a serialisation, so it cannot be omitted by an exporter, and it is the engineer's own
+        // text — which the typed <interface> is not: 45 typed variables reproduce names and types, never the
+        // alignment or the blank line before END_VAR. See openspec/changes/declaration-from-the-aspect.
+        //
+        // The throw MOVES rather than going away: an item whose ASPECT has no declaration is still a hard
+        // failure, because that genuinely cannot happen.
+        var declaration = ide.ReadDeclaration(item);
+        if (string.IsNullOrEmpty(declaration))
+            throw new InvalidOperationException(
+                $"'{ide.Name(item)}': the IDE reports no declaration for this POU — that is a broken item, " +
+                "not a transport gap");
         var kind = CodeHelper.ParseCodeHeader(declaration).Type;
 
-        var folderMap = BuildFolderMap(ide, item);
+        var memberMap = BuildMemberMap(ide, item);
 
         var members = new List<Member>();
         foreach (var c in parsed.Children)
@@ -93,23 +103,23 @@ public static class Materializer
             members.Add(new Member(
                 Kind: c.PouType,
                 Name: c.Name,
-                Declaration: c.Declaration?.Trim()
-                    ?? (c.PouType == ItemKind.Kinds.Action ? $"ACTION {c.Name}" : $"METHOD {c.Name}"),
+                Declaration: MemberDeclaration(ide, memberMap, c.Name, c.PouType),
                 Body: impl,
-                Folder: FolderOf(folderMap, c.Name)));
+                Folder: FolderOf(memberMap, c.Name)));
         }
 
-        // Properties from the SAME export as everything else — no per-accessor COM walk. Both vendors carry
-        // <Property>/<GetAccessor|SetAccessor> with the accessor's body AND its declaration (verified live on
-        // each). Folder membership still comes from `folderMap`: PLCopen carries no folder information at all,
-        // which is the same reason WriteXml has to re-import into the original parent.
+        // Property BODIES come from the same export as everything else — no per-accessor COM walk. Both vendors
+        // carry <Property>/<GetAccessor|SetAccessor> with the accessor's body. The property's own DECLARATION
+        // comes from its aspect, for the same reason a method's does. Folder membership still comes from the
+        // walked map: PLCopen carries no folder information at all, which is the same reason WriteXml has to
+        // re-import into the original parent.
         foreach (var p in parsed.Properties)
             members.Add(new Member(
                 Kind: ItemKind.Kinds.Property,
                 Name: p.Name,
-                Declaration: p.Declaration?.Trim() ?? $"PROPERTY {p.Name}",
+                Declaration: MemberDeclaration(ide, memberMap, p.Name, ItemKind.Kinds.Property),
                 Body: null,
-                Folder: FolderOf(folderMap, p.Name),
+                Folder: FolderOf(memberMap, p.Name),
                 Getter: AccessorOf(p.GetterCode, p.GetterDeclaration),
                 Setter: AccessorOf(p.SetterCode, p.SetterDeclaration)));
 
@@ -117,8 +127,45 @@ public static class Materializer
         return new ItemContent(Kind: kind, Declaration: declaration.Trim(), Body: body, Members: members);
     }
 
-    private static string? FolderOf(Dictionary<string, string?> map, string name) =>
-        map.TryGetValue(name, out var f) && f is { Length: > 0 } ? f : null;
+    /// <summary>Where a member sits in the POU, and the handle to read it by. Walked off the scripting tree in
+    /// ONE pass, because both answers come from the same enumeration and a second walk would double the COM
+    /// traffic of every fetch.</summary>
+    private readonly record struct MemberSite(string? Folder, ItemRef Ref);
+
+    private static string? FolderOf(Dictionary<string, MemberSite> map, string name) =>
+        map.TryGetValue(name, out var site) && site.Folder is { Length: > 0 } ? site.Folder : null;
+
+    /// <summary>A member's declaration, from the member's OWN declaration aspect — the same single source the
+    /// root POU uses, one level down.
+    ///
+    /// <para>It used to come from the document, with <c>?? $"METHOD {name}"</c> behind it. On a TwinCAT install
+    /// whose export omits the verbatim block that fallback is not a safety net, it is the bug: a method declared
+    /// <c>METHOD Compute : INT / VAR_INPUT / d : INT; / END_VAR</c> materialized as bare <c>METHOD Compute</c>,
+    /// losing the return type and every parameter, and the push then wrote that back. Measured on this install:
+    /// the export carries ZERO <c>interfaceasplaintext</c> blocks and the string <c>VAR_INPUT</c> appears
+    /// nowhere in it at all — not even in typed form — while the member's aspect has the text exactly.</para>
+    ///
+    /// <para><b>An ACTION is the one member with no declaration to read</b>, in any IDE: IEC gives an action a
+    /// name and a body and nothing else, and Beckhoff's own object model says so — <c>_ITcPlcImplementation</c>
+    /// exposes <c>ImplementationText</c> and no <c>DeclarationText</c>. Its header is therefore COMPOSED here
+    /// rather than read. That is not a fallback for a missing value; it is the whole of what an action's header
+    /// is, and there is no source that could carry more.</para></summary>
+    private static string MemberDeclaration(IIdeDriver ide, Dictionary<string, MemberSite> map, string name, string pouType)
+    {
+        if (pouType == ItemKind.Kinds.Action) return $"ACTION {name}";
+
+        if (!map.TryGetValue(name, out var site))
+            throw new InvalidOperationException(
+                $"'{name}': the export declares this member but the project tree has no such child — the two " +
+                "views of the POU disagree, and materializing either one of them would be a guess");
+
+        var decl = ide.ReadDeclaration(site.Ref);
+        if (string.IsNullOrWhiteSpace(decl))
+            throw new InvalidOperationException(
+                $"'{name}': the IDE reports no declaration for this member — that is a broken item, not a " +
+                "transport gap");
+        return decl.Trim();
+    }
 
     /// <summary>The accessor, or null when the property has none. This decision used to be spread across the two
     /// fields it produced and re-made by every reader of the record ("a getter exists if its code OR its
@@ -163,7 +210,7 @@ public static class Materializer
         return lines.Length <= 2 && trimmed.StartsWith("VAR") && trimmed.EndsWith("END_VAR");
     }
 
-    /// <summary>Member name → in-POU folder path, walked off the SCRIPTING tree because PLCopen carries no
+    /// <summary>Member name → where it sits and how to read it, walked off the SCRIPTING tree because PLCopen carries no
     /// folder information at all (the same reason <c>WriteXml</c> has to re-import into the original parent).
     /// <para><b>No catch, deliberately.</b> A swallowed fault here does not degrade gracefully — it MUTATES the
     /// project on the next push. Every member the walk failed to reach materializes with a null folder, so the
@@ -174,9 +221,9 @@ public static class Materializer
     /// <para>The isolation boundary already exists ONE LEVEL UP, in <c>Versioning.SafeVersion</c>, which catches
     /// per item, LOGS the item's name, and lets the rest of the walk continue — so a genuinely unreadable POU
     /// still cannot crash a refs/fetch, and now says which one it was.</para></summary>
-    private static Dictionary<string, string?> BuildFolderMap(IIdeDriver ide, ItemRef parent, string basePath = "")
+    private static Dictionary<string, MemberSite> BuildMemberMap(IIdeDriver ide, ItemRef parent, string basePath = "")
     {
-        var map = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var map = new Dictionary<string, MemberSite>(StringComparer.Ordinal);
         int count = ide.ChildCount(parent);
         for (int i = 1; i <= count; i++)
         {
@@ -185,11 +232,11 @@ public static class Materializer
             var itemType = ide.KindCode(child);
             if (itemType == ItemKind.PlcFolder)
             {
-                foreach (var kv in BuildFolderMap(ide, child, FolderPath.Append(basePath, childName)))
+                foreach (var kv in BuildMemberMap(ide, child, FolderPath.Append(basePath, childName)))
                     map[kv.Key] = kv.Value;
                 continue;
             }
-            map[childName] = string.IsNullOrEmpty(basePath) ? null : basePath;
+            map[childName] = new MemberSite(string.IsNullOrEmpty(basePath) ? null : basePath, child);
         }
         return map;
     }

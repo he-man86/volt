@@ -188,3 +188,54 @@ network loses nothing — but the refusal itself must not be weakened further.
 
 **Fixture to record:** `POU_PBD` — the first captured export with a disabled network, and the evidence behind all
 three findings above.
+
+---
+
+## 6. The write direction — measured after the read was fixed
+
+The read fix exposed the other half. Same install, same day.
+
+### 6.1 The aspect write is exact; the IMPORT is the reformatter
+
+A POU created fresh, its declaration set through `set_DeclarationText`, then exported and re-imported with **no
+edit between the two**:
+
+| step | `x : INT;` | `yLonger   : BOOL;` | blank line before `END_VAR` |
+|---|---|---|---|
+| `set_DeclarationText` → `get_DeclarationText` | preserved | preserved | preserved |
+| `PlcOpenExport` → `PlcOpenImport(REPLACE)` | → `x: INT;` | → `yLonger: BOOL;` | **dropped** |
+
+Line endings are the only difference the aspect introduces (`
+` in, `
+` out).
+
+**Mechanism:** with no `InterfaceAsPlainText` in the document, TwinCAT's importer regenerates the declaration
+from the typed `<interface>`. That is the same lossy path §2 rules out for reads — it simply arrives through
+writes instead. It is a property of the transport, not of anything Volt pushes: a round trip that changes nothing
+still reformats.
+
+**Consequence for ordering:** an aspect write placed BEFORE the document write is silently undone by it, and the
+push still reports success. Document first, aspect second.
+
+### 6.2 The regression is not limited to the root declaration
+
+A probe FB with one `METHOD Compute : INT / VAR_INPUT / d : INT; / END_VAR` and one `ACTION`:
+
+| | value |
+|---|---|
+| method's own `DeclarationText` | the declaration, exactly |
+| action's own `DeclarationText` | `""` — an action HAS no declaration, in any IDE |
+| `interfaceasplaintext` blocks in the POU's export | **0** |
+| `<Method>` elements in the export | 1 |
+| typed `<interface>` blocks in the export | 1 — the ROOT's only |
+| the string `VAR_INPUT` anywhere in the export | **0** |
+
+So a member's declaration is absent from the document **in every form** — not even the lossy typed one. Reading it
+from the document produced bare `METHOD Compute`, losing the return type and every parameter; the push then wrote
+that back. Writing it to the document failed outright: *"child 'First' of 'X' has no `<InterfaceAsPlainText>` to
+write the declaration into"*.
+
+The remedy is the same one level down: a member's declaration comes from, and goes to, that member's own aspect.
+An ACTION is the exception in both directions — its `ACTION name` header is composed, because there is no source
+that could carry more. Beckhoff's own object model agrees: `_ITcPlcImplementation` exposes `ImplementationText`
+and no `DeclarationText`.
