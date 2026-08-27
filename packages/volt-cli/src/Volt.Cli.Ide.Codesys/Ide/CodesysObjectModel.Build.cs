@@ -34,9 +34,16 @@ namespace Volt.Cli.Ide.Codesys
         {
             var outv = new List<object>();
             var store = GetStaticMember("_3S.CoDeSys.ScriptDriverSystem.APEnvironment", "MessageStorage");
-            if (store == null) return outv;
+            // "I could not READ the diagnostics" must never read as "there were NONE". Build() above derives
+            // success from this list — no error-severity message means success — so an empty list from an
+            // unreachable MessageStorage reported a project that does not compile as building CLEANLY. A
+            // reflective miss here is the likeliest symptom of a CODESYS version change, which is exactly when a
+            // silent pass is most dangerous. So the failure to read becomes an ERROR diagnostic: visible in the
+            // build output, and enough on its own to make Build() answer false.
+            if (store == null) return Unreadable("CODESYS MessageStorage is unreachable");
             // GetMessages takes an IMessageCategory; enumerate all categories.
-            if (GetMember(store, "Categories") is not IEnumerable categories) return outv;
+            if (GetMember(store, "Categories") is not IEnumerable categories)
+                return Unreadable("CODESYS MessageStorage exposes no Categories");
             foreach (var cat in categories)
             {
                 if (InvokeMethod(store, "GetMessages", cat) is not IEnumerable msgs) continue;
@@ -54,5 +61,19 @@ namespace Volt.Cli.Ide.Codesys
             }
             return outv;
         }
+
+        /// <summary>A single error-severity diagnostic standing in for a diagnostic list that could not be read.
+        /// Never an empty list: empty means "the build was clean", and that is the one thing this does not know.</summary>
+        private static List<object> Unreadable(string why) => new List<object>
+        {
+            new Dictionary<string, object?>
+            {
+                ["severity"] = Volt.Contracts.Severity.Error,
+                ["message"] = $"volt could not read the build diagnostics ({why}) — the build result is UNKNOWN, " +
+                              "not clean. Check the IDE's own message view.",
+                ["line"] = 0,
+                ["column"] = 0,
+            },
+        };
     }
 }

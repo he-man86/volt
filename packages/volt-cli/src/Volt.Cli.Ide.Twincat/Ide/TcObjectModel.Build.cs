@@ -123,6 +123,19 @@ internal sealed partial class TcObjectModel
             // truncated parse makes a failing build look cleaner than it is — errors the engineer never sees.
             VoltLog.Warn($"twincat: build-output parsing stopped early after {result.Count} diagnostic(s) — " +
                          $"the reported list may be INCOMPLETE: {ex.Message}");
+            // The comment above is right that a partial list is worse than none — and returning one anyway is
+            // what made it happen. The caller reports this list AS the build result, so a truncated parse makes
+            // a failing build look cleaner than it is. Say so IN the list, where the caller and the engineer both
+            // see it, rather than only in a log neither reads.
+            result.Add(new BridgeDiagnostic
+            {
+                Severity = Volt.Contracts.Severity.Error,
+                Message = $"volt could not finish reading the build output after {result.Count} diagnostic(s) " +
+                          $"({ex.Message}) — this list is INCOMPLETE and the build result is unknown, not clean. " +
+                          "Check the IDE's own error list.",
+                Line = 0,
+                Column = 0,
+            });
         }
         return result;
     }
