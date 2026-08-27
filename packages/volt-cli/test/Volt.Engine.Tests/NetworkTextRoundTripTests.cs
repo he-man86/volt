@@ -5,7 +5,7 @@ namespace Volt.Cli.Tests;
 
 public class NetworkTextRoundTripTests
 {
-    private static string Round(string vg) => NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
+    private static string Round(string net) => NetworkTextWriter.Write(NetworkTextReader.Parse(net));
 
     [Theory]
     // Each of these shapes must CONVERGE to a fixed point through the readable-network-text round-trip. We assert
@@ -36,12 +36,12 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD\n  LET i1 := cond;\n  IF NOT i1 THEN JMP myLabel; END_IF\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  RETURN;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := done;\n  IF i1 THEN RETURN; END_IF\nEND_NETWORK\n")]
-    public void Vg_text_converges_to_a_fixed_point(string vg) => Assert.Equal(Round(vg), Round(Round(vg)));
+    public void Network_text_converges_to_a_fixed_point(string net) => Assert.Equal(Round(net), Round(Round(net)));
 
     [Theory]
     [InlineData("  x := y;\n")]                                                       // statement before any NETWORK
     [InlineData("NETWORK 0 FBD\n  out := (a AND b OR c);\nEND_NETWORK\n")]             // mixed operators in one parenthesised group
     [InlineData("NETWORK 0 FBD\n  out := ((a AND b);\nEND_NETWORK\n")]                 // unbalanced parens
-    public void Malformed_input_is_rejected(string vg)
-        => Assert.ThrowsAny<System.Exception>(() => NetworkTextReader.Parse(vg));
+    public void Malformed_input_is_rejected(string net)
+        => Assert.ThrowsAny<System.Exception>(() => NetworkTextReader.Parse(net));
 }

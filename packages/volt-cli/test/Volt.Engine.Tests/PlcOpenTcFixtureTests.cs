@@ -30,10 +30,10 @@ public class PlcOpenTcFixtureTests
         // this assignment (real data loss); it must now surface `elapsed := T1.ET`.
         var ld = TestPlcOpen.FindOnlyGraphicalBody(LdTonFixture());
         Assert.NotNull(ld);
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(ld!));
-        Assert.Contains("T1(IN :=", vg);            // the TON FB call is read
-        Assert.Contains("done := T1.Q", vg);         // boolean output Q → coil
-        Assert.Contains("elapsed := T1.ET", vg);     // the embedded non-boolean output assignment survives
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(ld!));
+        Assert.Contains("T1(IN :=", net);            // the TON FB call is read
+        Assert.Contains("done := T1.Q", net);         // boolean output Q → coil
+        Assert.Contains("elapsed := T1.ET", net);     // the embedded non-boolean output assignment survives
     }
 
     [Fact]
@@ -45,10 +45,10 @@ public class PlcOpenTcFixtureTests
         // live; must surface `elapsed := t1.ET`.
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-fbd", "fbd_ton_embedded_output.plcopen.xml")))!;
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd));
-        Assert.Contains("t1(IN :=", vg);              // the TON FB call
-        Assert.Contains("done := t1.Q", vg);           // boolean output → separate outVariable
-        Assert.Contains("elapsed := t1.ET", vg);       // non-boolean output embedded in the pin — must survive
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(fbd));
+        Assert.Contains("t1(IN :=", net);              // the TON FB call
+        Assert.Contains("done := t1.Q", net);           // boolean output → separate outVariable
+        Assert.Contains("elapsed := t1.ET", net);       // non-boolean output embedded in the pin — must survive
     }
 
     [Fact]
@@ -69,13 +69,13 @@ public class PlcOpenTcFixtureTests
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture());
         Assert.NotNull(fbd);
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
 
-        Assert.Contains("SR_0(SET1 := NOT xtest, RESET := xtestr1 RISING)", vg);  // SR FB + inlined operands + negation + edge
-        Assert.Contains("out := SR_0.Q1", vg);                                    // branch / fan-out...
-        Assert.Contains("out2 := SR_0.Q1", vg);                                   // ...same output, two sinks
-        Assert.Contains("IF adfdsa THEN JMP jump12; END_IF", vg);                 // conditional jump, inlined condition (valid ST)
-        Assert.Contains("jump12:", vg);                                           // label (valid ST)
+        Assert.Contains("SR_0(SET1 := NOT xtest, RESET := xtestr1 RISING)", net);  // SR FB + inlined operands + negation + edge
+        Assert.Contains("out := SR_0.Q1", net);                                    // branch / fan-out...
+        Assert.Contains("out2 := SR_0.Q1", net);                                   // ...same output, two sinks
+        Assert.Contains("IF adfdsa THEN JMP jump12; END_IF", net);                 // conditional jump, inlined condition (valid ST)
+        Assert.Contains("jump12:", net);                                           // label (valid ST)
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class PlcOpenTcFixtureTests
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(JumpFixture())!;
         var g1 = GraphReader.ReadBody(fbd);
-        var vg1 = NetworkTextWriter.Write(g1);
+        var net1 = NetworkTextWriter.Write(g1);
 
         var xml2 = GraphWriter.WriteBody(g1).ToString();
         Assert.Contains("<jump", xml2);
@@ -91,7 +91,7 @@ public class PlcOpenTcFixtureTests
         Assert.Contains("negated=\"true\"", xml2);
         Assert.Contains("edge=\"rising\"", xml2);
 
-        Assert.Equal(vg1, GraphRoundTrip.ToVg(g1));  // fixed point
+        Assert.Equal(net1, GraphRoundTrip.ToNetworkText(g1));  // fixed point
     }
 
     [Fact]
@@ -99,16 +99,16 @@ public class PlcOpenTcFixtureTests
     {
         var fbd = TestPlcOpen.FindOnlyGraphicalBody(Fixture());
         Assert.NotNull(fbd);
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(fbd!));
 
-        Assert.Matches(@"NETWORK \d+ FBD", vg);   // language rides on the network marker
+        Assert.Matches(@"NETWORK \d+ FBD", net);   // language rides on the network marker
         // Literal operands are inlined into the operator statement (e.g. `xtest := (FALSE AND TRUE);`).
-        Assert.Contains("FALSE", vg);
-        Assert.Contains("TRUE", vg);
-        Assert.Contains(" AND ", vg);
-        Assert.Contains(" OR ", vg);
+        Assert.Contains("FALSE", net);
+        Assert.Contains("TRUE", net);
+        Assert.Contains(" AND ", net);
+        Assert.Contains(" OR ", net);
         foreach (var target in new[] { "xtest", "xtest1", "xtest3" })
-            Assert.Contains(target, vg);
+            Assert.Contains(target, net);
     }
 
     [Fact]
@@ -117,16 +117,16 @@ public class PlcOpenTcFixtureTests
         var body = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
         Assert.Equal(3, body.Networks.Count);   // PLC_PRG's action is three FBD networks
 
-        var vg = NetworkTextWriter.Write(body);
+        var net = NetworkTextWriter.Write(body);
         // one "NETWORK <n> <LANG>" header per network (don't count the END_NETWORK terminators)
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(vg, @"(?m)^NETWORK \d").Count);
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(net, @"(?m)^NETWORK \d").Count);
 
         // Each network is independent: its target carries its own inlined operator expression (valid ST),
         // never a `g1.Out1` pin suffix.
-        Assert.Contains("xtest := (FALSE AND TRUE);", vg);
-        Assert.Contains("xtest1 := (TRUE AND TRUE);", vg);
-        Assert.Contains("xtest3 := (FALSE OR TRUE);", vg);
-        Assert.DoesNotContain(".Out1", vg);
+        Assert.Contains("xtest := (FALSE AND TRUE);", net);
+        Assert.Contains("xtest1 := (TRUE AND TRUE);", net);
+        Assert.Contains("xtest3 := (FALSE OR TRUE);", net);
+        Assert.DoesNotContain(".Out1", net);
     }
 
     [Fact]

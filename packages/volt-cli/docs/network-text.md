@@ -1,4 +1,4 @@
-# The network text Language — Design & Specification
+﻿# The network text Language — Design & Specification
 
 > **Status:** shipped (inline-`LET` form; `VAR_TEMP` retired in commit `e1c94d806`).
 > **Audience:** anyone building tooling for network text — primarily a **language server (LSP)**.
@@ -531,4 +531,4 @@ END_NETWORK
 | `src/Volt.Engine/Body/Graph/FbdOperators.cs` | the single operator table (symbol ↔ box type) |
 | `src/Volt.Engine/Body/NetworkCode.cs` | `Validate` — the well-formedness gate (§9) |
 | `docs/network-text-diagnostics.md` | the bridge-side quick-reference (a subset of §9–§10) |
-| `test/Volt.Engine.Tests/Vg*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |
+| `test/Volt.Engine.Tests/Network text*Tests.cs`, `EnEnoTests.cs`, `LadderRoundTripTests.cs` | round-trip, diagnostics, and feature fixtures — a living example corpus |

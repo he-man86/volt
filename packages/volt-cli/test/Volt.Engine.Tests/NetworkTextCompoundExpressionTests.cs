@@ -93,9 +93,9 @@ public class NetworkTextCompoundExpressionTests
         // The supported inversions — NOT on an input operand and on the output sink — survive network text → PLCopen → network text
         // (negated="true" on the pin/variable). Assert the round-trip CONVERGES (settles to a fixed point)
         // rather than equality to a hand-written canonical string.
-        var vg = "NETWORK 0 FBD\n  LET g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";
-        var once = GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg));
-        Assert.Equal(once, GraphRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // fixed point
+        var net = "NETWORK 0 FBD\n  LET g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";
+        var once = GraphRoundTrip.ToNetworkText(NetworkTextReader.Parse(net));
+        Assert.Equal(once, GraphRoundTrip.ToNetworkText(NetworkTextReader.Parse(once)));   // fixed point
         Assert.Contains("negated", GraphWriter.WriteBody(NetworkTextReader.Parse(once)).ToString().ToLowerInvariant());
     }
 
@@ -104,21 +104,21 @@ public class NetworkTextCompoundExpressionTests
     {
         // TwinCAT drops `negated` on an <inVariable>, so a negated leaf carries NOT in the EXPRESSION text
         // (both IDEs round-trip expression text verbatim). Edge/storage would stay attrs.
-        var vg = "NETWORK 0 FBD\n  LET i1 := NOT x;\n  out := i1;\nEND_NETWORK\n";
-        var graph = NetworkTextReader.Parse(vg);
+        var net = "NETWORK 0 FBD\n  LET i1 := NOT x;\n  out := i1;\nEND_NETWORK\n";
+        var graph = NetworkTextReader.Parse(net);
         var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("NOT x", xml);                            // negation is in the expression
         Assert.DoesNotContain("negated", xml.ToLowerInvariant()); // NOT as a `negated` attribute
-        var back = GraphRoundTrip.ToVg(graph);
-        Assert.Equal(vg, back);                                   // read↔write symmetric (bridge fixed point)
+        var back = GraphRoundTrip.ToNetworkText(graph);
+        Assert.Equal(net, back);                                   // read↔write symmetric (bridge fixed point)
     }
 
     [Fact]
     public void Output_negation_stays_a_negated_outVariable_attribute()
     {
         // TC HANDLES `negated` on an outVariable — keep it there, don't move it into expression text.
-        var vg = "NETWORK 0 FBD\n  LET i1 := x;\n  out := NOT i1;\nEND_NETWORK\n";
-        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
+        var net = "NETWORK 0 FBD\n  LET i1 := x;\n  out := NOT i1;\nEND_NETWORK\n";
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(net)).ToString();
         Assert.Contains("outVariable", xml);
         Assert.Contains("negated", xml.ToLowerInvariant());       // output negation stays an attribute
         Assert.DoesNotContain("NOT i1", xml);                     // not moved into text

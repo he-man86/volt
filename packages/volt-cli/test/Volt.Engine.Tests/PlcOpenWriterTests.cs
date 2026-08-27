@@ -15,13 +15,13 @@ public class PlcOpenWriterTests
     private static void AssertXmlRoundTrip(string fbdInner)
     {
         var g1 = GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbdInner}</FBD>"));
-        var vg1 = NetworkTextWriter.Write(g1);
+        var net1 = NetworkTextWriter.Write(g1);
 
         var xml2 = GraphWriter.WriteBody(g1);           // graph → PLCopenXML
         var g2 = GraphReader.ReadBody(xml2);            // PLCopenXML → graph
-        var vg2 = NetworkTextWriter.Write(g2);
+        var net2 = NetworkTextWriter.Write(g2);
 
-        Assert.Equal(vg1, vg2);
+        Assert.Equal(net1, net2);
         Assert.Equal(Ns, xml2.Name.Namespace);           // emitted in the PLCopen namespace
     }
 
@@ -78,12 +78,12 @@ public class PlcOpenWriterTests
             <outVariable localId="4"><expression>out</expression><connectionPointIn><connection refLocalId="3"/></connectionPointIn></outVariable>
             """;
         var g1 = GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbd}</FBD>"));
-        var vg1 = NetworkTextWriter.Write(g1);
-        Assert.Contains("NOT a", vg1);                                   // negation surfaces in network text as a pin modifier on the inlined operand
+        var net1 = NetworkTextWriter.Write(g1);
+        Assert.Contains("NOT a", net1);                                   // negation surfaces in network text as a pin modifier on the inlined operand
 
         var xml2 = GraphWriter.WriteBody(g1);
         Assert.Contains("negated=\"true\"", xml2.ToString());           // re-emitted, not dropped
-        Assert.Equal(vg1, NetworkTextWriter.Write(GraphReader.ReadBody(xml2))); // fixed point
+        Assert.Equal(net1, NetworkTextWriter.Write(GraphReader.ReadBody(xml2))); // fixed point
     }
 
     /// <summary>FBD and LD share the PLCopen element set — only the wrapper/view differs. An LD body
@@ -172,23 +172,23 @@ public class PlcOpenWriterTests
             <outVariable localId="4"><expression>out</expression><connectionPointIn><connection refLocalId="3" formalParameter="Out1"/></connectionPointIn></outVariable>
             """;
         var g = GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
-        var vg = NetworkTextWriter.Write(g);
-        Assert.Contains("out := (a OR b);", vg);   // single-use operator result inlined into the consumer
-        Assert.DoesNotContain(".Out1", vg);        // no non-ST pin suffix
-        Assert.Equal(vg, GraphRoundTrip.ToVg(vg));  // fixed point
+        var net = NetworkTextWriter.Write(g);
+        Assert.Contains("out := (a OR b);", net);   // single-use operator result inlined into the consumer
+        Assert.DoesNotContain(".Out1", net);        // no non-ST pin suffix
+        Assert.Equal(net, GraphRoundTrip.ToNetworkText(net));  // fixed point
     }
 
     /// <summary>Regression: a MULTI-network body must round-trip through XML without colliding
     /// localIds. Each NetworkTextReader network used to restart numbering at 1, so a 2nd network duplicated
     /// ids → networks collapsed / the IDE import broke on push. localIds now encode the network.</summary>
     [Fact]
-    public void Multi_network_vg_round_trips_through_xml()
+    public void Multi_network_net_round_trips_through_xml()
     {
-        const string vg =
+        const string net =
             "NETWORK 0 FBD\n  x := (a AND b);\nEND_NETWORK\n" +
             "NETWORK 1 FBD\n  y := (c OR d);\nEND_NETWORK\n";
-        var back = GraphRoundTrip.ToVg(vg);
-        Assert.Equal(vg, back);              // a true fixed point — no hash drift, no collapse
+        var back = GraphRoundTrip.ToNetworkText(net);
+        Assert.Equal(net, back);              // a true fixed point — no hash drift, no collapse
         Assert.Contains("NETWORK 0 FBD", back);   // both networks survive (the 2nd used to collapse onto the 1st)
         Assert.Contains("NETWORK 1 FBD", back);
     }
@@ -199,11 +199,11 @@ public class PlcOpenWriterTests
     [Fact]
     public void Multi_network_ld_keeps_every_network()
     {
-        const string vg =
+        const string net =
             "NETWORK 0 LD\n" +
             "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
             "NETWORK 1 LD\n  LET i1 := c;\n  y := i1;\nEND_NETWORK\n";
-        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg));
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(net));
         // TwinCAT's multi-network LD form (confirmed against a real 4-network capture): ONE shared left/right
         // rail brackets the body, each network is a vendorElement(networktitle) marker.
         Assert.Single(xml.Elements(XName.Get("leftPowerRail", Ns)));
@@ -223,27 +223,27 @@ public class PlcOpenWriterTests
     [Fact]
     public void Fb_output_referenced_only_on_consumer_is_declared_on_the_block()
     {
-        const string vg =
+        const string net =
             "NETWORK 0 FBD\n  t1(CLK := clk);\n  done := t1.Q;\nEND_NETWORK\n";
-        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg), inst => inst == "t1" ? "R_TRIG" : null);
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(net), inst => inst == "t1" ? "R_TRIG" : null);
         var blk = xml.Descendants(XName.Get("block", Ns)).First(b => (string?)b.Attribute("instanceName") == "t1");
         var outPins = blk.Element(XName.Get("outputVariables", Ns))!.Elements()
             .Select(v => (string?)v.Attribute("formalParameter")).ToList();
         Assert.Contains("Q", outPins);                                          // the block declares Q
-        Assert.Equal(vg, NetworkTextWriter.Write(GraphReader.ReadBody(xml)));          // and it round-trips (fixed point)
+        Assert.Equal(net, NetworkTextWriter.Write(GraphReader.ReadBody(xml)));          // and it round-trips (fixed point)
     }
 
     /// <summary>Full pipeline network text → graph → PLCopenXML → graph → network text (the write path the bridge runs),
     /// with FB types supplied by the declaration resolver.</summary>
     [Fact]
-    public void Vg_through_xml_back_to_vg_with_type_resolver()
+    public void Network_through_xml_back_to_net_with_type_resolver()
     {
-        const string vg =
+        const string net =
             "NETWORK 0 FBD\n  t1(IN := start, PT := pt);\n  running := t1.Q;\nEND_NETWORK\n";
-        var graph = NetworkTextReader.Parse(vg);
+        var graph = NetworkTextReader.Parse(net);
         var xml = GraphWriter.WriteBody(graph, inst => inst == "t1" ? "TON" : null);
         Assert.Contains("typeName=\"TON\"", xml.ToString());
         var back = NetworkTextWriter.Write(GraphReader.ReadBody(xml));
-        Assert.Equal(vg, back);   // fixed point
+        Assert.Equal(net, back);   // fixed point
     }
 }

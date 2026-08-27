@@ -16,7 +16,7 @@ namespace Volt.Cli.Tests;
 public class LdBlockFeatureTests
 {
     // network text → PLCopen → network text, resolving an FB instance's type (network text carries no types). Mirrors the live round-trip.
-    private static string Rt(string vg) => GraphRoundTrip.ToVg(vg, _ => "TON");
+    private static string Rt(string net) => GraphRoundTrip.ToNetworkText(net, _ => "TON");
 
     private const string TonRung =
         "NETWORK 0 LD\n  t1(IN := enable, PT := pt);\n  done := t1.Q;\n  elapsed := t1.ET;\nEND_NETWORK\n";

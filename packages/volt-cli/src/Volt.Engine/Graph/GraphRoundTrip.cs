@@ -18,11 +18,11 @@ namespace Volt.Engine.Graph
             => GraphReader.ReadBody(GraphWriter.WriteBody(graph, resolveType));
 
         /// <summary>The network text the IDE would hand back after one PLCopen round-trip.</summary>
-        public static string ToVg(GraphBody graph, Func<string, string?>? resolveType = null)
+        public static string ToNetworkText(GraphBody graph, Func<string, string?>? resolveType = null)
             => NetworkTextWriter.Write(Once(graph, resolveType));
 
         /// <summary>Parse a network-text body, take it once through PLCopen, and render it back to network text.</summary>
-        public static string ToVg(string vgText, Func<string, string?>? resolveType = null)
-            => ToVg(NetworkTextReader.Parse(vgText), resolveType);
+        public static string ToNetworkText(string networkText, Func<string, string?>? resolveType = null)
+            => ToNetworkText(NetworkTextReader.Parse(networkText), resolveType);
     }
 }

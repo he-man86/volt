@@ -428,7 +428,7 @@ ${src}`)
 }
 
 // Everything in a network line that is grammar rather than the engineer's program.
-const VG_KEYWORDS = new Set([
+const NETWORK_KEYWORDS = new Set([
 	"NETWORK", "END_NETWORK", "FBD", "LD", "DISABLED", "LET", "NOT", "AND", "OR", "XOR", "MOD",
 	"IF", "THEN", "ELSE", "END_IF", "JMP", "RETURN", "EXECUTE", "END_EXECUTE", "TRUE", "FALSE",
 ])
@@ -456,7 +456,7 @@ const VG_KEYWORDS = new Set([
  */
 export function expectNoOperandsLost(pushed: string, fetched: string): void {
 	const idents = (s: string): string[] =>
-		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !VG_KEYWORDS.has(w.toUpperCase()))
+		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !NETWORK_KEYWORDS.has(w.toUpperCase()))
 
 	const body = bodyOf(pushed)
 	const bound = new Set((body.match(/\bLET\s+([A-Za-z_]\w*)/g) ?? []).map((m) => m.split(/\s+/)[1]))

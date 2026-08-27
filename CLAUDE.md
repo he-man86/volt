@@ -82,7 +82,7 @@ with `dotnet`; the TS e2e parity suite runs with `bun`:
 # from packages/volt-cli
 dotnet build Volt.Cli.sln -c Release                       # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                           # pipe transport + ported sync + black-box CLI
-dotnet test test/Volt.Engine.Tests/                      # shared engine (parsing/PLCopen/VG + push/fetch)
+dotnet test test/Volt.Engine.Tests/                      # shared engine (parsing/PLCopen/network text + push/fetch)
 dotnet test test/Volt.Cli.Connector.Tests/                 # connector core: session model, reconciler, TC supervisor
 dotnet test test/Volt.Cli.Ide.Twincat.Tests/                # TwinCAT driver, offline (dynamic doubles — no live XAE)
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
@@ -107,16 +107,16 @@ live PLC IDE  ──named pipe──  volt-cli (C#)  ──>  git repo of text f
   - **the bridges** — one live IDE exposed over the pipe. **`Volt.Engine` holds everything shareable; only irreducible vendor glue lives in an IDE host (`Volt.Cli.Ide.Codesys` / `Volt.Cli.Ide.Twincat`, each = driver + pipe host).** The parity boundary is the pipe wire (not the driver), so both vendors serve byte-identical responses for the same project. See `packages/volt-cli/ARCHITECTURE.md` — read it before touching bridge code; it documents the Core layer stack (`Ide` contract → `Wire` → `Sync` → `Workspace`/`PlcOpen`/`Graphical`), the rule that **content travels as ONE PLCopen document while structure — folders, placement, rename — travels on the scripting API**, and the **load-bearing CODESYS↔Beckhoff asymmetries that must not be "unified"** (censused in `packages/volt-cli/src/Volt.Engine/PlcOpen/DIALECT.md`).
   - **the `volt` CLI** — `init`, `pull`, `push`, `status`, `build`, `show`, `merge`. **Git-native, single-repo:** `init` makes the project root a git repo; the live IDE is modeled as a git **remote-tracking branch** (`refs/remotes/volt/ide`, shown in the graph as `volt/ide` — the IDE *is* a remote you fetch+merge on pull / push to on push), so `pull`/`push` reconcile through native `git merge` — no custom 3-way merge engine and no separate `.volt/` snapshot. Talks to the pipe host (one declarative `set`/`delete` push wire); the workspace binding stores the **vendor** (`codesys`/`twincat`), which names the pipe (`volt.bridge.codesys` / `volt.bridge.twincat`). `volt init --vendor <codesys|twincat>` binds; `VOLT_PIPE` names the pipe directly (dev/tests).
   - **the connector** — the tray supervisor that spawns the TwinCAT worker + launches CODESYS's in-proc host, and probes `health` over the pipe.
-- **`packages/volt-lsp-iec`** (`@volt/lsp-iec`) — TypeScript-native LSP for Structured Text (nav, diagnostics, completion, hover, signature help, semantic tokens), driven by an embedded CODESYS language reference. Editable FBD/LD bodies are materialized as a textual **VG** form the LSP analyzes as its own first-class sublanguage (CFC/SFC/IL are unsupported — a marker, not content) — see the VG language note below. Type-checking/codegen stay the IDE's job.
+- **`packages/volt-lsp-iec`** (`@volt/lsp-iec`) — TypeScript-native LSP for Structured Text (nav, diagnostics, completion, hover, signature help, semantic tokens), driven by an embedded CODESYS language reference. Editable FBD/LD bodies are materialized as **network text** — a textual form the LSP analyzes as its own first-class sublanguage (CFC/SFC/IL are unsupported — a marker, not content). See the network-text note below. Type-checking/codegen stay the IDE's job.
 - **`packages/volt-vscode`** — VS Code extension: syntax + language intelligence for PLC languages, plus drift coloring (files the IDE changed vs. git changes).
 
 ### Protocol invariant: the item **name** is the identity
 
 The whole wire is keyed by bare item name — `refs`, `fetch` `knownItems`, every push op, `structureVersion` (hash of sorted names), and the one-item-per-file layout. This is deliberate and load-bearing across `volt-cli` and `volt-vscode`. Same-name items collapse last-write-wins; this is fine for source items (IEC guarantees unique names) and only affects opaque non-source items the AI never edits. **Do not add a "duplicate name" guard that throws** — real projects legitimately repeat opaque names, and throwing breaks `/refs`.
 
-### VG (graphical) language
+### Network text (the FBD/LD source form)
 
-Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** form; CFC, SFC and IL are **unsupported** — they materialize as a marker and are refused on push, never flattened to ST. The VG language is specified in `packages/volt-cli/docs/network-text.md` and `network-text-diagnostics.md`. VG wires use inline `LET`. `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Engine/Workspace/ItemKind` is the source of truth).
+Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ **network text**; CFC, SFC and IL are **unsupported** — they materialize as a marker and are refused on push, never flattened to ST. The format is specified in `packages/volt-cli/docs/network-text.md` and `network-text-diagnostics.md`; wires use inline `LET`. FBD and LD share one model, one text format and one pipeline — `GraphReader` lowers a ladder’s contacts and coils into the same boolean node graph an FBD network uses — so they are never split in the code. (It was briefly called "VG"; that alias is retired.) `packages/volt-cli/docs/ITEM_KINDS.md` documents the vendor-neutral item-type table (`Volt.Engine/Vocabulary/ItemKind` is the source of truth).
 
 ## Agent hosts — PATH, and nothing else
 

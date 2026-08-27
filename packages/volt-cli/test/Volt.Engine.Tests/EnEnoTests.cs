@@ -15,17 +15,17 @@ public class EnEnoTests
     public void EnEno_reads_as_IF_parses_back_and_is_a_fixed_point()
     {
         var g0 = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(Fixture())!);
-        var vg0 = NetworkTextWriter.Write(g0);
+        var net0 = NetworkTextWriter.Write(g0);
 
         // NetworkTextReader is the exact inverse of NetworkTextWriter (the network text-text fixed point).
-        var vg1 = NetworkTextWriter.Write(NetworkTextReader.Parse(vg0));
+        var net1 = NetworkTextWriter.Write(NetworkTextReader.Parse(net0));
         // And the parsed graph survives a full PLCopen round-trip (the convergence the push-gate checks).
-        var vg2 = GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg0));
+        var net2 = GraphRoundTrip.ToNetworkText(NetworkTextReader.Parse(net0));
 
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_rt.txt"),
-            "=== vg0 (read) ===\n" + vg0 + "\n=== vg1 (parse→write) ===\n" + vg1 + "\n=== vg2 (parse→plcopen→write) ===\n" + vg2);
-        Assert.Equal(vg0, vg1);
-        Assert.Equal(vg0, vg2);
+            "=== net0 (read) ===\n" + net0 + "\n=== net1 (parse→write) ===\n" + net1 + "\n=== net2 (parse→plcopen→write) ===\n" + net2);
+        Assert.Equal(net0, net1);
+        Assert.Equal(net0, net2);
     }
 
     [Fact]
@@ -61,13 +61,13 @@ public class EnEnoTests
             "</block>" +
             "<outVariable localId=\"3\"><connectionPointIn><connection refLocalId=\"2\" formalParameter=\"OUT\"/></connectionPointIn><expression>y</expression></outVariable>" +
             "</FBD></body></pou></pous></types></project>";
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
-        File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), vg);
-        Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
-        Assert.DoesNotContain("IF en", vg);    // not EN-guarded
-        Assert.Contains("FC_Do(", vg);         // rendered as a plain call
-        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));            // network text-text fixed point
-        Assert.Equal(vg, GraphRoundTrip.ToVg(NetworkTextReader.Parse(vg)));   // PLCopen convergence
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), net);
+        Assert.DoesNotContain("LET en", net);   // no empty/broken EN wire
+        Assert.DoesNotContain("IF en", net);    // not EN-guarded
+        Assert.Contains("FC_Do(", net);         // rendered as a plain call
+        Assert.Equal(net, NetworkTextWriter.Write(NetworkTextReader.Parse(net)));            // network text-text fixed point
+        Assert.Equal(net, GraphRoundTrip.ToNetworkText(NetworkTextReader.Parse(net)));   // PLCopen convergence
     }
 
     [Fact]
@@ -89,25 +89,25 @@ public class EnEnoTests
             "</block>" +
             "<coil localId=\"4\"><connectionPointIn><connection refLocalId=\"3\" formalParameter=\"OUT\"/></connectionPointIn><variable>y</variable></coil>" +
             "</LD></body></pou></pous></types></project>";
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
-        Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
-        Assert.DoesNotContain("IF en", vg);    // not EN-guarded
-        Assert.Equal(vg, NetworkTextWriter.Write(NetworkTextReader.Parse(vg)));   // network text-text fixed point
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        Assert.DoesNotContain("LET en", net);   // no empty/broken EN wire
+        Assert.DoesNotContain("IF en", net);    // not EN-guarded
+        Assert.Equal(net, NetworkTextWriter.Write(NetworkTextReader.Parse(net)));   // network text-text fixed point
     }
 
     [Fact]
     public void EnEno_on_a_function_block_round_trips()
     {
         // An EN-gated FB call: `IF en THEN inst(IN := x); END_IF`, its value outputs read separately via inst.Pin.
-        var vg =
+        var net =
             "NETWORK 0 FBD\n" +
             "  LET en1 := a;\n" +
             "  IF en1 THEN t1(IN := x, PT := y); END_IF\n" +
             "  done := t1.Q;\n" +
             "END_NETWORK\n";
-        var once = NetworkTextWriter.Write(NetworkTextReader.Parse(vg));
+        var once = NetworkTextWriter.Write(NetworkTextReader.Parse(net));
         File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_fb.txt"), once);
         Assert.Equal(once, NetworkTextWriter.Write(NetworkTextReader.Parse(once)));            // network text-text fixed point
-        Assert.Equal(once, GraphRoundTrip.ToVg(NetworkTextReader.Parse(once)));   // PLCopen convergence
+        Assert.Equal(once, GraphRoundTrip.ToNetworkText(NetworkTextReader.Parse(once)));   // PLCopen convergence
     }
 }

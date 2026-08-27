@@ -505,8 +505,8 @@ public class PouSpliceTests
         Assert.Equal("FBD", child.BodyLanguage);                   // the fixture really does carry an FBD child
 
         // BodyElement is the LANGUAGE element (<FBD>), not the <body> wrapper — decode it directly.
-        var vg = BodyCodec.For("FBD").Decode(child.BodyElement!);  // the child's body as network text
-        var outXml = PouSplice.SetChildText(SfcRootStFbdMethods, "POU", "fbdmeth", null, vg, null);
+        var net = BodyCodec.For("FBD").Decode(child.BodyElement!);  // the child's body as network text
+        var outXml = PouSplice.SetChildText(SfcRootStFbdMethods, "POU", "fbdmeth", null, net, null);
 
         // The body SURVIVES as FBD carrying the same graph. Byte identity is deliberately NOT asserted: a
         // graphical body is normalized on its first write (ids and element order — tasks.md §3.1 records the
@@ -552,7 +552,7 @@ public class PouSpliceTests
     // `tc-fbd/fbd_ton_embedded_output.plcopen.xml` is a recorded TwinCAT export whose body holds a real FB
     // INSTANCE box: <block typeName="TON" instanceName="t1">. Every graphical case in the live e2e suite and in
     // FbdCorpusRoundTripTests uses OPERATORS only (AND/OR/contacts) or an EXECUTE box, so none of them can see
-    // an emptied typeName — and the corpus test asserts on element NAMES and VG text, neither of which carries
+    // an emptied typeName — and the corpus test asserts on element NAMES and network text text, neither of which carries
     // the attribute. That is why this bug survived: the blind spot was structural, not accidental.
     private static string TonFbd => Fixture("tc-fbd", "fbd_ton_embedded_output.plcopen.xml");
 
@@ -563,15 +563,15 @@ public class PouSpliceTests
     public void An_FB_instance_keeps_its_type_when_the_body_is_written()
     {
         var parsed = PouReader.Parse(TonFbd);
-        var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
-        Assert.DoesNotContain("TON", vg);            // network text genuinely does NOT carry the type
+        var net = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
+        Assert.DoesNotContain("TON", net);            // network text genuinely does NOT carry the type
 
         // The declaration is supplied explicitly rather than read from the fixture: this recording's own
         // <InterfaceAsPlainText> is `PROGRAM fbdton VAR END_VAR` — an EMPTY var block that does not declare `t1`
         // at all. On a real push the declaration comes from the workspace source, which must declare every
         // instance it uses (IEC requires it), so this is the shape the resolver actually sees.
         const string decl = "PROGRAM fbdton\nVAR\n\tt1 : TON;\nEND_VAR";
-        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, decl, establishing: false);
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", net, decl, establishing: false);
 
         var blocks = XDocument.Parse(outXml).Descendants()
             .Where(e => e.Name.LocalName == "block")
@@ -595,8 +595,8 @@ public class PouSpliceTests
     public void Without_a_declaration_the_FB_type_comes_from_the_body_being_replaced()
     {
         var parsed = PouReader.Parse(TonFbd);
-        var vg = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
-        var outXml = PouSplice.SetBody(TonFbd, "fbdton", vg, null, establishing: false);
+        var net = BodyCodec.For("FBD").Decode(parsed.BodyElement!);
+        var outXml = PouSplice.SetBody(TonFbd, "fbdton", net, null, establishing: false);
         var t = XDocument.Parse(outXml).Descendants()
             .First(e => e.Name.LocalName == "block").Attribute("typeName")!.Value;
         Assert.Equal("TON", t);

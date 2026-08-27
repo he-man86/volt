@@ -73,7 +73,7 @@ internal static class BodyFormatGuard
             lang = ide.BodyLanguage(live);
         }
 
-        var childVg = NetworkText.Is(cimpl);
+        var childIsNetwork = NetworkText.Is(cimpl);
 
         // An unsupported body round-trips as the MARKER, and pushing the marker back is the ordinary no-op — the
         // splice leaves that member's body untouched. So the marker is only a refusal when it does NOT match a
@@ -90,11 +90,11 @@ internal static class BodyFormatGuard
         if (Languages.IsDiagram(lang))
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' has a {lang} body, which Volt does not support — edit it in the IDE, not via push.");
-        if (lang is not null && !childVg)
+        if (lang is not null && !childIsNetwork)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' is a graphical {lang} body in the IDE — a textual push would overwrite it. " +
                 "Edit it in the IDE, or delete it first to replace it.");
-        if (lang is null && childVg)
+        if (lang is null && childIsNetwork)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{child.Name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
     }

@@ -27,9 +27,11 @@ The FBD/LD textual form is called **network text** almost everywhere that matter
 `NetworkTextReader`, `NetworkTextWriter`, `NetworkCode`, `docs/network-text.md`. `volt-lsp-iec` agrees: 213
 mentions of "network text" / "networkText" against 31 of "VG".
 
-"VG" survives as an alias in test method names, fixture prefixes (`vg_*`), one e2e constant, and prose. **No
-production identifier uses it.** It is a second name for a thing that already has one, and a reader has to learn
-both to be sure they are the same thing.
+"VG" survives as an alias in test method names, fixture prefixes (`vg_*`), one e2e constant, prose — and, it
+turned out, **three production identifiers**: `GraphRoundTrip.ToVg`, and the locals `childVg` / `pouVg`. (An
+earlier draft of this document said there were none; that was measured with a `vg` grep that cannot see a
+camelCase compound.) It is a second name for a thing that already has one, and a reader has to learn both to be
+sure they are the same thing.
 
 ### The two questions that settles, and one it does not
 

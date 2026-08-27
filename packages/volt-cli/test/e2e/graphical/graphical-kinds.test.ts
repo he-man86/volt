@@ -88,8 +88,8 @@ for (const lang of ["FBD", "LD"]) {
 
 		for (const [kind, ext] of [["function_block", "fb"], ["program", "prg"], ["function", "fun"]] as const) {
 			it(`a ${lang} ${kind} round-trips`, async () => {
-				const name = id(`vg_${tag}_${ext}`)
-				const full = fid(`vg_${tag}_${ext}`, ext)
+				const name = id(`net_${tag}_${ext}`)
+				const full = fid(`net_${tag}_${ext}`, ext)
 				await createItem(full, src[ext](name), "")
 
 				const v1 = await fetchItem(full)
@@ -102,8 +102,8 @@ for (const lang of ["FBD", "LD"]) {
 
 		for (const [what, key, coil] of [["METHOD", "method", "M_G"], ["ACTION", "action", "out"]] as const) {
 			it(`an FB with a textual body and a ${lang} ${what} round-trips and compiles`, async () => {
-				const name = id(`vg_${tag}_${key}`)
-				const full = fid(`vg_${tag}_${key}`, "fb")
+				const name = id(`net_${tag}_${key}`)
+				const full = fid(`net_${tag}_${key}`, "fb")
 				await createItem(full, src[key](name), "")
 
 				const v1 = await fetchItem(full)
@@ -117,8 +117,8 @@ for (const lang of ["FBD", "LD"]) {
 		}
 
 		it(`an FB whose PROPERTY has ${lang} in BOTH accessors round-trips and compiles`, async () => {
-			const name = id(`vg_${tag}_prop`)
-			const full = fid(`vg_${tag}_prop`, "fb")
+			const name = id(`net_${tag}_prop`)
+			const full = fid(`net_${tag}_prop`, "fb")
 			await createItem(full, src.property(name), "")
 
 			const v1 = await fetchItem(full)
@@ -153,8 +153,8 @@ for (const lang of ["FBD", "LD"]) {
 		// TwinCAT to compile a body at all (TC skips unreferenced POUs; CODESYS compiles everything). The PROGRAM
 		// and FUNCTION cases are covered by their round-trip plus this.
 		it(`a ${lang} function_block compiles when referenced — build-verified on BOTH vendors`, async () => {
-			const name = id(`vg_${tag}_compile`)
-			await createItem(fid(`vg_${tag}_compile`, "fb"), src.fb(name), "")
+			const name = id(`net_${tag}_compile`)
+			await createItem(fid(`net_${tag}_compile`, "fb"), src.fb(name), "")
 			await ensureCompiles(name)
 		})
 	})

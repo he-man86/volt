@@ -154,8 +154,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
-			const name = id(`vg_${lang.toLowerCase()}`)
-			const fullName = fid(`vg_${lang.toLowerCase()}`, "prg")   // graphical PROGRAM POUs are .prg (kept graphical by content)
+			const name = id(`net_${lang.toLowerCase()}`)
+			const fullName = fid(`net_${lang.toLowerCase()}`, "prg")   // graphical PROGRAM POUs are .prg (kept graphical by content)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
 
@@ -186,8 +186,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	}
 
 	it("creates an FBD program with an Execute box (ST-in-FBD) and round-trips it byte-identical", async () => {
-		const name = id("vg_execute")
-		const fullName = fid("vg_execute", "prg")
+		const name = id("net_execute")
+		const fullName = fid("net_execute", "prg")
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: executeProgram(name), ifVersion: null }] })
@@ -215,8 +215,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
-			const name = id(`vg_ld_${label}`)
-			const fullName = fid(`vg_ld_${label}`, "prg")
+			const name = id(`net_ld_${label}`)
+			const fullName = fid(`net_ld_${label}`, "prg")
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
@@ -243,8 +243,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// declare an instance in PLC_PRG so TwinCAT actually compiles its body — proven necessary: an
 		// UNREFERENCED POU builds clean on TC (skipped), a REFERENCED one with a bad var fails with "Identifier
 		// not defined". CODESYS compiles every POU regardless. So this build-verifies the declaration on BOTH.
-		const name = id("vg_build_fb")
-		await createItem(fid("vg_build_fb"), ldFb(name), "")
+		const name = id("net_build_fb")
+		await createItem(fid("net_build_fb"), ldFb(name), "")
 		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
 	})
 
@@ -259,8 +259,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IProjectTree.Move the
 		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it
 		// byte-identical, which is the whole reason the old path refused rather than tried.
-		const name = id("vg_move")
-		const fullName = fid("vg_move", "prg")
+		const name = id("net_move")
+		const fullName = fid("net_move", "prg")
 		await createItem(fullName, fbdProgram(name), "")
 		const before = (await fetchItem(fullName)).sourceText
 
@@ -287,8 +287,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// body pushed back unchanged must round-trip byte-identical — the no-phantom-drift guarantee on a
 		// POU that already lives in the project. (CFC/SFC unsupported behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
-		const name = id("vg_existing")
-		const fullName = fid("vg_existing", "prg")
+		const name = id("net_existing")
+		const fullName = fid("net_existing", "prg")
 		const refs0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
@@ -307,8 +307,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	// ── format guard: a malformed/mismatched push is REFUSED and the IDE item is left untouched (the
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
 	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
-		const name = id("vg_guard_st")
-		const fullName = fid("vg_guard_st", "prg")
+		const name = id("net_guard_st")
+		const fullName = fid("net_guard_st", "prg")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
@@ -332,8 +332,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	})
 
 	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
-		const name = id("vg_guard_malformed")
-		const fullName = fid("vg_guard_malformed", "prg")
+		const name = id("net_guard_malformed")
+		const fullName = fid("net_guard_malformed", "prg")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))

@@ -28,15 +28,15 @@ public static class NetworkCode
     /// round-trip gate, all pure/format-only. Returns the parsed graph. Call
     /// this BEFORE creating a new item so a REFUSED push never leaves an orphaned stub in the project (the
     /// create-then-write order otherwise materialises a POU before the body is checked). Throws on invalid network text.</summary>
-    public static GraphBody Validate(string vgText)
+    public static GraphBody Validate(string networkText)
     {
         // Format guard: only FBD/LD can be authored as network text. An unknown language token on the NETWORK marker is
         // refused with a clear message — not downstream with a misleading "not writable". Bridge owns FORMAT.
-        var lang = NetworkText.LanguageOf(vgText);
+        var lang = NetworkText.LanguageOf(networkText);
         if (!NetworkText.IsEditable(lang))
             throw new InvalidOperationException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
 
-        var graph = NetworkTextReader.Parse(vgText);                                  // throws on structurally-invalid network text
+        var graph = NetworkTextReader.Parse(networkText);                                  // throws on structurally-invalid network text
 
         // Leaf-fan-out guard. TwinCAT represents a variable READ as one inVariable box per consumer; a single
         // leaf wired to two blocks has NO valid FBD shape and CRASHES TC's importer ("Index was outside the
@@ -60,11 +60,11 @@ public static class NetworkCode
         // so a body that doesn't RE-EMIT identically isn't canonical — it would drift on the next pull, or
         // silently rename/alias temps. Refuse it HERE and show the canonical form so the author can paste it.
         var canonical = NetworkTextWriter.Write(graph);
-        if (Canon(canonical) != Canon(vgText))
+        if (Canon(canonical) != Canon(networkText))
             throw new NetworkTextException(
                 "graphical body is not in canonical form — it would not round-trip identically (you'd see drift on "
                 + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'),
-                "NETWORK_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
+                "NETWORK_NOT_CANONICAL") { Line = FirstDiffLine(Canon(networkText), Canon(canonical)) };
 
         // The PLCopen convergence gate (the graph ⇄ PLCopen ⇄ IDE leg, the one that actually touches the
         // IDE). The body must reach a FIXED POINT through our OWN GraphWriter→GraphReader, so the closed loop
@@ -75,7 +75,7 @@ public static class NetworkCode
         // NetworkTextWriter ignores FB instance types — see the FBD/LD fixed-point tests.)
         var afterOnePass = GraphRoundTrip.Once(graph);                   // ONE PLCopen pass, shared by both sides
         var once = NetworkTextWriter.Write(afterOnePass);
-        var twice = GraphRoundTrip.ToVg(afterOnePass);
+        var twice = GraphRoundTrip.ToNetworkText(afterOnePass);
         if (Canon(once) != Canon(twice))
             throw new NetworkTextException(
                 "graphical body does not converge through the PLCopen round-trip — it keeps changing on every "

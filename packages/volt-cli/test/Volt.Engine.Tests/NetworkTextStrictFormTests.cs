@@ -16,8 +16,8 @@ public class NetworkTextStrictFormTests
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
     private static GraphBody Read(string inner) =>
         GraphReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
-    private static string Vg(string inner) => NetworkTextWriter.Write(Read(inner));
-    private static string FullRoundTrip(string vg) => GraphRoundTrip.ToVg(vg);
+    private static string NetworkTextOf(string inner) => NetworkTextWriter.Write(Read(inner));
+    private static string FullRoundTrip(string net) => GraphRoundTrip.ToNetworkText(net);
 
     /// <summary>A SIMPLE leaf (a bare atom) feeding two consumers is INLINED into each consumer box
     /// (`x := a; y := a;`) — only block results and opaque leaves are named-and-fanned-out; a simple
@@ -25,16 +25,16 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Simple_leaf_feeding_two_sinks_inlines_into_two_boxes()
     {
-        var vg = Vg(
+        var net = NetworkTextOf(
             "<inVariable localId='1'><expression>a</expression></inVariable>" +
             "<outVariable localId='2'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>" +
             "<outVariable localId='3'><expression>y</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("x := a;", vg);
-        Assert.Contains("y := a;", vg);
+        Assert.Contains("x := a;", net);
+        Assert.Contains("y := a;", net);
         // the simple atom inlines into each box — two distinct InVar nodes survive a parse
-        Assert.Equal(2, NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
-        Assert.Equal(vg, FullRoundTrip(vg));   // fixed point
+        Assert.Equal(2, NetworkTextReader.Parse(net).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
+        Assert.Equal(net, FullRoundTrip(net));   // fixed point
     }
 
     /// <summary>Two distinct inVariable nodes with the SAME text stay TWO nodes — identity is the
@@ -43,16 +43,16 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Two_separate_leaves_same_text_stay_distinct()
     {
-        var vg = Vg(
+        var net = NetworkTextOf(
             "<inVariable localId='1'><expression>a</expression></inVariable>" +
             "<inVariable localId='2'><expression>a</expression></inVariable>" +
             "<outVariable localId='3'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>" +
             "<outVariable localId='4'><expression>y</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("x := a;", vg);
-        Assert.Contains("y := a;", vg);
-        Assert.Equal(2, NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
-        Assert.Equal(vg, FullRoundTrip(vg));
+        Assert.Contains("x := a;", net);
+        Assert.Contains("y := a;", net);
+        Assert.Equal(2, NetworkTextReader.Parse(net).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
+        Assert.Equal(net, FullRoundTrip(net));
     }
 
     /// <summary>An inVariable whose pin text contains operators (`a + 1`) is ONE opaque leaf node —
@@ -60,16 +60,16 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Opaque_leaf_with_operators_stays_one_node()
     {
-        var vg = Vg(
+        var net = NetworkTextOf(
             "<inVariable localId='1'><expression>a + 1</expression></inVariable>" +
             "<outVariable localId='2'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("i1 := a + 1;", vg);
-        var nodes = NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).ToList();
+        Assert.Contains("i1 := a + 1;", net);
+        var nodes = NetworkTextReader.Parse(net).Networks.SelectMany(n => n.Nodes).ToList();
         Assert.Single(nodes.OfType<InVar>());
         Assert.Equal("a + 1", nodes.OfType<InVar>().Single().Expression);
         Assert.Empty(nodes.OfType<Block>());           // not decomposed into an ADD block
-        Assert.Equal(vg, FullRoundTrip(vg));
+        Assert.Equal(net, FullRoundTrip(net));
     }
 
     /// <summary>The LET internal wires are a network text-only construct: the wire NAMES never reach the IDE, so the
@@ -78,10 +78,10 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Internal_wire_names_are_stripped_on_push()
     {
-        const string vg =
+        const string net =
             "NETWORK 0 FBD\n" +
             "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
-        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(vg)).ToString();
+        var xml = GraphWriter.WriteBody(NetworkTextReader.Parse(net)).ToString();
 
         Assert.DoesNotContain("VAR_TEMP", xml);
         Assert.DoesNotContain("i1", xml);              // temp names never reach the IDE
@@ -94,8 +94,8 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Var_temp_omitted_for_control_flow_only_network()
     {
-        var vg = NetworkTextWriter.Write(NetworkTextReader.Parse("NETWORK 0 FBD\n  myLabel:\n  JMP myLabel;\nEND_NETWORK\n"));
-        Assert.DoesNotContain("VAR_TEMP", vg);
+        var net = NetworkTextWriter.Write(NetworkTextReader.Parse("NETWORK 0 FBD\n  myLabel:\n  JMP myLabel;\nEND_NETWORK\n"));
+        Assert.DoesNotContain("VAR_TEMP", net);
     }
 
     /// <summary>FB/function param types survive read → write → read (the SR fixture's BOOL BOOL),
@@ -122,7 +122,7 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Synthetic_names_skip_real_instance_names()
     {
-        var vg = Vg(
+        var net = NetworkTextOf(
             "<inVariable localId='1'><expression>a</expression></inVariable>" +
             "<inVariable localId='2'><expression>b</expression></inVariable>" +
             "<block localId='3' typeName='AND'><inputVariables>" +
@@ -134,11 +134,11 @@ public class NetworkTextStrictFormTests
             "</inputVariables><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>" +
             "<outVariable localId='5'><expression>extra</expression><connectionPointIn><connection refLocalId='3'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("g2 := (a AND b);", vg);     // fanned-out operator dodged the reserved name g1
-        Assert.Contains("g1(IN := g2);", vg);        // FB instance keeps its real name g1
-        Assert.Contains("extra := g2;", vg);         // the second sink references the same named result
-        Assert.DoesNotContain("g1 := (", vg);        // no operator named g1
-        Assert.Equal(vg, FullRoundTrip(vg));
+        Assert.Contains("g2 := (a AND b);", net);     // fanned-out operator dodged the reserved name g1
+        Assert.Contains("g1(IN := g2);", net);        // FB instance keeps its real name g1
+        Assert.Contains("extra := g2;", net);         // the second sink references the same named result
+        Assert.DoesNotContain("g1 := (", net);        // no operator named g1
+        Assert.Equal(net, FullRoundTrip(net));
     }
 
     /// <summary>A leaf with its OWN modifier that fans out is one node: the modifier renders once on
@@ -146,16 +146,16 @@ public class NetworkTextStrictFormTests
     [Fact]
     public void Modified_leaf_fanout_is_one_node()
     {
-        var vg = Vg(
+        var net = NetworkTextOf(
             "<inVariable localId='1' negated='true'><expression>x</expression></inVariable>" +
             "<outVariable localId='2'><expression>a</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>" +
             "<outVariable localId='3'><expression>b</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("i1 := NOT x;", vg);   // own modifier on the leaf RHS, once
-        Assert.Contains("a := i1;", vg);
-        Assert.Contains("b := i1;", vg);
-        Assert.Single(NetworkTextReader.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
-        Assert.Equal(vg, FullRoundTrip(vg));
+        Assert.Contains("i1 := NOT x;", net);   // own modifier on the leaf RHS, once
+        Assert.Contains("a := i1;", net);
+        Assert.Contains("b := i1;", net);
+        Assert.Single(NetworkTextReader.Parse(net).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
+        Assert.Equal(net, FullRoundTrip(net));
     }
 
     // ── structure is ENFORCED, not tolerated: malformed graphical must be refused (it can corrupt the
@@ -200,11 +200,11 @@ public class NetworkTextStrictFormTests
         // end-of-input and already throws. Here network 0's EXECUTE is unterminated and network 2's is not, so
         // the scan runs from network 0 across END_NETWORK, the NETWORK 1 header, all of network 1, and stops at
         // network 2's END_EXECUTE — three networks silently collapsed into one Execute box.
-        var vg = "NETWORK 0 FBD\n  EXECUTE\n    x := 1;\nEND_NETWORK\n" +
+        var net = "NETWORK 0 FBD\n  EXECUTE\n    x := 1;\nEND_NETWORK\n" +
                  "NETWORK 1 FBD\n  q := a;\nEND_NETWORK\n" +
                  "NETWORK 2 FBD\n  EXECUTE\n    y := 2;\n  END_EXECUTE\nEND_NETWORK\n";
 
-        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(vg));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(net));
         Assert.Equal("NETWORK_PARSE", ex.Code);
     }
 }

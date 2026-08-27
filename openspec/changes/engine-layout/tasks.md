@@ -14,16 +14,20 @@ change may not fix anything, break anything, or make any test newly pass.
 
 Done before the move so the two never appear in one diff: a rename inside a relocation is unreviewable.
 
-- [ ] 1.1 **Test identifiers.** `vg_*` fixture prefixes and `Vg_*` / `_vg_` method names across
+- [x] 1.0 **Three PRODUCTION identifiers, which this plan said did not exist:** `GraphRoundTrip.ToVg` →
+      `ToNetworkText`, and the locals `childVg` / `pouVg` → `childIsNetwork` / `pouIsNetwork`. Found by the
+      compiler after the test rename; the original count came from a `vg` grep that cannot match a camelCase
+      compound. Corrected in `proposal.md` rather than quietly fixed.
+- [x] 1.1 **Test identifiers.** `vg_*` fixture prefixes and `Vg_*` / `_vg_` method names across
       `Volt.Engine.Tests` and `test/e2e` become `net_*` / `Network_*`. Roughly 30 identifiers; the compiler and
       the e2e run find every miss.
-- [ ] 1.2 **`VG_KEYWORDS`** in `test/e2e/harness.ts` → `NETWORK_KEYWORDS`.
-- [ ] 1.3 **Prose.** ~200 doc-comment mentions across the test suite, 4 in `CLAUDE.md`, plus
+- [x] 1.2 **`VG_KEYWORDS`** in `test/e2e/harness.ts` → `NETWORK_KEYWORDS`.
+- [x] 1.3 **Prose.** ~200 doc-comment mentions across the test suite, 4 in `CLAUDE.md`, plus
       `docs/network-text.md` and `docs/network-text-diagnostics.md` (whose FILENAMES are already right — only the
       body text says VG). Replace with "network text".
-- [ ] 1.4 **Leave `openspec/changes/archive/` and closed change folders alone.** A frozen record that gets
+- [x] 1.4 **Leave `openspec/changes/archive/` and closed change folders alone.** A frozen record that gets
       rewritten stops being evidence.
-- [ ] 1.5 Gate: all four offline suites at the §0 baseline; e2e green. No behaviour touched.
+- [x] 1.5 Gate: all four offline suites at the §0 baseline; e2e green. No behaviour touched.
 
 ## 2. The move — one folder per commit, so a bisect lands on a folder
 

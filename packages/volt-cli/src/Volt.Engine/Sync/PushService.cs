@@ -71,10 +71,10 @@ public static class PushService
             {
                 // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
-                var vg = ex as Graph.NetworkTextException;
+                var netEx = ex as Graph.NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
-                    new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
+                    new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = netEx?.Code, Line = netEx?.Line } },
                     currentProjectVersion);
             }
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
@@ -295,7 +295,7 @@ public static class PushService
 
         // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are unsupported and never reach push.)
-        var pouVg = NetworkText.Is(impl);
+        var pouIsNetwork = NetworkText.Is(impl);
 
         // Read-only enforcement for graphical bodies is by LIVE IDE STATE, not content: an existing CFC/SFC
         // body is refused by the body-type guard below (which reads `BodyLanguage`). The materialized
@@ -310,7 +310,7 @@ public static class PushService
 
             // Validate a network-text body BEFORE creating the item — a refused push must not leave an orphaned,
             // unlisted stub POU behind that blocks the next create.
-            if (pouVg) NetworkCode.Validate(impl);
+            if (pouIsNetwork) NetworkCode.Validate(impl);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
             // language at creation; CODESYS ignores the argument and takes the language from the body element on

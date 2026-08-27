@@ -62,12 +62,12 @@ public class FbdCorpusRoundTripTests
                     new XElement(ns + "body", new XElement(body))).ToString();
 
                 var g0 = GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(miniDoc)!);
-                string vg0;
+                string net0;
                 string spliced;
                 try
                 {
-                    vg0 = NetworkTextWriter.Write(g0);
-                    var newBody = GraphWriter.WriteBody(NetworkTextReader.Parse(vg0));   // network text must re-parse
+                    net0 = NetworkTextWriter.Write(g0);
+                    var newBody = GraphWriter.WriteBody(NetworkTextReader.Parse(net0));   // network text must re-parse
                     spliced = TestPlcOpen.SpliceOnlyGraphicalBody(miniDoc, newBody);  // and the guard must allow it
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or NetworkTextException)
@@ -75,7 +75,7 @@ public class FbdCorpusRoundTripTests
                     // Safe (a push would fail loudly, not corrupt) — these are the to-do list, not failures.
                     refused++;
                     foreach (var c in before.Except(Modeled)) refusedConstructs.Add(c);
-                    if (ex is NetworkTextException) refusedConstructs.Add("vg-reparse:" + ex.Message.Split(':')[0]);
+                    if (ex is NetworkTextException) refusedConstructs.Add("net-reparse:" + ex.Message.Split(':')[0]);
                     continue;
                 }
 
@@ -87,14 +87,14 @@ public class FbdCorpusRoundTripTests
                 // HASH DRIFT guard: the network text (what the bridge hashes) must be a fixed point through the
                 // full push round-trip — else an unchanged body would re-hash differently and be
                 // falsely flagged as edited (scaffolding we add: localIds/positions/xhtml/typeNames).
-                Assert.True(vg0 == NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(spliced)!)),
+                Assert.True(net0 == NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(spliced)!)),
                     $"{Path.GetFileName(file)}: hash drift — round-trip changed the network text");
                 // FULL push-gate guard, incl. Invariant 5 (NETWORK_PLCOPEN_DRIFT: the graph→PLCopen→graph fixed
                 // point that the hash-drift guard above does NOT check). A real IDE-produced body's canonical
                 // network text must pass EVERY NetworkCode.Validate invariant; a body that oscillated through the
                 // PLCopen round-trip would be refused here. This is the accept-path coverage for the one network text
                 // invariant that otherwise had no test.
-                NetworkCode.Validate(vg0);
+                NetworkCode.Validate(net0);
             }
         }
 

@@ -143,9 +143,9 @@ public class FbdCoverageTests
     public void Ld_rung_round_trips(string inner, string expect)
     {
         var doc = Doc("LD", inner);
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
-        Assert.Contains(expect, vg);
-        Assert.Contains("out :=", vg);   // coil → assignment
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        Assert.Contains(expect, net);
+        Assert.Contains("out :=", net);   // coil → assignment
         // and it WRITES back to a real <LD> ladder (no longer read-only / refused)
         var outXml = RoundTripBody(doc);          // must NOT throw
         Assert.Contains("<LD>", outXml);
@@ -169,8 +169,8 @@ public class FbdCoverageTests
             "</inputVariables><outputVariables><variable formalParameter='OUT'><connectionPointOut/></variable></outputVariables></block>" +
             "<coil localId='5'><connectionPointIn><connection refLocalId='4'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>";
         var doc = Doc("LD", inner);
-        var vg = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
-        Assert.Contains(">", vg);                    // the GT comparison renders infix in the network text
+        var net = NetworkTextWriter.Write(GraphReader.ReadBody(TestPlcOpen.FindOnlyGraphicalBody(doc)!));
+        Assert.Contains(">", net);                    // the GT comparison renders infix in the network text
         var outXml = RoundTripBody(doc);             // writes back WITHOUT throwing (was a NotSupportedException)
         Assert.Contains("<block", outXml);           // emitted as a real block, not mangled
         Assert.Contains("GT", outXml);

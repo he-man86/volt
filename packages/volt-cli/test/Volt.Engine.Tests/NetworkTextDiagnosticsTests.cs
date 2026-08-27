@@ -38,9 +38,9 @@ public class NetworkTextDiagnosticsTests
 
     // ── EN/ENO ────────────────────────────────────────────────────────────────────────
     [InlineData("NETWORK 0 FBD\n  IF en1 THEN LET g1 := (a AND b); END_IF\n  out := g1;\nEND_NETWORK\n", "NETWORK_BAD_EXPRESSION")] // IF guard with no 'en1 := …' binding
-    public void Invalid_structure_is_refused_with_its_code(string vg, string code)
+    public void Invalid_structure_is_refused_with_its_code(string net, string code)
     {
-        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(vg));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextReader.Parse(net));
         Assert.Equal(code, ex.Code);
     }
 
@@ -51,5 +51,5 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  z := b;\nEND_NETWORK\n")]            // distinct network indices
     [InlineData("NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN LET g1 := (b AND c); END_IF\n  out := g1;\nEND_NETWORK\n")] // a valid EN/ENO box
     [InlineData("NETWORK 0 FBD\n  lbl:\n  JMP lbl;\nEND_NETWORK\n")]                                          // a label + a jump to it
-    public void Valid_structure_is_accepted(string vg) => NetworkTextReader.Parse(vg);   // must not throw
+    public void Valid_structure_is_accepted(string net) => NetworkTextReader.Parse(net);   // must not throw
 }

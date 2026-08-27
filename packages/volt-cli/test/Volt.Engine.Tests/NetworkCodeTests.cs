@@ -58,7 +58,7 @@ public class NetworkCodeTests
     }
 
     [Fact]
-    public void Fbd_body_reads_as_vg_with_declaration_from_the_same_export()
+    public void Fbd_body_reads_as_net_with_declaration_from_the_same_export()
     {
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR") };
         var gb = NetworkCodeIo.Read(s, Item, ItemName);
@@ -112,19 +112,19 @@ public class NetworkCodeTests
     }
 
     [Fact]
-    public void Execute_box_round_trips_through_vg_preserving_its_st_and_en()
+    public void Execute_box_round_trips_through_net_preserving_its_st_and_en()
     {
         // Full round-trip: PLCopen XML → network text → graph → PLCopen XML. The Execute box renders as
         // `IF en THEN EXECUTE … END_EXECUTE END_IF` (EN handled like any block), and reconstructs as
         // <block typeName="EXECUTE"> + fbdcalltype=execute + <STCode> — so its inline ST survives verbatim.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
-        var vg = NetworkCodeIo.Read(s, Item, ItemName)!.Body;
-        Assert.Contains("EXECUTE", vg);
-        Assert.Contains("END_EXECUTE", vg);
-        Assert.Contains("target := 42;", vg);          // the ST is rendered verbatim
-        Assert.Contains("IF en", vg);                  // EN via the ordinary wire+IF guard, not special-cased
+        var net = NetworkCodeIo.Read(s, Item, ItemName)!.Body;
+        Assert.Contains("EXECUTE", net);
+        Assert.Contains("END_EXECUTE", net);
+        Assert.Contains("target := 42;", net);          // the ST is rendered verbatim
+        Assert.Contains("IF en", net);                  // EN via the ordinary wire+IF guard, not special-cased
 
-        var graph = NetworkTextReader.Parse(vg);                // network text → graph (bridge parser detects the EXECUTE marker)
+        var graph = NetworkTextReader.Parse(net);                // network text → graph (bridge parser detects the EXECUTE marker)
         var xml = GraphWriter.WriteBody(graph).ToString();
         Assert.Contains("typeName=\"EXECUTE\"", xml);  // reconstructed as a CODESYS Execute box
         Assert.Contains("target := 42;", xml);         // …carrying its STCode
@@ -137,22 +137,22 @@ public class NetworkCodeTests
         // Review finding #1: an Execute box's ENO gating a downstream EN/ENO block (a natural FBD sequencing
         // pattern). The box's `en` must be a real ENO echo — a block output that CAN fan out — not the EN-source
         // leaf; otherwise the pulled body fails the canonical/leaf-fanout gate and can't be pushed back.
-        var vg = "NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN\n  EXECUTE\n  x := 1;\n  END_EXECUTE\n  END_IF\n"
+        var net = "NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN\n  EXECUTE\n  x := 1;\n  END_EXECUTE\n  END_IF\n"
             + "  LET en2 := en1;\n  IF en2 THEN out := (b AND c); END_IF\nEND_NETWORK\n";
-        NetworkCode.Validate(vg);   // throws NETWORK_NOT_CANONICAL / NETWORK_LEAF_FANOUT if the round-trip breaks
+        NetworkCode.Validate(net);   // throws NETWORK_NOT_CANONICAL / NETWORK_LEAF_FANOUT if the round-trip breaks
     }
 
     [Fact]
-    public void Write_reconstructs_an_execute_box_from_its_vg()
+    public void Write_reconstructs_an_execute_box_from_its_network_text()
     {
         // Full write-path round-trip: read an execute-box body to canonical network text, then Write it back. The box is
         // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
         // not refused. So an Execute box is editable, not unsupported.
         var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody), Decl = "PROGRAM P\nVAR\nEND_VAR" };
-        var vg = NetworkCodeIo.Read(read, Item, ItemName)!.Body;
+        var net = NetworkCodeIo.Read(read, Item, ItemName)!.Body;
         // Written through PouSplice.SetBody — the production write. `NetworkCodeIo.Write` was the per-child
         // transport and is gone with that arm; the logic under test is unchanged.
-        var written = PouSplice.SetBody(Pou(ExecuteBoxBody), ItemName, vg, "PROGRAM P\nVAR\nEND_VAR", establishing: false);
+        var written = PouSplice.SetBody(Pou(ExecuteBoxBody), ItemName, net, "PROGRAM P\nVAR\nEND_VAR", establishing: false);
         Assert.Contains("typeName=\"EXECUTE\"", written);   // the box is reconstructed
         Assert.Contains("target := 42;", written);         // …with its STCode
     }
@@ -231,10 +231,10 @@ public class NetworkCodeTests
         {
             Xml = Pou("<FBD><inVariable localId=\"1\"><expression>old</expression></inVariable></FBD>", "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR"),
         };
-        const string vg = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
+        const string net = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
         const string decl = "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tx : BOOL;\nEND_VAR";
 
-        var written2 = PouSplice.SetBody(s.Xml!, ItemName, vg, decl, establishing: false);
+        var written2 = PouSplice.SetBody(s.Xml!, ItemName, net, decl, establishing: false);
 
         Assert.DoesNotContain("old", written2);                       // old body gone
         Assert.Contains("<expression>x</expression>", written2);      // edited body in

@@ -9,7 +9,7 @@ public class NetworkTextWriterTests
 {
     private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
 
-    private static string ToVg(string fbdInner)
+    private static string ToNetworkText(string fbdInner)
     {
         var xml = $"<FBD xmlns=\"{Ns}\">{fbdInner}</FBD>";
         var fbd = XElement.Parse(xml);
@@ -21,7 +21,7 @@ public class NetworkTextWriterTests
     public void Real_CONFIG_fb_call_renders_as_a_call_with_named_pins()
     {
         // The actual <FBD> body CODESYS exported for the Hauzer CONFIG POU.
-        var vg = ToVg("""
+        var net = ToNetworkText("""
             <vendorElement localId="10000000000"><position x="0" y="0"/></vendorElement>
             <inVariable localId="10000000001"><connectionPointOut/><expression>FALSE</expression></inVariable>
             <inVariable localId="10000000002"><connectionPointOut/><expression>TRUE</expression></inVariable>
@@ -40,14 +40,14 @@ public class NetworkTextWriterTests
             "NETWORK 1 FBD\n" +
             "  Config(xFASTSystemInTaskMidPrio := FALSE, xLogErrorTypeInformation := TRUE, xLogErrorTypeWarning := TRUE);\n" +
             "END_NETWORK\n",
-            vg);
+            net);
     }
 
     [Fact]
     public void Nested_operators_inline_with_full_parenthesisation_so_topology_is_unambiguous()
     {
         // (A AND B) OR C  ->  result
-        var vg = ToVg("""
+        var net = ToNetworkText("""
             <inVariable localId="1"><expression>A</expression></inVariable>
             <inVariable localId="2"><expression>B</expression></inVariable>
             <inVariable localId="3"><expression>C</expression></inVariable>
@@ -72,14 +72,14 @@ public class NetworkTextWriterTests
             "NETWORK 0 FBD\n" +
             "  result := ((A AND B) OR C);\n" +
             "END_NETWORK\n",
-            vg);
+            net);
     }
 
     [Fact]
     public void Fb_with_multiple_outputs_reads_each_output_by_pin()
     {
         // t1 = TON; Q -> running, ET -> elapsed
-        var vg = ToVg("""
+        var net = ToNetworkText("""
             <inVariable localId="1"><expression>start</expression></inVariable>
             <inVariable localId="2"><expression>pt</expression></inVariable>
             <block localId="3" typeName="TON" instanceName="t1">
@@ -102,6 +102,6 @@ public class NetworkTextWriterTests
             "  running := t1.Q;\n" +
             "  elapsed := t1.ET;\n" +
             "END_NETWORK\n",
-            vg);
+            net);
     }
 }
