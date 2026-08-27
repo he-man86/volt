@@ -170,7 +170,7 @@ internal static class Program
         var pending = Commands.UnpushedCount(root);
         if (pending > 0 && !a.Has("--json"))
             Console.WriteLine($"note: {pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run `volt push` first.");
-        var r = Commands.Build(root, bridge, a.Has("--full"), Reporter.Create());
+        var r = Commands.Build(root, bridge, Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Success ? 0 : 2; }
         Console.WriteLine($"Build {(r.Success ? "succeeded" : "FAILED")} ({r.Duration}ms)");
         foreach (var d in r.Diagnostics) Console.WriteLine($"  [{d.Severity}] {d.Message}{(d.Line > 0 ? $" (line {d.Line})" : "")}");

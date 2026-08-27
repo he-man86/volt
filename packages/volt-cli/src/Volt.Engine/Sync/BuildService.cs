@@ -24,19 +24,30 @@ public static class BuildService
             // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
             ide.FlushPendingWrites();
-            // [UNMEASURED: whether either vendor can be asked for a FULL/clean build through the surface Volt
-            //  uses. `request.BuildType` is set by `volt build --full`, reaches here, and is read only by the two
-            //  log lines below — `IIdeSession.Build()` takes no argument, so --full performs an INCREMENTAL build
-            //  on both vendors while `volt --help` advertises it. Wiring it means a driver-contract change plus
-            //  the vendor call for each (CODESYS clean+generate, TwinCAT rebuild), and neither has been measured
-            //  through the scripting/COM surface Volt actually holds. Until then the CLI says what it did rather
-            //  than implying more.]
+            // There is ONE kind of build, and `--full` is gone. This was an [UNMEASURED] marker — "can either
+            // vendor be asked for a full/clean build through the surface Volt already holds?" — and measuring it
+            // answered YES to the reachability and NO to the thing that made it worth having.
+            //
+            // Reachable, both: CODESYS `_3S.CoDeSys.ScriptDriverProjects.APEnvironment.CleanAllCommandTypeGuid`
+            // dispatched via `CommandManager.ExecuteStandardCommand(guid, true)` — the guid resolves, the command
+            // reports enabled, it executes. TwinCAT `EnvDTE.SolutionBuild.Clean(bool)` sits on the same object as
+            // the `Build(bool)` already called.
+            //
+            // Useless, measured on live CODESYS 3.5.21.40: a cold build of the fixture takes ~2100ms and warm
+            // builds ~30ms. After CleanAll executes, the next build still takes ~60ms — it does not recompile.
+            // CODESYS's clean discards DOWNLOAD/online-change information, not the language model the build reads,
+            // so it cannot surface a compile error a warm build missed. What it does do is invalidate the online
+            // change data of the engineer's live project. A flag that costs a real side effect and buys no extra
+            // diagnostic is worse than no flag, so the flag, its `buildType` wire field and the CLI option are
+            // deleted rather than wired to it. Anyone reopening this: the missing capability is a REBUILD (drop
+            // the language model), and no such command exists on the surface above — the only full compile
+            // measured was the first one after the project loaded.
             var success = ide.Build();
             sw.Stop();
             var diagnostics = ide.GetBuildDiagnostics().ToList();
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
-            VoltLog.Debug($"build {request.BuildType} {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
+            VoltLog.Debug($"build {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
             return new BuildResponse
             {
                 Success = success,
@@ -47,7 +58,7 @@ public static class BuildService
         catch (Exception ex)
         {
             sw.Stop();
-            VoltLog.Error($"build {request.BuildType} failed ({sw.ElapsedMilliseconds}ms): {ex.Message}");
+            VoltLog.Error($"build failed ({sw.ElapsedMilliseconds}ms): {ex.Message}");
             return new BuildResponse
             {
                 Success = false,

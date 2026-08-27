@@ -140,7 +140,7 @@ export const bridge = {
 	refs: (): Promise<any> => get("/refs"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => post("/fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => post("/push", req),
-	build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => post("/build", req),
+	build: (): Promise<any> => post("/build", {}),
 	// The connection-lifecycle ops the CONNECTOR drives (the tray / the two frontends), not the CLI. `deselect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `select`, tearing nothing down.
 	// Discovery folded into `health` — no separate `instances` op. Returns the FLAT connectable-projects array
@@ -169,7 +169,7 @@ export function clientFor(pipe: string) {
 		refs: (): Promise<any> => call("refs"),
 		fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => call("fetch", req),
 		push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => call("push", req),
-		build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => call("build", req),
+		build: (): Promise<any> => call("build", {}),
 		connect: (req: { project?: string | null } = {}): Promise<any> => call("connect", req),
 	}
 }

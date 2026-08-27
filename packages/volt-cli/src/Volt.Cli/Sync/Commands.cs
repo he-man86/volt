@@ -486,7 +486,7 @@ public static class Commands
     }
 
     /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>
-    public static BuildResult Build(string root, BridgeClient bridge, bool full, Action<ProgressFrame>? onProgress = null)
+    public static BuildResult Build(string root, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
     {
         if (!Config.ConfigExists(root)) return BuildResult.Refuse("not a Volt workspace — run `volt init` first");
         // No pre-op health round-trip: the build carries the bound project and the bridge guards it in-op, so the
@@ -497,7 +497,6 @@ public static class Commands
         {
             r = bridge.Build(new BuildRequest
             {
-                BuildType = full ? "full" : "incremental",
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, onProgress);

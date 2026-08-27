@@ -19,7 +19,7 @@ public class BuildCommandTests
         try
         {
             Commands.Pull(root, client);
-            var b = Commands.Build(root, client, full: false);
+            var b = Commands.Build(root, client);
             Assert.True(b.Success);
             Assert.Empty(b.Diagnostics);
         }
@@ -39,7 +39,7 @@ public class BuildCommandTests
         try
         {
             Commands.Pull(root, client);
-            var b = Commands.Build(root, client, full: false);
+            var b = Commands.Build(root, client);
             Assert.False(b.Success);
             Assert.Contains(b.Diagnostics, d => d.Severity == "error" && d.Message.Contains("undeclared"));
         }
@@ -52,7 +52,7 @@ public class BuildCommandTests
         var root = TestUtil.NewRepo();
         try
         {
-            var b = Commands.Build(root, new BridgeClient(Pipe()), full: false);
+            var b = Commands.Build(root, new BridgeClient(Pipe()));
             Assert.False(b.Success);
             Assert.Contains(b.Diagnostics, d => d.Message.Contains("not a Volt workspace"));
         }

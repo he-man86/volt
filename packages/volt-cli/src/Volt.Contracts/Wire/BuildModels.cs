@@ -5,9 +5,6 @@ namespace Volt.Contracts;
 
 public class BuildRequest
 {
-    [JsonPropertyName("buildType")]
-    public string BuildType { get; set; } = "incremental";
-
     /// <summary>The project this workspace is bound to. The op refuses (WRONG_PROJECT) unless the live bridge is
     /// serving it — so `volt build` reports diagnostics for the bound project, not whatever happens to be open.
     /// Null = no identity check (older client).</summary>

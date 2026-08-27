@@ -1,4 +1,4 @@
-/** health + build — the contract ops over the pipe. */
+﻿/** health + build — the contract ops over the pipe. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, requireHealthy, healthStatus, BASE } from "../harness"
 
@@ -19,7 +19,7 @@ describe(`endpoints / health+build (${BASE})`, () => {
 
 	describe("/build", () => {
 		it("returns success + duration + diagnostics[]", async () => {
-			const r = await bridge.build({ buildType: "incremental" })
+			const r = await bridge.build()
 			expect(typeof r.success).toBe("boolean")
 			expect(typeof r.duration).toBe("number")
 			expect(Array.isArray(r.diagnostics)).toBe(true)

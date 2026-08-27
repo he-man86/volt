@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The tray's **Disconnect**, against a LIVE bridge. `deselect` must refuse every sync op until the next `select`
  * while tearing NOTHING down — on CODESYS the in-proc host stays loaded inside the running IDE (the
  * `start_volt_codesys.py` activation survives), on TwinCAT the worker keeps its COM attach.
@@ -144,7 +144,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	it("an op in flight when Disconnect lands still completes — the gate stops the NEXT op, not the current one", async () => {
 		// Disconnecting mid-write must never leave the IDE half-updated, so `disconnect` deliberately does not abort
 		// (nor wait for) a running op: it isn't wrapped in RunOp() and touches no IDE state.
-		const build = bridge.build({ buildType: "full" }) // the slowest op the bridge has
+		const build = bridge.build() // the slowest op the bridge has
 		// Give the build a moment to get PAST the dispatch gate and onto the IDE thread before disconnecting —
 		// otherwise a disconnect that wins the race to Dispatch would refuse the build with PLC_DISCONNECTED (failing
 		// for a reason unrelated to the invariant). A full build takes seconds, so a short wait reliably lands the
