@@ -64,9 +64,11 @@ task 1.0 — a gate you cannot state is not a gate.
 Every defect in §2 is invisible to a round-trip test. The oracle is not scaffolding for this change; it is the
 thing that makes the change checkable at all, and it lands first.
 
-- [ ] 1.0 Run `dotnet test` on all four offline projects and record the counts here, plus `bun test test/e2e`
-      against a live CODESYS if one is available. This is the baseline every gate below compares to.
-- [ ] 1.1 **`test/Volt.Engine.Tests/StoredVsPushedTests.cs` — the stored-vs-pushed differ.** For each of the 9
+- [x] 1.0 **BASELINE, measured 2026-08-27** — offline `Volt.Engine.Tests` **646** / `Volt.Cli.Tests` **142** /
+      `Volt.Cli.Connector.Tests` **80** / `Volt.Cli.Ide.Twincat.Tests` **3**; live CODESYS e2e **129 pass, 20
+      skip, 0 fail** across 26 files. (The prior change's recorded Engine 392 was stale by 250+.) Every gate
+      below compares to this. Closes the `[UNMEASURED: the current offline and live-e2e pass counts.]` marker.
+- [x] 1.1 **`test/Volt.Engine.Tests/StoredVsPushedTests.cs` — the stored-vs-pushed differ.** For each of the 9
       RECORDED vendor exports (the 2 `roundtrip/*` files are hand-authored and are excluded — `body-census.md` §1),
       run the real production path and diff an element+attribute census of the stored `<FBD>`/`<LD>` against the
       pushed one. Not a round trip: it compares the vendor's artifact to ours.
@@ -74,7 +76,7 @@ thing that makes the change checkable at all, and it lands first.
       and its allowed-delta list is an explicit enumeration with a cited justification per entry, never a wildcard.
       > A round-trip test is a fixed-point test. `GraphRoundTrip.Once` cannot see a loss both legs agree to drop.
       > No new assertion may be added to `FbdCorpusRoundTripTests` or `LadderRoundTripTests` in place of this.
-- [ ] 1.2 **No fallback in the differ.** A census entry the differ cannot classify FAILS. It does not default to
+- [x] 1.2 **No fallback in the differ.** A census entry the differ cannot classify FAILS. It does not default to
       "equivalent", it does not normalize whitespace into agreement, and it does not skip a fixture it cannot
       parse. Repo policy: fail loud.
 - [ ] 1.3 **`test/e2e/graphical/oracle.test.ts` stays the live counterpart.** It is the suite's only push-vs-fetch
@@ -318,7 +320,7 @@ each lands with the offline suites green and no test rewritten to accommodate it
 
 Order matters: delete dead code first (it cannot break anything), then collapse live duplicates.
 
-- [ ] 7.1 **Delete the ~97 dead lines of `GraphSplice`** — `SpliceFbdLdBody` (`:40-58`), `InlineInsert`
+- [x] 7.1 **Delete the ~97 dead lines of `GraphSplice`** — `SpliceFbdLdBody` (`:40-58`), `InlineInsert`
       (`:120-135`), `FindFbdLd` (`:150-156`), `FindFbdLdBody`. Verified zero production callers: 16 references, 15
       in `GraphSpliceTests.cs` + `TestPlcOpen.cs:33`, plus its own definition.
       **The 15 test call sites are retargeted, not deleted** — they exercise `ValidateExisting`, a real production
@@ -327,12 +329,12 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
       What survives (`RequireReplaceable`, `ValidateExisting`, `SafeToDrop`, `HasPinMod` — ~60 lines) moves next to
       the gate §4 re-scopes, and the file's doc-comment (`:12-15`, which claims it *"belongs with the graph, not
       with the document"* while sitting in `Document/`) is corrected — convention 8.
-- [ ] 7.2 **Delete `PushService.RemoveOrphanChildren`** (`:407-425`) and the `TreeNav.cs:69` doc-comment pointing
+- [x] 7.2 **Delete `PushService.RemoveOrphanChildren`** (`:407-425`) and the `TreeNav.cs:69` doc-comment pointing
       at it. Member removal moved into the document (`PouSplice.RemoveChild`, reached from `PouDocument.cs:55,90`).
       For the record: the audit's orphan-walk fix landed *inside* this method, so that fix was inert — the
       behaviour is correct anyway, because the document splice never had the bug. `DIALECT.md:131` still describes
       it as reachable; corrected in 6.2.
-- [ ] 7.3 **Delete `PlcOpenDocument.DeclFromExport`** (`:119-142`) — its no-filter rule is the trap
+- [x] 7.3 **Delete `PlcOpenDocument.DeclFromExport`** (`:119-142`) — its no-filter rule is the trap
       `MaterializerChildDeclTests.cs:12,23` names, and it is a THIRD answer to the ownership question §7.6
       collapses.
       Its only caller is `Sync/NetworkCodeIo.cs:62`, and **`NetworkCodeIo` itself has zero production callers** —
@@ -343,12 +345,12 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
       (This supersedes the earlier plan to give the seam `PouReader.DeclFromElement`, which was written before the
       seam was measured to be test-only. Third instance of the same pattern as 7.1 and 7.2 — shipped code nothing
       calls. `target-layout.md` §4 G5 is the guard that catches the class.)
-- [ ] 7.4 **Delete the `WritesPouAsOneDocument` remnants** — the stale test-double property at
+- [x] 7.4 **Delete the `WritesPouAsOneDocument` remnants** — the stale test-double property at
       `NetworkCodeTests.cs:252` and the dead `bodyImpl` assignment at `PushService.cs:295`; rewrite the comment at
       `PushService.cs:218` to describe what exists. `DIALECT.md`'s headline (`:31-37`) and rows **D4e**/**D4h** are
       written against this removed fork and are corrected in 6.2 — they currently gate the "single-document write
       is CODESYS-only" conclusion on a branch that no longer exists.
-- [ ] 7.5 **Collapse the four declaration writers onto W1's rule** — `OwnDescendants`, ALL copies, THROW on absent.
+- [x] 7.5 **Collapse the four declaration writers onto W1's rule** — `OwnDescendants`, ALL copies, THROW on absent.
       `SetChildText`'s arm (`:450-463`) is already byte-identical to `SetDeclaration` (`:38-62`); extract the
       shared body. `AddChild` (`:269`) constructs and is fine.
       **`SetAccessor` (`:402-415`) is the defect** — first-only where the others take all, and silently *creates*
@@ -357,33 +359,33 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
       Blocked on **U21** for the two-copy case specifically: no recorded accessor declares a variable, so the A7
       shape has never been exercised on one. If U21 cannot be measured before this lands, apply W1's rule anyway —
       writing all copies is correct whether there are one or two — and carry U21 forward still open.
-- [ ] 7.6 **One containment predicate for read and write.** `PlcOpenDocument.OwnDescendants` (`:63-64`) is
+- [x] 7.6 **One containment predicate for read and write.** `PlcOpenDocument.OwnDescendants` (`:63-64`) is
       case-sensitive over 9 element names; `PouReader.ChildDeclContainers` (`:223-225`) is `OrdinalIgnoreCase` and
       additionally excludes `<get>`/`<set>`. Two lists answering one question.
       Resolve on measurement (**U22**): if neither vendor emits `<get>`/`<set>`, **delete** the asymmetry rather
       than propagate it. Case-insensitivity is the safe direction and costs nothing — take the reader's.
       Test: one fixture-driven assertion that reader and writer agree on ownership for every element in every
       recorded export.
-- [ ] 7.7 **Collapse the three body-guard blocks onto B1's** (`SetBody:92-146` — five checks, `establishing`
+- [x] 7.7 **Collapse the three body-guard blocks onto B1's** (`SetBody:92-146` — five checks, `establishing`
       exemption, marker no-op). `SetAccessor:377-399` and `SetChildText:478-488` carry two of the five each;
       `AddChild:216` has **no guard at all**.
       **The B1/B4 marker disagreement is a defect** — a restated CFC marker is a no-op at the root (`SetBody:107`)
       and a throw for a child (`SetChildText:480-483`), while `SetBody:103-106` calls the same asymmetry in the
       other direction unjustified. It goes in §2 with a red-first test, not here.
-- [ ] 7.8 **One constant each.** xhtml namespace: 4 declarations (`PouSplice.cs:204`, `:335`, `BodyCodec.cs:136`,
+- [x] 7.8 **One constant each.** xhtml namespace: 4 declarations (`PouSplice.cs:204`, `:335`, `BodyCodec.cs:136`,
       `GraphWriter.cs:20`). 3S namespace root: 4 spellings (`PouSplice.cs:168`, `ProjectStructure.cs:41`,
       `GraphWriter.cs:208`, `:334`). Both go to `Vocabulary/` — Level 0, and already the home for exactly this
       (`Languages.cs:6-10`).
-- [ ] 7.9 **One `Serialize`.** `TcItemArchive.cs:183` is a byte-identical open-coded copy of
+- [x] 7.9 **One `Serialize`.** `TcItemArchive.cs:183` is a byte-identical open-coded copy of
       `PlcOpenDocument.Serialize` (`:46-47`), whose documented reason (`:37-45`: `ToString()` drops the XML
       declaration, found by the no-op identity test) applies equally to a `.TcPOU`. The TwinCAT driver already
       references `Volt.Engine`, so this is a call, not a move. **`TcItemArchive` itself does NOT move up** — it
       needs `System.IO.Compression`, and `Volt.Engine` is `netstandard2.0`.
-- [ ] 7.10 **Replace the regex-over-XML** at `BeckhoffDriver.Code.cs:105-110` (`ExtractTag`) with the `XDocument`
+- [x] 7.10 **Replace the regex-over-XML** at `BeckhoffDriver.Code.cs:105-110` (`ExtractTag`) with the `XDocument`
       parse already present at `:84-103` **in the same file**. `TcItemArchive.cs:133-134` states the repo's rule
       for precisely this: *"a regex over that works until a body happens to contain the pattern."*
       Test: a fixture whose body text contains the tag pattern — red before, green after.
-- [ ] 7.11 **Retire the ten stale symbol references** left by the unrecorded second rename
+- [x] 7.11 **Retire the ten stale symbol references** left by the unrecorded second rename
       (`write-path-census.md` §5): `CodesysObjectModel.PlcOpen.cs:50`, `CodesysTypeMap.cs:39`, `RefsFetch.cs:66`,
       `BodyCodec.cs:22`, `GraphSplice.cs:12`, `PlcOpenDocument.cs:24`, `PouSplice.cs:10`, `ItemContent.cs:17`,
       `ItemKind.cs:232`, `DIALECT.md:188`, plus `ARCHITECTURE.md:64` and `:215`. Comment-only; no behaviour.
