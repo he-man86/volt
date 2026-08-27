@@ -65,6 +65,8 @@ public static class FetchService
         // The live .library file versions (fullName → version), captured in the loop — the change signal for the
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
+        // Items the walk SAW but could not read. They exist; they are simply not in this response.
+        var unreadableBareNames = new HashSet<string>(System.StringComparer.Ordinal);
         // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
         var skippedLibraryStubs = new List<FetchedItem>();
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Fetch, Done = 0, Total = total });
@@ -107,7 +109,21 @@ public static class FetchService
             // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
             // otherwise a single unreadable item makes /fetch's projectVersion diverge from /refs'.
             versions[it.Name] = version;
-            if (mat == null) { unreadable++; continue; }
+            if (mat == null)
+            {
+                // It could not be READ. It has not gone anywhere — the line above just recorded it with the
+                // Unreadable sentinel for exactly that reason. Remember the bare name so the removal pass below
+                // does not mistake "absent from this response" for "deleted from the project"; without this a
+                // pull DELETES the engineer's file for a POU sitting in the IDE.
+                //
+                // Keyed by BARE name rather than a reconstructed `name.ext`: the full name normally comes from
+                // the materialized item, which is null here, and re-deriving it would lean on the very kind
+                // mapping that may be what defeated the read. IEC guarantees bare names are unique among source
+                // items, which is what makes this safe.
+                unreadableBareNames.Add(it.Name);
+                unreadable++;
+                continue;
+            }
             var fullName = mat.FullName;
 
             if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
@@ -198,7 +214,15 @@ public static class FetchService
         var (libRenderNull, libUnmatched) = LibraryFetch.AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
-        var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
+        // "Known to the client, and this walk produced no version for it" — MINUS the items the walk saw and
+        // could not read. Absence from the response otherwise carries two meanings the wire cannot separate,
+        // "this is gone" and "this defeated the reader", and the response already counts the second in its
+        // `unreadable` drop tally while describing it as the first.
+        var removed = isInit
+            ? new List<string>()
+            : knownItems.Keys
+                .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(BareNameOf(k)))
+                .ToList();
 
         var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
@@ -241,6 +265,16 @@ public static class FetchService
 
     /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
     /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>
+    /// <summary>A wire name without its kind extension — <c>FB_A.fb</c> → <c>FB_A</c>.
+    /// <para>Used only to match a client-known name against an item the WALK saw but could not read, where the
+    /// materialized full name is unavailable by definition. A library signature path keeps its folder prefix and
+    /// simply never matches a walked bare name, which is correct: those are not walk items.</para></summary>
+    private static string BareNameOf(string wireName)
+    {
+        var dot = wireName.LastIndexOf('.');
+        return dot <= 0 ? wireName : wireName.Substring(0, dot);
+    }
+
     private static List<FetchedItem> DedupeByFullName(List<FetchedItem> items)
     {
         var byName = new Dictionary<string, FetchedItem>(items.Count);
