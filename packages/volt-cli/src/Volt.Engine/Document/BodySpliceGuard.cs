@@ -66,6 +66,31 @@ namespace Volt.Engine.Document
             var blind = new List<string>();
             if (existing.Descendants(ns + "inOutVariables").Any(io => io.Elements(ns + "variable").Any()))
                 blind.Add("a block in-out pin (<inOutVariables>)");
+            // executionOrderId is EXECUTION SEMANTICS, and a rewrite silently zeroes it. `GraphReader` reads it
+            // and `GraphWriter` writes it, but all 15 node constructions in `NetworkTextReader` pass null and the
+            // text format has no spelling for it — so it cannot survive a regeneration, ever.
+            //
+            // It is not a CFC-only attribute: the TC6 schema declares it on the shared block / inVariable /
+            // outVariable / inOutVariable / label / jump / return elements FBD and LD bodies are built from, and
+            // the CODESYS reference calls it execution semantics — two coils on the same variable are
+            // last-write-wins, and "the order is determined by executionOrderId of the coils, not by their
+            // visual position".
+            //
+            // So this refuses rather than silently reordering someone's program. Until a splice can CARRY it
+            // (openspec `splice-graphical-body` §3), fail loud is the only honest answer: the repo's rule
+            // everywhere else, and the difference between a push that stops and a plant that runs its outputs in
+            // a different order.
+            //
+            // [UNMEASURED: U1 — whether either vendor EMITS executionOrderId on an FBD/LD element. Zero of the 9
+            //  recorded exports carry one, so this guard has never fired on real vendor output. If it turns out
+            //  they never emit it, this is dead weight and should go; if they do, it has been silently destroying
+            //  execution order. Close it by building an FBD network with two coils on one variable in each IDE,
+            //  reordering them, and exporting.]
+            if (existing.Descendants().Any(e => e.Attribute("executionOrderId") is not null))
+                throw new InvalidOperationException(
+                    "this body carries executionOrderId, which network text cannot represent — a rewrite would " +
+                    "silently reset the execution order. Edit it in the IDE.");
+
             if (existing.Descendants(ns + "outputVariables").Elements(ns + "variable").Any(HasPinMod))
                 blind.Add("a modifier on a block output pin (negated/edge/storage)");
             // A pin with several connections is an invalid multi-source pin in FBD — but in LD it's an OR

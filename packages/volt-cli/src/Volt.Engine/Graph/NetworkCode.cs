@@ -8,7 +8,7 @@ namespace Volt.Engine.Graph;
 /// PLCopen XML and editable network text. The vendor supplies only transport (<see cref="ICodeStore"/>); this
 /// class owns the decisions. The READ gate lives in <c>Materializer.BodyTextOf</c> (it calls
 /// <see cref="RenderBody"/> for FBD/LD and builds the `@volt-graphical` marker for CFC/SFC itself);
-/// this class owns <see cref="RenderBody"/>, <see cref="Validate"/> and <see cref="Write"/>. On the
+/// this class owns <see cref="RenderBody"/> and <see cref="Validate"/>. On the
 /// write leg declaration AND body travel through the same in-memory PLCopen, so the import never
 /// touches the object-model aspect (which a just-reimported graphical POU poisons). Failures throw;
 /// nothing is ever silently downgraded.
@@ -25,7 +25,7 @@ public static class NetworkCode
     }
 
     /// <summary>Validate a network-text body WITHOUT touching the IDE — the language gate, the parser, and the strict
-    /// round-trip gate, all pure/format-only. Returns the parsed graph (reused by <see cref="Write"/>). Call
+    /// round-trip gate, all pure/format-only. Returns the parsed graph. Call
     /// this BEFORE creating a new item so a REFUSED push never leaves an orphaned stub in the project (the
     /// create-then-write order otherwise materialises a POU before the body is checked). Throws on invalid network text.</summary>
     public static GraphBody Validate(string vgText)
@@ -94,16 +94,6 @@ public static class NetworkCode
         _ => Enumerable.Empty<Conn?>(),
     };
 
-    /// <summary>Write an editable network text body back through the PLCopen transport: splice the new FBD/LD body
-    /// into the item's current export and re-import. FB instance types (absent from network text) come from
-    /// <paramref name="declaration"/>. The POU's declaration is NOT written — it is preserved from the
-    /// export's typed <c>&lt;interface&gt;</c>: CODESYS regenerates the interface from that typed block on
-    /// import (ignoring the plaintext copy), so a graphical POU's VAR-section is edited in the IDE, not via
-    /// push. Throws on invalid network text.
-    /// <para>This used to add "and TwinCAT's export carries no plaintext interface at all". That is false —
-    /// the recorded TwinCAT export in <c>fixtures/tc-fbd</c> carries <c>&lt;InterfaceAsPlainText&gt;</c> with
-    /// its <c>PROGRAM …/VAR …</c> text, which is exactly why the Materializer can read a declaration out of the
-    /// export on BOTH vendors. The behaviour above is unchanged; only the reason was wrong.</para></summary>
     // Normalize for the round-trip comparison: LF endings, no trailing whitespace, no trailing blank lines.
     private static string Canon(string s)
     {

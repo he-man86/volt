@@ -87,6 +87,27 @@ thing that makes the change checkable at all, and it lands first.
 
 ## 2. Defects — behaviour before structure
 
+> **MEASURED 2026-08-27, and it changes this section's premise.** §2.1 and §2.2 were written as writer bugs,
+> fixable before and independently of the splice. They are not. Both facts are destroyed at **READ** time, before
+> `GraphWriter` ever runs, and the VG text has no spelling to carry them:
+>
+> - **2.1** — `GraphReader.LowerLadder` lowers a `<contact>` to an `InVar`, and `InVar` is
+>   `(LocalId, ExecOrder, Expression, Mods)`. Nothing records "this leaf was a contact". The writer's choice is
+>   structural — reached via the power spine ⇒ contact, via a data pin ⇒ box — so a contact feeding a DATA pin
+>   cannot be reconstructed without type knowledge Volt does not have.
+> - **2.2** — the reader folds comment boxes into one `GraphNetwork.Comment` string and drops empty ones, so
+>   "there was a box here" is gone. All 6 recorded boxes are empty, one per network — they are the vendors'
+>   per-network placeholders, not engineer content, which lowers the stakes but not the fidelity loss.
+>
+> Neither is fixable at this layer without a VG format change. **They are splice-dependent** (§3), which
+> strengthens the case for §3 rather than weakening it: the splice is not an optimisation layered on top of fixed
+> defects, it is the only available fix for most of them. Do NOT attempt 2.1/2.2 as writer changes — that was
+> tried and the model was measured to be lossy first.
+>
+> **2.3 was fixable and is DONE** — not by carrying the attribute (which needs the splice) but by refusing to
+> destroy it: `BodySpliceGuard` now rejects a stored body carrying `executionOrderId`, with U1 recorded in place.
+
+
 Each lands with its own test, RED before the fix, and each lands BEFORE any splice code. A splice commit must not
 carry a behaviour fix, or the fix reads as splice fallout.
 
@@ -112,7 +133,7 @@ carry a behaviour fix, or the fix reads as splice fallout.
       > comment in the tree is hand-authored (DIALECT D15).]` Close by typing a comment into a network in each IDE
       > and exporting. Until then the N-boxes-per-network merge at `GraphReader.cs:41` also stays `[UNMEASURED: U9]`
       > — no fixture has two comments in one network, so the merge is a code fact, not a measured loss.
-- [ ] 2.3 **`executionOrderId` is dropped SILENTLY.** Read at `GraphReader.cs:275`, written at `GraphWriter.cs:187`,
+- [x] 2.3 **`executionOrderId` is dropped SILENTLY.** Read at `GraphReader.cs:275`, written at `GraphWriter.cs:187`,
       but all 15 node constructions in `NetworkTextReader` pass `null`, the text has no spelling for it, and
       `ValidateExisting` never inspects it. It is NOT CFC-only: `docs/tc6_xml_v201.xsd:1220,1250,1279,1309,1333,1352,1370`
       declares it on the shared FBD/LD elements, and

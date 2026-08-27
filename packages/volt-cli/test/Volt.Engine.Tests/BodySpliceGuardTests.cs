@@ -333,4 +333,33 @@ public class BodySpliceGuardTests
         Assert.Equal("TON", m["tmr"]);
         Assert.Equal("Tc2_Standard.R_TRIG", m["trig"]);
     }
+
+    /// <summary>A body carrying <c>executionOrderId</c> is REFUSED, not silently reordered.
+    ///
+    /// <para>It is execution semantics — two coils on the same variable are last-write-wins, and the CODESYS
+    /// reference says the order comes from executionOrderId, not from visual position. `GraphReader` reads it and
+    /// `GraphWriter` writes it, but all 15 node constructions in `NetworkTextReader` pass null and the text format
+    /// has no spelling for it, so a regeneration zeroes it every time. That is a silent semantic change to a
+    /// running program, which is the one class of failure this repo refuses outright.</para>
+    ///
+    /// <para>Constructed, not captured: zero of the 9 recorded exports carry the attribute (U1), which is why the
+    /// loss went unnoticed and why the guard needs a hand-built case to be exercised at all.</para></summary>
+    [Fact]
+    public void A_body_carrying_an_execution_order_is_refused_rather_than_reordered()
+    {
+        var withOrder = $"""
+        <pou xmlns="{Ns}" name="P">
+          <body><FBD>
+            <inVariable localId="1" executionOrderId="2"><expression>a</expression></inVariable>
+            <outVariable localId="2" executionOrderId="1"><expression>o</expression>
+              <connectionPointIn><connection refLocalId="1"/></connectionPointIn></outVariable>
+          </FBD></body>
+        </pou>
+        """;
+
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(withOrder));
+        Assert.Contains("executionOrderId", ex.Message);
+        Assert.Contains("execution order", ex.Message);      // says WHY, not just what
+
+    }
 }
