@@ -339,6 +339,15 @@ public static class Commands
                 "Volt kind extension (DUTs — struct/enum/union/alias — are all .dut; POUs .fb/.prg/.fun/.itf; " +
                 "global var list .gvl):\n" + string.Join("\n", foreign.Select(p => "  " + p)));
 
+        // The same refusal `Pull` makes, and for a sharper reason: a push's FIRST act is an auto-commit, and a
+        // commit during a merge concludes it. Without this, the natural move after a conflicted pull — push your
+        // own work back — silently resolved the merge with `<<<<<<< HEAD` still in the files, and then sent that
+        // to a live PLC.
+        if (Git.IsMerging(root))
+            return PushResult.Rejected(
+                "a merge is in progress — finish it with `volt merge --continue` or `volt merge --abort` first. " +
+                "(Pushing now would conclude the merge with its conflicts unresolved.)");
+
         Git.AutoCommitSrc(root);
 
         var forcing = force || forceWithLease is not null;

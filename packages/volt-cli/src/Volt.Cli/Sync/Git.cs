@@ -235,6 +235,14 @@ public static class Git
     /// user's git identity (the edits are theirs). Returns the number of changes committed (0 = nothing).</summary>
     public static int AutoCommitSrc(string root)
     {
+        // A commit made while MERGE_HEAD exists is not an ordinary commit — git treats it as the CONCLUSION of
+        // the merge. So this would stage the conflicted files, markers and all, conclude the merge on the
+        // engineer's behalf, and leave them with no `volt merge --abort` to run. Refusing here rather than only
+        // in the caller keeps the property with the primitive: any future caller gets it too.
+        if (IsMerging(root))
+            throw new InvalidOperationException(
+                "refusing to auto-commit during a merge — that would conclude it. " +
+                "Resolve it with `volt merge --continue`, or `volt merge --abort` to discard it.");
         var dirty = DirtySrc(root);
         if (dirty.Count == 0) return 0;
         Run(new[] { "-C", root, "add", "-A", "--", "src" });
