@@ -45,6 +45,32 @@ public class ConnectionManagerRestoreTests : IDisposable
         Assert.Empty(src.Unbound); // held by the grace window, not gated
     }
 
+    /// <summary>One client claiming ONE project must not disarm the hold protecting ANOTHER.
+    /// <para>The disarm read "if any restored id exists and this client declared any non-empty interest, empty
+    /// the whole restored set". So with two projects restored after a connector restart, the first client back —
+    /// say the VS Code extension, which declares only the workspace it has open — released the hold for BOTH,
+    /// and the second project was gated on the next reconcile although nobody had come back for it. That is the
+    /// stranded-client half of the same incident the hold exists to prevent, arriving from the other side.</para>
+    /// <para>The hold is per-project, so releasing it is too: a restored id is released when a session claims
+    /// THAT id, which is knowable only once interests have been resolved against the detected projects.</para></summary>
+    [Fact]
+    public async Task Claiming_one_restored_project_does_not_release_the_hold_on_another()
+    {
+        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var mine = src.Add("MyMachine", serving: true);
+        var other = src.Add("OtherMachine", serving: true);
+        SeedWanted(mine.Id, other.Id);
+
+        var cm = new ConnectionManager(new[] { (IProjectSource)src }, wantedFile: _wantedFile);
+        var (sessionId, _) = await cm.OpenSessionAsync();
+
+        // ONE client comes back, and claims only its own project.
+        await cm.SyncAsync(sessionId, new[] { new Interest(Vendors.Codesys, "MyMachine") });
+
+        Assert.DoesNotContain(src.Unbound, u => u.Id == other.Id);
+        Assert.DoesNotContain(src.Unbound, u => u.Id == mine.Id);
+    }
+
     /// <summary>THE ONE THAT MATTERS. The hold must not consume the edge: if the first reconcile drops the
     /// restored id from the desired set (and truncates the file), then on every later pass `previouslyWanted` is
     /// empty, so the leave-edge is gone and the project can NEVER be gated — it serves forever with no client.

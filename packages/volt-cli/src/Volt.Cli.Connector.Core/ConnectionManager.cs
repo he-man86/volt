@@ -147,7 +147,10 @@ namespace Volt.Cli.Connector
                 // unconditionally — with an EMPTY interest array. Treating that as "the clients are back"
                 // disarmed the 20 s grace hold on the very first poll, so the next reconcile gated the restored
                 // project immediately: precisely the stranded-bridge case the hold exists to prevent.
-                if (_restored.Count > 0 && interests.Count > 0) _restored = new HashSet<string>(StringComparer.Ordinal);
+                // NOT cleared wholesale — see the disarm in CycleCoreAsync. This line used to empty the entire
+                // restored set the moment ANY client declared ANY non-empty interest, so a client claiming
+                // project A also disarmed the hold protecting project B, and B was gated on the next reconcile
+                // although nobody had come back for it. The hold is per-project; so is releasing it.
                 var now = Describe(interests);
                 if (!_state.Sessions.TryGetValue(sessionId, out var prior) || Describe(prior.Interests) != now)
                     VoltLog.Info($"session {Short(sessionId)} declares {now}");
@@ -258,6 +261,15 @@ namespace Volt.Cli.Connector
             // gated out from under it. So hold unbinds during a short startup window: a client that re-declares
             // inside it keeps its project (no edge), and anything still unwanted when the window closes is gated for
             // real. Binds are never held — resuming a wanted project early is always safe.
+            // A restored project stops being held the moment a client claims THAT project — which is knowable
+            // here and not in SyncAsync, because an Interest resolves to a project only against `s.Projects`.
+            // Anything still unclaimed keeps its hold for the rest of the window.
+            if (_restored.Count > 0)
+            {
+                var claimed = plan.ToBind.Select(p => p.Id).Concat(s.Wanted).ToList();
+                if (claimed.Count > 0) _restored.ExceptWith(claimed);
+            }
+
             if (_restored.Count > 0 && DateTime.UtcNow < _gateHoldUntil)
             {
                 var held = plan.ToUnbind.Where(p => _restored.Contains(p.Id)).ToList();
