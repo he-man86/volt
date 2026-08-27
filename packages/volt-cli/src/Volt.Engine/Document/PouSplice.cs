@@ -79,57 +79,8 @@ namespace Volt.Engine.Document
             var found = BodyCodec.PresentWith(body);
             var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
 
-            if (present is not null && present.Unsupported)
-            {
-                // Restating the MARKER is the ordinary round-trip, not an edit: it is what an unsupported body
-                // materializes as, so it is exactly what comes back on the next push of that file. Return the
-                // document UNTOUCHED — `PouDocument.Splice` has already spliced the declaration by the time this
-                // runs, so the caller's edit to a CFC POU's declaration (ordinary editable text) still lands.
-                // Refusing here made that edit unreachable: the whole push was rejected over a body nobody wrote.
-                //
-                // The child path (`Sync/BodyFormatGuard`) already drew this distinction, and says so in its own
-                // comment — "pushing the marker back is the ordinary no-op". Nothing justified the asymmetry; a
-                // live CFC/SFC POU simply had no test until now, and the offline suite only ever exercised a
-                // marker over a CHILD, where the path that handles it correctly is the one that runs.
-                if (Vocabulary.BodyMarker.Is(bodyText)) return xml;
-                throw new InvalidOperationException(
-                    $"'{itemName}' has a {present.Language} body, which Volt does not support — edit it in the IDE, not via push.");
-            }
-
-            // The OTHER arm of the same rule, and the reason the marker cannot simply be waved through above: a
-            // marker over a body that is NOT unsupported is stale or hand-written, and Volt would otherwise treat
-            // it as ordinary ST — `NetworkText.LanguageOf` sees no network text, the ST codec takes it, and the
-            // engineer's real body is replaced by a COMMENT. `Sync/BodyFormatGuard` has refused exactly this for
-            // a CHILD all along; the root had no marker handling at all, so it had neither arm.
-            if (Vocabulary.BodyMarker.Is(bodyText))
-                throw new InvalidOperationException(
-                    $"'{itemName}' carries an unsupported-body marker but its body in the IDE is " +
-                    $"{present?.Language ?? "textual"} — remove the marker and push real source, or pull first.");
-
-            // A body element NO codec owns is a language Volt does not model — refuse it the same way, and for a
-            // stronger reason: with a CFC we at least know what we are declining to touch. `found` is null here,
-            // so every check below (which all read `present`) would pass and the write would proceed straight over
-            // it. `establishing` does not exempt this one: `CreateChild` seeds a language Volt asked for, so an
-            // unmodelled body on a create is not our seed — it is somebody else's body under our name.
-            if (BodyCodec.UnmodelledLanguageIn(body) is { } unmodelled)
-                throw new InvalidOperationException(
-                    $"'{itemName}' has a {unmodelled} body, which Volt does not model — it would be overwritten. " +
-                    "Edit it in the IDE.");
-            // The language guard protects a body the ENGINEER made. On a create there is no such body — the only
-            // one present is the seed `CreateChild` laid down microseconds ago, in this same push.
-            //
-            // That distinction cannot be read off the document, and assuming it could cost every LD create on
-            // TwinCAT. `CreateChild` is handed the pushed language, and TwinCAT REFUSES "LD" (DIALECT C6), so the
-            // driver creates FBD and the ladder view rides along as archive metadata. The document then shows an
-            // empty <FBD/> — which by content is "made graphical on purpose", and the guard refused the very LD
-            // body the push was creating: *'X' has a FBD body in the IDE but the push carries LD*. Volt refusing a
-            // Volt decision, one line after making it. The per-child write never hit it because it establishes the
-            // body through its own import instead of splicing over the seed.
-            if (!establishing && present is not null
-                && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(
-                    $"'{itemName}' has a {present.Language} body in the IDE but the push carries {pushed.Language} — " +
-                    "edit it in the IDE, or delete it first to replace it.");
+            if (BodyGuard.Require(body, bodyText, pushed, present, establishing, $"'{itemName}'") is BodyWrite.NoOp)
+                return xml;
 
             return pushed.Encode(body, bodyText, declaration) ? PlcOpenDocument.Serialize(doc) : xml;
         }
@@ -363,22 +314,11 @@ namespace Volt.Engine.Document
                 var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(code) ?? "ST");
                 var found = BodyCodec.PresentWith(body);
                 var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
-                if (present is not null && present.Unsupported)
-                {
-                    // Restating the marker is the ordinary round-trip, exactly as it is for a root and a child.
-                    if (!Vocabulary.BodyMarker.Is(code))
-                        throw new InvalidOperationException(
-                            $"'{propertyName}' {(getter ? "getter" : "setter")} of '{itemName}' has a " +
-                            $"{present.Language} body, which Volt does not support — edit it in the IDE, not via push.");
-                }
-                else if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException(
-                        $"'{propertyName}' {(getter ? "getter" : "setter")} of '{itemName}' has a " +
-                        $"{present.Language} body in the IDE but the push carries {pushed.Language} — " +
-                        "edit it in the IDE, or delete it first to replace it.");
-                }
-                else
+                // The SAME gate the root body uses — see BodyGuard. This arm carried two of its five checks:
+                // no unmodelled-language refusal, and no marker handling in either direction.
+                if (BodyGuard.Require(body, code, pushed, present, establishing: false,
+                                      $"'{propertyName}' {(getter ? "getter" : "setter")} of '{itemName}'")
+                    is BodyWrite.Proceed)
                 {
                     // `declaration` is the accessor's OWN declaration, which is the scope its FB instances
                     // resolve against — the network codec needs it to restore each box's typeName.
@@ -451,15 +391,11 @@ namespace Volt.Engine.Document
                 var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(bodyText) ?? "ST");
                 var found = BodyCodec.PresentWith(body);
                 var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
-                if (present is not null && present.Unsupported)
-                    throw new InvalidOperationException(
-                        $"child '{childName}' of '{itemName}' has a {present.Language} body, which Volt does " +
-                        "not support — edit it in the IDE, not via push.");
-                if (present is not null && !string.Equals(present.Language, pushed.Language, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException(
-                        $"child '{childName}' of '{itemName}' has a {present.Language} body in the IDE but the " +
-                        $"push carries {pushed.Language} — edit it in the IDE, or delete it first to replace it.");
-                changed |= pushed.Encode(body, bodyText, scopeDeclaration);
+                // The SAME gate the root body uses — see BodyGuard. This arm carried two of its five checks
+                // and gave the OPPOSITE answer on a restated marker: a no-op at the root, a hard refusal here.
+                if (BodyGuard.Require(body, bodyText, pushed, present, establishing: false,
+                                      $"child '{childName}' of '{itemName}'") is BodyWrite.Proceed)
+                    changed |= pushed.Encode(body, bodyText, scopeDeclaration);
             }
 
             return changed ? PlcOpenDocument.Serialize(doc) : xml;
