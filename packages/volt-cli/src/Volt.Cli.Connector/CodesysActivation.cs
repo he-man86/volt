@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 
 namespace Volt.Cli.Connector
@@ -30,7 +30,7 @@ namespace Volt.Cli.Connector
 
         /// <summary>The <c>start_volt_codesys.py</c> the user executes inside CODESYS: the VISIBLE Documents\Volt copy
         /// first (published on connector startup), then the install-dir backup / dev tree. Null if none exist.</summary>
-        public static string? ScriptPath()
+        private static string? ScriptPath()
         {
             var env = Environment.GetEnvironmentVariable("VOLT_CODESYS_SCRIPT");
             if (!string.IsNullOrEmpty(env) && File.Exists(Path.GetFullPath(env))) return Path.GetFullPath(env);
@@ -39,7 +39,7 @@ namespace Volt.Cli.Connector
         }
 
         /// <summary>What to copy to the clipboard: the primary script path (for CODESYS's Execute-Script-File dialog).</summary>
-        public static string ClipboardText() => ScriptPath() ?? "start_volt_codesys.py";
+        internal static string ClipboardText() => ScriptPath() ?? "start_volt_codesys.py";
 
         /// <summary>Human steps shown in the activation dialog / hint. Shows BOTH the visible Documents copy (the
         /// one to run) and the install-dir backup, so the user can find it either way.</summary>

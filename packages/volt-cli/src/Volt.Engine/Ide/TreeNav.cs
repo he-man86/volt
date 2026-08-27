@@ -29,7 +29,7 @@ internal static class TreeNav
     /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
     /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
     /// through and create a user folder beside it.</summary>
-    internal static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
@@ -58,7 +58,7 @@ internal static class TreeNav
         return node;
     }
 
-    internal static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
@@ -67,7 +67,7 @@ internal static class TreeNav
 
     /// <summary>The one 1-based child scan every lookup here shares: first child matching
     /// <paramref name="match"/>, or null.</summary>
-    internal static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
+    private static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
     {
         int count = ide.ChildCount(parent);
         for (int i = 1; i <= count; i++)
@@ -80,11 +80,7 @@ internal static class TreeNav
 
     // Names are matched case-insensitively: IEC identifiers are case-insensitive, so Core never trusts the
     // IDE's casing.
-    internal static bool NameIs(IIdeDriver ide, ItemRef item, string name) =>
+    private static bool NameIs(IIdeDriver ide, ItemRef item, string name) =>
         string.Equals(ide.Name(item), name, StringComparison.OrdinalIgnoreCase);
 
-    internal static void RemoveChildIfPresent(IIdeDriver ide, ItemRef parent, string name)
-    {
-        if (FindChild(ide, parent, name) is not null) ide.Delete(parent, name);
-    }
 }

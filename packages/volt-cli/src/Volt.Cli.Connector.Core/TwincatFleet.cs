@@ -21,7 +21,7 @@ namespace Volt.Cli.Connector
 
         /// <summary>The worker id for one XAE window — the SAME string across spawn, reap and restart, so it is
         /// spelled exactly once.</summary>
-        public static string WorkerId(int pid) => $"{Vendors.Twincat}.{pid}";
+        private static string WorkerId(int pid) => $"{Vendors.Twincat}.{pid}";
 
         /// <summary>One reconciliation pass. TwinCAT is per-XAE: probe the live XAE window pids (a COM-isolated
         /// subprocess, off the caller's thread), then keep exactly one worker per XAE — spawn/respawn one for each

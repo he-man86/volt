@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -24,7 +24,7 @@ internal static class RotInstances
     /// <summary>The window process id of a DTE (its top-level MainWindow → owning process), or 0 if unreadable.
     /// STABLE for the process lifetime — the durable identity a per-XAE worker attaches by, unlike the ephemeral ROT
     /// moniker (which TcXaeShell re-registers with a fresh cookie mid-session).</summary>
-    public static int PidOf(object dte)
+    private static int PidOf(object dte)
     {
         try
         {

@@ -115,37 +115,6 @@ namespace Volt.Engine.Document
             return PouReader.NonStLanguageOf(body);
         }
 
-        /// <summary>The POU's declaration, read from the exported PLCopen's <c>interfaceasplaintext</c>
-        /// addData (the xhtml-wrapped plaintext interface), or null if absent. Matches the object-model
-        /// Interface aspect text exactly — so it's a drift-free substitute that AVOIDS touching the
-        /// aspect, which on a just-reimported graphical POU (right after a push) damages its in-session
-        /// graphical export. Entity decoding is handled by <see cref="XElement.Value"/>.</summary>
-        public static string? DeclFromExport(string xml, string itemName)
-        {
-            // Parse throws on a malformed export (surfaced, not masked).
-            // Scoped to the element NAMED itemName — a DUT is <dataType name=…>, a GVL is <globalVars name=…> —
-            // for the same reason ItemBody is: one export can describe several items, and the FIRST
-            // InterfaceAsPlainText in the document is not necessarily the one that was asked for.
-            // Declaration-only kinds (DUT/GVL) have no children, so the first descendant under the named
-            // element IS theirs; POU declarations go through PouReader, which does its own scoping.
-            var doc = XDocument.Parse(xml);
-            var owner = doc.Descendants().FirstOrDefault(e =>
-                IsItemElement(e) && (string?)e.Attribute("name") == itemName);
-            // NO whole-document fallback. An earlier version read `(owner ?? doc.Root)`, which meant a name
-            // that isn't in the document returned the FIRST plaintext block anywhere in it — i.e. some OTHER
-            // item's declaration, confidently. That is the same document-scoping mistake that spliced a body
-            // over a sibling method; "not found" must answer null, not a plausible wrong item.
-            if (owner is null) return null;
-            var iapt = owner.Descendants().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
-            if (iapt == null) return null;
-            // The text lives in an inner <xhtml> element; take its value (not the addData wrapper's, to
-            // avoid pretty-print whitespace around it).
-            var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
-            var text = inner.Value;
-            return string.IsNullOrEmpty(text) ? null : text;
-        }
-
-
         // ── the write splice ────────────────────────────────────────────────────────────────────────────
         // These EDIT the item's existing export rather than generating a document. That is deliberate: an
         // export carries attributes, pragmas, object ids and vendor addData that Volt does not model, and

@@ -26,6 +26,27 @@ internal static class TestPlcOpen
         return (string?)body?.Parent?.Attribute("name") ?? "";
     }
 
+    /// <summary>The declaration the NAMED item owns, read through the production rule.
+    ///
+    /// <para>Replaces <c>PlcOpenDocument.DeclFromExport</c>, which took the first
+    /// <c>&lt;InterfaceAsPlainText&gt;</c> in the whole subtree with NO child filter — a third answer to
+    /// "is this declaration the item's own?", and the trap <c>MaterializerChildDeclTests</c> is named after: on a
+    /// POU whose METHOD's declaration appears first in the document, it returned the method's.</para>
+    ///
+    /// <para>It was production-dead by the time it was removed, and this is what its test callers wanted all
+    /// along — the same rule the reader and writer now share (<c>Declaration.OwnDeclContainers</c>).</para></summary>
+    internal static string? OwnDeclaration(string xml, string itemName)
+    {
+        // Scoped to an ITEM element — a POU, a DUT (<dataType>), a GVL (<globalVars>) — never a member. That
+        // half of DeclFromExport was right and is kept: one export describes several things, and a CHILD's name
+        // is not an item, so asking for one answers null rather than handing back the child's declaration.
+        // What is NOT kept is how it then picked the block: the first InterfaceAsPlainText in the whole subtree,
+        // with no child filter. `Declaration.Read` applies the shared ownership rule instead.
+        var owner = XDocument.Parse(xml).Descendants()
+            .FirstOrDefault(e => PlcOpenDocument.IsItemElement(e) && (string?)e.Attribute("name") == itemName);
+        return owner is null ? null : Declaration.Read(owner);
+    }
+
     /// <summary>The one <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> element in a single-body fixture, or null.</summary>
     internal static XElement? FindOnlyGraphicalBody(string xml) =>
         XDocument.Parse(xml).Descendants().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");

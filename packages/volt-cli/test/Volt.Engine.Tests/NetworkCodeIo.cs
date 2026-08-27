@@ -28,9 +28,9 @@ public sealed record GraphicalBody(string Language, string Body, string Declarat
 /// this is the same code, byte for byte apart from the two lookups it used to borrow from a production shim that
 /// no longer exists. Nothing it asserts has changed; only where it ships has.</para>
 ///
-/// <para>It was also the sole caller of <c>PlcOpenDocument.DeclFromExport</c>, which is therefore now reached only
-/// from tests too. That one is NOT resolved here — it is a third answer to "is this declaration the item's own?",
-/// and it dies when that rule is unified (openspec `splice-graphical-body` §7.5/7.6), not before.</para></summary>
+/// <para>It was also the sole caller of <c>PlcOpenDocument.DeclFromExport</c> — a THIRD answer to "is this
+/// declaration the item's own?", with no child filter at all. That rule is now unified (§7.5/§7.6) and the method
+/// is gone; this reads through <c>TestPlcOpen.OwnDeclaration</c>, which applies the shared one.</para></summary>
 public static class NetworkCodeIo
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable network text;
@@ -71,7 +71,7 @@ public static class NetworkCodeIo
     /// structural property, not an error path" — measured, it does not occur on either vendor (the evidence is
     /// on <c>Materializer.BuildPouFromXml</c>), so it is an error path after all.</para></summary>
     private static string DeclarationFrom(ICodeStore code, ItemRef item, string itemName, string xml) =>
-        PlcOpenDocument.DeclFromExport(xml, itemName)
+        TestPlcOpen.OwnDeclaration(xml, itemName)
         ?? throw new InvalidOperationException(
             $"'{itemName}': its PLCopen export carries no <InterfaceAsPlainText> — a POU document without a " +
             "declaration is a broken export");

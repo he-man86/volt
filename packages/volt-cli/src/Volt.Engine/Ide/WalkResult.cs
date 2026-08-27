@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Volt.Engine.Ide;
 
@@ -32,7 +32,4 @@ public sealed class WalkResult
     /// <summary>True when the walk saw the whole tree, so absence from <see cref="Items"/> is meaningful.</summary>
     public bool Complete => UnwalkedFolders.Count == 0;
 
-    /// <summary>A complete walk — the ordinary case, and what every fake and in-memory tree produces.</summary>
-    public static WalkResult Whole(IReadOnlyList<ProjectItem> items) =>
-        new WalkResult(items, System.Array.Empty<string>());
 }

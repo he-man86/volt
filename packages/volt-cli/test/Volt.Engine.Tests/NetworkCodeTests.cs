@@ -239,7 +239,7 @@ public class NetworkCodeTests
         Assert.DoesNotContain("old", written2);                       // old body gone
         Assert.Contains("<expression>x</expression>", written2);      // edited body in
         Assert.Equal("FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR",   // interface untouched
-                     Volt.Engine.Document.PlcOpenDocument.DeclFromExport(written2, ItemName));
+                     TestPlcOpen.OwnDeclaration(written2, ItemName));
     }
 }
 

@@ -21,12 +21,12 @@ internal static class BodyFormatGuard
     /// <summary>The language when it is one a textual write must not touch — i.e. anything but ST. Asking the
     /// codec registry instead of listing names is what stops a new language (IL was one) being silently
     /// classified textual and overwritten.</summary>
-    internal static string? NonSt(string? language) =>
+    private static string? NonSt(string? language) =>
         language is { } l && !string.Equals(l, "ST", StringComparison.OrdinalIgnoreCase) ? l : null;
 
     /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
     /// unsupported set has ONE definition shared by the splice and both live guards.</summary>
-    internal static bool IsUnsupportedLanguage(string? language) =>
+    private static bool IsUnsupportedLanguage(string? language) =>
         language is { } l && Document.BodyCodec.For(l).Unsupported;
 
     /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it

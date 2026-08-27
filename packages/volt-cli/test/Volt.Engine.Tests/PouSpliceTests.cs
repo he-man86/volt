@@ -34,7 +34,7 @@ public class PouSpliceTests
     public void A_no_op_declaration_write_changes_nothing(string dir, string file, string item)
     {
         var xml = Fixture(dir, file);
-        var same = PouSplice.SetDeclaration(xml, item, PlcOpenDocument.DeclFromExport(xml, item)!);
+        var same = PouSplice.SetDeclaration(xml, item, TestPlcOpen.OwnDeclaration(xml, item)!);
         Assert.Equal(Canon(xml), Canon(same));
     }
 
@@ -53,7 +53,7 @@ public class PouSpliceTests
     {
         const string decl = "PROGRAM PLC_PRG\nVAR\n\tspliced : INT := 7;\nEND_VAR";
         var outXml = PouSplice.SetDeclaration(CodesysPou, "PLC_PRG", decl);
-        Assert.Equal(decl, PlcOpenDocument.DeclFromExport(outXml, "PLC_PRG"));
+        Assert.Equal(decl, TestPlcOpen.OwnDeclaration(outXml, "PLC_PRG"));
         Assert.Equal(decl, PouReader.Parse(outXml).Declaration);   // and through the production reader
     }
 
@@ -64,7 +64,7 @@ public class PouSpliceTests
     {
         const string decl = "PROGRAM PLC_PRG\nVAR\n\tfromTwincat : BOOL;\nEND_VAR";
         var outXml = PouSplice.SetDeclaration(TwincatPou, "PLC_PRG", decl);
-        Assert.Equal(decl, PlcOpenDocument.DeclFromExport(outXml, "PLC_PRG"));
+        Assert.Equal(decl, TestPlcOpen.OwnDeclaration(outXml, "PLC_PRG"));
     }
 
     /// <summary>Writing a declaration to an item that is not in the document must THROW. A write that silently
@@ -93,9 +93,9 @@ public class PouSpliceTests
     [Fact]
     public void Writing_the_body_leaves_the_declaration_alone_and_vice_versa()
     {
-        var decl = PlcOpenDocument.DeclFromExport(CodesysPou, "PLC_PRG")!;
+        var decl = TestPlcOpen.OwnDeclaration(CodesysPou, "PLC_PRG")!;
         var afterBody = PouSplice.SetBody(CodesysPou, "PLC_PRG", "y := 1;", null, establishing: false);
-        Assert.Equal(decl, PlcOpenDocument.DeclFromExport(afterBody, "PLC_PRG"));
+        Assert.Equal(decl, TestPlcOpen.OwnDeclaration(afterBody, "PLC_PRG"));
 
         var afterBoth = PouSplice.SetDeclaration(afterBody, "PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\ty : INT;\nEND_VAR");
         Assert.Equal("y := 1;", PouReader.Parse(afterBoth).BodyElement!.Value);
@@ -468,9 +468,9 @@ public class PouSpliceTests
     [Fact]
     public void Reading_a_declaration_for_an_absent_item_is_null_not_someone_elses()
     {
-        Assert.NotNull(PlcOpenDocument.DeclFromExport(BoxFb, "BoxFB"));          // the real one is readable
-        Assert.Null(PlcOpenDocument.DeclFromExport(BoxFb, "NoSuchItem"));        // ...and an absent one is null
-        Assert.Null(PlcOpenDocument.DeclFromExport(BoxFb, "Cyclic"));            // a CHILD is not an item either
+        Assert.NotNull(TestPlcOpen.OwnDeclaration(BoxFb, "BoxFB"));          // the real one is readable
+        Assert.Null(TestPlcOpen.OwnDeclaration(BoxFb, "NoSuchItem"));        // ...and an absent one is null
+        Assert.Null(TestPlcOpen.OwnDeclaration(BoxFb, "Cyclic"));            // a CHILD is not an item either
     }
 
     /// <summary>A textual write refuses ANY non-ST body language, not just the graphical ones. IL is textual, so

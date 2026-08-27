@@ -138,7 +138,7 @@ namespace Volt.Cli.Connector
         private IntPtr _handle = IntPtr.Zero;
         private SafeJobHandle(IntPtr handle) => _handle = handle;
 
-        public static SafeJobHandle CreateKillOnClose()
+        internal static SafeJobHandle CreateKillOnClose()
         {
             try
             {

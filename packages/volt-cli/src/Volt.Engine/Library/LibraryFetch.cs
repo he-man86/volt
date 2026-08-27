@@ -94,5 +94,5 @@ internal static class LibraryFetch
     /// <summary>A library's own workspace folder — its element folder, holding both the `.library` stub and the
     /// element signatures (`Library Manager/&lt;lib&gt;/`). One definition so the stub and its elements always
     /// colocate.</summary>
-    internal static string LibraryFolder(string? folder, string name) => Library.LibraryLayout.FolderFor(folder, name);
+    private static string LibraryFolder(string? folder, string name) => Library.LibraryLayout.FolderFor(folder, name);
 }

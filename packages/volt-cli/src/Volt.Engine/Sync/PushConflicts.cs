@@ -72,7 +72,7 @@ internal static class PushConflicts
         return conflicts;
     }
 
-    internal static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
+    private static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
         new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
                 Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
 }
