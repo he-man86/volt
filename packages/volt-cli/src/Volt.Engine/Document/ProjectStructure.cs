@@ -38,7 +38,7 @@ namespace Volt.Engine.Document
     /// </summary>
     internal static class ProjectStructure
     {
-        private const string ThreeSObjectId = "http://www.3s-software.com/plcopenxml/objectid";
+        private static readonly string ThreeSObjectId = Vocabulary.Namespaces.ThreeSName("objectid");
 
         /// <summary>Rewrite the item's entry in the structure block so it lists exactly
         /// <paramref name="members"/>, each carrying the same <c>ObjectId</c> as its member element. Ids absent

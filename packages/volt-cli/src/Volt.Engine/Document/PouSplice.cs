@@ -152,7 +152,7 @@ namespace Volt.Engine.Document
             return (member, removable);
         }
 
-        private const string ThreeS = "http://www.3s-software.com/plcopenxml/";
+        private const string ThreeS = Vocabulary.Namespaces.ThreeS;
 
         /// <summary>Is this owner an INTERFACE? Both vendors export one as an <c>&lt;Interface&gt;</c> element with
         /// no <c>&lt;pou&gt;</c> anywhere — so the element name is the kind, and no caller has to pass one in.</summary>
@@ -188,7 +188,7 @@ namespace Volt.Engine.Document
                     $"'{itemName}' already has a child named '{childName}' — use SetChildText to update it");
 
             XNamespace ns = owner.Name.Namespace;
-            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            XNamespace xh = Vocabulary.Namespaces.Xhtml;
             XElement Text(string name, string value) =>
                 new(ns + name, new XElement(xh + "xhtml", value));
             // The SAME codec dispatch SetChildText uses for an UPDATE. Writing the text verbatim into <ST> meant
@@ -319,7 +319,7 @@ namespace Volt.Engine.Document
             }
 
             XNamespace ns = prop.Name.Namespace;
-            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            XNamespace xh = Vocabulary.Namespaces.Xhtml;
             // §2.5's identity rule, here too: a push re-states both accessors of every property, so most calls
             // through this method change nothing and must hand back the original bytes.
             var changed = false;

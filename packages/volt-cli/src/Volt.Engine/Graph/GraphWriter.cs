@@ -17,7 +17,7 @@ namespace Volt.Engine.Graph
     public static class GraphWriter
     {
         public static readonly XNamespace Ns = "http://www.plcopen.org/xml/tc6_0200";
-        private static readonly XNamespace Xhtml = "http://www.w3.org/1999/xhtml";
+        private static readonly XNamespace Xhtml = Vocabulary.Namespaces.Xhtml;
 
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
@@ -205,7 +205,7 @@ namespace Volt.Engine.Graph
         /// (matching the IDE format). A null/empty value yields a self-closing inner element.</summary>
         private static XElement VendorData(string nameSuffix, string innerName, string? value)
             => new(Ns + "data",
-                new XAttribute("name", "http://www.3s-software.com/plcopenxml/" + nameSuffix),
+                new XAttribute("name", Vocabulary.Namespaces.ThreeSName(nameSuffix)),
                 new XAttribute("handleUnknown", "implementation"),
                 string.IsNullOrEmpty(value) ? new XElement(innerName) : new XElement(innerName, value));
 
@@ -331,7 +331,7 @@ namespace Volt.Engine.Graph
                 new XElement(Ns + "alternativeText", new XElement(Xhtml + "xhtml")),
                 new XElement(Ns + "addData",
                     new XElement(Ns + "data",
-                        new XAttribute("name", "http://www.3s-software.com/plcopenxml/fbdelementtype"),
+                        new XAttribute("name", Vocabulary.Namespaces.ThreeSName("fbdelementtype")),
                         new XAttribute("handleUnknown", "implementation"),
                         new XElement("ElementType", "networktitle"))));
 

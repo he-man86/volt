@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -76,13 +76,32 @@ namespace Volt.Engine.Document
         public static void Establish(XElement owner, string declaration)
         {
             XNamespace ns = owner.Name.Namespace;
-            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            XNamespace xh = Vocabulary.Namespaces.Xhtml;
             owner.Add(new XElement(ns + "InterfaceAsPlainText", new XElement(xh + "xhtml", declaration)));
         }
 
         /// <summary>Does this element carry no plaintext block at all — i.e. is it one Volt has constructed but
         /// not yet completed? See <see cref="Establish"/>.</summary>
         public static bool IsUnestablished(XElement owner) => !Blocks(owner).Any();
+
+        /// <summary>The elements that own a declaration of their own — so a declaration found INSIDE one of
+        /// these, while looking at an ancestor, belongs to the child and not to the ancestor.
+        ///
+        /// <para>ONE list, because the read and the write must answer this identically. There were two: the
+        /// writer's was case-SENSITIVE over nine names, the reader's was case-insensitive over eleven (it also
+        /// listed <c>get</c>/<c>set</c>). Two lists answering one question is a divergence waiting to be found in
+        /// production — a declaration could be attributed to the item in one direction and to its child in the
+        /// other, on the same document.</para>
+        ///
+        /// <para>The union resolves it, and each difference resolves the SAFE way. Case-insensitive, because a
+        /// vendor spelling <c>Getaccessor</c> would slip past the case-sensitive list and let an accessor's
+        /// declaration be read as its property's. <c>get</c>/<c>set</c> kept, because excluding a container that
+        /// does not occur costs nothing while dropping one that does is a silent misattribution — and they do not
+        /// occur: measured, ZERO across every recorded export on both vendors (U22). The schema's own spelling for
+        /// an accessor is what the vendors emit, <c>GetAccessor</c>/<c>SetAccessor</c>.</para></summary>
+        internal static readonly HashSet<string> OwnDeclContainers =
+            new(StringComparer.OrdinalIgnoreCase)
+            { "pou", "Method", "Action", "Property", "get", "set", "GetAccessor", "SetAccessor" };
 
         /// <summary>The plaintext blocks this element owns. ALL of them — see the type doc.</summary>
         private static IEnumerable<XElement> Blocks(XElement owner) =>

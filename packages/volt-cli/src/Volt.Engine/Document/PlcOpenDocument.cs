@@ -59,9 +59,10 @@ namespace Volt.Engine.Document
         internal static IEnumerable<XElement> OwnDescendants(XElement owner, string localName) =>
             owner.Descendants()
                 .Where(e => e.Name.LocalName == localName)
+                // The list lives in `Declaration`, shared with the READER — see Declaration.OwnDeclContainers.
+                // These were two separate lists, differing in case-sensitivity and in two entries.
                 .Where(e => !e.Ancestors().TakeWhile(a => a != owner)
-                    .Any(a => a.Name.LocalName is "pou" or "Method" or "method" or "Action" or "action"
-                        or "Property" or "property" or "GetAccessor" or "SetAccessor"));
+                    .Any(a => Declaration.OwnDeclContainers.Contains(a.Name.LocalName)));
 
         /// <summary>
         /// The body belonging to the ITEM NAMED <paramref name="itemName"/> — its own direct <c>&lt;body&gt;</c>

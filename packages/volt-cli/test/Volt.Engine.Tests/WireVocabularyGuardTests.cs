@@ -37,6 +37,15 @@ public class WireVocabularyGuardTests
                     "DUPLICATE_CHILD", "INVALID_CODE_HEADER", "INVALID_ST", "INTERNAL_ERROR" },
             new HashSet<string> { "BridgeErrorCodes.cs" }),
 
+        // A body written into the wrong XML namespace is not a compile error — it is a document the vendor's
+        // importer quietly declines to understand. These were spelled at NINE sites across five files before
+        // `Namespaces` existed; nine independent spellings of one fact drift, and nothing catches the drift.
+        // The TC6 namespace is deliberately absent: it is never written from a literal at all, because a write
+        // takes it from the element it writes into (a document declares its own version).
+        ("xml namespaces (Namespaces)",
+            new[] { "http://www.w3.org/1999/xhtml", "http://www.3s-software.com/plcopenxml/" },
+            new HashSet<string> { "Namespaces.cs" }),
+
         ("op codes (Ops)",
             new[] { "health", "connect", "disconnect", "refs", "fetch", "init", "push", "build" },
             // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
@@ -115,8 +124,7 @@ public class WireVocabularyGuardTests
                 foreach (var raw in File.ReadLines(file))
                 {
                     lineNo++;
-                    var slash = raw.IndexOf("//", StringComparison.Ordinal);
-                    var code = slash >= 0 ? raw.Substring(0, slash) : raw;
+                    var code = StripComment(raw);
                     // A wire FIELD name that equals a vocabulary word is a different concept from the VALUE.
                     if (code.Contains("JsonPropertyName")) continue;
                     if (rx.IsMatch(code))
@@ -130,6 +138,30 @@ public class WireVocabularyGuardTests
             "re-spells one instead of using its constant (ItemKind.Kinds / Ops / Vendors / HealthStatus / " +
             "BridgeErrorCodes). Use the constant, or — if it is genuinely a different vocabulary — add the file to " +
             "that vocabulary's allowlist in this test:\n  " + string.Join("\n  ", offenders));
+    }
+
+    /// <summary>The line with any trailing <c>//</c> comment removed — where <c>//</c> INSIDE a string literal
+    /// is not a comment.
+    ///
+    /// <para>This used to be <c>raw.IndexOf("//")</c>, which is correct for every vocabulary that existed when it
+    /// was written and silently wrong for the first one whose values are URLs: <c>"http://…"</c> contains
+    /// <c>//</c>, so every line holding a namespace literal was truncated to <c>"http:</c> before the regex ever
+    /// saw it, and the guard could not fail. Measured — the namespace entry was added, a literal was deliberately
+    /// re-spelled in <c>BodyCodec.cs</c>, and the guard stayed GREEN.</para>
+    ///
+    /// <para>A guard that cannot go red is worse than no guard: it reports coverage it does not have. So this
+    /// tracks string state rather than scanning for the first <c>//</c>.</para></summary>
+    private static string StripComment(string raw)
+    {
+        var inString = false;
+        for (var i = 0; i < raw.Length; i++)
+        {
+            var c = raw[i];
+            if (c == '\\' && inString) { i++; continue; }             // an escaped char inside a string
+            if (c == '"') { inString = !inString; continue; }
+            if (!inString && c == '/' && i + 1 < raw.Length && raw[i + 1] == '/') return raw.Substring(0, i);
+        }
+        return raw;
     }
 
     /// <summary>The allowlist key for a file: its name with any PARTIAL-CLASS suffix removed, so

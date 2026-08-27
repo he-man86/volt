@@ -133,7 +133,7 @@ namespace Volt.Engine.Document
         public override bool Encode(XElement body, string text, string? declaration)
         {
             var ns = body.Name.Namespace;
-            XNamespace xh = "http://www.w3.org/1999/xhtml";
+            XNamespace xh = Vocabulary.Namespaces.Xhtml;
             var st = Locate(body);
             if (st is null)
             {

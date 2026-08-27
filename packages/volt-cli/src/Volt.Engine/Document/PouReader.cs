@@ -220,9 +220,9 @@ public static class PouReader
     // own IAPT, so grabbing the method's IAPT made an FB materialize as kind "method" → ExtFor threw).
     // GetAccessor/SetAccessor are here for the same reason the rest are: an ACCESSOR carries its own
     // InterfaceAsPlainText, and without them a property's declaration read would pick up its getter's.
-    private static readonly HashSet<string> ChildDeclContainers =
-        new(StringComparer.OrdinalIgnoreCase)
-        { "pou", "Method", "Action", "Property", "get", "set", "GetAccessor", "SetAccessor" };
+    // The SAME list the write uses — see Declaration.OwnDeclContainers. These were two lists, and two lists
+    // answering one question is how a declaration gets attributed to the item on read and to its child on write.
+    private static readonly HashSet<string> ChildDeclContainers = Declaration.OwnDeclContainers;
 
     private static string? DeclFromElement(XElement element)
     {
