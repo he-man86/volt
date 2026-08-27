@@ -62,9 +62,15 @@ public sealed class PipeClient
         return result.Value;
     }
 
-    private static List<JsonElement> ReadFrames(Stream s)
+    /// <summary>Frames, yielded AS THEY ARRIVE.
+    /// <para>This used to return a <c>List</c>, which meant reading the socket to EOF before the caller saw
+    /// anything — so every progress frame was delivered after the operation had already finished. The server
+    /// streams progress precisely so a long pull can report while it runs; buffering it turned a live bar into a
+    /// replay, and `volt pull` sat silent for the whole fetch and then printed its history at once.</para>
+    /// <para>Iterator, not a callback: the consuming loop above already distinguishes progress / result / error,
+    /// and this keeps that one place in charge of interpreting a frame.</para></summary>
+    private static IEnumerable<JsonElement> ReadFrames(Stream s)
     {
-        var frames = new List<JsonElement>();
         using var buf = new MemoryStream();
         var chunk = new byte[8192];
         int n;
@@ -72,19 +78,19 @@ public sealed class PipeClient
         {
             for (int i = 0; i < n; i++)
             {
-                if (chunk[i] == (byte)'\n') Emit(frames, buf);
-                else buf.WriteByte(chunk[i]);
+                if (chunk[i] != (byte)'\n') { buf.WriteByte(chunk[i]); continue; }
+                if (Emit(buf) is { } frame) yield return frame;
             }
         }
-        Emit(frames, buf);
-        return frames;
+        if (Emit(buf) is { } tail) yield return tail;
     }
 
-    private static void Emit(List<JsonElement> frames, MemoryStream buf)
+    private static JsonElement? Emit(MemoryStream buf)
     {
-        if (buf.Length == 0) return;
-        using (var doc = JsonDocument.Parse(Encoding.UTF8.GetString(buf.ToArray())))
-            frames.Add(doc.RootElement.Clone());
+        if (buf.Length == 0) return null;
+        using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(buf.ToArray()));
+        var frame = doc.RootElement.Clone();
         buf.SetLength(0);
+        return frame;
     }
 }
