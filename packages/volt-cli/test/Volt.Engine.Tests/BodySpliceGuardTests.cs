@@ -5,7 +5,19 @@ using Volt.Engine.Graph;
 
 namespace Volt.Cli.Tests;
 
-public class GraphSpliceTests
+/// <summary>
+/// The capability gate over a stored graphical body: what a push may overwrite, and what it must refuse.
+///
+/// <para>These cases used to drive <c>GraphSplice.SpliceFbdLdBody</c>, which had ZERO production callers — a
+/// second graphical write path that existed only for this file. The contract they actually assert is real and
+/// production-critical, so they are RETARGETED rather than deleted: the refusal cases now call
+/// <c>BodySpliceGuard.RequireReplaceable</c> directly, which is what <c>BodyCodec.NetworkCodec.Encode</c> calls,
+/// and the document-scoping cases call <c>PouSplice.SetBody</c>, the real write entry.</para>
+///
+/// <para>Testing a contract through a shim that ships beside the real caller is how the shim stayed alive: the
+/// tests looked like coverage of the write path and were coverage of something nothing ran.</para>
+/// </summary>
+public class BodySpliceGuardTests
 {
     private const string Pou = """
     <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">
@@ -14,10 +26,38 @@ public class GraphSpliceTests
     </pou>
     """;
 
+
+    // ── the production entry points these cases assert, reached directly ──
+
+    /// <summary>Run the capability gate over the one graphical body in a single-body fixture — exactly what
+    /// <c>BodyCodec.NetworkCodec.Encode</c> does before it replaces a stored body.</summary>
+    private static void Gate(string xml) =>
+        BodySpliceGuard.RequireReplaceable(
+            XDocument.Parse(xml).Descendants().First(e => e.Name.LocalName is "FBD" or "LD"));
+
+    /// <summary>The NAMED item's graphical body, via the production scoping rule
+    /// (<c>PlcOpenDocument.ItemBody</c>) — the thing the scoping cases below are actually about.</summary>
+    private static XElement? NamedBody(string xml, string itemName) =>
+        PlcOpenDocument.ItemBody(XDocument.Parse(xml), itemName)?
+            .Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
+
+    /// <summary>Replace the NAMED item's body element, gate first. The scoped equivalent of
+    /// <c>TestPlcOpen.SpliceOnlyGraphicalBody</c>, for the multi-body documents below.</summary>
+    private static string SpliceNamed(string xml, string itemName, XElement newBody)
+    {
+        var doc = XDocument.Parse(xml);
+        var body = PlcOpenDocument.ItemBody(doc, itemName)
+            ?? throw new System.InvalidOperationException($"'{itemName}' has no <body> element");
+        var existing = body.Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
+        if (existing is null) { body.RemoveNodes(); body.Add(newBody); }      // first write onto a textual body
+        else { BodySpliceGuard.RequireReplaceable(existing); existing.ReplaceWith(newBody); }
+        return PlcOpenDocument.Serialize(doc);
+    }
+
     [Fact]
     public void Finds_the_FBD_body()
     {
-        var body = GraphSplice.FindFbdLdBody(Pou, "P");
+        var body = NamedBody(Pou, "P");
         Assert.NotNull(body);
         Assert.Equal("FBD", body!.Name.LocalName);
     }
@@ -29,7 +69,7 @@ public class GraphSpliceTests
         var newBody = new XElement(ns + "FBD", new XElement(ns + "outVariable",
             new XAttribute("localId", 9), new XElement(ns + "expression", "z")));
 
-        var outXml = GraphSplice.SpliceFbdLdBody(Pou, "P", newBody);
+        var outXml = SpliceNamed(Pou, "P", newBody);
 
         Assert.Contains("outVariable", outXml);
         Assert.Contains("z", outXml);
@@ -45,7 +85,7 @@ public class GraphSpliceTests
         // graphical one. NOT a throw — nothing of value is lost (the textual body is discarded by design).
         const string st = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><body><ST>x:=1;</ST></body></pou>""";
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphSplice.SpliceFbdLdBody(st, "P", new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
+        var outXml = SpliceNamed(st, "P", new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
         Assert.Contains("<FBD", outXml);          // graphical body inserted
         Assert.DoesNotContain("x:=1", outXml);    // textual body discarded
     }
@@ -55,7 +95,7 @@ public class GraphSpliceTests
     {
         const string noBody = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><interface/></pou>""";
         Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(noBody, "P", new XElement("FBD")));
+            () => SpliceNamed(noBody, "P", new XElement("FBD")));
     }
 
     [Fact]
@@ -71,8 +111,7 @@ public class GraphSpliceTests
           </FBD></body>
         </pou>
         """;
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(withConnector, "P", new XElement("FBD")));
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(withConnector));
         Assert.Contains("connector", ex.Message);
     }
 
@@ -86,7 +125,7 @@ public class GraphSpliceTests
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
         var newLd = new XElement(ns + "LD",
             new XElement(ns + "coil", new XAttribute("localId", 9), new XElement(ns + "variable", "z")));
-        var outXml = GraphSplice.SpliceFbdLdBody(Pou, "P", newLd);   // Pou has an <FBD> body
+        var outXml = SpliceNamed(Pou, "P", newLd);   // Pou has an <FBD> body
         Assert.Contains("<LD>", outXml);             // wrapper flipped to match the new body
         Assert.DoesNotContain("<FBD>", outXml);      // old FBD wrapper replaced
         Assert.Contains("coil", outXml);             // new contents present
@@ -107,7 +146,7 @@ public class GraphSpliceTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphSplice.SpliceFbdLdBody(withVendor, "P", new XElement(ns + "FBD"));
+        var outXml = SpliceNamed(withVendor, "P", new XElement(ns + "FBD"));
         Assert.DoesNotContain("inVariable", outXml);   // body replaced
     }
 
@@ -125,8 +164,7 @@ public class GraphSpliceTests
           </FBD></body>
         </pou>
         """;
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(withGap, "P", new XElement("FBD")));
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(withGap));
         Assert.Contains("gap", ex.Message);
     }
 
@@ -144,7 +182,7 @@ public class GraphSpliceTests
         </pou>
         """;
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
-        var outXml = GraphSplice.SpliceFbdLdBody(contiguous, "P", new XElement(ns + "FBD",
+        var outXml = SpliceNamed(contiguous, "P", new XElement(ns + "FBD",
             new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);
     }
@@ -162,8 +200,7 @@ public class GraphSpliceTests
               <inOutVariables><variable formalParameter="buf"><connectionPointIn/></variable></inOutVariables>
             </block>
             """);
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(xml));
         Assert.Contains("in-out", ex.Message);
     }
 
@@ -175,8 +212,7 @@ public class GraphSpliceTests
               <outputVariables><variable formalParameter="Q" negated="true"><connectionPointOut/></variable></outputVariables>
             </block>
             """);
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(xml));
         Assert.Contains("output pin", ex.Message);
     }
 
@@ -189,8 +225,7 @@ public class GraphSpliceTests
             <outVariable localId="3"><expression>o</expression>
               <connectionPointIn><connection refLocalId="1"/><connection refLocalId="2"/></connectionPointIn></outVariable>
             """);
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => GraphSplice.SpliceFbdLdBody(xml, "P", new XElement("FBD")));
+        var ex = Assert.Throws<System.InvalidOperationException>(() => Gate(xml));
         Assert.Contains("multiple sources", ex.Message);
     }
 
@@ -207,7 +242,7 @@ public class GraphSpliceTests
             </block>
             """);
         XNamespace ns = Ns;
-        var outXml = GraphSplice.SpliceFbdLdBody(xml, "P", new XElement(ns + "FBD", new XElement(ns + "outVariable",
+        var outXml = SpliceNamed(xml, "P", new XElement(ns + "FBD", new XElement(ns + "outVariable",
                 new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
         Assert.Contains("outVariable", outXml);   // splice proceeded
     }
@@ -250,8 +285,8 @@ public class GraphSpliceTests
     [Fact]
     public void Finding_a_graphical_body_selects_the_named_item()
     {
-        Assert.Null(GraphSplice.FindFbdLdBody(PouWithGraphicalMethods, "P"));
-        Assert.Contains("second_body", GraphSplice.FindFbdLdBody(PouWithGraphicalMethods, "Second")!.ToString());
+        Assert.Null(NamedBody(PouWithGraphicalMethods, "P"));
+        Assert.Contains("second_body", NamedBody(PouWithGraphicalMethods, "Second")!.ToString());
     }
 
     [Fact]
@@ -262,14 +297,14 @@ public class GraphSpliceTests
             new XAttribute("localId", 9), new XElement(ns + "expression", "written")));
 
         // The SECOND method — not the first, which is what document order would have picked.
-        var onMethod = GraphSplice.SpliceFbdLdBody(PouWithGraphicalMethods, "Second", NewBody(ns));
+        var onMethod = SpliceNamed(PouWithGraphicalMethods, "Second", NewBody(ns));
         Assert.Contains("written", onMethod);
         Assert.DoesNotContain("second_body", onMethod);   // replaced
         Assert.Contains("first_body", onMethod);          // sibling method untouched
         Assert.Contains("pou_body", onMethod);            // the POU's own body untouched
 
         // The POU itself — a first write onto its textual body, leaving both methods alone.
-        var onPou = GraphSplice.SpliceFbdLdBody(PouWithGraphicalMethods, "P", NewBody(ns));
+        var onPou = SpliceNamed(PouWithGraphicalMethods, "P", NewBody(ns));
         Assert.Contains("written", onPou);
         Assert.DoesNotContain("pou_body", onPou);         // textual body discarded by the first write
         Assert.Contains("first_body", onPou);
@@ -287,8 +322,8 @@ public class GraphSpliceTests
           <body><FBD><inVariable localId="1"><expression>pou_body</expression></inVariable></FBD></body>
         </pou>
         """;
-        Assert.Contains("act_body", GraphSplice.FindFbdLdBody(withAction, "ACT")!.ToString());
-        Assert.Contains("pou_body", GraphSplice.FindFbdLdBody(withAction, "P")!.ToString());
+        Assert.Contains("act_body", NamedBody(withAction, "ACT")!.ToString());
+        Assert.Contains("pou_body", NamedBody(withAction, "P")!.ToString());
     }
 
     [Fact]

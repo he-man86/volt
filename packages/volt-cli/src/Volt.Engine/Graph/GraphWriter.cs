@@ -314,7 +314,7 @@ namespace Volt.Engine.Graph
                 // <LD> came out as leftPowerRail + networktitle + rightPowerRail: the call vanished from the
                 // running program on a push that reported success, with `Validate` accepting (its gates compare a
                 // round-trip through TEXT, and an idempotent loss looks identical both times) and
-                // `GraphSplice.SafeToDrop` listing "block" so the splice removed the stored one without complaint.
+                // `BodySpliceGuard.SafeToDrop` listing "block", so the write removed the stored one without complaint.
                 // WriteFbdBody never had this hole: it emits every node at top level for identical input.
                 ctx.EmitUnreached(net.Nodes);
                 row = ctx.Row;

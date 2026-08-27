@@ -112,6 +112,13 @@ public class PouSpliceTests
         Assert.Contains("replace", ex.Message);   // wording covers IL too, where "flatten" would be wrong
     }
 
+    /// <summary>The NAMED item's FBD/LD element, via the production scoping rule
+    /// (<c>PlcOpenDocument.ItemBody</c>) — the same rule <c>PouSplice</c> itself writes through, which is what
+    /// makes it the right yardstick for "the write stayed inside the item it named".</summary>
+    private static System.Xml.Linq.XElement? NamedGraphicalBody(string xml, string itemName) =>
+        PlcOpenDocument.ItemBody(System.Xml.Linq.XDocument.Parse(xml), itemName)?
+            .Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
+
     // ── scoping: the bug class that produced three data-loss defects ────────────────────────────────
 
     /// <summary>A write names an ITEM, and the export describes several. Writing the enclosing POU must not
@@ -120,12 +127,12 @@ public class PouSpliceTests
     public void A_write_is_scoped_to_the_named_item_not_the_first_match()
     {
         // The TwinCAT fixture is a POU whose graphical body belongs to its ACTION; the POU's own body is ST.
-        var beforeAction = GraphSplice.FindFbdLdBody(TwincatPou, "ACT_FBD")!.ToString();
+        var beforeAction = NamedGraphicalBody(TwincatPou, "ACT_FBD")!.ToString();
 
         var outXml = PouSplice.SetBody(TwincatPou, "PLC_PRG", "poubody := 1;", null, establishing: false);
 
         Assert.Equal("poubody := 1;", PouReader.Parse(outXml).BodyElement!.Value);      // the POU took it
-        Assert.Equal(beforeAction, GraphSplice.FindFbdLdBody(outXml, "ACT_FBD")!.ToString()); // action untouched
+        Assert.Equal(beforeAction, NamedGraphicalBody(outXml, "ACT_FBD")!.ToString()); // action untouched
     }
 
     // ── 2.3 child members ───────────────────────────────────────────────────────────────────────────

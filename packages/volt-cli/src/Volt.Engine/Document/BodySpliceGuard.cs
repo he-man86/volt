@@ -7,56 +7,27 @@ using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Document
 {
-    /// <summary>The FBD/LD BODY splice: replacing one graphical body inside an export, and the capability gate
-    /// that decides whether the existing body may be replaced at all.
-    /// <para>Separate from <c>PlcOpen.PouSplice</c> on purpose. That class writes a POU's text and members and has
-    /// no graph knowledge; this one encodes what the network text EDITOR can represent — which elements are safe to drop,
-    /// which pin modifiers block a rewrite, and the network-numbering rules — so it belongs with the graph, not
-    /// with the document.</para>
+    /// <summary>The capability gate over a STORED graphical body: may this <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
+    /// element be replaced at all, or does it carry something the network-text editor cannot reproduce?
+    ///
+    /// <para>It answers one question, for one caller — <c>BodyCodec.NetworkCodec.Encode</c> — and it is the only
+    /// thing that stands between a regenerating write and a silent loss.</para>
+    ///
+    /// <para>This file used to be <c>GraphSplice</c>, and it used to contain a splice: <c>FindFbdLdBody</c>,
+    /// <c>SpliceFbdLdBody</c>, <c>InlineInsert</c> and <c>FindFbdLd</c> — about 97 lines implementing a SECOND
+    /// graphical write path, by the same means as the live one (<c>existing.ReplaceWith(newBody)</c> against
+    /// <c>BodyCodec.cs</c>'s <c>existing.ReplaceWith(replacement)</c>) and with a weaker element scan
+    /// (direct-children-only, where <c>BodyElement</c> is nested-aware — and <c>BodyElement.cs</c> records that a
+    /// non-shared scan is exactly how a diagram gets destroyed). It had <b>zero production callers</b>; only tests
+    /// reached it. It is deleted, and the tests that needed "replace this element" now build it locally, in the
+    /// test project, where a test helper belongs.</para>
+    ///
+    /// <para>The old name and its doc-comment claimed this "belongs with the graph, not with the document" while
+    /// the file sat in <c>Document/</c>. The gate reads a stored document element and is called by the document's
+    /// body codec, so it belongs exactly where it is; the name now says what it does.</para>
     /// </summary>
-    public static class GraphSplice
+    public static class BodySpliceGuard
     {
-        /// <summary>The <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body of the item named <paramref name="itemName"/> in
-        /// an exported PLCopen document, or null if that item has no graphical body. The export usually holds
-        /// several items' bodies — see <see cref="ItemBody"/> for why the name is what selects between them.</summary>
-        public static XElement? FindFbdLdBody(string xml, string itemName)
-        {
-            // Parse throws on a malformed export — a real failure that must surface, NOT be masked as
-            // "no graphical body" (that masking caused the prior truncated-read bug). A well-formed POU
-            // with a textual body legitimately returns null below.
-            return FindFbdLd(XDocument.Parse(xml), itemName);
-        }
-
-        /// <summary>
-        /// Replace or insert a graphical body. When the document already has an <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
-        /// body, the existing body is validated (nothing silently lost) and replaced in-place — the original
-        /// wrapper element (name + attributes) is kept, only children are swapped. When no graphical body
-        /// exists (first write onto a textual POU), the new body is inserted directly into the
-        /// <c>&lt;body&gt;</c> parent — there is nothing to validate because the original ST body is
-        /// discarded in its entirety.
-        /// <para>Both the replace and the insert are scoped to the item NAMED <paramref name="itemName"/>. The
-        /// export carries the POU's siblings and children too, and splicing into the wrong one silently destroys
-        /// a body — see <see cref="ItemBody"/>.</para></summary>
-        public static string SpliceFbdLdBody(string xml, string itemName, XElement newBody)
-        {
-            var doc = XDocument.Parse(xml);
-            var existing = FindFbdLd(doc, itemName);
-            if (existing is not null)
-            {
-                ValidateExisting(doc, existing);
-                // Replace the whole <FBD>/<LD> element, not just its children — the body LANGUAGE can change
-                // (TwinCAT creates the POU as FBD even for an LD body, so `existing` is <FBD> but `newBody`
-                // is <LD>). Keeping the old wrapper would put ladder contacts inside <FBD>, which the schema
-                // rejects.
-                existing.ReplaceWith(newBody);
-            }
-            else
-            {
-                InlineInsert(doc, itemName, newBody);
-            }
-            return PlcOpenDocument.Serialize(doc);
-        }
-
         /// <summary>Validate an existing body before replacing it: no element the network text editor cannot
         /// reproduce is silently dropped, no disabled/hidden network is lost, and no block structure
         /// the editor cannot round-trip is overwritten. These checks run ONLY on the existing-body path
@@ -117,26 +88,6 @@ namespace Volt.Engine.Document
                     "represent yet (" + string.Join("; ", blind.Distinct()) + "). Edit this POU in the IDE instead.");
         }
 
-        /// <summary>Insert a graphical body for the first time — replace whatever is inside
-        /// <c>&lt;body&gt;</c> (typically an ST body) with the new FBD/LD element. No validation
-        /// needed: the original textual body is discarded and nothing of value is lost.</summary>
-        private static void InlineInsert(XDocument doc, string itemName, XElement newBody)
-        {
-            var pouBody = PlcOpenDocument.ItemBody(doc, itemName)
-                ?? throw new InvalidOperationException(
-                    $"PLCopen export has no <body> element for '{itemName}'");
-            pouBody.RemoveNodes();
-            pouBody.Add(newBody);
-        }
-
-        /// <summary>Elements safe to discard when REPLACING an existing FBD/LD body, because the network text editor
-        /// either represents them explicitly (inVariable, outVariable, block) or regenerates them on write.
-        /// <c>vendorElement</c> is editor rendering info. <c>leftPowerRail</c>, <c>rightPowerRail</c>,
-        /// <c>contact</c>, <c>coil</c> are LD ladder elements — the existing ones are dropped here and
-        /// <c>GraphWriter.WriteLadderBody</c> regenerates them from the network text (BOTH TwinCAT and CODESYS emit
-        /// real <c>contact</c>/<c>coil</c> inside an <c>&lt;LD&gt;</c> body — TwinCAT does NOT wrap LD in
-        /// <c>&lt;FBD&gt;</c>, as once assumed). Adding a genuinely structural element here without network text support
-        /// would silently drop functional logic — every entry must be affirmatively confirmed as cosmetic.</summary>
         private static readonly HashSet<string> SafeToDrop =
             new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement",
                     "leftPowerRail", "rightPowerRail", "contact", "coil" };
@@ -150,8 +101,5 @@ namespace Volt.Engine.Document
             if ((string?)v.Attribute("storage") is { } s && s is not ("" or "none")) return true;
             return false;
         }
-
-        private static XElement? FindFbdLd(XDocument doc, string itemName) =>
-            PlcOpenDocument.ItemBody(doc, itemName)?.Elements().FirstOrDefault(e => Languages.IsNetwork(e.Name.LocalName));
     }
 }

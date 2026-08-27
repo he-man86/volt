@@ -1,11 +1,13 @@
 ﻿using System;
 using Volt.Engine.Document;
 using Volt.Engine.Graph;
+using System.Linq;
+using System.Xml.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 
-namespace Volt.Engine.Sync;
+namespace Volt.Cli.Tests;
 
 /// <summary>A graphical (FBD/LD/CFC/SFC) body rendered to text. <paramref name="Language"/> is
 /// FBD/LD/CFC/SFC; <paramref name="Body"/> is editable network text for FBD/LD, empty for read-only CFC/SFC;
@@ -13,12 +15,22 @@ namespace Volt.Engine.Sync;
 /// carries the plaintext interface, else the textual aspect — never empty/guessed).</summary>
 public sealed record GraphicalBody(string Language, string Body, string Declaration);
 
-/// <summary>The graphical body's IO half: reading one out of a live IDE and writing one back.
-/// <para>Split from <see cref="Volt.Engine.Graph.NetworkCode"/>, which keeps the PURE half (the language gate,
-/// the parser, the strict round-trip check). The split is what breaks a namespace cycle: the pure half is
-/// reached from <c>Document.BodyCodec</c>, while this half needs <c>ICodeStore</c> and the PLCopen document —
-/// so together they made <c>Graph</c> and <c>Document</c> depend on each other, invisibly, inside one assembly.
-/// Format has no business knowing about a driver; that is the line the split follows.</para></summary>
+/// <summary>The WHOLE read pipeline — <c>BodyLanguage</c> → <c>ReadXml</c> → declaration → network text —
+/// driven against a fake code store, with no live IDE.
+///
+/// <para><b>This lives in the TEST project because it is a test seam, and it always was.</b> Its own doc-comment
+/// said so ("A TEST SEAM, kept deliberately") while the file sat in <c>src/Volt.Engine/Sync/</c>: measured, it had
+/// ZERO production callers — the only reference from <c>src</c> was a <c>&lt;see cref&gt;</c>. Production reads
+/// through <c>Materializer.BodyTextOf</c>, which calls <c>NetworkCode.RenderBody</c> and builds the
+/// <c>@volt-graphical</c> marker itself.</para>
+///
+/// <para>Its own note said that if it ever moved, the 13 cases hanging off it must keep their coverage. They do:
+/// this is the same code, byte for byte apart from the two lookups it used to borrow from a production shim that
+/// no longer exists. Nothing it asserts has changed; only where it ships has.</para>
+///
+/// <para>It was also the sole caller of <c>PlcOpenDocument.DeclFromExport</c>, which is therefore now reached only
+/// from tests too. That one is NOT resolved here — it is a third answer to "is this declaration the item's own?",
+/// and it dies when that rule is unified (openspec `splice-graphical-body` §7.5/7.6), not before.</para></summary>
 public static class NetworkCodeIo
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable network text;
@@ -43,7 +55,7 @@ public static class NetworkCodeIo
         if (Languages.IsDiagram(lang))                          // CFC/SFC: no network-text round-trip → empty body, real decl
             return new GraphicalBody(lang, "", decl);
 
-        var fbd = GraphSplice.FindFbdLdBody(xml, itemName)
+        var fbd = NamedGraphicalBody(xml, itemName)
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body for '{itemName}'");
         return new GraphicalBody(lang, NetworkCode.RenderBody(fbd), decl);
@@ -63,4 +75,13 @@ public static class NetworkCodeIo
         ?? throw new InvalidOperationException(
             $"'{itemName}': its PLCopen export carries no <InterfaceAsPlainText> — a POU document without a " +
             "declaration is a broken export");
+
+    /// <summary>The NAMED item's FBD/LD element, via the production scoping rule
+    /// (<c>PlcOpenDocument.ItemBody</c>). Replaces the borrowed <c>GraphSplice.FindFbdLdBody</c>, which was part
+    /// of the ~97-line second write path deleted with it. Scoping by NAME is the point: an export holds the POU
+    /// and its members, and answering with whichever body comes first is how a write once landed on a sibling
+    /// method.</summary>
+    private static XElement? NamedGraphicalBody(string xml, string itemName) =>
+        PlcOpenDocument.ItemBody(XDocument.Parse(xml), itemName)?
+            .Elements().FirstOrDefault(e => e.Name.LocalName is "FBD" or "LD");
 }

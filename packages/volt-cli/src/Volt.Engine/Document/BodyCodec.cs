@@ -204,7 +204,7 @@ namespace Volt.Engine.Document
                       : fromDecl.TryGetValue(inst, out var d) ? d
                       : null);
             if (existing is null) { body.RemoveNodes(); body.Add(replacement); return true; }
-            GraphSplice.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
+            BodySpliceGuard.RequireReplaceable(existing);             // refuse to drop what network text cannot represent
             if (XNode.DeepEquals(existing, replacement)) return false;
             existing.ReplaceWith(replacement);
             return true;

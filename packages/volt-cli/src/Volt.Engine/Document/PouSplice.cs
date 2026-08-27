@@ -22,7 +22,7 @@ namespace Volt.Engine.Document
     /// <para><b>Every language goes through here</b>, graphical included. This used to say graphical bodies were
     /// not this class's business and that a write onto one is refused — true when the only writable language was
     /// ST, and false since the root and child body writers were put on the shared <c>BodyCodec</c> dispatch: an
-    /// editable FBD/LD body is ENCODED (via <c>GraphSplice</c>/<c>GraphWriter</c>, which still own the graph
+    /// editable FBD/LD body is ENCODED (via <c>BodyCodec</c>/<c>GraphWriter</c>, which own the graph
     /// itself), and only a READ-ONLY language (CFC, SFC, IL) or a language CHANGE is refused. While the old rule
     /// stood in the child writer, an FBD method could not be pushed at all — restating one unchanged aborted the
     /// whole push.</para>
