@@ -81,7 +81,15 @@ public static class Commands
         const int corpus = 0; // TODO: bundle + install the ST reference corpus (currently a TS/@volt/lsp-iec dep)
         var project = $"{platform}/{projectName}";
 
-        Git.CommitAll(root, $"volt init: {projectName}");
+        // CHECKED. `CommitAll` reports failure through its return value and this call discarded it, so an
+        // init whose commit failed — no git identity configured is the common one — carried on with an unborn
+        // HEAD: `HeadCommit` below returns null, the volt/ide tree is built against nothing, and the workspace
+        // is left in a state no later command can reason about, all reported as a successful init.
+        if (!Git.CommitAll(root, $"volt init: {projectName}"))
+            return InitResult.Error(
+                "the initial commit failed — the workspace was created and pulled, but nothing is committed. " +
+                "The usual cause is git having no identity here: set `git config user.name` and " +
+                "`git config user.email`, then run `volt init` again in a clean directory.");
 
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         var gitDir = Git.ResolveGitDir(root);

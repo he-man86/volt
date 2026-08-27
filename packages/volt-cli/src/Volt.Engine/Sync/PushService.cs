@@ -133,8 +133,17 @@ public static class PushService
                 // the driver — silently on CODESYS, as a raw COM error on TwinCAT. Shared Core, so this fixes both.
                 ide.Delete(ide.Parent(del), ide.Name(del));
                 return "deleted";
+            case DeleteItemOp:
+                return "no-op";  // idempotent delete of an item that isn't there — the legitimate case
+
             default:
-                return "no-op";  // delete of an item that isn't there
+                // NOT the same thing. This arm used to cover both, so an op that is neither a set nor a delete —
+                // a missing `op` discriminator, or a PascalCase one — deserialized as the concrete BASE PushOp,
+                // matched nothing, and was reported as an accepted no-op. A client whose ops all silently did
+                // nothing got `accepted: true` and a receipt.
+                throw new BridgeException(BridgeErrorCodes.BadRequest,
+                    $"push op for '{name}' has no recognised 'op' discriminator — expected \"set\" or " +
+                    "\"deleteItem\" (lower-camel, exactly). The op was ignored rather than applied.");
         }
     }
 

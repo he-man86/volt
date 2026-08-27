@@ -24,6 +24,13 @@ public static class BuildService
             // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
             ide.FlushPendingWrites();
+            // [UNMEASURED: whether either vendor can be asked for a FULL/clean build through the surface Volt
+            //  uses. `request.BuildType` is set by `volt build --full`, reaches here, and is read only by the two
+            //  log lines below — `IIdeSession.Build()` takes no argument, so --full performs an INCREMENTAL build
+            //  on both vendors while `volt --help` advertises it. Wiring it means a driver-contract change plus
+            //  the vendor call for each (CODESYS clean+generate, TwinCAT rebuild), and neither has been measured
+            //  through the scripting/COM surface Volt actually holds. Until then the CLI says what it did rather
+            //  than implying more.]
             var success = ide.Build();
             sw.Stop();
             var diagnostics = ide.GetBuildDiagnostics().ToList();

@@ -278,7 +278,7 @@ internal static class Program
         "  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run] [--json]\n" +
         "  push     workspace → IDE → fast-forward volt/ide          [--force] [--dry-run] [--force-with-lease=<v>] [--json]\n" +
         "  status   incoming / outgoing / merge state                [--json] [--porcelain] [--local]\n" +
-        "  build    build via the IDE; returns diagnostics           [--full] [--json]\n" +
+        "  build    build via the IDE; returns diagnostics                    [--json]\n" +
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
         "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
