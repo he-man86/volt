@@ -39,8 +39,21 @@ namespace Volt.Cli.Connector
         private string? _updateShown;
         private BridgeStatus _prevAggregate = BridgeStatus.Unknown;
 
+        /// <summary>The tray's UI SynchronizationContext, captured while the constructor is still ON that thread.
+        /// <para>`OnUiThread` used to marshal via <c>menu.InvokeRequired</c>, and a WinForms control reports
+        /// <c>InvokeRequired == false</c> until its HANDLE exists. A ContextMenuStrip creates its handle when it
+        /// is first SHOWN — so until the user opened the tray menu, every "marshal to the UI thread" call ran the
+        /// action inline on whichever background thread it came from. That is precisely the window the marshal
+        /// exists to protect: the 4s timer and the control-plane handlers both mutate the ToolStrip and the icon,
+        /// and the collision they cause (a ToolStrip cleared mid-rebuild, a torn icon cache) is worst at startup,
+        /// before anyone has opened the menu.</para></summary>
+        private readonly System.Threading.SynchronizationContext? _ui;
+
         public TrayContext()
         {
+            // Captured FIRST: everything below may hand a callback to a background thread.
+            _ui = System.Threading.SynchronizationContext.Current;
+
             // TwinCAT workers are spawned per-XAE by the first TickAsync (via ReconcileTwincatWorkers) — no fixed
             // startup spawn. CODESYS is user-activated in-proc, never launched.
 
@@ -188,13 +201,19 @@ namespace Volt.Cli.Connector
         /// marshal the two collide (a ToolStrip cleared mid-rebuild, a torn icon cache) and the tray corrupts its menu.</summary>
         private Task OnUiThread(Action action)
         {
-            if (_icon.ContextMenuStrip is not { } menu || !menu.InvokeRequired) { action(); return Task.CompletedTask; }
+            // Posted to the captured context, NOT gated on a control handle — see `_ui`. Already on the UI
+            // thread? Run inline; posting would defer work the caller expects to have happened.
+            if (_ui is null || _ui == System.Threading.SynchronizationContext.Current)
+            {
+                action();
+                return Task.CompletedTask;
+            }
             var tcs = new TaskCompletionSource<bool>();
-            menu.BeginInvoke(new Action(() =>
+            _ui.Post(_ =>
             {
                 try { action(); tcs.TrySetResult(true); }
                 catch (Exception ex) { tcs.TrySetException(ex); }
-            }));
+            }, null);
             return tcs.Task;
         }
 

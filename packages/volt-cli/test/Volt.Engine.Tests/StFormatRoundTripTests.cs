@@ -135,6 +135,20 @@ public class StFormatRoundTripTests
                      back.Members.Select(m => m.Name).OrderBy(n => n));
         foreach (var m in content.Members.Where(m => m.Folder is not null))
             Assert.Equal(m.Folder, back.Members.Single(b => b.Name == m.Name).Folder);
+
+        // …and each member's own DECL/IMPL split. Neither half of the law could see this before: `AssembleChild`
+        // renders decl then impl with a newline between, so a line that moves ACROSS that boundary re-emits
+        // identical bytes and test A stays green, while this test only ever compared names and folders.
+        // stays green, while this test only ever compared names and folders. The uncovered slice is exactly where
+        // `SplitDeclImplOfChild`'s "last END_VAR" heuristic decides, and for an ACTION it is worse than a
+        // misplaced line: `PouDocument` correctly nulls an action's declaration on push, so anything the split
+        // puts there is DROPPED rather than moved.
+        foreach (var m in content.Members)
+        {
+            var b = back.Members.Single(x => x.Name == m.Name);
+            Assert.Equal((m.Declaration ?? "").TrimEnd(), (b.Declaration ?? "").TrimEnd());
+            Assert.Equal((m.Body ?? "").Trim(), (b.Body ?? "").Trim());
+        }
     }
 
     /// <summary>The ONE asymmetry the pair actually has, pinned deliberately rather than left to be rediscovered:

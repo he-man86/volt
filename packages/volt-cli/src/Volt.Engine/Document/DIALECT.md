@@ -6,12 +6,20 @@ it HERE and delete the claim from wherever else it crept into a doc-comment.
 
 The structural conclusion first, because it is what the layer is shaped by:
 
-> **The read path is a union — one tolerant reader serves both vendors. The write path is not, and its one deep
-> divergence lives below the vendor seam in two `WriteXml` implementations. Nothing in Core branches on a vendor
-> name, and nothing should start.**
+> **Both paths are unions now. One tolerant reader serves both vendors, and since the per-child write arm was
+> deleted there is ONE write path too — content travels as one PLCopen document on either vendor. What remains
+> vendor-specific lives below the seam, in the two `WriteXml` implementations. Nothing in Core branches on a
+> vendor name, and nothing should start.**
+
+> This paragraph used to say the write path was *not* a union, "its one deep divergence" being those two
+> implementations. That was true while `PushService` carried a `WritesPouAsOneDocument` fork; the fork is gone
+> and the sentence outlived it. A headline that describes a shape the code no longer has is the most expensive
+> kind of stale comment, because it is the first thing a reader believes.
 
 There is deliberately **no dialect abstraction**. The gap between the two vendors is not missing indirection, it
-is missing EVIDENCE: 16 facts below have never been measured on the other side. A class hierarchy would not have
+is missing EVIDENCE — several facts below have still never been measured on the other side, and the count is
+deliberately not written here: a number in prose goes stale the moment a row closes, and this one had. The live
+answer is `bun run check`, which lists every `[UNMEASURED: …]` marker on every run. A class hierarchy would not have
 caught that; the two-vendor fixture matrix in `PouSpliceTests` does. Every entry cites code, a recorded fixture, or is marked
 **UNMEASURED**. Paths are relative to `packages/volt-cli/`.
 
