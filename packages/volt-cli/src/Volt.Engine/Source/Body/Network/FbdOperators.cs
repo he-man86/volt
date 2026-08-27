@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Volt.Engine.Graph;
+namespace Volt.Engine.Source.Body.Network;
 
 /// <summary>
 /// The single canonical table of FBD/LD operator boxes and their infix ST/network text symbols, shared by the

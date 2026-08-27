@@ -1,7 +1,7 @@
 ﻿using System;
 using Xunit;
 using Volt.Engine.Document;
-using Volt.Engine.Graph;
+using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Sync;

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body.Network;
 
 namespace Volt.Engine.Document
 {

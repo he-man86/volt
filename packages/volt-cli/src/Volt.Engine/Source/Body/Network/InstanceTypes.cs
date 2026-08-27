@@ -1,11 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body.Network;
+using Volt.Engine.Source.Body.St;
 
-namespace Volt.Engine.Graph
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>Instance name → FB type, for the one attribute network text does not carry.
     ///

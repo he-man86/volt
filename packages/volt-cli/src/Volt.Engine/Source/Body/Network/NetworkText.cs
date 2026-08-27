@@ -2,7 +2,7 @@
 using System.Text.RegularExpressions;
 using Volt.Engine.Vocabulary;
 
-namespace Volt.Engine.Graph;
+namespace Volt.Engine.Source.Body.Network;
 
 /// <summary>
 /// The network text graphical-body contract. An EDITABLE graphical body (FBD/LD — a ROOT POU's own kind-named

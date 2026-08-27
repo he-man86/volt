@@ -1,7 +1,7 @@
 ﻿using System;
 using Volt.Engine.Model;
 
-namespace Volt.Engine.Graph
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>
     /// The body's journey through the PLCopen transport, in ONE place: graph → <see cref="GraphWriter"/> →

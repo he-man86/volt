@@ -4,7 +4,7 @@ using System.Xml.Linq;
 using Volt.Engine.Document;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
-using Volt.Engine.Text;
+using Volt.Engine.Source.Body.St;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Item;
 

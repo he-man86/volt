@@ -9,7 +9,7 @@ using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Item;
 
-namespace Volt.Engine.Text;
+namespace Volt.Engine.Source.Body.St;
 
 /// <summary>
 /// Splits one canonical workspace source item (ST text) into the vendor-neutral primitives

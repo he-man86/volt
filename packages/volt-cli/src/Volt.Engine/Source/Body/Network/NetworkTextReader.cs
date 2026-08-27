@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Volt.Engine.Model;
+using Volt.Engine.Source.Body.Network;
 
-namespace Volt.Engine.Graph
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>
     /// Parses network text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.

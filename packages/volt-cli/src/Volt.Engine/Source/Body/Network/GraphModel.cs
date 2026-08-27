@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Volt.Engine.Model
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>FBD encodes the network index in the high digits of each <c>localId</c>
     /// (<c>index = localId / 10^10</c>). LD does NOT stride — its networks are delimited by

@@ -3,7 +3,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Xunit;
 using Volt.Engine.Document;
-using Volt.Engine.Graph;
+using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Item;
@@ -32,7 +32,7 @@ public class BodyCodecTests
     private static string BodyOfFixture()
     {
         var parsed = PouReader.Parse(Fbd);
-        return Volt.Engine.Graph.NetworkCode.RenderBody(parsed.BodyElement!);
+        return Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(parsed.BodyElement!);
     }
 
     private static ItemContent Split(string decl, string body) =>
@@ -61,8 +61,8 @@ public class BodyCodecTests
         var before = PouReader.Parse(Fbd).BodyElement!;
         var after = PouReader.Parse(doc).BodyElement!;
         Assert.Equal("FBD", after.Name.LocalName);
-        Assert.Equal(Volt.Engine.Graph.NetworkCode.RenderBody(before),
-                     Volt.Engine.Graph.NetworkCode.RenderBody(after));
+        Assert.Equal(Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(before),
+                     Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(after));
     }
 
     /// <summary>DEFECT 5 — an IL body is refused as a LANGUAGE MISMATCH, by the body writer, with a message that

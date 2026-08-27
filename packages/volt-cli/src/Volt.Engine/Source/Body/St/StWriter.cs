@@ -9,7 +9,7 @@ using Volt.Engine.Model;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Item;
 
-namespace Volt.Engine.Text;
+namespace Volt.Engine.Source.Body.St;
 
 /// <summary>Assembles a <see cref="ItemContent"/> into canonical workspace Structured Text — the inverse of
 /// <see cref="StReader"/>, and the SOLE owner of that format — the two sit in this folder together for

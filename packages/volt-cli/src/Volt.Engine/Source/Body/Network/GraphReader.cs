@@ -3,7 +3,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Model;
 
-namespace Volt.Engine.Graph
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>
     /// Parses a PLCopenXML <c>&lt;FBD&gt;</c> / <c>&lt;LD&gt;</c> body element into a

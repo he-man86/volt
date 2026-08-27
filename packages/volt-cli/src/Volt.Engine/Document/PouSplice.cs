@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graph;
+using Volt.Engine.Source.Body.Network;
 
 namespace Volt.Engine.Document
 {
@@ -71,7 +71,7 @@ namespace Volt.Engine.Document
                     : throw new InvalidOperationException(
                         $"'{itemName}' has no <body> in its PLCopen document — this kind carries no code of its own");
 
-            var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(bodyText) ?? "ST");
+            var pushed = BodyCodec.For(NetworkText.LanguageOf(bodyText) ?? "ST");
             // A body recording NO language decision (a blank ST — what a fresh POU is created with) counts as no
             // body at all, so establishing FBD on it is the ordinary create rather than a mismatch. An empty
             // <FBD/> does NOT qualify BY CONTENT: that POU was, as far as the document can tell, made graphical on
@@ -151,7 +151,7 @@ namespace Volt.Engine.Document
             XElement Body(string value)
             {
                 var body = new XElement(ns + "body");
-                BodyCodec.For(Graph.NetworkText.LanguageOf(value) ?? "ST").Encode(body, value, declaration);
+                BodyCodec.For(NetworkText.LanguageOf(value) ?? "ST").Encode(body, value, declaration);
                 return body;
             }
 
@@ -311,7 +311,7 @@ namespace Volt.Engine.Document
                 // POINT and every assertion about it passed while the ladder was gone. That is why
                 // `graphical-kinds.test.ts` was green on both vendors for a body it was destroying, and why
                 // DIALECT D17's accessor claim had to be retracted.
-                var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(code) ?? "ST");
+                var pushed = BodyCodec.For(NetworkText.LanguageOf(code) ?? "ST");
                 var found = BodyCodec.PresentWith(body);
                 var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
                 // The SAME gate the root body uses — see BodyGuard. This arm carried two of its five checks:
@@ -388,7 +388,7 @@ namespace Volt.Engine.Document
                 // Only an UNSUPPORTED body (CFC/SFC/IL) and a language CHANGE are refusals; a CFC method child is
                 // still the shape that first exposed the direct-children blind spot, and BodyElement — the one
                 // scan the reader shares — is what keeps that covered here too.
-                var pushed = BodyCodec.For(Graph.NetworkText.LanguageOf(bodyText) ?? "ST");
+                var pushed = BodyCodec.For(NetworkText.LanguageOf(bodyText) ?? "ST");
                 var found = BodyCodec.PresentWith(body);
                 var present = found is { } f && !f.Codec.IsUncommitted(f.Element) ? f.Codec : null;
                 // The SAME gate the root body uses — see BodyGuard. This arm carried two of its five checks

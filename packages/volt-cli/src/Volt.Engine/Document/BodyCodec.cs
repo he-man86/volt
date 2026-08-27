@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Graph;
+using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Vocabulary;
 
 namespace Volt.Engine.Document
@@ -197,8 +197,8 @@ namespace Volt.Engine.Document
             // written by the IDE — nothing is inferred from it. The declaration is a TEXT parse, and a text parse
             // of ST is an approximation forever, so it is asked only about boxes that are new in this push.
             // Reversing the order would put the guess ahead of the fact.
-            var fromBody = Graph.InstanceTypes.FromBody(existing);
-            var fromDecl = Graph.InstanceTypes.Of(declaration);
+            var fromBody = InstanceTypes.FromBody(existing);
+            var fromDecl = InstanceTypes.Of(declaration);
             var replacement = GraphWriter.WriteBody(graph,
                 inst => fromBody.TryGetValue(inst, out var t) ? t
                       : fromDecl.TryGetValue(inst, out var d) ? d

@@ -6,7 +6,7 @@ using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Item;
 
-namespace Volt.Engine.Vocabulary;
+namespace Volt.Engine.Source.Body.St;
 
 public static class CodeHelper
 {

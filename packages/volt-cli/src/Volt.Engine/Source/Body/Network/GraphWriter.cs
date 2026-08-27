@@ -2,8 +2,9 @@
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Model;
+using Volt.Engine.Source.Body.Network;
 
-namespace Volt.Engine.Graph
+namespace Volt.Engine.Source.Body.Network
 {
     /// <summary>
     /// Renders a <see cref="GraphBody"/> to a PLCopenXML <c>&lt;FBD&gt;</c> / <c>&lt;LD&gt;</c> body

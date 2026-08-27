@@ -6,10 +6,10 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Document;
-using Volt.Engine.Graph;
+using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Model;
-using Volt.Engine.Text;
+using Volt.Engine.Source.Body.St;
 using Volt.Engine.Vocabulary;
 using Volt.Engine.Item;
 
@@ -72,7 +72,7 @@ public static class PushService
             {
                 // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
-                var netEx = ex as Graph.NetworkTextException;
+                var netEx = ex as NetworkTextException;
                 VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = netEx?.Code, Line = netEx?.Line } },
@@ -261,7 +261,7 @@ public static class PushService
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         foreach (var body in new[] { split.Body }.Concat(split.Members.Select(m => m.Body)))
-            if (body is { } b && Graph.NetworkText.Is(b)) NetworkCode.Validate(b);
+            if (body is { } b && NetworkText.Is(b)) NetworkCode.Validate(b);
     }
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the

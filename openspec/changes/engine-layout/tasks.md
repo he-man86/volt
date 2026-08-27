@@ -42,9 +42,17 @@ Order chosen so each step compiles on its own: leaves first, then the things tha
         OPERATION, so it stays with them (→ `Ops/` in 2.6).
       The test for "does this belong here" turned out to be mechanical: **if a file needs a `using` for a layer
       above it, it is in the wrong folder.** Both were caught by a failed build, not by review.
-- [ ] 2.2 **`Source/Body/St/`** ← the whole of `Text/`, plus `Vocabulary/CodeHelper.cs` (it parses an ST header
-      line, which is ST reading, not vocabulary).
-- [ ] 2.3 **`Source/Body/Network/`** ← the whole of `Graph/`, plus `Model/GraphModel.cs`.
+- [x] 2.2 **`Source/Body/St/`** ← the whole of `Text/`, plus `Vocabulary/CodeHelper.cs` (it parses an ST header
+      line, which is ST reading, not vocabulary). **DONE.**
+- [x] 2.3 **`Source/Body/Network/`** ← the whole of `Graph/`, plus `Model/GraphModel.cs`. **DONE.**
+      Three mechanical hazards worth knowing before 2.4–2.8, all found the hard way:
+      - **Block-scoped namespaces need a CRLF-aware anchor.** `^namespace X$` does not match `namespace X`, so
+        three files silently kept the old namespace and the build failed two steps later.
+      - **Adding a `using` is not enough — a STALE one must be rewritten.** `using Volt.Engine.Graph;` produced
+        CS0234, which the using-fixer does not match at all. Rewrite old namespace names across `src` and `test`
+        first, THEN let the fixer add what is missing.
+      - **Bare qualifiers that resolved through the namespace hierarchy break.** `Graph.NetworkText.LanguageOf(…)`
+        worked from inside `Volt.Engine.*` and stops working once the target moves. Drop the prefix.
 - [ ] 2.4 **`Source/Body/`** ← `BodyCodec.cs`, `BodyElement.cs`, `BodyGuard.cs`, `BodySpliceGuard.cs`,
       `Vocabulary/BodyMarker.cs`, `Vocabulary/Languages.cs`, `Sync/BodyFormatGuard.cs`.
 - [ ] 2.5 **`Source/`** ← `PlcOpenDocument.cs`, `PouReader.cs`, `PouSplice.cs`, `Declaration.cs`,
