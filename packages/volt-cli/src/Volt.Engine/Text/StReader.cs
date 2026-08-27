@@ -166,7 +166,7 @@ public static class StReader
 		{
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(lines[i], outerEnd))
+			if (LineStartsWithKeyword(ctx.Code, outerEnd))
 			{
 				endIdx = i;
 				break;
@@ -263,9 +263,9 @@ public static class StReader
 				ctx.Update(after[i]);
 				if (!ctx.InsideTrivia)
 				{
-					if (LineStartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD")); break; }
-					if (LineStartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION")); break; }
-					if (LineStartsWithKeyword(after[i], "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
+					if (LineStartsWithKeyword(ctx.Code, "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD")); break; }
+					if (LineStartsWithKeyword(ctx.Code, "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION")); break; }
+					if (LineStartsWithKeyword(ctx.Code, "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"Expected METHOD/ACTION/PROPERTY at line {i + 1}, got: {Truncate(after[i], 80)}");
 				}
@@ -289,7 +289,7 @@ public static class StReader
 		{
 			ctx.Update(lines[j]);
 			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(lines[j], endKw)) { endLine = j; break; }
+			if (LineStartsWithKeyword(ctx.Code, endKw)) { endLine = j; break; }
 		}
 		if (endLine is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing {endKw} for {kind} starting at line {sigLine + 1}");
@@ -327,9 +327,9 @@ public static class StReader
 		{
 			ctx.Update(lines[j]);
 			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(lines[j], "END_PROPERTY")) { endLine = j; break; }
-			var opens = LineStartsWithKeyword(lines[j], "GET") ? "get"
-					  : LineStartsWithKeyword(lines[j], "SET") ? "set" : null;
+			if (LineStartsWithKeyword(ctx.Code, "END_PROPERTY")) { endLine = j; break; }
+			var opens = LineStartsWithKeyword(ctx.Code, "GET") ? "get"
+					  : LineStartsWithKeyword(ctx.Code, "SET") ? "set" : null;
 			if (opens is not null)
 			{
 				// A new accessor keyword while one is still OPEN closes the previous one as BARE (bodiless) —
@@ -341,7 +341,7 @@ public static class StReader
 				currentAccessorKind = opens;
 				continue;
 			}
-			if (LineStartsWithKeyword(lines[j], "END_GET") || LineStartsWithKeyword(lines[j], "END_SET"))
+			if (LineStartsWithKeyword(ctx.Code, "END_GET") || LineStartsWithKeyword(ctx.Code, "END_SET"))
 			{
 				if (currentAccessorStart is not null && currentAccessorKind is not null)
 				{
@@ -494,12 +494,24 @@ public static class StReader
 		private bool _inBlockComment;
 		public bool InsideTrivia { get; private set; }
 
+		/// <summary>The CODE on the line just scanned — comments and pragmas removed, block-comment state
+		/// carried across lines. Empty exactly when <see cref="InsideTrivia"/> is true.
+		/// <para>This used to be computed and thrown away, and every structural keyword test then ran against the
+		/// RAW line. So <c>(* restore *) END_GET</c> was correctly judged to contain code and just as correctly
+		/// failed to match <c>END_GET</c> — the accessor was never closed, the next keyword closed it as BARE, and
+		/// a bare accessor means "exists, holds no code". The getter's body was discarded on READ, before any push
+		/// was involved. The same miss moved a method's whole VAR_INPUT block into its implementation.</para></summary>
+		public string Code { get; private set; } = "";
+
 		/// <summary>Advance over one line. Delegates to <see cref="CodeHelper.CodeOn"/> — THE trivia scanner —
 		/// so this cannot drift from the one <c>HeaderLine</c> uses. It had: this copy called
 		/// <c>(* doc *) FUNCTION_BLOCK FB</c> code (correctly) while <c>HeaderLine</c> skipped the line whole, and it
 		/// did not strip a BOM. Same question, two answers, and the wrong one classified items on the wire.</summary>
-		public void Update(string line) =>
-			InsideTrivia = CodeHelper.CodeOn(line, ref _inBlockComment).Length == 0;
+		public void Update(string line)
+		{
+			Code = CodeHelper.CodeOn(line, ref _inBlockComment);
+			InsideTrivia = Code.Length == 0;
+		}
 	}
 
 	/// <summary>Index of the first line that is real code (not blank / comment / pragma), or -1 if the
@@ -525,14 +537,18 @@ public static class StReader
 		{
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(lines[i], keyword)) last = i;
+			if (LineStartsWithKeyword(ctx.Code, keyword)) last = i;
 		}
 		return last;
 	}
 
-	private static bool LineStartsWithKeyword(string line, string keyword)
+	/// <summary>Does this line's CODE begin with <paramref name="keyword"/> as a whole word?
+	/// <para>Callers pass <c>ScanContext.Code</c>, never the raw line: a structural keyword is still structural
+	/// when a closed comment precedes it on the same line, which is exactly where engineers put the note
+	/// explaining what an accessor is for.</para></summary>
+	private static bool LineStartsWithKeyword(string code, string keyword)
 	{
-		var trimmed = line.TrimStart();
+		var trimmed = code.TrimStart();
 		if (!trimmed.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)) return false;
 		if (trimmed.Length == keyword.Length) return true;
 		char after = trimmed[keyword.Length];
