@@ -1,4 +1,5 @@
 ﻿
+using Volt.Contracts;
 using Volt.Engine.Vocabulary;
 namespace Volt.Engine.Ide;
 
@@ -37,7 +38,19 @@ public static class ItemLookup
         int count;
         // An unreadable subtree is a leaf, not a crash. Both drivers guarded their ChildCount this way (TwinCAT
         // in the member itself, CODESYS at its call sites); doing it once here is why they no longer have to.
-        try { count = tree.ChildCount(node); } catch { return null; }
+        // A fault is NOT absence. Null is this method's only channel and every caller reads it as "no such
+        // item" — `PushService` reads it as "create one", so a swallowed read fault made a push CREATE an item
+        // that already existed, which on a bare-name-keyed vendor is a duplicate or an overwrite, from a push
+        // reporting success. Skipping is right for a WALK (one bad folder must not fail a pull, and that path
+        // reports its incompleteness through WalkResult); a single-item lookup was asked one question and cannot
+        // answer it.
+        try { count = tree.ChildCount(node); }
+        catch (System.Exception ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"could not read the project tree while looking for '{name}' — the IDE refused a child read " +
+                $"({ex.Message}). Refusing to report it as absent.");
+        }
 
         for (var i = 1; i <= count; i++)
         {
@@ -50,7 +63,14 @@ public static class ItemLookup
                 childName = tree.Name(child);
                 kind = tree.KindCode(child);   // one read, used by both tests below
             }
-            catch { continue; }
+            catch (System.Exception ex)
+            {
+                // Same rule one level down: a child that cannot be READ is not a child that is not THERE, and
+                // this loop is how `name` would have been recognised.
+                throw new BridgeException(BridgeErrorCodes.InternalError,
+                    $"could not read child {i} while looking for '{name}' — the IDE refused the read " +
+                    $"({ex.Message}). Refusing to report it as absent.");
+            }
 
             if (ItemKind.IsTopLevelCrud(kind) &&
                 string.Equals(childName, name, System.StringComparison.OrdinalIgnoreCase))

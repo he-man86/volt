@@ -173,6 +173,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// tell the difference between "omitted because gone" and "omitted because unseen".</para></summary>
     public IReadOnlyList<string> UnwalkableFolders { get; init; } = System.Array.Empty<string>();
 
+    /// <summary>Tree nodes whose <see cref="ChildCount"/> FAULTS — a COM read failing mid-lookup, without a live
+    /// IDE to fail. Distinct from <see cref="UnwalkableFolders"/>, which models a WALK skipping a subtree; this
+    /// models a single-item lookup hitting a fault, where "I could not read" and "it is not there" are different
+    /// answers that the code used to collapse into one.</summary>
+    public IReadOnlyList<string> FaultingNodes { get; init; } = System.Array.Empty<string>();
+
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public WalkResult WalkItems()
     {
@@ -183,7 +189,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         return new WalkResult(items, UnwalkableFolders);
     }
     public int KindCode(ItemRef item) => IsTreeNode(item) ? ItemKind.PlcFolder : Find(item).KindCode;
-    public int ChildCount(ItemRef item) =>
+    public int ChildCount(ItemRef item)
+    {
+        if (FaultingNodes.Contains(NameOf(item)))
+            throw new InvalidOperationException($"COM fault reading children of '{NameOf(item)}'");
+        return ChildCountCore(item);
+    }
+    private int ChildCountCore(ItemRef item) =>
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) =>
         IsTreeNode(item) ? LastSegment(NameOf(item)) : Find(item).Name;
