@@ -2,10 +2,10 @@
 using System.Linq;
 using System.Xml.Linq;
 using Xunit;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 using Volt.Engine.Source.Body.Network;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Cli.Tests;
@@ -91,7 +91,7 @@ public class BodyCodecTests
     [InlineData("SFC")]
     public void An_unsupported_body_language_is_marked_unsupported(string language)
     {
-        Assert.True(Volt.Engine.Document.BodyCodec.For(language).Unsupported);
+        Assert.True(Volt.Engine.Source.Body.BodyCodec.For(language).Unsupported);
     }
 
     [Theory]
@@ -102,7 +102,7 @@ public class BodyCodecTests
     {
         var body = new XElement("body");
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Volt.Engine.Document.BodyCodec.For(language).Encode(body, "x := 1;", null));
+            () => Volt.Engine.Source.Body.BodyCodec.For(language).Encode(body, "x := 1;", null));
         Assert.Contains("not a language Volt supports", ex.Message);
     }
 
@@ -113,11 +113,11 @@ public class BodyCodecTests
     {
         var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
         var body = new XElement(ns + "body", new XElement(ns + "IL", "LD a\nST b"));
-        var found = Volt.Engine.Document.BodyCodec.PresentWith(body);
+        var found = Volt.Engine.Source.Body.BodyCodec.PresentWith(body);
 
         Assert.Equal("IL", found!.Value.Codec.Language);
         var decoded = found.Value.Codec.Decode(found.Value.Element);
-        Assert.True(Volt.Engine.Vocabulary.BodyMarker.Is(decoded));   // the unsupported marker, same as CFC/SFC
+        Assert.True(Volt.Engine.Source.Body.BodyMarker.Is(decoded));   // the unsupported marker, same as CFC/SFC
         Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
 
@@ -150,9 +150,9 @@ public class BodyCodecTests
         var body = XElement.Parse($"<body xmlns=\"{ns}\">{bodyInner}</body>");
 
         // the READER calls it a diagram…
-        Assert.Equal(language, Volt.Engine.Document.PouReader.NonStLanguageOf(body));
+        Assert.Equal(language, Volt.Engine.Source.PouReader.NonStLanguageOf(body));
         // …and the WRITER locates the same element, rather than the empty <ST> decoy beside it
-        Assert.Equal(language, Volt.Engine.Document.BodyCodec.PresentWith(body)!.Value.Codec.Language);
+        Assert.Equal(language, Volt.Engine.Source.Body.BodyCodec.PresentWith(body)!.Value.Codec.Language);
     }
 
     /// <summary>The original of the case above, kept because it is the exact shape recorded from CODESYS: an
@@ -165,7 +165,7 @@ public class BodyCodecTests
         var body = new XElement(ns + "body",
             new XElement(ns + "ST"),
             new XElement(ns + "addData", new XElement(ns + "data", new XElement(ns + "CFC"))));
-        var found = Volt.Engine.Document.BodyCodec.PresentWith(body);
+        var found = Volt.Engine.Source.Body.BodyCodec.PresentWith(body);
         Assert.Equal("CFC", found!.Value.Codec.Language);   // the writer locates it where the reader looks
     }
 }

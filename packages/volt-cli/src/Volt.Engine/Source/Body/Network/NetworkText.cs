@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 
 namespace Volt.Engine.Source.Body.Network;
 
@@ -9,7 +9,7 @@ namespace Volt.Engine.Source.Body.Network;
 /// file, or a CHILD action/method inline in it) leads with a network block <c>NETWORK &lt;index&gt;
 /// &lt;LANG&gt; …</c>; the language rides on the marker (no separate header) and the body round-trips.
 /// CFC/SFC are NOT network-text bodies — they have no text form and materialize as an informational marker comment
-/// (see <c>Vocabulary.BodyMarker.For</c>); they are not editable, but that is enforced by live IDE
+/// (see <c>BodyMarker.For</c>); they are not editable, but that is enforced by live IDE
 /// state on push, not by any content marker.
 /// </summary>
 public static class NetworkText

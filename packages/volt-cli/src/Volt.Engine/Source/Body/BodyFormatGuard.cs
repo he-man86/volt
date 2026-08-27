@@ -1,13 +1,13 @@
 ﻿using System;
 using Volt.Contracts;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Ide;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Engine.Sync;
+namespace Volt.Engine.Source.Body;
 
 /// <summary>The refusal policy for a body write: never overwrite a body whose LANGUAGE differs from the one the
 /// push carries, and never write over a language Volt cannot produce (CFC, SFC, IL).
@@ -28,14 +28,14 @@ internal static class BodyFormatGuard
     /// <summary>Is this body language one Volt cannot write at all (CFC, SFC, IL)? Read off the codec, so the
     /// unsupported set has ONE definition shared by the splice and both live guards.</summary>
     private static bool IsUnsupportedLanguage(string? language) =>
-        language is { } l && Document.BodyCodec.For(l).Unsupported;
+        language is { } l && BodyCodec.For(l).Unsupported;
 
     /// <summary>Body-format guard for ONE child of a POU — the child-level counterpart of the root POU guard, and it
     /// decides from the IDE's LIVE body language, never from the incoming text. <c>NetworkText</c>'s contract says it
     /// outright: CFC/SFC unsupportedness "is enforced by live IDE state on push, not by any content marker".
     /// <para>The old guard tried to do it from content — <c>NetworkText.Is(cimpl) &amp;&amp; !IsEditable(...)</c> — which could
     /// never work, because a CFC/SFC body has no text form and materializes as
-    /// <see cref="Vocabulary.BodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
+    /// <see cref="BodyMarker"/>, which <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher)
     /// REJECTS. So the marker fell through to the textual path and <c>WriteText</c> replaced an engineer's graphical
     /// child body with a comment. Scoped to method/action children: an interface member has no body of its own
     /// (reading one crashes TwinCAT) and a PROPERTY node's body lives in its GET/SET accessors.</para></summary>
@@ -43,7 +43,7 @@ internal static class BodyFormatGuard
                                                    PouReader.ParsedPou? parsed)
     {
         var cimpl = child.Body;
-        var marker = Vocabulary.BodyMarker.Is(cimpl);
+        var marker = BodyMarker.Is(cimpl);
 
         // An INTERFACE member and a PROPERTY node carry no body of their own — a property's code lives in its
         // GET/SET accessors, which arrive as `child.Getter`/`child.Setter`, not as `child.Body`. So there is

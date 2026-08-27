@@ -1,6 +1,6 @@
-using Xunit;
+﻿using Xunit;
 using Xunit.Abstractions;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 
 namespace Volt.Cli.Tests;
 
@@ -47,7 +47,7 @@ public class BodyGuardConsistencyTests
 
     /// <summary>The marker an unsupported body materializes as — what a pull writes into the repo, and therefore
     /// exactly what the next push of that untouched file carries back.</summary>
-    private static string Marker => Volt.Engine.Vocabulary.BodyMarker.For("CFC");
+    private static string Marker => Volt.Engine.Source.Body.BodyMarker.For("CFC");
 
     /// <summary>Restating the marker is the ordinary round-trip of an untouched CFC body. It must be a no-op at
     /// every position — not a no-op at the root and a rejected push on a child.

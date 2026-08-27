@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Source.Body.Network;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source.Body
 {
     /// <summary>The capability gate over a STORED graphical body: may this <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
     /// element be replaced at all, or does it carry something the network-text editor cannot reproduce?

@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Xunit;
 using Volt.Contracts;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;
@@ -46,9 +46,9 @@ public class FetchExclusionTests
     public void Referenced_library_element_folds_beside_its_library()
     {
         var manifest = "LIBRARY CAA Types\nNAMESPACE CAA\nRESOLUTION caatypes\nPLACEHOLDER false\nSYSTEM false\nDEPENDENCIES CAA Memory\n";
-        var handle = new Volt.Engine.Model.LibSignature("HANDLE", "caatypes", "Type",
-            new Volt.Engine.Model.LibVar[0], new Volt.Engine.Model.LibVar[0],
-            new Volt.Engine.Model.LibVar[0], new Volt.Engine.Model.LibVar[0], null, null, "__XWORD");
+        var handle = new Volt.Engine.Library.LibSignature("HANDLE", "caatypes", "Type",
+            new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
+            new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null, "__XWORD");
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nVAR h : HANDLE; END_VAR\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
@@ -67,9 +67,9 @@ public class FetchExclusionTests
     public void Unmatched_library_element_is_surfaced_under_unresolved_not_dropped()
     {
         var manifest = "LIBRARY CAA Types\nNAMESPACE CAA\nRESOLUTION caatypes\nPLACEHOLDER false\nSYSTEM false\n";
-        var orphan = new Volt.Engine.Model.LibSignature("SOMEFB", "cmpeventmgr implementation, 3.5 (system)", "FunctionBlock",
-            new Volt.Engine.Model.LibVar[0], new Volt.Engine.Model.LibVar[0],
-            new Volt.Engine.Model.LibVar[0], new Volt.Engine.Model.LibVar[0], null, null);
+        var orphan = new Volt.Engine.Library.LibSignature("SOMEFB", "cmpeventmgr implementation, 3.5 (system)", "FunctionBlock",
+            new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
+            new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null);
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))

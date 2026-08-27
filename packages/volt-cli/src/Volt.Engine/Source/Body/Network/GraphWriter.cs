@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 using Volt.Engine.Source.Body.Network;
 
 namespace Volt.Engine.Source.Body.Network
@@ -18,7 +18,7 @@ namespace Volt.Engine.Source.Body.Network
     public static class GraphWriter
     {
         public static readonly XNamespace Ns = "http://www.plcopen.org/xml/tc6_0200";
-        private static readonly XNamespace Xhtml = Vocabulary.Namespaces.Xhtml;
+        private static readonly XNamespace Xhtml = Namespaces.Xhtml;
 
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
@@ -206,7 +206,7 @@ namespace Volt.Engine.Source.Body.Network
         /// (matching the IDE format). A null/empty value yields a self-closing inner element.</summary>
         private static XElement VendorData(string nameSuffix, string innerName, string? value)
             => new(Ns + "data",
-                new XAttribute("name", Vocabulary.Namespaces.ThreeSName(nameSuffix)),
+                new XAttribute("name", Namespaces.ThreeSName(nameSuffix)),
                 new XAttribute("handleUnknown", "implementation"),
                 string.IsNullOrEmpty(value) ? new XElement(innerName) : new XElement(innerName, value));
 
@@ -332,7 +332,7 @@ namespace Volt.Engine.Source.Body.Network
                 new XElement(Ns + "alternativeText", new XElement(Xhtml + "xhtml")),
                 new XElement(Ns + "addData",
                     new XElement(Ns + "data",
-                        new XAttribute("name", Vocabulary.Namespaces.ThreeSName("fbdelementtype")),
+                        new XAttribute("name", Namespaces.ThreeSName("fbdelementtype")),
                         new XAttribute("handleUnknown", "implementation"),
                         new XElement("ElementType", "networktitle"))));
 

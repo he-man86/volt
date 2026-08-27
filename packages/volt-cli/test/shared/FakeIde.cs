@@ -5,8 +5,8 @@ using System.Threading;
 using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Host;
 using Volt.Engine.Item;
 

@@ -4,7 +4,7 @@ using System.Linq;
 using Volt.Wire;
 using Xunit;
 using Volt.Contracts;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;

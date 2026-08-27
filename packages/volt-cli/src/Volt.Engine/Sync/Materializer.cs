@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 using Volt.Engine.Ide;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 using Volt.Engine.Source.Body.St;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
@@ -125,10 +125,10 @@ public static class Materializer
     /// declaration is non-null"); it is made ONCE here now, and the answer is an object.
     /// <para>A null <paramref name="code"/> with a real declaration still yields an accessor — that is the
     /// bodiless case, not an absent one.</para></summary>
-    private static Model.Accessor? AccessorOf(string? code, string? declaration)
+    private static Source.Accessor? AccessorOf(string? code, string? declaration)
     {
         var decl = KeepDecl(declaration);
-        return code is null && decl is null ? null : new Model.Accessor(decl, code);
+        return code is null && decl is null ? null : new Source.Accessor(decl, code);
     }
 
     /// <summary>The workspace text for a body, dispatched through the LANGUAGE's codec — the same registry the
@@ -145,7 +145,7 @@ public static class Materializer
         // No Unsupported branch: an unsupported codec DECODES to its marker, so one uniform call serves every
         // language. Branching here meant the caller had to know which languages have a text form — the exact
         // knowledge the codec registry exists to hold.
-        var text = Document.BodyCodec.For(lang).Decode(bodyEl).Trim();
+        var text = BodyCodec.For(lang).Decode(bodyEl).Trim();
         return text.Length == 0 ? null : text;
     }
 

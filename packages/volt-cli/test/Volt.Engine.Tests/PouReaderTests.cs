@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 using Xunit;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 
 namespace Volt.Cli.Tests;
 

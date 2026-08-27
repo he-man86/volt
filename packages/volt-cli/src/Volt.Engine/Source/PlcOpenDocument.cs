@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source
 {
     /// <summary>
     /// The PLCopen DOCUMENT: the primitives every reader and writer of one shares — resolving the element that

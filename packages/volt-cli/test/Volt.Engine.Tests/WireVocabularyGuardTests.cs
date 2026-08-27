@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 using Volt.Contracts;
-using Volt.Engine.Document;
+using Volt.Engine.Source;
 using Volt.Engine.Source.Body.Network;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 
 namespace Volt.Engine.Tests;
 

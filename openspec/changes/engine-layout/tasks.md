@@ -53,13 +53,15 @@ Order chosen so each step compiles on its own: leaves first, then the things tha
         first, THEN let the fixer add what is missing.
       - **Bare qualifiers that resolved through the namespace hierarchy break.** `Graph.NetworkText.LanguageOf(…)`
         worked from inside `Volt.Engine.*` and stops working once the target moves. Drop the prefix.
-- [ ] 2.4 **`Source/Body/`** ← `BodyCodec.cs`, `BodyElement.cs`, `BodyGuard.cs`, `BodySpliceGuard.cs`,
+- [x] 2.4 **`Source/Body/`** ← `BodyCodec.cs`, `BodyElement.cs`, `BodyGuard.cs`, `BodySpliceGuard.cs`,
       `Vocabulary/BodyMarker.cs`, `Vocabulary/Languages.cs`, `Sync/BodyFormatGuard.cs`.
-- [ ] 2.5 **`Source/`** ← `PlcOpenDocument.cs`, `PouReader.cs`, `PouSplice.cs`, `Declaration.cs`,
+- [x] 2.5 **`Source/`** ← `PlcOpenDocument.cs`, `PouReader.cs`, `PouSplice.cs`, `Declaration.cs`,
       `ProjectStructure.cs`, `PouDocument.cs`, `Model/ItemContent.cs`, `Vocabulary/Namespaces.cs`, **and
       `DIALECT.md`**.
       ⚠ `scripts/check-wiring.ts:263` hardcodes `src/Volt.Engine/Document/DIALECT.md`. Update it in THIS commit —
-      `bun run check` is the thing that catches it, and it must not be red between commits.
+      `bun run check` is the thing that catches it, and it must not be red between commits. **DONE** (two lines:
+      the read at `:263` and the prose at `:234`).
+      `LibSignature.cs` also moved here, to `Library/`, which is what emptied `Model/`.
 - [ ] 2.6 **`Ops/`** ← `PushService.cs`, `FetchService.cs`, `RefsService.cs`, `BuildService.cs`,
       `Materializer.cs`, `Hasher.cs`, `Versioning.cs`, `OpGuard.cs`, `PushConflicts.cs`.
 - [ ] 2.7 **`Ide/`** keeps the contract and the driver machinery: `IIdeDriver`, `IIdeSession`, `ICodeStore`,

@@ -1,6 +1,6 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
-namespace Volt.Engine.Vocabulary
+namespace Volt.Engine.Source
 {
     /// <summary>
     /// The XML namespaces a PLCopen document is written in — spelled ONCE.

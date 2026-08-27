@@ -6,8 +6,8 @@ using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 
 namespace Volt.Engine.Host;
 

@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Xunit;
 using Volt.Engine.Source.Body.Network;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 
 namespace Volt.Cli.Tests;
 

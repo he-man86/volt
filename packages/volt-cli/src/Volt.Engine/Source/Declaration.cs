@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source
 {
     /// <summary>
     /// A declaration, in a PLCopen document — the ONE rule, wherever it sits.
@@ -76,7 +76,7 @@ namespace Volt.Engine.Document
         public static void Establish(XElement owner, string declaration)
         {
             XNamespace ns = owner.Name.Namespace;
-            XNamespace xh = Vocabulary.Namespaces.Xhtml;
+            XNamespace xh = Namespaces.Xhtml;
             owner.Add(new XElement(ns + "InterfaceAsPlainText", new XElement(xh + "xhtml", declaration)));
         }
 

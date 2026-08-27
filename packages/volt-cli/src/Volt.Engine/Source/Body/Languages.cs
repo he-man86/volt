@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 
-namespace Volt.Engine.Vocabulary
+namespace Volt.Engine.Source.Body
 {
     /// <summary>The IEC body languages, and the two questions every layer asks about one.
     /// <para><b>Level 0 on purpose.</b> These predicates were spelled out at six sites across three namespaces —
@@ -27,7 +27,7 @@ namespace Volt.Engine.Vocabulary
         /// <c>&lt;body&gt;</c> child named for the language; CFC is a CODESYS extension the schema has no place
         /// for, so it goes under a vendor <c>addData</c> block — beside an empty <c>&lt;ST&gt;</c> the schema
         /// still wants, the decoy that once made a direct-children scan call a CFC body textual.
-        /// <see cref="T:Volt.Engine.Document.BodyElement"/> looks for a diagram in BOTH positions, which widens a
+        /// <see cref="T:Volt.Engine.Source.Body.BodyElement"/> looks for a diagram in BOTH positions, which widens a
         /// rule that had been narrowed to CFC alone: a diagram has no write path, so finding one anywhere can
         /// only lead to a refusal, whereas a nested SFC that goes unfound is flattened through that same decoy.
         /// FBD and LD are excluded for the mirror-image reason — Volt writes those, so recognising one in a

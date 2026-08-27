@@ -4,7 +4,7 @@ using System.Linq;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 
 namespace Volt.Cli.Ide.Codesys;
 
@@ -118,7 +118,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
     // The precompile + read — FetchService calls this only when a .library version changed.
-    public override IReadOnlyList<Volt.Engine.Model.LibSignature> ExtractLibrarySignatures() =>
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Volt.Engine.Model;
+namespace Volt.Engine.Source;
 
 /// <summary>
 /// ONE model for an item's content, in BOTH directions. A read builds it from the IDE's PLCopen document; the ST
@@ -14,7 +14,7 @@ namespace Volt.Engine.Model;
 /// from text; a body spliced over a sibling method because the read scoped by name and the write by document
 /// order. Neither is possible between two users of the same record.</para>
 /// <para>This is a TEXT-level model, deliberately: bodies are workspace text, not XML. The document's own view
-/// (with its <c>XElement</c> bodies) is <c>Document.PouReader.ParsedPou</c>, and it stays separate — it is the
+/// (with its <c>XElement</c> bodies) is <c>PouReader.ParsedPou</c>, and it stays separate — it is the
 /// shape of the vendor's file, and collapsing the two would put XML in the push path's vocabulary.</para>
 /// </summary>
 public sealed record ItemContent(

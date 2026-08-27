@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Source.Body.Network;
+using Volt.Engine.Source.Body;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source
 {
     /// <summary>The three member shapes a PLCopen POU document can carry. Deliberately NOT
-    /// <c>Vocabulary.ItemKind.Kinds</c>: those are Volt's WIRE vocabulary, and taking them here made the document
+    /// <c>Item.ItemKind.Kinds</c>: those are Volt's WIRE vocabulary, and taking them here made the document
     /// layer depend UPWARD on Workspace policy for no reason — the document only ever needs to know which of three
     /// element shapes to build. The mapping from a pushed item's kind to one of these belongs to the caller that
     /// knows about pushes (<c>Sync.PouDocument</c>).</summary>
@@ -103,7 +104,7 @@ namespace Volt.Engine.Document
             return (member, removable);
         }
 
-        private const string ThreeS = Vocabulary.Namespaces.ThreeS;
+        private const string ThreeS = Namespaces.ThreeS;
 
         /// <summary>Is this owner an INTERFACE? Both vendors export one as an <c>&lt;Interface&gt;</c> element with
         /// no <c>&lt;pou&gt;</c> anywhere — so the element name is the kind, and no caller has to pass one in.</summary>
@@ -139,7 +140,7 @@ namespace Volt.Engine.Document
                     $"'{itemName}' already has a child named '{childName}' — use SetChildText to update it");
 
             XNamespace ns = owner.Name.Namespace;
-            XNamespace xh = Vocabulary.Namespaces.Xhtml;
+            XNamespace xh = Namespaces.Xhtml;
             XElement Text(string name, string value) =>
                 new(ns + name, new XElement(xh + "xhtml", value));
             // The SAME codec dispatch SetChildText uses for an UPDATE. Writing the text verbatim into <ST> meant
@@ -270,7 +271,7 @@ namespace Volt.Engine.Document
             }
 
             XNamespace ns = prop.Name.Namespace;
-            XNamespace xh = Vocabulary.Namespaces.Xhtml;
+            XNamespace xh = Namespaces.Xhtml;
             // §2.5's identity rule, here too: a push re-states both accessors of every property, so most calls
             // through this method change nothing and must hand back the original bytes.
             var changed = false;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source
 {
     /// <summary>
     /// The document's own statement of STRUCTURE — the <c>…/projectstructure</c> addData block — kept in agreement
@@ -38,7 +38,7 @@ namespace Volt.Engine.Document
     /// </summary>
     internal static class ProjectStructure
     {
-        private static readonly string ThreeSObjectId = Vocabulary.Namespaces.ThreeSName("objectid");
+        private static readonly string ThreeSObjectId = Namespaces.ThreeSName("objectid");
 
         /// <summary>Rewrite the item's entry in the structure block so it lists exactly
         /// <paramref name="members"/>, each carrying the same <c>ObjectId</c> as its member element. Ids absent

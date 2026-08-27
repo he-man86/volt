@@ -5,8 +5,8 @@ using System.Text;
 
 using Volt.Contracts;
 using Volt.Engine;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Source.Body.St;

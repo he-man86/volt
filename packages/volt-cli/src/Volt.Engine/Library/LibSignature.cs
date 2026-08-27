@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Volt.Engine.Model;
+namespace Volt.Engine.Library;
 
 /// <summary>One variable in a library element's interface: its name, IEC type text, and optional initial value
 /// (an enum member's ordinal, or a pin/field default) — rendered as `:= Initial` so enum values survive.</summary>

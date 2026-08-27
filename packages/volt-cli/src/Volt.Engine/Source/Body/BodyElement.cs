@@ -1,8 +1,8 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source.Body
 {
     /// <summary>Where a body language's element SITS inside <c>&lt;body&gt;</c> — the one answer, shared by the
     /// reader (<see cref="PouReader"/>) and the writer (<see cref="BodyCodec"/>).

@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
 using Volt.Engine;
-using Volt.Engine.Model;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Engine.Document;
+namespace Volt.Engine.Source;
 
 /// <summary>Build the ONE PLCopen document a POU write travels in, by SPLICING the pushed source into the item's
 /// CURRENT export — never by generating a document from scratch. Everything Volt does not model (attributes,
@@ -75,7 +75,7 @@ public static class PouDocument
             // …on an UPDATE. On a CREATE the same null means "no body", and a marker cannot mean that: there is
             // no diagram yet to leave alone, and a marker is not something a diagram can be built from. Which arm
             // runs is decided below, so remember what the null came from.
-            var bodyWasMarker = Vocabulary.BodyMarker.Is(body);
+            var bodyWasMarker = BodyMarker.Is(body);
             if (bodyWasMarker) body = null;
 
             // The scope an FB instance in a CHILD body resolves against is BOTH declarations: an instance used

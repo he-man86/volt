@@ -182,7 +182,7 @@ internal static class TcItemArchive
 
         // The ONE serializer — see PlcOpenDocument.Serialize, which carries the reason: ToString() drops the
         // XML declaration, found by the no-op identity test. This was a byte-identical open-coded copy of it.
-        tcPou = Volt.Engine.Document.PlcOpenDocument.Serialize(doc);
+        tcPou = Volt.Engine.Source.PlcOpenDocument.Serialize(doc);
         return true;
     }
 

@@ -1,4 +1,4 @@
-﻿namespace Volt.Engine.Vocabulary
+﻿namespace Volt.Engine.Source.Body
 {
     /// <summary>The stand-in text a body Volt cannot write materializes as: <c>(* @volt-graphical: CFC *)</c>.
     /// <para>A read-only language (CFC, SFC, IL) has no text form Volt can produce or accept, so its file carries

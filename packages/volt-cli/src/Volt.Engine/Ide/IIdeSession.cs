@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Volt.Contracts;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
+using Volt.Engine.Source.Body;
 
 namespace Volt.Engine.Ide;
 
@@ -76,5 +77,5 @@ public interface IIdeSession
     /// <summary>Extract every referenced-library element's SIGNATURE (declaration only, no body) from the
     /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT returns none for
     /// now (no equivalent surface yet).</summary>
-    IReadOnlyList<Model.LibSignature> ExtractLibrarySignatures();
+    IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Source.Body.Network;
 using Volt.Engine.Source.Body.St;
 

@@ -2,7 +2,7 @@
 using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Source.Body.St;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 
 namespace Volt.Cli.Tests;
 

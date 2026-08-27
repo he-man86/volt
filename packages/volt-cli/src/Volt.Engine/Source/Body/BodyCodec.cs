@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Source.Body.Network;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source.Body
 {
     /// <summary>
     /// How one body LANGUAGE moves between its workspace TEXT and its PLCopen ELEMENT.
@@ -33,7 +33,7 @@ namespace Volt.Engine.Document
         /// <summary>Is this language UNSUPPORTED — no text form Volt can produce or accept, in either direction?
         /// True for CFC, SFC and IL.
         /// <para>It used to be called <c>ReadOnly</c>, and that name oversold it. Nothing here is readable: the
-        /// body materializes as <see cref="Vocabulary.BodyMarker"/>, a stand-in carrying none of the content.
+        /// body materializes as <see cref="BodyMarker"/>, a stand-in carrying none of the content.
         /// Volt round-trips ST, FBD and LD; everything else it declines to touch, and declining IS the feature —
         /// an unsupported body must come back out of a push exactly as it went in.</para></summary>
         public virtual bool Unsupported => false;
@@ -133,7 +133,7 @@ namespace Volt.Engine.Document
         public override bool Encode(XElement body, string text, string? declaration)
         {
             var ns = body.Name.Namespace;
-            XNamespace xh = Vocabulary.Namespaces.Xhtml;
+            XNamespace xh = Namespaces.Xhtml;
             var st = Locate(body);
             if (st is null)
             {
@@ -225,7 +225,7 @@ namespace Volt.Engine.Document
         public UnsupportedCodec(string language) => Language = language;
         public override string Language { get; }
         public override bool Unsupported => true;
-        public override string Decode(XElement element) => Vocabulary.BodyMarker.For(Language);
+        public override string Decode(XElement element) => BodyMarker.For(Language);
         public override bool Encode(XElement body, string text, string? declaration) =>
             throw new InvalidOperationException(
                 $"'{Language}' is not a language Volt supports — edit this body in the IDE. " +

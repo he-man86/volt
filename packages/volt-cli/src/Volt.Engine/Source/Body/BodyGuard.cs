@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Xml.Linq;
 
-namespace Volt.Engine.Document
+namespace Volt.Engine.Source.Body
 {
     /// <summary>What a body write is allowed to do to the body already there.</summary>
     internal enum BodyWrite
@@ -47,7 +47,7 @@ namespace Volt.Engine.Document
                 // materializes as, so it is exactly what comes back on the next push of that file. The caller
                 // writes nothing and keeps going — its declaration edit to a CFC POU still lands. Refusing here
                 // made that edit unreachable: the whole push was rejected over a body nobody wrote.
-                if (Vocabulary.BodyMarker.Is(bodyText)) return BodyWrite.NoOp;
+                if (BodyMarker.Is(bodyText)) return BodyWrite.NoOp;
                 throw new InvalidOperationException(
                     $"{what} has a {present.Language} body, which Volt does not support — edit it in the IDE, " +
                     "not via push.");
@@ -57,7 +57,7 @@ namespace Volt.Engine.Document
             // marker over a body that is NOT unsupported is stale or hand-written, and Volt would otherwise treat
             // it as ordinary ST — `NetworkText.LanguageOf` sees no network text, the ST codec takes it, and the
             // engineer's real body is replaced by a COMMENT.
-            if (Vocabulary.BodyMarker.Is(bodyText))
+            if (BodyMarker.Is(bodyText))
                 throw new InvalidOperationException(
                     $"{what} carries an unsupported-body marker but its body in the IDE is " +
                     $"{present?.Language ?? "textual"} — remove the marker and push real source, or pull first.");

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Volt.Contracts;
 using Volt.Engine.Ide;
-using Volt.Engine.Model;
+using Volt.Engine.Library;
 using Volt.Engine.Sync;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Library;

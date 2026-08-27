@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using Volt.Wire;
 using Volt.Engine;
 using Volt.Contracts;
-using Volt.Engine.Vocabulary;
+using Volt.Engine.Source.Body;
 using Volt.Engine.Host;
 
 namespace Volt.Cli.Ide.Twincat;
