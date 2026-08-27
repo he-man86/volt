@@ -62,12 +62,23 @@ Order chosen so each step compiles on its own: leaves first, then the things tha
       `bun run check` is the thing that catches it, and it must not be red between commits. **DONE** (two lines:
       the read at `:263` and the prose at `:234`).
       `LibSignature.cs` also moved here, to `Library/`, which is what emptied `Model/`.
-- [ ] 2.6 **`Ops/`** ← `PushService.cs`, `FetchService.cs`, `RefsService.cs`, `BuildService.cs`,
+- [x] 2.6 **`Ops/` — PROPOSED AND REJECTED; `Sync/` keeps its name.** `Volt.Engine.Ops` collides with
+      `Volt.Contracts.Ops`, the wire op-code vocabulary: `ProjectSnapshot`'s `operation = Ops.Refs` silently
+      resolved to the new namespace and stopped compiling. The rename was reverted rather than worked around with
+      a fully-qualified name — `Sync` is accurate (this IS the sync engine) and collision-free, and renaming a
+      thing to a synonym that collides is a cost with no benefit. The §Why critique of `Sync/` — that it mixes the
+      operations with the machinery they are built from — stands, and is a separate change if it is worth making
+      at all: eleven files is not obviously enough to sub-divide.
+      Files that would have moved ← `PushService.cs`, `FetchService.cs`, `RefsService.cs`, `BuildService.cs`,
       `Materializer.cs`, `Hasher.cs`, `Versioning.cs`, `OpGuard.cs`, `PushConflicts.cs`.
-- [ ] 2.7 **`Ide/`** keeps the contract and the driver machinery: `IIdeDriver`, `IIdeSession`, `ICodeStore`,
+- [x] 2.7 **`Ide/`** keeps the contract and the driver machinery: `IIdeDriver`, `IIdeSession`, `ICodeStore`,
       `IProjectTree`, `DriverBase`, `BridgeLog`. `Vocabulary/` and `Model/` are now EMPTY and are deleted — if
       either still holds a file, the file was mis-assigned above and belongs to a subject, not to a level.
-- [ ] 2.8 **Root:** `BridgeException.cs` → `Ide/` (every thrower is a driver or an op reporting a driver
+- [x] 2.8 **Root: `BridgeException.cs` STAYS at the root**, with `Polyfills.cs`. Moving it was planned and
+      reverted on sight: its namespace is `Volt.Engine` (the root) because every layer throws it and it is meant to
+      be reachable without a `using`. A file in `Ide/` whose namespace says root is worse than a root file — the
+      folder would contradict the namespace, which is the exact confusion this change exists to remove.
+      Planned but not done: `BridgeException.cs` → `Ide/` (every thrower is a driver or an op reporting a driver
       failure). `Polyfills.cs` stays at the root — it is a compiler shim, not a subject.
 
 Each of 2.1–2.8: `git mv`, fix `namespace` + `using`, build, run all four suites, commit. **No edit that is not
@@ -75,24 +86,24 @@ a namespace line.** A behaviour change smuggled into a move is exactly what make
 
 ## 3. What the move must NOT do
 
-- [ ] 3.1 **No file in `WireVocabularyGuardTests`' exemption set is RENAMED** — it keys on bare filenames, so
+- [x] 3.1 **No file in `WireVocabularyGuardTests`' exemption set is RENAMED** — it keys on bare filenames, so
       moving is free and renaming breaks the build. Guarded: `ItemKind.cs`, `PlcOpenDocument.cs`, `PouReader.cs`,
       `PouSplice.cs`, `ProjectStructure.cs`, `NetworkTextReader.cs`.
-- [ ] 3.2 **No new assembly.** `Volt.Engine` stays one `netstandard2.0` project.
-- [ ] 3.3 **No visibility widened to make a move work.** If a type must go public to sit in its new folder, the
+- [x] 3.2 **No new assembly.** `Volt.Engine` stays one `netstandard2.0` project.
+- [x] 3.3 **No visibility widened to make a move work.** If a type must go public to sit in its new folder, the
       folder is wrong. (`internal` + `InternalsVisibleTo` already covers the test project.)
-- [ ] 3.4 **No test edited except its `using` lines.** A move that needs a test changed is not a move.
+- [x] 3.4 **No test edited except its `using` lines.** A move that needs a test changed is not a move.
 
 ## 4. Close-out
 
-- [ ] 4.1 Final gate: the §0 numbers, exactly. `bun run check` green with the DIALECT path updated; `bun run lint`
+- [x] 4.1 Final gate: the §0 numbers, exactly. `bun run check` green with the DIALECT path updated; `bun run lint`
       0 errors; live CODESYS e2e 129/20/0.
-- [ ] 4.2 `packages/volt-cli/ARCHITECTURE.md` — the layer stack section names the old folders. Rewrite it to the
+- [x] 4.2 `packages/volt-cli/ARCHITECTURE.md` — the layer stack section names the old folders. Rewrite it to the
       new shape, and state the rule it now follows: **folders are named for their subject; a body language's
       implementation lives under the body.**
-- [ ] 4.3 Record the rename in this folder — including anything that turned out to be mis-assigned in §2 and had
+- [x] 4.3 Record the rename in this folder — including anything that turned out to be mis-assigned in §2 and had
       to move twice. That is the useful half of the record; `restructure-plcopen-layer` was closed without one and
       the NEXT rename inherited none of its discipline (see its §9 note).
-- [ ] 4.4 **Add the mechanical gate that change's close-out lacked:** a grep for the old namespace names
+- [x] 4.4 **Add the mechanical gate that change's close-out lacked:** a grep for the old namespace names
       (`Volt.Engine.Vocabulary`, `.Model`, `.Text`, `.Graph`, `.Document`, `.Sync`) across `src`, `test`, `docs`
       and `ARCHITECTURE.md`, run as part of the close-out. Two renames have now drifted for want of exactly this.
