@@ -54,7 +54,16 @@ public sealed partial class CodesysDriver
         if (graph is null)
         {
             // Textual: declaration and body ride one GetObjectToModify/SetObject transaction.
-            _om.WriteSourceText(item.Native, content.Declaration, content.Body);
+            //
+            // A MARKER is informational and is never written back. Restating it is the ordinary no-op that keeps
+            // a POU with a CFC/SFC body pushable at all - `volt pull` writes the marker to disk and the next push
+            // restates every file it has - so the body is dropped and the declaration still lands. WriteMembers
+            // has said this since it was written; only the top-level path had not, and a CFC POU has no
+            // TextDocument on its Implementation aspect, so the write failed loudly with
+            // "the write would be accepted and land nothing" and a whole project holding one diagram could
+            // never be pushed again.
+            _om.WriteSourceText(item.Native, content.Declaration,
+                                BodyMarker.Is(content.Body) ? null : content.Body);
         }
         else
         {
@@ -292,15 +301,26 @@ public sealed partial class CodesysDriver
         return null;
     }
 
+    /// <summary>Write a property's GET or SET - or REMOVE it when the pushed source dropped it.
+    ///
+    /// <para><b>The removal is not the push service's job, unlike a member's.</b> An accessor is not in the
+    /// member SET: it is a field of the member (<c>Getter</c>/<c>Setter</c>), and it is identified by its KIND
+    /// CODE rather than by a name the engine could reconcile. Only the driver can ask the object model which
+    /// child is the SET. So this stays here, and the danger that made member removal delicate does not apply -
+    /// the match is on the exact accessor code, never on "everything under the property".</para>
+    ///
+    /// <para>Before this, dropping an accessor was a silent NO-OP: the source said GET only, the push was
+    /// accepted, and the SET stayed in the project. A push that reports success and leaves the old code running
+    /// is the failure this transport exists to prevent.</para></summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
     {
-        if (accessor is null) return;
         int n = ChildCount(property);
         for (int i = 1; i <= n; i++)
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            _om.WriteSourceText(child.Native, accessor.Declaration, accessor.Code);
+            if (accessor is null) Delete(property, Name(child));
+            else _om.WriteSourceText(child.Native, accessor.Declaration, accessor.Code);
             return;
         }
     }

@@ -129,11 +129,17 @@ public sealed partial class BeckhoffDriver
                       HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
     }
 
-    /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not —
-    /// their whole content is the declaration — and an interface METHOD has only a signature.</summary>
+    /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
+    /// their whole content is the declaration - and an interface METHOD has only a signature.
+    /// <para>A PROPERTY does not either, on either vendor: its code lives in the GET and SET accessors, which
+    /// travel as <c>Getter</c>/<c>Setter</c> and are written separately. Without it here, creating an FB with a
+    /// property crashed the push with "'System.__ComObject' does not contain a definition for
+    /// 'ImplementationText'" - the COM object does not expose the member at all, which is exactly what this
+    /// predicate exists to know.</para></summary>
     private static bool HasBodySlot(string kind) =>
         kind is not (ItemKind.Kinds.Dut or ItemKind.Kinds.Gvl or ItemKind.Kinds.Interface
-                     or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty);
+                     or ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty
+                     or ItemKind.Kinds.InterfaceMethod);
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
@@ -223,15 +229,26 @@ public sealed partial class BeckhoffDriver
         return null;
     }
 
+    /// <summary>Write a property's GET or SET - or REMOVE it when the pushed source dropped it.
+    ///
+    /// <para><b>The removal is not the push service's job, unlike a member's.</b> An accessor is not in the
+    /// member SET: it is a field of the member (<c>Getter</c>/<c>Setter</c>), and it is identified by its KIND
+    /// CODE rather than by a name the engine could reconcile. Only the driver can ask the object model which
+    /// child is the SET. So this stays here, and the danger that made member removal delicate does not apply -
+    /// the match is on the exact accessor code, never on "everything under the property".</para>
+    ///
+    /// <para>Before this, dropping an accessor was a silent NO-OP: the source said GET only, the push was
+    /// accepted, and the SET stayed in the project. A push that reports success and leaves the old code running
+    /// is the failure this transport exists to prevent.</para></summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
     {
-        if (accessor is null) return;
         int n = ChildCount(property);
         for (int i = 1; i <= n; i++)
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body);
+            if (accessor is null) Delete(property, Name(child));
+            else WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body);
             return;
         }
     }

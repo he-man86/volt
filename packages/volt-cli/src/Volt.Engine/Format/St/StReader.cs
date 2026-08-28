@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -138,9 +139,25 @@ public static class StReader
 		// declaration (VAR sections + signature), no implementation —
 		// SplitDeclImplOfChild handles that case naturally.
 		var childRegion = SliceLines(bodyLines, interfaceHeaderLineIdx + 1, bodyLines.Count - 1);
-		var children = SplitChildren(childRegion);
+		// THE OWNER DECIDES THE MEMBER KIND, here exactly as it does on the IDE side
+		// (CodesysDriver.MemberKind). `SplitChildren` is shared with function blocks and can only see
+		// `METHOD`/`PROPERTY`, so without this an interface read from TEXT reported `method` while the same
+		// interface read from the IDE reported `interface_method` - and StWriter, knowing only the latter,
+		// threw "No END keyword for POU child kind 'interface_method'". The whole interface then materialized
+		// as UNREADABLE: created in the project, accepted by push, and absent from /refs.
+		var children = SplitChildren(childRegion).Select(InterfaceMember).ToList();
 		return (decl, children);
 	}
+
+	/// <summary>The interface-scoped spelling of a member kind. An interface method is still
+	/// `METHOD ... END_METHOD` in text - only the WIRE kind differs, and it differs because TwinCAT
+	/// distinguishes them too.</summary>
+	private static Member InterfaceMember(Member m) => m.Kind switch
+	{
+		ItemKind.Kinds.Method => m with { Kind = ItemKind.Kinds.InterfaceMethod },
+		ItemKind.Kinds.Property => m with { Kind = ItemKind.Kinds.InterfaceProperty },
+		_ => m,
+	};
 
 	// ─── Outer-block boundary detection ──────────────────────────────
 

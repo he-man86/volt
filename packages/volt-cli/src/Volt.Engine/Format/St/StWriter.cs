@@ -71,20 +71,22 @@ public static class StWriter
 
     private static int KindOrder(string kind) => kind switch
     {
-        ItemKind.Kinds.Method => 0,
+        ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => 0,
         ItemKind.Kinds.Action => 1,
-        ItemKind.Kinds.Property => 2,
+        ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty => 2,
         _ => 3,
     };
 
     private static string AssembleChild(Member child)
     {
-        if (child.Kind == ItemKind.Kinds.Property) return AssembleProperty(child);
+        if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
+            return AssembleProperty(child);
         var decl = child.Declaration.TrimEnd();
         var impl = PrependFolder(child.Folder, (child.Body ?? "").Trim());
         var end = child.Kind switch
         {
-            ItemKind.Kinds.Method => "END_METHOD",
+            // An interface's members are the same ST constructs as a POU's; only the WIRE kind differs.
+            ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => "END_METHOD",
             ItemKind.Kinds.Action => "END_ACTION",
             _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
                 $"No END keyword for POU child kind '{child.Kind}'"),

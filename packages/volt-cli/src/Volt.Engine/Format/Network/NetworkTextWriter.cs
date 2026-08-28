@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -195,7 +195,14 @@ public static class NetworkTextWriter
                 case Leaf l:
                 {
                     var text = ApplyMods(l.Operand.Text, l.Flags);
-                    if (!nested || IsSafeToken(text)) return text;
+                    // The safety test is about the OPERAND'S OWN TEXT, not about the modifiers on it. A modifier
+                    // is grammar the parser reads inline at operand position (`NOT`, `RISING`/`FALLING`,
+                    // `SET`/`RESET` - Cursor.Operand), so testing the rendered string instead meant every
+                    // modifier's own space disqualified it: `(a AND NOT b)` was hoisted to
+                    // `LET i1 := NOT b; out := (a AND i1);`. That is still correct network text and still means
+                    // the same tree, but it is not what the engineer wrote, so the canonical-form gate refused
+                    // their push and told them to write Volt's version instead.
+                    if (!nested || IsSafeToken(l.Operand.Text)) return text;
                     var name = Mint("i", ref _i);
                     _prelude.Add("LET " + name + " := " + text + ";");
                     return name;

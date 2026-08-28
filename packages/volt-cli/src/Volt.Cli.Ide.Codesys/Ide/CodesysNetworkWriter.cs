@@ -106,11 +106,40 @@ namespace Volt.Cli.Ide.Codesys
 
                     case Box b:
                     {
+                        // An Execute box carries raw ST on the box itself. The READER models it
+                        // (ProvidesSTSnippet + the STSnippet's Implementation aspect); constructing one is not
+                        // measured, and this wrote the box WITHOUT its code - a program that read back as
+                        // `???();` with the engineer's ST gone. Refuse until the construction is measured: a
+                        // dropped body is the one outcome this transport exists to prevent.
+                        if (b.StCode is not null)
+                            throw new NotSupportedException(
+                                "CODESYS: writing an Execute box (ST inside FBD) is not implemented - Volt can " +
+                                "READ one but not build one, and writing the box without its ST would silently " +
+                                "delete the code. Edit the Execute box in the IDE and pull.");
+
                         var box = NwlInterop.New(_net, "BoxTreeBox");
                         // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.
                         NwlInterop.Set(box, "BoxType", b.Type);
+
+                        // Everything else the READER models on a box had no counterpart here and was dropped in
+                        // silence: an FB call lost its instance, an embedded output vanished, an EN pin was
+                        // forgotten. Each is set through the member the reader reads, so the two cannot drift -
+                        // and NwlInterop fails loud (naming the observed assembly version) if a member is not
+                        // there, which is the whole reason this vendor's typed model is safer than an archive.
+                        if (b.Instance is { } inst) NwlInterop.Set(box, "Instance", Operand(inst));
+
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
+
+                        if (b.Enable is { } en) NwlInterop.Set(box, "En", Node(en));
+
+                        if (b.Outputs.Count > 0)
+                        {
+                            var boxOutputs = NwlInterop.Require(box, "Outputs");
+                            foreach (var t in b.Outputs)
+                                NwlInterop.Call(boxOutputs, "AppendOutputItem", Operand(t));
+                        }
+
                         return Flagged(box, b.Flags);
                     }
 

@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using System;
+using Xunit;
 using Volt.Engine.Format.Network;
 
 namespace Volt.Cli.Tests;
@@ -44,4 +45,53 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD\n  out := ((a AND b);\nEND_NETWORK\n")]                 // unbalanced parens
     public void Malformed_input_is_rejected(string net)
         => Assert.ThrowsAny<System.Exception>(() => NetworkTextReader.Parse(net));
+
+    /// <summary>A MODIFIER never forces a hoist. The writer used to test the RENDERED operand for inline
+    /// safety, and "NOT b" contains a space, so every negated operand at operand position was hoisted to
+    /// `LET i1 := NOT b;`. Per network-text.md §6 an `i*` name is minted for an OPAQUE LEAF - arbitrary
+    /// inlined ST - and a modifier is grammar the parser reads inline (Cursor.Operand), so no name was due.
+    /// <para>Found by the live splice e2e: an engineer editing a rung to `(a AND NOT b)` had their push
+    /// refused by the canonical-form gate, which told them to write Volt's spelling instead.</para></summary>
+    [Theory]
+    [InlineData("out := (a AND NOT b);")]
+    [InlineData("out := (NOT a AND b);")]
+    [InlineData("out := (a AND b RISING);")]
+    [InlineData("out := (NOT a AND NOT b);")]
+    public void A_modifier_on_an_operand_does_not_force_a_hoisted_LET(string statement)
+    {
+        var text = "NETWORK 0 FBD\n  " + statement + "\nEND_NETWORK\n";
+
+        var written = Round(text);
+
+        Assert.DoesNotContain("LET i", written);
+        Assert.Equal(text.Trim(), written.Trim());
+    }
+
+    /// <summary>The hoist still happens for what it is FOR: an operand whose OWN text cannot sit inline,
+    /// because it would mis-split the operator group or mis-parse as a call. Such a leaf comes from the IDE,
+    /// not from text - network text has no precedence, so `arr[j + 1]` does not parse as a source - so the
+    /// model is built directly here rather than read.</summary>
+    [Fact]
+    public void An_operand_whose_own_text_is_unsafe_is_still_hoisted()
+    {
+        var opaque = new Leaf(new Operand("arr[j + 1]"), Flags.None);
+        var body = new NetworkBody(BodyLanguage.Fbd, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Assign(
+                    new Box("AND", null, CallKind.Operator,
+                            new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                                    new Input(null, opaque, Flags.None) },
+                            Array.Empty<Operand>(), null, null, Flags.None),
+                    new[] { new Operand("out") },
+                    Flags.None),
+            }, Array.Empty<Operand>()),
+        });
+
+        var written = NetworkTextWriter.Write(body);
+
+        Assert.Contains("LET i1 := arr[j + 1];", written);
+        Assert.Contains("out := (a AND i1);", written);
+    }
 }

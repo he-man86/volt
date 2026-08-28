@@ -90,19 +90,21 @@ public static class BodyFormatGuard
             $"{what} is a textual body — graphical bodies are authored in the IDE, not created by push.");
     }
 
-    /// <summary>What the guard actually compared, first line of each. A refusal that names only its verdict
-    /// cannot be diagnosed from the other side of a pipe — which cost a debugging round the first time this
-    /// fired wrongly.</summary>
+    /// <summary>The two LANGUAGES the guard compared. A refusal that names only its verdict cannot be
+    /// diagnosed from the other side of a pipe - which cost a debugging round the first time this fired
+    /// wrongly - but echoing the first line of each body named only one of them: the network header says
+    /// "NETWORK 0 FBD" while a line of ST just says `x := TRUE;`, which is the value, not the language.</summary>
     private static string Saw(string? live, string? pushed) =>
-        $"(IDE: {First(live)} | pushed: {First(pushed)})";
+        $"(IDE: {LanguageOf(live)} | pushed: {LanguageOf(pushed)})";
 
-    private static string First(string? body)
+    /// <summary>What language a body is written in, as the workspace spells it: the network header carries it
+    /// (<c>NETWORK 0 FBD</c>), a marker carries it, and anything else is ST.</summary>
+    private static string LanguageOf(string? body)
     {
         if (body is null) return "<none>";
-        var nl = body.IndexOf('\n');
-        var line = (nl < 0 ? body : body.Substring(0, nl)).TrimEnd('\r');
-        if (line.Length == 0) return "<empty>";
-        return line.Length > 60 ? line.Substring(0, 60) + "..." : line;
+        if (BodyMarker.Is(body)) return BodyMarker.LanguageOf(body) ?? "an unsupported language";
+        if (NetworkText.Is(body)) return NetworkText.LanguageOf(body) ?? "FBD/LD";
+        return body.Trim().Length == 0 ? "<empty>" : "ST";
     }
 
     private static string Describe(Shape s) => s switch
