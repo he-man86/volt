@@ -329,207 +329,90 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             };
         }
     }
-    // RECORDED, because it is not free: on CODESYS `BodyLanguage` is a full PLCopen export. The child
-    // body-format guard used to call it once per child, so a POU with 20 methods paid 22 exports to write one
-    // body. Counting the calls is how that stays fixed.
-    public string? BodyLanguage(ItemRef item)
+    // ── the ItemContent facet ─────────────────────────────────────────────────────────────────────
+    //
+    // This replaced ~200 lines that BUILT PLCOPEN DOCUMENTS. The fake had to serve three document shapes -
+    // one for a POU, one for a declaration-only kind, one for an interface - because a fake that answered a
+    // single <pou> shape for every kind passed the whole write suite and failed live the moment a DUT took the
+    // document path. None of that is a fact about an IDE; it was the cost of a contract that spoke XML.
+    //
+    // `BodyLanguage` is gone with it. It was RECORDED because it was not free - on CODESYS it was a full
+    // PLCopen export, and the child body-format guard called it once per child, so a POU with 20 methods paid
+    // 22 exports to write one body. There is nothing to count now: the language arrives with the content.
+
+    /// <summary>The content the last <see cref="WriteContent"/> carried, by item name. On this path the write
+    /// IS the content, so asserting on <c>Recorded</c> alone would miss everything a push actually did.</summary>
+    public Dictionary<string, ItemContent> WrittenContent { get; } = new();
+
+    public ItemContent ReadContent(ItemRef item)
     {
-        Recorded.Add($"bodylang:{NameOf(item)}");
-        return Find(item).BodyLang;
-    }
-    public string ReadXml(ItemRef item)
-    {
+        Recorded.Add($"read:{NameOf(item)}");
         var it = Find(item);
-        if (it.Xml != null) return it.Xml;
-        var ns = "http://www.plcopen.org/xml/tc6_0200";
+        return new ItemContent(
+            ItemKind.Map(it.KindCode) ?? ItemKind.Kinds.FunctionBlock,
+            it.Declaration ?? "",
+            it.Implementation,
+            MembersOf(it).ToList());
+    }
 
-        // THREE document shapes, one per kind, each mirroring a recorded CODESYS export. A fake that answered a
-        // single <pou> shape for every kind would pass the whole write suite and fail live the moment a DUT or an
-        // interface took the document path — the splice looks for <dataType>/<Interface> and would find neither.
-        // Fixtures: fixtures/codesys-decl/{DUT,GVL}.plcopen.xml, fixtures/codesys-itf/ITF_FolderedMember.plcopen.xml.
-        if (it.KindCode is ItemKind.PlcDut or ItemKind.PlcGvl)
-            return DeclOnlyXml(it, ns);
-        if (it.KindCode == ItemKind.PlcItf)
-            return InterfaceXml(it, ns);
-
-        var pouType = it.KindCode switch
+    private IEnumerable<Member> MembersOf(Item owner)
+    {
+        foreach (var name in owner.Children ?? System.Array.Empty<string>())
         {
-            ItemKind.PlcPouProg => "program",
-            ItemKind.PlcPouFb => "functionBlock",
-            ItemKind.PlcPouFunc => "function",
-            _ => "functionBlock",
-        };
-        // The layout below MIRRORS a recorded CODESYS export (test/Volt.Engine.Tests/fixtures/codesys-pou/) —
-        // <actions> before <body>, members in <addData>/<data name="…/method">, the POU's own declaration in the
-        // trailing addData. It used to emit children as NESTED <pou pouType="method"> elements, a shape NEITHER
-        // vendor produces: the reader tolerated it, so nothing failed, but it made the fake unusable for testing
-        // the WRITE path (the splice looks for <Method>, finds nothing, and refuses). A fake that models the
-        // document differently from both vendors can only ever test the reader's tolerance.
-        var kids = (it.Children ?? System.Array.Empty<string>())
-            .Select(n => _items.FirstOrDefault(i => i.Name == n)).Where(c => c != null).Select(c => c!).ToList();
-
-        var xml = $"<pou name=\"{it.Name}\" pouType=\"{pouType}\" xmlns=\"{ns}\"><interface />";
-
-        // A TRANSITION is its OWN TC6 container (<transitions><transition>), NOT an <action> — a shape no vendor
-        // emits and this fake used to invent. It mattered: rendered as an action, PouReader read the transition
-        // back as an action MEMBER, so it landed in the pushed member set and the orphan walk left it alone —
-        // the fake was asserting away the very bug that walk has (deleting transitions no reader models).
-        var actions = kids.Where(c => c.KindCode is ItemKind.PlcAction).ToList();
-        if (actions.Count > 0)
-            xml += "<actions>" + string.Join("", actions.Select(a =>
-                $"<action name=\"{a.Name}\">{BodyXml(a)}</action>")) + "</actions>";
-
-        var transitions = kids.Where(c => c.KindCode is ItemKind.PlcTrans).ToList();
-        if (transitions.Count > 0)
-            xml += "<transitions>" + string.Join("", transitions.Select(t =>
-                $"<transition name=\"{t.Name}\">{BodyXml(t)}</transition>")) + "</transitions>";
-
-        xml += BodyXml(it);
-
-        xml += "<addData>";
-        foreach (var m in kids.Where(c => c.KindCode is not (ItemKind.PlcAction or ItemKind.PlcTrans)))
-        {
-            var (element, data) = m.KindCode is ItemKind.PlcProp or ItemKind.PlcItfProp
-                ? ("Property", "property") : ("Method", "method");
-            xml += $"<data name=\"http://www.3s-software.com/plcopenxml/{data}\" handleUnknown=\"implementation\">"
-                 + $"<{element} name=\"{m.Name}\"><interface />{BodyXml(m)}"
-                 + $"<InterfaceAsPlainText><xhtml>{Escape(m.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
-                 + $"</{element}></data>";
+            var child = FindOrNull(Ref(name));
+            if (child is null) continue;
+            yield return new Member(
+                ItemKind.Map(child.KindCode) ?? ItemKind.Kinds.Method,
+                child.Name,
+                child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
+                child.Implementation,
+                string.IsNullOrEmpty(child.Folder) ? null : child.Folder);
         }
-        // OmitsPlaintextDeclaration models LIVE TwinCAT (2026-08-27): its PLCopen export stopped emitting the
-        // `interfaceasplaintext` addData block while still emitting objectid, projectstructure, fbdcalltype and
-        // implementationattributes. The declaration is still THERE — in the typed <interface> and in the object
-        // model's aspect — just not as verbatim text in the document. Measured: 8/8 recorded June exports carry
-        // the block (two of them with no variables at all, so it was unconditional); 0/2 live exports do, one of
-        // which declares 45 variables. See openspec/changes/declaration-from-the-aspect.
-        if (!string.IsNullOrEmpty(it.Declaration) && !OmitsPlaintextDeclaration)
-            xml += "<data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">"
-                 + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data>";
-        xml += "</addData></pou>";
-        return xml;
     }
 
-    /// <summary>A DUT (<c>&lt;dataType&gt;</c> under <c>types/dataTypes</c>) or a GVL
-    /// (<c>&lt;globalVars&gt;</c> under the project's own <c>addData</c>). Both are DECLARATION-ONLY: no
-    /// <c>&lt;body&gt;</c> anywhere, no members. The <c>baseType</c> a real DUT also carries is omitted — it is
-    /// the IDE's to regenerate from the plaintext on import, and inventing one here would model a shape the
-    /// splice never writes.</summary>
-    private static string DeclOnlyXml(Item it, string ns)
+    /// <summary>A write brings its members into existence, because that is what the real one does: afterwards a
+    /// POU's methods and properties ARE children of it and can be read and written. The fake used to record the
+    /// document and nothing else, so a member added by a push was invisible to any later tree walk — which made
+    /// the member transport untestable offline, and would have let "the member cannot be found after its own
+    /// write" pass here and fail live.</summary>
+    public void WriteContent(ItemRef item, ItemContent content)
     {
-        var iapt = "<data name=\"http://www.3s-software.com/plcopenxml/interfaceasplaintext\" handleUnknown=\"implementation\">"
-                 + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration ?? "")}</xhtml></InterfaceAsPlainText></data>";
-        return it.KindCode == ItemKind.PlcDut
-            ? $"<project xmlns=\"{ns}\"><types><dataTypes><dataType name=\"{it.Name}\"><addData>{iapt}</addData>"
-              + "</dataType></dataTypes><pous /></types></project>"
-            : $"<project xmlns=\"{ns}\"><types><dataTypes /><pous /></types><addData>"
-              + "<data name=\"http://www.3s-software.com/plcopenxml/globalvars\" handleUnknown=\"implementation\">"
-              + $"<globalVars name=\"{it.Name}\"><addData>{iapt}</addData></globalVars></data></addData></project>";
-    }
+        var name = NameOf(item);
+        Recorded.Add($"writecontent:{name}");
+        WrittenContent[name] = content;
 
-    /// <summary>An INTERFACE: <c>&lt;Interface&gt;</c> under the project's own <c>addData</c>, with members in
-    /// plain <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c> containers — NOT in per-member <c>data</c> wrappers
-    /// the way a POU's are, and with no <c>&lt;body&gt;</c> on the interface or on any member. That difference is
-    /// the whole reason the document layer reads placement off the owner element.</summary>
-    private string InterfaceXml(Item it, string ns)
-    {
-        var kids = (it.Children ?? System.Array.Empty<string>())
-            .Select(n => _items.FirstOrDefault(i => i.Name == n)).Where(c => c != null).Select(c => c!).ToList();
-        string Group(string tag, System.Collections.Generic.List<Item> ms) => ms.Count == 0 ? "" :
-            $"<{tag}s>" + string.Join("", ms.Select(m =>
-                $"<{tag} name=\"{m.Name}\"><interface />"
-                + (tag == "Property"
-                    ? "<SetAccessor><interface /></SetAccessor><GetAccessor><interface /></GetAccessor>" : "")
-                + $"<InterfaceAsPlainText><xhtml>{Escape(m.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
-                + $"</{tag}>")) + $"</{tag}s>";
+        var owner = FindOrNull(item);
+        if (owner is not null)
+            _items[_items.IndexOf(owner)] = owner with
+            {
+                Declaration = content.Declaration,
+                Implementation = content.Body ?? owner.Implementation,
+                Children = content.Members.Select(m => m.Name).ToArray(),
+            };
 
-        return $"<project xmlns=\"{ns}\"><types><dataTypes /><pous /></types><addData>"
-             + "<data name=\"http://www.3s-software.com/plcopenxml/interface\" handleUnknown=\"implementation\">"
-             + $"<Interface name=\"{it.Name}\">"
-             + Group("Method", kids.Where(c => c.KindCode is not (ItemKind.PlcProp or ItemKind.PlcItfProp)).ToList())
-             + Group("Property", kids.Where(c => c.KindCode is ItemKind.PlcProp or ItemKind.PlcItfProp).ToList())
-             + $"<InterfaceAsPlainText><xhtml>{Escape(it.Declaration ?? "")}</xhtml></InterfaceAsPlainText>"
-             + "</Interface></data></addData></project>";
-    }
-
-    /// <summary>A <c>&lt;body&gt;</c> in the vendors' shape: ST text in an inner <c>&lt;xhtml&gt;</c> (which is
-    /// what the splice writes into), or a bare graphical element for a CFC/SFC marker.</summary>
-    private static string BodyXml(Item it)
-    {
-        if (!string.IsNullOrEmpty(it.Implementation))
+        foreach (var m in content.Members)
         {
-            var lang = it.BodyLang ?? "ST";
-            return $"<body><{lang}><xhtml>{Escape(it.Implementation)}</xhtml></{lang}></body>";
+            var existing = FindOrNull(Ref(m.Name));
+            var member = new Item(m.Name, KindCodeOf(m.Kind), m.Folder ?? "", false,
+                                  m.Declaration, m.Body, null, null);
+            if (existing is null) _items.Add(member);
+            else _items[_items.IndexOf(existing)] = member;
         }
-        if (!string.IsNullOrEmpty(it.BodyLang)) return $"<body><{it.BodyLang}/></body>";
-        return "<body><ST><xhtml></xhtml></ST></body>";
-    }
 
-    private static string Escape(string s) => System.Net.WebUtility.HtmlEncode(s);
-    /// <summary>Model the vendor that STAMPS A BODY LANGUAGE at create time, the way TwinCAT does — and that
-    /// cannot take "LD", so it creates FBD and carries the ladder view as archive metadata (DIALECT C6).
-    /// <para>Off by default, which models CODESYS: there <c>CreateChild</c> ignores the language argument and the
-    /// created POU carries a blank <c>&lt;ST&gt;</c>, so the body language is established later by the imported
-    /// body element. The difference is not cosmetic — it is the whole reason a create must not be language-guarded
-    /// (see <c>PouSplice.SetBody</c>'s <c>establishing</c>), and with this off no test could reach that case.</para></summary>
-    public bool SeedsBodyLanguage { get; init; }
-
-    private string? SeedLanguage(string? language) =>
-        !SeedsBodyLanguage || language is null ? null : language == "LD" ? "FBD" : language;
-
-    /// <summary>The document the last <see cref="WriteXml"/> carried, by item name. On the merge path this IS the
-    /// write — asserting on <c>Recorded</c> alone would miss everything the push actually did.</summary>
-    public Dictionary<string, string> WrittenXml { get; } = new();
-    public void WriteXml(ItemRef item, string xml)
-    {
-        Recorded.Add($"writexml:{NameOf(item)}");
-        WrittenXml[NameOf(item)] = xml;
-        RegisterMembersFrom(NameOf(item), xml);
-        // Bumped LAST, so this call's own handle was still valid — the import replaces the item, and every handle
-        // taken before it now points at an object the vendor has thrown away.
+        // Bumped LAST, so this call's own handle was still valid.
         if (InvalidatesHandlesOnWrite) _generation++;
     }
-    /// <summary>A document write brings its members into existence, because that is what the real import does:
-    /// after it, a POU's methods and properties ARE children of it in the tree and can be read and written.
-    /// <para>The fake used to record the document and nothing else, so a member added by a push was invisible to
-    /// any tree walk afterwards — which made the member declaration transport untestable offline, and would have
-    /// let "the member cannot be found after its own write" pass here and fail live.</para>
-    /// <para>Declarations are taken from the document when it carries them, so a vendor whose export DOES carry
-    /// <c>InterfaceAsPlainText</c> models correctly as "already up to date" and provokes no aspect write.</para>
-    /// </summary>
-    private void RegisterMembersFrom(string owner, string xml)
+
+    private static int KindCodeOf(string kind) => kind switch
     {
-        System.Xml.Linq.XDocument doc;
-        try { doc = System.Xml.Linq.XDocument.Parse(xml); } catch { return; }
+        ItemKind.Kinds.Method => ItemKind.PlcMethod,
+        ItemKind.Kinds.Action => ItemKind.PlcAction,
+        ItemKind.Kinds.Property => ItemKind.PlcProp,
+        ItemKind.Kinds.InterfaceMethod => ItemKind.PlcItfMeth,
+        ItemKind.Kinds.InterfaceProperty => ItemKind.PlcItfProp,
+        _ => ItemKind.PlcMethod,
+    };
 
-        var names = new List<string>();
-        foreach (var el in doc.Descendants())
-        {
-            var kind = el.Name.LocalName switch
-            {
-                "Method" => ItemKind.PlcMethod,
-                "Action" => ItemKind.PlcAction,
-                "Property" => ItemKind.PlcProp,
-                _ => 0,
-            };
-            if (kind == 0 || el.Attribute("name") is not { } n) continue;
-            var memberName = n.Value;
-            if (names.Contains(memberName)) continue;
-            names.Add(memberName);
-
-            var decl = el.Descendants()
-                .FirstOrDefault(d => d.Name.LocalName == "InterfaceAsPlainText")?.Value;
-            var existing = _items.FirstOrDefault(i => i.Name == memberName);
-            if (existing is null)
-                _items.Add(new Item(memberName, kind, "", false, decl ?? "", "", null, null));
-            else if (decl is not null)
-                _items[_items.IndexOf(existing)] = existing with { Declaration = decl };
-        }
-        if (names.Count == 0) return;
-
-        var parent = _items.FirstOrDefault(i => i.Name == owner);
-        if (parent is not null)
-            _items[_items.IndexOf(parent)] = parent with { Children = names.ToArray() };
-    }
 
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
