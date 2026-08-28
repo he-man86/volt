@@ -28,7 +28,7 @@ public class RenameBeforeWriteTests
     public RenameBeforeWriteTests(ITestOutputHelper o) => _out = o;
 
     /// <summary>An ordinary, perfectly readable POU. The refusal comes from the PUSHED TEXT rather than the
-    /// item's state — malformed network text, which `NetworkCode.Validate` rejects inside the write.
+    /// item's state — malformed network text, which `NetworkTextGate.Validate` rejects inside the write.
     /// <para>Deliberate: an unreadable item is isolated out of `/refs` by design, so it has no version to push
     /// against. Using a real guard on a normal item is also the stronger test — this is the shape an engineer
     /// actually hits, a rename plus an edit that turns out not to parse.</para></summary>

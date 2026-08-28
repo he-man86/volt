@@ -28,7 +28,7 @@ public class LiteralFanoutBugTests
     [Fact]
     public void Validate_refuses_leaf_fanout_cleanly_instead_of_crashing_TwinCAT()
     {
-        var ex = Assert.Throws<NetworkTextException>(() => NetworkCode.Validate(LiteralFanout));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextGate.Validate(LiteralFanout));
         Assert.Equal("NETWORK_LEAF_FANOUT", ex.Code);
     }
 
@@ -41,6 +41,6 @@ public class LiteralFanoutBugTests
         var branch = NetworkTextWriter.Write(NetworkTextReader.Parse(
             "NETWORK 0 FBD\n" +
             "  LET g1 := (a AND b);\n  outpur := (g1 OR c);\n  np := (g1 OR d);\nEND_NETWORK\n"));
-        NetworkCode.Validate(branch);   // must not throw
+        NetworkTextGate.Validate(branch);   // must not throw
     }
 }

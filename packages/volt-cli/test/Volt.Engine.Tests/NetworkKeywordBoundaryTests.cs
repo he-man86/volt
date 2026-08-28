@@ -26,12 +26,12 @@ public class NetworkKeywordBoundaryTests
     {
         var text = $"NETWORK 0 FBD\n  {lvalue} := (a AND b);\nEND_NETWORK";
 
-        var ex = Record.Exception(() => NetworkCode.Validate(text));
+        var ex = Record.Exception(() => NetworkTextGate.Validate(text));
         Assert.True(ex is null,
             $"'{lvalue}' is an ordinary identifier, but the reader took it for a network header and refused the " +
             $"whole push: {ex?.Message}");
 
-        var graph = NetworkCode.Validate(text);
+        var graph = NetworkTextGate.Validate(text);
         Assert.Single(graph.Networks);            // ONE network, not two
         _out.WriteLine($"{lvalue}: {graph.Networks.Count} network(s)");
     }
@@ -40,7 +40,7 @@ public class NetworkKeywordBoundaryTests
     [Fact]
     public void A_real_NETWORK_header_still_opens_a_network()
     {
-        var graph = NetworkCode.Validate("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  out2 := b;\nEND_NETWORK");
+        var graph = NetworkTextGate.Validate("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  out2 := b;\nEND_NETWORK");
         Assert.Equal(2, graph.Networks.Count);
     }
 }

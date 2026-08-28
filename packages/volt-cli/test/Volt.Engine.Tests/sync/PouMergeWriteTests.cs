@@ -54,9 +54,9 @@ public class PouMergeWriteTests
         var ide = Fb();
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;"));
 
-        Assert.Equal(new[] { "writexml:FB_Test" }, ide.Recorded.Where(r => !r.StartsWith("walk")).ToArray());
-        Assert.Contains("n := n + 2;", ide.WrittenXml["FB_Test"]);
-        Assert.Contains("DoIt := FALSE;", ide.WrittenXml["FB_Test"]);
+        Assert.Equal(new[] { "writecontent:FB_Test" }, ide.Recorded.Where(r => !r.StartsWith("walk")).ToArray());
+        Assert.Contains("n := n + 2;", FakeIde.AllText(ide.WrittenContent["FB_Test"]));
+        Assert.Contains("DoIt := FALSE;", FakeIde.AllText(ide.WrittenContent["FB_Test"]));
     }
 
     /// <summary>A child carrying a <c>%FOLDER</c> is MOVED back after the import. The import flattens POU-internal
@@ -68,10 +68,10 @@ public class PouMergeWriteTests
         var ide = Fb(childFolder: "Helpers");
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;", childFolder: "Helpers"));
 
-        Assert.Contains("writexml:FB_Test", ide.Recorded);
+        Assert.Contains("writecontent:FB_Test", ide.Recorded);
         Assert.Contains("move:DoIt->Helpers", ide.Recorded);
         // and the move happens AFTER the write — moving first would only be undone by the import
-        Assert.True(ide.Recorded.IndexOf("writexml:FB_Test") < ide.Recorded.IndexOf("move:DoIt->Helpers"));
+        Assert.True(ide.Recorded.IndexOf("writecontent:FB_Test") < ide.Recorded.IndexOf("move:DoIt->Helpers"));
     }
 
     /// <summary>TWO foldered children on a driver whose MOVE invalidates every handle into the POU — the shape
@@ -147,8 +147,8 @@ public class PouMergeWriteTests
                        + "METHOD First : BOOL\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nSecond := FALSE;\nEND_METHOD\n",
         });
 
-        Assert.Equal(new[] { "create:FB_New", "writexml:FB_New", "decl:FB_New" }, ide.Recorded.ToArray());
-        var doc = ide.WrittenXml["FB_New"];
+        Assert.Equal(new[] { "create:FB_New", "writecontent:FB_New" }, ide.Recorded.ToArray());
+        var doc = FakeIde.AllText(ide.WrittenContent["FB_New"]);
         Assert.Contains("First", doc);
         Assert.Contains("Second", doc);
     }
@@ -163,10 +163,10 @@ public class PouMergeWriteTests
     [Fact]
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
-        var ide = new FakeIde() { SeedsBodyLanguage = true };
+        var ide = new FakeIde();
         PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n\nNETWORK 1 LD\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
 
-        Assert.Contains("<LD", ide.WrittenXml["VG_New"]);
+        Assert.Contains("NETWORK 1 LD", FakeIde.AllText(ide.WrittenContent["VG_New"]));
     }
 
     /// <summary>A MOVE is one <c>Move</c> — the item is never read, deleted or rebuilt, so there is no window in
@@ -201,9 +201,9 @@ public class PouMergeWriteTests
         });
 
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
-        Assert.Contains("writexml:FB_Test", ide.Recorded);
+        Assert.Contains("writecontent:FB_Test", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
-        Assert.Contains("n := n + 9;", ide.WrittenXml["FB_Test"]);
+        Assert.Contains("n := n + 9;", FakeIde.AllText(ide.WrittenContent["FB_Test"]));
     }
 
     /// <summary>A move is a MOVE on every driver — with or without the single-document capability, which is a

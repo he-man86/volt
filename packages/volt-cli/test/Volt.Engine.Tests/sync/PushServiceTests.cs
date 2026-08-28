@@ -118,7 +118,7 @@ public class PushServiceTests
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "", SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
-        Assert.Contains("writexml:PLC_PRG", ide.Recorded);
+        Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
     }
 
@@ -131,7 +131,7 @@ public class PushServiceTests
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
-        Assert.Contains("writexml:MOTOR", ide.Recorded); // content written onto the renamed identity
+        Assert.Contains("writecontent:MOTOR", ide.Recorded); // content written onto the renamed identity
     }
 
     [Fact]
@@ -306,7 +306,7 @@ public class PushServiceTests
 
         Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
-        Assert.Contains(ide.Recorded, r => r.StartsWith("writexml:PLC_PRG"));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("writecontent:PLC_PRG"));
         Assert.Contains(ide.Recorded, r => r.StartsWith("delete:FB_Old"));
     }
 

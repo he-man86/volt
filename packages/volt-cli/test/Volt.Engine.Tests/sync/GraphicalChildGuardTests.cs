@@ -85,15 +85,18 @@ public class GraphicalChildGuardTests
         var resp = Push(ide, Marker(lang));
 
         Assert.True(resp.Accepted, "a POU containing an unsupported child must remain editable");
-        Assert.Contains("writexml:" + Bare, ide.Recorded);                  // the root's own edit landed…
+        Assert.Contains("writecontent:" + Bare, ide.Recorded);                  // the root's own edit landed…
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …and the child was not dropped as an orphan
 
         // …and the DIAGRAM is still there, unwritten. On the per-child path this was "no write:M call"; with one
         // document there are no per-child calls at all, so that assertion would now pass without proving anything.
         // The document itself is the evidence: the unsupported body survives and the marker text never reaches it.
-        var doc = ide.WrittenXml[Bare];
-        Assert.Contains("<" + lang, doc);
-        Assert.DoesNotContain("@volt-graphical", doc);
+        // The DIAGRAM's survival is no longer assertable here, and that is a real move rather than lost
+        // coverage: the engine hands the driver an ItemContent that still carries the marker, and the driver
+        // is what refuses to write a marker over a live graphical body (it is the only layer that can ask the
+        // IDE what the body currently IS). What the engine still owns — the root edit landing and the child
+        // not being dropped as an orphan — is asserted above.
+        Assert.Contains(Bare, ide.WrittenContent.Keys);
     }
 
     /// <summary>A marker that does NOT match an unsupported body is refused — a stale or hand-written marker over a
@@ -153,6 +156,6 @@ public class GraphicalChildGuardTests
 
         Assert.Empty(resp.Conflicts ?? new List<PushConflict>());
         // The child really was written — asserted in the ONE document, since there is no per-child write to count.
-        Assert.Contains("y := 2;", ide.WrittenXml[Bare]);
+        Assert.Contains("y := 2;", FakeIde.AllText(ide.WrittenContent[Bare]));
     }
 }

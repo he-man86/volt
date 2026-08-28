@@ -265,7 +265,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
         // Only TOP-LEVEL items are registered: a created child/folder must not surface in the item walk.
         if (ItemKind.IsTopLevelCrud(kindCode) && !_items.Any(i => i.Name == name))
-            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", SeedLanguage(language), null));
+            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", null, null));
         return Ref(name);
     }
 
@@ -344,9 +344,25 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// IS the content, so asserting on <c>Recorded</c> alone would miss everything a push actually did.</summary>
     public Dictionary<string, ItemContent> WrittenContent { get; } = new();
 
+    /// <summary>Every piece of text a written <see cref="ItemContent"/> carries — declaration, body, and the
+    /// same for each member and accessor. Assertions used to read <c>WrittenXml[name]</c> and search the
+    /// document; the question they were asking ("did the write carry this text?") is unchanged, and this keeps
+    /// it a one-liner without pretending there is a document.</summary>
+    public static string AllText(ItemContent c) =>
+        string.Join(Environment.NewLine, new[] { c.Declaration, c.Body }
+            .Concat(c.Members.SelectMany(m => new[] { m.Declaration, m.Body, m.Getter?.Body, m.Setter?.Body }))
+            .Where(t => t is not null));
+
+    /// <summary>How many times the content was read. The push path reads to compute the current version;
+    /// counting is how a regression in that count stays visible without making it a sequence assertion.</summary>
+    public int ReadCount { get; private set; }
+
     public ItemContent ReadContent(ItemRef item)
     {
-        Recorded.Add($"read:{NameOf(item)}");
+        // NOT recorded in `Recorded`, deliberately. That list is asserted as an exact SEQUENCE by the transport
+        // matrix, whose subject is which WRITE interactions a push makes — the old fake did not record ReadXml
+        // either. Reads are counted instead, so a caller that wants to know the read cost still can.
+        ReadCount++;
         var it = Find(item);
         return new ItemContent(
             ItemKind.Map(it.KindCode) ?? ItemKind.Kinds.FunctionBlock,

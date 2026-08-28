@@ -32,7 +32,12 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  out := (a FOO b);\nEND_NETWORK\n", "NETWORK_UNKNOWN_OPERATOR")]                 // not an FBD operator
 
     // ── temp / name integrity ─────────────────────────────────────────────────────────
-    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  LET g2 := NOT g1;\n  out := g2;\nEND_NETWORK\n", "NETWORK_LEAF_REFERENCES_TEMP")] // a leaf aliasing a temp
+    // `LET g2 := NOT g1;` was NETWORK_LEAF_REFERENCES_TEMP and is now VALID - it moved to the accepted
+    // shapes below. The refusal existed because a LET name was, in the specification's own words, "a network
+    // text-only construct: they never reach the IDE", so a leaf whose TEXT aliased one pushed a reference to
+    // something that would not exist. A named wire is now the vendor's own BoxTreeDemux VarId - measured, 573
+    // of them in one real ladder project - so the reference DOES reach the IDE and the hazard is gone.
+    // Refusing it would also break closure: the writer emits exactly this shape for a negated fan-out wire.
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a AND b);\n  LET g1 := (c OR d);\n  out := g1;\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")] // result defined twice
     [InlineData("NETWORK 0 FBD\n  lbl:\n  lbl:\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")]                        // label declared twice
 
@@ -51,5 +56,6 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  z := b;\nEND_NETWORK\n")]            // distinct network indices
     [InlineData("NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN LET g1 := (b AND c); END_IF\n  out := g1;\nEND_NETWORK\n")] // a valid EN/ENO box
     [InlineData("NETWORK 0 FBD\n  lbl:\n  JMP lbl;\nEND_NETWORK\n")]                                          // a label + a jump to it
+    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  LET g2 := NOT g1;\n  out := g2;\nEND_NETWORK\n")]   // a negated fan-out wire: a real Demux reference, not an alias
     public void Valid_structure_is_accepted(string net) => NetworkTextReader.Parse(net);   // must not throw
 }

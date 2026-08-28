@@ -180,9 +180,14 @@ Mods = Negated(bool) , Edge(None|Rising|Falling) , Storage(None|Set|Reset)
 - A **sink** is a value consumer: `out := <expr>` (no `LET`). It maps to an **`OutVar`** node whose `Source`
   is the wire feeding it. `out` is a real l-value declared in the POU's `VAR` section.
 - An **internal wire** is `LET <name> := <expr>`. The `<name>` is *not* a graph node of its own — it is a label
-  for a producer (a `Block` result or an `InVar`) so that two or more consumers can reference the same box.
-  `LET` names are a **network text-only construct: they never reach the IDE** (they are stripped on push; the wiring is
-  carried by `localId`/`refLocalId` in the XML).
+  for a producer, so that two or more consumers can reference the same box.
+
+  A `LET` name used ONCE is a textual convenience and is substituted back into its consumer on read. A name used
+  TWICE OR MORE is a structure, and it **does reach the IDE**: it becomes the vendor's own fan-out item
+  (`BoxTreeDemux`, keyed by a `VarId`), which is how both CODESYS and TwinCAT represent one wire feeding several
+  consumers. *(This inverts what this section said before — that LET names never reach the IDE and are stripped
+  on push. That was true of the PLCopen transport, where wiring travelled as `localId`/`refLocalId` and a name
+  had nowhere to go.)*
 
 **Inlining.** A producer wired to exactly **one** consumer is **inlined** into that consumer's expression — it
 emits no statement of its own. A producer that **fans out** (2+ consumers) must be **named** with `LET`, because

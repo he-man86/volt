@@ -189,7 +189,14 @@ public static class NetworkTextReader
                     return;
                 }
 
-                // An enabled box: parse the inner statement, then hang the enable on the box it produced.
+                // An enabled box reads its enable from the box's `en*` echo, which must be a wire this
+                // network BINDS. (A conditional JMP/RETURN, handled above, takes any operand - it is a
+                // different production in the grammar.)
+                if (cond is Leaf g && !_lets.ContainsKey(g.Operand.Text))
+                    throw new NetworkTextException(
+                        $"the EN guard '{g.Operand.Text}' is not defined in this network - an enabled box reads "
+                        + "its enable from a wire introduced with LET", "NETWORK_BAD_EXPRESSION");
+
                 var (let, node) = ParseSimple(inner);
                 _stmts.Add((let, Enable(node, cond)));
                 if (let != null) _lets[let] = ((Assign)_stmts[_stmts.Count - 1].Node).Value!;
@@ -209,7 +216,15 @@ public static class NetworkTextReader
             }
             // A label — `myLabel:` — is the network's jump target.
             var lbl = Regex.Match(line, @"^(\w+)\s*:$");
-            if (lbl.Success) { _label = lbl.Groups[1].Value; return; }
+            if (lbl.Success)
+            {
+                if (_label != null)
+                    throw new NetworkTextException(
+                        $"label '{lbl.Groups[1].Value}' - the network already declares the label '{_label}'; "
+                        + "a network is a single jump target", "NETWORK_DUPLICATE_NAME");
+                _label = lbl.Groups[1].Value;
+                return;
+            }
 
             var (letName, stmt) = ParseSimple(line);
             _stmts.Add((letName, stmt));
@@ -223,17 +238,34 @@ public static class NetworkTextReader
             if (let.Success)
             {
                 var name = let.Groups[1].Value;
+                if (_lets.ContainsKey(name))
+                    throw new NetworkTextException(
+                        $"the wire '{name}' is defined twice - a name introduced with LET IS its definition, "
+                        + "and two definitions of one wire have no single meaning", "NETWORK_DUPLICATE_NAME");
                 var value = ParseOperand(let.Groups[2].Value);
                 return (name, new Assign(value, new List<Operand> { new(name) }, Flags.None));
             }
 
             var asg = SplitAssign(line);
             if (asg is { } a)
+            {
+                if (a.Lhs.Length == 0)
+                    throw new NetworkTextException("assignment with no target: " + line);
                 return (null, new Assign(ParseOperand(a.Rhs), new List<Operand> { new(a.Lhs) }, Flags.None));
+            }
 
-            // A bare call statement — an FB instance invocation.
+            // A bare call statement is an FB INSTANCE invocation, and an instance binds its pins BY NAME. A
+            // positional call (`inst(IN)`) is a function call: it produces a value, so it cannot stand alone as
+            // a statement, and accepting it would push a call whose result goes nowhere.
             var node = ParseOperand(line);
-            if (node is Box) return (null, node);
+            if (node is Box box)
+            {
+                if (box.Kind != CallKind.FunctionBlock)
+                    throw new NetworkTextException(
+                        "a call statement must be a function-block instance with named pins "
+                        + "(`inst(IN := a)`): " + line);
+                return (null, node);
+            }
             throw new NetworkTextException("not a statement: " + line);
         }
 
@@ -375,7 +407,14 @@ public static class NetworkTextReader
         var p = new Cursor(s);
         var n = p.Operand();
         p.SkipWs();
-        if (!p.AtEnd) throw new NetworkTextException("trailing text in operand: " + s.Trim());
+        // Trailing text after a complete operand means the expression was only PARTIALLY parenthesised
+        // (`(a AND b) OR c`). The grammar has no precedence, so the parentheses carry the topology and a
+        // half-parenthesised expression has no single reading.
+        if (!p.AtEnd)
+            throw new NetworkTextException(
+                "the expression is only partially parenthesised: " + s.Trim()
+                + " - every operator group needs its own parentheses, because network text has no precedence",
+                "NETWORK_BAD_EXPRESSION");
         return n;
     }
 
@@ -406,7 +445,7 @@ public static class NetworkTextReader
         private Node Core()
         {
             SkipWs();
-            if (AtEnd) throw new NetworkTextException("expected an operand");
+            if (AtEnd) throw new NetworkTextException("expected an operand", "NETWORK_BAD_EXPRESSION");
             if (_s[_i] == '(') return Group();
 
             var name = Token();
@@ -427,15 +466,21 @@ public static class NetworkTextReader
             {
                 var op = Token();
                 if (!FbdOperators.SymbolToType.ContainsKey(op))
-                    throw new NetworkTextException($"'{op}' is not an operator");
+                    throw new NetworkTextException(
+                        $"'{op}' is not an FBD operator", "NETWORK_UNKNOWN_OPERATOR");
                 sym ??= op;
                 if (op != sym)
                     throw new NetworkTextException(
-                        $"a group mixes '{sym}' and '{op}' — one operator kind per group, use nested parentheses");
+                        $"a group mixes '{sym}' and '{op}' - one operator kind per group, use nested parentheses",
+                        "NETWORK_BAD_EXPRESSION");
+                SkipWs();
+                if (AtEnd || _s[_i] == ')')
+                    throw new NetworkTextException(
+                        $"the operator '{op}' has no right-hand operand", "NETWORK_BAD_EXPRESSION");
                 args.Add(Operand());
                 SkipWs();
             }
-            if (AtEnd) throw new NetworkTextException("unclosed '(' in operand");
+            if (AtEnd) throw new NetworkTextException("unclosed '(' in operand", "NETWORK_BAD_EXPRESSION");
             _i++;   // ')'
             if (sym is null)
                 return args[0];   // a parenthesised single operand

@@ -45,12 +45,12 @@ public class TransportMatrixTests
     /// `create:M` + `write:M`, and it is what this row proves now rides in the document.</para></summary>
     public static TheoryData<int, string, string, string[], string[]> Writable => new()
     {
-        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
-        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
-        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
-        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K" } },
-        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
-        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writexml:K" }, new[] { "create:K", "writexml:K", "decl:K" } },
+        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
     };
 
     private static FakeIde Ide(int code, string src, params FakeIde.Item[] extra)
@@ -129,8 +129,8 @@ public class TransportMatrixTests
                        + "ACTION Act\nn := 1;\nEND_ACTION\n",
         });
 
-        Assert.Equal(new[] { "create:K", "writexml:K" }, recorded.ToArray());
-        var doc = ide.WrittenXml["K"];
+        Assert.Equal(new[] { "create:K", "writecontent:K" }, recorded.ToArray());
+        var doc = FakeIde.AllText(ide.WrittenContent["K"]);
         foreach (var member in new[] { "A", "B", "Act" }) Assert.Contains(member, doc);
     }
 
@@ -172,7 +172,7 @@ public class TransportMatrixTests
                              .Replace("END_FUNCTION\n", "END_FUNCTION\n");
         var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], SourceText = withMembers });
 
-        Assert.Equal(new[] { "writexml:K" }, recorded.ToArray());
+        Assert.Equal(new[] { "writecontent:K" }, recorded.ToArray());
         // Named individually so a failure says WHICH old mechanism came back.
         // Per-CHILD WriteText, which is the mechanism that flattened bodies. The ROOT's own `write:K` is the
         // declaration aspect and is legitimate — but it is absent here anyway, because this push does not
@@ -230,7 +230,7 @@ public class TransportMatrixTests
                        + "METHOD C : BOOL\nC := TRUE;\nEND_METHOD\n",
         });
 
-        Assert.Equal(new[] { "writexml:K" }, recorded.ToArray());
+        Assert.Equal(new[] { "writecontent:K" }, recorded.ToArray());
         Assert.DoesNotContain(recorded, r => r.StartsWith("bodylang:"));
     }
 
