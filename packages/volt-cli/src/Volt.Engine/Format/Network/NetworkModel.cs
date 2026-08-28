@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Volt.Engine.Format.Network;
 
@@ -65,16 +65,25 @@ public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
 /// <summary>An assignment — <c>BoxTreeAssign</c>, the <c>VisitAssign</c> arm. <see cref="Targets"/> is a LIST
 /// because the vendor's <c>Outputs</c> is one (<c>OutputItemList</c>: <c>AppendOutputItem</c> /
 /// <c>InsertOutputItem</c> / <c>RemoveOutputItem</c>, enumerated through <c>List</c>): one value can be
-/// assigned to several l-values in a single network.</summary>
-public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
+/// assigned to several l-values in a single network.
+/// <para><see cref="Value"/> is NULLABLE and <see cref="Targets"/> may be empty, because this record also
+/// carries control flow: with <c>Flags.Jump</c> the target is the destination label and the value is the
+/// (optional) condition; with <c>Flags.Return</c> there is no target at all. An unconditional
+/// <c>RETURN;</c> is therefore <c>Assign(null, [], Flags{Return})</c>. <b>The vendor shape for the
+/// unconditional case is NOT measured</b> — `IFlags` carries the Jump/Return bits, but which item holds them
+/// and what its RValue is when there is no condition has not been seen on a real body. Settle it against a
+/// fixture with a jump before the adapter relies on it.</para></summary>
+public sealed record Assign(Node? Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
 
 /// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm. Covers every shape the previous
 /// model spread across `Block`, its EN pin, and a separate ST-code field:
 /// <list type="bullet">
 /// <item><see cref="Instance"/> non-null: a function-block instance call.</item>
-/// <item><see cref="EnEno"/>: the box has EN/ENO pins. On the vendor this is a BOX PROPERTY
-/// (<c>EnEno</c> / <c>En</c> / <c>Eno</c>), not a pin found by name — the old model looked for an input
-/// literally called "EN".</item>
+/// <item><see cref="Enable"/> non-null: the box has an EN input, and this IS the enable expression.
+/// On the vendor this is a BOX PROPERTY (<c>EnEno</c> / <c>En</c> / <c>Eno</c>), not a pin found by name —
+/// the old model searched the inputs for one literally called "EN", which is a PLCopen spelling. It is a
+/// <see cref="Node"/> rather than a flag because the enable is a wired expression, and network text renders
+/// it as the box's <c>en*</c> echo that downstream boxes chain off.</item>
 /// <item><see cref="StCode"/>: a CODESYS Execute box — a box whose call is raw ST
 /// (<c>BoxTreeBox.STSnippet</c> / <c>ProvidesSTSnippet</c>). Emitted verbatim between network text's
 /// <c>EXECUTE</c> markers so it round-trips byte-for-byte.</item>
@@ -85,7 +94,7 @@ public sealed record Box(
     CallKind Kind,
     IReadOnlyList<Input> Inputs,
     IReadOnlyList<Operand> Outputs,
-    bool EnEno,
+    Node? Enable,
     string? StCode,
     Flags Flags) : Node(Flags);
 
@@ -126,18 +135,22 @@ public enum ParallelMode { Or, And }
 /// destination network's <see cref="Network.Label"/>. Promoting them would be re-interpreting the vendor's
 /// model to suit a rendering, which is the mistake the previous model made wholesale.</para>
 ///
-/// <para><see cref="Set"/> has no <c>Reset</c> partner in the vendor bit-field. Whether a reset coil is
-/// <c>Set = false</c> on a coil item or something else is NOT yet measured, and must be settled against a real
-/// LD fixture before this record is treated as complete.</para>
+/// <para><b><see cref="Reset"/> is the one field here with no vendor counterpart</b>, and it is present
+/// deliberately. `IFlags` has `Set` and no `Reset`, but network text — a PUBLISHED format, with `RESET` in its
+/// grammar and in engineers' committed `.fb` files — requires it. The format is fixed and the model serves the
+/// format; dropping the field to match the bit-field would silently change what Volt can express. How a reset
+/// coil actually reaches the IDE is UNMEASURED (it may be `Set = false` on a coil item, or a distinct item)
+/// and must be settled against a real LD fixture before the adapter writes one.</para>
 /// </summary>
 public sealed record Flags(
     bool Negated = false,
     bool Set = false,
+    bool Reset = false,
     bool Jump = false,
     bool Return = false,
     bool Rising = false,
     bool Falling = false)
 {
     public static readonly Flags None = new();
-    public bool IsNone => !Negated && !Set && !Jump && !Return && !Rising && !Falling;
+    public bool IsNone => !Negated && !Set && !Reset && !Jump && !Return && !Rising && !Falling;
 }

@@ -2,579 +2,528 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Volt.Engine.Library;
-using Volt.Engine.Format.Network;
 
-namespace Volt.Engine.Format.Network
+namespace Volt.Engine.Format.Network;
+
+/// <summary>
+/// Parses network text into a <see cref="NetworkBody"/> — the inverse of <see cref="NetworkTextWriter"/>, and
+/// a VALIDATING GATE: anything outside the strict form specified in <c>docs/network-text.md</c> throws
+/// <see cref="NetworkTextException"/> and the push is refused. Preventing such input is the LSP's job; this
+/// only checks and errors.
+///
+/// <para><b>The tree model removed the reader's hardest job.</b> The previous reader had to allocate a
+/// <c>localId</c> for every node, band them per network (<c>index * 10^10 + n</c>, or a multi-network body's
+/// ids collided and the networks collapsed on import), and rebuild wires as <c>refLocalId</c> references.
+/// Network text is nested expressions and the model is now a tree, so parsing is a direct descent and the
+/// identifiers never come into existence.</para>
+///
+/// <para><b>What a <c>LET</c> becomes is decided by USE COUNT, and that is the one real decision here.</b> A
+/// wire named once is a textual necessity, not a structure: <c>LET i1 := NOT b; out := (a AND i1)</c> means the
+/// same tree as <c>out := (a AND NOT b)</c>, so a single-use name is substituted back into its consumer. A name
+/// used twice or more IS a structure — the value genuinely feeds two consumers — so it stays, as an
+/// <see cref="Assign"/> to that name plus a <see cref="Network.SplitPoints"/> entry. That is exactly the
+/// vendor's own split-point concept, so the round-trip is faithful in both directions.</para>
+/// </summary>
+public static class NetworkTextReader
 {
-    /// <summary>
-    /// Parses network text back into a <see cref="GraphBody"/> — the inverse of <see cref="NetworkTextWriter"/>.
-    /// The bridge uses this purely as a VALIDATING GATE: anything outside the strict form (nested
-    /// sub-expressions, inline literals/variables as operands, multi-operator statements, unresolved
-    /// references) throws <see cref="NetworkTextException"/> and the push is rejected. (Preventing such
-    /// input is the LSP's job; the bridge only checks and errors.) Every node is its own statement:
-    /// an internal wire is introduced INLINE as <c>LET &lt;name&gt; := …</c> — a leaf <c>i*</c> is an
-    /// <c>inVariable</c>, a named <c>g*</c> is an operator/call block — and a bare <c>name</c> := ref
-    /// is an <c>outVariable</c> sink. There is no per-network <c>VAR_TEMP</c> block: a leftover one is
-    /// not part of the grammar and is refused as a malformed statement. FB-call type names are NOT in
-    /// network text (they live in the POU declaration) — left empty here and resolved by the writer.
-    /// </summary>
-    public static class NetworkTextReader
+    public static NetworkBody Parse(string text)
     {
-        // Canonical operator table (symbol ↔ type) lives in FbdOperators, shared with the writer.
-        public static GraphBody Parse(string text)
-        {
-            string lang = "FBD";
-            var networks = new List<GraphNetwork>();
-            NetworkBuilder? cur = null;
-            int ordinal = 0;
-            var seenIndices = new HashSet<int>();   // network indices must be unique — duplicates collide localIds
-            void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
+        var language = BodyLanguage.Fbd;
+        var networks = new List<Network>();
+        Builder? cur = null;
+        var seen = new HashSet<int>();
 
-            var rawLines = text.Replace("\r", "").Split('\n');
-            string? pendingEn = null;   // set by a multi-line `IF <en> THEN` that guards an EXECUTE block
-            for (int i = 0; i < rawLines.Length; i++)
+        var lines = text.Replace("\r", "").Split('\n');
+        string? pendingEn = null;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            int lineNo = i + 1;
+            try
             {
-                int lineNum = i + 1;
-                try
-                {
-                var line = rawLines[i].Trim();
+                var line = lines[i].Trim();
                 if (line.Length == 0) continue;
+
                 if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Structure is enforced, not tolerated: a malformed graphical body must be refused (it can
-                    // corrupt the IDE on import), never silently reshaped. END_NETWORK closes exactly one open network.
                     if (cur == null) throw new NetworkTextException("END_NETWORK without an open NETWORK block");
-                    Flush();
+                    networks.Add(cur.Build());
+                    cur = null;
                     continue;
                 }
-                // On a WORD BOUNDARY, not a prefix. `NETWORK_OK := TRUE;` is an ordinary statement — and
-                // `NETWORK_OK`/`NETWORK_ERR` are ordinary PLC identifiers — but a bare StartsWith read it as a
-                // header, which inside an open network raises "network N is not closed by END_NETWORK" and
-                // refuses the whole push, pointing at a line that is not the problem.
+
+                // On a WORD BOUNDARY, not a prefix: `NETWORK_OK := TRUE;` is an ordinary statement and
+                // `NETWORK_OK` is an ordinary PLC identifier, but a bare StartsWith read it as a header and
+                // refused the whole push pointing at a line that was not the problem.
                 if (line.StartsWith("NETWORK", StringComparison.Ordinal)
                     && (line.Length == 7 || !(char.IsLetterOrDigit(line[7]) || line[7] == '_')))
                 {
-                    if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
-                    // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
-                    // network index (preserved verbatim so gapped bodies don't re-number; it bases the
-                    // localIds index*GraphConstants.NetworkStride+1…, mirroring GraphReader, so a
-                    // multi-network body's nodes don't collide across networks — they would otherwise
-                    // all restart at 1 → duplicate localIds → networks collapse / import breaks on
-                    // push); the next word is the body language (FBD/LD), carried here instead of a
-                    // separate %LANG header.
+                    if (cur != null)
+                        throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
                     var header = line.Substring("NETWORK".Length).Trim();
-                    var nm = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
-                    int order = nm.Groups[1].Success ? int.Parse(nm.Groups[1].Value) : ordinal;
-                    if (!seenIndices.Add(order))
-                        throw new NetworkTextException($"network index {order} appears more than once — indices must be unique (their localIds would collide)", "NETWORK_DUPLICATE_NETWORK");
-                    if (nm.Groups[2].Success) lang = nm.Groups[2].Value;
-                    cur = new NetworkBuilder(nm.Success ? header.Substring(nm.Length) : header,
-                        order, order * GraphConstants.NetworkStride + 1);
-                    ordinal++;
+                    var m = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
+                    if (!m.Success || !m.Groups[1].Success)
+                        throw new NetworkTextException("NETWORK header needs an index: NETWORK <n> <FBD|LD>");
+                    int order = int.Parse(m.Groups[1].Value);
+                    if (!seen.Add(order))
+                        throw new NetworkTextException(
+                            $"network index {order} appears more than once — indices must be unique",
+                            "NETWORK_DUPLICATE_NETWORK");
+                    if (m.Groups[2].Success)
+                    {
+                        var tag = m.Groups[2].Value;
+                        if (tag.Equals("LD", StringComparison.OrdinalIgnoreCase)) language = BodyLanguage.Ld;
+                        else if (tag.Equals("FBD", StringComparison.OrdinalIgnoreCase)) language = BodyLanguage.Fbd;
+                        else throw new NetworkTextException($"unknown body language '{tag}' (expected FBD or LD)");
+                    }
+                    cur = new Builder(order, header.Substring(m.Length));
                     continue;
                 }
+
                 if (cur == null) throw new NetworkTextException("statement before any NETWORK: " + line);
+
                 if (line.StartsWith("//", StringComparison.Ordinal)) { cur.AddComment(line.Substring(2).Trim()); continue; }
 
-                // Execute box (standard CODESYS ST-in-FBD/LD): a multi-line `IF <en> THEN` guard (EN handled
-                // like every other block) wrapping `EXECUTE … END_EXECUTE` around VERBATIM ST. Captured whole
-                // here, not line-by-line, so the ST (with its own IF/END_IF, comments, multi-statement) is
-                // preserved byte-for-byte and reconstructed as a CODESYS Execute box on push.
-                var enGuard = Regex.Match(line, @"^IF\s+(\w+)\s+THEN$", RegexOptions.IgnoreCase);
-                if (enGuard.Success) { pendingEn = enGuard.Groups[1].Value; continue; }
+                // A multi-line `IF <en> THEN` guarding an EXECUTE block.
+                var guard = Regex.Match(line, @"^IF\s+(\w+)\s+THEN$", RegexOptions.IgnoreCase);
+                if (guard.Success) { pendingEn = guard.Groups[1].Value; continue; }
+
                 if (line.Equals("EXECUTE", StringComparison.OrdinalIgnoreCase))
                 {
-                    var stLines = new List<string>();
+                    var st = new List<string>();
                     int j = i + 1;
-                    // BOUNDED at the network boundary. An Execute box's ST can never legally contain END_NETWORK
-                    // or a NETWORK header, and without this the scan ran to end-of-input: a missing or misspelled
-                    // END_EXECUTE swallowed every following network into ONE box's verbatim ST, whenever a LATER
-                    // network had an END_EXECUTE for it to stop at. It survived NetworkCode.Validate too — that
-                    // ST is re-emitted verbatim — so a single typo pushed the whole body to the IDE as flat ST
-                    // with no error anywhere.
-                    for (; j < rawLines.Length; j++)
+                    // BOUNDED at the network boundary. Without this a missing END_EXECUTE swallowed every
+                    // following network into one box's verbatim ST, and survived validation because that ST is
+                    // re-emitted verbatim — a single typo pushed the whole body to the IDE as flat ST.
+                    for (; j < lines.Length; j++)
                     {
-                        var t = rawLines[j].Trim();
+                        var t = lines[j].Trim();
                         if (t.Equals("END_EXECUTE", StringComparison.OrdinalIgnoreCase)) break;
                         if (t.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase) ||
                             t.StartsWith("NETWORK", StringComparison.OrdinalIgnoreCase))
-                            throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNum };
-                        stLines.Add(rawLines[j]);
+                            throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNo };
+                        st.Add(lines[j]);
                     }
-                    if (j >= rawLines.Length) throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNum };
-                    cur.AddExecute(pendingEn, string.Join("\n", stLines), lineNum);
-                    i = j;   // consume through END_EXECUTE
-                    if (pendingEn != null)   // an EN-guarded execute: consume its matching END_IF
+                    if (j >= lines.Length)
+                        throw new NetworkTextException("EXECUTE without a closing END_EXECUTE", "NETWORK_PARSE") { Line = lineNo };
+                    cur.AddExecute(pendingEn, string.Join("\n", st));
+                    i = j;
+                    if (pendingEn != null)
                     {
                         int k = i + 1;
-                        while (k < rawLines.Length && rawLines[k].Trim().Length == 0) k++;
-                        if (k >= rawLines.Length || !rawLines[k].Trim().Equals("END_IF", StringComparison.OrdinalIgnoreCase))
-                            throw new NetworkTextException("EN-guarded EXECUTE is not closed by END_IF", "NETWORK_PARSE") { Line = lineNum };
+                        while (k < lines.Length && lines[k].Trim().Length == 0) k++;
+                        if (k >= lines.Length || !lines[k].Trim().Equals("END_IF", StringComparison.OrdinalIgnoreCase))
+                            throw new NetworkTextException("an EN-guarded EXECUTE needs a closing END_IF", "NETWORK_PARSE") { Line = lineNo };
                         i = k;
-                        pendingEn = null;
                     }
+                    pendingEn = null;
                     continue;
                 }
-                if (pendingEn != null)
-                    throw new NetworkTextException($"'IF {pendingEn} THEN' spanning lines is only valid guarding an EXECUTE block", "NETWORK_PARSE") { Line = lineNum };
 
-                // A `LET <name> := …` introduces an internal wire (the synthetic i*/g*/en* names); a bare
-                // `<name> := …` writes a sink. Both buffer as statements — ScanLetWires (in Build) records the
-                // LET names so the parser can tell a named producer from an outVariable sink.
-                cur.AddStatement(line.TrimEnd(';').Trim(), lineNum);
-                }
-                catch (NetworkTextException ex) { ex.Line ??= lineNum; throw; }
+                cur.AddStatement(line);
             }
-            if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED") { Line = rawLines.Length };
-            return new GraphBody(lang, networks);
+            catch (NetworkTextException ex)
+            {
+                ex.Line ??= lineNo;
+                throw;
+            }
         }
 
-        private sealed class NetworkBuilder
+        if (cur != null) throw new NetworkTextException($"network {cur.Order} is not closed by END_NETWORK", "NETWORK_NOT_CLOSED");
+        return new NetworkBody(language, networks);
+    }
+
+    // ── one network ───────────────────────────────────────────────────────────────────────────────
+
+    private sealed class Builder
+    {
+        public int Order { get; }
+        private readonly string? _title;
+        private readonly bool _disabled;
+        private readonly List<string> _comments = new();
+        private string? _label;
+
+        /// <summary>Statements in source order. A LET carries its name; everything else has none.</summary>
+        private readonly List<(string? Let, Node Node)> _stmts = new();
+        private readonly Dictionary<string, Node> _lets = new(StringComparer.Ordinal);
+
+        public Builder(int order, string rest)
         {
-            private readonly int _order;
-            private readonly string? _label;
-            private readonly bool _disabled;
-            private readonly List<string> _comments = new();
-            private readonly List<GraphNode> _nodes = new();
-            private readonly Dictionary<string, long> _blockByName = new(StringComparer.Ordinal);
-            private readonly HashSet<string> _temps = new(StringComparer.Ordinal);
-            private readonly HashSet<string> _declared = new(StringComparer.Ordinal);   // every defined name/label, to refuse duplicates
-            // Statements are BUFFERED, then parsed in Build() — a two-pass: a network can't be understood
-            // line-by-line (an EN/ENO `en := src` is only recognisable once we've seen its `IF en THEN …`
-            // guard). Reusable: the feedback-cycle work needs the same pre-scan-then-parse shape.
-            private readonly List<(string Stmt, int Line)> _stmts = new();
-            private readonly Dictionary<string, (Conn Conn, Mods Mods)> _enSource = new(StringComparer.Ordinal);
-            private readonly Dictionary<string, long> _eno = new(StringComparer.Ordinal);   // en wire → its EN/ENO block (its ENO output)
-            private long _nextId;
+            Order = order;
+            var q = Regex.Match(rest, "\"([^\"]*)\"");
+            if (q.Success) _title = q.Groups[1].Value;
+            _disabled = Regex.IsMatch(rest, @"\bDISABLED\b", RegexOptions.IgnoreCase);
+        }
 
-            public NetworkBuilder(string header, int order, long baseId)
+        public void AddComment(string c) => _comments.Add(c);
+
+        public void AddExecute(string? en, string st)
+        {
+            var box = new Box("EXECUTE", null, CallKind.Function, new List<Input>(), new List<Operand>(),
+                              en is null ? null : new Leaf(new Operand(en), Flags.None), st, Flags.None);
+            _stmts.Add((null, box));
+        }
+
+        public void AddStatement(string raw)
+        {
+            var line = raw.TrimEnd();
+            if (line.EndsWith(";", StringComparison.Ordinal)) line = line.Substring(0, line.Length - 1).TrimEnd();
+
+            // `IF <cond> THEN <inner>; END_IF` — an enabled box, a conditional jump, or a conditional return.
+            var iff = Regex.Match(raw.Trim(), @"^IF\s+(.+?)\s+THEN\s+(.+?);?\s*END_IF$", RegexOptions.IgnoreCase);
+            if (iff.Success)
             {
-                _order = order;
-                _nextId = baseId;   // network-encoded so nodes are unique across networks
-                _disabled = Regex.IsMatch(header, @"\bDISABLED\b");
-                var m = Regex.Match(header, "\"([^\"]*)\"");
-                _label = m.Success ? m.Groups[1].Value : null;
-            }
+                var cond = ParseOperand(iff.Groups[1].Value);
+                var inner = iff.Groups[2].Value.Trim().TrimEnd(';').Trim();
 
-            public int Order => _order;
-
-            public void AddComment(string c) => _comments.Add(c);
-
-            /// <summary>Pass 0: record every <c>LET &lt;name&gt; := …</c> wire definition (the synthetic
-            /// i*/g*/en* names — including inside an EN/ENO <c>IF … THEN LET g := …</c> body). A name in this
-            /// set is read as a NAMED producer; a bare <c>name := …</c> is an outVariable sink. Replaces the old
-            /// VAR_TEMP block — the wire's identity is marked at its definition, not in a header.</summary>
-            private void ScanLetWires()
-            {
-                foreach (var (stmt, _) in _stmts)
-                    foreach (Match m in Regex.Matches(stmt, @"\bLET\s+(\w+)\s*:="))
-                        _temps.Add(m.Groups[1].Value);
-            }
-
-            public void AddStatement(string stmt, int line) => _stmts.Add((stmt, line));
-
-            // Execute boxes (ST-in-FBD/LD): buffered separately (their ST is verbatim, not network text statements) and
-            // built after the regular statements so a preceding `LET en := …` wire is already resolvable.
-            private readonly List<(string? En, string StCode)> _executes = new();
-            public void AddExecute(string? en, string stCode, int line) => _executes.Add((en, stCode));
-
-            /// <summary>Names used as an <c>IF &lt;name&gt; THEN … := …</c> guard — the EN/ENO enable wires. A
-            /// pre-scan finds them so a preceding <c>&lt;name&gt; := src</c> is read as an EN binding (the box's
-            /// EN source), not a leaf/result. (An <c>IF … THEN JMP/RETURN</c> has no <c>:=</c> → not an en wire.)</summary>
-            private HashSet<string> ScanEnWires()
-            {
-                var en = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var (stmt, _) in _stmts)
+                var jmp = Regex.Match(inner, @"^JMP\s+(\w+)$", RegexOptions.IgnoreCase);
+                if (jmp.Success)
                 {
-                    var m = Regex.Match(stmt, @"^IF\s+(\w+)\s+THEN\b.*:=", RegexOptions.IgnoreCase);
-                    if (m.Success) en.Add(m.Groups[1].Value);
-                }
-                return en;
-            }
-
-            private void ParseStatement(string stmt, HashSet<string> enWires)
-            {
-                if (stmt.Length == 0) return;
-                if (StartsWithWord(stmt, "LET")) stmt = stmt.Substring(3).Trim();   // a wire definition — LET marks lhs as an internal wire
-                if (TryControlFlow(stmt)) return;             // label / JMP / RETURN (control flow)
-
-                var enif = Regex.Match(stmt, @"^IF\s+(\w+)\s+THEN\s+(.+?)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
-                if (enif.Success && enWires.Contains(enif.Groups[1].Value))
-                { ParseEnEnoIf(enif.Groups[1].Value, enif.Groups[2].Value.Trim()); return; }
-
-                var asg = SplitAssignment(stmt);              // (lhs, rhs) or null for a bare FB call
-                if (asg == null) { ParseFbCall(stmt); return; }
-                var (lhs, rhs) = asg.Value;
-                if (lhs.Length == 0) throw new NetworkTextException("assignment has no target: '" + stmt + "'", "NETWORK_PARSE");
-
-                if (enWires.Contains(lhs))                    // en := <EN source> — held until its IF builds the box
-                { Declare(lhs); _enSource[lhs] = ParseOperand(rhs); return; }
-
-                if (_temps.Contains(lhs))                     // declared temp → a NAMED producer
-                {
-                    Declare(lhs);
-                    if (rhs.StartsWith("(", StringComparison.Ordinal) || IsCall(rhs))   // operator / function block → name its result
-                        _blockByName[lhs] = ParseCore(rhs).RefLocalId;
-                    else                                      // an OPAQUE leaf the writer couldn't inline (it has spaces/operators)
-                    {
-                        var (core, mods) = ExtractMods(rhs);
-                        EnsureLeafIsSource(core, $"'{lhs} := {rhs}'");   // a leaf is a literal/real-var source, never an alias of a temp
-                        var iv = new InVar(_nextId++, null, core, mods);
-                        _blockByName[lhs] = iv.LocalId;
-                        _nodes.Add(iv);
-                    }
-                }
-                else                                          // not a temp → outVariable sink
-                {
-                    var (conn, mods) = ParseOperand(rhs);
-                    _nodes.Add(new OutVar(_nextId++, null, lhs, mods, conn));
-                }
-            }
-
-            /// <summary>Rebuild an EN/ENO box from <c>IF en THEN result := &lt;expr&gt;</c>: its EN pin is the
-            /// held <c>en</c> source, its operands become <c>In2…</c> pins, and it gains <c>Out2</c>/<c>ENO</c>
-            /// outputs. <c>result</c> then names its <c>Out2</c> value and <c>en</c> resolves to its <c>ENO</c>
-            /// (downstream EN wires chain off it). Pin names follow TwinCAT's EN/ENO convention.</summary>
-            private void ParseEnEnoIf(string en, string body)
-            {
-                if (!_enSource.TryGetValue(en, out var enSrc))
-                    throw new NetworkTextException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "NETWORK_BAD_EXPRESSION");
-                if (StartsWithWord(body, "LET")) body = body.Substring(3).Trim();   // a named EN/ENO result; into-sink bodies stay bare
-                var asg = SplitAssignment(body);
-                if (asg == null)   // EN/ENO FUNCTION BLOCK: `IF en THEN inst(IN := x); END_IF` — its value outputs are read elsewhere via inst.Pin
-                {
-                    var (inst, inner) = SplitCall(body);
-                    var fbPins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
-                    fbPins.AddRange(SplitArgs(inner).Select(a =>
-                    {
-                        var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
-                        if (p.Length != 2) throw new NetworkTextException("FB call arg needs 'pin := value': " + a);
-                        var (conn, mods) = ParseOperand(p[1].Trim());
-                        return new Pin(p[0].Trim(), conn, mods);
-                    }));
-                    var fid = _nextId++;
-                    Declare(inst);
-                    _blockByName[inst] = fid;   // so `inst.Q` etc. resolve downstream
-                    _nodes.Add(new Block(fid, null, "", inst, fbPins, new List<string> { "ENO" }, "functionblock"));
-                    _eno[en] = fid;             // en resolves to this box's ENO
+                    _stmts.Add((null, new Assign(cond, new List<Operand> { new(jmp.Groups[1].Value) },
+                                                 Flags.None with { Jump = true })));
                     return;
                 }
-                var (result, rhs) = asg.Value;
-
-                string typeName, callType;
-                List<(Conn Conn, Mods Mods)> operands;
-                if (rhs.StartsWith("(", StringComparison.Ordinal))
+                if (inner.Equals("RETURN", StringComparison.OrdinalIgnoreCase))
                 {
-                    var (op, ops) = SplitTopLevelOperator(rhs.Substring(1, rhs.Length - 2));
-                    typeName = FbdOperators.SymbolToType[op]; callType = "operator";
-                    operands = ops.Select(ParseOperand).ToList();
-                }
-                else if (IsCall(rhs))
-                {
-                    var (fn, inner) = SplitCall(rhs);
-                    typeName = fn; callType = "function";
-                    operands = SplitArgs(inner).Select(ParseOperand).ToList();
-                }
-                else throw new NetworkTextException("EN/ENO body must be 'result := (expr)' or 'result := FN(args)': " + body, "NETWORK_BAD_EXPRESSION");
-
-                var id = _nextId++;
-                var pins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
-                for (int k = 0; k < operands.Count; k++) pins.Add(new Pin("In" + (k + 2), operands[k].Conn, operands[k].Mods));
-                _nodes.Add(new Block(id, null, typeName, null, pins, new List<string> { "Out2", "ENO" }, callType));
-                if (_temps.Contains(result))   // a declared temp → name the box's Out2 value
-                { Declare(result); _blockByName[result] = id; }
-                else                           // into-sink: `IF en THEN out := …` writes the box straight to a sink
-                    _nodes.Add(new OutVar(_nextId++, null, result, Mods.None, new Conn(id, "Out2")));
-                _eno[en] = id;                 // en resolves to this box's ENO
-            }
-
-            /// <summary>Control flow as valid CODESYS ST: <c>name:</c> (label), <c>JMP name;</c>,
-            /// <c>RETURN;</c>, and the conditional <c>IF cond THEN JMP name; END_IF</c> /
-            /// <c>IF cond THEN RETURN; END_IF</c>. Returns false if the statement is not control flow.</summary>
-            private bool TryControlFlow(string stmt)
-            {
-                var lbl = Regex.Match(stmt, @"^(\w+)\s*:$");
-                if (lbl.Success) { Declare(lbl.Groups[1].Value); _nodes.Add(new Label(_nextId++, null, lbl.Groups[1].Value)); return true; }
-
-                var cif = Regex.Match(stmt, @"^IF\s+(.+?)\s+THEN\s+(JMP\s+(\w+)|RETURN)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
-                if (cif.Success)
-                {
-                    var (core, mods) = ExtractMods(cif.Groups[1].Value);
-                    if (cif.Groups[3].Success) _nodes.Add(new Jump(_nextId++, null, cif.Groups[3].Value, ParseCore(core), mods));
-                    else _nodes.Add(new Return(_nextId++, null, ParseCore(core), mods));
-                    return true;
+                    _stmts.Add((null, new Assign(cond, new List<Operand>(), Flags.None with { Return = true })));
+                    return;
                 }
 
-                var jmp = Regex.Match(stmt, @"^JMP\s+(\w+)$", RegexOptions.IgnoreCase);
-                if (jmp.Success) { _nodes.Add(new Jump(_nextId++, null, jmp.Groups[1].Value, null, Mods.None)); return true; }
-                if (string.Equals(stmt, "RETURN", StringComparison.OrdinalIgnoreCase))
-                { _nodes.Add(new Return(_nextId++, null, null, Mods.None)); return true; }
-
-                return false;
+                // An enabled box: parse the inner statement, then hang the enable on the box it produced.
+                var (let, node) = ParseSimple(inner);
+                _stmts.Add((let, Enable(node, cond)));
+                if (let != null) _lets[let] = ((Assign)_stmts[_stmts.Count - 1].Node).Value!;
+                return;
             }
 
-            // ── statement kinds ───────────────────────────────────────────
-            private void ParseFbCall(string stmt)
+            if (Regex.IsMatch(line, @"^JMP\s+\w+$", RegexOptions.IgnoreCase))
             {
-                var (name, inner) = SplitCall(stmt);
-                var pins = SplitArgs(inner).Select(a =>
-                {
-                    var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
-                    if (p.Length != 2) throw new NetworkTextException("FB call arg needs 'pin := value': " + a);
-                    var (conn, mods) = ParseOperand(p[1].Trim());
-                    return new Pin(p[0].Trim(), conn, mods);
-                }).ToList();
-                var id = _nextId++;
-                Declare(name);
-                _blockByName[name] = id;
-                _nodes.Add(new Block(id, null, "", name, pins, new List<string>(), "functionblock"));
+                _stmts.Add((null, new Assign(null, new List<Operand> { new(line.Substring(4).Trim()) },
+                                             Flags.None with { Jump = true })));
+                return;
+            }
+            if (line.Equals("RETURN", StringComparison.OrdinalIgnoreCase))
+            {
+                _stmts.Add((null, new Assign(null, new List<Operand>(), Flags.None with { Return = true })));
+                return;
+            }
+            // A label — `myLabel:` — is the network's jump target.
+            var lbl = Regex.Match(line, @"^(\w+)\s*:$");
+            if (lbl.Success) { _label = lbl.Groups[1].Value; return; }
+
+            var (letName, stmt) = ParseSimple(line);
+            _stmts.Add((letName, stmt));
+            if (letName != null) _lets[letName] = ((Assign)stmt).Value!;
+        }
+
+        /// <summary>A wire definition, a sink, or a bare call. Returns the LET name when there is one.</summary>
+        private (string? Let, Node Node) ParseSimple(string line)
+        {
+            var let = Regex.Match(line, @"^LET\s+(\w+)\s*:=\s*(.+)$", RegexOptions.IgnoreCase);
+            if (let.Success)
+            {
+                var name = let.Groups[1].Value;
+                var value = ParseOperand(let.Groups[2].Value);
+                return (name, new Assign(value, new List<Operand> { new(name) }, Flags.None));
             }
 
-            // ── recursive expression engine — the inverse of NetworkTextWriter's RenderExpr ───────────────────
-            /// <summary>An operand → its producer wire (+ its consuming-pin modifiers). A leading <c>NOT</c> /
-            /// trailing edge|storage rides the PIN; the bare core is resolved by <see cref="ParseCore"/>.</summary>
-            private (Conn Conn, Mods Mods) ParseOperand(string token)
+            var asg = SplitAssign(line);
+            if (asg is { } a)
+                return (null, new Assign(ParseOperand(a.Rhs), new List<Operand> { new(a.Lhs) }, Flags.None));
+
+            // A bare call statement — an FB instance invocation.
+            var node = ParseOperand(line);
+            if (node is Box) return (null, node);
+            throw new NetworkTextException("not a statement: " + line);
+        }
+
+        /// <summary>Split on the FIRST top-level <c>:=</c> — one inside a call's argument list
+        /// (<c>t1(IN := a)</c>) is not the statement's assignment.</summary>
+        private static (string Lhs, string Rhs)? SplitAssign(string s)
+        {
+            int depth = 0;
+            for (int i = 0; i + 1 < s.Length; i++)
             {
-                var (core, mods) = ExtractMods(token);
-                return (ParseCore(core), mods);
+                var c = s[i];
+                if (c == '(') depth++;
+                else if (c == ')') depth--;
+                else if (depth == 0 && c == ':' && s[i + 1] == '=')
+                    return (s.Substring(0, i).Trim(), s.Substring(i + 2).Trim());
+            }
+            return null;
+        }
+
+        private static Node Enable(Node n, Node cond) => n switch
+        {
+            Assign a when a.Value is Box b => a with { Value = b with { Enable = cond } },
+            Box b => b with { Enable = cond },
+            _ => n,
+        };
+
+        public Network Build()
+        {
+            // Use count decides what a LET is. Count references across every statement AND every other LET's
+            // value, so a chain (`LET a := …; LET b := (a OR x); out := b;`) resolves correctly.
+            var uses = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var name in _lets.Keys) uses[name] = 0;
+            foreach (var (let, node) in _stmts) CountRefs(let is null ? node : _lets[let], uses);
+
+            var inline = new Dictionary<string, Node>(StringComparer.Ordinal);
+            var splits = new List<Operand>();
+            foreach (var kv in _lets)
+                if (uses.TryGetValue(kv.Key, out var n) && n >= 2) splits.Add(new Operand(kv.Key));
+                else inline[kv.Key] = kv.Value;
+
+            var trees = new List<Node>();
+            foreach (var (let, node) in _stmts)
+            {
+                if (let != null && inline.ContainsKey(let)) continue;   // substituted into its one consumer
+                trees.Add(Resolve(node, inline, new HashSet<string>(StringComparer.Ordinal)));
             }
 
-            /// <summary>A bare operand core → a wire, creating nodes bottom-up: a parenthesised group is an
-            /// operator block, <c>FN(args)</c> a function block, a declared name a reference (<c>name.Pin</c> for
-            /// an FB output), and anything else a FRESH leaf <c>inVariable</c> (the controlled relaxation that
-            /// lets inlined literals/variables round-trip — each is its own single-use box).</summary>
-            private Conn ParseCore(string core)
+            return new Network(Order, _title, _label,
+                               _comments.Count == 0 ? null : string.Join("\n", _comments),
+                               _disabled, trees, splits);
+        }
+
+        private static void CountRefs(Node? n, Dictionary<string, int> uses)
+        {
+            switch (n)
             {
-                core = core.Trim();
-                if (IsSingleGroup(core)) return ParseOperatorExpr(core.Substring(1, core.Length - 2));
-                if (IsCall(core)) return ParseFunctionExpr(core);
-                if (core.IndexOf('(') >= 0 || core.IndexOf(')') >= 0)   // parens that form neither a single group nor a call → malformed
-                    throw new NetworkTextException("malformed expression — unbalanced or partially-parenthesised: '" + core + "'", "NETWORK_BAD_EXPRESSION");
-                var dot = core.IndexOf('.');
-                var baseName = dot >= 0 ? core.Substring(0, dot) : core;
-                if (_eno.TryGetValue(baseName, out var enoBlock)) return new Conn(enoBlock, "ENO");   // an EN/ENO box's enable echo
-                if (_blockByName.TryGetValue(baseName, out var bid))
-                    return new Conn(bid, dot >= 0 ? core.Substring(dot + 1) : null);
-                EnsureLeafIsSource(core, "operand '" + core + "'");   // a leaf is a literal/real-var source, never an alias of a temp
-                var iv = new InVar(_nextId++, null, core, Mods.None);   // a literal / variable leaf
-                _nodes.Add(iv);
-                return new Conn(iv.LocalId, null);
+                case null: return;
+                case Leaf l:
+                    if (uses.ContainsKey(l.Operand.Text)) uses[l.Operand.Text]++;
+                    return;
+                case Box b:
+                    CountRefs(b.Enable, uses);
+                    foreach (var p in b.Inputs) CountRefs(p.Value, uses);
+                    return;
+                case Assign a:
+                    CountRefs(a.Value, uses);
+                    return;
+                case Parallel p2:
+                    CountRefs(p2.Input, uses);
+                    foreach (var br in p2.Branches) CountRefs(br, uses);
+                    return;
+                case Terminator t:
+                    CountRefs(t.Input, uses);
+                    return;
             }
+        }
 
-            /// <summary>True iff <paramref name="s"/> is ONE balanced parenthesised group — its outer
-            /// <c>(</c> closes only at the very end. Distinguishes <c>(a AND b)</c> (a group) from
-            /// <c>(a) + (b)</c> or <c>(a AND b) OR c</c> (which the writer never emits — they're malformed).</summary>
-            private static bool IsSingleGroup(string s)
+        /// <summary>Substitute single-use wire names back into their consumer. <paramref name="active"/> guards
+        /// a self-referential chain, which is malformed input rather than something to loop on.</summary>
+        private static Node Resolve(Node n, IReadOnlyDictionary<string, Node> inline, HashSet<string> active)
+        {
+            switch (n)
             {
-                if (s.Length < 2 || s[0] != '(' || s[s.Length - 1] != ')') return false;
-                int depth = 0;
-                for (int i = 0; i < s.Length; i++)
-                {
-                    if (s[i] == '(') depth++;
-                    else if (s[i] == ')') { depth--; if (depth == 0 && i < s.Length - 1) return false; }
-                }
-                return depth == 0;
-            }
-
-            private Conn ParseOperatorExpr(string inner)
-            {
-                var (op, operands) = SplitTopLevelOperator(inner);
-                var id = _nextId++;
-                var pins = operands.Select((o, k) => { var (conn, mods) = ParseOperand(o); return new Pin("IN" + (k + 1), conn, mods); }).ToList();
-                _nodes.Add(new Block(id, null, FbdOperators.SymbolToType[op], null, pins, new List<string> { "OUT" }, "operator"));
-                return new Conn(id, null);
-            }
-
-            private Conn ParseFunctionExpr(string call)
-            {
-                var (fn, inner) = SplitCall(call);
-                var id = _nextId++;
-                var pins = SplitArgs(inner).Select((a, k) => { var (conn, mods) = ParseOperand(a); return new Pin("IN" + (k + 1), conn, mods); }).ToList();
-                _nodes.Add(new Block(id, null, fn, null, pins, new List<string> { "OUT" }, "function"));
-                return new Conn(id, null);
-            }
-
-            /// <summary>Record a defined name (wire result, leaf, FB instance, EN wire, label) and refuse a
-            /// duplicate: two nodes with one name is ambiguous structure — the second silently orphans the first
-            /// and corrupts what the IDE re-imports.</summary>
-            private void Declare(string name)
-            {
-                if (!_declared.Add(name))
-                    throw new NetworkTextException($"'{name}' is defined more than once in this network — each wire, result, instance, and label name must be unique", "NETWORK_DUPLICATE_NAME");
-            }
-
-            /// <summary>A leaf is a real SOURCE — a literal or a real variable — never an alias/modifier of a
-            /// temp. A temp is a graph node, so a leaf whose text cites one is not a valid FBD node: a NOT/edge
-            /// modifier rides on the CONSUMER (<c>out := NOT g1</c>, not <c>g2 := NOT g1</c>), and an expression
-            /// over temps is written inline at its consumer. Emitting it would produce XML referencing temp names
-            /// (stripped on push) and CORRUPT the IDE on import — refuse it here.</summary>
-            private void EnsureLeafIsSource(string core, string display)
-            {
-                foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
-                    if (_temps.Contains(m.Value))
-                        throw new NetworkTextException(
-                            $"{display} derives from the temp '{m.Value}', so it is not a valid leaf. A NOT/edge "
-                            + "modifier rides on the CONSUMER ('out := NOT g1', not 'g2 := NOT g1'), and an expression "
-                            + "over temps is written inline (fully parenthesised) at its consumer.",
-                            "NETWORK_LEAF_REFERENCES_TEMP");
-            }
-
-            /// <summary>Split a parenthesised operator body into its single operator + operands, respecting
-            /// nested parens (each <c>(…)</c> group is ONE operand). The writer fully-parenthesises, so each
-            /// level is exactly one operator — mixed operators at one level are malformed.</summary>
-            private static (string Op, List<string> Operands) SplitTopLevelOperator(string inner)
-            {
-                var tokens = new List<string>();
-                int depth = 0; var sb = new System.Text.StringBuilder();
-                foreach (var ch in inner)
-                {
-                    if (ch == '(') { depth++; sb.Append(ch); }
-                    else if (ch == ')') { depth--; sb.Append(ch); }
-                    else if (char.IsWhiteSpace(ch) && depth == 0) { if (sb.Length > 0) { tokens.Add(sb.ToString()); sb.Clear(); } }
-                    else sb.Append(ch);
-                }
-                if (sb.Length > 0) tokens.Add(sb.ToString());
-
-                // Merge a leading NOT onto the operand it negates, so even=operand / odd=operator holds.
-                var merged = new List<string>();
-                for (int i = 0; i < tokens.Count; i++)
-                {
-                    if (string.Equals(tokens[i], "NOT", StringComparison.OrdinalIgnoreCase) && i + 1 < tokens.Count)
-                    { merged.Add("NOT " + tokens[i + 1]); i++; }
-                    else merged.Add(tokens[i]);
-                }
-                if (merged.Count < 3 || merged.Count % 2 == 0)
-                    throw new NetworkTextException("operator expression must be 'a OP b [OP c …]': " + inner, "NETWORK_BAD_EXPRESSION");
-                var op = merged[1];
-                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new NetworkTextException("unknown operator '" + op + "'", "NETWORK_UNKNOWN_OPERATOR");
-                var operands = new List<string>();
-                for (int i = 0; i < merged.Count; i++)
-                {
-                    if (i % 2 == 0) operands.Add(merged[i]);
-                    else if (!string.Equals(merged[i], op, StringComparison.OrdinalIgnoreCase))
-                        throw new NetworkTextException("one operator per parenthesised group; found '" + merged[i] + "' and '" + op + "'", "NETWORK_BAD_EXPRESSION");
-                }
-                return (op, operands);
-            }
-
-            public GraphNetwork Build()
-            {
-                ScanLetWires();                // pass 0: which names are LET-defined internal wires
-                var enWires = ScanEnWires();   // pass 1: which names are EN/ENO enable wires
-                // Pass 1b: an Execute box's EN is handled EXACTLY like any other EN/ENO enable — its `en` is an
-                // enable wire (its `LET en := src` is an EN SOURCE, held in _enSource) AND echoes the box's ENO
-                // (_eno) for downstream chaining (`IF en2 THEN … sourcing this box's ENO`). Mint the box ids and
-                // register both BEFORE pass 2, so a downstream statement that references the ENO resolves to a
-                // block output (which may fan out) rather than the EN-source leaf (which may not).
-                var executeIds = new long[_executes.Count];
-                for (int e = 0; e < _executes.Count; e++)
-                {
-                    executeIds[e] = _nextId++;
-                    var en = _executes[e].En;
-                    if (en != null) { enWires.Add(en); _eno[en] = executeIds[e]; }
-                }
-                foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
-                    try { ParseStatement(stmt, enWires); }
-                    catch (NetworkTextException ex) { ex.Line ??= line; throw; }
-                // pass 3: build the execute boxes — EN pin = the held enable source, body is the verbatim ST.
-                for (int e = 0; e < _executes.Count; e++)
-                {
-                    var (en, st) = _executes[e];
-                    var pins = new List<Pin>();
-                    if (en != null)
+                case Leaf l when inline.TryGetValue(l.Operand.Text, out var repl):
+                    if (!active.Add(l.Operand.Text))
+                        throw new NetworkTextException($"wire '{l.Operand.Text}' is defined in terms of itself");
+                    var r = Resolve(repl, inline, active);
+                    active.Remove(l.Operand.Text);
+                    return Combine(r, l.Flags);
+                case Box b:
+                    return b with
                     {
-                        if (!_enSource.TryGetValue(en, out var enSrc))
-                            throw new NetworkTextException($"'IF {en} THEN EXECUTE' has no preceding '{en} := …' enable assignment", "NETWORK_BAD_EXPRESSION");
-                        pins.Add(new Pin("EN", enSrc.Conn, enSrc.Mods));
-                    }
-                    _nodes.Add(new Block(executeIds[e], null, "EXECUTE", null, pins, new List<string> { "ENO" }, "execute", null, st));
-                }
-                return new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
+                        Enable = b.Enable is null ? null : Resolve(b.Enable, inline, active),
+                        Inputs = b.Inputs.Select(p => p with { Value = Resolve(p.Value, inline, active) }).ToList(),
+                    };
+                case Assign a:
+                    return a with { Value = a.Value is null ? null : Resolve(a.Value, inline, active) };
+                case Parallel p:
+                    return p with
+                    {
+                        Input = p.Input is null ? null : Resolve(p.Input, inline, active),
+                        Branches = p.Branches.Select(x => Resolve(x, inline, active)).ToList(),
+                    };
+                case Terminator t:
+                    return t with { Input = t.Input is null ? null : Resolve(t.Input, inline, active) };
+                default:
+                    return n;
             }
+        }
 
-            /// <summary>Strip pin/operand modifiers from a network-text operand — leading <c>NOT</c>
-            /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/
-            /// <c>RESET</c> (storage) — returning the bare operand + its <see cref="Mods"/>. Inverse
-            /// of <c>NetworkTextWriter.ApplyMods</c>.</summary>
-            private static (string Core, Mods Mods) ExtractMods(string token)
+        /// <summary>Merge the modifiers written at the REFERENCE onto the substituted value.</summary>
+        private static Node Combine(Node value, Flags at)
+        {
+            if (at.IsNone) return value;
+            var f = value.Flags with
             {
-                token = token.Trim();
-                bool neg = false;
-                var edge = EdgeMod.None;
-                var storage = StorageMod.None;
-
-                if (StartsWithWord(token, "NOT")) { neg = true; token = token.Substring(3).Trim(); }
-
-                bool stripped = true;
-                while (stripped)
-                {
-                    stripped = false;
-                    if (EndsWithWord(token, "RISING")) { edge = EdgeMod.Rising; token = Chop(token, 6); stripped = true; }
-                    else if (EndsWithWord(token, "FALLING")) { edge = EdgeMod.Falling; token = Chop(token, 7); stripped = true; }
-                    else if (EndsWithWord(token, "SET")) { storage = StorageMod.Set; token = Chop(token, 3); stripped = true; }
-                    else if (EndsWithWord(token, "RESET")) { storage = StorageMod.Reset; token = Chop(token, 5); stripped = true; }
-                }
-
-                var mods = (!neg && edge == EdgeMod.None && storage == StorageMod.None)
-                    ? Mods.None : new Mods(neg, edge, storage);
-                return (token, mods);
-            }
-
-            private static string Chop(string s, int n) => s.Substring(0, s.Length - n).Trim();
-
-            private static bool StartsWithWord(string s, string word) =>
-                s.Length > word.Length && s.StartsWith(word, StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(s[word.Length]);
-
-            private static bool EndsWithWord(string s, string word) =>
-                s.Length > word.Length && s.EndsWith(word, StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(s[s.Length - word.Length - 1]);
-
-            // ── tiny helpers ──────────────────────────────────────────────
-            private static (string lhs, string rhs)? SplitAssignment(string s)
+                Negated = value.Flags.Negated ^ at.Negated,
+                Rising = value.Flags.Rising || at.Rising,
+                Falling = value.Flags.Falling || at.Falling,
+                Set = value.Flags.Set || at.Set,
+                Reset = value.Flags.Reset || at.Reset,
+            };
+            return value switch
             {
-                var i = s.IndexOf(":=", StringComparison.Ordinal);
-                if (i < 0) return null;
-                // an FB call ("inst(pin := x)") has its first ':=' INSIDE parentheses
-                var paren = s.IndexOf('(');
-                if (paren >= 0 && paren < i) return null;
-                return (s.Substring(0, i).Trim(), s.Substring(i + 2).Trim());
-            }
-
-            private static bool IsCall(string s) => Regex.IsMatch(s, @"^\w[\w]*\(.*\)$");
-
-            private static (string name, string inner) SplitCall(string s)
-            {
-                var open = s.IndexOf('(');
-                if (open < 0 || !s.EndsWith(")", StringComparison.Ordinal)) throw new NetworkTextException("expected a call: " + s);
-                return (s.Substring(0, open).Trim(), s.Substring(open + 1, s.Length - open - 2));
-            }
-
-            private static List<string> SplitArgs(string inner)
-            {
-                inner = inner.Trim();
-                if (inner.Length == 0) return new List<string>();
-                var args = new List<string>();
-                int depth = 0, start = 0;
-                for (int i = 0; i < inner.Length; i++)
-                {
-                    var c = inner[i];
-                    if (c == '(') depth++;
-                    else if (c == ')') depth--;
-                    else if (c == ',' && depth == 0) { args.Add(inner.Substring(start, i - start).Trim()); start = i + 1; }
-                }
-                args.Add(inner.Substring(start).Trim());
-                return args;
-            }
+                Leaf l => l with { Flags = f },
+                Box b => b with { Flags = f },
+                Parallel p => p with { Flags = f },
+                Terminator t => t with { Flags = f },
+                Assign a => a with { Flags = f },
+                _ => value,
+            };
         }
     }
 
-    /// <summary>A structured network-text diagnostic: a stable <see cref="Code"/> (e.g. NETWORK_LEAF_REFERENCES_TEMP) the AI
-    /// can branch on, the 1-based source <see cref="Line"/> within the body (attached by the parse loop), and
-    /// the human message. Format-only — it never depends on the actual PLC code semantics.</summary>
-    public sealed class NetworkTextException : Exception
+    // ── expressions ───────────────────────────────────────────────────────────────────────────────
+
+    private static Node ParseOperand(string s)
     {
-        public string Code { get; }
-        public int? Line { get; set; }   // settable: the Parse loop attaches the line a builder throw came from
-        public NetworkTextException(string message, string code = "NETWORK_PARSE") : base(message) { Code = code; }
+        var p = new Cursor(s);
+        var n = p.Operand();
+        p.SkipWs();
+        if (!p.AtEnd) throw new NetworkTextException("trailing text in operand: " + s.Trim());
+        return n;
     }
+
+    /// <summary>A recursive-descent cursor over one operand expression. The grammar is fully parenthesised with
+    /// no precedence (<c>docs/network-text.md</c> §4), so there is no operator-precedence machinery here — the
+    /// parentheses carry the topology.</summary>
+    private sealed class Cursor
+    {
+        private readonly string _s;
+        private int _i;
+        public Cursor(string s) { _s = s; }
+        public bool AtEnd => _i >= _s.Length;
+        public void SkipWs() { while (_i < _s.Length && char.IsWhiteSpace(_s[_i])) _i++; }
+
+        public Node Operand()
+        {
+            SkipWs();
+            bool negated = Word("NOT");
+            var core = Core();
+            SkipWs();
+            bool rising = Word("RISING"), falling = !rising && Word("FALLING");
+            SkipWs();
+            bool set = Word("SET"), reset = !set && Word("RESET");
+            var f = new Flags(negated, set, reset, false, false, rising, falling);
+            return f.IsNone ? core : WithFlags(core, f);
+        }
+
+        private Node Core()
+        {
+            SkipWs();
+            if (AtEnd) throw new NetworkTextException("expected an operand");
+            if (_s[_i] == '(') return Group();
+
+            var name = Token();
+            SkipWs();
+            if (!AtEnd && _s[_i] == '(') return Call(name);
+            return new Leaf(new Operand(name), Flags.None);
+        }
+
+        /// <summary>A fully-parenthesised group: <c>( operand OP operand { OP operand } )</c>, exactly one
+        /// operator KIND per group.</summary>
+        private Node Group()
+        {
+            _i++;   // '('
+            var args = new List<Node> { Operand() };
+            SkipWs();
+            string? sym = null;
+            while (!AtEnd && _s[_i] != ')')
+            {
+                var op = Token();
+                if (!FbdOperators.SymbolToType.ContainsKey(op))
+                    throw new NetworkTextException($"'{op}' is not an operator");
+                sym ??= op;
+                if (op != sym)
+                    throw new NetworkTextException(
+                        $"a group mixes '{sym}' and '{op}' — one operator kind per group, use nested parentheses");
+                args.Add(Operand());
+                SkipWs();
+            }
+            if (AtEnd) throw new NetworkTextException("unclosed '(' in operand");
+            _i++;   // ')'
+            if (sym is null)
+                return args[0];   // a parenthesised single operand
+            return new Box(FbdOperators.SymbolToType[sym], null, CallKind.Operator,
+                           args.Select(a => new Input(null, a, Flags.None)).ToList(),
+                           new List<Operand>(), null, null, Flags.None);
+        }
+
+        /// <summary>A call. Named arguments (<c>PIN := v</c>) mean an FB INSTANCE; positional ones mean a
+        /// stateless function.</summary>
+        private Node Call(string name)
+        {
+            _i++;   // '('
+            var args = new List<Input>();
+            SkipWs();
+            bool named = false;
+            while (!AtEnd && _s[_i] != ')')
+            {
+                SkipWs();
+                string? formal = null;
+                int save = _i;
+                var maybe = Token();
+                SkipWs();
+                if (!AtEnd && _s[_i] == ':' && _i + 1 < _s.Length && _s[_i + 1] == '=')
+                {
+                    _i += 2;
+                    formal = maybe;
+                    named = true;
+                }
+                else _i = save;
+
+                var val = Operand();
+                args.Add(new Input(formal, val, Flags.None));
+                SkipWs();
+                if (!AtEnd && _s[_i] == ',') { _i++; SkipWs(); }
+            }
+            if (AtEnd) throw new NetworkTextException($"unclosed '(' in call to '{name}'");
+            _i++;   // ')'
+
+            return named
+                ? new Box(name, new Operand(name, IsInstance: true), CallKind.FunctionBlock, args,
+                          new List<Operand>(), null, null, Flags.None)
+                : new Box(name, null, CallKind.Function, args, new List<Operand>(), null, null, Flags.None);
+        }
+
+        /// <summary>A bare token: an identifier, a member access (<c>inst.Q</c>), a literal, or an operator
+        /// symbol. Ends at whitespace or a structural character.</summary>
+        private string Token()
+        {
+            SkipWs();
+            int start = _i;
+            while (_i < _s.Length && !char.IsWhiteSpace(_s[_i]) &&
+                   _s[_i] != '(' && _s[_i] != ')' && _s[_i] != ',')
+            {
+                if (_s[_i] == ':' && _i + 1 < _s.Length && _s[_i + 1] == '=') break;
+                _i++;
+            }
+            if (_i == start) throw new NetworkTextException("expected a name at: " + _s.Substring(start));
+            return _s.Substring(start, _i - start);
+        }
+
+        /// <summary>Match a keyword on a word boundary, consuming it only on a match.</summary>
+        private bool Word(string w)
+        {
+            SkipWs();
+            if (_i + w.Length > _s.Length) return false;
+            if (string.Compare(_s, _i, w, 0, w.Length, StringComparison.OrdinalIgnoreCase) != 0) return false;
+            int after = _i + w.Length;
+            if (after < _s.Length && (char.IsLetterOrDigit(_s[after]) || _s[after] == '_')) return false;
+            _i = after;
+            return true;
+        }
+
+        private static Node WithFlags(Node n, Flags f) => n switch
+        {
+            Leaf l => l with { Flags = f },
+            Box b => b with { Flags = f },
+            Parallel p => p with { Flags = f },
+            Terminator t => t with { Flags = f },
+            Assign a => a with { Flags = f },
+            _ => n,
+        };
+    }
+}
+
+public sealed class NetworkTextException : Exception
+{
+    public string Code { get; }
+    public int? Line { get; set; }   // settable: the Parse loop attaches the line a builder throw came from
+    public NetworkTextException(string message, string code = "NETWORK_PARSE") : base(message) { Code = code; }
 }

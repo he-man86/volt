@@ -1,324 +1,285 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Volt.Engine.Library;
-using Volt.Engine.Format.Network;
 
-namespace Volt.Engine.Format.Network
+namespace Volt.Engine.Format.Network;
+
+/// <summary>
+/// Renders a <see cref="NetworkBody"/> to network text — the canonical, constrained ST-like dialect specified
+/// in <c>docs/network-text.md</c>. <b>The FORMAT is unchanged by the move to <see cref="NetworkBody"/></b>: it
+/// is a product surface (engineers' committed <c>.fb</c> files, and a first-class sublanguage of
+/// <c>volt-lsp-iec</c>), so this is a retarget, not a redesign. <see cref="NetworkTextReader"/> reverses it.
+///
+/// <para><b>What the tree model removed.</b> The previous writer's bulk was lowering a GRAPH into nested
+/// expressions, and every part of that is now structural rather than derived:</para>
+/// <list type="bullet">
+/// <item><b>Topological ordering</b> — gone. Tree order is evaluation order; there is nothing to sort.</item>
+/// <item><b>Reference counting to decide inline-vs-name</b> — gone. A wire that fans out IS a
+/// <see cref="Network.SplitPoints"/> entry; everything else is nested in its consumer by construction. The old
+/// writer counted uses across the whole network, then normalised operator output pins so a fan-out wire was not
+/// misread as single-use and wrongly inlined (which duplicated its box).</item>
+/// <item><b>The EN/ENO "into-sink" special case</b> — gone. An enabled box that feeds one sink is simply the
+/// value of an <see cref="Assign"/>, so <c>IF en THEN out := (…); END_IF</c> falls out of the shape.</item>
+/// </list>
+///
+/// <para>What remains is genuinely the writer's job: minting names for opaque leaves and enable echoes,
+/// applying modifiers, and choosing between a nested expression and a hoisted <c>LET</c> when a leaf's text is
+/// not a single safe token.</para>
+/// </summary>
+public static class NetworkTextWriter
 {
-    /// <summary>
-    /// Renders a <see cref="GraphBody"/> to network text — a canonical, constrained Structured-Text-LIKE
-    /// dialect that is ISOMORPHIC to the PLCopen node graph: each network is a delimited block
-    /// <c>NETWORK &lt;index&gt; &lt;LANG&gt; … END_NETWORK</c>, and every node is EITHER <b>named</b> — an
-    /// inline <c>LET &lt;name&gt; := …</c> for opaque leaves <c>i*</c>, fan-out operator/function results
-    /// <c>g*</c> and EN/ENO wires <c>en*</c>; FB instances keep their real name and outVariables their
-    /// target — OR <b>inlined</b> into its consumer's fully-parenthesised expression (simple leaves and
-    /// single-use operator/function results), so an operand may be a nested sub-expression. There is no
-    /// <c>VAR_TEMP</c> block: a wire is introduced at its definition and its type is inferred downstream.
-    /// This shrinks the network text⊄FBD gap to ~zero and makes round-trip identical in all cases (fan-out
-    /// preserved by shared names). Pin modifiers are network text EXTENSIONS, not standard ST: <c>NOT operand</c>
-    /// (negation — valid ST), and the suffixes
-    /// <c>RISING</c>/<c>FALLING</c> (edge) and <c>SET</c>/<c>RESET</c> (storage), which keep the
-    /// modifier visible at the pin rather than synthesizing hidden R_TRIG/SR instances. Round-trippable
-    /// (<c>NetworkTextReader</c> reverses it); emission is deterministic so network text→graph→network text is a fixed point.
-    /// </summary>
-    public static class NetworkTextWriter
+    public static string Write(NetworkBody body)
     {
-        // Operator box types render infix; everything else is an FB call or function call.
-        // Canonical operator table lives in FbdOperators (shared with the transpiler + parser).
-        public static string Write(GraphBody body)
+        var sb = new StringBuilder();
+        foreach (var net in body.Networks) new Emitter(sb, net, body.Language).Emit();
+        return sb.ToString();
+    }
+
+    /// <summary>Per-network emission state: the minted-name counters, the names that must not be shadowed, and
+    /// the prelude that hoisted <c>LET</c> statements accumulate into while an expression is being rendered.</summary>
+    private sealed class Emitter
+    {
+        private readonly StringBuilder _sb;
+        private readonly Network _net;
+        private readonly BodyLanguage _lang;
+        private readonly HashSet<string> _wires;
+        private readonly HashSet<string> _reserved;
+        private readonly List<string> _prelude = new();
+        private int _g, _en, _i;
+
+        public Emitter(StringBuilder sb, Network net, BodyLanguage lang)
         {
-            var sb = new StringBuilder();
-            // Order is the REAL PLCopen network index and every producer supplies it; there is no
-            // positional fallback — an invented index can duplicate a real one, which NetworkTextReader refuses.
-            foreach (var net in body.Networks) WriteNetwork(sb, net, net.Order!.Value, body.Language);
-            return sb.ToString();
+            _sb = sb;
+            _net = net;
+            _lang = lang;
+            _wires = new HashSet<string>(net.SplitPoints.Select(s => s.Text), System.StringComparer.Ordinal);
+            // A minted temp must never shadow a real declared identifier — an FB instance is the case that bites,
+            // because it is a variable in the POU's VAR section AND appears in the body.
+            _reserved = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (var t in net.Trees) CollectInstances(t, _reserved);
         }
 
-        // A network is a delimited block — NETWORK <index> <LANG> … END_NETWORK — holding only
-        // statements (no decl section; wires are introduced inline). <index> is the REAL PLCopen network index
-        // (localId / 10^10), so gapped bodies (e.g. networks 1,2,4) round-trip without re-numbering;
-        // <LANG> (FBD/LD) carries the body language, so there's no separate %LANG header.
-        private static void WriteNetwork(StringBuilder sb, GraphNetwork net, int index, string language)
+        public void Emit()
         {
-            sb.Append("NETWORK ").Append(index).Append(' ').Append(language);
-            if (!string.IsNullOrEmpty(net.Label)) sb.Append(" \"").Append(net.Label).Append('"');
-            if (net.Disabled) sb.Append(" DISABLED");
-            // MEASURED 2026-08-27, and the answer is NEGATIVE: PLCopen carries nothing for this flag at all.
-            // A network disabled via TwinCAT's "comment mode" is `<v n="OutCommented">true</v>` in the NATIVE
-            // object archive, alongside `Title` and `Label`; the PLCopen export has none of the three. Worse, the
-            // export OMITS the disabled network entirely — `POU_PBD` has 2 networks natively and its export has
-            // 1, with every localId in band 1.
-            //
-            // So this flag survives text->model->text and is unreachable across the XML boundary in both
-            // directions, and no attribute or addData block exists to carry it. That is a property of the
-            // transport, not a gap in Volt: closing it would mean adopting the native document, which
-            // `openspec/changes/declaration-from-the-aspect` measured and rejected.
-            //
-            // The omission also CONFIRMS `BodySpliceGuard`'s gap refusal, which was recorded as an unverified
-            // inference: regenerating across a numbering gap really would delete a disabled network from a
-            // running program. Do not weaken that refusal.
-            sb.Append('\n');
-            if (!string.IsNullOrEmpty(net.Comment))
-                foreach (var line in net.Comment!.Replace("\r", "").Split('\n'))
-                    sb.Append("  // ").Append(line).Append('\n');
+            _sb.Append("NETWORK ").Append(_net.Order).Append(' ').Append(_lang == BodyLanguage.Ld ? "LD" : "FBD");
+            // The quoted string is the network's TITLE. The previous model had one string field and PLCopen
+            // carried neither, so title and jump-label were the same slot; both vendors' INetwork has both.
+            if (!string.IsNullOrEmpty(_net.Title)) _sb.Append(" \"").Append(_net.Title).Append('"');
+            if (_net.Disabled) _sb.Append(" DISABLED");
+            _sb.Append('\n');
 
-            var byId = net.Nodes.ToDictionary(n => n.LocalId);
-            var blocks = net.Nodes.OfType<Block>().ToList();
-            var ordered = TopoOrder(blocks, byId);
+            if (!string.IsNullOrEmpty(_net.Comment))
+                foreach (var line in _net.Comment!.Replace("\r", "").Split('\n'))
+                    _sb.Append("  // ").Append(line).Append('\n');
 
-            bool IsEnEno(Block b) => b.Inputs.Any(p => p.FormalParameter == "EN");
+            // A jump TARGET is the network's label — `myLabel:` on its own line.
+            if (!string.IsNullOrEmpty(_net.Label)) _sb.Append("  ").Append(_net.Label).Append(":\n");
 
-            // The wires a node CONSUMES — the ONE spelling of that relation in this file: both the
-            // use-count below and the EN/ENO into-sink search read it.
-            // ponytail: NetworkCode.Sources and GraphWriter's NoteRef loops answer the same question
-            // with their own switches; the relation belongs on GraphNode, which is a wider change than this.
-            IEnumerable<Conn> Consumed(GraphNode n) => n switch
-            {
-                Block bb => bb.Inputs.Where(p => p.Source != null).Select(p => p.Source!),
-                OutVar o => o.Source != null ? new[] { o.Source } : Enumerable.Empty<Conn>(),
-                Jump j => j.Condition != null ? new[] { j.Condition } : Enumerable.Empty<Conn>(),
-                Return r => r.Condition != null ? new[] { r.Condition } : Enumerable.Empty<Conn>(),
-                _ => Enumerable.Empty<Conn>(),
-            };
-
-            // Consumer count per (producer, output pin) — the basis for inline-vs-name: a wire used ONCE is
-            // inlined into its consumer's expression; a wire that fans out (2+) keeps a name (else inlining it
-            // would duplicate its box).
-            var uses = new Dictionary<(long, string?), int>();
-            int Get((long, string?) k) => uses.TryGetValue(k, out var v) ? v : 0;
-            // A plain operator/function has a SINGLE output, referenced as either the bare name (null pin) or its
-            // "OUT" pin — the IDE round-trip flips between them, so normalise to null or the count splits and a
-            // fan-out wire is misread as single-use (→ wrongly inlined, duplicating the box).
-            string? OutKey(long id, string? pin) =>
-                byId.TryGetValue(id, out var p) && p is Block pb && IsOperatorOrFunction(pb) && !IsEnEno(pb) ? null : pin;
-            void Count(Conn? c) { if (c != null) { var k = (c.RefLocalId, OutKey(c.RefLocalId, c.FormalParameter)); uses[k] = Get(k) + 1; } }
-            foreach (var n in net.Nodes)
-                foreach (var c in Consumed(n))
-                    Count(c);
-            // Keyed on the UNNAMED result pin, which OutKey normalises a plain operator/function's single
-            // output to. An EN/ENO box never reaches this count as the deciding term: unsunk, the left
-            // disjunct below already names it; sunk, it has exactly ONE non-ENO consumer, so no pin key
-            // can reach 2. (Its result pin is "Out2" — a keying detail no current decision depends on.)
-            int ResultUses(Block b) => Get((b.LocalId, null));
-
-            // EN/ENO into-sink readability: when an operator/function EN/ENO box's result feeds EXACTLY one
-            // OutVar (and nothing else, and that sink has no modifier), write the sink straight inside the IF
-            // (`IF en THEN out := (expr)`) instead of naming a `g*` result + a separate `out := g*`. The box's
-            // `en*` ENO wire is untouched — it can still chain downstream.
-            var enenoSink = new Dictionary<long, OutVar>();
-            var suppressedSinks = new HashSet<long>();
-            foreach (var b in ordered.Where(b => IsEnEno(b) && IsOperatorOrFunction(b)))
-            {
-                var consumers = net.Nodes.Where(n => Consumed(n).Any(c => c.RefLocalId == b.LocalId && c.FormalParameter != "ENO")).ToList();
-                if (consumers.Count == 1 && consumers[0] is OutVar sink && sink.Mods.IsNone)
-                {
-                    enenoSink[b.LocalId] = sink;
-                    suppressedSinks.Add(sink.LocalId);
-                }
-            }
-
-            var reserved = new HashSet<string>(
-                blocks.Where(b => !IsOperatorOrFunction(b) && !string.IsNullOrEmpty(b.InstanceName))
-                      .Select(b => b.InstanceName!), StringComparer.Ordinal);
-
-            // NAMED producers (get a statement + a `g*`/instance name): FB instances (stateful), EN/ENO boxes
-            // (the IF form + the `en*` ENO wire), and operator/function results that FAN OUT. Everything else —
-            // leaves and single-use operator/function results — is INLINED into its consumer's expression.
-            var names = new Dictionary<long, string>();
-            var enNames = new Dictionary<long, string>();
-            int g = 0, en = 0, li = 0;
-            foreach (var b in ordered)
-            {
-                if (!IsOperatorOrFunction(b)) names[b.LocalId] = b.InstanceName!;           // FB instance
-                else if ((IsEnEno(b) && !enenoSink.ContainsKey(b.LocalId)) || ResultUses(b) >= 2) names[b.LocalId] = Mint("g", ref g, reserved);
-                if (IsEnEno(b)) enNames[b.LocalId] = Mint("en", ref en, reserved);
-            }
-            // An OPAQUE leaf — its text has whitespace or parens, so it can't sit at an operand position as a
-            // single token (it would mis-split or mis-parse as a call) — is NAMED and gets its own statement.
-            // A simple atom (a bare variable/literal) is inlined.
-            var leaves = net.Nodes.OfType<InVar>().OrderBy(n => n.LocalId).ToList();
-            foreach (var iv in leaves)
-                if (!IsInlinableLeaf(iv)) names[iv.LocalId] = Mint("i", ref li, reserved);
-
-            // Internal wires (named opaque leaves i*, g* fan-out results, en* echoes) are introduced INLINE with
-            // a `LET` keyword at their definition (below) — no VAR_TEMP header, no synthesised types (a wire's
-            // type is inferred by the LSP from its expression). A bare `name :=` is an outVariable sink; an FB
-            // instance call (a real, declared instance) is bare too.
-
-            // A wire → text. A NAMED producer is its name (`.Pin` for an FB output, `en*` for an ENO); an
-            // INLINED producer recurses to its expression (a leaf → its literal/var; an operator/function →
-            // its parenthesised body).
-            string Render(Conn? c)
-            {
-                if (c == null) return "";
-                if (!byId.TryGetValue(c.RefLocalId, out var src)) return "";
-                if (c.FormalParameter == "ENO" && enNames.TryGetValue(c.RefLocalId, out var enWire)) return enWire;
-                if (names.TryGetValue(c.RefLocalId, out var nm))
-                    return (src is Block fb && c.FormalParameter != null && !IsOperatorOrFunction(fb))
-                        ? nm + "." + c.FormalParameter : nm;
-                return src switch
-                {
-                    InVar iv => ApplyMods(iv.Expression, iv.Mods),
-                    Block b => Definition(b, excludeEn: false),
-                    _ => "",
-                };
-            }
-            // A block's VALUE expression (no LHS): operator → fully-parenthesised infix, stateless function →
-            // call, FB instance → pin-bound call. EN/ENO reuses it for the IF body, dropping the EN pin.
-            string Definition(Block b, bool excludeEn)
-            {
-                var args = b.Inputs.Where(p => p.Source != null && !(excludeEn && p.FormalParameter == "EN"))
-                    .Select(p => (Pin: p.FormalParameter, Val: ApplyMods(Render(p.Source), p.Mods))).ToList();
-                if (FbdOperators.TypeToSymbol.TryGetValue(b.TypeName, out var op))
-                    return "(" + string.Join($" {op} ", args.Select(a => a.Val)) + ")";
-                if (string.IsNullOrEmpty(b.InstanceName))
-                    return b.TypeName + "(" + string.Join(", ", args.Select(a => a.Val)) + ")";
-                return b.InstanceName + "(" + string.Join(", ", args.Select(a => a.Pin + " := " + a.Val)) + ")";
-            }
-
-            // Statements: named opaque leaves first, then named blocks (topo order, so a name is defined before
-            // it's used), then sinks, then control flow. Inlined leaves / single-use results emit nothing.
-            foreach (var iv in leaves)
-                if (names.TryGetValue(iv.LocalId, out var ln))
-                    sb.Append("  LET ").Append(ln).Append(" := ").Append(ApplyMods(iv.Expression, iv.Mods)).Append(";\n");
-
-            foreach (var b in ordered)
-            {
-                if (b.StCode is { } stcode)
-                {
-                    // An Execute box — the standard CODESYS "ST inside FBD/LD" element — is just an EN/ENO block
-                    // whose "call" is raw ST. EN is handled EXACTLY like every other block (a normal wire +
-                    // `IF en THEN … END_IF`, below); the only new thing is the `EXECUTE … END_EXECUTE` marker
-                    // delimiting the VERBATIM ST. So (a) it reads/analyzes as the real (possibly complex) ST it
-                    // is — the LSP hands the marked region to the full ST parser, not the simplified network text one — and
-                    // (b) the reader detects the marker to reconstruct the CODESYS Execute box on push.
-                    // The ST is emitted VERBATIM (its own indentation preserved) between the markers, so it
-                    // round-trips byte-for-byte — the parser captures exactly these lines back into <STCode>.
-                    var st = stcode.Replace("\r", "").TrimEnd('\n');
-                    if (IsEnEno(b) && enNames.TryGetValue(b.LocalId, out var enName))
-                    {
-                        var enPin = b.Inputs.First(p => p.FormalParameter == "EN");
-                        sb.Append("  LET ").Append(enName).Append(" := ").Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
-                        sb.Append("  IF ").Append(enName).Append(" THEN\n");
-                        sb.Append("  EXECUTE\n").Append(st).Append("\n  END_EXECUTE\n");
-                        sb.Append("  END_IF\n");
-                    }
-                    else
-                    {
-                        sb.Append("  EXECUTE\n").Append(st).Append("\n  END_EXECUTE\n");
-                    }
-                    continue;
-                }
-                if (IsEnEno(b))
-                {
-                    var enPin = b.Inputs.First(p => p.FormalParameter == "EN");
-                    sb.Append("  LET ").Append(enNames[b.LocalId]).Append(" := ")
-                      .Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
-                    sb.Append("  IF ").Append(enNames[b.LocalId]).Append(" THEN ");
-                    if (enenoSink.TryGetValue(b.LocalId, out var sink))   // into-sink: write the sink straight in the IF
-                        sb.Append(sink.Expression).Append(" := ").Append(Definition(b, excludeEn: true));
-                    else if (IsOperatorOrFunction(b)) sb.Append("LET ").Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
-                    else sb.Append(Definition(b, excludeEn: true));   // EN/ENO FB call
-                    sb.Append("; END_IF\n");
-                }
-                else if (names.TryGetValue(b.LocalId, out var nm))
-                {
-                    if (IsOperatorOrFunction(b)) sb.Append("  LET ").Append(nm).Append(" := ").Append(Definition(b, false)).Append(";\n");
-                    else sb.Append("  ").Append(Definition(b, false)).Append(";\n");   // FB instance call
-                }
-            }
-
-            foreach (var ov in net.Nodes.OfType<OutVar>())
-                if (!suppressedSinks.Contains(ov.LocalId))   // an EN/ENO into-sink target is written inside its IF
-                    sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
-
-            // ponytail: OpaqueNode is DELIBERATELY absent from this switch — contacts/coils, connectors,
-            // continuations, power rails, comments and vendorElements have no network text spelling, so they are
-            // DROPPED from network text (and therefore from a pushed body). Pinned by NetworkTextWriterTests
-            // .Real_CONFIG_fb_call_renders_as_a_call_with_named_pins, whose input carries a <vendorElement>
-            // the expected network text has no trace of. GraphWriter's `case OpaqueNode` consequently serves only
-            // the reader→writer path, NOT push — GraphModel's OpaqueNode summary ("the writer can
-            // round-trip it") is true of GraphWriter alone, not of network text.
-            foreach (var node in net.Nodes)
-                switch (node)
-                {
-                    case Label lb: sb.Append("  ").Append(lb.Name).Append(":\n"); break;
-                    case Jump jp: EmitGoto(sb, "JMP " + jp.Target, jp.Condition, jp.Mods, Render); break;
-                    case Return rt: EmitGoto(sb, "RETURN", rt.Condition, rt.Mods, Render); break;
-                }
-
-            sb.Append("END_NETWORK\n");
+            foreach (var tree in _net.Trees) Statement(tree);
+            _sb.Append("END_NETWORK\n");
         }
 
-        /// <summary>The next synthetic name <c>prefix{n}</c> that isn't a real (reserved) identifier,
-        /// so a temp can never shadow an FB instance of the same name.</summary>
-        private static string Mint(string prefix, ref int n, HashSet<string> reserved)
+        // ── statements ────────────────────────────────────────────────────────────────────────────
+
+        private void Statement(Node n)
         {
-            string s;
-            do { s = prefix + (++n); } while (reserved.Contains(s));
-            return s;
+            _prelude.Clear();
+            switch (n)
+            {
+                case Box b when b.StCode is not null: Execute(b); break;
+                case Assign a when a.Flags.Jump || a.Flags.Return: Goto(a); break;
+                case Assign a: Assignment(a); break;
+                case Box b when b.Enable is not null: EnabledCall(b); break;
+                case Box b: { var t = Definition(b); Flush(); Line(t + ";"); break; }
+                case Terminator t when t.Input is not null: Statement(t.Input); break;
+                case Terminator: break;
+                default: { var t = Render(n, nested: false); Flush(); Line(t + ";"); break; }
+            }
         }
 
-        private static void EmitGoto(StringBuilder sb, string action, Conn? cond, Mods mods, Func<Conn?, string> render)
+        private void Assignment(Assign a)
         {
-            if (cond is null) { sb.Append("  ").Append(action).Append(";\n"); return; }
-            sb.Append("  IF ").Append(ApplyMods(render(cond), mods)).Append(" THEN ").Append(action).Append("; END_IF\n");
+            // An enabled box feeding an assignment renders as the IF form, with the sink inside it.
+            if (a.Value is Box { Enable: not null } eb) { EnabledAssign(a, eb); return; }
+
+            var value = a.Value is null ? "" : ApplyMods(Render(a.Value, nested: false), a.Flags);
+
+            if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
+            if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " := " + value + ";"); return; }
+
+            // One value, several l-values: name it once rather than repeating the expression, which would
+            // duplicate the producing box on the way back in.
+            var g = Mint("g", ref _g);
+            Flush();
+            Line("LET " + g + " := " + value + ";");
+            foreach (var t in a.Targets) Line(Lhs(t) + " := " + g + ";");
         }
 
-        /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix (negation), trailing
-        /// <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/<c>RESET</c> (storage). Inverse
-        /// of <see cref="NetworkTextReader"/>'s modifier parsing.</summary>
-        private static string ApplyMods(string value, Mods m)
+        /// <summary>The left-hand side. A split point is an INTERNAL wire and is introduced with <c>LET</c>;
+        /// anything else is a real l-value declared in the POU.</summary>
+        private string Lhs(Operand target) =>
+            _wires.Contains(target.Text) ? "LET " + target.Text : target.Text;
+
+        private void EnabledAssign(Assign a, Box b)
         {
-            if (m.IsNone) return value;
-            if (m.Negated) value = "NOT " + value;
-            if (m.Edge == EdgeMod.Rising) value += " RISING";
-            else if (m.Edge == EdgeMod.Falling) value += " FALLING";
-            if (m.Storage == StorageMod.Set) value += " SET";
-            else if (m.Storage == StorageMod.Reset) value += " RESET";
+            var enText = Render(b.Enable!, nested: false);
+            var body = Definition(b);
+            var en = Mint("en", ref _en);
+            Flush();
+            Line("LET " + en + " := " + enText + ";");
+            if (a.Targets.Count == 1)
+                Line("IF " + en + " THEN " + Lhs(a.Targets[0]) + " := " + body + "; END_IF");
+            else
+            {
+                var g = Mint("g", ref _g);
+                Line("IF " + en + " THEN LET " + g + " := " + body + "; END_IF");
+                foreach (var t in a.Targets) Line(Lhs(t) + " := " + g + ";");
+            }
+        }
+
+        private void EnabledCall(Box b)
+        {
+            var enText = Render(b.Enable!, nested: false);
+            var body = Definition(b);
+            var en = Mint("en", ref _en);
+            Flush();
+            Line("LET " + en + " := " + enText + ";");
+            Line("IF " + en + " THEN " + body + "; END_IF");
+        }
+
+        /// <summary>A CODESYS Execute box: an enabled box whose call is raw ST. The ST is emitted VERBATIM
+        /// between the markers — its own indentation preserved — so it round-trips byte-for-byte, and the
+        /// explicit <c>END_EXECUTE</c> disambiguates the ST's own nested <c>END_IF</c>s.</summary>
+        private void Execute(Box b)
+        {
+            var st = b.StCode!.Replace("\r", "").TrimEnd('\n');
+            if (b.Enable is null)
+            {
+                Flush();
+                Line("EXECUTE");
+                _sb.Append(st).Append('\n');
+                Line("END_EXECUTE");
+                return;
+            }
+            var enText = Render(b.Enable, nested: false);
+            var en = Mint("en", ref _en);
+            Flush();
+            Line("LET " + en + " := " + enText + ";");
+            Line("IF " + en + " THEN");
+            Line("EXECUTE");
+            _sb.Append(st).Append('\n');
+            Line("END_EXECUTE");
+            Line("END_IF");
+        }
+
+        private void Goto(Assign a)
+        {
+            var action = a.Flags.Jump
+                ? "JMP " + (a.Targets.Count > 0 ? a.Targets[0].Text : "")
+                : "RETURN";
+            if (a.Value is null) { Flush(); Line(action + ";"); return; }
+            var cond = ApplyMods(Render(a.Value, nested: false), a.Flags with { Jump = false, Return = false });
+            Flush();
+            Line("IF " + cond + " THEN " + action + "; END_IF");
+        }
+
+        // ── expressions ───────────────────────────────────────────────────────────────────────────
+
+        /// <summary>An expression. <paramref name="nested"/> is true at operand position, where a leaf whose
+        /// text is not a single safe token cannot appear inline — it would mis-split an operator group or
+        /// mis-parse as a call — so it is hoisted to its own <c>LET i*</c> statement.</summary>
+        private string Render(Node n, bool nested)
+        {
+            switch (n)
+            {
+                case Leaf l:
+                {
+                    var text = ApplyMods(l.Operand.Text, l.Flags);
+                    if (!nested || IsSafeToken(text)) return text;
+                    var name = Mint("i", ref _i);
+                    _prelude.Add("LET " + name + " := " + text + ";");
+                    return name;
+                }
+                case Box b: return ApplyMods(Definition(b), b.Flags);
+                case Parallel p:
+                    return "(" + string.Join(p.Mode == ParallelMode.And ? " AND " : " OR ",
+                                             p.Branches.Select(x => Render(x, nested: true))) + ")";
+                case Terminator t: return t.Input is null ? "" : Render(t.Input, nested);
+                case Assign a: return a.Value is null ? "" : Render(a.Value, nested);
+                default: return "";
+            }
+        }
+
+        /// <summary>A box's VALUE expression: an operator renders fully parenthesised and infix, a stateless
+        /// function as a positional call, an FB instance as a pin-bound call.</summary>
+        private string Definition(Box b)
+        {
+            var args = b.Inputs
+                .Select(p => (p.Formal, Text: ApplyMods(Render(p.Value, nested: true), p.Flags)))
+                .ToList();
+
+            if (FbdOperators.TypeToSymbol.TryGetValue(b.Type, out var op))
+                return "(" + string.Join(" " + op + " ", args.Select(a => a.Text)) + ")";
+            if (b.Instance is { } inst)
+                return inst.Text + "(" + string.Join(", ", args.Select(a => a.Formal + " := " + a.Text)) + ")";
+            return b.Type + "(" + string.Join(", ", args.Select(a => a.Text)) + ")";
+        }
+
+        // ── helpers ───────────────────────────────────────────────────────────────────────────────
+
+        private void Line(string s) => _sb.Append("  ").Append(s).Append('\n');
+
+        private void Flush()
+        {
+            foreach (var p in _prelude) _sb.Append("  ").Append(p).Append('\n');
+            _prelude.Clear();
+        }
+
+        /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix, trailing <c>RISING</c>/
+        /// <c>FALLING</c>, trailing <c>SET</c>/<c>RESET</c>. Inverse of the reader's modifier parsing.</summary>
+        private static string ApplyMods(string value, Flags f)
+        {
+            if (f.IsNone) return value;
+            if (f.Negated) value = "NOT " + value;
+            if (f.Rising) value += " RISING";
+            else if (f.Falling) value += " FALLING";
+            if (f.Set) value += " SET";
+            else if (f.Reset) value += " RESET";
             return value;
         }
 
-        private static bool IsOperatorOrFunction(Block b)
-            => FbdOperators.TypeToSymbol.ContainsKey(b.TypeName) || string.IsNullOrEmpty(b.InstanceName);
+        /// <summary>A leaf can sit inline iff its text is a single safe token — no whitespace (which would
+        /// mis-split an operator expression) and no parens (which would mis-parse as a call or group).</summary>
+        private static bool IsSafeToken(string t) =>
+            t.IndexOf(' ') < 0 && t.IndexOf('(') < 0 && t.IndexOf(')') < 0;
 
-        /// <summary>A leaf is inlinable iff its rendered text is a single safe token — no whitespace (which
-        /// would mis-split an operator expression) and no parens (which would mis-parse as a call/group). Opaque
-        /// leaves (`a + 1`, `NOT x`, `f(x)`) fail this and are named instead.</summary>
-        private static bool IsInlinableLeaf(InVar iv)
+        private string Mint(string prefix, ref int n)
         {
-            var t = ApplyMods(iv.Expression, iv.Mods);
-            return t.IndexOf(' ') < 0 && t.IndexOf('(') < 0 && t.IndexOf(')') < 0;
+            string s;
+            do { s = prefix + (++n); } while (_reserved.Contains(s) || _wires.Contains(s));
+            return s;
         }
 
-        /// <summary>Order blocks so every block appears after the blocks feeding its inputs;
-        /// ties broken by localId for determinism. Cycles (shouldn't occur in FBD) fall back to
-        /// localId order.</summary>
-        private static List<Block> TopoOrder(List<Block> blocks, IReadOnlyDictionary<long, GraphNode> byId)
+        private static void CollectInstances(Node n, HashSet<string> into)
         {
-            var blockIds = new HashSet<long>(blocks.Select(b => b.LocalId));
-            var result = new List<Block>();
-            var state = new Dictionary<long, int>(); // 0=unseen,1=visiting,2=done
-            var map = blocks.ToDictionary(b => b.LocalId);
-
-            void Visit(Block b)
+            switch (n)
             {
-                if (state.TryGetValue(b.LocalId, out var s) && s == 2) return;
-                if (s == 1) return; // cycle guard
-                state[b.LocalId] = 1;
-                foreach (var dep in b.Inputs.Where(p => p.Source != null)
-                             .Select(p => p.Source!.RefLocalId)
-                             .Where(x => blockIds.Contains(x))
-                             .OrderBy(x => x))
-                    Visit(map[dep]);
-                state[b.LocalId] = 2;
-                result.Add(b);
+                case Box b:
+                    if (b.Instance is { } i && !string.IsNullOrEmpty(i.Text)) into.Add(i.Text);
+                    if (b.Enable is { } e) CollectInstances(e, into);
+                    foreach (var p in b.Inputs) CollectInstances(p.Value, into);
+                    break;
+                case Assign a:
+                    if (a.Value is { } v) CollectInstances(v, into);
+                    break;
+                case Parallel p2:
+                    if (p2.Input is { } pi) CollectInstances(pi, into);
+                    foreach (var br in p2.Branches) CollectInstances(br, into);
+                    break;
+                case Terminator t:
+                    if (t.Input is { } ti) CollectInstances(ti, into);
+                    break;
             }
-
-            foreach (var b in blocks.OrderBy(b => b.LocalId)) Visit(b);
-            return result;
         }
     }
 }
