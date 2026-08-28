@@ -290,6 +290,23 @@ Volt.Engine/
 - [ ] 3b.5 **Delete `PlcOpen/` outright** once both adapters exist, and add the `bun run check` guard so it
       cannot come back. This is 3.3, restated as a deletion rather than a relocation.
 
+## 3c. File-level structure — `structure.md`
+
+`layout.md` plans packages and folders; **`structure.md` plans every FILE**: new / deleted / retargeted /
+untouched, both drivers' internals, the new model's shape, the test set, and a line-count budget.
+
+Two things it settles that were not settled before:
+
+- [ ] 3c.1 **`GraphModel` is REBUILT, not reused.** Its own summary calls it "a faithful projection of a
+      PLCopenXML body ... wiring by `localId`/`refLocalId` taken verbatim from the XML", and it carries
+      `NetworkStride = 10^10` (an FBD id-packing quirk) and `OpaqueNode(RawXml)` — raw PLCopen XML inside the
+      supposedly neutral model. Targeting both new adapters at it would delete PLCopen and keep its data model.
+      `NetworkModel.cs` replaces it, shaped on `INetwork`/`IBoxTree`, which is what both vendors actually expose.
+- [ ] 3c.2 **The network-text FORMAT is NOT rewritten.** It is a product surface — engineers' `.fb` files,
+      `volt-lsp-iec`'s sublanguage, `docs/network-text.md`. `NetworkTextReader`/`Writer` are retargeted at the
+      model only, and their fixtures are the regression net for the entire change. A network-text test whose
+      EXPECTATIONS need editing is the signal that this went wrong.
+
 ## 4a. The CODESYS NWL adapter (new — gated on 1b.10)
 
 - [ ] 4a.1 `NWLImplementationObject.NetworkList` -> `GraphModel`, via `INWLItemVisitor` rather than a parser.
