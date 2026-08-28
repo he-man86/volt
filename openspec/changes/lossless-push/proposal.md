@@ -1,3 +1,13 @@
+> **SCOPE NARROWED — this is now a CODESYS-ONLY change.** `pou-transport-per-vendor` measured both vendors'
+> transports and moves TwinCAT to its native document, where **nothing is regenerated**, so none of the losses
+> below can occur there: a native body survives a write byte-for-byte (§W14), there are no contacts to demote
+> (§NWL), and `FolderPath` is carried (§R9). CODESYS keeps PLCopen, keeps projecting a graph through network text
+> and back, and therefore keeps every loss this change exists to stop — plus R10, the disabled network, which no
+> CODESYS transport can fix.
+>
+> **Size it accordingly:** in a real customer project, 248 of 249 POUs have a textual implementation — **one
+> graphical POU in 1,314 objects**. Read `pou-transport-per-vendor/checklist.md` first.
+
 ## Why
 
 **The set of things a graphical push can destroy is open-ended, and it is discovered by whoever hits it.**

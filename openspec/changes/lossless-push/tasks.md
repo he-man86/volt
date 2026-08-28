@@ -1,3 +1,6 @@
+> **CODESYS-ONLY.** See `proposal.md` — TwinCAT moves to a native transport that regenerates nothing, so none
+> of this applies there. Do not implement it for both vendors.
+
 ## 0. Evidence already in hand (do not re-derive)
 
 - **The regeneration is lossy and the loss is a FIXED POINT.** `original != regenerated` on 9 of 9 recorded
