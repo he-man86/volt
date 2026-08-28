@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltFixtureSfc" Id="{b0839be8-0124-42ea-9891-615f18361e75}" SpecialFunc="None">
+  <POU Name="VltFixtureSfc" Id="{15612d9a-d3a6-439d-aafe-a05c03e3621a}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM VltFixtureSfc
 VAR
 END_VAR]]></Declaration>
@@ -129,7 +129,7 @@ END_VAR]]></Declaration>
                       <v n="IdParent">2L</v>
                     </o>
                     <o t="SFCTransition">
-                      <n n="VariableName" />
+                      <v n="VariableName">"Init__to__Init"</v>
                       <n n="EmbeddedTransition" />
                       <l2 n="EmbeddedTransitionProperties" />
                       <l2 n="Attributes" cet="SFCAttribute">
@@ -230,7 +230,35 @@ END_VAR]]></Declaration>
                     </o>
                   </l2>
                 </o>
-                <l2 n="Attributes" />
+                <l2 n="Attributes" cet="SFCAttribute">
+                  <o>
+                    <v n="AttributeId">{38391c6d-6d4a-42f8-8ee7-9f45e5adafa8}</v>
+                    <o n="Value" t="StringValue">
+                      <v n="Value">""</v>
+                      <v n="DefaultValue">""</v>
+                    </o>
+                    <v n="Id">26L</v>
+                    <v n="IdParent">2L</v>
+                  </o>
+                  <o>
+                    <v n="AttributeId">{7d894980-aeea-405c-a0f6-e2b26429c58f}</v>
+                    <o n="Value" t="StringValue">
+                      <v n="Value">""</v>
+                      <v n="DefaultValue">""</v>
+                    </o>
+                    <v n="Id">27L</v>
+                    <v n="IdParent">2L</v>
+                  </o>
+                  <o>
+                    <v n="AttributeId">{01580b27-6378-448b-8ecb-0e4b795b58d6}</v>
+                    <o n="Value" t="BoolValue">
+                      <v n="Value">"FALSE"</v>
+                      <v n="DefaultValue">"FALSE"</v>
+                    </o>
+                    <v n="Id">28L</v>
+                    <v n="IdParent">2L</v>
+                  </o>
+                </l2>
                 <v n="Id">2L</v>
                 <v n="IdParent">-1L</v>
               </o>

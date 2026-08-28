@@ -31,7 +31,41 @@ environment. `bun run check` green.
 - [ ] 1.3 **No production behaviour changes in this step.** The partition ships dark, with a test, so that §2 and
       §3 are measured against something already known to be right.
 
-## 2. Element-level carry — this is what makes it usable
+## 2. Element-level carry — ATTEMPTED, MEASURED, REVERTED
+
+**Built, and it worked offline.** All four FBD fixtures preserved `vendorElement`/`fbdattributes` through an
+edit (1 -> 1, previously 0 — the 7-of-7 class), and the LD comment boxes went 4 -> 4. Decoration was defined
+structurally (unwired AND unreferenced) rather than by a name list, carried by SHORTFALL so it could not
+duplicate, and renumbered into the target band. `RequireNothingLost` turned what the carry could not keep into a
+refusal naming the element. Offline went 706 -> 712, CODESYS e2e stayed 143/8/0.
+
+**And it broke the live TwinCAT create path, three times.** `graphical/splice` reported a POU pushed with 2
+networks fetching back with 3 — a PHANTOM NETWORK. Three fixes, each targeting a real defect, none of which made
+the live test pass:
+
+1. Carried elements kept their STORED localId, and `GraphReader.SplitNetworks` groups by localId BAND — so an
+   element carried in from another band forms its own network. Renumbered into the target band.
+2. That renumbering then had to be safe, which it is *only* because decoration is unreferenced — nothing has to
+   be rewritten to follow it. (This also turned the LD comment refusal into a successful carry, 4 -> 4.)
+3. `SplitNetworks` has TWO grouping strategies and one element chooses between them: with any
+   `vendorElement`/`networktitle` present, networks are delimited by MARKER POSITION rather than by band. So a
+   `vendorElement` is sometimes an ornament and sometimes a structural delimiter — **an element with no
+   connections and no referents can still be structural, by position**. Excluded networktitles from decoration.
+
+Still 140/1. **Reverted**, and the tree is back to 706/142/80/3.
+
+### What the attempt actually established
+
+Not that the idea is wrong — offline it demonstrably worked. What it established is that **repairing a
+regeneration is unbounded**: each fix was correct, each exposed a further way the format carries meaning the
+graph model does not (identity by band, structure by position), and there is no reason to believe the third was
+the last. That is the argument for `pou-transport-per-vendor` and for storing a body verbatim rather than
+rebuilding one we already had.
+
+**Do not resume this until the transport question is settled.** If TwinCAT moves to `DocumentXml`, the set of
+things a projection cannot express changes shape entirely, and so does everything below.
+
+## 2b. The original plan, kept for whenever it resumes
 
 - [ ] 2.1 **Transplant non-expressible elements from the stored network onto the regenerated one** by `localId`
       correspondence. An element whose anchor the engineer deleted goes with it — legitimately, because the text
