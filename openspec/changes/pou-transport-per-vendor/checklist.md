@@ -525,3 +525,41 @@ programme exists to prevent.
 `Reset` and concluded from absence that the semantics were absent. Both times the answer was in `Flags`, encoded
 by VALUE. **An absence found by grepping for a NAME is not evidence about a format that may encode numerically.**
 The reliable technique is differential: toggle one input, diff the output, read the mechanism off the delta.
+
+### `Flags` is DOCUMENTED, not a puzzle — read it from the shipped assembly
+
+Decoding `Flags` by differential worked, but it was unnecessary. **`C:\TwinCAT.1\Components\Plc\CommonNWLObject.dll`** (assembly `NWLObject 3.5.13.0` — a **3S** assembly shipped inside TwinCAT, which is itself
+evidence of the shared ancestry) declares the interface:
+
+```
+_3S.CoDeSys.NWLObject.IFlags
+    Negation : bool     Set : bool      Jump : bool
+    Return   : bool     Rtrig : bool    Ftrig : bool
+```
+
+Six booleans, and their declaration order maps onto the bit values:
+
+| bit | value | `IFlags` member | independently measured |
+|---|---|---|---|
+| 0 | **1** | `Negation` | ✓ `negated="true"` → `Flags=1` |
+| 1 | 2 | `Set` | not exercised |
+| 2 | **4** | `Jump` | ✓ the fixture is `PLC_PRG_jump_sr` — it contains a jump |
+| 3 | 8 | `Return` | not exercised |
+| 4 | **16** | `Rtrig` | ✓ `edge="rising"` → `Flags=16` |
+| 5 | 32 | `Ftrig` | not exercised |
+
+**Three of six verified against live measurement, and the previously-undecoded `4` is explained** — it is the
+JUMP in `jump_sr`, not a pin modifier at all. `Set`, `Return` and `Ftrig` are inferred from declaration order and
+remain unverified; a differential closes each in one import if it ever matters.
+
+The assembly also carries the neighbouring vocabulary the converter will want:
+`NWLDisplayMode { LD=0, FBD=1, IL=2 }` (the language, matching `DefaultViewMode`), and
+`TypeHandlingMode { Embedded, Declaration, PreferEmbedded, PreferDeclaration }` — which is the vendor's own name
+for the choice Volt makes when resolving FB instance types, and worth reading before the converter re-invents it.
+
+**Method, generalised.** The recipe already in `ARCHITECTURE.md` for `TCatSysManager.tlb` extends to the PLC
+engineering assemblies: `C:\TwinCAT.1\Components\Plc\Common\*.dll` are ordinary .NET assemblies —
+`Assembly.LoadFrom` + reflect. `NWLObject.dll` is the authority for the NWL body model, `PLCopenXML.dll` for the
+export, `CFCEditor.dll` for CFC. **Reflect first; differential only for what reflection does not name.** Both
+were needed here and they agreed, which is the ideal outcome: the measurement proved the encoding is real and
+live, the assembly named it.

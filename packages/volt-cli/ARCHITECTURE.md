@@ -387,6 +387,25 @@ That last line is worth keeping: Beckhoff's own object model encodes the fact th
 declaration**, which this repo previously learned the hard way. When a vendor fact and a Volt assumption
 disagree, the type library is the tiebreaker.
 
+**TwinCAT's PLC ENGINEERING assemblies are also plain .NET, and they are the authority for the native body
+model.** `C:\TwinCAT.1\Components\Plc\Common\*.dll` — `Assembly.LoadFrom` + reflect, no TLB step:
+
+```
+NWLObject.dll   (_3S.CoDeSys.NWLObject, v3.5.13)   the FBD/LD network model
+    IFlags            Negation, Set, Jump, Return, Rtrig, Ftrig   <- the per-node bit-field
+    NWLDisplayMode    LD=0, FBD=1, IL=2
+    TypeHandlingMode  Embedded, Declaration, PreferEmbedded, PreferDeclaration
+PLCopenXML.dll  the export/import
+CFCEditor.dll   CFC
+```
+
+Note the assembly is a **3S** one shipped inside TwinCAT — the shared CODESYS ancestry, visible in the binaries.
+
+**Reflect FIRST; use a differential only for what reflection does not name.** `Flags` in the NWL archive was
+decoded the hard way (toggle one PLCopen attribute, re-import, diff the native) before anyone looked in
+`NWLObject.dll`, which names every bit. The two agreed — the measurement proved the encoding is live, the
+assembly named it — but the reflection would have been minutes.
+
 **CODESYS — reflect over the plugin assemblies** (`ScriptDriver*.plugin.dll`), tolerating
 `ReflectionTypeLoadException` and reading `ex.Types`. That is how `CreateNativeXmlExportService` /
 `CreateNativeXmlImportService` were found alongside the PLCopen pair — after this repo had asserted in writing
