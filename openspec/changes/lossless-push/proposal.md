@@ -127,7 +127,9 @@ assertion that the loss set is **empty**. Its current thirteen entries are the w
 
 ## Non-goals
 
-- **Adopting a native transport.** Measured and rejected twice (`declaration-from-the-aspect/transport-census.md`
+- **Adopting a native transport — SUPERSEDED, see the banner above.** This read "measured and rejected twice";
+  `pou-transport-per-vendor` later measured properly and moved TwinCAT TO its native document. The sentence below
+  is left as the record of what was believed (`declaration-from-the-aspect/transport-census.md`
   §3): TwinCAT's `DocumentXml` is a 3S object-archive tree against PLCopen's graph, and CODESYS's `export_native`
   is the same family in a different vocabulary with **GUID-identified types**. Two converters, one GUID-mapped,
   replacing one shared implementation.
