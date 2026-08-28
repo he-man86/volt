@@ -107,3 +107,69 @@ with it and the engine keeps the policy. But each one needs deciding, not moving
 
 Doing 3 first would break TwinCAT, which still needs PLCopen. Doing 1 last would mean moving code that still has
 engine callers.
+
+---
+
+# Vendor independence — the property this must guarantee
+
+**Requirement: changing one vendor's transport must be a change to THAT vendor's package and nothing else.** If
+PLCopen turns out to be wrong for CODESYS in a year, that must be a CODESYS-package change — not a refactor.
+
+## The rule that delivers it
+
+Dependencies point **one way only**:
+
+```
+Volt.Engine   ──referenced by──▶   Volt.Cli.Ide.Codesys
+      ▲                            Volt.Cli.Ide.Twincat
+      └── never references either, and never references any vendor's format
+```
+
+A driver implements `ICodeStore` / `IProjectTree` and answers in Volt's own types. The engine never learns which
+transport produced the answer, so it cannot depend on one. **That is the whole mechanism** — there is no vendor
+switch, no strategy registry, no per-vendor branch to keep in step.
+
+## The exact surface a driver may touch
+
+Everything a transport swap could need is here, and nothing else:
+
+| type | owner | why a driver needs it |
+|---|---|---|
+| `ItemContent` | engine | what a POU IS: kind, declaration, body, members, folders |
+| `GraphModel` | engine | the neutral graphical model a graphical body maps to |
+| `ItemRef`, `ItemKind` | engine | identity and classification |
+| `ICodeStore`, `IProjectTree` | engine | the contract itself |
+
+**Two of those are shared MODELS, and they are the only places a leak could occur.** Be honest about it:
+
+- If a new transport carries **less** than these express, it simply fills fewer fields. Fully isolated — swap it
+  freely.
+- If it carries **more**, the model may need a field. That is an engine change — but it is a change to **Volt's
+  own model**, made ONCE, not a vendor leak and not repeated per swap.
+
+**There is a known instance of exactly this, already:** TwinCAT's native document carries per-network `Title`,
+`Label` and `OutCommented`. `GraphModel` has nowhere to put them, because PLCopen never carried them. So adopting
+that transport forces a one-time model extension (`tasks.md` §4.3). That is the honest cost of the property, and
+it is bounded: it happens when Volt's model gains a capability, not when a vendor changes how it serializes.
+
+## How it is enforced, not merely intended
+
+- [ ] **`Volt.Engine` must not name a vendor format.** No `plcopen`, no TC6 namespace, no `addData`, no `NWL`,
+      no `BoxTree`. A source scan in `bun run check`, failing the build — the same shape as
+      `RequiredAddDataGuardTests`, which was written after an optional vendor extension became a hard dependency
+      and took out a whole IDE.
+- [ ] **`Volt.Engine` must not reference either driver project.** Trivially checkable from the csproj graph, and
+      it is true today — keep it true.
+- [ ] **No vendor identity in engine control flow.** No `if (vendor == …)`, no `switch` on vendor, no capability
+      flag consulted by the engine. If the engine has to ask *which IDE this is*, the contract is wrong.
+- [ ] **The swap test, stated as a question a reviewer can answer:** *"To move CODESYS off PLCopen, which files
+      change?"* The answer must be **only files under `Volt.Cli.Ide.Codesys/`** — unless the new transport
+      carries something Volt's model cannot yet express, which is the bounded exception above and must be called
+      out explicitly rather than absorbed.
+
+## What this deliberately does NOT do
+
+It does not create a shared format package. PLCopen currently sits in the engine *because* two vendors happened
+to use it — which is precisely how it became a neutral-layer dependency. Once TwinCAT is native, PLCopen has one
+consumer and belongs in that consumer. **If two vendors ever genuinely share a format, a shared package becomes
+justified at that point** — on evidence, not in anticipation.
