@@ -170,6 +170,39 @@ INWLItemVisitor :  Visit(INWLImplementationObject) Visit(INetwork) Visit(IILStat
 LD structures (`Parallel`, `Terminator`) are modelled because LD needs them, and `Mux`/`Demux` are deliberately
 NOT in the model until an LD fixture proves they are reachable — see the open question below.
 
+### Fan-out, settled by CONSTRUCTION — 2026-08-28
+
+The fixture route failed first and the failure is worth keeping: importing a hand-made PLCopen body was
+refused by the real importer for missing `pouType`, then for a missing `height`. **Volt's own FBD fixtures are
+not importable documents** — they were authored for Volt's parser, which never required the position
+attributes CODESYS does. So the shapes were BUILT with the constructors instead, which is stronger evidence
+anyway: the input is exactly what was intended, not what a fixture happens to contain.
+
+**(a) One value into several sinks — `BoxTreeAssign.Outputs`. Proven, survives save/reload.**
+
+```
+BoxTreeAssign
+  .RValue  BoxTreeBox BoxType='AND'  CallType=Operator.And  EnEno=True
+             .InputItemList (2)  BoxTreeOperand -> Operand 'a' / 'b'
+  .Outputs (2)  Operand 'r', Operand 'r2'
+```
+
+Only `BoxType="AND"` was set plus two `AppendInputItem` calls: **the IDE derived `CallType` and `EnEno`
+itself**. So an adapter writes the type NAME and lets the vendor classify — it must not try to compute
+`CallType`, and `Operator` lives in `_3S.CoDeSys.Core.LanguageModel`, not in the NWL plugin.
+
+This is `Assign(Value, Targets: [r, r2])` in `NetworkModel`, unchanged.
+
+**(b) A wire into several BOXES — split points — is NOT yet reachable.** `AppendSplitPoint(Operand("g1"))`
+returns true, but after a save/reload `GetSplitPoint(0)` is `None`: a split point with no producing tree is
+dropped. So the shape network text spells as a multi-use `LET g := …` has no demonstrated vendor
+representation yet, and the CODESYS writer must **refuse such a body loudly** rather than silently duplicating
+the subtree — duplicating would draw two boxes where the engineer drew one, and change what the program does.
+
+**A robustness fact with teeth:** `NetworkItemCount` came back as **2** while only one real tree exists —
+the dropped split point still counts. A reader iterating `GetTree(0 .. NetworkItemCount-1)` therefore hits a
+NULL, and must skip it rather than assume the count is the number of trees.
+
 ### Four things this settled that would otherwise have been guessed
 
 1. **EN/ENO is a box PROPERTY** (`EnEno`/`En`/`Eno`), not a pin named `"EN"`. `GraphModel` found it by
