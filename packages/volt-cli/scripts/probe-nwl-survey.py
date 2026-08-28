@@ -226,6 +226,18 @@ try:
                             aspects[an] = aspects.get(an, 0) + 1
                             nets = prop(impl, "NetworkList")
                             if nets is not None:
+                                if not hasattr(S, "_dumped"):
+                                    S._dumped = True
+                                    log("")
+                                    log("### the implementation aspect's own properties (%s) ###" % nm)
+                                    for pp in sorted(impl.GetType().GetProperties(_bf()), key=lambda x: x.Name):
+                                        try:
+                                            v = pp.GetValue(impl, None)
+                                        except Exception:
+                                            v = "<threw>"
+                                        if pp.Name in ("NetworkList",):
+                                            v = "<%d networks>" % len(v)
+                                        log("    %-34s = %r" % (pp.Name, v))
                                 S.pous += 1
                                 survey_networks(nets, nm)
                 except Exception:

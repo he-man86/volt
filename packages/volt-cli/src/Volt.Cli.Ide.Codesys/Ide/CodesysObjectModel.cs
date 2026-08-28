@@ -165,6 +165,28 @@ namespace Volt.Cli.Ide.Codesys
             }
         }
 
+        /// <summary>Run a mutation inside ONE <c>GetObjectToModify</c>/<c>SetObject</c> transaction — the same
+        /// checkout/commit pair <see cref="WriteSourceText"/> uses, exposed for callers that mutate the object
+        /// GRAPH rather than an aspect's text (a graphical body).
+        /// <para>A throw rolls the checkout back and the ORIGINAL exception is rethrown: the rollback's own
+        /// error is swallowed on purpose, because it would mask the diagnostic the caller actually needs.</para></summary>
+        public void ModifyObject(object node, Action<object?> mutate)
+        {
+            if (_objMgr == null) throw new InvalidOperationException("CODESYS ObjectManager unavailable");
+            var meta = InvokeMethod(_objMgr, "GetObjectToModify", HandleOf(node), GuidOf(node))
+                       ?? throw new InvalidOperationException("GetObjectToModify returned null");
+            try
+            {
+                mutate(GetMember(meta, "Object"));
+                InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
+            }
+            catch
+            {
+                try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { }
+                throw;
+            }
+        }
+
         /// <summary>Write one aspect's text (Interface = declaration, Implementation = body).
         /// <para>A MISSING ASPECT is a legitimate answer — a GVL has no implementation — and the CALLER decides
         /// that by passing null for a slot the kind does not have. But an aspect that EXISTS while its
