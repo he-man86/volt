@@ -71,6 +71,28 @@ public class StoredVsPushedTests
         ["ld_ton_rung_two_networks.plcopen.xml"] = new[] { "comment x2", "comment/@height x2", "comment/@localId x2", "comment/@width x2", "connection x1", "connection/@refLocalId x1", "connectionPointIn x1", "contact x1", "contact/@edge x1", "contact/@localId x1", "contact/@negated x1", "contact/@storage x1", "content x2", "position x2", "position/@x x2", "position/@y x2", "variable x1", "xhtml x2" },
         ["PLC_PRG.plcopen.xml"] = new[] { "addData x1", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "data x1", "data/@handleUnknown x1", "data/@name x1", "fbdattributes x1", "position x1", "position/@x x1", "position/@y x1", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },
         ["PLC_PRG_jump_sr.plcopen.xml"] = new[] { "addData x1", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "data x1", "data/@handleUnknown x1", "data/@name x1", "fbdattributes x1", "position x1", "position/@x x1", "position/@y x1", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },
+        // POU_PBD IS NOT A DECORATION LOSS LIKE THE OTHERS — it loses the whole network, and the reason is a
+        // modelling gap worth stating plainly. Its single network is `FALSE AND FALSE` into an AND block whose
+        // `Out1` is UNCONSUMED: no outVariable, no assignment. Network text is assignment-oriented, so
+        // `RenderBody` produces exactly:
+        //
+        //     NETWORK 1 FBD
+        //     END_NETWORK
+        //
+        // …an EMPTY network. Regeneration from that text therefore writes nothing, which is why this baseline
+        // lists the block, the inVariables, the connections and the variables rather than just vendor addData.
+        //
+        // MEASURED, both directions:
+        //   - PUSH is safe. The production path passes the <body> element, `RenderBody(existing) == text`, and
+        //     the no-op short-circuit in NetworkCodec.Encode returns false: 38 elements in, 38 out, untouched.
+        //   - PULL is NOT. The engineer materializes an empty network where the IDE holds an AND with two
+        //     inputs. The logic is invisible to them and to the LSP, silently. And an edit to that network
+        //     would regenerate from empty text — this table — with no refusal.
+        //
+        // [UNMEASURED: whether a real project ever holds an output-less network outside mid-edit. POU_PBD is a
+        //  scratch POU. Representing one needs a bare-expression form in network text, which the format does not
+        //  have; refusing to render it as EMPTY (a marker instead) is the smaller, honesty-preserving fix.]
+        ["POU_PBD.plcopen.xml"] = new[] { "CallType x1", "InputParamTypes x1", "OutputParamTypes x1", "addData x2", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "block x1", "block/@localId x1", "block/@typeName x1", "connection x2", "connection/@refLocalId x2", "connectionPointIn x2", "connectionPointOut x3", "data x4", "data/@handleUnknown x4", "data/@name x4", "expression x2", "fbdattributes x1", "inOutVariables x1", "inVariable x2", "inVariable/@localId x2", "inputVariables x1", "outputVariables x1", "position x4", "position/@x x4", "position/@y x4", "variable x3", "variable/@formalParameter x3", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },
         ["POU.plcopen.xml"] = new[] { "addData x1", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "data x1", "data/@handleUnknown x1", "data/@name x1", "fbdattributes x1", "position x1", "position/@x x1", "position/@y x1", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },
         ["POU_SfcRoot_StFbdMethods.plcopen.xml"] = new[] { "addData x1", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "data x1", "data/@handleUnknown x1", "data/@name x1", "fbdattributes x1", "position x1", "position/@x x1", "position/@y x1", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },
         ["VltFbd_FbdRoot.plcopen.xml"] = new[] { "addData x1", "alternativeText x1", "attribute x1", "attribute/@name x1", "attribute/@value x1", "data x1", "data/@handleUnknown x1", "data/@name x1", "fbdattributes x1", "position x1", "position/@x x1", "position/@y x1", "vendorElement x1", "vendorElement/@localId x1", "xhtml x1" },

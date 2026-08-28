@@ -354,6 +354,49 @@ See `README.md` for commands. In short: `dotnet build Volt.Cli.sln`; the C# unit
 bridge over the pipe; the headless CODESYS dev loop is `scripts/codesys-pipe.ps1` (the TwinCAT worker is spawned
 by the connector).
 
+## Reading a vendor API instead of guessing at it
+
+Twice now a HIDDEN ARGUMENT has cost real debugging time, and both times the answer took minutes once the API
+surface was read properly:
+
+- `PlcOpenImport`'s `options` was hardcoded to `NONE`, which fails on a name collision. That made "TwinCAT
+  cannot replace a POU in place" look like a vendor limit **for months** (DIALECT D4c). `1` = `REPLACE` replaces
+  in place and always did.
+- `ITcPlcOpenImportExport2.PlcOpenExport2` was assumed to take an options flag that would bring back a missing
+  export block. It takes `bSubTree`. The assumption would have sent the fix down the wrong path entirely.
+
+**TwinCAT — the type library IS the authoritative surface, and it is importable.** `TlbImp.exe` ships with the
+Windows SDK:
+
+```
+TlbImp.exe "C:\TwinCAT.1\Components\Base\TCatSysManager.tlb" /out:TCatSysManagerLib.dll /silent
+```
+
+Reflecting over the result gives every interface, method, parameter name and type, OFFLINE — no running IDE, no
+trial-and-error against a live project. That is how these were settled:
+
+```
+ITcPlcOpenImportExport    PlcOpenExport (bstrFile, bstrSelection)
+ITcPlcOpenImportExport2   PlcOpenExport2(bstrFile, bstrSelection, bSubTree)   <- bSubTree, NOT options
+ITcPlcPou                 DeclarationText {get;set}  ImplementationText {get;set}
+                          ImplementationXml {get;set}  DocumentXml {get;set}  Language {get;set}
+_ITcPlcImplementation     ImplementationText, but NO DeclarationText
+```
+
+That last line is worth keeping: Beckhoff's own object model encodes the fact that **an ACTION has no
+declaration**, which this repo previously learned the hard way. When a vendor fact and a Volt assumption
+disagree, the type library is the tiebreaker.
+
+**CODESYS — reflect over the plugin assemblies** (`ScriptDriver*.plugin.dll`), tolerating
+`ReflectionTypeLoadException` and reading `ex.Types`. That is how `CreateNativeXmlExportService` /
+`CreateNativeXmlImportService` were found alongside the PLCopen pair — after this repo had asserted in writing
+that CODESYS had no native transport at all. For anything script-facing the faster route is a throwaway
+`--runscript` probe that prints `dir(obj)`.
+
+**Probing a live IDE.** TwinCAT is reachable over the COM ROT from PowerShell
+(`Marshal.GetActiveObject('TcXaeShell.DTE.15.0')`). Two traps, both hit in practice: a modal dialog blocks every
+COM call, and an XAE that started WITHOUT loading its solution answers happily while `Solution.FullName` is empty
+and `Projects.Count` is `0` — check those before trusting anything a probe or an e2e run reports.
 ## Related docs
 
 - `docs/ITEM_KINDS.md` — the vendor-neutral item-type coverage map (`Item/ItemKind` is the source of truth).

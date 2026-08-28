@@ -88,7 +88,50 @@ and GVL.
       else was watching — which is the case for having written it. `objectid` and `projectstructure` carry
       declared entries with their reason and the bound on the degradation.
 
-## 4. Fixtures and the vendor record — **open**, §7.
+## 4. Fixtures and the vendor record
+
+- [x] 4.1 **`POU_PBD` recorded**, both halves: the live PLCopen export and the native `.TcPOU`, paired in
+      `fixtures/tc-pou/`. Registering it in `Untitled2.plcproj` was also a REPAIR — an earlier `git checkout` of
+      that file to undo run damage restored a version predating the POU, silently dropping its registration.
+- [x] 4.2 **`FB_PackML_Unit` recorded** — 15,638 chars, **0** `interfaceasplaintext`, **45** `<variable>`. The
+      regression preserved in vendor bytes rather than as a story.
+- [x] 4.3 `DIALECT.md` rows A17/A18/A19; the gap-refusal reason upgraded from inferred to **CONFIRMED**.
+- [x] 4.4 The `DISABLED` marker closed, negatively and with the fixture behind it.
+- [x] 4.5 **The TLB/reflection recipe** is in `ARCHITECTURE.md` — "Reading a vendor API instead of guessing at
+      it", with both hidden arguments that cost time, and the two live-probe traps (a modal dialog blocks COM; an
+      XAE with no solution loaded answers happily with `Projects.Count == 0`).
+- [x] 4.6 **`VendorExportOmissionsTests`** pins what the export does NOT contain, against those bytes. Its
+      word-boundary patterns are required to MATCH in the native file before their absence from the export is
+      allowed to mean anything — added after two assertions of mine passed vacuously, one matching `Untitled2`
+      and one searching for a literal BACKSPACE character.
+
+### 4.7 What recording `POU_PBD` immediately found
+
+`StoredVsPushedTests` scans the fixture directory, so the new fixture was censused on the next run — and it does
+not lose vendor decoration like the other seven FBD exports. **It loses the whole network.**
+
+Its single network is `FALSE AND FALSE` into an AND block whose `Out1` is UNCONSUMED — no `outVariable`, no
+assignment. Network text is assignment-oriented, so `RenderBody` produces an EMPTY network:
+
+```
+NETWORK 1 FBD
+END_NETWORK
+```
+
+Measured in both directions:
+
+- **PUSH is safe.** The production path passes the `<body>` element, `RenderBody(existing) == text`, and the
+  no-op short-circuit in `NetworkCodec.Encode` returns false — 38 elements in, 38 out, untouched. (A first probe
+  said otherwise; it passed the `<FBD>` element instead of `<body>`, so `Locate` found nothing and the
+  short-circuit could not fire. The probe was wrong, not the code.)
+- **PULL is not.** The engineer materializes an empty network where the IDE holds an AND with two inputs. The
+  logic is invisible to them and to the LSP, silently — and an edit to that network would regenerate from empty
+  text with no refusal.
+
+Recorded in `KnownLoss` with that reason. **Not fixed here**: representing an output-less network needs a
+bare-expression form the network-text format does not have, and the honesty-preserving fix is smaller — render a
+marker rather than an empty network, so "Volt cannot show this" is not spelled the same way as "this is empty".
+`[UNMEASURED: whether a real project holds an output-less network outside mid-edit. POU_PBD is a scratch POU.]`
 
 ## 5. Explicitly NOT in this change
 
