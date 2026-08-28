@@ -20,7 +20,7 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 | R6 | **Member declarations, verbatim** | | ✗ **`VAR_INPUT` appears NOWHERE in a probe FB's export** | ✓ proved | ✓ | ~ |
 | R7 | Member bodies | | ✓ | ✓ proved | ✓ | ~ |
 | R8 | **Accessor declarations + bodies** | | ~ bodies yes; declarations only in the LOSSY typed form | ? nested `<Get>` proved on write, read unmeasured | ✓ | ~ |
-| R9 | Member folder placement | Otherwise a push duplicates members at the POU root | ✓ tree walk | ? | ✓ | ~ |
+| R9 | Member folder placement | Otherwise a push duplicates members at the POU root | ✓ tree walk | ✓ **`<Folder>` + `FolderPath=` ON the member — see §R9** | ✓ | ~ |
 | R10 | **Network `Title` / `Label` / disabled** | A disabled network is running-program state | ✗ **none carried; a disabled network is OMITTED ENTIRELY** (`POU_PBD`: 2 native → 1 exported) | ✓ `OutCommented`, `Title`, `Label` | ✗ same PLCopen limit | ? |
 | R11 | Identity across rename | | ✓ `objectid` | ✓ `Id` | ✓ flag-gated | ✓ GUID |
 | R12 | Cost | ~1 read per POU per fetch | ~20 ms | **0.3–5 ms** | ~20 ms | ? |
@@ -31,16 +31,16 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 |---|---|---|---|---|
 | W1 | Declaration lands verbatim | ✗ *no block to write into* → **now solved off-transport, via the aspect** | ✓ | ✓ |
 | W2 | ST body lands verbatim | ✓ | ✓ | ✓ |
-| W3 | FBD/LD body lands without destroying what text cannot express | ~ carry + refuse (`lossless-push`) | ? | ~ same |
-| W4 | Unsupported body never overwritten | ✓ refused | ? | ✓ |
+| W3 | FBD/LD body lands without destroying what text cannot express | ~ carry + refuse (`lossless-push`) | ✓ **nothing is regenerated — see §W3** | ~ same |
+| W4 | Unsupported body never overwritten | ✓ refused | ✓ never regenerated | ✓ |
 | W5 | Members created / updated / removed | ✓ one document write | ✓ proved (spliced `<Method>` + `<Property>` landed) | ✓ |
 | W6 | Member declarations land | ✗ *no block* → **solved via the aspect** | ✓ | ✓ |
 | W7 | Member bodies land | ✓ | ✓ | ✓ |
 | W8 | **Accessor declarations land** | ✗ **REFUSES** — `Declaration.Write` needs a block that does not exist | ✓ proved on write | ✓ |
-| W9 | Member folders survive | ~ import FLATTENS them; Volt re-places from its own `%FOLDER` | ? | ~ |
+| W9 | Member folders survive | ~ import FLATTENS them; Volt re-places from its own `%FOLDER` | ✓ **carried in the document** | ~ |
 | W10 | Network metadata survives | ✗ cannot carry what the read never had | ✓ | ✗ |
 | W11 | **In-place replace** | ✗ **import always relocates to the PLC-project root**; Volt moves it back (D4g) | ✓ set on the item itself | ✓ |
-| W12 | Atomic — refuse rather than half-apply | ✓ | ? | ✓ |
+| W12 | Atomic — refuse rather than half-apply | ✓ | ✓ **MEASURED — refuses whole, with a line/position diagnostic. §W3** | ✓ |
 | W13 | Cost | ~20 ms export + import | **0.3–5 ms** | ~20 ms |
 | W14 | **Untouched content not normalized** | ✗ **reorders `LineIds`, re-indents, ZEROES the POU `Id`, and REGENERATES the declaration from the typed interface** (`x : INT;` → `x: INT;`) | ✓ **MEASURED — byte-identical except the POU `Id`, which PLCopen zeroes too. See §W14** | ~ |
 
@@ -277,3 +277,66 @@ after : <POU Name="fbd" Id="{00000000-0000-0000-0000-000000000000}" …>
   D4d covers handles to the *replaced* item; this is the parent's child enumeration, and it is wider.
 - A `PlcOpenExport`/`Import` round-trip through a recorded fixture is a fine way to stage a body for probing, but
   the probe must run in a **separate invocation** from the import.
+
+---
+
+## §W3 / §W12 — experiment 4: is a bad write refused cleanly?
+
+A transport that cannot refuse is unusable regardless of fidelity. Four documents set onto a live FBD POU
+(baseline 21,692 chars), checking both the outcome and whether the POU survived:
+
+| set | outcome | POU afterwards |
+|---|---|---|
+| truncated XML | **THREW** — *"elements not closed: o, l2, o, l2, … Line 236, position 20"* | **intact** |
+| not XML at all | **THREW** — *"Data at the root level is invalid. Line 1, position 1"* | **intact** |
+| empty string | **THREW** — *"Cannot set empty document"* | **intact** |
+| valid XML, unknown `BoxType` | accepted | changed (21,703) |
+
+`set_DocumentXml` **validates and is atomic**: a malformed document is refused whole, with a line and position,
+and the POU is byte-identical afterwards. That is a stronger guarantee than the PLCopen import offers.
+
+The fourth row is **correct behaviour, not a gap.** An unknown operator is structurally valid XML and a SEMANTIC
+error — the compiler's job, not the transport's. Volt's standing rule is that it does not judge code correctness;
+`volt build` reports it. PLCopen accepts it too.
+
+**W3 is passed for a different reason than the others**: with a native transport nothing is regenerated, so there
+is no "what text cannot express" to destroy in the first place.
+
+## §R9 — experiment 3: do in-POU member folders survive?
+
+Built directly rather than imported — the PLCopen import of the foldered fixture reported success and produced
+nothing, which is its own data point. An FB with a folder `Inner` containing a method `Compute`:
+
+```xml
+<Folder Name="Inner" Id="{f83c01cc-…}" />
+<Method Name="Compute" Id="{141c8bfc-…}" FolderPath="Inner">
+  <Declaration><![CDATA[METHOD Compute : INT
+VAR_INPUT
+	d : INT;
+END_VAR]]></Declaration>
+```
+
+The folder is **structural in the document**: a `<Folder>` element, plus `FolderPath=` on the member. PLCopen's
+importer flattens in-POU folders, which is why `RestoreChildFolders` exists and re-places every member after
+every write, from Volt's own `%FOLDER` directive. **On a native transport that machinery is unnecessary.**
+
+`[UNMEASURED: the method's `<ST>` came back EMPTY in the document immediately after `ImplementationText` was
+set. Either the property write had not settled, or `DocumentXml` and the text properties are not coherent within
+one COM session. Not central to R9, but it must be understood before the native document is used for writes —
+close it by setting the text, re-acquiring, and re-reading.]`
+
+---
+
+# Verdict
+
+**All four deciding cells are closed, and `DocumentXml` passed every one**, including R3, which could have sunk
+the proposal. TwinCAT's PLCopen export fails seven requirements; its native document fails none that were
+measured.
+
+The recommendation is therefore **`DocumentXml` for TwinCAT, PLCopen for CODESYS** — asymmetric, each chosen on
+its own merits, with the parity boundary staying where the architecture already puts it: the wire.
+
+**One caveat carried forward, not hidden:** the write path is proved for setting whole documents and for
+refusing bad ones, but the coherence question in §R9 is open, and a *member-level* write through the native
+document has been proved only by the earlier splice experiment (a `<Method>` and a `<Property>` set back
+successfully). That is enough to decide the direction; it is not yet enough to implement against.
