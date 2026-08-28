@@ -42,7 +42,7 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 | W11 | **In-place replace** | ✗ **import always relocates to the PLC-project root**; Volt moves it back (D4g) | ✓ set on the item itself | ✓ |
 | W12 | Atomic — refuse rather than half-apply | ✓ | ? | ✓ |
 | W13 | Cost | ~20 ms export + import | **0.3–5 ms** | ~20 ms |
-| W14 | **Untouched content not normalized** | ✗ **reorders `LineIds`, re-indents, ZEROES the POU `Id`, and REGENERATES the declaration from the typed interface** (`x : INT;` → `x: INT;`) | ? | ~ |
+| W14 | **Untouched content not normalized** | ✗ **reorders `LineIds`, re-indents, ZEROES the POU `Id`, and REGENERATES the declaration from the typed interface** (`x : INT;` → `x: INT;`) | ✓ **MEASURED — byte-identical except the POU `Id`, which PLCopen zeroes too. See §W14** | ~ |
 
 ---
 
@@ -178,3 +178,50 @@ lowering and instance-type inference rather than adding to them.
 - A project can hold several items of the same name — `PLC_PRG` existed three times here (root, `POUs/`, and a
   `PlcTask/` reference). A name-based walk finds the wrong one and reads 0 chars, which reads as "the API does
   not work". It does.
+
+---
+
+## §W14 — experiment 2, measured 2026-08-28
+
+Does `set_DocumentXml` normalize what it is given? Two parts, on the live LD POU from §NWL.
+
+**A. Identity — set the document back UNCHANGED, read it again.**
+
+| | |
+|---|---|
+| length | 15,175 → **15,175** chars |
+| lines | 329 → **329** |
+| differing lines | **1** |
+
+```
+before: <POU Name="ladder" Id="{b80953f3-4668-40f3-89c5-d9f5e377b01e}" SpecialFunc="None">
+after : <POU Name="ladder" Id="{00000000-0000-0000-0000-000000000000}" SpecialFunc="None">
+```
+
+**B. Isolation — change exactly one operand name.** The rename landed, length went 15,175 → 15,178 (the three
+added characters), and the only other difference was the same `Id` zeroing. Nothing else moved.
+
+### What this settles
+
+`set_DocumentXml` normalizes **exactly one thing: it zeroes the POU `Id`.** Set against PLCopen's importer, which
+reorders `<LineIds>`, re-indents the implementation, zeroes the `Id` *and* regenerates the declaration from the
+typed `<interface>`:
+
+| perturbation | PLCopen import | native set |
+|---|---|---|
+| declaration reformatted (`x : INT;` → `x: INT;`) | ✗ yes | **✓ no** |
+| `<LineIds>` reordered | ✗ yes | **✓ no** |
+| implementation re-indented | ✗ yes | **✓ no** |
+| POU `Id` zeroed | ✗ yes | ✗ yes — **same as today, not a regression** |
+| item relocated to project root | ✗ yes (W11) | **✓ no** |
+
+The one remaining perturbation is **already what happens today**, so it is not a differentiator — and Volt's
+protocol invariant is that **the item NAME is the identity**, not the vendor GUID, so nothing in Volt reads it.
+(It is the churn already visible in every e2e run: fixture `.TcPOU` files come back with a fresh `Id`.)
+
+**The consequence is bigger than the row.** A native body survives a write **byte-for-byte**. That is exactly the
+property `lossless-push` was trying to manufacture with element-level carry and a runtime loss check — here it
+comes free, because nothing is regenerated. Storing a TwinCAT body verbatim and setting it back is lossless by
+construction rather than by verification.
+
+**Verdict on W14: PASS.**
