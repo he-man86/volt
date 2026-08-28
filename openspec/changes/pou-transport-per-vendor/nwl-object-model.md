@@ -136,6 +136,63 @@ That is not a small VSIX away.
   lowering LD into the same node graph as FBD was right. IL being "unsupported" is a Volt POLICY about a view,
   not a separate body format — worth restating in DIALECT that way.
 
+## The complete NWL item vocabulary — measured 2026-08-28
+
+Reflected out of `NWLObject.plugin` (the concrete assembly; `NWLObject` itself holds only interfaces). This is
+the specification `NetworkModel.cs` and both adapters are written against — nothing below is inferred.
+
+**`IBoxTree` — 7 implementations**
+
+| type | the parts that matter |
+|---|---|
+| `BoxTreeAssign` | `RValue:IBoxTree`, `Outputs:IOutputItemList`, `Flags`, `SetInputTree(i, tree)` |
+| `BoxTreeBox` | `BoxType:String`, `CallType:Operator`, `Instance:IOperand`, `InputItemList:IBoxTree[]`, `InputParams:IParamList`, `InputFlags:IFlags2[]`, `OutputParams`, `Outputs`, **`EnEno:Boolean` / `En` / `Eno`**, **`STSnippet:ISTSnippet` / `ProvidesSTSnippet`**, `AppendInputItem`, `ReplaceInput`, `SetInputFlag` |
+| `BoxTreeOperand` | `Operand:IOperand` — ctor `(Operand)` |
+| `BoxTreeParallel` | `Input`, `Trees:IBoxTree[]`, `Mode:OperationMode`, `Append`/`Insert`/`Set`/`Remove` |
+| `BoxTreeMux` | `InputIndex`, `Merger:IBoxTreeBox`, `VarId` |
+| `BoxTreeDemux` | `Input`, `VarId` |
+| `BoxTreeTerminator` | `Input` |
+
+**`IOperand` — exactly 1**: `Operand` — `OperandExpr`, `Type`, `Address`, `Comment`, `SymbolComment`,
+`IsInstance`, `IsLValue`, `Boolean`, `Flags`. Constructors `()`, `(expr)`, `(expr, type)`,
+`(expr, type, flags)`.
+
+**`INWLItem` — 3**: `Network`, `ILStatement` (`Operator`/`Operand`/`PreFix`/`PostFix`), `STSnippet`.
+
+**The vendor's own closed sets** — this is the part worth keeping:
+
+```
+IBoxTreeVisitor :  VisitOperand(IBoxTreeOperand)   VisitBox(IBoxTreeBox)   VisitAssign(IBoxTreeAssign)
+INWLItemVisitor :  Visit(INWLImplementationObject) Visit(INetwork) Visit(IILStatement) Visit(IOperand)
+```
+
+**Three shapes, not seven.** `Leaf` / `Box` / `Assign` in `NetworkModel.cs` are exactly those three arms; the
+LD structures (`Parallel`, `Terminator`) are modelled because LD needs them, and `Mux`/`Demux` are deliberately
+NOT in the model until an LD fixture proves they are reachable — see the open question below.
+
+### Four things this settled that would otherwise have been guessed
+
+1. **EN/ENO is a box PROPERTY** (`EnEno`/`En`/`Eno`), not a pin named `"EN"`. `GraphModel` found it by
+   searching inputs for `FormalParameter == "EN"` — a PLCopen spelling.
+2. **An `EXECUTE` box is a box with an ST snippet** (`STSnippet`, `ProvidesSTSnippet`), not a separate node kind
+   with a `StCode` string bolted on.
+3. **Jump and Return are `IFlags` BITS, not statements.** `structure.md`'s first draft promoted them to
+   statement kinds because network text spells them `JMP name;` / `RETURN;`. That is re-interpreting the
+   vendor's model to suit a rendering — precisely the mistake `GraphModel` made wholesale. They are flags, and
+   the jump target is the destination network's `Label`, which is why `Label` lives on `INetwork`.
+4. **Fan-out is explicit**: `Network.GetSplitPoint` / `AppendSplitPoint` / `InsertSplitPoint` / `SetSplitPoint`,
+   a per-network list of `IOperand`. Network text already spells exactly this as a named `LET g1 := …`. The old
+   writer had to REDERIVE it by counting references across the whole network; now it is a value on the model.
+
+### Open, and it blocks freezing `Flags`
+
+`IFlags` has `Set` but **no `Reset`**. `GraphModel` had `StorageMod { None, Set, Reset }`. Whether an LD reset
+coil is `Set = false`, a distinct item type, or something on the coil, is **not measured** — it needs a real LD
+fixture with a reset coil. Until then `Flags` is provisional, and `Mux`/`Demux` stay out of the model for the
+same reason: no fixture has exercised them.
+
+---
+
 ## What is NOT yet established — do not commit on this page alone
 
 1. ~~Can the in-proc CODESYS driver cast and traverse?~~ **SETTLED — yes.** See MEASURED above.
