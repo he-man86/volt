@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Network;
@@ -11,59 +12,52 @@ namespace Volt.Cli.Ide.Twincat;
 /// <summary>
 /// Writes a <see cref="NetworkBody"/> back into a TwinCAT <c>&lt;NWL&gt;</c> archive.
 ///
-/// <para><b>Only what changed is rewritten.</b> The archive is edited IN PLACE, so every part of the document
-/// the engineer did not touch — <c>Id</c>s, <c>FBDValid</c>, <c>ILLines</c>, <c>Address</c>, <c>Fixed</c>,
-/// and any member Volt does not model — survives byte-for-byte. A network whose rendered text is unchanged is
-/// not written at all. This is the property the PLCopen transport could not have: it regenerated the whole
-/// body from a projection every time, which is why it needed a carry rule to put back what regeneration had
-/// destroyed.</para>
+/// <para><b>This writer creates nothing.</b> Not an element, not a member, not a list entry. It walks the
+/// vendor's own document alongside the pushed model and assigns to members that are ALREADY THERE; anything
+/// else is refused. That one rule is the whole design, and it is here because the version that built elements
+/// from a template wrote twenty <c>.TcPOU</c> files TwinCAT could not open
+/// (<c>Value cannot be null. Parameter name: iILStatement</c>).</para>
+///
+/// <para><b>Why building cannot work here.</b> The archive is a strict typed object-graph serialization: the
+/// reader consumes members in order for the type it was told to expect, so a member set that is close but not
+/// exact makes it mis-assign everything after the discrepancy. And the contract is deep — a real
+/// <c>BoxTreeBox</c> carries <c>InputParam</c>, <c>OutputParam</c>, <c>CallType</c>, <c>EN</c>, <c>ENO</c>,
+/// <c>STSnippet</c>, <c>ContainsExtensibleInputs</c>, <c>ProvidesSTSnippet</c> and an <c>Id</c>, most of which
+/// are results of the IDE RESOLVING the call. Volt does not resolve calls; the IDE does. Synthesizing those
+/// members means guessing at a compiler's output, which is the class of guess that produced unopenable files.
+/// </para>
+///
+/// <para>So the capability is deliberately narrow and provable: <b>edit the VALUES of an existing graphical
+/// body</b> — rename an operand, retype it, change a comment or a title, negate a contact, disable a network.
+/// Adding or removing a rung, a box or an input is done in the IDE and pulled. Each refusal below names the
+/// exact shape change it saw.</para>
 /// </summary>
 internal static class TcNetworkWriter
 {
     /// <summary>Apply the model to the archive and return the new <c>&lt;NWL&gt;</c> body XML, or null when
-    /// nothing changed.</summary>
-    public static string? Apply(string bodyXml, NetworkBody body)
+    /// nothing changed.
+    /// <para>The parse keeps whitespace and the serialization adds none, so an untouched document comes back
+    /// byte-identical — and an unchanged model does not come back at all. Those two together are what make a
+    /// push non-destructive: every id, every <c>Fixed</c>, every <c>ILLines</c> entry and every member Volt
+    /// does not model survives exactly as the IDE wrote it.</para></summary>
+    public static string? Apply(string? bodyXml, NetworkBody body)
     {
-        // ── REFUSED. This wrote unreadable .TcPOU files into a real project. ──────────────────────
-        //
-        // TwinCAT could not open twenty POUs afterwards:
-        //     Reading file failed. Value cannot be null. Parameter name: iILStatement
-        //
-        // The archive is a STRICT typed object-graph serialization with a per-type member contract, and this
-        // writer INFERRED that contract from the shapes it happened to need instead of measuring it. Against a
-        // vendor-written body the differences are plain: every item and operand carries a `<v n="Id">` and mine
-        // carried none; a box writes an explicit `<n n="InputFlags" />` null member and mine omitted it; a
-        // `BoxTreeOperand` has NO Flags member and mine added one; a box always writes its `Instance` member
-        // even when empty. Get the member set wrong and the reader mis-assigns what follows — which is how a
-        // missing IL-line list surfaced as a null `iILStatement`.
-        //
-        // Reading is unaffected and stays: it only asks for members it finds.
-        //
-        // THE GATE THIS NEEDED, and the one to satisfy before re-enabling it: read a vendor-written archive and
-        // write it back BYTE-IDENTICAL, for every fixture, before editing a single value. An adapter that
-        // cannot reproduce what the vendor wrote has no business writing something new. That gate is cheap,
-        // it is offline, and it would have caught this before it touched a project.
-        throw new NotSupportedException(
-            "TwinCAT: writing a graphical body is disabled. Volt's archive writer produced .TcPOU files the " +
-            "IDE could not read (\"Value cannot be null. Parameter name: iILStatement\"), because it builds " +
-            "archive elements from an inferred member contract rather than a measured one. Edit graphical " +
-            "bodies in the IDE and pull; textual bodies are unaffected.");
-    }
+        // No archive to edit means there is nothing to edit IN, and creating one is the construction this
+        // writer does not do. A newly created POU arrives here with an empty implementation, so this is the
+        // path a push of a brand-new graphical body takes - it has to say that, not throw an XML parse error.
+        if (string.IsNullOrWhiteSpace(bodyXml))
+            throw Refuse("creates a graphical body where the IDE has none");
 
-    /// <summary>Unreachable until the writer is re-enabled; kept because the SHAPE of the edit is right — it is
-    /// the per-element member set that is wrong.</summary>
-    private static string? ApplyDisabled(string bodyXml, NetworkBody body)
-    {
-        var doc = XElement.Parse(bodyXml);
+        XElement doc;
+        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
+        catch (System.Xml.XmlException) { throw Refuse("replaces a textual body with a graphical one"); }
+
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
-            ?? throw new InvalidOperationException(
-                "TwinCAT: the body is not an NWL archive - refusing to write a graphical body into it");
+            ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count != body.Networks.Count)
-            throw new NotSupportedException(
-                $"TwinCAT: this push changes the NUMBER of networks ({networks.Count} -> " +
-                $"{body.Networks.Count}), which Volt cannot yet do through the archive.");
+            throw Refuse($"the number of networks changes ({networks.Count} -> {body.Networks.Count})");
 
         bool changed = false;
         for (int i = 0; i < networks.Count; i++)
@@ -72,168 +66,157 @@ internal static class TcNetworkWriter
         return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
     }
 
+    private static NotSupportedException Refuse(string what) =>
+        new NotSupportedException(
+            $"TwinCAT: this push {what}, which Volt cannot do through the archive. It edits the VALUES of an " +
+            "existing graphical body - operands, types, comments, titles, flags - and never builds archive " +
+            "elements, because the IDE's own reader depends on a member contract only the IDE produces. " +
+            "Make this change in the IDE and pull it.");
+
+    // -- networks ----------------------------------------------------------------------------------
+
     private static bool WriteNetwork(XElement net, Network model)
     {
-        bool changed = false;
-        changed |= SetString(net, "Title", model.Title);
-        changed |= SetString(net, "Label", model.Label);
-        changed |= SetString(net, "Comment", model.Comment);
-        if (TcArchive.Bool(net, "OutCommented") != model.Disabled)
-        {
-            TcArchive.SetBool(net, "OutCommented", model.Disabled);
-            changed = true;
-        }
+        bool changed = SetString(net, "Title", model.Title)
+                     | SetString(net, "Label", model.Label)
+                     | SetString(net, "Comment", model.Comment)
+                     | SetBool(net, "OutCommented", model.Disabled);
 
-        var built = model.Trees.Select(Build).ToList();
-        var existing = TcArchive.List(net, "NetworkItems");
+        var items = TcArchive.List(net, "NetworkItems");
+        if (items.Count != model.Trees.Count)
+            throw Refuse($"network {model.Order + 1} changes from {items.Count} to {model.Trees.Count} item(s)");
 
-        // Compare the SERIALIZED form, so an edit that renders identically is not written. This is the same
-        // identity test the read side uses (equality of the whole thing, never a partial match), one level down.
-        var same = existing.Count == built.Count
-            && existing.Zip(built, (a, b) => a.ToString(SaveOptions.DisableFormatting)
-                                          == b.ToString(SaveOptions.DisableFormatting)).All(x => x);
-        if (same) return changed;
-
-        TcArchive.SetList(net, "NetworkItems", ElementTypeFor(built), built);
-        return true;
+        for (int i = 0; i < items.Count; i++)
+            changed |= WriteNode(items[i], model.Trees[i]);
+        return changed;
     }
 
-    /// <summary>A homogeneous list states its element type once, as <c>cet</c>; a mixed one carries <c>t</c>
-    /// per child, which <see cref="Build"/> always writes.</summary>
-    private static string? ElementTypeFor(IReadOnlyList<XElement> items)
-    {
-        var types = items.Select(i => (string?)i.Attribute("t")).Distinct().ToList();
-        return types.Count == 1 ? types[0] : null;
-    }
+    // -- the tree ----------------------------------------------------------------------------------
 
-    private static bool SetString(XElement owner, string name, string? value)
+    /// <summary>Walk one archive item against one model node. The node KIND must still match what the IDE
+    /// wrote — a leaf that became a box is a different object with a different member set, not an edit.</summary>
+    private static bool WriteNode(XElement e, Node n)
     {
-        if ((TcArchive.Str(owner, name) ?? "") == (value ?? "")) return false;
-        TcArchive.SetString(owner, name, value);
-        return true;
-    }
+        var type = TcArchive.TypeOf(e);
+        var changed = WriteFlags(e, n.Flags);
 
-    // ── building ──────────────────────────────────────────────────────────────────────────────────
-
-    private static XElement Build(Node n)
-    {
         switch (n)
         {
-            case Leaf l:
-                return TcArchive.NewObject("BoxTreeOperand")
-                    .Add2(BuildOperand(l.Operand, "Operand"))
-                    .Add2(TcArchive.FlagsObject(Bits(l.Flags)));
+            case Leaf l when type == "BoxTreeOperand":
+                return changed | WriteOperand(e, "Operand", l.Operand);
 
-            case Assign a:
+            case Assign a when type == "BoxTreeAssign":
+                return changed
+                     | WriteChild(e, "RValue", a.Value)
+                     | WriteOutputs(e, a.Targets);
+
+            case Box b when type == "BoxTreeBox":
             {
-                var e = TcArchive.NewObject("BoxTreeAssign");
-                if (a.Value is { } v)
-                {
-                    var rv = Build(v);
-                    rv.SetAttributeValue("n", "RValue");
-                    e.Add(rv);
-                }
-                e.Add(BuildOutputs(a.Targets));
-                e.Add(TcArchive.FlagsObject(Bits(a.Flags)));
-                return e;
+                // The box TYPE is not an editable value: it is what the IDE resolved `CallType`, `InputParam`
+                // and `OutputParam` from, and changing it without redoing that resolution leaves an archive
+                // describing one call with another call's signature.
+                var was = TcArchive.Str(e, "BoxType") ?? "";
+                if (was != b.Type)
+                    throw Refuse($"a box changes from '{was}' to '{b.Type}'");
+
+                changed |= WriteOperand(e, "Instance", b.Instance);
+                changed |= WriteOutputs(e, b.Outputs);
+                changed |= WriteChild(e, "En", b.Enable);
+
+                var inputs = TcArchive.List(e, "InputItems");
+                if (inputs.Count != b.Inputs.Count)
+                    throw Refuse($"box '{b.Type}' changes from {inputs.Count} to {b.Inputs.Count} input(s)");
+                for (int i = 0; i < inputs.Count; i++)
+                    changed |= WriteNode(inputs[i], b.Inputs[i].Value);
+                return changed;
             }
 
-            case Box b:
+            case Demux d when type == "BoxTreeDemux":
+                return changed
+                     | SetInt(e, "VarId", d.VarId)
+                     | WriteChild(e, "Input", d.Input);
+
+            case Parallel p when type == "BoxTreeParallel":
             {
-                var e = TcArchive.NewObject("BoxTreeBox");
-                e.Add(TcArchive.StringValue("BoxType", b.Type));
-                if (b.Instance is { } inst) e.Add(BuildOperand(inst, "Instance"));
-                e.Add(BuildOutputs(b.Outputs));
-                e.Add(TcArchive.FlagsObject(Bits(b.Flags)));
-                if (b.Enable is { } en)
-                {
-                    var enEl = Build(en);
-                    enEl.SetAttributeValue("n", "En");
-                    e.Add(enEl);
-                }
-                var inputs = b.Inputs.Select(p => Build(p.Value)).ToList();
-                TcArchive.SetList(e, "InputItems", ElementTypeFor(inputs), inputs);
-                return e;
+                changed |= SetString(e, "Mode", p.Mode == ParallelMode.And ? "And" : "Or");
+                changed |= WriteChild(e, "Input", p.Input);
+                var branches = TcArchive.List(e, "Trees");
+                if (branches.Count != p.Branches.Count)
+                    throw Refuse($"a branch changes from {branches.Count} to {p.Branches.Count} path(s)");
+                for (int i = 0; i < branches.Count; i++)
+                    changed |= WriteNode(branches[i], p.Branches[i]);
+                return changed;
             }
 
-            case Demux d:
-            {
-                var e = TcArchive.NewObject("BoxTreeDemux");
-                e.Add(TcArchive.Value("VarId", d.VarId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-                if (d.Input is { } src)
-                {
-                    var input = Build(src);
-                    input.SetAttributeValue("n", "Input");
-                    e.Add(input);
-                }
-                e.Add(TcArchive.FlagsObject(Bits(d.Flags)));
-                return e;
-            }
-
-            case Terminator t:
-            {
-                var e = TcArchive.NewObject("BoxTreeTerminator");
-                if (t.Input is { } ti)
-                {
-                    var input = Build(ti);
-                    input.SetAttributeValue("n", "Input");
-                    e.Add(input);
-                }
-                e.Add(TcArchive.FlagsObject(Bits(t.Flags)));
-                return e;
-            }
-
-            case Parallel p:
-            {
-                var e = TcArchive.NewObject("BoxTreeParallel");
-                if (p.Input is { } pi)
-                {
-                    var input = Build(pi);
-                    input.SetAttributeValue("n", "Input");
-                    e.Add(input);
-                }
-                e.Add(TcArchive.StringValue("Mode", p.Mode == ParallelMode.And ? "And" : "Or"));
-                var branches = p.Branches.Select(Build).ToList();
-                TcArchive.SetList(e, "Trees", ElementTypeFor(branches), branches);
-                e.Add(TcArchive.FlagsObject(Bits(p.Flags)));
-                return e;
-            }
+            case Terminator t when type == "BoxTreeTerminator":
+                return changed | WriteChild(e, "Input", t.Input);
 
             default:
-                throw new NotSupportedException(
-                    $"TwinCAT: no way to write the graphical node '{n.GetType().Name}' — refusing rather than " +
-                    "writing a body that is not what the source says.");
+                throw Refuse($"a '{type ?? "?"}' item becomes a {n.GetType().Name.ToLowerInvariant()}");
         }
     }
 
-    /// <summary>Outputs are nested one level deeper than the live model's: an <c>OutputItems</c> member of type
-    /// <c>OutputItemList</c>, holding a list also called <c>OutputItems</c>.</summary>
-    private static XElement BuildOutputs(IReadOnlyList<Operand> targets)
+    /// <summary>A nested node member (<c>RValue</c>, <c>En</c>, <c>Input</c>). Present-vs-absent must match:
+    /// the archive spells "absent" as an explicit null member, and turning one into an object is
+    /// construction.</summary>
+    private static bool WriteChild(XElement owner, string name, Node? node)
     {
-        var holder = TcArchive.NewObject("OutputItemList", "OutputItems");
-        TcArchive.SetList(holder, "OutputItems", targets.Count == 0 ? null : "Operand",
-                          targets.Select(t => BuildOperand(t, null)));
-        return holder;
+        var child = TcArchive.Obj(owner, name);
+        if (child == null)
+            return node == null ? false : throw Refuse($"a '{name}' input appears where the IDE wrote none");
+        if (node == null)
+            throw Refuse($"the '{name}' input of an item is removed");
+        return WriteNode(child, node);
     }
 
-    private static XElement BuildOperand(Operand o, string? memberName)
+    /// <summary>Outputs sit one level deeper than in the live model: an <c>OutputItems</c> member of type
+    /// <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
+    private static bool WriteOutputs(XElement e, IReadOnlyList<Operand> targets)
     {
-        var e = TcArchive.NewObject("Operand", memberName);
-        e.Add(TcArchive.StringValue("Operand", o.Text));
-        e.Add(TcArchive.StringValue("Type", o.Type));
-        e.Add(TcArchive.StringValue("Comment", null));
-        e.Add(TcArchive.StringValue("SymbolComment", o.Comment));
-        e.Add(TcArchive.StringValue("Address", null));
-        e.Add(TcArchive.FlagsObject(Bits(o.Flags)));
-        e.Add(TcArchive.BoolValue("LValue", o.IsLValue));
-        e.Add(TcArchive.BoolValue("Boolean", false));
-        e.Add(TcArchive.BoolValue("IsInstance", o.IsInstance));
-        return e;
+        var holder = TcArchive.Obj(e, "OutputItems");
+        var items = TcArchive.List(holder, "OutputItems");
+        if (items.Count != targets.Count)
+            throw Refuse($"an item changes from {items.Count} to {targets.Count} output(s)");
+
+        bool changed = false;
+        for (int i = 0; i < items.Count; i++)
+            changed |= WriteOperandInto(items[i], targets[i]);
+        return changed;
     }
 
-    /// <summary>Volt's flags as the vendor's bit-field. <c>Reset</c> is REFUSED rather than dropped: network
-    /// text can express a reset coil and the vendor's flag set (Negation/Set/Jump/Return/Rtrig/Ftrig) cannot,
-    /// so writing a plain coil instead would change what the program does.</summary>
+    private static bool WriteOperand(XElement owner, string name, Operand? op)
+    {
+        var o = TcArchive.Obj(owner, name);
+        if (o == null)
+            return op == null || op.Text.Length == 0
+                ? false
+                : throw Refuse($"an operand appears in '{name}', where the IDE wrote none");
+        return op == null ? false : WriteOperandInto(o, op);
+    }
+
+    private static bool WriteOperandInto(XElement o, Operand op) =>
+        SetString(o, "Operand", op.Text)
+      | SetString(o, "Type", op.Type)
+      | SetString(o, "SymbolComment", op.Comment)
+      | SetBool(o, "LValue", op.IsLValue)
+      | SetBool(o, "IsInstance", op.IsInstance)
+      | WriteFlags(o, op.Flags);
+
+    /// <summary>Volt's flags as the vendor's bit-field, written into the <c>Flags</c> object the IDE already
+    /// put there. A <c>BoxTreeOperand</c> has NO such member — its flags live on the operand it holds — so a
+    /// leaf whose flags changed is refused here rather than growing a member the vendor never writes.</summary>
+    private static bool WriteFlags(XElement owner, Flags? flags)
+    {
+        var bits = Bits(flags);
+        var holder = TcArchive.Obj(owner, "Flags");
+        if (holder == null)
+            return bits == 0 ? false : throw Refuse("a modifier appears on an item that carries none");
+        return SetInt(holder, "Flags", bits);
+    }
+
+    /// <summary><c>Reset</c> is REFUSED rather than dropped: network text can express a reset coil and the
+    /// vendor's flag set (Negation/Set/Jump/Return/Rtrig/Ftrig) cannot, so writing a plain coil instead would
+    /// change what the program does.</summary>
     private static int Bits(Flags? flags)
     {
         if (flags is not { } f || f.IsNone) return 0;
@@ -250,4 +233,30 @@ internal static class TcNetworkWriter
         if (f.Falling) bits |= TcArchive.FlagFtrig;
         return bits;
     }
+
+    // -- the only mutation in this file --------------------------------------------------------------
+
+    /// <summary>Assign to a scalar member THAT EXISTS. Every write in this file goes through here, so "the
+    /// writer never adds a member" is a property of one function rather than a convention twenty call sites
+    /// have to remember. A missing member is a refusal, never an insertion.</summary>
+    private static bool Set(XElement owner, string name, string raw, string current)
+    {
+        if (current == raw) return false;
+        var v = owner.Elements("v").FirstOrDefault(x => (string?)x.Attribute("n") == name);
+        if (v == null)
+            throw Refuse($"'{name}' would have to be added to a '{TcArchive.TypeOf(owner) ?? "?"}', " +
+                         "and the IDE did not write it there");
+        v.Value = raw;
+        return true;
+    }
+
+    private static bool SetString(XElement owner, string name, string? text) =>
+        Set(owner, name, "\"" + (text ?? "") + "\"", "\"" + (TcArchive.Str(owner, name) ?? "") + "\"");
+
+    private static bool SetBool(XElement owner, string name, bool b) =>
+        Set(owner, name, b ? "true" : "false", TcArchive.Bool(owner, name) ? "true" : "false");
+
+    private static bool SetInt(XElement owner, string name, int i) =>
+        Set(owner, name, i.ToString(CultureInfo.InvariantCulture),
+            TcArchive.Int(owner, name).ToString(CultureInfo.InvariantCulture));
 }

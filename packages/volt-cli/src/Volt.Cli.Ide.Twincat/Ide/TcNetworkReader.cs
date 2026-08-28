@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -131,11 +131,13 @@ internal static class TcNetworkReader
                 Rising: (bits & TcArchive.FlagRtrig) != 0,
                 Falling: (bits & TcArchive.FlagFtrig) != 0);
 
-    /// <summary>A box's call kind. The archive carries <c>CallType</c> as an <c>Operator</c> object; an
-    /// instance means a function-block call, and neither means a stateless function.</summary>
+    /// <summary>A box's call kind. <c>CallType</c> is a SCALAR carrying a type attribute -
+    /// <c>&lt;v n="CallType" t="Operator"&gt;And&lt;/v&gt;</c> - not an object member, which is why looking
+    /// for it with <c>Obj</c> found nothing and read every AND box as a function call. An instance means a
+    /// function-block call; neither means a stateless function.</summary>
     private static CallKind CallKindOf(XElement e)
     {
-        if (TcArchive.Obj(e, "CallType") != null) return CallKind.Operator;
+        if (TcArchive.Str(e, "CallType") != null) return CallKind.Operator;
         return TcArchive.Obj(e, "Instance") == null ? CallKind.Function : CallKind.FunctionBlock;
     }
 }

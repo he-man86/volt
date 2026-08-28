@@ -467,3 +467,34 @@ Order matters: delete dead code first (it cannot break anything), then collapse 
       the last change's most useful artifact was §3.3's stated expectation being wrong and saying so.
 - [x] 9.3 Carry every still-open `[UNMEASURED:]` item forward as a marker in the code it bears on, not as a note in
       this folder. A change folder gets archived; two vendors do not stop existing.
+
+## 10. Correction — the TwinCAT writer, 2026-08-28
+
+§9.2 asks for every prediction that turned out wrong. This is the largest one in the change, and it was found
+by the user, in their own project, not by a test.
+
+- **What happened.** After the NWL retarget, `TcNetworkWriter` built archive elements when a network's rendered
+  items differed from what was there. Twenty `.TcPOU` files it wrote could not be opened afterwards:
+  `Reading file failed. Value cannot be null. Parameter name: iILStatement`.
+- **The wrong prediction.** U14 was carried as a *coverage* gap — an archive nobody had captured. It was
+  actually a *capability* gap: the archive is a strict typed object-graph serialization whose reader consumes
+  members in order for the type it expects, so a member set that is close but not exact makes it mis-assign
+  everything after the discrepancy. Measured against the vendor's own `POU_PBD.TcPOU`, the written files were
+  missing thirteen member kinds — `CallType`, `EN`, `ENO`, `InputFlags`, `InputParam`, `OutputParam`,
+  `Instance`, `STSnippet`, `ContainsExtensibleInputs`, `ParamList`, `OutputItemList`, `Names`, `Types` — and
+  thirteen of fourteen `Id` values. Most of those are results of the IDE RESOLVING a call, which Volt does not
+  do and should not imitate.
+- **The rule now.** The writer creates nothing: not an element, not a member, not a list entry. It assigns to
+  members the IDE already wrote and refuses everything else, each refusal naming the shape change it saw. So
+  TwinCAT can edit the VALUES of a graphical body (operand, type, comment, title, flags, network disable) and
+  cannot add or remove a rung, a box or an input — that is done in the IDE and pulled.
+- **The gate that was missing**, now `TcNetworkWriterTests` (16 offline tests, no XAE): the vendor's archive
+  survives parse-and-serialize byte-identically; an unchanged model is not written back at all; and after an
+  edit, every element's member set and every `Id` is unchanged. It runs in 70 ms. It would have caught this
+  before it reached a project, and no writer for a vendor serialization should exist before its equivalent.
+- **A second, smaller wrong reading, found while fixing this.** `CallType` is a scalar with a type attribute
+  (`<v n="CallType" t="Operator">And</v>`), not an object member. `TcNetworkReader` looked for it with `Obj`,
+  found nothing, and classified every operator box as a plain function call.
+- **CODESYS never needed this gate** and still does not: it hands over typed objects, so there is no
+  serialization to reproduce. That asymmetry is why the risk was invisible from the CODESYS side, and it is a
+  load-bearing one — see `DIALECT.md`.
