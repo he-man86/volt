@@ -244,6 +244,66 @@ namespace Volt.Cli.Ide.Codesys
         /// <c>create_pou(name, type?, language?, return_type?, base_type?, interfaces?)</c> (DIALECT C2d).
         /// Volt still seeds and lets the PLCopen import establish the language, which is what the whole
         /// single-document write depends on — but that is a CHOICE, not the absence of an option.</summary>
+        /// <summary>A POU, with its body LANGUAGE applied at creation.
+        /// <para><b>The language used to be ignored here, and that was correct until it was not.</b> CODESYS
+        /// took the language from the imported body element, so a POU created as ST became FBD the moment the
+        /// document landed — the old comment said as much. Nothing imports a document now: a graphical body is
+        /// written into the item's typed objects, and an item created as ST has an
+        /// <c>STImplementationObject</c> with no <c>NetworkList</c> to write into. The first live graphical
+        /// create failed exactly there, with that message.</para></summary>
+        private object CreatePou(object container, string name, string pouType, string? language) =>
+            CreateNamed(container, "create_pou",
+                ("name", name), ("type", EnumValue("PouType", pouType)), ("language", LanguageArg(language)));
+
+        /// <summary>Volt's language name as CODESYS's <c>ImplementationLanguages</c> member, or
+        /// <see cref="Type.Missing"/> when the push carries no language (a textual body — let the IDE default).
+        /// <para>The member names are lower-case and do NOT match Volt's: LD is <c>ladder</c>. Measured against
+        /// the live enum, whose members are cfc, fbd, instruction_list, ladder, page_oriented_cfc, sfc, st and
+        /// uml_statechart.</para></summary>
+        private static object? LanguageArg(string? language) => language?.ToUpperInvariant() switch
+        {
+            "FBD" => LanguageValue("fbd"),
+            "LD" => LanguageValue("ladder"),
+            _ => Type.Missing,
+        };
+
+        /// <summary>The scripting API's value for an implementation language.
+        /// <para><b>It is not an enum</b>, which is what the first attempt assumed: <c>ImplementationLanguages</c>
+        /// is an INSTANCE of <c>ScriptImplementationLanguages</c> that the script host injects into the Python
+        /// scope, and its members are GUIDs. Nothing hard-codes one here — the type is found by simple name and
+        /// the member read off it, so a CODESYS version that renumbers a language stays correct and a version
+        /// that renames the member fails loudly with the list of members it does have.</para></summary>
+        private static object LanguageValue(string member)
+        {
+            var t = Reflection.FindTypeBySimpleName("ScriptImplementationLanguages")
+                    ?? Reflection.FindTypeBySimpleName("ImplementationLanguages")
+                    ?? throw new InvalidOperationException(
+                        "CODESYS: neither ScriptImplementationLanguages nor ImplementationLanguages is loaded — " +
+                        "the scripting API does not match what this driver was written against");
+
+            // A static member first; the members are constants either way, so an instance is only a carrier.
+            // STATIC-ONLY flags: `BF` carries Instance, and adding Static to it matches the INSTANCE property,
+            // which then throws "Non-static method requires a target" on GetValue(null).
+            const BindingFlags StaticOnly =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+            var sp = t.GetProperty(member, StaticOnly);
+            if (sp != null) return sp.GetValue(null)!;
+            var sf = t.GetField(member, StaticOnly);
+            if (sf != null) return sf.GetValue(null)!;
+
+            var instance = Activator.CreateInstance(t, nonPublic: true)
+                ?? throw new InvalidOperationException($"CODESYS: cannot instantiate {t.Name} to read '{member}'");
+            var ip = t.GetProperty(member, BF);
+            if (ip != null) return ip.GetValue(instance)!;
+            var f = t.GetField(member, BF);
+            if (f != null) return f.GetValue(instance)!;
+
+            var names = string.Join(", ", t.GetProperties(BF).Select(x => x.Name)
+                                           .Concat(t.GetFields(BF).Select(x => x.Name)).Distinct());
+            throw new InvalidOperationException(
+                $"CODESYS: {t.Name} has no '{member}'. It offers: {names}");
+        }
+
         public object CreateChild(object parent, string name, int itemType, string? language = null)
         {
             // Folders are created on the tree object itself. The object create_folder
@@ -265,14 +325,15 @@ namespace Volt.Cli.Ide.Codesys
             var c = IecContainer(parent);
             switch (itemType)
             {
-                case ItemKind.PlcPouProg: return Create(c, "create_pou", name, EnumValue("PouType", "Program"));
+                case ItemKind.PlcPouProg: return CreatePou(c, name, "Program", language);
                 // A function REQUIRES a non-null return_type at create; CODESYS errors without one. The
                 // VALUE is immaterial — WriteSourceText then sets the real declaration and the return type
                 // with it (same as methods, which create with no return_type and get theirs from the
                 // written declaration). So seed "INT", bound by name (it sits behind optional `language`).
                 case ItemKind.PlcPouFunc: return CreateNamed(c, "create_pou",
-                    ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType));
-                case ItemKind.PlcPouFb: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
+                    ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType),
+                    ("language", LanguageArg(language)));
+                case ItemKind.PlcPouFb: return CreatePou(c, name, "FunctionBlock", language);
                 // A DUT is one kind: create a neutral Structure skeleton, then WriteSourceText writes the real
                 // TYPE…END_TYPE declaration and CODESYS re-derives the actual subtype (struct/enum/union/alias)
                 // from it — the same "seed then overwrite" pattern as a function's return_type. No subkind is
@@ -286,9 +347,12 @@ namespace Volt.Cli.Ide.Codesys
                 // default declaration; we overwrite it via WriteSourceText. create_property
                 // also auto-creates the Get/Set accessors. (Decompiled from
                 // ScriptDriverProjects.ScriptIecLanguageMemberContainer.)
-                case ItemKind.PlcMethod: return Create(MemberContainer(parent), "create_method", name);
-                case ItemKind.PlcItfMeth: return Create(MemberContainer(parent), "create_method", name);
-                case ItemKind.PlcAction: return Create(MemberContainer(parent), "create_action", name);
+                case ItemKind.PlcMethod: return CreateNamed(MemberContainer(parent), "create_method",
+                    ("name", name), ("language", LanguageArg(language)));
+                case ItemKind.PlcItfMeth: return CreateNamed(MemberContainer(parent), "create_method",
+                    ("name", name), ("language", LanguageArg(language)));
+                case ItemKind.PlcAction: return CreateNamed(MemberContainer(parent), "create_action",
+                    ("name", name), ("language", LanguageArg(language)));
                 case ItemKind.PlcProp: return Create(MemberContainer(parent), "create_property", name);
                 case ItemKind.PlcItfProp: return Create(MemberContainer(parent), "create_property", name);
                 // Property accessors. create_property above makes BOTH Get and Set with the property, so the

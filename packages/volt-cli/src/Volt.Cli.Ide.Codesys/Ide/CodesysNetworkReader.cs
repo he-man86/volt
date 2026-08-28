@@ -37,7 +37,7 @@ namespace Volt.Cli.Ide.Codesys
                 // NetworkItemCount can EXCEED the number of real trees — measured: a network reported 2 with
                 // one tree, the second slot being an item the IDE had dropped. A null here is normal, not a
                 // failure, and must be skipped rather than treated as an empty body.
-                if (NwlInterop.Call(net, "GetTree", i) is { } tree) trees.Add(ReadNode(tree));
+                if (NwlInterop.TryCall(net, "GetTree", i) is { } tree) trees.Add(ReadNode(tree));
             }
 
             // The vendor's own per-network operand list. NOT fan-out (that is Demux) — measured zero across
@@ -45,7 +45,7 @@ namespace Volt.Cli.Ide.Codesys
             var splits = new List<Operand>();
             for (int i = 0; i < 64; i++)
             {
-                if (NwlInterop.Call(net, "GetSplitPoint", i) is not { } sp) break;
+                if (NwlInterop.TryCall(net, "GetSplitPoint", i) is not { } sp) break;
                 splits.Add(ReadOperand(sp));
             }
 

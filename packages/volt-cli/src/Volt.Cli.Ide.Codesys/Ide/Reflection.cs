@@ -34,6 +34,22 @@ namespace Volt.Cli.Ide.Codesys
         /// scan had drifted, and the copy that mattered swallowed <em>every</em> exception from
         /// <c>GetTypes()</c> — including an unexpected failure of the primitive the whole in-proc bridge stands
         /// on — where this one swallows only the load failures the API documents.</para></summary>
+        /// <summary>A loaded type by SIMPLE name — the scripting API's helper objects are reached that way
+        /// because their namespace varies by CODESYS version, the same reason <see cref="FindEnum"/> exists.</summary>
+        public static Type? FindTypeBySimpleName(string simpleName)
+        {
+            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+                try { types = a.GetTypes(); }
+                catch (ReflectionTypeLoadException ex) { types = ex.Types.Where(t => t != null).ToArray()!; }
+                catch (Exception ex) when (ex is TypeLoadException || ex is FileNotFoundException) { continue; }
+                foreach (var t in types)
+                    if (t != null && string.Equals(t.Name, simpleName, StringComparison.Ordinal)) return t;
+            }
+            return null;
+        }
+
         public static Type? FindEnum(string simpleName)
         {
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
