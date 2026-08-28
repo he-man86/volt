@@ -8,8 +8,15 @@ using Volt.Engine.Sync;
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// THE WRITE HALF of the declaration transport: a declaration edit reaches the IDE through the ASPECT, for every
-/// shape, and an unchanged declaration reaches it not at all.
+/// THE WRITE HALF of the declaration transport: a declaration edit reaches the IDE for every shape, and an
+/// unchanged declaration reaches it not at all.
+///
+/// <para><b>The assertions moved a second time, for the second time without being weakened.</b> They were
+/// written against the spliced DOCUMENT, moved to the declaration ASPECT when a vendor stopped emitting the
+/// document's carrier, and now travel inside <c>ItemContent</c> — one <c>WriteContent</c> carries declaration,
+/// body and members together, so there is no separate declaration write left to observe. The requirement is
+/// untouched: the pushed declaration must arrive VERBATIM, which is why these assert on the value and not on
+/// the fact that a write happened.</para>
 ///
 /// <para>These assertions are not new. Four separate tests used to make them against the spliced DOCUMENT —
 /// <c>BodyCodecTests.A_declaration_edit_lands_on_a_graphical_POU</c> (DEFECT 1: a declaration edit on an FBD POU
@@ -74,8 +81,8 @@ public class PushDeclarationTransportTests
 
         Push(ide, $"K.{ext}", Source(edited, body, terminator));
 
-        Assert.True(ide.WrittenText.ContainsKey("K"), $"a {ext} declaration edit never reached the IDE");
-        Assert.Contains("vltAdded", ide.WrittenText["K"]);
+        Assert.True(ide.WrittenContent.ContainsKey("K"), $"a {ext} declaration edit never reached the IDE");
+        Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }
 
     /// <summary>DEFECT 1, at the transport that now carries it: a declaration edit on a POU whose body Volt
@@ -95,7 +102,7 @@ public class PushDeclarationTransportTests
 
         Push(ide, "K.fb", Source(PlusOneVar(decl), BodyMarker.For(language), "END_FUNCTION_BLOCK"));
 
-        Assert.Contains("vltAdded", ide.WrittenText["K"]);
+        Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }
 
     // ── and an unchanged declaration does NOT ───────────────────────────────────────────────────────

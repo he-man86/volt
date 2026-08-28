@@ -36,18 +36,20 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 {
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
-        string? Declaration, string? Implementation, string? BodyLang, string? Xml,
+        string? Declaration, string? Implementation, string? BodyLang, string? UnreadableReason,
         string[]? Children = null)
     {
         /// <summary>A plain textual (ST) POU — materializes via the declaration/implementation transports.</summary>
         public static Item TextualPou(string name, string decl, string impl, string folder = "") =>
             new Item(name, ItemKind.PlcPouProg, folder, true, decl, impl, null, null);
 
-        /// <summary>A graphical POU whose export has NO FBD/LD body — <c>NetworkCodeIo.Read</c> throws on it, the
-        /// same way the orphaned LD POU bricked <c>/refs</c>.</summary>
+        /// <summary>An item the driver CANNOT read — the offline stand-in for the orphaned LD POU that bricked
+        /// <c>/refs</c> for a whole project. What made it unreadable used to be a PLCopen export with no body
+        /// element; now it is simply an item whose read throws, which is what any driver does when it cannot
+        /// render a body. The POINT of the fixture is unchanged: one bad item must not take the call down.</summary>
         public static Item MalformedGraphical(string name, string folder = "") =>
             new Item(name, ItemKind.PlcPouProg, folder, true, null, null, "LD",
-                "<project xmlns=\"http://www.plcopen.org/xml/tc6_0200\"><types><pous /></types></project>");
+                "the graphical body cannot be read");
 
         /// <summary>A referenced-library ref (`.library`). Its body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/…),
         /// carried here in <c>Declaration</c> and returned by <c>ReadManifest</c>; the default folder is the shared
@@ -364,11 +366,34 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // either. Reads are counted instead, so a caller that wants to know the read cost still can.
         ReadCount++;
         var it = Find(item);
+        if (it.UnreadableReason is { } why)
+            throw new InvalidOperationException($"'{it.Name}': {why}");
         return new ItemContent(
             ItemKind.Map(it.KindCode) ?? ItemKind.Kinds.FunctionBlock,
             it.Declaration ?? "",
-            it.Implementation,
+            BodyTextOf(it),
             MembersOf(it).ToList());
+    }
+
+    /// <summary>An item's body AS A DRIVER WOULD RETURN IT. A language Volt cannot author has no text form, so
+    /// a real driver materializes it as the marker; a fake that returned the raw stored text instead would let a
+    /// textual push sail past the body-format guard here and be refused only against a live IDE.
+    /// <para><c>BodyLang</c> models what the IDE holds. It is deliberately NOT the same thing as the body text:
+    /// that separation is exactly what the guard exists to check.</para></summary>
+    private static string? BodyTextOf(Item it)
+    {
+        if (it.BodyLang is not { } lang) return it.Implementation;
+        // A language Volt cannot author has no text form at all.
+        if (!Volt.Engine.Format.Body.Languages.IsNetwork(lang))
+            return Volt.Engine.Format.Body.BodyMarker.For(lang);
+        // An FBD/LD body comes back as NETWORK TEXT. A fixture that sets BodyLang but stores plain text is
+        // describing "the IDE holds a diagram", so render one — returning the raw text would make a graphical
+        // body look textual to the format guard, and the guard would wave through the very overwrite it exists
+        // to stop.
+        var impl = it.Implementation ?? "";
+        return Volt.Engine.Format.Network.NetworkText.Is(impl)
+            ? impl
+            : $"NETWORK 0 {lang}\n  {impl.Trim()}\nEND_NETWORK\n";
     }
 
     private IEnumerable<Member> MembersOf(Item owner)
@@ -381,7 +406,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 ItemKind.Map(child.KindCode) ?? ItemKind.Kinds.Method,
                 child.Name,
                 child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
-                child.Implementation,
+                BodyTextOf(child),
                 string.IsNullOrEmpty(child.Folder) ? null : child.Folder);
         }
     }

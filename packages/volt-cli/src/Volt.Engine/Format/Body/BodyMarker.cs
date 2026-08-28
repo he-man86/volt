@@ -20,6 +20,18 @@
         /// <summary>The marker for a language, e.g. <c>(* @volt-graphical: CFC *)</c>.</summary>
         public static string For(string language) => $"{Prefix} {language} *)";
 
+        /// <summary>The language a marker names, e.g. <c>CFC</c> for <c>(* @volt-graphical: CFC *)</c>, or null
+        /// when the text is not a marker. A refusal has to NAME the language: "Volt does not support CFC" tells
+        /// an engineer this is a Volt limit, where a bare "refused" leaves them looking for a mistake in what
+        /// they pushed.</summary>
+        public static string? LanguageOf(string? impl)
+        {
+            if (!Is(impl)) return null;
+            var text = impl!.TrimStart().Substring(Prefix.Length);
+            var end = text.IndexOf("*)", System.StringComparison.Ordinal);
+            return (end < 0 ? text : text.Substring(0, end)).Trim() is { Length: > 0 } lang ? lang : null;
+        }
+
         /// <summary>Is this body text the marker rather than real source? A prefix test against the same literal
         /// the writer uses, so reader and writer cannot drift apart.</summary>
         public static bool Is(string? impl) =>

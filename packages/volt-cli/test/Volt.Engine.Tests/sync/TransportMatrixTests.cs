@@ -45,12 +45,12 @@ public class TransportMatrixTests
     /// `create:M` + `write:M`, and it is what this row proves now rides in the document.</para></summary>
     public static TheoryData<int, string, string, string[], string[]> Writable => new()
     {
-        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
-        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
-        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
-        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
-        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K", "decl:K" } },
+        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
     };
 
     private static FakeIde Ide(int code, string src, params FakeIde.Item[] extra)
@@ -91,7 +91,10 @@ public class TransportMatrixTests
 
     /// <summary>A CREATE is ONE CreateChild (structure) + ONE WriteText (the declaration aspect) + ONE WriteXml
     /// (body and members), for every writable kind. No CreateChild+WriteText per member, no orphan walk.
-    /// <para><c>decl:K</c> is the declaration aspect (a WriteText carrying no implementation), and the rule
+    /// <para>There is no <c>decl:K</c> any more: the declaration used to take its own aspect write AFTER the
+    /// document write (an ordering that was measured, because TwinCAT's importer regenerated a declaration the
+    /// document did not carry verbatim). One <c>WriteContent</c> now carries declaration, body and members
+    /// together, and nothing re-imports the item, so the second call has nothing left to do. The rule
     /// is exact: it is issued IF AND ONLY
     /// IF the pushed declaration differs from what the item already has. An UPDATE that does not touch the
     /// declaration therefore writes nothing — which is why the update column is unchanged by the move to the

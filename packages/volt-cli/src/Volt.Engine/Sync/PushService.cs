@@ -326,7 +326,15 @@ public static class PushService
                         $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
                         "through the stale create handle");
         }
-        else pou = existingPou;
+        else
+        {
+            pou = existingPou;
+
+            // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
+            // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
+            // must never be overwritten by a textual push, and a marker must not be written over one it can.
+            BodyFormatGuard.RequireWritable(ide.ReadContent(pou), split);
+        }
 
         // ONE call, for create and update alike: declaration, body, members and accessors together.
         //
