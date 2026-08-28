@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltE2E_net_fbd_action" Id="{94bbf06c-6c8a-43b5-bcee-b6cfd2ba0bbc}" SpecialFunc="None">
+  <POU Name="VltE2E_net_fbd_action" Id="{7195ac08-15db-41f1-aa11-deb8cc21fb66}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK VltE2E_net_fbd_action
 VAR
 	a : BOOL;
@@ -10,7 +10,7 @@ END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[]]></ST>
     </Implementation>
-    <Action Name="A_G" Id="{64042da2-f350-4d31-aef7-33d1f24c5dc3}">
+    <Action Name="A_G" Id="{df1d267e-a9fe-4d27-9be6-c7c67e5269c9}">
       <Implementation>
         <NWL>
           <XmlArchive>

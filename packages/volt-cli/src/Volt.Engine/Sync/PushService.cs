@@ -339,7 +339,16 @@ public static class PushService
 
         // The member SET, for a create and an update alike. A create reaches here with the item existing but
         // empty, so every member the source declares is new; an update reconciles against what is there.
-        ReconcileMembers(ide, pou, ide.ReadContent(pou), split);
+        if (ReconcileMembers(ide, pou, ide.ReadContent(pou), split))
+            // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: a member is not a
+            // separate file there, so placing one is a round trip through the enclosing POU's own archive
+            // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
+            // fails with "Unbound tree item" — which is how this surfaced, on 40-odd e2e tests at once. Re-find
+            // from a FRESH tree root, because the PARENT handle dies with it.
+            pou = ItemLookup.Find(ide, name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
+                    "handle the member create invalidated");
 
         // ONE call, for create and update alike: declaration, body, members and accessors together.
         //
@@ -373,21 +382,33 @@ public static class PushService
     /// not a member — no reader models one, so it can never appear in a pushed source — and reconciling against
     /// the wider "inlined in a POU" set is exactly how a push once deleted every transition of an SFC POU on its
     /// first write, silently.</para></summary>
-    private static void ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed)
+    /// <returns><c>true</c> when the project was mutated, so the caller knows its handles may be stale.</returns>
+    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed)
     {
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
 
+        var mutated = false;
         foreach (var m in pushed.Members)
         {
             if (have.Contains(m.Name)) continue;
-            var parent = TreeNav.ResolveFolder(ide, pou, m.Folder);
-            ide.CreateChild(parent, m.Name, ItemKind.MemberCode(m.Kind), NetworkText.LanguageOf(m.Body));
+            // Re-resolve the POU each time: the PREVIOUS create may have invalidated the handle, which is the
+            // bug an earlier version of this loop shipped by hoisting the lookup out of it.
+            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
+            ide.CreateChild(TreeNav.ResolveFolder(ide, owner, m.Folder),
+                            m.Name, ItemKind.MemberCode(m.Kind), NetworkText.LanguageOf(m.Body));
+            mutated = true;
         }
 
         foreach (var m in live.Members)
-            if (!want.Contains(m.Name))
-                ide.Delete(pou, m.Name);
+        {
+            if (want.Contains(m.Name)) continue;
+            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
+            ide.Delete(owner, m.Name);
+            mutated = true;
+        }
+
+        return mutated;
     }
 
     private static int PouKindToCode(string kind) => kind switch

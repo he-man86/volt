@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltE2E_net_guard_malformed" Id="{6b05ce74-8c97-44c5-9779-34e7e5bbd53e}" SpecialFunc="None">
+  <POU Name="VltE2E_net_guard_malformed" Id="{79c1b28a-d38c-4ca1-bab7-6fb96460cc3c}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM VltE2E_net_guard_malformed
 VAR
 	a : BOOL;

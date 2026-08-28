@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltE2E_net_ld_setcoil" Id="{ac5a4eb7-1d72-475a-9c09-75f47804f4c9}" SpecialFunc="None">
+  <POU Name="VltE2E_net_ld_setcoil" Id="{e77a5483-2dc4-468a-acd6-035d5441cd9e}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM VltE2E_net_ld_setcoil
 VAR
 	a : BOOL;

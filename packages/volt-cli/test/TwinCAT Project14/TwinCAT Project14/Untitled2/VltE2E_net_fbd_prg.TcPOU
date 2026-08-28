@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltE2E_net_fbd_prg" Id="{70af9705-d454-45f6-b657-f5ec9aed4b3b}" SpecialFunc="None">
+  <POU Name="VltE2E_net_fbd_prg" Id="{0e7baff4-dc1b-444f-8fb5-ebebb05a45a3}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM VltE2E_net_fbd_prg
 VAR
 	a : BOOL;

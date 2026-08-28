@@ -33,18 +33,18 @@ namespace Volt.Cli.Ide.Codesys
                         "CODESYS: the item has no Implementation aspect — refusing to write a graphical body " +
                         "into an item that cannot hold one");
 
+                // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
+                // and an earlier version of this file refused a count change outright as "not measured" - which
+                // failed every splice test, because splicing a body is exactly where a network appears or goes.
+                // The aspect has AppendNetwork / InsertNetwork / RemoveNetwork / ReplaceNetwork; nothing here
+                // needs the archive back door (SetSerializableValue), which also works but writes AROUND the
+                // object model rather than through it.
+                for (int i = Count(impl) - 1; i >= body.Networks.Count; i--)
+                    NwlInterop.Call(impl, "RemoveNetwork", i);
+                while (Count(impl) < body.Networks.Count)
+                    NwlInterop.Call(impl, "AppendNetwork", NwlInterop.New(impl, "Network"));
+
                 var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
-
-                // Adding or removing NETWORKS is not yet measured: NetworkList is read-only and the archive
-                // route (SetSerializableValue "NetworkList") has not been proven to survive a reload. Refuse
-                // loudly rather than write half a body — a push that silently dropped a rung of a running
-                // program is the failure this whole transport exists to prevent.
-                if (existing.Count != body.Networks.Count)
-                    throw new NotSupportedException(
-                        $"CODESYS: this push changes the NUMBER of networks ({existing.Count} -> " +
-                        $"{body.Networks.Count}), which Volt cannot yet do through the object model. Edit the " +
-                        "networks in place, or add/remove them in the IDE and pull.");
-
                 for (int i = 0; i < existing.Count; i++)
                     WriteNetwork(impl, existing[i], body.Networks[i]);
             });
@@ -67,6 +67,9 @@ namespace Volt.Cli.Ide.Codesys
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
         }
+
+        private static int Count(object impl) =>
+            NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;
 
         private static void SetIfChanged(object o, string member, string value)
         {
@@ -149,8 +152,11 @@ namespace Volt.Cli.Ide.Codesys
             private int VarIdFor(int modelId)
             {
                 if (_varIds.TryGetValue(modelId, out var id)) return id;
-                var next = NwlInterop.Int(_impl, "BranchCounter") + 1;
-                NwlInterop.Set(_impl, "BranchCounter", next);
+                // The aspect mints these. Incrementing the BranchCounter property by hand -
+                // which is what this did first - reimplements the vendor allocator from the
+                // outside, and would drift the moment it did anything else (skipping an id
+                // already in use, for one).
+                var next = NwlInterop.Call(_impl, "GetNextBranchCounter") is int n ? n : 0;
                 _varIds[modelId] = next;
                 return next;
             }
