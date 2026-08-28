@@ -12,7 +12,7 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 
 | # | Requirement | Why it matters | TC PLCopen *(today)* | TC `DocumentXml` | CS PLCopen *(today)* | CS `export_native` |
 |---|---|---|---|---|---|---|
-| R1 | **Declaration, verbatim** — alignment, blank lines, pragmas, per-variable comments, initial values | It is the engineer's source. A rendering is a diff against work nobody did | ✗ **0 of 2 live exports carry `InterfaceAsPlainText`; one declares 45 variables** | ✓ carries it | ✓ carries it (twice — A7) | ~ GUID-typed |
+| R1 | **Declaration, verbatim** — alignment, blank lines, pragmas, per-variable comments, initial values | It is the engineer's source. A rendering is a diff against work nobody did | ✗ **0 of 2 live exports carry `InterfaceAsPlainText`; one declares 45 variables** | ✓ carries it | ✓ carries it (twice — A7), and it is **FLAG-CONTROLLED**: §CS-W14 | ~ GUID-typed |
 | R2 | **ST body, verbatim** | Same | ✓ measured byte-identical to native CDATA, 7,316 chars | ✓ native CDATA | ✓ | ~ |
 | R3 | **FBD/LD body** faithfully enough to render AND splice back | The whole graphical feature | ~ graph; regeneration is lossy | ✓ **MEASURED — see §NWL below. An expression tree, near 1:1 with `GraphModel`** | ~ same graph, same losses | ~ |
 | R4 | **CFC/SFC/IL detectable as unsupported** | Must never be mangled into ST | ✓ marker | ✓ | ✓ | ✓ |
@@ -39,10 +39,10 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 | W8 | **Accessor declarations land** | ✗ **REFUSES** — `Declaration.Write` needs a block that does not exist | ✓ proved on write | ✓ |
 | W9 | Member folders survive | ~ import FLATTENS them; Volt re-places from its own `%FOLDER` | ✓ **carried in the document** | ~ |
 | W10 | Network metadata survives | ✗ cannot carry what the read never had | ✓ | ✗ |
-| W11 | **In-place replace** | ✗ **import always relocates to the PLC-project root**; Volt moves it back (D4g) | ✓ set on the item itself | ✓ |
+| W11 | **In-place replace** | ✗ **import always relocates to the PLC-project root**; Volt moves it back (D4g) | ✓ set on the item itself | ✓ **MEASURED — parent `Application` before AND after. §CS-W14** |
 | W12 | Atomic — refuse rather than half-apply | ✓ | ✓ **MEASURED — refuses whole, with a line/position diagnostic. §W3** | ✓ |
 | W13 | Cost | ~20 ms export + import | **0.3–5 ms** | ~20 ms |
-| W14 | **Untouched content not normalized** | ✗ **reorders `LineIds`, re-indents, ZEROES the POU `Id`, and REGENERATES the declaration from the typed interface** (`x : INT;` → `x: INT;`) | ✓ **MEASURED — byte-identical except the POU `Id`, which PLCopen zeroes too. See §W14** | ~ |
+| W14 | **Untouched content not normalized** | ✗ **reorders `LineIds`, re-indents, ZEROES the POU `Id`, and REGENERATES the declaration from the typed interface** (`x : INT;` → `x: INT;`) | ✓ **MEASURED — byte-identical except the POU `Id`, which PLCopen zeroes too. §W14** | ✓ **MEASURED — content-identical; only the export TIMESTAMP differs. §CS-W14** |
 
 ---
 
@@ -425,3 +425,70 @@ loss that change exists to stop - plus R10, which no CODESYS transport fixes. It
 the engine keeps network text, `GraphModel` and the carry/refuse invariant for it. Only TwinCAT sheds them.
 
 **One datum to carry into that:** one graphical POU in 1,314 objects. Size the work against how rare it is.
+
+---
+
+## §CS-W14 — the transport CODESYS is KEEPING, measured 2026-08-28
+
+W14 and W11 sat at `~` for CODESYS. That was the wrong place to leave them: CODESYS **keeps** PLCopen, so how its
+importer behaves is a live product concern, not a footnote about a rejected transport. Measured with **Volt's own
+calls**, not the convenience defaults.
+
+### The plaintext declaration block is FLAG-CONTROLLED on CODESYS
+
+`export_xml(objects, "", recursive, false, ⟨flag⟩)`:
+
+| 5th argument | size | `InterfaceAsPlainText` |
+|---|---|---|
+| **`true`** — what Volt passes | 1,445 | **2** (the A7 "twice") |
+| `false` | 1,125 | **0** |
+
+This reframes the whole declaration crisis. On CODESYS the verbatim block is **opt-in, and Volt opts in**. On
+TwinCAT it is not controllable at all — `PlcOpenExport(bstrFile, bstrSelection)` takes no options and
+`PlcOpenExport2` adds only `bSubTree` — so when that vendor stopped emitting it there was no flag to turn back on.
+Same missing block; entirely different cause. **A first probe using the default flag reported
+`InterfaceAsPlainText x0` on a CODESYS POU** — which would have looked like the TwinCAT regression happening on
+CODESYS too. It was the flag, not the vendor.
+
+### W14 — export → import unchanged → export again
+
+| | |
+|---|---|
+| size | 1,445 → **1,445** chars |
+| lines | 47 → **47** |
+| differing lines | **1** |
+
+```
+before: …creationDateTime="2026-08-28T11:51:29.8031941" />
+after : …creationDateTime="2026-08-28T11:51:30.4132032" />
+```
+
+An export **timestamp** in `<fileHeader>` — not content. **No `LineIds` reordering, no re-indentation, no
+declaration regeneration.**
+
+### W11 — the import does NOT relocate
+
+`PLC_PRG` parent `Application` **before and after**. TwinCAT's import always deposits the item at the
+PLC-project root and Volt has to move it back (D4g); CODESYS's does not.
+
+### So the two PLCopen implementations differ sharply on WRITE
+
+| perturbation | TwinCAT import | CODESYS import |
+|---|---|---|
+| declaration reformatted | ✗ yes | **✓ no** |
+| `<LineIds>` reordered | ✗ yes | **✓ no** |
+| implementation re-indented | ✗ yes | **✓ no** |
+| item relocated to project root | ✗ yes | **✓ no** |
+| POU `Id` zeroed | ✗ yes | ✓ no |
+
+**"PLCopen" is not one behaviour.** TwinCAT's importer perturbs five things; CODESYS's perturbs none. That is a
+further argument for choosing per vendor rather than per format — and it means the transport CODESYS keeps is in
+much better shape than the one it shares a name with.
+
+### Method note
+
+`import_xml` is called on the PARENT node and takes the XML **string**, not a path:
+`parent.import_xml(⟨ConflictResolve⟩, xml, false)`. From IronPython only the numeric `0` was accepted —
+`'Replace'` raised *"expected IImportReporter, got str"* (wrong overload) and `1` raised *"Cannot convert numeric
+value 1 to ConflictResolve. The value must be zero."* Volt resolves the member by NAME through reflection, which
+is the durable form; the numeric literal is a probe convenience only.
