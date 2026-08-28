@@ -5,7 +5,6 @@ using Volt.Engine;
 using Volt.Engine.Library;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 

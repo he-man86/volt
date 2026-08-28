@@ -1,59 +1,58 @@
-﻿using Volt.Engine.Item;
+using Volt.Engine.Item;
+
 namespace Volt.Engine.Ide;
 
 /// <summary>
-/// The TWO code transports, plus the language gate and the non-source manifest read. This is the only
-/// surface that moves code in/out of the IDE; the choice between transports is made wholesale by
-/// <see cref="BodyLanguage"/> (Core decides — see <c>NetworkCode</c>). Every method throws on real
-/// IDE failure; there is no silent fallback.
+/// How code moves in and out of an IDE. <b>The whole surface is Volt's own vocabulary</b> — an
+/// <see cref="ItemContent"/> in, an <see cref="ItemContent"/> out — and the engine never learns which
+/// transport produced it. Every method throws on real IDE failure; there is no silent fallback.
+///
+/// <para><b>This interface used to demand a PLCopen document</b>:</para>
+/// <code>
+/// string ReadXml(ItemRef item);              // "export this POU as PLCopen XML"
+/// void   WriteXml(ItemRef item, string xml);
+/// string? BodyLanguage(ItemRef item);
+/// </code>
+/// <para>which made a vendor's file format part of the vendor-neutral contract. Three consequences, all of
+/// them real rather than theoretical:</para>
+/// <list type="bullet">
+/// <item>An IDE with no PLCopen export <b>could not implement the contract at all</b>. TIA Portal is the
+/// concrete case: Openness has its own representation and no PLCopen, so a Siemens driver was impossible for
+/// a reason that had nothing to do with Siemens.</item>
+/// <item>TwinCAT could not adopt its own better transport, because the engine would not accept it — which is
+/// how PLCopen's seven checklist failures on TwinCAT became Volt's failures.</item>
+/// <item>CODESYS could not hand over the typed objects it actually has, and had to serialize a document
+/// instead.</item>
+/// </list>
+///
+/// <para><b>What a driver now owns</b> is everything between its IDE and <see cref="ItemContent"/>: reading a
+/// declaration, deciding a body's language, rendering a graphical body to network text, and putting all of it
+/// back. What the ENGINE owns is unchanged and is Volt's own: the canonical <c>.fb</c> layout, network text,
+/// the model, and sync. <c>BodyLanguage</c> is gone from the contract because the language now arrives INSIDE
+/// the content — a second round-trip to ask "what language is this" was the transport leaking upward.</para>
 /// </summary>
 public interface ICodeStore
 {
-    // ── Transport 1: textual (ST/IL) ──
-    // `ReadImplementation` used to sit here. It had ZERO callers through this interface: a POU's body comes out of
-    // the PLCopen export with everything else, and DUT/GVL (the only kinds still read as text) have no body slot.
-    // Each driver keeps its own object-model body read where it is genuinely needed — TwinCAT's `BodyLanguage`
-    // sniffs `ImplementationText` — but that is vendor-internal, not a transport Core asks for.
-    string ReadDeclaration(ItemRef item);
-    /// <summary>Write an item's text. A <c>null</c> <paramref name="declaration"/> means the item HAS no
-    /// declaration and none must be written — actions are the case: they are body-only (their "ACTION
-    /// name" line is synthesized on read, never persisted). TwinCAT models this faithfully and rejects a
-    /// declaration write on an action; CODESYS silently no-ops it. Passing null is correct on both.</summary>
-    void WriteText(ItemRef item, string? declaration, string? implementation);
+    /// <summary>Everything about one item: kind, declaration, body language, body, and members with theirs.
+    /// A body is workspace TEXT — ST verbatim, a graphical body as network text, an unsupported language as
+    /// its marker — because that is what the workspace stores and what the ST layer round-trips.</summary>
+    ItemContent ReadContent(ItemRef item);
 
-    // ── Transport 2: the PLCopen DOCUMENT — a POU's whole content ──
-    // Not "the graphical transport" any more, which is what this said. `ReadXml` is the PRIMARY read for every POU
-    // kind, textual included (declaration, body, methods, actions, properties, accessors all come out of it), and
-    // `WriteXml` carries the whole textual POU back. A graphical body is one thing carried IN this document, not
-    // the reason for it.
-    /// <summary>The item's graphical body language (<c>FBD</c>/<c>LD</c>/<c>CFC</c>/<c>SFC</c>), or
-    /// null for a textual (ST/IL) body. Made as cheap as the vendor allows.</summary>
-    string? BodyLanguage(ItemRef item);
-    /// <summary>Export the item's whole POU as a PLCopen XML string. Throws on failure (never null).</summary>
-    string ReadXml(ItemRef item);
-    /// <summary>Import a full PLCopen XML POU back in place, MERGING into the existing object (no delete), so a
-    /// refused import leaves the original untouched.</summary>
-    void WriteXml(ItemRef item, string xml);
+    /// <summary>Apply content to an item, in place. The driver decides how much of it actually changes: a
+    /// write must not disturb what the engineer did not edit, which on CODESYS means mutating the live objects
+    /// and on TwinCAT means rewriting only the networks that differ.
+    /// <para>A <c>null</c> body means the item HAS no body and none must be written; an EMPTY body means clear
+    /// it. That distinction is load-bearing and was paid for once already — TwinCAT skipped empty
+    /// implementations, so emptying a body silently kept the old code.</para></summary>
+    void WriteContent(ItemRef item, ItemContent content);
 
-    // ── Non-source kinds (libraries, tasks, …) ──
-    /// <summary>The item's MANIFEST: a canonical text body for a non-source item (library ref, task, device,
+    /// <summary>The item's MANIFEST: a canonical text body for a NON-SOURCE item (library ref, task, device,
     /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is
     /// wire-observable twice over: <c>Materializer</c> writes it verbatim as the item's workspace file, and
     /// <c>Hasher</c> takes the item's content version from it. So it is PARITY-CRITICAL — the same project must
-    /// yield byte-identical manifests on both vendors (see <c>Library/LibraryManifest</c>, the shared renderer for
-    /// <c>.library</c> refs). An item whose vendor exposes no metadata for this kind yields the canonical
-    /// kind-stamped body <c>ItemKind.EmptyManifest(kind)</c> — never null, never empty, so the version basis stays
-    /// stable. CODESYS falls through to that SAME body for a kind it tracks but has no descriptor reader for, and
-    /// LOGS the missing reader once per session. Throws on real IDE failure; there is no silent fallback.</summary>
-    // ponytail (half retired): the "{kind}\n" literal is no longer hand-written per driver — it is
-    // ItemKind.EmptyManifest(kind), which BOTH drivers call, so that value can no longer diverge per vendor.
-    // ponytail: the CODESYS fall-through for a kind with no descriptor reader is now decided loudly only in the
-    // LOG. The BYTES are deliberately left alone: naming the item in the body (Name=<name>) would make the two
-    // vendors select this constant by DIFFERENT predicates — CODESYS kind-keyed, TwinCAT "ProduceXml returned
-    // empty" — i.e. a new vendor-detectable manifest divergence in exactly the kinds it targets, bought with a
-    // one-time rewrite of every .visualization/.text_list/.image_pool file in every existing workspace, after
-    // which the item's CONTENT would still be unversioned. The real fix is the missing descriptor readers
-    // (visualization, image pool, text list, class diagram); write those and this body stops being reachable
-    // for a tracked kind.
+    /// yield byte-identical manifests on both vendors (see <c>Library/LibraryManifest</c>, the shared renderer
+    /// for <c>.library</c> refs). An item whose vendor exposes no metadata for this kind yields the canonical
+    /// kind-stamped body <c>ItemKind.EmptyManifest(kind)</c> — never null, never empty, so the version basis
+    /// stays stable. Throws on real IDE failure; there is no silent fallback.</summary>
     string ReadManifest(ItemRef item, string kind);
 }

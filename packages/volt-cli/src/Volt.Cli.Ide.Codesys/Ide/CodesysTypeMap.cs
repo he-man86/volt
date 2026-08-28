@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Item;
 using Volt.Engine.Format.St;
 

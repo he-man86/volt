@@ -1,7 +1,6 @@
 ﻿using System;
 using Xunit;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;

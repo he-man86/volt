@@ -3,7 +3,6 @@ using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
-using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 

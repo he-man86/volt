@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Format.Network;
 using Xunit;
 using Xunit.Abstractions;

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Xml.Linq;
 using Xunit;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 

@@ -1,7 +1,6 @@
 ﻿using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Format.Network;
-using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 

@@ -3,7 +3,6 @@ using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Format.Body;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;

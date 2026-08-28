@@ -6,7 +6,6 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
@@ -261,7 +260,7 @@ public static class PushService
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         foreach (var body in new[] { split.Body }.Concat(split.Members.Select(m => m.Body)))
-            if (body is { } b && NetworkText.Is(b)) NetworkCode.Validate(b);
+            if (body is { } b && NetworkText.Is(b)) NetworkTextGate.Validate(b);
     }
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
@@ -309,174 +308,43 @@ public static class PushService
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
             var targetParent = TreeNav.ResolveTopLevelFolder(ide, parent, folder);
 
-            // Validate a network-text body BEFORE creating the item — a refused push must not leave an orphaned,
+            // Validate a network-text body BEFORE creating the item - a refused push must not leave an orphaned,
             // unlisted stub POU behind that blocks the next create.
-            if (pouIsNetwork) NetworkCode.Validate(impl);
+            if (pouIsNetwork) NetworkTextGate.Validate(impl);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
-            // language at creation; CODESYS ignores the argument and takes the language from the body element on
-            // import. There is no create-arm per language any more — the language is data.
+            // language at creation; CODESYS takes it from the content. There is no create-arm per language - the
+            // language is data.
             pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl));
-            // The COM reference from CreateChild is stale for interface items — re-find before writing anything,
+            // The COM reference from CreateChild is stale for interface items - re-find before writing anything,
             // and FAIL if the re-find misses rather than writing through the handle this very line calls dead. On
             // TwinCAT a write to a detached COM object can succeed silently, so the interface would land EMPTY
             // while the push reports "created" and the receipt bakes that into the client's baseline.
             if (itemType == ItemKind.PlcItf)
                 pou = TreeNav.FindChild(ide, targetParent, name)
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                        $"created interface '{name}' but it cannot be found under its parent — refusing to write " +
+                        $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
                         "through the stale create handle");
-
         }
-        else
-        {
-            pou = existingPou;
-            // ONE export serves this whole update: the root's body-format guard, EVERY child's guard, and the
-            // splice basis below. It used to be 1 + N + 1 separate exports, because `BodyLanguage` is a full
-            // PLCopen export on CODESYS and the child guard called it once per child — so a POU with 20 methods
-            // paid 22 exports to write one body. Reading the document once and answering every language question
-            // from it is the same information for a 22nd of the IDE traffic.
-            var doc = ide.ReadXml(pou);
-            var parsed = PouReader.Parse(doc);
+        else pou = existingPou;
 
-            // Validate every CHILD's body format BEFORE writing anything, so a refusal is atomic — exactly like the
-            // root guard above. Checking inside the apply loop instead would leave the root body already written
-            // while a child was refused: not data loss, but the IDE would hold the new root and the old child.
-            foreach (var child in split.Members) BodyFormatGuard.RequireChildFormatWritable(ide, pou, child, itemType, parsed);
-
-            // ONE write, whatever the body language — the splice dispatches to the language's codec. This is
-            // the merge: a network-text body no longer takes a separate write that carried only the body and
-            // silently dropped the declaration and the member reconciliation.
-            // The document write comes FIRST and the declaration aspect SECOND. That order is measured, not
-            // stylistic: TwinCAT's PlcOpenImport REGENERATES the declaration from the typed <interface> when
-            // the document carries no verbatim block — which is exactly this install — so an aspect write made
-            // before the import is silently undone by it. On an export->import round trip with NO edit at all,
-            // `x : INT;` came back `x: INT;`, `yLonger   : BOOL;` came back `yLonger: BOOL;`, and the blank
-            // line before END_VAR was dropped. Writing the aspect last restores the engineer's exact text.
-            ide.WriteXml(pou, PouDocument.Splice(doc, name, split, establishing: false));
-            RestoreChildFolders(ide, name, split);
-            WriteDeclarations(ide, name, split);
-            return;
-        }
-
-        // THE single-document write for a CREATE: declaration, body, children, accessors, all in ONE merge import.
-        // (The UPDATE takes the same write above, reusing the export it already read for the guards.)
+        // ONE call, for create and update alike: declaration, body, members and accessors together.
         //
-        // Create reaches here because the POU now EXISTS: `CreateChild` above made it, so it has an export to
-        // splice. `pou-writes-via-plcopen` §3.3 read "a POU that does not exist yet has no export to splice" as a
-        // reason to keep create on the per-child API — but that is only true BEFORE the create, and the create
-        // path is what decides when that is. Measured on 3.5.21.40: a just-created POU exports with both an
-        // `<InterfaceAsPlainText>` and a `<body>`, which are exactly the two elements the splice needs.
-        // Document first, declaration aspect second — see the update arm above for the measurement.
-        ide.WriteXml(pou, PouDocument.Splice(ide.ReadXml(pou), name, split, establishing: true));
-        RestoreChildFolders(ide, name, split);
-        WriteDeclarations(ide, name, split);
+        // Everything that used to sit here went with the PLCopen transport, and each piece was a VENDOR fact
+        // wearing engine clothing:
+        //   - `ReadXml` + `PouDocument.Splice` + `WriteXml`: the document round-trip itself.
+        //   - `WriteDeclarations` AFTER the document write. That ordering was measured and real - TwinCAT's
+        //     importer REGENERATES a declaration from the typed <interface> when the document carries no
+        //     verbatim block, so an aspect write placed first was silently undone (`x : INT;` came back
+        //     `x: INT;`) - but it is a fact about one vendor's IMPORTER, and there is no import now.
+        //   - `RestoreChildFolders`: PLCopen carries no folder membership, so its import flattened a POU's
+        //     internal folders and Volt re-placed them from the pushed source. Nothing flattens them now.
+        //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
+        //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
+        //     the driver, which is the only layer that can ask the IDE cheaply.
+        ide.WriteContent(pou, split);
     }
 
-    /// <summary>Write the root declaration to the item's DECLARATION ASPECT — the one source that carries an
-    /// engineer's exact text on both vendors, in both directions.
-    ///
-    /// <para><b>Why not the document.</b> PLCopen carries a declaration twice: as the standard's TYPED
-    /// <c>&lt;interface&gt;</c>, and as a vendor <c>addData</c> block of verbatim text
-    /// (<c>InterfaceAsPlainText</c>). The TC6 XSD defines <c>addData</c> as discardable — <c>handleUnknown</c>
-    /// is <c>preserve</c>/<c>discard</c>/<c>implementation</c> — and this TwinCAT install stopped emitting it.
-    /// The typed form is not a substitute: it reproduces names and types, never the engineer's spacing.</para>
-    ///
-    /// <para><b>Why AFTER the document write, which is the part that is easy to get wrong.</b> With no verbatim
-    /// block in the document, TwinCAT's importer REGENERATES the declaration from the typed interface. Measured
-    /// on an export->import round trip with NO edit at all: <c>x : INT;</c> came back <c>x: INT;</c>,
-    /// <c>yLonger   : BOOL;</c> came back <c>yLonger: BOOL;</c>, and the blank line before <c>END_VAR</c> was
-    /// dropped. An aspect write placed BEFORE the import is therefore undone by it, silently — the push still
-    /// reports "updated" and every declaration in the project is quietly reformatted.</para>
-    ///
-    /// <para>The item is RE-FOUND rather than reused: TwinCAT's import invalidates handles to what it replaced
-    /// (DIALECT D4d), and a write through a detached COM object there can succeed silently — which would land
-    /// the declaration nowhere while reporting success. The lookup starts from a FRESH tree root rather than
-    /// from a captured parent, because the import invalidates the PARENT handle too — and <c>&lt;root&gt;</c>
-    /// with it, which is what <c>MoveAfterWriteTests</c> caught when this took a parent argument.</para>
-    ///
-    /// <para>The write is skipped when the declaration already matches, so a no-op push stays a no-op. The
-    /// comparison is trimmed on both sides because <c>Materializer</c> trims what it writes into the file;
-    /// comparing against the IDE's RAW text would report a change on trailing whitespace alone. The value
-    /// written is verbatim.</para></summary>
-    private static void WriteDeclarations(IIdeDriver ide, string name, ItemContent split)
-    {
-        var item = ItemLookup.Find(ide, name)
-            ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                $"wrote '{name}' but it cannot be found again to write its declaration — refusing to write " +
-                "through the handle the document import invalidated");
-        WriteDeclaration(ide, item, split.Declaration);
-
-        // Members take the SAME transport, one level down, and for the same measured reason: this install's
-        // export carries no <InterfaceAsPlainText> for a member either, so the splice had nowhere to write a
-        // member declaration and refused the whole push — "child 'First' of 'X' has no <InterfaceAsPlainText>
-        // to write the declaration into", on every POU with a method or property.
-        //
-        // These handles survive the loop: only the document import and a move invalidate handles, and both are
-        // already behind us — which is also why this runs AFTER RestoreChildFolders, so a member is looked up
-        // where it ended up rather than where the import dropped it.
-        foreach (var member in split.Members)
-        {
-            // An ACTION has no declaration in any IDE — its `ACTION name` header is composed on read, never
-            // stored (Beckhoff's own _ITcPlcImplementation exposes ImplementationText and no DeclarationText).
-            // There is nothing to write and no aspect to write it to.
-            if (member.Kind == ItemKind.Kinds.Action) continue;
-            var parent = TreeNav.FindFolder(ide, item, member.Folder) ?? item;
-            var child = TreeNav.FindChild(ide, parent, member.Name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"wrote member '{member.Name}' of '{name}' but it cannot be found afterwards — its " +
-                    "declaration would be silently dropped");
-            WriteDeclaration(ide, child, member.Declaration);
-        }
-    }
-
-    /// <summary>One declaration, written only if it differs — so a no-op push stays a no-op. Trimmed on both
-    /// sides because `Materializer` trims what it writes into the file; comparing against the IDE's RAW text
-    /// reports a change on trailing whitespace alone. The value written is verbatim.</summary>
-    private static void WriteDeclaration(IIdeDriver ide, ItemRef item, string? declaration)
-    {
-        if (declaration is not { } decl) return;
-        if (ide.ReadDeclaration(item).Trim() != decl.Trim())
-            ide.WriteText(item, decl, implementation: null);
-    }
-    /// <summary>Put the POU's children back in their folders after the merge import flattened them.
-    /// <para>The import is a CONTENT transport and nothing more: measured on CODESYS 3.5.21.40, it prunes a POU's
-    /// internal folders and lands every child at the POU root — even when the document itself describes the
-    /// folders, because CODESYS emits that block <c>handleUnknown="discard"</c>. The placement Volt needs is not in
-    /// the vendor document anyway; it is in Volt's OWN representation, the <c>%FOLDER</c> directive the splitter
-    /// peels off each child.</para>
-    /// <para>Only a child found at the POU ROOT is moved — the position the import leaves it in. One found
-    /// elsewhere is already inside SOME folder, and this has no way to tell "the user moved it in the workspace"
-    /// from "the import happened not to flatten it", so it is left alone. A missed re-placement is a folder the
-    /// user fixes once; a guessed one silently scatters their methods.</para></summary>
-    private static void RestoreChildFolders(IIdeDriver ide, string name, ItemContent split)
-    {
-        var foldered = split.Members.Where(c => !string.IsNullOrEmpty(c.Folder)).ToList();
-        if (foldered.Count == 0) return;
-        // The POU is re-found ONCE PER MEMBER, not once. The import rewrites the object, and a handle captured
-        // before it is not something to trust on the write path — but the MOVE can rewrite it too: on a vendor
-        // where a member is not a separate file, placing one is a round trip through the enclosing POU's own
-        // archive (TwinCAT, DIALECT D4j), which leaves every handle into that POU dead. Hoisting the lookup out
-        // of the loop worked only for as long as CODESYS, whose move touches nothing but the moved object, was
-        // the only driver that reached here.
-        //
-        // A MISS is not "nothing to do". The document has ALREADY landed and the import has already flattened the
-        // POU's internal folders, so returning quietly leaves every member at the POU root while the push reports
-        // success and the receipt bakes the flattened tree into the client's baseline — the engineer's structure
-        // is gone and `volt status` says clean.
-        foreach (var child in foldered)
-        {
-            if (ItemLookup.Find(ide, name) is not { } pou)
-                throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{name}' cannot be found after its document was imported, so its members cannot be put back " +
-                    "into their folders — the import has already flattened them");
-            if (TreeNav.FindChild(ide, pou, child.Name) is not { } flattened) continue;   // already inside a folder
-            ide.Move(flattened, TreeNav.ResolveFolder(ide, pou, child.Folder));
-        }
-    }
-
-    // Maps a top-level wire kind to its IDE create code. A DUT is one kind `dut` → one code (PlcDut); the IDE
-    // derives struct/enum/union/alias from the written declaration, so Volt never picks a subkind.
     private static int PouKindToCode(string kind) => kind switch
     {
         ItemKind.Kinds.Program => ItemKind.PlcPouProg, ItemKind.Kinds.Function => ItemKind.PlcPouFunc, ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,

@@ -4,7 +4,6 @@ using System.Xml.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Item;
-using Volt.Engine.PlcOpen;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 
