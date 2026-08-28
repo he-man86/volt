@@ -32,8 +32,9 @@ public sealed partial class CodesysDriver
         var (language, body) = ReadBody(iobj);
 
         var members = new List<Member>();
+        var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
         foreach (var site in MemberSites(item))
-            members.Add(ReadMember(site));
+            members.Add(ReadMember(site, ownerIsInterface));
 
         // No separate language field: a graphical body's text LEADS with `NETWORK n FBD|LD`, so the
         // language is already in the content and a second copy could only disagree with it.
@@ -172,14 +173,14 @@ public sealed partial class CodesysDriver
         }
     }
 
-    private Member ReadMember(MemberSite site)
+    private Member ReadMember(MemberSite site, bool ownerIsInterface)
     {
-        var kind = ItemKind.Map(site.Code) ?? ItemKind.Kinds.Method;
+        var kind = MemberKind(site.Code, ownerIsInterface);
         var iobj = _om.ReadObject(site.Ref.Native);
         var (_, body) = ReadBody(iobj);
 
         Accessor? getter = null, setter = null;
-        if (site.Code is ItemKind.PlcProp or ItemKind.PlcItfProp)
+        if (kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
         {
             int n = ChildCount(site.Ref);
             for (int i = 1; i <= n; i++)
@@ -193,6 +194,22 @@ public sealed partial class CodesysDriver
 
         return new Member(kind, site.Name, MemberDeclaration(site), body, site.Folder, getter, setter);
     }
+
+    /// <summary>A member's kind, decided by its OWNER rather than by the object's interfaces alone.
+    /// <para>CODESYS's classification cannot separate the two on its own here: <c>CodesysTypeMap</c> tests
+    /// <c>IInterfacePropertyObject</c> before <c>IPropertyObject</c>, and on this build a property inside a
+    /// FUNCTION BLOCK answers to both — so every property came back as <c>interface_property</c> and the ST
+    /// writer refused it with "No END keyword for POU child kind 'interface_property'". It never showed before
+    /// because the member kind used to come from the PLCopen document, which nests a POU's properties under the
+    /// POU. The owner is the fact that settles it, and the tree walk already knows it.</para></summary>
+    private static string MemberKind(int code, bool ownerIsInterface) => code switch
+    {
+        ItemKind.PlcMethod or ItemKind.PlcItfMeth =>
+            ownerIsInterface ? ItemKind.Kinds.InterfaceMethod : ItemKind.Kinds.Method,
+        ItemKind.PlcProp or ItemKind.PlcItfProp =>
+            ownerIsInterface ? ItemKind.Kinds.InterfaceProperty : ItemKind.Kinds.Property,
+        _ => ItemKind.Map(code) ?? ItemKind.Kinds.Method,
+    };
 
     private Accessor ReadAccessor(ItemRef acc)
     {
