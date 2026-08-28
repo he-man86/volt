@@ -492,3 +492,36 @@ much better shape than the one it shares a name with.
 `'Replace'` raised *"expected IImportReporter, got str"* (wrong overload) and `1` raised *"Cannot convert numeric
 value 1 to ConflictResolve. The value must be zero."* Volt resolves the member by NAME through reflection, which
 is the durable form; the numeric literal is a probe convenience only.
+
+---
+
+## §R3-bis — pin modifiers are a numeric bit-field, decoded 2026-08-28
+
+Review challenged §NWL's R3 PASS: the native LD document shows no `contact`/`coil`/`PowerRail`, which could mean
+*"the ladder is a view"* (my reading) or *"the native does not carry the rendering, and PLCopen does"* (the
+opposite). The original experiment could not distinguish them, and I had **stripped `Flags` unread**.
+
+Re-measured by **differential decoding** — change exactly one PLCopen attribute, re-import, diff the native.
+Fixture: `tc-fbd/PLC_PRG_jump_sr.plcopen.xml`, a recorded live TwinCAT export carrying `negated="true"` ×1 and
+`edge="rising"` ×1.
+
+| change | native effect | lines changed of 572 |
+|---|---|---|
+| `negated="true"` → `"false"` | `<v n="Flags">` **1 → 0** | 3 (POU `Id`, `Flags`, `Fixed`) |
+| `edge="rising"` → `"none"` | `<v n="Flags">` **16 → 0** | **1** |
+
+**Control:** a PLCopen re-export of the same POU still reports `negated="true" ×1`, `edge="rising" ×1` — the
+modifiers are genuinely stored and genuinely survive the import, so the native's silence was not the import
+dropping them.
+
+**Decode so far:** `Flags` bit value **1 = negated**, **16 = rising edge**, **4 = a third modifier** (undecoded;
+the fixture is `jump_sr`, so plausibly SET/RESET storage).
+
+**R3 = PASS**, on a mechanism rather than an inference. The converter must decode `Flags`; a `GraphModel`
+mapping that ignores it would silently drop negation and edge detection — the exact class of loss this whole
+programme exists to prevent.
+
+**Method note, and it is the important part.** Twice I searched the native for `Negat`/`Invert`/`Edge`/`Set`/
+`Reset` and concluded from absence that the semantics were absent. Both times the answer was in `Flags`, encoded
+by VALUE. **An absence found by grepping for a NAME is not evidence about a format that may encode numerically.**
+The reliable technique is differential: toggle one input, diff the output, read the mechanism off the delta.

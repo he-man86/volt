@@ -4,12 +4,47 @@ Three independent reviews, 2026-08-28, plus verification of every finding below 
 rather than silently patched: some of these are corrections to claims the plan makes about itself, and a reader
 who saw only the corrected text would not know which parts had been over-read.
 
-**Headline: the deciding cell (R3) is NOT closed, the stated motivation is stale, and the promised payoff is not
-achievable as written.** The direction — native for TwinCAT — survives, but on a much thinner case.
+**Headline: R3 was challenged and has since been RE-MEASURED and PASSES (§1). The stated motivation is stale and
+the promised payoff is not achievable as written — both stand.** The direction — native for TwinCAT — survives,
+on better evidence for the deciding cell and a thinner case for the motivation.
 
 ---
 
-## 1. R3 is NOT closed. The verdict line must be withdrawn.
+## 1. R3 — challenged, RE-MEASURED, and it PASSES. The challenge was right to be made.
+
+> **RESOLVED 2026-08-28 by differential decoding.** The finding below stood for about an hour and was then
+> falsified by a better experiment. It is kept in full because the reasoning error it records — twice — is the
+> instructive part.
+
+**The native document DOES carry pin modifiers. They are a numeric BIT-FIELD, which is why searching for the
+word found nothing.** Decoded by changing exactly one PLCopen attribute, re-importing, and diffing the native:
+
+| PLCopen attribute | native encoding | lines changed in 572 |
+|---|---|---|
+| `negated="true"` → `"false"` | `<v n="Flags">` **1 → 0** | 3 (POU `Id`, `Flags`, `Fixed`) |
+| `edge="rising"` → `"none"` | `<v n="Flags">` **16 → 0** | **1** |
+| third modifier (the fixture is `jump_sr`) | `Flags` = **4** | undecoded |
+
+The control held throughout: a PLCopen re-export of the same POU still shows `negated="true" ×1` and
+`edge="rising" ×1`, so the modifiers really are stored and really do survive the import.
+
+**So R3 = PASS**, and the "LD contact demotion cannot occur in this transport" claim survives — but for a
+*different reason than originally given*. The original reasoning ("no contacts, so nothing to demote") was
+unsupported; the actual support is that the modifiers which make contacts semantically distinct are carried.
+
+**What I got wrong, twice, and it is the same mistake:** I searched the native document for `Negat`, `Invert`,
+`Edge`, `Rising`, `Set`, `Reset` and concluded from their absence that the semantics were absent. The first time
+I compounded it by *stripping `Flags` unread* as "noise". `Flags` was the answer both times. **An absence found
+by grepping for a NAME is not evidence when the format may encode by VALUE.**
+
+**Residual, honestly:** `Flags=4` is undecoded, and every LD/FBD body measured is still import-derived rather than
+IDE-authored. The mechanism is now demonstrated, so those are decoding detail for the converter rather than
+transport-viability questions — but the converter must decode `Flags`, and `layout.md`'s "close to 1:1 with
+`GraphModel`" still rests on one rung.
+
+---
+
+## 1b. The original finding, retained as the record
 
 The plan says: *"All four deciding cells are closed, and `DocumentXml` passed every one, including R3, which
 could have sunk it."* **That does not stand.**
