@@ -220,6 +220,19 @@ public static class ItemKind
     /// never be in a pushed member set. Reconciling members against the wider set is exactly how a push once
     /// deleted every transition of an SFC POU on the first write, silently. Accessors are excluded for a
     /// different reason — a property's GET/SET are read WITH the property, not beside it.</para></summary>
+    /// <summary>The IDE kind code for a member kind — the inverse of <see cref="Map"/> over
+    /// <see cref="IsMember"/>'s set, for creating a member the pushed source declares but the project does not
+    /// have yet.</summary>
+    public static int MemberCode(string kind) => kind switch
+    {
+        Kinds.Method => PlcMethod,
+        Kinds.Action => PlcAction,
+        Kinds.Property => PlcProp,
+        Kinds.InterfaceMethod => PlcItfMeth,
+        Kinds.InterfaceProperty => PlcItfProp,
+        _ => PlcMethod,
+    };
+
     public static bool IsMember(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
 

@@ -48,7 +48,11 @@ public class TransportMatrixTests
         { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
-        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        // The interface row's source DECLARES a method, and the fixture project does not have it — so its
+        // update legitimately creates the member first. Member creation used to be invisible (the PLCopen
+        // import added children as a side effect of the document write); the engine does it explicitly now,
+        // which is why it appears here and nowhere else in the table.
+        { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "create:M", "writecontent:K" }, new[] { "create:K", "create:M", "writecontent:K" } },
         { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
     };
@@ -63,6 +67,29 @@ public class TransportMatrixTests
         return new FakeIde(items.ToArray());
     }
 
+    /// <summary>The same project, but K ALREADY HAS the members the pushed source carries — so an update is an
+    /// update rather than a create.
+    /// <para>Member creation used to be invisible: the PLCopen import "ADDS a child present only in the
+    /// document", so no call was recorded for it. The engine creates members explicitly now, which is a real
+    /// and better-behaved change, and it would otherwise blunt the assertion below — a legitimate
+    /// <c>create:M</c> would sit in the sequence and make "no per-child interaction" impossible to state.</para></summary>
+    private static FakeIde IdeWithMembers(int code, string src, params (string Name, int Code)[] members)
+    {
+        var items = new List<FakeIde.Item>
+        {
+            // An INTERFACE has no body of its own, only members.
+            new("K", code, "", true, src.Split("\n\n")[0], code == ItemKind.PlcItf ? null : "n := 1;", null, null,
+                Children: members.Select(m => m.Name).ToArray()),
+        };
+        foreach (var (name, mcode) in members)
+            items.Add(new FakeIde.Item(name, mcode, "", false,
+                // An ACTION has no declaration and an INTERFACE member has no body — modelling either one
+                // wrongly makes the owning item unreadable, which shows up three frames away as a missing refs key.
+                mcode == ItemKind.PlcAction ? null : $"METHOD {name} : BOOL",
+                mcode == ItemKind.PlcItfMeth ? null : "M := TRUE;", null, null));
+        return new FakeIde(items.ToArray());
+    }
+
     private static List<string> Apply(FakeIde ide, SetItemOp op)
     {
         var refs = RefsService.Handle(ide);
@@ -74,7 +101,9 @@ public class TransportMatrixTests
 
     // ── UPDATE ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>An UPDATE is ONE WriteXml and nothing else — for every writable kind.</summary>
+    /// <summary>An UPDATE is ONE WriteContent and nothing else — for every writable kind.
+    /// <para>The interface source declares a method, so its project must already have one: an update that also
+    /// INTRODUCES a member legitimately creates it, and that is a different row of the matrix.</para></summary>
     [Theory]
     [MemberData(nameof(Writable))]
     public void Update_uses_exactly_the_matrix_calls(int code, string ext, string src, string[] onUpdate, string[] onCreate)
@@ -115,26 +144,36 @@ public class TransportMatrixTests
         Assert.Equal(onCreate, recorded.ToArray());
     }
 
-    /// <summary>A POU created WITH members costs the same two calls — the members ride in the document. This is
-    /// the case the old path was worst at: five methods meant five CreateChild + five WriteText on top.
-    /// <para>No <c>write:K</c> here: this source's declaration is <c>FUNCTION_BLOCK K / VAR / END_VAR</c>, which
-    /// is exactly what the create seeded, so the declaration aspect has nothing to receive. The members are the
-    /// subject and they ride in the one document write.</para></summary>
+    /// <summary>Creating a POU with members costs ONE CreateChild PER MEMBER plus the content write — and that
+    /// is a COST REGRESSION, recorded rather than hidden.
+    ///
+    /// <para>It used to be two calls flat, however many members: the PLCopen import created every child as a
+    /// side effect of the document write. There is no document now, so each member is an explicit
+    /// <c>CreateChild</c> — a POU with twenty methods costs 22 calls on CREATE where it cost 2. Nothing here can
+    /// batch it: creating an object is one scripting call on CODESYS and one COM call on TwinCAT, and neither
+    /// exposes a bulk form.</para>
+    ///
+    /// <para><b>An UPDATE is unaffected</b>, which is what makes this tolerable: members already exist, so
+    /// reconciliation creates nothing and the write stays a single call. Creates are rare and updates are the
+    /// hot path — but if a create of a large POU ever shows up as slow, this is the reason, and the fix is a
+    /// bulk create on the driver, not a document.</para></summary>
     [Fact]
-    public void Creating_a_POU_with_members_still_costs_two_calls()
+    public void Creating_a_POU_with_members_costs_one_create_per_member_plus_the_write()
     {
         var ide = new FakeIde();
         var recorded = Apply(ide, new SetItemOp
         {
             Name = "K.fb",
-            SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n"
+            SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
                        + "METHOD A : BOOL\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\nB := TRUE;\nEND_METHOD\n\n"
                        + "ACTION Act\nn := 1;\nEND_ACTION\n",
         });
 
-        Assert.Equal(new[] { "create:K", "writecontent:K" }, recorded.ToArray());
-        var doc = FakeIde.AllText(ide.WrittenContent["K"]);
-        foreach (var member in new[] { "A", "B", "Act" }) Assert.Contains(member, doc);
+        Assert.Equal(new[] { "create:K", "create:A", "create:B", "create:Act", "writecontent:K" },
+                     recorded.ToArray());
+        // The point that DOES survive: no per-member content write, and no orphan walk.
+        Assert.DoesNotContain(recorded, r => r.StartsWith("write:"));
+        Assert.DoesNotContain(recorded, r => r.StartsWith("delete:"));
     }
 
     // ── MOVE ────────────────────────────────────────────────────────────────────────────────────────
@@ -168,11 +207,15 @@ public class TransportMatrixTests
     public void No_per_child_or_accessor_interaction_survives_a_write(int code, string ext, string src, string[] onUpdate, string[] onCreate)
     {
         _ = (onUpdate, onCreate);
-        var ide = Ide(code, src);
-        var refs = RefsService.Handle(ide);
         var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nM := TRUE;\nEND_METHOD\n")
                              .Replace("END_PROGRAM\n", "END_PROGRAM\n\nACTION A\nn := 1;\nEND_ACTION\n")
                              .Replace("END_FUNCTION\n", "END_FUNCTION\n");
+        // The members must ALREADY exist, or the create below is the engine legitimately adding them.
+        var declared = new List<(string, int)>();
+        if (withMembers.Contains("METHOD M")) declared.Add(("M", ItemKind.PlcMethod));
+        if (withMembers.Contains("ACTION A")) declared.Add(("A", ItemKind.PlcAction));
+        var ide = IdeWithMembers(code, src, declared.ToArray());
+        var refs = RefsService.Handle(ide);
         var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], SourceText = withMembers });
 
         Assert.Equal(new[] { "writecontent:K" }, recorded.ToArray());

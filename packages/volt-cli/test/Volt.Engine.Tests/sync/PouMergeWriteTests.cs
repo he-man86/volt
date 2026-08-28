@@ -148,7 +148,10 @@ public class PouMergeWriteTests
                        + "METHOD First : BOOL\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nSecond := FALSE;\nEND_METHOD\n",
         });
 
-        Assert.Equal(new[] { "create:FB_New", "writecontent:FB_New" }, ide.Recorded.ToArray());
+        // One CreateChild per member, then ONE content write. The members used to arrive inside the
+        // document, so this was two calls flat; see the cost note in TransportMatrixTests.
+        Assert.Equal(new[] { "create:FB_New", "create:First", "create:Second", "writecontent:FB_New" },
+                     ide.Recorded.ToArray());
         var doc = FakeIde.AllText(ide.WrittenContent["FB_New"]);
         Assert.Contains("First", doc);
         Assert.Contains("Second", doc);

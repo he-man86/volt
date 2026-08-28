@@ -333,8 +333,13 @@ public static class PushService
             // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
             // must never be overwritten by a textual push, and a marker must not be written over one it can.
+            // Validate the WHOLE write before any of it lands, so a refusal is atomic.
             BodyFormatGuard.RequireWritable(ide.ReadContent(pou), split);
         }
+
+        // The member SET, for a create and an update alike. A create reaches here with the item existing but
+        // empty, so every member the source declares is new; an update reconciles against what is there.
+        ReconcileMembers(ide, pou, ide.ReadContent(pou), split);
 
         // ONE call, for create and update alike: declaration, body, members and accessors together.
         //
@@ -351,6 +356,38 @@ public static class PushService
         //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
         //     the driver, which is the only layer that can ask the IDE cheaply.
         ide.WriteContent(pou, split);
+    }
+
+    /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
+    /// project lacks, remove what the project has and the source dropped.
+    ///
+    /// <para><b>This is new work, and it had no owner for a moment.</b> Nothing here used to create or remove a
+    /// member: the PLCopen IMPORT did it as a side effect of the document write — it "ADDS a child present only
+    /// in the document, REMOVES one absent from it" — so the engine only ever handed over a document. With the
+    /// document gone, the responsibility surfaced, and it belongs here rather than in a driver: creating and
+    /// deleting a child is <see cref="IProjectTree"/>, which both vendors already implement, and keeping it in
+    /// one place is what keeps the removal rule honest.</para>
+    ///
+    /// <para><b>The removal rule is the dangerous half.</b> It reconciles against the members the driver
+    /// REPORTS, which are only the kinds that materialize into the file. A transition is inlined in a POU and is
+    /// not a member — no reader models one, so it can never appear in a pushed source — and reconciling against
+    /// the wider "inlined in a POU" set is exactly how a push once deleted every transition of an SFC POU on its
+    /// first write, silently.</para></summary>
+    private static void ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed)
+    {
+        var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var m in pushed.Members)
+        {
+            if (have.Contains(m.Name)) continue;
+            var parent = TreeNav.ResolveFolder(ide, pou, m.Folder);
+            ide.CreateChild(parent, m.Name, ItemKind.MemberCode(m.Kind), NetworkText.LanguageOf(m.Body));
+        }
+
+        foreach (var m in live.Members)
+            if (!want.Contains(m.Name))
+                ide.Delete(pou, m.Name);
     }
 
     private static int PouKindToCode(string kind) => kind switch
