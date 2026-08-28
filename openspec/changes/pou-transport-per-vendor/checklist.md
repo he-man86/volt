@@ -225,3 +225,55 @@ comes free, because nothing is regenerated. Storing a TwinCAT body verbatim and 
 construction rather than by verification.
 
 **Verdict on W14: PASS.**
+
+---
+
+## §FBD — experiment 1b + 2b, measured 2026-08-28
+
+§NWL measured an **LD** body. "FBD shares the encoding" was an inference until an FBD body was read, so R3 was
+demonstrated on one language, not two. Measured now on the recorded `fbd_en_eno` fixture imported live —
+21,689 chars, `DefaultViewMode = Fbd`.
+
+**Structure — same encoding, different node arrangement.**
+
+| | LD (`ladder`) | FBD (`fbd`) |
+|---|---|---|
+| `NWL` / `XmlArchive` | ✓ | ✓ |
+| `BoxTreeAssign` | 3 | **0** |
+| `BoxTreeBox` | 3 | 4 |
+| `BoxTreeOperand` | 3 | 6 |
+| `Operator` / `ParamList` | 3 / 5 | 4 / 7 |
+| `Title` / `Label` / `OutCommented` | ✓ | ✓ |
+| **`contact` / `coil` / `PowerRail`** | **0 / 0 / 0** | **0 / 0 / 0** |
+
+An FBD box carries its own sinks and sources instead of hanging off a separate assign node:
+
+```
+BoxTreeDemux                       <- the EN/ENO wrapper
+  Input -> BoxTreeBox  BoxType "AND"
+    Instance    -> Operand
+    OutputItems -> Operand "out"
+    InputItems  -> BoxTreeOperand -> Operand "TRUE"
+```
+
+So the converter must handle several `BoxTree*` kinds — `BoxTreeAssign` (a plain assignment), `BoxTreeBox` with
+`OutputItems` (a box with sinks), `BoxTreeDemux` (EN/ENO). **State honestly: that is more than one shape.** But
+every one is a LOCAL tree — no `refLocalId` edges to resolve, no id chasing, no ladder lowering. Ordinary work,
+not a research problem.
+
+**W14 on FBD — identical to LD.** 21,689 → **21,689** chars, 470 → **470** lines, exactly **one** line different:
+
+```
+before: <POU Name="fbd" Id="{4e6c9813-1176-44df-992d-21fed912771c}" …>
+after : <POU Name="fbd" Id="{00000000-0000-0000-0000-000000000000}" …>
+```
+
+**R3 and W14 are now closed for BOTH graphical languages.**
+
+### Method notes — two more traps, both of which read as "the API is broken"
+
+- **`PlcOpenImport` settles ASYNCHRONOUSLY.** After it returns, the imported item is invisible in the *same* COM
+  session — even after re-acquiring the PLC-project handle — while a fresh process sees it immediately. DIALECT
+  D4d covers handles to the *replaced* item; this is the parent's child enumeration, and it is wider.
+- A `PlcOpenExport`/`Import` round-trip through a recorded fixture is a fine way to stage a body for probing, but
+  the probe must run in a **separate invocation** from the import.
