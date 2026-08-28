@@ -214,60 +214,11 @@ internal sealed partial class TcObjectModel
     public string ProduceXml(object node) => (string)((dynamic)node).ProduceXml() ?? "";
 
     // ── PLCopen XML transport ───────────────────────────────────────
-    /// <summary>Export an item as PLCopen. A MEMBER (method/action/property/accessor) has no document of its
-    /// own — it lives inside its POU's — so for one of those the enclosing POU is what gets exported. Everything
-    /// else exports itself.
-    ///
-    /// <para><b>Including a DUT and a GVL, and that correction matters.</b> This used to throw for them, on a note
-    /// saying "exporting the item itself was tried, and TwinCAT's <c>PlcOpenExport</c> answers <c>E_FAIL</c> for
-    /// every DUT and GVL — the export is POU-shaped. Do not 'fix' this by falling back to the item." Measured
-    /// live, it does no such thing: a root DUT and a root GVL both export (2012 and 1983 chars, carrying
-    /// <c>&lt;dataType&gt;</c> and <c>&lt;globalVars&gt;</c>), and a FOLDERED DUT exports too — as
-    /// <c>VltProbeF.VltProbeDutF</c>.</para>
-    ///
-    /// <para>What actually fails is a BARE name for a foldered item: <c>PlcOpenExport('VltProbeDutF')</c> answers
-    /// "Selection 'VltProbeDutF' not found!", and so does <c>PlcOpenExport('PLC_PRG')</c> for the POU sitting in
-    /// <c>POUs/</c>. The selection grammar is the DOTTED project-relative path — which is exactly what
-    /// <see cref="PouSelectionPath"/> builds. So the recorded "E_FAIL for every DUT" was a broken selection, not
-    /// a vendor limit, and it cost the toolchain a whole capability flag (DIALECT C2a).</para></summary>
-    public string ExportPouXml(object item)
-    {
-        // Decided by KIND, never by walking. `EnclosingPou` climbs `node.Parent` until it finds a POU — and for an
-        // item that HAS no enclosing POU it does not politely return null: the walk runs off the top of the tree
-        // and `Parent` throws COMException E_FAIL. That throw is the whole of the "TwinCAT's PlcOpenExport answers
-        // E_FAIL for every DUT and GVL" record — `PlcOpenExport` was never reached, so the vendor never refused
-        // anything. Asking the item what it IS costs one COM read and cannot run off the tree.
-        var target = ItemKind.IsInlinedInPou(ItemType(item)) ? EnclosingPou(item) ?? item : item;
-        return TcPlcOpen.ExportXmlString(PlcRoot(), PouSelectionPath(target));
-    }
-
-    /// <summary>Import a full PLCopen POU back into the PLC project (same-name REPLACE), and put it back in the
-    /// folder it came from.
-    /// <para><b>TwinCAT's <c>PlcOpenImport</c> always deposits the item at the PLC-PROJECT ROOT.</b> That is
-    /// measured exhaustively, not inferred: the whole matrix of <c>options</c> x <c>bFolderStructure</c> x flat /
-    /// nested <c>&lt;ProjectStructure&gt;</c> was run against a POU genuinely sitting in a folder, and under
-    /// <c>REPLACE</c> every one of the eight cells relocated it to the root (the ADD options leave the original
-    /// alone and drop the copy at the root instead). The export is why: it writes a FLAT
-    /// <c>&lt;ProjectStructure&gt;</c> with no enclosing folder, so the placement is not in the document for any
-    /// import flag to honour — and hand-nesting it changes nothing. See DIALECT D4g.</para>
-    /// <para>So the relocation is undone HERE, in the vendor layer, with <see cref="Move"/>. That keeps
-    /// <c>ICodeStore.WriteXml</c> meaning the same thing on both vendors — <em>write this document to THIS item,
-    /// in place</em> — which is where the parity boundary is drawn (ARCHITECTURE.md). Core must not learn that
-    /// one IDE's import moves things.</para>
-    /// <para>The parent is resolved by PATH rather than kept as a handle, because the import invalidates handles
-    /// to what it replaced (D4d) and a handle into that neighbourhood is not worth trusting across it.</para></summary>
-    public void ImportPlcOpenXml(object item, string xml)
-    {
-        var parentPath = PathOf(Parent(item));
-        var rootPath = PathOf(PlcRoot());
-        var name = GetName(item);
-
-        TcPlcOpen.ImportXmlString(PlcRoot(), xml);
-
-        if (string.Equals(parentPath, rootPath, StringComparison.Ordinal)) return;   // was at the root; still is
-        Move(PlcRoot(), LookupTreeItem(parentPath), name);
-    }
-
+    // ExportPouXml / ImportPlcOpenXml lived here and are DELETED with the PLCopen transport. The import
+    // half carried a `Move` back into the item's own folder, because TwinCAT's PlcOpenImport always deposits
+    // at the PLC-project ROOT — measured across the whole options x bFolderStructure x flat/nested matrix,
+    // where all eight REPLACE cells relocated a foldered POU. Nothing imports now, so nothing relocates and
+    // there is nothing to undo.
 
     private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
 

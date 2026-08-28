@@ -180,9 +180,15 @@ internal static class TcItemArchive
             member.SetAttributeValue("FolderPath", string.Join(Sep, segments) + Sep);
         }
 
-        // The ONE serializer — see PlcOpenDocument.Serialize, which carries the reason: ToString() drops the
-        // XML declaration, found by the no-op identity test. This was a byte-identical open-coded copy of it.
-        tcPou = Volt.Engine.PlcOpen.PlcOpenDocument.Serialize(doc);
+        // Serialize WITH the XML declaration. `ToString()` drops it, which the no-op identity test caught:
+        // a document written back without its declaration differs from the one the IDE wrote, so a move
+        // rewrote the file even when nothing about it had changed. This used to call the PLCopen layer's
+        // serializer; that layer is gone, and this is a `.TcPOU` document rather than a PLCopen one anyway.
+        using (var sw = new System.IO.StringWriter())
+        {
+            doc.Save(sw, SaveOptions.None);
+            tcPou = sw.ToString();
+        }
         return true;
     }
 
