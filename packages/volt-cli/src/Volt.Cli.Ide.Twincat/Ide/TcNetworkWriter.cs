@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -24,21 +24,46 @@ internal static class TcNetworkWriter
     /// nothing changed.</summary>
     public static string? Apply(string bodyXml, NetworkBody body)
     {
+        // ── REFUSED. This wrote unreadable .TcPOU files into a real project. ──────────────────────
+        //
+        // TwinCAT could not open twenty POUs afterwards:
+        //     Reading file failed. Value cannot be null. Parameter name: iILStatement
+        //
+        // The archive is a STRICT typed object-graph serialization with a per-type member contract, and this
+        // writer INFERRED that contract from the shapes it happened to need instead of measuring it. Against a
+        // vendor-written body the differences are plain: every item and operand carries a `<v n="Id">` and mine
+        // carried none; a box writes an explicit `<n n="InputFlags" />` null member and mine omitted it; a
+        // `BoxTreeOperand` has NO Flags member and mine added one; a box always writes its `Instance` member
+        // even when empty. Get the member set wrong and the reader mis-assigns what follows — which is how a
+        // missing IL-line list surfaced as a null `iILStatement`.
+        //
+        // Reading is unaffected and stays: it only asks for members it finds.
+        //
+        // THE GATE THIS NEEDED, and the one to satisfy before re-enabling it: read a vendor-written archive and
+        // write it back BYTE-IDENTICAL, for every fixture, before editing a single value. An adapter that
+        // cannot reproduce what the vendor wrote has no business writing something new. That gate is cheap,
+        // it is offline, and it would have caught this before it touched a project.
+        throw new NotSupportedException(
+            "TwinCAT: writing a graphical body is disabled. Volt's archive writer produced .TcPOU files the " +
+            "IDE could not read (\"Value cannot be null. Parameter name: iILStatement\"), because it builds " +
+            "archive elements from an inferred member contract rather than a measured one. Edit graphical " +
+            "bodies in the IDE and pull; textual bodies are unaffected.");
+    }
+
+    /// <summary>Unreachable until the writer is re-enabled; kept because the SHAPE of the edit is right — it is
+    /// the per-element member set that is wrong.</summary>
+    private static string? ApplyDisabled(string bodyXml, NetworkBody body)
+    {
         var doc = XElement.Parse(bodyXml);
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
             ?? throw new InvalidOperationException(
-                "TwinCAT: the body is not an NWL archive — refusing to write a graphical body into it");
+                "TwinCAT: the body is not an NWL archive - refusing to write a graphical body into it");
 
         var networks = TcArchive.List(impl, "NetworkList");
-
-        // Adding or removing NETWORKS is not yet measured on this transport. Refuse loudly rather than write
-        // half a body: a push that silently dropped a rung of a running program is the failure this whole
-        // change exists to prevent.
         if (networks.Count != body.Networks.Count)
             throw new NotSupportedException(
                 $"TwinCAT: this push changes the NUMBER of networks ({networks.Count} -> " +
-                $"{body.Networks.Count}), which Volt cannot yet do through the archive. Edit the networks in " +
-                "place, or add/remove them in the IDE and pull.");
+                $"{body.Networks.Count}), which Volt cannot yet do through the archive.");
 
         bool changed = false;
         for (int i = 0; i < networks.Count; i++)

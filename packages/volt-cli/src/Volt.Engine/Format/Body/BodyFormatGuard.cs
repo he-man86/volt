@@ -84,10 +84,25 @@ public static class BodyFormatGuard
         if (live == Shape.Network)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} is a graphical body in the IDE — a textual push would overwrite it. " +
-                "Edit it in the IDE, or delete it first to replace it.");
+                "Edit it in the IDE, or delete it first to replace it. " + Saw(liveBody, pushedBody));
 
         throw new BridgeException(BridgeErrorCodes.Unsupported,
             $"{what} is a textual body — graphical bodies are authored in the IDE, not created by push.");
+    }
+
+    /// <summary>What the guard actually compared, first line of each. A refusal that names only its verdict
+    /// cannot be diagnosed from the other side of a pipe — which cost a debugging round the first time this
+    /// fired wrongly.</summary>
+    private static string Saw(string? live, string? pushed) =>
+        $"(IDE: {First(live)} | pushed: {First(pushed)})";
+
+    private static string First(string? body)
+    {
+        if (body is null) return "<none>";
+        var nl = body.IndexOf('\n');
+        var line = (nl < 0 ? body : body.Substring(0, nl)).TrimEnd('\r');
+        if (line.Length == 0) return "<empty>";
+        return line.Length > 60 ? line.Substring(0, 60) + "..." : line;
     }
 
     private static string Describe(Shape s) => s switch
