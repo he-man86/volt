@@ -170,6 +170,63 @@ INWLItemVisitor :  Visit(INWLImplementationObject) Visit(INetwork) Visit(IILStat
 LD structures (`Parallel`, `Terminator`) are modelled because LD needs them, and `Mux`/`Demux` are deliberately
 NOT in the model until an LD fixture proves they are reachable — see the open question below.
 
+## Surveyed against a REAL ladder project — 2026-08-28
+
+`Lenze_MID-S100_V5_00_602_T51_Codesys.project`, read-only on a copy, via
+`scripts/probe-nwl-survey.py`. **36 graphical POUs, 356 networks, 773 trees, max depth 9.** This is the
+evidence base the corpus never had — `Pro2193` has 271 ST POUs and one CFC, and no FBD or LD at all.
+
+| | |
+|---|---|
+| aspects | `STImplementationObject` 38, `NWLImplementationObject` 36 |
+| items | `Operand` 3750, `BoxTreeOperand` 2737, `BoxTreeBox` 1256, **`BoxTreeDemux` 573**, `BoxTreeAssign` 471, `BoxTreeTerminator` 50, `BoxTreeParallel` 17, `BoxTreeMux` **0** |
+| flags | `Negation` 846, `Set` 246, `Return` 1; **no `Rtrig`/`Ftrig`/`Jump`** |
+| networks | `Title` **260 of 356**, `Comment` 10, `OutCommented` 1, `Label` 0 |
+| shapes | multi-output assigns 258, EnEno boxes 1256, ST-snippet boxes 9 |
+| **split points** | **0** |
+
+### `BoxTreeDemux` IS fan-out — and this is the survey's main result
+
+Split points were a red herring. The real mechanism is a demux keyed by `VarId`: with `.Input` it DEFINES a
+wire, and the same `VarId` without `.Input` REFERENCES it, any number of times.
+
+```
+network[1] items=3
+  BoxTreeDemux VarId=24
+    .Input BoxTreeOperand -> Operand 'EnableDrivePower'     <- definition
+  BoxTreeAssign .RValue BoxTreeBox AND .InputItemList(2)
+                  BoxTreeDemux VarId=24                     <- reference
+  BoxTreeAssign .RValue ... BoxTreeDemux VarId=24           <- reference
+```
+
+That is exactly what network text spells `LET g24 := EnableDrivePower;` plus two uses. 573 occurrences against
+zero split points settles it: **`Demux` is in the model, `SplitPoints` is demoted** to "the vendor has it,
+nothing is built on it until a real body uses one".
+
+The earlier constructive probe was therefore measuring the wrong thing when `AppendSplitPoint` failed to
+survive a reload. It was a true observation about a mechanism real projects do not use.
+
+### Two corrections a count alone would not have produced
+
+- **An operand carries its OWN modifiers.** An assignment target came back as
+  `Operand OperandExpr=… IsLValue=True Flags=Negation,Set` — a negated SET coil, with the modifiers on the
+  TARGET. The model had flags only on the tree node, so both would have been dropped.
+- **`EnEno` is a CAPABILITY flag, not "has an enable wired".** It is `true` on all 1,256 boxes, including every
+  plain `AND` and `OR`; the actual wiring lives in the nullable `En`/`Eno` pins, which were null throughout.
+  A writer keyed on `EnEno` would have wrapped every operator in the project in `IF en THEN … END_IF`.
+
+### What it costs PLCopen, in numbers
+
+**260 network titles and 1 disabled network.** PLCopen carries neither, and it OMITS a disabled network
+entirely — so on this project the old transport silently dropped 260 titles a pull, and a disabled rung of a
+running program had no representation at all. That is the fidelity case for the change, measured rather than
+argued.
+
+### Still unmeasured after this survey
+
+`Reset` never appears (246 `Set`, no reset coil in this project), `Jump` never appears, `BoxTreeMux` is unused,
+and `Label` is unused. None of them can be settled here; they need a project that contains one.
+
 ### Fan-out, settled by CONSTRUCTION — 2026-08-28
 
 The fixture route failed first and the failure is worth keeping: importing a hand-made PLCopen body was

@@ -42,10 +42,11 @@ public enum BodyLanguage { Fbd, Ld }
 /// were absent from the previous model because PLCopen carries none of the four — and worse, its export OMITS
 /// a disabled network entirely, which is how a disabled network could be dropped from a running program. The
 /// fields are not a TwinCAT extra; PLCopen was the lossy party.</para>
-/// <para><see cref="SplitPoints"/> is fan-out, made explicit: the vendor keeps a per-network list of operands
-/// reachable through <c>GetSplitPoint</c> / <c>AppendSplitPoint</c>. A split point is a wire that feeds more
-/// than one consumer, and it is what network text spells as a named <c>LET g1 := …</c>. In a graph model this
-/// was implicit in the reference count; here it is a value, so the writer no longer has to re-derive it.</para></summary>
+/// <para><see cref="SplitPoints"/> is the vendor's per-network operand list, reachable through
+/// <c>GetSplitPoint</c> / <c>AppendSplitPoint</c>. <b>It is NOT fan-out</b> — that was this model's first
+/// assumption and it was wrong. Fan-out is <see cref="Demux"/>. Measured across 356 networks of a real ladder
+/// project: <b>zero</b> split points and 573 demuxes. The field stays because the vendor has it and a body
+/// could carry one, but nothing should be built on it until a real body is seen using it.</para></summary>
 public sealed record Network(
     int Order,
     string? Title,
@@ -79,7 +80,10 @@ public sealed record Assign(Node? Value, IReadOnlyList<Operand> Targets, Flags F
 /// model spread across `Block`, its EN pin, and a separate ST-code field:
 /// <list type="bullet">
 /// <item><see cref="Instance"/> non-null: a function-block instance call.</item>
-/// <item><see cref="Enable"/> non-null: the box has an EN input, and this IS the enable expression.
+/// <item><see cref="Enable"/> non-null: an enable is actually WIRED, and this is its expression. It comes
+/// from the vendor's <c>En</c> pin, NOT from its <c>EnEno</c> flag — measured in a real project, <c>EnEno</c>
+/// is <c>true</c> on all 1,256 boxes including every plain <c>AND</c>/<c>OR</c>, because it marks that the box
+/// SUPPORTS EN/ENO. Keying on it would wrap every operator in the project in an <c>IF en THEN …</c>.
 /// On the vendor this is a BOX PROPERTY (<c>EnEno</c> / <c>En</c> / <c>Eno</c>), not a pin found by name —
 /// the old model searched the inputs for one literally called "EN", which is a PLCopen spelling. It is a
 /// <see cref="Node"/> rather than a flag because the enable is a wired expression, and network text renders
@@ -106,17 +110,41 @@ public sealed record Parallel(Node? Input, IReadOnlyList<Node> Branches, Paralle
 /// <summary>The end of an LD rung — <c>BoxTreeTerminator</c>.</summary>
 public sealed record Terminator(Node? Input, Flags Flags) : Node(Flags);
 
+/// <summary>
+/// <b>Fan-out.</b> A wire feeding more than one consumer — the vendor's <c>BoxTreeDemux</c>, keyed by
+/// <see cref="VarId"/>. With <see cref="Input"/> non-null it DEFINES the wire; with <see cref="Input"/> null it
+/// REFERENCES the definition carrying the same id, and the same id may be referenced any number of times.
+///
+/// <para><b>This is what network text has always spelled as a named <c>LET g := …</c> plus its uses</b>, and it
+/// is the mechanism `split points` were wrongly assumed to be. Measured in a real ladder project: 573
+/// occurrences — the fourth most common item of any kind — against ZERO split points across 356 networks. The
+/// shape is unmistakable:</para>
+/// <code>
+/// BoxTreeDemux VarId=24
+///   .Input BoxTreeOperand -> Operand 'EnableDrivePower'    // the definition
+/// BoxTreeAssign .RValue BoxTreeBox AND .InputItemList
+///   BoxTreeDemux VarId=24                                  // a reference
+/// </code>
+/// </summary>
+public sealed record Demux(int VarId, Node? Input, Flags Flags) : Node(Flags);
+
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,
 /// and that pin's own modifiers (the vendor keeps these in <c>BoxTreeBox.InputFlags</c>, per pin).</summary>
 public sealed record Input(string? Formal, Node Value, Flags Flags);
 
 /// <summary>A variable, literal or expression. <see cref="Type"/> is the vendor's declared type when it
-/// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.</summary>
+/// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.
+/// <para><b>An operand carries its OWN modifiers.</b> Measured in a real ladder project: an assignment target
+/// came back as <c>Operand OperandExpr=… IsLValue=True Flags=Negation,Set</c> — a negated SET coil, with the
+/// modifiers on the TARGET rather than on the assignment. Putting flags only on the tree node (as the first
+/// draft did) would have dropped both.</para></summary>
 public sealed record Operand(
     string Text,
     string? Type = null,
     string? Comment = null,
-    bool IsInstance = false);
+    bool IsInstance = false,
+    bool IsLValue = false,
+    Flags? Flags = null);
 
 /// <summary>How the box is called. The vendor's <c>BoxTreeBox.CallType</c>.</summary>
 public enum CallKind { Operator, Function, FunctionBlock }
