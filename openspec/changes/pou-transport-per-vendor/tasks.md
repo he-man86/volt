@@ -130,7 +130,28 @@ Measured 2026-08-28 — full evidence and reproduction in `nwl-object-model.md`,
 
 ### The one thing that is NOT proven, and it gates the CODESYS adapter
 
-- [ ] 1b.10 **Node CONSTRUCTION is unmeasured.** What is proven is traversal and mutation of an EXISTING
+- [x] 1b.10 **Node CONSTRUCTION — PROVEN 2026-08-28** (`scripts/probe-nwl-construct.py`). The concrete types
+      live in **`NWLObject.plugin`** (the `NWLObject` assembly holds only interfaces) and are **public with real
+      constructors** — no private-reflection trick:
+
+      ```
+      Operand(String expr, String type, Flags flags)      BoxTreeOperand(Operand)      BoxTreeAssign()
+      Network(String title, String comment, String label, Boolean outCommented, IBoxTree[] trees)
+      Flags(FlagsModifier, Edge)
+      ```
+
+      `a := b` built from nothing, committed, project saved/closed/**reopened**:
+      `tree=BoxTreeAssign RValue.Operand.OperandExpr='b' Outputs=['a']`. The target lives in
+      `OutputItemList`, which is NOT an `IList`: `AppendOutputItem(IOperand)` / `InsertOutputItem` /
+      `RemoveOutputItem`, enumerated through `List` (`IOperand[]`). `BoxTreeAssign` also exposes
+      `Visit(IBoxTreeVisitor)` — the read path is a visitor.
+
+      **Two honest limits.** `FBDValid` is `False` even on a real imported known-good body, so it is not a
+      validity oracle — do not use it as one. And `build()` not raising is weak: no error count was
+      obtainable from the scripting host, so the COMPILE verdict is unconfirmed. It gets confirmed for real by
+      `volt build` in e2e once the adapter exists; until then, do not claim the IDE validated the body.
+
+- [ ] 1b.10b **~~Node construction unmeasured~~ — superseded above. Original text:** What is proven is traversal and mutation of an EXISTING
       network's properties. Building a body from network text needs new `IBoxTree` / `Operand` instances, and
       the factory for those is unknown — `INetwork` takes them (`AppendTree(IBoxTree)`) but nothing measured so
       far *makes* one. **Prove it before writing the adapter**: construct one two-operand network from nothing,
