@@ -189,6 +189,44 @@ the CODESYS package. Fewer packages, not more.
 - **`splice-graphical-body` §2.1** (the LD contact demotion) — **closes for TwinCAT for free**: there are no
   contacts in the native form. Stays open for CODESYS pending §1.
 
+## 5b. NO LEGACY — the old path is DELETED, not kept
+
+The settled transports, so this is never ambiguous again:
+
+| vendor | transport | call |
+|---|---|---|
+| **TwinCAT** | the **native document** | `ITcPlcPou.DocumentXml` get/set |
+| **CODESYS** | **PLCopen XML** | `export_xml(objs, "", recursive, false, TRUE)` / `import_xml(Replace, xml, false)` — the 5th export flag is what emits `InterfaceAsPlainText`, and Volt passes it |
+
+**This repo has form for leaving the predecessor standing.** `NoTestOnlyCodeInSrcTests` exists because the write
+path was unified three times and *each unification left its predecessor shipped, compiled, documented and called
+by nothing* — `GraphSplice.SpliceFbdLdBody` (~97 lines), `PushService.RemoveOrphanChildren` (19 lines, which then
+received a bug fix, inertly), and `NetworkCodeIo` (66 lines whose own comment said "A TEST SEAM, kept
+deliberately", in `src/`). A fourth would be the same mistake with better paperwork.
+
+So, as acceptance criteria rather than intentions:
+
+- [ ] 5b.1 **No vendor-selecting fork in the engine.** Not a flag, not a strategy interface with one live arm, not
+      an `if (vendor == …)`. The driver answers `ReadContent`/`WriteContent`; the engine never learns which
+      transport produced the answer.
+- [ ] 5b.2 **`ReadXml`/`WriteXml` are REMOVED from `ICodeStore`**, not deprecated and not left as adapters.
+- [ ] 5b.3 **The TwinCAT PLCopen path is deleted** once the native converter lands — `ExportPouXml`,
+      `ImportPlcOpenXml`, and the `Move`-back that only existed because the PLCopen import relocates every item
+      to the project root (W11). Its reason for existing is gone with it.
+- [ ] 5b.4 **`RestoreChildFolders`, `LowerLadder` and the `InstanceTypes` declaration text-parse are deleted for
+      TwinCAT** — the native document carries `FolderPath`, stores no contacts, and types its operands inline.
+      Each is dead weight there, and dead weight that still runs is how a bug gets fixed inertly.
+- [ ] 5b.5 **`NoTestOnlyCodeInSrcTests` must be green with no new allowlist entries.** An entry added during this
+      change is the failure it was written to catch. (It has one known blind spot, recorded in
+      `declaration-from-the-aspect`: a name mentioned in a COMMENT keeps dead code looking alive. Do not lean on
+      it as the only check.)
+- [ ] 5b.6 **No compatibility shim for the fixture corpus.** Recorded PLCopen fixtures stay as CODESYS fixtures;
+      TwinCAT gets newly recorded native ones. A converter that exists only to keep old test data alive is
+      legacy with a test-shaped excuse.
+- [ ] 5b.7 **Line count goes DOWN.** Measured before/after per package. The TwinCAT converter is supposed to
+      DELETE more than it adds (ladder lowering, instance-type inference, folder restoration, carry/refuse). If
+      the total grows, the claim was wrong and the close-out says so.
+
 ## 6. Gates
 
 - [ ] 6.1 Both vendors' e2e green, from a verified-clean environment (solution loaded, `--xae-pid` workers,
