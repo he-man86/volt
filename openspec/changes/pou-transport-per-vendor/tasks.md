@@ -57,7 +57,7 @@ The cost argument that rejected `DocumentXml` was backwards. On a native transpo
 - [x] 1.2 **W14 — deliberately not run.** R3 disqualified the transport; measuring the write behaviour of one
       that cannot be read spends the budget in the wrong place.
 - [x] 1.3 **W12 — deliberately not run**, same reason.
-- [x] 1.4 **R10 — answered anyway, and NEGATIVE.** `OutCommented` / `Title` / `Label` appear nowhere in the
+- [x] 1.4 **R10 — answered NEGATIVE, and the answer was wrong; see §1b.7.** `OutCommented` / `Title` / `Label` appear nowhere in the
       CODESYS archive, so **no** CODESYS transport fixes the disabled-network hole.
 - [x] 1.5 **The GUID question — answered, and moot.** The type GUIDs ARE consistent: each maps 1:1 to an object
       kind across 1,314 objects, and the action row (decl=0, impl=7) independently confirms "an action has no
@@ -67,7 +67,7 @@ The cost argument that rejected `DocumentXml` was backwards. On a native transpo
       `IActionObject`, `IGVLObject` — `CodesysTypeMap`) and the native `TREEITEMTYPE` enum on TwinCAT. **No GUID
       type scheme enters the product.** The only GUID a driver touches is an object's own instance handle, which
       CODESYS's API requires (`GetObjectToRead(handle, guid)`) — a calling convention, not a classification.
-- [x] 1.6 **Decided: CODESYS keeps PLCopen** — larger, GUID-typed, no network metadata, editor state rather than
+- [x] 1.6 **SUPERSEDED by §1b.6 — CODESYS moves to the NWL object model.** As decided at the time: keep PLCopen — larger, GUID-typed, no network metadata, editor state rather than
       a document. PLCopen is a documented standard with domain vocabulary and is the better transport *for this
       vendor*.
 
@@ -77,6 +77,73 @@ keeps network text, `GraphModel` and the carry/refuse invariant. Only TwinCAT sh
 
 **One datum to size that work against:** of 249 POUs in a real customer project, **248 have a textual
 implementation** — one graphical POU in 1,314 objects.
+
+## 1b. The third option neither column scored — the vendors' shared OBJECT MODEL
+
+§1 scored CODESYS's **native serialization** (`export_native`) and rejected it: 90,434 bytes of GUID-typed
+`IArchivable` dump carrying editor canvas geometry. That rejection **stands, and is not what this section
+revisits.** A serialization and an object model are different things, and the object model was never scored
+because it was never noticed.
+
+Measured 2026-08-28 — full evidence and reproduction in `nwl-object-model.md`, probe committed as
+`scripts/probe-nwl-objectmodel.py`:
+
+- [x] 1b.1 **CODESYS graphical bodies are reachable as TYPED objects.** `ObjectMgr.GetObjectToRead(handle, guid)`
+      -> `.Object` -> `Implementation` returns `NWLObject.NWLImplementationObject` for both `fbd` and `ladder`,
+      with `NetworkList` of `NWLObject.Network`. **The aspect type IS the language** — CFC returns
+      `CFCImplementationObject`, ST returns `STImplementationObject`. Dispatch is a cast, not a lookup, and
+      `CodesysObjectModel` already calls the very member that returns it.
+- [x] 1b.2 **The body traverses with everything network text needs.** `GetTree(i)` -> `BoxTreeAssign` ->
+      `.RValue` -> `BoxTreeOperand` -> `.Operand` with `OperandExpr`, per-item `Id`, and `Flags` exposing the six
+      named booleans. `INetwork.Accept(INWLItemVisitor)` means a renderer is a **visitor, not a parser**.
+- [x] 1b.3 **Writes commit through the same objects.** `GetObjectToModify` -> mutate -> `SetObject(meta, true,
+      null)`; re-read confirms `Label '' -> 'VLT_PROBE'`. `SetTree` / `InsertTree` / `AppendTree` /
+      `RemoveNetworkItem` / `Normalize` are all on `INetwork`. **No serialization in either direction.**
+- [x] 1b.4 **TwinCAT stores the same model.** `POU_PBD.TcPOU` holds `<Implementation><NWL>` wrapping an
+      `<XmlArchive>` of that object graph. Not a schema — a serialized graph of the same types.
+- [x] 1b.5 **But TwinCAT cannot reach it live.** With the fixture solution loaded, the PLC tree walked,
+      `ProduceXml` called, and three documents open: **zero** modules loaded under
+      `C:\TwinCAT\3.1\Components\Plc\`, and a sweep of every process on the machine found `NWLObject` loaded
+      **nowhere**. `File.OpenFile` on a `.TcPOU` opens the XML text editor, and the TwinCAT project reports
+      `ProjectItems.Count = 0`, so DTE cannot reach the PLC editor factory. An in-proc Volt component inside
+      TcXaeShell would have nothing to attach to — **this is not a VSIX away**, and nobody should spend a week
+      finding that out.
+
+### What this overturns
+
+- [x] 1b.6 **§1.6 "CODESYS keeps PLCopen" is SUPERSEDED.** It was decided against the native *serialization*,
+      which was the only alternative on the table at the time. The object model beats PLCopen on the same
+      checklist rows PLCopen was chosen for, and on the ones it lost: it carries `Title` / `Label` / `Comment` /
+      `OutCommented` (**R10**, the disabled-network hole §1.4 declared unfixable on CODESYS), it needs no
+      GUID map (§1.5), and it costs no serialization in either direction.
+- [x] 1b.7 **§1.4's negative result was answered too narrowly.** "`OutCommented`/`Title`/`Label` appear nowhere
+      in the CODESYS archive" is true of the archive and false of the IDE. **An absence found by grepping one
+      serialization is not an absence in the vendor** — the same error this repo already recorded once, about
+      searching for a NAME when a format may encode by VALUE.
+- [x] 1b.8 **`GraphModel` gaining `Title`/`Label`/`Comment`/`OutCommented` is no longer a TwinCAT concession**
+      (§4.3 framed it as one). Both vendors carry all four. It is the shared model, and PLCopen was the lossy
+      party.
+- [x] 1b.9 **"IL unsupported" is a policy about a VIEW, not a body format.** `INetwork` exposes `ActivateFBD`,
+      `ActivateIL`, `CanConvertToIL`, `GetILLine`, `ILActive`, `ILValid`, matching `NWLDisplayMode { LD, FBD,
+      IL }`. `GraphReader` lowering LD into the same node graph as FBD was right for the same reason. Restate it
+      that way in DIALECT; do not change the policy.
+
+### The one thing that is NOT proven, and it gates the CODESYS adapter
+
+- [ ] 1b.10 **Node CONSTRUCTION is unmeasured.** What is proven is traversal and mutation of an EXISTING
+      network's properties. Building a body from network text needs new `IBoxTree` / `Operand` instances, and
+      the factory for those is unknown — `INetwork` takes them (`AppendTree(IBoxTree)`) but nothing measured so
+      far *makes* one. **Prove it before writing the adapter**: construct one two-operand network from nothing,
+      commit it, reopen the project, confirm it is there and the IDE compiles it. Until that passes, the honest
+      claim is "CODESYS reads typed and edits typed", not "CODESYS writes typed".
+
+      If construction turns out to be impossible or unstable, the fallback is **not** PLCopen for everything: it
+      is typed READ plus PLCopen WRITE for CODESYS, which still deletes the read-side graph parsing and still
+      fixes R10. Say so explicitly if it happens rather than quietly restoring the old path.
+
+---
+
+---
 
 ## 2. The boundary — this is the design error, and it blocks everything
 
@@ -102,6 +169,9 @@ unblocks it.
       the design error in miniature. Split it per vendor.
 
 ## 3. Target layout — the PACKAGES are already right; one thing moves
+
+> **Superseded in two places by §3b:** PLCopen is deleted rather than moved into the CODESYS package, and the
+> folder move happens FIRST, not last. The package-graph analysis below stands unchanged.
 
 The nine projects are correctly layered already, and this change adds, merges and renames **none** of them:
 
@@ -168,16 +238,65 @@ the CODESYS package. Fewer packages, not more.
 
 ## 4. The TwinCAT native converter
 
+> Now one of **two** adapters onto the same model — see §4a for the CODESYS one. The `BoxTree*` shapes below
+> are that shared model, which is why both adapters target `GraphModel` and not each other.
+
 - [ ] 4.1 `BoxTree*` → `GraphModel`. Shapes measured: `BoxTreeAssign` (plain assignment, LD),
       `BoxTreeBox` carrying its own `OutputItems`/`InputItems` (FBD), `BoxTreeDemux` (EN/ENO), `BoxTreeOperand`,
       `Operand`, `Operator`, `ParamList`. More than one shape — stated plainly — but every one is a LOCAL tree:
       no `refLocalId` edges, no id chasing, no ladder lowering.
 - [ ] 4.2 `GraphModel` → `BoxTree*`, and the whole-document write.
-- [ ] 4.3 **Take `Title`/`Label`/`OutCommented` into the model.** A disabled network is running-program state and
+- [ ] 4.3 **Take `Title`/`Label`/`Comment`/`OutCommented` into the model** — for BOTH vendors, not as a
+      TwinCAT concession (§1b.8). A disabled network is running-program state and
       this transport carries it; the model currently has nowhere to put it (`NetworkTextWriter` emits `DISABLED`
       but nothing reads it back across XML).
 - [ ] 4.4 Close the coherence question first: a method's `<ST>` read back EMPTY from the document immediately
       after `ImplementationText` was set. Understand that before writing members through the document.
+
+## 3b. Target layout — REVISED, and the folder move comes FIRST
+
+Supersedes §3's ordering and its destination for PLCopen. Full reasoning and the measured per-file placement are
+in `layout.md`.
+
+**What changed:** §3 moved PLCopen *into the CODESYS package*. With CODESYS on the object model, PLCopen has no
+vendor to belong to — it is **deleted**, not rehoused. And the move is now the FIRST step rather than the last,
+because it changes no behaviour and immediately buys a checkable invariant.
+
+```
+Volt.Engine/
+  Ide/  Item/ (+ ItemContent)  Library/  Sync/
+  Format/     VOLT'S OWN ONLY   St/  Network/  Body/
+  PlcOpen/    A VENDOR FORMAT, ON ITS WAY OUT (+ DIALECT.md)
+```
+
+- [ ] 3b.1 **The folder move**, pure relocation + namespace rename, no behaviour change.
+      `Volt.Engine.Source.*` -> `Volt.Engine.Format.*` for Volt's own formats, `Volt.Engine.PlcOpen` for the
+      vendor format, `ItemContent` -> `Volt.Engine.Item`. 119 files across the solution reference the old
+      namespaces; this is wide but mechanical, and the build is the check.
+- [ ] 3b.2 **Invariant, live from that commit: `Volt.Engine/Format/` contains zero `XElement` / `XDocument` /
+      `XNamespace` / `XAttribute` references.** Measured per file before the move — see `layout.md`.
+- [ ] 3b.3 **Do NOT split the six mixed files during the move** (`InstanceTypes`, `NetworkCode`, `NetworkSplice`,
+      `BodyCodec`, `BodySpliceGuard`, `BodyGuard`). They go to `PlcOpen/` whole. A move that also changes
+      behaviour is not reviewable as a move; §2 pulls their neutral halves back out.
+- [ ] 3b.4 `Source/DIALECT.md` -> `PlcOpen/DIALECT.md`, which is the path `CLAUDE.md` already documents. The
+      per-vendor split of that document (§2.4) happens when the adapters land, not now.
+- [ ] 3b.5 **Delete `PlcOpen/` outright** once both adapters exist, and add the `bun run check` guard so it
+      cannot come back. This is 3.3, restated as a deletion rather than a relocation.
+
+## 4a. The CODESYS NWL adapter (new — gated on 1b.10)
+
+- [ ] 4a.1 `NWLImplementationObject.NetworkList` -> `GraphModel`, via `INWLItemVisitor` rather than a parser.
+- [ ] 4a.2 `GraphModel` -> typed objects, using `SetTree` / `AppendTree` / `RemoveNetworkItem`.
+- [ ] 4a.3 Language detection by **aspect type** (`NWLImplementationObject` / `STImplementationObject` /
+      `CFCImplementationObject`), replacing the body-element sniff. CFC/SFC/IL stay markers — now identified by
+      a cast instead of by a missing element.
+- [ ] 4a.4 **Delete on the CODESYS side**: `GraphReader`, `GraphWriter`, the PLCopen splice path, and — if
+      1b.10 passes — the carry/refuse machinery, which exists only because a body is regenerated from a
+      projection. Nothing is regenerated when the objects are edited in place.
+- [ ] 4a.5 **Pin the assembly version.** `NWLObject` is an internal 3S assembly with no compatibility
+      commitment, at `3.5.13.0` on CODESYS and `3.5.13.30` on TwinCAT today. The adapter must fail loudly with
+      the observed version in the message when a member is missing — never silently degrade. (This is the same
+      durability question §1.5 raised against GUID typing, and it applies here too.)
 
 ## 5. What happens to the other in-flight changes
 

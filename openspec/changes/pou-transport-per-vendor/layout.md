@@ -56,57 +56,101 @@ Two smaller misfilings fall out of the same look:
 
 ## Target layout
 
+Revised after the NWL measurement (`nwl-object-model.md`). The earlier draft of this section sent PLCopen
+**into the CODESYS package**. That is now wrong: CODESYS reads and writes graphical bodies as typed
+`NWLObject` objects with no serialization at all, so PLCopen does not get a new home — **it loses its last
+consumer and is deleted.** A folder that is on its way out should not be moved into a package that will then
+have to delete it.
+
 ```
 Volt.Engine/                 VENDOR- AND FORMAT-NEUTRAL. Knows no vendor's serialization.
   Ide/         ICodeStore (ItemContent in / out), IProjectTree, TreeNav, ItemLookup
   Item/        ItemKind, ItemRef, ItemContent          <- ItemContent moves here
   Library/     library signatures
-  Format/      VOLT'S OWN formats only                 <- was Source/, renamed for intent
-    St/          the canonical .fb layout (StReader, StWriter)
+  Format/      VOLT'S OWN FORMATS ONLY                 <- was Source/, renamed for intent
+    St/          the canonical .fb layout (StReader, StWriter, CodeHelper, Descriptor)
     Network/     network text + GraphModel             <- was Source/Body/Network, flattened
-    Body/        BodyMarker, Languages, BodyElement    (language dispatch, no XML)
+    Body/        BodyMarker, Languages, BodyFormatGuard (language dispatch, no XML)
   Sync/        Materializer, PushService, FetchService, Versioning
 
+  PlcOpen/     A VENDOR FORMAT, ON ITS WAY OUT        <- was scattered through Source/
+               PlcOpenDocument, PouReader, PouSplice, PouDocument, Declaration, Namespaces,
+               ProjectStructure, GraphReader, GraphWriter, BodyCodec, BodyElement, BodyGuard,
+               BodySpliceGuard, InstanceTypes, NetworkCode, NetworkSplice, DIALECT.md
+
 Volt.Cli.Ide.Codesys/
-  Format/PlcOpen/   PlcOpenDocument, PouReader, PouSplice, PouDocument, Declaration,
-                    Namespaces, ProjectStructure, GraphReader, GraphWriter,
-                    DIALECT-codesys.md
-  Ide/ Driver/      as today
+  Ide/ Driver/      as today, plus:
+  Nwl/              the typed object-model adapter: NWLImplementationObject <-> GraphModel
 
 Volt.Cli.Ide.Twincat/
-  Format/Native/    TcDocument reader/writer, BoxTree <-> GraphModel, DIALECT-twincat.md
-  Ide/ Driver/      as today
+  Nwl/              the same model, read from the .TcPOU <NWL> XmlArchive
 ```
 
-`Source/` → `Format/` is a rename that carries the rule: **this folder holds formats VOLT defined.** A vendor's
+`Source/` -> `Format/` is a rename that carries the rule: **this folder holds formats VOLT defined.** A vendor's
 format never appears in it. "Source" was ambiguous — it read as "source code" and quietly accommodated PLCopen.
 
-## Files that SPLIT rather than move — the real work
+### Why `PlcOpen/` is a separate top-level folder and not deleted in this step
 
-These are not clean relocations, and pretending otherwise would under-estimate the change:
+It still has two consumers (both drivers, and five lines of `Sync/`). Gathering it into one folder is what makes
+the removal a **deletion of a directory** later rather than an archaeology exercise, and it buys the invariant
+immediately:
 
-| file | why it splits |
-|---|---|
-| `InstanceTypes.cs` | `FromBody(XElement)` is PLCopen; `Of(declaration)` is a neutral text parse |
-| `NetworkCode.cs` | orchestration is neutral; one XML touch is not |
-| `NetworkSplice.cs` | the CARRY RULE is neutral, but it manipulates stored PLCopen elements |
-| `BodyCodec.cs` | dispatch by language is neutral; it calls `PouSplice` and `GraphWriter` directly |
-| `BodySpliceGuard.cs` | the refusal POLICY is neutral; the element inspection is PLCopen |
+> **`Volt.Engine/Format/` contains zero references to `XElement`, `XDocument`, `XNamespace` or `XAttribute`.**
 
-Under the new contract most of this resolves itself: the driver owns document→`ItemContent`, so the XML halves go
-with it and the engine keeps the policy. But each one needs deciding, not moving.
+That is checkable today, on the very first commit of the refactor, which is the point of doing the folder work
+before the contract work rather than after.
+
+Placement is **measured, not judged** — every file was counted:
+
+| goes to `Format/` | vendor-XML refs | goes to `PlcOpen/` | vendor-XML refs |
+|---|---|---|---|
+| `NetworkTextReader` | 0 | `GraphWriter` | 82 |
+| `NetworkTextWriter` | 0 | `PouSplice` | 28 |
+| `StReader` | 0 | `GraphReader` | 27 |
+| `GraphModel` | 0 | `BodyCodec` | 16 |
+| `NetworkText`, `FbdOperators`, `GraphRoundTrip` | 0 | `ProjectStructure`, `PouReader`, `Declaration` | 13 / 10 / 9 |
+| `StWriter`, `CodeHelper`, `Descriptor` | 0 | `PlcOpenDocument` | 7 |
+| `BodyMarker`, `Languages`, `BodyFormatGuard` | 0 | `BodySpliceGuard`, `NetworkSplice`, `BodyElement` | 4 / 4 / 2 |
+
+`ItemContent.cs` moves to `Item/`: its single `XElement` mention is **in a comment**, and it is the neutral
+CONTRACT type the whole refactor makes drivers speak. `Source/DIALECT.md` moves to `PlcOpen/DIALECT.md` —
+which is the path `CLAUDE.md` has been claiming all along, so this also closes a doc-vs-reality drift.
+
+## Files that SPLIT rather than move — the real work, and it is §2's, not this step's
+
+These carry a neutral half and a PLCopen half. They go to `PlcOpen/` **whole**, because that is where their
+compiled dependency is today; §2 pulls the neutral half back out:
+
+| file | the neutral half that comes back | the half that dies with PLCopen |
+|---|---|---|
+| `InstanceTypes` | `Of(declaration)` — a text parse | `FromBody(XElement)` |
+| `NetworkCode` | the orchestration | one XML touch |
+| `NetworkSplice` | the CARRY RULE | it manipulates stored PLCopen elements |
+| `BodyCodec` | dispatch by language | it calls `PouSplice` / `GraphWriter` directly |
+| `BodySpliceGuard` | the refusal POLICY | the element inspection |
+| `BodyGuard` | the write decision | its `XElement body` parameter |
+
+Under the new contract most of this resolves itself: the driver owns document -> `ItemContent`, so the XML halves
+go with the driver and the engine keeps the policy. **Do not split them during the folder move** — a move that
+also changes behaviour is not reviewable as a move.
 
 ## Order
 
-1. **§2 — the contract.** `ICodeStore` speaks `ItemContent`. Both drivers still call the PLCopen code; the engine
-   stops calling it. Nothing moves yet, so the diff is reviewable.
-2. **§4 — the TwinCAT native converter.** TwinCAT stops calling PLCopen.
-3. **§3 — relocate.** PLCopen into the CODESYS package; `ItemContent` into `Item/`; `Source/` → `Format/`;
-   flatten `Body/Network`. Pure moves, because the couplings were cut in 1 and 2.
-4. **The guard.** `bun run check` fails if `Volt.Engine` gains an `XElement`-over-vendor-XML dependency again.
+Revised, because the NWL finding changes which step unblocks which.
 
-Doing 3 first would break TwinCAT, which still needs PLCopen. Doing 1 last would mean moving code that still has
-engine callers.
+1. **The folder move (this step).** Pure relocation + namespace rename, no behaviour change. Buys the
+   `Format/` = zero-vendor-XML invariant and puts every doomed file in one directory.
+2. **§2 — the contract.** `ICodeStore` speaks `ItemContent`. Both drivers still call `PlcOpen/`; the engine
+   stops. Sync's coupling is **five lines** (`Materializer` 2, `PushService` 3), measured — this is a smaller
+   step than it reads.
+3. **§4a — the CODESYS NWL adapter**, gated on the node-construction experiment (`tasks.md` §1.8). CODESYS stops
+   calling PLCopen.
+4. **§4b — the TwinCAT NWL archive adapter.** TwinCAT stops calling PLCopen.
+5. **Delete `PlcOpen/`.** It has no consumers left. `bun run check` gains the guard so it cannot return.
+
+Steps 3 and 4 are independent of each other and both depend on 2. The old ordering put the folder move last,
+which meant carrying the design error through every intermediate commit for no benefit; it is the one step that
+is safe to do first precisely *because* it changes no behaviour.
 
 ---
 
@@ -147,10 +191,19 @@ Everything a transport swap could need is here, and nothing else:
 - If it carries **more**, the model may need a field. That is an engine change — but it is a change to **Volt's
   own model**, made ONCE, not a vendor leak and not repeated per swap.
 
-**There is a known instance of exactly this, already:** TwinCAT's native document carries per-network `Title`,
-`Label` and `OutCommented`. `GraphModel` has nowhere to put them, because PLCopen never carried them. So adopting
-that transport forces a one-time model extension (`tasks.md` §4.3). That is the honest cost of the property, and
-it is bounded: it happens when Volt's model gains a capability, not when a vendor changes how it serializes.
+**There was a known instance of exactly this — and measuring it inverted the conclusion.** The claim here was
+that TwinCAT's native document carries per-network `Title`, `Label` and `OutCommented`, `GraphModel` has nowhere
+to put them, and adopting that transport therefore forces a one-time model extension as the honest cost of
+vendor independence.
+
+Measured (`nwl-object-model.md` §1): CODESYS's `INetwork` carries the **identical four**, plus `Comment`. So this
+was never a TwinCAT extra and never a cost of the swap. **Both vendors' object models carry it and PLCopen was
+the thing dropping it** — the field that looked like a vendor leak was Volt's model being one field short of
+what both IDEs already have.
+
+The rule survives, but the example does not illustrate it. A truer statement of the bound: an extension is
+warranted when Volt's model cannot express what the IDEs agree on, and that is discovered by measuring both
+vendors — not by taking the first vendor's document as the definition of "extra".
 
 ## How it is enforced, not merely intended
 
@@ -162,14 +215,21 @@ it is bounded: it happens when Volt's model gains a capability, not when a vendo
       it is true today — keep it true.
 - [ ] **No vendor identity in engine control flow.** No `if (vendor == …)`, no `switch` on vendor, no capability
       flag consulted by the engine. If the engine has to ask *which IDE this is*, the contract is wrong.
-- [ ] **The swap test, stated as a question a reviewer can answer:** *"To move CODESYS off PLCopen, which files
-      change?"* The answer must be **only files under `Volt.Cli.Ide.Codesys/`** — unless the new transport
+- [ ] **The swap test, stated as a question a reviewer can answer:** *"To move CODESYS off its transport, which
+      files change?"* The answer must be **only files under `Volt.Cli.Ide.Codesys/`** — unless the new transport
       carries something Volt's model cannot yet express, which is the bounded exception above and must be called
       out explicitly rather than absorbed.
 
 ## What this deliberately does NOT do
 
 It does not create a shared format package. PLCopen currently sits in the engine *because* two vendors happened
-to use it — which is precisely how it became a neutral-layer dependency. Once TwinCAT is native, PLCopen has one
-consumer and belongs in that consumer. **If two vendors ever genuinely share a format, a shared package becomes
-justified at that point** — on evidence, not in anticipation.
+to use it — which is precisely how it became a neutral-layer dependency. Once both vendors are on their own
+object-model adapters, PLCopen has **no** consumer and is deleted rather than rehoused.
+
+**The evidence test named here has now actually fired, and the answer is still no.** Both vendors do share
+something real — the 3S NWL object model, same assembly, same `IFlags`, same `INetwork`. That is exactly the
+"two vendors genuinely share" condition. It still does not justify a shared format package, for a reason worth
+stating precisely: what they share is a **MODEL**, and Volt already has a home for a shared model — `GraphModel`
+in the engine. Only one of them shares a **SERIALIZATION** of it (TwinCAT's `<NWL>` archive); CODESYS hands over
+live objects and serializes nothing. A package holding a format that one vendor never encodes would be a shared
+package built for one consumer.

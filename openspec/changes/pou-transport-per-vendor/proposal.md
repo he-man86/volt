@@ -44,12 +44,19 @@ already been taken on cost grounds.
 **Choose each vendor's transport on its own merits, against the checklist.**
 
 - **TwinCAT → `ITcPlcPou.DocumentXml`**, pending the four experiments below.
-- **CODESYS → PLCopen, unchanged.** Not because it is shared — because it wins there on merit: it carries
-  `InterfaceAsPlainText` and member declarations, while CODESYS's native identifies types by **GUID**, which
-  would need a map maintained across CODESYS versions.
+- ~~**CODESYS → PLCopen, unchanged.**~~ **REVISED — CODESYS → the 3S NWL object model.** See `tasks.md` §1b and
+  `nwl-object-model.md`. This is not the native *serialization* that §1 measured and rejected; it is the live
+  object graph, reached through the member `CodesysObjectModel` already calls. Measured: typed read of FBD and
+  LD bodies, and a committed typed write, with **no serialization in either direction**. It also carries the
+  network metadata §1.4 concluded no CODESYS transport could supply.
 
-The result is *not* symmetric, and that is the point. Symmetry was the thing being optimised for, and it is not a
-requirement — byte-identical responses on the wire is.
+The result is *not* symmetric, and that is the point — though it turns out to be symmetric one level up, which
+nobody predicted: **both vendors are the same object model**, CODESYS live and TwinCAT serialized into its own
+document. Symmetry of *transport* was the thing being optimised for and was never a requirement; byte-identical
+responses on the wire is.
+
+**PLCopen therefore leaves the product entirely** rather than moving into the CODESYS package. It ends with zero
+consumers, which is a deletion, not a relocation.
 
 ## Do NOT decide this yet — four experiments first
 
@@ -70,8 +77,12 @@ If (1) fails, the whole proposal fails and PLCopen stays for both — with the c
 ## Impact
 
 - `Volt.Cli.Ide.Twincat` — a native document reader/writer, below the wire.
-- `Volt.Engine` — unchanged in contract. The `Ide` interface already says "give me this POU's content"; which
-  document a driver uses to answer is exactly the irreducible vendor glue the architecture puts in the host.
+- `Volt.Cli.Ide.Codesys` — a typed NWL adapter, replacing the PLCopen read/write path.
+- `Volt.Engine` — the contract CHANGES after all: `ICodeStore` demands a PLCopen document
+  (`string ReadXml()`), which is precisely what stops either driver from using its own better route. That is
+  §2, and it is the blocker rather than the cleanup. `GraphModel` also gains the four network fields both
+  vendors carry.
+- `Volt.Engine/PlcOpen/` — gathered into one folder, then deleted once both adapters land.
 - `declaration-from-the-aspect` — the aspect is still the right source for declarations under either transport,
   because it is the object model rather than a serialization. The change stands.
 - `lossless-push` — still applies. A better transport SHRINKS the set of things a projection cannot express; it
@@ -79,7 +90,10 @@ If (1) fails, the whole proposal fails and PLCopen stays for both — with the c
 
 ## Non-goals
 
-- **CODESYS's native transport.** Measured, GUID-typed, worse. Not revisited.
+- **CODESYS's native SERIALIZATION** (`export_native`). Measured, GUID-typed, 90 KB of editor canvas geometry
+  for one POU. Still rejected, still not revisited — and deliberately distinguished from CODESYS's object
+  MODEL, which is now the chosen transport. Rejecting a vendor's file format is not evidence about its API, and
+  this proposal conflated the two for a month.
 - **Changing the wire.** Entirely below the parity boundary.
 - **CFC/SFC/IL.** Still unsupported, still markers.
 
