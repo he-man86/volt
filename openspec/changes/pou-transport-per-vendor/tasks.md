@@ -14,8 +14,8 @@ Full tables in `checklist.md`. Condensed, because this is the part that must sur
   - **W12** — malformed documents are refused WHOLE with a line/position diagnostic, POU byte-intact. Stronger
     than the PLCopen import.
   - **R9** — folders are structural: `<Folder Name="Inner"/>` plus `FolderPath="Inner\"` on the member.
-- **CODESYS PLCopen carries the declaration and members fine.** Its native was rejected on ONE 3,166-byte sample
-  (GUID-typed tag vocabulary) — see §1, which is why this is not yet settled to the same standard.
+- **CODESYS PLCopen carries the declaration and members fine, and its native is now measured and REJECTED** —
+  90,434 bytes for one graphical POU, a GUID-typed object-graph dump carrying editor canvas geometry. §1.
 
 ### What the TwinCAT converter DELETES rather than adds
 
@@ -45,23 +45,38 @@ The cost argument that rejected `DocumentXml` was backwards. On a native transpo
 
 ---
 
-## 1. FIRST — hold CODESYS to the same standard
+## 1. CODESYS held to the same standard — DONE. Verdict in `checklist.md` §CS
 
-`export_native` was rejected on one sample. That is thinner evidence than TwinCAT's four experiments, and
-"best possible per vendor" means measuring both. **Run the identical four experiments** before any transport is
-locked:
+`export_native` had been rejected on one 3,166-byte glance, which is thinner than TwinCAT's four experiments.
+"Best possible per vendor" means measuring both, so it was measured.
 
-- [ ] 1.1 **R3** — read a CODESYS native document for an FBD and an LD POU. Is it an expression tree or a graph?
-      Are contacts stored, or is a ladder a view there too?
-- [ ] 1.2 **W14** — set a native document back unchanged. What is perturbed?
-- [ ] 1.3 **W12** — set a malformed one. Refused whole, or partially applied?
-- [ ] 1.4 **R9/R10** — does it carry in-POU folders, and `OutCommented`/`Title`/`Label`?
-- [ ] 1.5 **The GUID question, properly.** Are the type GUIDs stable across CODESYS versions and documented, or
-      opaque? This is the entire basis of the current rejection and it was never tested.
-- [ ] 1.6 **Decide, and write the verdict into `checklist.md` with the same rigour.** If CODESYS's native also
-      wins, `lossless-push` may not be needed AT ALL — which would be the largest simplification available.
+- [x] 1.1 **R3 — DISQUALIFYING.** One graphical POU exports as **90,434 bytes** (TwinCAT's entire LD POU is
+      14,849): a `Single`/`List2` .NET object-graph dump (`Method="IArchivable"`) with **30 distinct type GUIDs**
+      and the editor's canvas geometry (`Bounds`, `CanvasWidth`, `AutoSizeCanvas`) serialized into it. It is the
+      editor's state, not a description of the logic.
+- [x] 1.2 **W14 — deliberately not run.** R3 disqualified the transport; measuring the write behaviour of one
+      that cannot be read spends the budget in the wrong place.
+- [x] 1.3 **W12 — deliberately not run**, same reason.
+- [x] 1.4 **R10 — answered anyway, and NEGATIVE.** `OutCommented` / `Title` / `Label` appear nowhere in the
+      CODESYS archive, so **no** CODESYS transport fixes the disabled-network hole.
+- [x] 1.5 **The GUID question — answered, and moot.** The type GUIDs ARE consistent: each maps 1:1 to an object
+      kind across 1,314 objects, and the action row (decl=0, impl=7) independently confirms "an action has no
+      declaration". But a converter would need a 30+ entry GUID→type map per graphical POU, maintained per
+      CODESYS version. **Moot**, because the transport is rejected AND because Volt already classifies by
+      OFFICIAL identifiers on both vendors: named interfaces on CODESYS (`IPOUObject`, `IPOUMethodObject`,
+      `IActionObject`, `IGVLObject` — `CodesysTypeMap`) and the native `TREEITEMTYPE` enum on TwinCAT. **No GUID
+      type scheme enters the product.** The only GUID a driver touches is an object's own instance handle, which
+      CODESYS's API requires (`GetObjectToRead(handle, guid)`) — a calling convention, not a classification.
+- [x] 1.6 **Decided: CODESYS keeps PLCopen** — larger, GUID-typed, no network metadata, editor state rather than
+      a document. PLCopen is a documented standard with domain vocabulary and is the better transport *for this
+      vendor*.
 
-**Nothing below starts until §1 is answered**, because it changes what the engine must still contain.
+**Consequence, so it is not misread:** `lossless-push` does **not** disappear. CODESYS keeps regenerating a body
+from network text and keeps every loss that change exists to stop. It becomes **CODESYS-only**, and the engine
+keeps network text, `GraphModel` and the carry/refuse invariant. Only TwinCAT sheds them.
+
+**One datum to size that work against:** of 249 POUs in a real customer project, **248 have a textual
+implementation** — one graphical POU in 1,314 objects.
 
 ## 2. The boundary — this is the design error, and it blocks everything
 

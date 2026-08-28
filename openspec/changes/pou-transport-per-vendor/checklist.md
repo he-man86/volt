@@ -340,3 +340,88 @@ its own merits, with the parity boundary staying where the architecture already 
 refusing bad ones, but the coherence question in §R9 is open, and a *member-level* write through the native
 document has been proved only by the earlier splice experiment (a `<Method>` and a `<Property>` set back
 successfully). That is enough to decide the direction; it is not yet enough to implement against.
+
+---
+
+## §CS - CODESYS held to the same standard, measured 2026-08-28
+
+`export_native` was rejected on one 3,166-byte sample. TwinCAT's native got four experiments; this is CODESYS's.
+**R3 disqualifies it, so the remaining three were not run - and that early exit is deliberate, not an omission.**
+
+### The corpus first, because it reframes the graphical question
+
+A real customer project (`Pro2193-94-95-96`), **1,314 objects**, classified by type:
+
+| n | decl | impl | what it is |
+|---|---|---|---|
+| 326 | 326 | 326 | methods |
+| 249 | 249 | **248** | POUs |
+| 225 | 0 | 0 | folders |
+| 96 | 96 | 0 | DUTs |
+| 19 | 19 | 0 | property accessors (`Get`, `Get`, ...) |
+| 7 | **0** | 7 | **actions - no declaration, implementation only** |
+
+The action row independently confirms "an action has no declaration". And of 249 POUs, **248 have a textual
+implementation**: there is exactly **ONE graphical POU in 1,314 objects**.
+
+### R3 - the native archive is a generic object dump, not a document
+
+`SetErrorFB`, that one graphical POU: **90,434 bytes** - six times TwinCAT's *entire* LD POU (14,849).
+
+```xml
+<ExportFile><StructuredView Guid="{d9b2b2cc-...}">
+<Single xml:space="preserve" Type="{3daac5e4-...}" Method="IArchivable">
+  <Null Name="Profile" />
+  <List2 Name="EntryList">
+    <Single Name="IsRoot" Type="bool">True</Single>
+```
+
+`Method="IArchivable"` - a **.NET object-graph serializer dump**. Measured on that one file: **30 distinct type
+GUIDs**, 75 property names, and among them `Bounds`, `CanvasHeight`, `CanvasWidth`, `AutoSizeCanvas` - it
+serializes the **editor's canvas geometry**. It is the editor's state, not a description of the logic.
+
+| | TC `DocumentXml` | CS `export_native` |
+|---|---|---|
+| size, one graphical POU | 14,849 | **90,434** |
+| shape | expression **tree** | object **graph** (`DestPinId`, `ConnectionId`, `EnEno`) |
+| vocabulary | `BoxTreeAssign`, `Operand`, `Title` | **`Single` / `List2` + type GUIDs** |
+| network metadata | `Title`, `Label`, `OutCommented` | **none appear** |
+| editor geometry | absent | present (`Bounds`, `Canvas*`) |
+
+### Verdict: CODESYS keeps PLCopen
+
+Now for measured reasons rather than a glance: the native is larger, GUID-typed, carries no network metadata (so
+R10 does **not** improve there either), and is editor state rather than a document. PLCopen is a documented
+standard with domain vocabulary and is genuinely the better transport *for this vendor*.
+
+The asymmetry stands on evidence from both sides: **`DocumentXml` for TwinCAT, PLCopen for CODESYS.**
+
+### On identifiers - no GUID enters the product
+
+Worth stating, because the GUIDs above could be misread as a design dependency. **They are not.** Volt already
+classifies objects by OFFICIAL identifiers on both vendors:
+
+- **CODESYS: named interfaces** - `IPOUObject`, `IPOUMethodObject`, `IPropertyAccessorObject`, `IGVLObject`,
+  `IActionObject` (`CodesysTypeMap`).
+- **TwinCAT: the native `TREEITEMTYPE` enum** - 601 folder, 604 FB, 609 method, named after the official
+  constants. (With the recorded caveat that Beckhoff renumbered 622/624/625 into the 650s, so the code follows
+  the live build over the published doc.)
+
+The type GUIDs appeared only in the PROBE, because IronPython's `dir()` does not enumerate dispatched members and
+`k.type` was the quickest one-off classifier. Rejecting the native transport means they never enter the design.
+The only GUID the driver touches is an object's own instance handle, which CODESYS's API requires
+(`GetObjectToRead(handle, guid)`) - a calling convention, not a type scheme.
+
+### What was NOT measured, and why that is acceptable
+
+W14, W12 and R9 were not run against the CODESYS native: R3 already disqualifies it, and measuring the write
+behaviour of a transport that cannot be read spends the budget in the wrong place. If it is ever revisited, those
+three must be run first, exactly as they were for TwinCAT.
+
+### Consequence for `lossless-push`
+
+It does **not** disappear. CODESYS keeps PLCopen, keeps regenerating a body from network text, and keeps every
+loss that change exists to stop - plus R10, which no CODESYS transport fixes. It becomes **CODESYS-only**, and
+the engine keeps network text, `GraphModel` and the carry/refuse invariant for it. Only TwinCAT sheds them.
+
+**One datum to carry into that:** one graphical POU in 1,314 objects. Size the work against how rare it is.
