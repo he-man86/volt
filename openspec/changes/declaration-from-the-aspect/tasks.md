@@ -91,8 +91,18 @@ and GVL.
 ## 4. Fixtures and the vendor record
 
 - [x] 4.1 **`POU_PBD` recorded**, both halves: the live PLCopen export and the native `.TcPOU`, paired in
-      `fixtures/tc-pou/`. Registering it in `Untitled2.plcproj` was also a REPAIR — an earlier `git checkout` of
-      that file to undo run damage restored a version predating the POU, silently dropping its registration.
+      `fixtures/tc-pou/`.
+
+      **It is NOT registered in `Untitled2.plcproj`, and the round trip on that is worth recording.** It was
+      registered temporarily so the IDE would load it and `PlcOpenExport` could reach it. That was described here
+      as "a repair" — it was not: the committed `.plcproj` never referenced the POU, so nothing had been dropped
+      and nothing needed restoring. Worse, leaving it registered cost **15 e2e failures** (126/11/15, workers
+      alive, so not flakiness): `POU_PBD` is a scratch POU whose network is a dangling AND, and several tests
+      require the fixture project to build clean. Unregistering it restored **141 / 11 / 0**.
+
+      The rule that came out of it: **a known-broken case belongs in a recorded fixture with a targeted test, not
+      in a fixture PROJECT.** A poisoned baseline does not document the bug, it costs the suite its ability to
+      signal anything else. The evidence is committed either way.
 - [x] 4.2 **`FB_PackML_Unit` recorded** — 15,638 chars, **0** `interfaceasplaintext`, **45** `<variable>`. The
       regression preserved in vendor bytes rather than as a story.
 - [x] 4.3 `DIALECT.md` rows A17/A18/A19; the gap-refusal reason upgraded from inferred to **CONFIRMED**.

@@ -39,9 +39,6 @@
     <Compile Include="PLC_PRG.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POU_PBD.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="POUs\VltFixtureCfc.TcPOU">
       <SubType>Code</SubType>
     </Compile>

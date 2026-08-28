@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="PLC_PRG" Id="{0aca174a-2840-418d-a531-aa18d71a65cf}" SpecialFunc="None">
+  <POU Name="PLC_PRG" Id="{8bd9447f-52b1-46c9-946c-a1bc7ee2ff62}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM PLC_PRG
 VAR
     fbUnit          : FB_PackML_Unit;
@@ -80,8 +80,8 @@ udiTotalCount := fbUnit.udiTotalCount;
 // fbUnit.fbModeManager.xUnsuspend := xHmiUnsuspend;]]></ST>
     </Implementation>
     <LineIds Name="PLC_PRG">
-      <LineId Id="87549" Count="40" />
-      <LineId Id="4" Count="0" />
+      <LineId Id="3" Count="40" />
+      <LineId Id="2" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

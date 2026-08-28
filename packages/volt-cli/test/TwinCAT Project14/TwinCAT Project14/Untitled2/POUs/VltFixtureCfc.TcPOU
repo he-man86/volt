@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
-  <POU Name="VltFixtureCfc" Id="{6a6b7b4a-5f08-4e78-94e0-f9b9abef2272}" SpecialFunc="None">
+  <POU Name="VltFixtureCfc" Id="{a821d0f2-15d5-42ca-ab93-1f6d498c39af}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK VltFixtureCfc
 VAR_INPUT
 END_VAR
