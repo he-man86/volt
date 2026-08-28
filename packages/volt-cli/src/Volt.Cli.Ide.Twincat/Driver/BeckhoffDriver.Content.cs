@@ -121,8 +121,19 @@ public sealed partial class BeckhoffDriver
         }
 
         // A marker is informational and is never written back over a live CFC/SFC body.
-        _om.WriteText(item.Native, declaration, BodyMarker.Is(body) ? null : body);
+        // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
+        // TwinCAT's COM object does not expose the member at all — writing to it throws
+        // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
+        // make this decision from the item's kind code; it moved here with the rest of the write.
+        _om.WriteText(item.Native, declaration,
+                      HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
     }
+
+    /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not —
+    /// their whole content is the declaration — and an interface METHOD has only a signature.</summary>
+    private static bool HasBodySlot(string kind) =>
+        kind is not (ItemKind.Kinds.Dut or ItemKind.Kinds.Gvl or ItemKind.Kinds.Interface
+                     or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty);
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 

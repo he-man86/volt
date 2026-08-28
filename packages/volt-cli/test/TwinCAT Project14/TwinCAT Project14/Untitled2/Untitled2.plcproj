@@ -45,6 +45,66 @@
     <Compile Include="POUs\VltFixtureSfc.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="VltE2E_net_build_fb.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_execute.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_existing.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_fbd.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_fbd_action.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_fbd_compile.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_fbd_fb.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_fbd_prg.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_guard_malformed.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_guard_st.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_action.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_compile.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_fb.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_multicoil.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_negated.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_prg.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_series3.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_ld_setcoil.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VltE2E_net_move.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="DUTs" />
