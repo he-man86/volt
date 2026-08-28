@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Volt.Engine.Source.Body;
-using Volt.Engine.Source.Body.Network;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
+using Volt.Engine.Format.Network;
 using Xunit;
 using Xunit.Abstractions;
 

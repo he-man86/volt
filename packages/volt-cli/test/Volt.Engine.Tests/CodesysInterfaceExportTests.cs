@@ -1,7 +1,8 @@
 ﻿using System.IO;
 using System.Linq;
 using Xunit;
-using Volt.Engine.Source;
+using Volt.Engine.Item;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 

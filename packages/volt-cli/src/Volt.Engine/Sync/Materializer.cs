@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
-using Volt.Engine.Source;
+using Volt.Engine.Item;
+using Volt.Engine.PlcOpen;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
-using Volt.Engine.Source.Body.St;
-using Volt.Engine.Source.Body;
-using Volt.Engine.Item;
+using Volt.Engine.Format.St;
+using Volt.Engine.Format.Body;
 
 namespace Volt.Engine.Sync;
 
@@ -172,10 +172,10 @@ public static class Materializer
     /// declaration is non-null"); it is made ONCE here now, and the answer is an object.
     /// <para>A null <paramref name="code"/> with a real declaration still yields an accessor — that is the
     /// bodiless case, not an absent one.</para></summary>
-    private static Source.Accessor? AccessorOf(string? code, string? declaration)
+    private static Accessor? AccessorOf(string? code, string? declaration)
     {
         var decl = KeepDecl(declaration);
-        return code is null && decl is null ? null : new Source.Accessor(decl, code);
+        return code is null && decl is null ? null : new Accessor(decl, code);
     }
 
     /// <summary>The workspace text for a body, dispatched through the LANGUAGE's codec — the same registry the

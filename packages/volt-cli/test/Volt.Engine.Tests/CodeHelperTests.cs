@@ -1,7 +1,8 @@
 ﻿using Volt.Engine;
 using Xunit;
-using Volt.Engine.Source.Body;
-using Volt.Engine.Source.Body.St;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
+using Volt.Engine.Format.St;
 
 namespace Volt.Cli.Tests;
 

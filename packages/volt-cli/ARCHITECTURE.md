@@ -1,4 +1,4 @@
-# Volt.Cli — implementation architecture
+﻿# Volt.Cli — implementation architecture
 
 A **bridge** exposes one live PLC IDE (CODESYS or TwinCAT) to the `volt` CLI over a local **named pipe**.
 Both vendors serve **byte-identical responses** for the same project even though they reach their IDEs in
@@ -219,8 +219,11 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 - **PlcOpen transport.** CODESYS round-trips XML *in memory* via the object model; Beckhoff's COM API is
   file-based, so `TcPlcOpen` round-trips through a temp file.
 - **`TcPouReader` has no CODESYS counterpart.** TwinCAT stores graphical bodies in a vendor NWL archive whose
-  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.Source`. The parser is
-  irreducibly TwinCAT-specific, so it stays in Beckhoff.
+  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.PlcOpen`. The
+  parser is irreducibly TwinCAT-specific, so it stays in Beckhoff. (Both halves of this are on the way out: the
+  NWL archive turns out to be a serialization of the same object model CODESYS exposes live, and CODESYS reads
+  the language off the aspect TYPE rather than parsing anything — see
+  `openspec/changes/pou-transport-per-vendor/nwl-object-model.md`.)
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.

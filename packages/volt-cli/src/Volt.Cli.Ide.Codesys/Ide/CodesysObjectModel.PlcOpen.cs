@@ -5,7 +5,8 @@ using System.Linq;
 using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
-using Volt.Engine.Source.Body;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Ide.Codesys
 {
@@ -46,7 +47,7 @@ namespace Volt.Cli.Ide.Codesys
         /// exact call under another name. See <c>CodesysInterfaceExportTests</c> for the captured ground truth.</para>
         /// <para>NB an interface document has NO <c>&lt;pou&gt;</c> element: CODESYS writes one as
         /// <c>&lt;addData&gt;/&lt;Interface&gt;</c> with <c>&lt;Methods&gt;</c>/<c>&lt;Properties&gt;</c>, exactly
-        /// like TwinCAT (DIALECT.md A8). <see cref="Volt.Engine.Source.PouReader"/> already reads that shape.</para></summary>
+        /// like TwinCAT (DIALECT.md A8). <see cref="Volt.Engine.PlcOpen.PouReader"/> already reads that shape.</para></summary>
         public string ExportXmlWithChildren(object parentNode) =>
             ExportNodes(
                 PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export"),

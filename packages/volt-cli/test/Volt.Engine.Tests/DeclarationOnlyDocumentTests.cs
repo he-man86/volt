@@ -1,9 +1,9 @@
 ﻿using System.IO;
 using Xunit;
-using Volt.Engine.Source;
-using Volt.Engine.Library;
-using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
+using Volt.Engine.PlcOpen;
+using Volt.Engine.Library;
+using Volt.Engine.Format.Body;
 
 namespace Volt.Cli.Tests;
 

@@ -1,7 +1,8 @@
 ﻿using System.Linq;
 using System.Xml.Linq;
 using Xunit;
-using Volt.Engine.Source.Body.Network;
+using Volt.Engine.Format.Network;
+using Volt.Engine.PlcOpen;
 using Volt.Engine.Library;
 
 namespace Volt.Cli.Tests;

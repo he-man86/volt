@@ -108,9 +108,30 @@ Placement is **measured, not judged** — every file was counted:
 | `NetworkTextWriter` | 0 | `PouSplice` | 28 |
 | `StReader` | 0 | `GraphReader` | 27 |
 | `GraphModel` | 0 | `BodyCodec` | 16 |
-| `NetworkText`, `FbdOperators`, `GraphRoundTrip` | 0 | `ProjectStructure`, `PouReader`, `Declaration` | 13 / 10 / 9 |
+| `NetworkText`, `FbdOperators` | 0 | `ProjectStructure`, `PouReader`, `Declaration` | 13 / 10 / 9 |
 | `StWriter`, `CodeHelper`, `Descriptor` | 0 | `PlcOpenDocument` | 7 |
-| `BodyMarker`, `Languages`, `BodyFormatGuard` | 0 | `BodySpliceGuard`, `NetworkSplice`, `BodyElement` | 4 / 4 / 2 |
+| `BodyMarker`, `Languages` | 0 | `BodySpliceGuard`, `NetworkSplice`, `BodyElement` | 4 / 4 / 2 |
+| — | | `GraphRoundTrip`, `BodyFormatGuard` | **0**, see below |
+
+### Two files the XML count placed WRONG, and what that says about the method
+
+`GraphRoundTrip` and `BodyFormatGuard` both score **zero** vendor-XML references and both belong in `PlcOpen/`.
+The count missed them because they do not touch XML *themselves* — they delegate:
+
+- `GraphRoundTrip` is, in its own words, "the body's journey through the **PLCopen** transport":
+  `GraphReader.ReadBody(GraphWriter.WriteBody(graph))`. Zero `XElement`, entirely PLCopen.
+- `BodyFormatGuard.RequireChildFormatWritable` takes a `PouReader.ParsedPou` and dispatches through `BodyCodec`.
+
+Both were caught by the compiler within minutes, because putting them in `Format/` is what forced
+`using Volt.Engine.PlcOpen;` into that folder — and a `Format/` file needing PLCopen is the invariant failing out
+loud. **The lesson is worth keeping: a token count measures what a file MENTIONS, and a layout rule is about what
+a file DEPENDS ON.** The count is a good first pass and a bad adjudicator; the build is the adjudicator.
+
+The invariant that came out of it is stronger than the one planned:
+
+> **`Volt.Engine/Format/` contains zero vendor-XML references AND does not reference `Volt.Engine.PlcOpen` at
+> all.** Five of the six `using Volt.Engine.PlcOpen;` lines that the mechanical rename put into `Format/` were
+> simply unused and were deleted; the sixth was `BodyFormatGuard`, which moved.
 
 `ItemContent.cs` moves to `Item/`: its single `XElement` mention is **in a comment**, and it is the neutral
 CONTRACT type the whole refactor makes drivers speak. `Source/DIALECT.md` moves to `PlcOpen/DIALECT.md` —

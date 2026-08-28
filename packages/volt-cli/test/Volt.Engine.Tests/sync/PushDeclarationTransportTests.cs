@@ -1,8 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Item;
-using Volt.Engine.Source.Body;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
 using Volt.Engine.Sync;
 
 namespace Volt.Cli.Tests;

@@ -269,16 +269,23 @@ Volt.Engine/
   PlcOpen/    A VENDOR FORMAT, ON ITS WAY OUT (+ DIALECT.md)
 ```
 
-- [ ] 3b.1 **The folder move**, pure relocation + namespace rename, no behaviour change.
+- [x] 3b.1 **The folder move** — DONE 2026-08-28. Build clean (0 errors, 27 warnings, unchanged from
+      baseline); offline suites **706 / 142 / 80 / 3, all green**, i.e. exactly the pre-move numbers.
+      `NoStaleNamespaceTests` gained `Volt.Engine.Source` as a retired namespace — that guard's own stated
+      protocol for a rename — so a stale reference in a COMMENT fails the build too. Originally described as:, pure relocation + namespace rename, no behaviour change.
       `Volt.Engine.Source.*` -> `Volt.Engine.Format.*` for Volt's own formats, `Volt.Engine.PlcOpen` for the
       vendor format, `ItemContent` -> `Volt.Engine.Item`. 119 files across the solution reference the old
       namespaces; this is wide but mechanical, and the build is the check.
-- [ ] 3b.2 **Invariant, live from that commit: `Volt.Engine/Format/` contains zero `XElement` / `XDocument` /
-      `XNamespace` / `XAttribute` references.** Measured per file before the move — see `layout.md`.
-- [ ] 3b.3 **Do NOT split the six mixed files during the move** (`InstanceTypes`, `NetworkCode`, `NetworkSplice`,
+- [x] 3b.2 **Invariant, live from that commit — and it landed STRONGER than written.**
+      `Volt.Engine/Format/` contains zero `XElement` / `XDocument` / `XNamespace` / `XAttribute` references
+      **and does not reference `Volt.Engine.PlcOpen` at all.** Two files the XML count had placed in `Format/`
+      (`GraphRoundTrip`, `BodyFormatGuard`) turned out to be PLCopen-bound by DEPENDENCY while mentioning no
+      XML themselves; the compiler caught both. See `layout.md` — the count is a first pass, the build is the
+      adjudicator.
+- [x] 3b.3 **Did NOT split the mixed files during the move** (`InstanceTypes`, `NetworkCode`, `NetworkSplice`,
       `BodyCodec`, `BodySpliceGuard`, `BodyGuard`). They go to `PlcOpen/` whole. A move that also changes
       behaviour is not reviewable as a move; §2 pulls their neutral halves back out.
-- [ ] 3b.4 `Source/DIALECT.md` -> `PlcOpen/DIALECT.md`, which is the path `CLAUDE.md` already documents. The
+- [x] 3b.4 `Source/DIALECT.md` -> `PlcOpen/DIALECT.md`, which is the path `CLAUDE.md` already documents. The
       per-vendor split of that document (§2.4) happens when the adapters land, not now.
 - [ ] 3b.5 **Delete `PlcOpen/` outright** once both adapters exist, and add the `bun run check` guard so it
       cannot come back. This is 3.3, restated as a deletion rather than a relocation.

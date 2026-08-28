@@ -5,7 +5,8 @@ using System.Linq;
 using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
-using Volt.Engine.Source.Body;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
 using Volt.Engine.Item;
 
 namespace Volt.Cli.Ide.Codesys

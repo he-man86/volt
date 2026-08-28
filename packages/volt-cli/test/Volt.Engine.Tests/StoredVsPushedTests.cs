@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
-using Volt.Engine.Source.Body.Network;
+using Volt.Engine.Format.Network;
+using Volt.Engine.PlcOpen;
 using Xunit;
 using Xunit.Abstractions;
 

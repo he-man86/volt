@@ -3,7 +3,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
-using Volt.Engine.Source;
+using Volt.Engine.Item;
+using Volt.Engine.PlcOpen;
 
 namespace Volt.Cli.Tests;
 

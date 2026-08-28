@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -40,6 +40,10 @@ public class NoStaleNamespaceTests
         "Volt.Engine.Text",
         "Volt.Engine.Graph",
         "Volt.Engine.Document",
+        // pou-transport-per-vendor, 2026-08-28: `Source` read as "source code" and quietly accommodated a
+        // VENDOR's format. Split by what each file is: Volt's own formats under `Format/`, PLCopen under
+        // `PlcOpen/` (which is on its way out entirely), the neutral contract type under `Item/`.
+        "Volt.Engine.Source",
         // engine-layout: proposed and REJECTED — `Ops` collides with `Volt.Contracts.Ops`, the wire op-code
         // vocabulary. Listed so the collision is not rediscovered by someone renaming `Sync/` again.
         "Volt.Engine.Ops",

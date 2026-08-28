@@ -4,7 +4,8 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Volt.Engine;
 using Volt.Contracts;
-using Volt.Engine.Source.Body;
+using Volt.Engine.Format.Body;
+using Volt.Engine.PlcOpen;
 using Volt.Engine.Host;
 
 namespace Volt.Cli.Ide.Twincat;

@@ -2,11 +2,11 @@
 using System.Linq;
 using System.Xml.Linq;
 using Xunit;
-using Volt.Engine.Source;
-using Volt.Engine.Source.Body.Network;
-using Volt.Engine.Library;
-using Volt.Engine.Source.Body;
 using Volt.Engine.Item;
+using Volt.Engine.PlcOpen;
+using Volt.Engine.Format.Network;
+using Volt.Engine.Library;
+using Volt.Engine.Format.Body;
 
 namespace Volt.Cli.Tests;
 
@@ -32,7 +32,7 @@ public class BodyCodecTests
     private static string BodyOfFixture()
     {
         var parsed = PouReader.Parse(Fbd);
-        return Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(parsed.BodyElement!);
+        return Volt.Engine.PlcOpen.NetworkCode.RenderBody(parsed.BodyElement!);
     }
 
     private static ItemContent Split(string decl, string body) =>
@@ -53,8 +53,8 @@ public class BodyCodecTests
         var before = PouReader.Parse(Fbd).BodyElement!;
         var after = PouReader.Parse(doc).BodyElement!;
         Assert.Equal("FBD", after.Name.LocalName);
-        Assert.Equal(Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(before),
-                     Volt.Engine.Source.Body.Network.NetworkCode.RenderBody(after));
+        Assert.Equal(Volt.Engine.PlcOpen.NetworkCode.RenderBody(before),
+                     Volt.Engine.PlcOpen.NetworkCode.RenderBody(after));
     }
 
     /// <summary>DEFECT 5 — an IL body is refused as a LANGUAGE MISMATCH, by the body writer, with a message that
@@ -83,7 +83,7 @@ public class BodyCodecTests
     [InlineData("SFC")]
     public void An_unsupported_body_language_is_marked_unsupported(string language)
     {
-        Assert.True(Volt.Engine.Source.Body.BodyCodec.For(language).Unsupported);
+        Assert.True(Volt.Engine.PlcOpen.BodyCodec.For(language).Unsupported);
     }
 
     [Theory]
@@ -94,7 +94,7 @@ public class BodyCodecTests
     {
         var body = new XElement("body");
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Volt.Engine.Source.Body.BodyCodec.For(language).Encode(body, "x := 1;", null));
+            () => Volt.Engine.PlcOpen.BodyCodec.For(language).Encode(body, "x := 1;", null));
         Assert.Contains("not a language Volt supports", ex.Message);
     }
 
@@ -105,11 +105,11 @@ public class BodyCodecTests
     {
         var ns = XNamespace.Get("http://www.plcopen.org/xml/tc6_0200");
         var body = new XElement(ns + "body", new XElement(ns + "IL", "LD a\nST b"));
-        var found = Volt.Engine.Source.Body.BodyCodec.PresentWith(body);
+        var found = Volt.Engine.PlcOpen.BodyCodec.PresentWith(body);
 
         Assert.Equal("IL", found!.Value.Codec.Language);
         var decoded = found.Value.Codec.Decode(found.Value.Element);
-        Assert.True(Volt.Engine.Source.Body.BodyMarker.Is(decoded));   // the unsupported marker, same as CFC/SFC
+        Assert.True(Volt.Engine.Format.Body.BodyMarker.Is(decoded));   // the unsupported marker, same as CFC/SFC
         Assert.DoesNotContain("LD a", decoded);        // NOT the raw IL source
     }
 
@@ -142,9 +142,9 @@ public class BodyCodecTests
         var body = XElement.Parse($"<body xmlns=\"{ns}\">{bodyInner}</body>");
 
         // the READER calls it a diagram…
-        Assert.Equal(language, Volt.Engine.Source.PouReader.NonStLanguageOf(body));
+        Assert.Equal(language, Volt.Engine.PlcOpen.PouReader.NonStLanguageOf(body));
         // …and the WRITER locates the same element, rather than the empty <ST> decoy beside it
-        Assert.Equal(language, Volt.Engine.Source.Body.BodyCodec.PresentWith(body)!.Value.Codec.Language);
+        Assert.Equal(language, Volt.Engine.PlcOpen.BodyCodec.PresentWith(body)!.Value.Codec.Language);
     }
 
     /// <summary>The original of the case above, kept because it is the exact shape recorded from CODESYS: an
@@ -157,7 +157,7 @@ public class BodyCodecTests
         var body = new XElement(ns + "body",
             new XElement(ns + "ST"),
             new XElement(ns + "addData", new XElement(ns + "data", new XElement(ns + "CFC"))));
-        var found = Volt.Engine.Source.Body.BodyCodec.PresentWith(body);
+        var found = Volt.Engine.PlcOpen.BodyCodec.PresentWith(body);
         Assert.Equal("CFC", found!.Value.Codec.Language);   // the writer locates it where the reader looks
     }
 }
