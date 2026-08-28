@@ -14,7 +14,7 @@ Legend: **✓** works · **✗** fails · **~** partial · **?** UNMEASURED
 |---|---|---|---|---|---|---|
 | R1 | **Declaration, verbatim** — alignment, blank lines, pragmas, per-variable comments, initial values | It is the engineer's source. A rendering is a diff against work nobody did | ✗ **0 of 2 live exports carry `InterfaceAsPlainText`; one declares 45 variables** | ✓ carries it | ✓ carries it (twice — A7) | ~ GUID-typed |
 | R2 | **ST body, verbatim** | Same | ✓ measured byte-identical to native CDATA, 7,316 chars | ✓ native CDATA | ✓ | ~ |
-| R3 | **FBD/LD body** faithfully enough to render AND splice back | The whole graphical feature | ~ graph; regeneration is lossy | ? **NWL tree — never converted** | ~ same graph, same losses | ~ |
+| R3 | **FBD/LD body** faithfully enough to render AND splice back | The whole graphical feature | ~ graph; regeneration is lossy | ✓ **MEASURED — see §NWL below. An expression tree, near 1:1 with `GraphModel`** | ~ same graph, same losses | ~ |
 | R4 | **CFC/SFC/IL detectable as unsupported** | Must never be mangled into ST | ✓ marker | ✓ | ✓ | ✓ |
 | R5 | Members enumerated (method/action/property) | | ✓ | ✓ proved | ✓ | ~ |
 | R6 | **Member declarations, verbatim** | | ✗ **`VAR_INPUT` appears NOWHERE in a probe FB's export** | ✓ proved | ✓ | ~ |
@@ -103,3 +103,78 @@ rather than a conclusion. In priority order:
 - **The `lossless-push` invariant still applies** — it is about not losing what a projection cannot express, and
   that is true of any transport. A better transport shrinks the non-expressible set; it does not remove the need
   to be honest about what remains.
+
+---
+
+## §NWL — experiment 1, measured 2026-08-28
+
+The decisive cell. A recorded LD fixture (`tc-ld/ld_ton_rung_two_networks.plcopen.xml`) was imported into a live
+project and the SAME POU's native document read back, so both encodings describe one body rather than two
+anecdotes. 14,849 chars.
+
+**The declaration is verbatim, including the engineer's irregular spacing** — a tab, a leading space and a
+two-space indent all preserved inside `<Declaration><![CDATA[…]]>`:
+
+```
+PROGRAM ladder
+VAR
+	outpur: BOOL;
+	 enable, done : BOOL;
+  elapsed : TIME;
+```
+
+**Per-network metadata is present and named**: `Title`, `Label`, `OutCommented`, `Comment` on every `Network`.
+That is checklist R10, which PLCopen fails outright.
+
+**The body is an EXPRESSION TREE, not a graph.** Every node type in the document:
+
+```
+Network · BoxTreeAssign · BoxTreeBox · BoxTreeOperand · Operand · Operator · OutputItemList · ParamList · Flags
+```
+
+One rung, with the `Flags` noise stripped:
+
+```
+BoxTreeAssign
+  OutputItems -> Operand "outpur"  (Type "BOOL")
+  RValue      -> BoxTreeBox  BoxType "AND"
+                   Instance -> Operand (IsInstance true)
+                   …ParamList
+```
+
+That is `outpur := (… AND …)` — **Volt's network text, already in the vendor's storage**. The mapping to
+`GraphModel` is close to 1:1: `BoxTreeAssign`→`OutVar`, `BoxTreeBox`→`Block`, `Operand`→`InVar`,
+`ParamList`→`Pin`s.
+
+### Three consequences that change the cost argument
+
+1. **There are NO contacts, coils or power rails in an LD body.** `DefaultViewMode` is `"Ld"` — the ladder is a
+   *view*; the storage is already the lowered boolean form. So `splice-graphical-body` §2.1 — *"an LD contact is
+   demoted to a floating data box and its power-rail wire is destroyed"*, the one loss a ladder engineer would
+   SEE — **cannot occur in this transport**, because there is no contact to demote. `GraphReader.LowerLadder`
+   exists only to undo a lowering the vendor already did for us.
+2. **Operands carry their TYPE inline** (`Type "BOOL"`, `IsInstance`). Volt currently recovers FB instance types
+   from `InstanceTypes.FromBody` plus a TEXT PARSE of the declaration, described in its own source as "an
+   approximation forever". The native document makes that guess unnecessary.
+3. **The census was right the first time and then talked itself out of it.** It recorded that the tree "may be
+   closer to Volt's network text than PLCopen's graph is — `GraphReader` spends much of its length lowering that
+   graph into a tree", and discounted it. Measured: it is closer, and the lowering is redundant work.
+
+**Verdict on R3: PASS, and the second converter is likely SMALLER than the one in use** — it drops ladder
+lowering and instance-type inference rather than adding to them.
+
+### Still unmeasured, and still able to sink this
+
+- **W14** — does `set_DocumentXml` normalize what it is given? PLCopen's importer rewrites `LineIds`, zeroes the
+  POU `Id` and reformats declarations. If the native setter does the same, its fidelity advantage narrows.
+- **W3 / W12** — can a partial write be refused cleanly?
+- **R9** — do in-POU member folders survive the native document?
+
+### Method notes, so this is reproducible
+
+- TwinCAT language codes, read off live items: **ST=1, SFC=3, FBD=4, CFC=5, LD=6**.
+- `DocumentXml` is available on a POU but returns **0 chars** on folders, libraries, task references and on a POU's
+  ACTION child (an action exposes `ImplementationXml` instead).
+- A project can hold several items of the same name — `PLC_PRG` existed three times here (root, `POUs/`, and a
+  `PlcTask/` reference). A name-based walk finds the wrong one and reads 0 chars, which reads as "the API does
+  not work". It does.
