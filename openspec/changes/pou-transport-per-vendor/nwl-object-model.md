@@ -52,13 +52,94 @@ and becomes a projection of the vendors' own model; `NetworkStride`/`localId` in
 `TypeHandlingMode { Embedded, Declaration, PreferEmbedded, PreferDeclaration }` is the vendors' own name for the
 FB-instance-type choice Volt currently makes by text-parsing a declaration.
 
+## MEASURED — 2026-08-28, CODESYS 3.5.21.40 Patch 4 + TwinCAT 3.1 4024.74
+
+Questions 1 and 2 are settled. The probe is the driver's own path:
+`_3S.CoDeSys.Core.SystemInstances.ObjectMgr` → `GetObjectToRead(handle, guid).Object` →
+`GetMember(iobj, "Implementation")` — the member `CodesysObjectModel` ALREADY calls for ST bodies.
+
+### 1. Typed READ — PROVEN
+
+A POU created with `language=fbd` and one with `language=ladder` both yield:
+
+```
+IObject        _3S.CoDeSys.POUObject.POUObject
+Implementation _3S.CoDeSys.NWLObject.NWLImplementationObject
+               INWLImplementationObject, INWLImplementationObject2
+NetworkList -> _3S.CoDeSys.NWLObject.Network
+               INetwork, INetwork2, INetwork3, INetwork4, INWLItem, INetworkWithIL
+```
+
+**The aspect type IS the language** — no language field is consulted. The same project's CFC POU returns
+`CFCObject.CFCImplementationObject` (canvas: `Items`, `RoutingPaths`, no `NetworkList`), and its 271 ST POUs
+return `STImplementationObject`. Dispatch is a cast, not a lookup.
+
+Traversing a real imported FBD body (`VltFbd_FbdRoot.plcopen.xml`):
+
+```
+Network        Title='' Label='' Comment='' OutCommented=False NetworkItemCount=1
+GetTree(0)  -> BoxTreeAssign    Id=6  Flags=-    .Outputs .RValue
+                 BoxTreeOperand Id=3  Flags=-    .Operand
+                   Operand      Id=4  OperandExpr='a'  Address=..  SymbolComment=..
+```
+
+Everything network text needs is typed and present: the operand symbol (`OperandExpr`), per-item `Id`, and
+`Flags` exposing the six named booleans. `INetwork` also carries `Accept(INWLItemVisitor)` — a renderer is a
+visitor, not a parser.
+
+### 2. Typed WRITE — PROVEN
+
+`GetObjectToModify(handle, guid)` → mutate → `SetObject(meta, true, null)`, and the re-read confirms:
+
+```
+network[0].Label   ''  ->  'VLT_PROBE'      >>> TYPED WRITE: WORKS
+```
+
+The full mutation surface is on `INetwork`: `SetTree(i, IBoxTree)`, `InsertTree`, `AppendTree`,
+`RemoveNetworkItem(i)`, `GetItemById(Int64)`, plus `Normalize()`. **No serialization in either direction for
+CODESYS.**
+
+### 3. TwinCAT — the model is the same, the ACCESS is not
+
+Two measurements, and they point opposite ways:
+
+**The storage IS the NWL graph.** `POU_PBD.TcPOU` (TwinCAT's FBD fixture) contains `<Implementation><NWL>`
+wrapping `<XmlArchive>` / `<TypeList>` / `<o>` / `<v>` — a serialized object graph, not a schema. TwinCAT's
+native document is this model, persisted.
+
+**The engineering is not in the shell.** With the fixture solution loaded in TcXaeShell, the PLC tree walked
+(`TIPC^Untitled2^Untitled2 Project`, 10 children), `ProduceXml()` called on both the project and a POU, and
+three documents open, the count of loaded modules under `C:\TwinCAT\3.1\Components\Plc\` was **0**. That is
+live-checked, not assumed — the same enumeration shows `clr.dll`, `mscorlib.ni.dll`, `TwinCAT XAE Base.dll` and
+`TwinCAT System Manager.dll`. A sweep of every process on the machine found `NWLObject` / `_3S` loaded
+**nowhere**. TwinCAT ships the assembly (`Components\Plc\Common\NWLObject.dll`, plugin `3.5.13.30`), but the
+tree and `ProduceXml` are served by the native System Manager without it.
+
+No automation route reaches the PLC editor either: `File.OpenFile` on a `.TcPOU` opens the XML text editor, and
+the TwinCAT project reports `ProjectItems.Count = 0`, so DTE cannot open a POU with its own editor factory.
+
+**Conclusion: CODESYS gets live typed objects; TwinCAT gets the same model, serialized in its own document.**
+Point 3 below predicted this and is confirmed — but for a sharper reason than "out-of-process": the object model
+is not resident in TwinCAT's shell at all, so an in-proc Volt component there would have nothing to attach to.
+That is not a small VSIX away.
+
+### What this changes in the plan
+
+- **PLCopen leaves both packages.** CODESYS never serializes; TwinCAT reads and writes its own NWL archive. The
+  engine's ~2,100 PLCopen lines lose their last consumer.
+- **`GraphModel` must carry `Title`, `Label`, `Comment`, `OutCommented`.** `layout.md` called this a one-time
+  extension forced by *TwinCAT's* native document, and flagged it as the honest cost of vendor independence.
+  Measured: CODESYS's `INetwork` carries the identical four. It is not a vendor leak — **it is the shared model,
+  and PLCopen was the thing losing it.**
+- **FBD / LD / IL are one model in three views.** `INetwork` exposes `ActivateFBD`, `ActivateIL`,
+  `CanConvertToIL`, `GetILLine`, `ILActive`, `ILValid`, matching `NWLDisplayMode { LD, FBD, IL }`. `GraphReader`
+  lowering LD into the same node graph as FBD was right. IL being "unsupported" is a Volt POLICY about a view,
+  not a separate body format — worth restating in DIALECT that way.
+
 ## What is NOT yet established — do not commit on this page alone
 
-1. **Can Volt's in-proc CODESYS driver actually cast and traverse?** It is net48 loaded inside CODESYS and
-   already reflects over plugin assemblies, so this is plausible, not proved. **Prove it by reading one
-   graphical POU's `NetworkList` and rendering network text from typed objects.**
-2. **Can it WRITE through the same objects?** `INetwork`'s mutability is unmeasured. If writes must still go
-   through a serialization, half the benefit remains but the claim shrinks.
+1. ~~Can the in-proc CODESYS driver cast and traverse?~~ **SETTLED — yes.** See MEASURED above.
+2. ~~Can it WRITE through the same objects?~~ **SETTLED — yes**, `SetObject` commits the mutation.
 3. **TwinCAT stays out-of-process.** `VoltBridgeTwincat.exe` talks COM and cannot load an in-proc .NET object
    model, so it gets `DocumentXml` — the same model, serialized. **The asymmetry does not vanish; it moves from
    "different formats" to "same model, two access paths"**, which is a much better place for it.
@@ -73,4 +154,6 @@ FB-instance-type choice Volt currently makes by text-parsing a declaration.
 considered — the vendors' shared OBJECT MODEL. Nothing in the checklist is wrong, but its conclusion
 ("DocumentXml for TwinCAT, PLCopen for CODESYS") is answering a narrower question than the one now open.
 
-**Settle (1) and (2) before writing any converter.** They are small: one in-proc read, one in-proc write.
+~~Settle (1) and (2) before writing any converter.~~ **Both settled 2026-08-28 — see MEASURED.** What
+remains open before a converter is written is (4) version coupling and (5) the non-POU kinds; neither blocks
+the CODESYS side.
