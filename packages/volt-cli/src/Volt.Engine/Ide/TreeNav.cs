@@ -44,21 +44,6 @@ internal static class TreeNav
         return node;
     }
 
-    /// <summary>Resolve a folder WITHOUT creating one — the read-only twin of <see cref="ResolveFolder"/>, for
-    /// callers that are only looking (a guard must not mutate the project it is about to refuse).</summary>
-    internal static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
-        foreach (var part in FolderPath.Segments(folder))
-        {
-            if (FirstChild(ide, node, c => NameIs(ide, c, part) && ide.KindCode(c) == ItemKind.PlcFolder) is not { } found)
-                return null;                                   // a segment that does not exist ⇒ the child is not there
-            node = found;
-        }
-        return node;
-    }
-
     private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);

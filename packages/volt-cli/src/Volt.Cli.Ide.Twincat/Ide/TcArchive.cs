@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -110,7 +110,7 @@ internal static class TcArchive
         return e;
     }
 
-    public static XElement NewList(string name, string? elementType = null)
+    private static XElement NewList(string name, string? elementType = null)
     {
         var e = new XElement("l2");
         e.SetAttributeValue("n", name);
@@ -153,7 +153,7 @@ internal static class TcArchive
 
     /// <summary>Set a scalar in place, preserving document order — the archive is order-sensitive to read back
     /// on some builds, so a set must not move the member to the end.</summary>
-    public static void SetScalar(XElement owner, string name, string raw)
+    private static void SetScalar(XElement owner, string name, string raw)
     {
         var v = owner.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == name);
         if (v == null) owner.Add(Value(name, raw));

@@ -195,17 +195,6 @@ public static class ItemKind
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
     public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
 
-    /// <summary>Does this kind NEED a PLCopen document to be represented at all? A POU or an interface does —
-    /// only a document can carry a body and children. A DUT or a GVL is DECLARATION-ONLY: its whole content is
-    /// the declaration text.
-    /// <para>It is NOT the write rule, and reading it as one cost a capability member: declaration-only kinds
-    /// travel as a document too, on BOTH vendors (<c>DeclarationOnlyDocumentTests</c> pins all four root shapes).
-    /// This says only that a POU cannot be represented any OTHER way. Its one consumer is the READ split in
-    /// <c>Sync/Materializer</c>, which routes DUT/GVL through the declaration aspect — a COST decision (~1 ms
-    /// against ~20 ms per item on the walk every <c>volt status</c> pays), not a capability one.</para></summary>
-    public static bool TravelsAsDocument(string kind) =>
-        kind is Kinds.Program or Kinds.FunctionBlock or Kinds.Function or Kinds.Interface;
-
     /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
     /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this
     /// (see <c>ICodeStore.ReadManifest</c>): the value is wire-observable twice over (<c>Materializer</c> writes it
@@ -224,6 +213,16 @@ public static class ItemKind
         code is PlcLibMan or PlcVisMan or PlcRecipeMan or PlcRecipes;
 
     /// <summary>Items that live INSIDE a parent POU (collected by SourceAssembler, not top-level).</summary>
+    /// <summary>Does this kind materialize as a MEMBER of its POU's file — a <c>METHOD</c>, <c>ACTION</c> or
+    /// <c>PROPERTY</c> block the ST layer can render and parse back?
+    /// <para>Narrower than <see cref="IsInlinedInPou"/>, and the difference is load-bearing. A TRANSITION is
+    /// inlined in a POU and is NOT a member: no reader models one, so it never reaches the item's file and can
+    /// never be in a pushed member set. Reconciling members against the wider set is exactly how a push once
+    /// deleted every transition of an SFC POU on the first write, silently. Accessors are excluded for a
+    /// different reason — a property's GET/SET are read WITH the property, not beside it.</para></summary>
+    public static bool IsMember(int code) =>
+        code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
+
     public static bool IsInlinedInPou(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef

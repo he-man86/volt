@@ -156,7 +156,11 @@ public sealed partial class BeckhoffDriver
                 foreach (var nested in MemberSites(child, FolderPath.Append(basePath, name))) yield return nested;
                 continue;
             }
-            if (code is ItemKind.PlcPropGet or ItemKind.PlcPropSet) continue;
+            // ONLY kinds the file layout can carry. A transition is inlined in the POU and is NOT a member:
+            // no reader models one, so it never reaches the file and can never be in a pushed member set —
+            // yielding it here would put it in the reconciliation and a push would delete it. Accessors are
+            // excluded too: a property's GET/SET are read WITH the property.
+            if (!ItemKind.IsMember(code)) continue;
 
             yield return new MemberSite(string.IsNullOrEmpty(basePath) ? null : basePath, child, name, code);
         }

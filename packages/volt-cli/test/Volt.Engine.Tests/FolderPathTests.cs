@@ -27,7 +27,9 @@ public class FolderPathTests
     [InlineData("   ")]                 // all spaces
     public void Encode_decode_round_trips(string name)
     {
-        Assert.Equal(name, FolderPath.Decode(FolderPath.Encode(name)));
+        // Through the PUBLIC surface: Append encodes a raw segment, Segments decodes them back. Decode is
+        // an internal detail of this file and asserting it directly kept it public for no production caller.
+        Assert.Equal(name, Assert.Single(FolderPath.Segments(FolderPath.Append("", name))));
     }
 
     [Fact]
@@ -67,6 +69,6 @@ public class FolderPathTests
         // A user folder literally named "%2F" must NOT decode as '/': Encode escapes the '%' first.
         var e = FolderPath.Encode("%2F");
         Assert.Equal("%252F", e);
-        Assert.Equal("%2F", FolderPath.Decode(e));
+        Assert.Equal("%2F", Assert.Single(FolderPath.Segments(e)));
     }
 }

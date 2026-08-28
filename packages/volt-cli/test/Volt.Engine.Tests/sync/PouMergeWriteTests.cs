@@ -59,37 +59,41 @@ public class PouMergeWriteTests
         Assert.Contains("DoIt := FALSE;", FakeIde.AllText(ide.WrittenContent["FB_Test"]));
     }
 
-    /// <summary>A child carrying a <c>%FOLDER</c> is MOVED back after the import. The import flattens POU-internal
-    /// folders (measured live on `FB_FolderChild`), so without this the user's method organisation is silently
-    /// destroyed on every push — the regression §3.1b's e2e test exists to catch.</summary>
+    /// <summary>A child carrying a <c>%FOLDER</c> reaches the driver WITH its folder.
+    ///
+    /// <para>This asserted a <c>Move</c> after the write, because PLCopen carries no folder membership: its
+    /// import FLATTENED a POU's internal folders (measured live on <c>FB_FolderChild</c>) and the engine
+    /// re-placed every child afterwards from the pushed source, or the engineer's method organisation was
+    /// silently destroyed on every push. Nothing flattens them now — the folder rides on the member and the
+    /// driver places it — so what the engine owes is that the folder ARRIVES. The placement is a driver concern
+    /// and is not observable from here.</para></summary>
     [Fact]
-    public void A_foldered_child_is_moved_back_after_the_import()
+    public void A_foldered_child_reaches_the_driver_with_its_folder()
     {
         var ide = Fb(childFolder: "Helpers");
         Push(ide, Source("n := n + 2;", "DoIt := FALSE;", childFolder: "Helpers"));
 
         Assert.Contains("writecontent:FB_Test", ide.Recorded);
-        Assert.Contains("move:DoIt->Helpers", ide.Recorded);
-        // and the move happens AFTER the write — moving first would only be undone by the import
-        Assert.True(ide.Recorded.IndexOf("writecontent:FB_Test") < ide.Recorded.IndexOf("move:DoIt->Helpers"));
+        var child = Assert.Single(ide.WrittenContent["FB_Test"].Members, m => m.Name == "DoIt");
+        Assert.Equal("Helpers", child.Folder);
     }
 
-    /// <summary>TWO foldered children on a driver whose MOVE invalidates every handle into the POU — the shape
-    /// that made hoisting the POU lookup out of the placement loop a bug.
-    /// <para>Placing a member is a round trip through the enclosing POU's own archive on TwinCAT (a member is not
-    /// a separate file, DIALECT D4j), so the POU is deleted and re-imported and every handle into it dies. A
-    /// lookup done once before the loop is dead by the second member — and only ever worked because CODESYS,
-    /// whose move touches nothing but the moved object, was the sole driver that reached here.</para></summary>
+    /// <summary>EVERY foldered child arrives with its folder, not only the first.
+    ///
+    /// <para>The defect this was written for was in the re-placement loop: it hoisted the POU lookup out of the
+    /// loop, and on a driver whose move invalidates every handle into the POU (placing a member is a round trip
+    /// through the enclosing POU's own archive on TwinCAT, DIALECT D4j) the handle was dead by the second child,
+    /// which was then never placed. There is no re-placement loop any more, so the stale-handle shape cannot
+    /// occur. What stays checkable here is that no child loses its folder on the way through the push.</para></summary>
     [Fact]
-    public void Every_foldered_child_is_placed_even_when_the_move_invalidates_the_pou_handle()
+    public void Every_foldered_child_arrives_with_its_folder()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_Two", ItemKind.PlcPouFb, "", true,
                 "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", null, null,
                 Children: new[] { "One", "Two" }),
             new FakeIde.Item("One", ItemKind.PlcMethod, "", false, "METHOD One : BOOL", "One := TRUE;", null, null),
-            new FakeIde.Item("Two", ItemKind.PlcMethod, "", false, "METHOD Two : BOOL", "Two := TRUE;", null, null))
-        { InvalidatesHandlesOnMove = true };
+            new FakeIde.Item("Two", ItemKind.PlcMethod, "", false, "METHOD Two : BOOL", "Two := TRUE;", null, null));
 
         var refs = RefsService.Handle(ide);
         var src = "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR\n\nn := 2;\n\nEND_FUNCTION_BLOCK\n"
@@ -100,14 +104,11 @@ public class PouMergeWriteTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Two.fb", IfVersion = refs.Items["FB_Two.fb"], SourceText = src } },
         });
-        Assert.True(resp.Accepted, "push rejected: " + string.Join("; ",
-            resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" })
-            + " | recorded: " + string.Join(", ", ide.Recorded));
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
 
-        // BOTH, in order. The second is the assertion that matters: reaching it at all means the POU was
-        // re-resolved after the first move invalidated every handle into it.
-        Assert.Equal(new[] { "move:One->Helpers", "move:Two->Inner" },
-            ide.Recorded.Where(r => r.StartsWith("move:")).ToArray());
+        var members = ide.WrittenContent["FB_Two"].Members;
+        Assert.Equal("Helpers", Assert.Single(members, m => m.Name == "One").Folder);
+        Assert.Equal("Helpers/Inner", Assert.Single(members, m => m.Name == "Two").Folder);
     }
 
     /// <summary>A child with NO folder is never moved. A blanket "re-place everything" would drag every root-level

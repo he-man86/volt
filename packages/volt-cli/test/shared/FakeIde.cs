@@ -369,10 +369,24 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (it.UnreadableReason is { } why)
             throw new InvalidOperationException($"'{it.Name}': {why}");
         return new ItemContent(
-            ItemKind.Map(it.KindCode) ?? ItemKind.Kinds.FunctionBlock,
+            KindOf(it),
             it.Declaration ?? "",
             BodyTextOf(it),
             MembersOf(it).ToList());
+    }
+
+    /// <summary>The item's kind, from its DECLARATION HEADER where it has one.
+    /// <para>A real driver has an authoritative kind code from the IDE; a fixture does not, and most of them are
+    /// built with the <c>TextualPou</c> helper, which stamps every item <c>program</c> regardless of what its
+    /// declaration says. Reading the header keeps those fixtures meaning what they read as — a
+    /// <c>FUNCTION_BLOCK FB_A</c> materializes as <c>FB_A.fb</c> — which is also what the document-based read
+    /// did, since the document carried the real POU type.</para></summary>
+    private static string KindOf(Item it)
+    {
+        var header = Volt.Engine.Format.St.CodeHelper.ParseCodeHeader(it.Declaration ?? "").Type;
+        return string.IsNullOrEmpty(header)
+            ? ItemKind.Map(it.KindCode) ?? ItemKind.Kinds.FunctionBlock
+            : header;
     }
 
     /// <summary>An item's body AS A DRIVER WOULD RETURN IT. A language Volt cannot author has no text form, so
@@ -401,7 +415,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         foreach (var name in owner.Children ?? System.Array.Empty<string>())
         {
             var child = FindOrNull(Ref(name));
-            if (child is null) continue;
+            if (child is null || !ItemKind.IsMember(child.KindCode)) continue;   // a transition is not a member
             yield return new Member(
                 ItemKind.Map(child.KindCode) ?? ItemKind.Kinds.Method,
                 child.Name,

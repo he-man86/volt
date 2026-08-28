@@ -25,11 +25,21 @@ public class LiteralFanoutBugTests
         Assert.NotEqual(LiteralFanout.Trim(), NetworkTextWriter.Write(NetworkTextReader.Parse(LiteralFanout)).Trim());
     }
 
+    /// <summary>Still refused, still cleanly — by the CANONICAL-FORM gate rather than a dedicated
+    /// leaf-fan-out guard.
+    /// <para>The dedicated guard is gone with the graph model. It existed because a shared leaf had no valid
+    /// FBD shape and crashed TwinCAT's importer, and because the old writer re-emitted this body IDENTICALLY,
+    /// so nothing else caught it. Neither is true now: a wire used twice becomes the vendor's own fan-out item
+    /// (a Demux), and the writer renders the body differently from the way it is written here — which is
+    /// exactly what the canonical gate reports, with the canonical form in the message so the author can paste
+    /// it. The requirement this test was written for is unchanged: a body like this must be REFUSED before it
+    /// reaches the IDE, not written and then crash it.</para></summary>
     [Fact]
     public void Validate_refuses_leaf_fanout_cleanly_instead_of_crashing_TwinCAT()
     {
         var ex = Assert.Throws<NetworkTextException>(() => NetworkTextGate.Validate(LiteralFanout));
-        Assert.Equal("NETWORK_LEAF_FANOUT", ex.Code);
+        Assert.Equal("NETWORK_NOT_CANONICAL", ex.Code);
+        Assert.Contains("canonical", ex.Message);
     }
 
     [Fact]

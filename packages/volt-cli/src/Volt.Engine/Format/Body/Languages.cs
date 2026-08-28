@@ -22,20 +22,5 @@ namespace Volt.Engine.Format.Body
         public static bool IsNetwork(string? language) =>
             language is Fbd or Ld;
 
-        /// <summary>Is this a DIAGRAM Volt cannot express as text? CFC and SFC.
-        /// <para>Also the answer to WHERE such a body may sit. TC6 gives ST, IL, FBD, LD and SFC a direct
-        /// <c>&lt;body&gt;</c> child named for the language; CFC is a CODESYS extension the schema has no place
-        /// for, so it goes under a vendor <c>addData</c> block — beside an empty <c>&lt;ST&gt;</c> the schema
-        /// still wants, the decoy that once made a direct-children scan call a CFC body textual.
-        /// <see cref="T:Volt.Engine.PlcOpen.BodyElement"/> looks for a diagram in BOTH positions, which widens a
-        /// rule that had been narrowed to CFC alone: a diagram has no write path, so finding one anywhere can
-        /// only lead to a refusal, whereas a nested SFC that goes unfound is flattened through that same decoy.
-        /// FBD and LD are excluded for the mirror-image reason — Volt writes those, so recognising one in a
-        /// position Volt would not write it back to is how the reader and the writer came to disagree.</para>
-        /// <para>Deliberately NOT "every unsupported language": IL is unsupported too, but it is textual, so it
-        /// has no diagram to protect and never sits in the nested position. <c>BodyCodec.For(l).Unsupported</c>
-        /// answers that wider question, and the two are not interchangeable.</para></summary>
-        public static bool IsDiagram(string? language) =>
-            language is Cfc or Sfc;
     }
 }
