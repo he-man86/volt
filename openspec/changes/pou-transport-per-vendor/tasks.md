@@ -101,33 +101,70 @@ unblocks it.
 - [ ] 2.4 **`DIALECT.md` moves out of the engine.** A vendor-facts document inside the vendor-neutral package is
       the design error in miniature. Split it per vendor.
 
-## 3. Target layout
+## 3. Target layout — the PACKAGES are already right; one thing moves
+
+The nine projects are correctly layered already, and this change adds, merges and renames **none** of them:
+
+| package | job | depends on |
+|---|---|---|
+| `Volt.Contracts` | the wire DTOs | — |
+| `Volt.Wire` | named-pipe transport: framing, dispatch | Contracts |
+| `Volt.Engine` | **Volt's own formats + sync + the driver contract** | Contracts |
+| `Volt.Engine.Host` | serves the engine behind the wire | Contracts, Engine, Wire |
+| `Volt.Cli.Ide.Codesys` / `.Twincat` | the vendor drivers | Engine.Host, Engine, Wire |
+| `Volt.Cli` | the `volt` CLI | Contracts, Wire, Engine |
+| `Volt.Cli.Connector[.Core]` | tray supervisor | Contracts, Wire |
+
+**The defect is not the layout — it is what sits INSIDE `Volt.Engine`.** PLCopen lives there, so the
+vendor-neutral layer performs a vendor's format conversion. That is the whole error, and moving one folder fixes
+it.
+
+### The line
+
+- **`Volt.Engine` owns what VOLT invented** — the `.fb` file layout (`StReader`/`StWriter`), network text,
+  `GraphModel` (Volt's neutral graphical model), and sync/merge/versioning. It never learns a vendor's
+  serialization.
+- **Each vendor package owns how ITS IDE stores things**, including the conversion into `GraphModel` and
+  `ItemContent`. CODESYS: PLCopen. TwinCAT: the native document. A third IDE: whatever it has.
+
+### Why this is not academic — Siemens
+
+TIA Portal has **no PLCopen export**; its API is Openness with its own representation. A Siemens driver would
+implement `ReadContent`/`WriteContent` and never touch PLCopen — but **today it cannot be written at all**,
+because `ICodeStore` demands `string ReadXml()`. That is the same wall TwinCAT is behind. The contract, not the
+package graph, is what excludes new vendors.
 
 ```
-Volt.Engine/                     VENDOR-NEUTRAL. Knows no file format any vendor defines.
-  Ide/            ICodeStore (ItemContent in, ItemContent out), IProjectTree, TreeNav
-  Item/           ItemKind, ItemRef, ItemContent
-  Source/         VOLT's OWN formats only
-    St/             the canonical .fb file layout (StReader/StWriter)
-    Network/        network text + GraphModel  (the neutral graphical model)
-  Sync/           Materializer, PushService, FetchService, Versioning
-  Wire/           the pipe contract
+Volt.Engine/
+  Ide/       ICodeStore (ItemContent in / out), IProjectTree, TreeNav
+  Item/      ItemKind, ItemRef, ItemContent
+  Source/    VOLT'S OWN FORMATS ONLY
+    St/        the canonical .fb layout
+    Network/   network text + GraphModel
+  Sync/      Materializer, PushService, FetchService, Versioning
 
 Volt.Cli.Ide.Codesys/
   Format/PlcOpen/   PlcOpenDocument, PouReader, PouSplice, Declaration, Namespaces,
                     ProjectStructure, GraphReader, GraphWriter, DIALECT-codesys.md
-  Ide/ Driver/      as today
-
 Volt.Cli.Ide.Twincat/
   Format/Native/    TcDocument reader/writer, BoxTree <-> GraphModel, DIALECT-twincat.md
-  Ide/ Driver/      as today
 ```
 
-- [ ] 3.1 Move the PLCopen layer into the CODESYS package. It stops being shared and becomes what it always was:
-      one vendor's serialization.
-- [ ] 3.2 Keep `GraphModel` + network text in the engine — they are Volt's, not a vendor's.
-- [ ] 3.3 `bun run check` must fail if the engine references a vendor format again. A guard, not a convention:
-      this is the error we are correcting, and nothing currently prevents its return.
+- [ ] 3.1 Move the PLCopen layer into the CODESYS package, AFTER §4 — TwinCAT still needs it until its native
+      converter exists.
+- [ ] 3.2 Keep `GraphModel` + network text in the engine. They are Volt's, not a vendor's.
+- [ ] 3.3 `bun run check` fails if `Volt.Engine` references a vendor format again. A guard, not a convention.
+
+**A correction to an earlier draft of this plan:** it proposed a shared `Volt.Format.PlcOpen` package. That was
+over-engineering for a temporary overlap — once TwinCAT is native, PLCopen is CODESYS-only and simply belongs in
+the CODESYS package. Fewer packages, not more.
+
+### Sequencing, because the order is what makes each step verifiable
+
+1. **§2 — the contract.** `ICodeStore` speaks `ItemContent`. Both drivers implement it; both still call the
+   PLCopen code, which stays where it is but is now called only BY DRIVERS, never by the engine.
+2. **§4 — the TwinCAT native converter.** TwinCAT stops calling PLCopen.
+3. **§3.1 — move PLCopen into the CODESYS package.** The engine is clean, and 3.3 keeps it that way.
 
 ## 4. The TwinCAT native converter
 
