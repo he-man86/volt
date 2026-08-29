@@ -100,7 +100,7 @@ public class TcPlcOpenWriterTests
     private static XElement Lower(NetworkBody model)
     {
         XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
-        return TcPlcOpenWriter.WriteProject("P", "program", model)
+        return TcPlcOpenWriter.WriteProject("P", model)
             .Descendants(tc6 + "body").Single().Elements().Single();
     }
 

@@ -75,11 +75,16 @@ internal static class TcPlcOpenWriter
     /// <para>It stays absent anyway, which is now a choice rather than a limit: <c>DeclarationText</c> is the
     /// documented path, it already works, and every other write here goes through it. Carrying the declaration
     /// twice would give two sources of truth for one string.</para></para></summary>
-    public static XDocument WriteProject(string pouName, string pouType, NetworkBody body)
+    public static XDocument WriteProject(string pouName, NetworkBody body)
     {
+        // ALWAYS a program. This document is never the engineer's object - it builds a SCRATCH POU whose only
+        // purpose is to make TwinCAT resolve the body, after which the archive is copied off it and the scratch
+        // is deleted. A method's body resolves in a program exactly as well, because the importer resolves no
+        // names at all: it records topology, and the compiler binds names later against whichever scope the
+        // archive ends up in.
         var pou = new XElement(Namespaces.Tc6 + "pou",
             new XAttribute("name", pouName),
-            new XAttribute("pouType", pouType),
+            new XAttribute("pouType", "program"),
             new XElement(Namespaces.Tc6 + "interface"),
             new XElement(Namespaces.Tc6 + "body", WriteBody(body)));
 

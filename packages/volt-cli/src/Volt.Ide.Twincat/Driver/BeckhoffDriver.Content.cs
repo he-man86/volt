@@ -146,35 +146,23 @@ public sealed partial class BeckhoffDriver
             var model = NetworkTextGate.Validate(b);      // refuse BEFORE touching the IDE
             var existing = _om.ReadImplementation(item.Native);
 
-            // CREATE takes the other door. The archive writer cannot build a body - a BoxTreeBox carries
+            // CREATE takes the other door. The archive writer cannot BUILD a body - a BoxTreeBox carries
             // members the IDE RESOLVES (InputParam, CallType, EN, ENO, Id) and guessing them wrote twenty
-            // unopenable .TcPOU files - so a body the IDE does not have yet is stated as PLCopen TOPOLOGY and
-            // the IDE resolves it. That is also Beckhoff's own documented route: PlcOpenImport is the one API
-            // they document that carries a graphical body. An EXISTING body never comes this way; it is edited
-            // in place, where every id and every unmodelled member survives untouched.
-            // Blank, or an archive the engineer has drawn nothing into. NOT "TcArchive.Root(existing) is
-            // null" - that is also true of a TEXTUAL body, and routing those here would silently convert live
-            // ST into a diagram instead of refusing, which is what TcNetworkWriter is for.
-            var live = TcArchive.Root(existing);
+            // unopenable .TcPOU files - so a body the IDE does not have yet is stated as PLCopen TOPOLOGY, and
+            // TwinCAT resolves it into an archive Volt then simply stores. That is Beckhoff's documented route:
+            // PlcOpenImport is the one API they document that carries a graphical body.
+            //
+            // A MEMBER comes through here too, and needs nothing special: the resolution happens in a scratch
+            // POU, so by the time this writes, the body is a resolved archive like any other. An EXISTING body
+            // never comes this way - it is edited in place, where every id and every unmodelled member survives.
+            // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
+            // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
+            // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
+            var live = string.IsNullOrWhiteSpace(existing) ? null : TcArchive.Root(existing);
             if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
             {
-                var name = _om.GetName(item.Native);
-                var created = _om.ImportPlcOpen(item.Native,
-                    TcPlcOpenWriter.WriteProject(name, PlcOpenPouType(kind), model));
-
-                // The declaration goes through DeclarationText - the documented path, and the one every other
-                // write here already uses. (It COULD ride in the document: the vendor spells it
-                // `plcopenxml/interfaceasplaintext`, not the `plcopenxml/declaration` a first attempt guessed,
-                // which is why that attempt silently lost every VAR block. One source of truth is better.)
-                //
-                // The VIEW travels with neither. A ladder is imported as FBD, because that is the only shape the
-                // importer accepts, and is made a ladder again by the archive's own `DefaultViewMode` - the same
-                // place `CreateChild` leaves it (DIALECT C6). Without this an engineer who pushed a ladder opens
-                // the IDE and finds a function-block diagram: the program is right, the drawing is not the one
-                // they wrote.
-                var view = model.Language == BodyLanguage.Ld ? "Ld" : "Fbd";
-                var revised = TcArchive.WithViewMode(_om.ReadImplementation(created), view);
-                _om.WriteText(created, declaration, revised);
+                _om.WriteText(item.Native, declaration,
+                    _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd"));
                 return;
             }
 
@@ -193,23 +181,6 @@ public sealed partial class BeckhoffDriver
         _om.WriteText(item.Native, declaration,
                       HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
     }
-
-    /// <summary>The PLCopen <c>pouType</c> for a Volt kind. Only the three kinds that can HOLD a graphical body
-    /// are here; anything else reaching this point is a bug upstream, not a case to default.</summary>
-    private static string PlcOpenPouType(string kind) => kind switch
-    {
-        ItemKind.Kinds.Program => "program",
-        ItemKind.Kinds.FunctionBlock => "functionBlock",
-        ItemKind.Kinds.Function => "function",
-        // NOT "a {kind} cannot hold a graphical body" - a METHOD or an ACTION certainly can, and saying
-        // otherwise sends the reader looking for the wrong thing. What is true is narrower: a member has no
-        // document of its own (DIALECT D4j - `ExportChild` refuses one, because TwinCAT keeps the whole POU in
-        // ONE .TcPOU), so it cannot be the subject of a PLCopen import. Creating one needs the ENCLOSING POU
-        // imported with the member inside it, which this path does not do.
-        _ => throw new NotSupportedException(
-            $"TwinCAT: cannot create a graphical body for a '{kind}' - only a whole POU can be imported, and a " +
-            "member has no document of its own. Create it in the IDE and pull it."),
-    };
 
     /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
     /// their whole content is the declaration - and an interface METHOD has only a signature.
