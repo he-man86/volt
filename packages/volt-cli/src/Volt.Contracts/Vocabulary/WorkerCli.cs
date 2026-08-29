@@ -20,6 +20,13 @@ public static class WorkerCli
     /// <summary>One-shot XAE discovery: print each running XAE window's process id, one per line, and exit.</summary>
     public const string ListXaePids = "--list-xae-pids";
 
+    /// <summary>One-shot, READ-ONLY: report what an XAE window exposes for getting Volt code IN-PROCESS.
+    /// <para>TwinCAT ships the same 3S stack CODESYS does — <c>NWLObject.dll</c>, <c>NWLObject.plugin.dll</c>,
+    /// <c>ScriptEngine.dll</c> and IronPython 2.7.7 — so the typed graphical objects Volt uses in CODESYS
+    /// already exist inside TcXaeShell; only the ACCESS is missing. This asks whether the door is knockable
+    /// from outside (a DTE command we can invoke) before anyone builds a VSIX to force it open.</para></summary>
+    public const string ProbeInProc = "--probe-inproc";
+
     /// <summary>The ONE XAE window a worker owns, as <c>--xae-pid &lt;pid&gt;</c>. Required to serve.</summary>
     public const string XaePid = "--xae-pid";
 }

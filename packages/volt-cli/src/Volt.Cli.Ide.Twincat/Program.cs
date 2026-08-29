@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading;
+using System.Collections.Generic;
+using System.Linq;
 using Volt.Cli.Ide.Twincat;
 using Volt.Wire;
 using Volt.Contracts;
@@ -27,6 +29,77 @@ VoltLog.Init(Vendors.Twincat);
 // which needs a third verdict in TwincatXaeProbe.ListPids (today `IReadOnlyList<int>?` — two states, it cannot carry
 // one) plus the matching arm in TrayContext. Take that if the spawn stall is ever observed in the field; the symptom
 // to watch for is XAE B opened during a long build in XAE A never getting `volt.bridge.twincat.<pidB>`.
+// `--probe-inproc <pid>`: the IN-PROC SPIKE, read-only and out-of-process. It changes nothing.
+//
+// WHY: TwinCAT ships the same 3S stack CODESYS does - NWLObject.dll 3.5.13.0, NWLObject.plugin.dll 3.5.13.30,
+// ScriptEngine.dll, IronPython 2.7.7 - so the typed graphical objects the CODESYS driver builds directly already
+// exist inside TcXaeShell. Volt just has no way IN, and parses their SERIALIZATION (the <NWL><XmlArchive> in a
+// .TcPOU) instead. That is not a vendor difference, it is an ACCESS difference, and it is the whole reason a
+// wrong member set on TwinCAT silently corrupts where the same mistake on CODESYS throws.
+//
+// WHAT IT REPORTS, and why each line matters to whoever builds the in-proc host:
+//   - bitness + CLR: TcXaeShell is 32-bit and runs the .NET FRAMEWORK clr.dll, so an in-proc host must be
+//     x86/AnyCPU net4x - a sibling of Volt.Cli.Ide.Codesys (net48), never this worker (net8, x64).
+//   - which 3S/PLC modules are loaded: the PLC plugin stack is DEMAND-loaded. A shell with only
+//     "TwinCAT XAE Base" and "System Manager" up has no NWL objects live yet, which says the graphical editor
+//     has not been opened - not that the objects are unreachable.
+//
+// DO NOT enumerate DTE.Commands here. It was tried: thousands of cross-process marshalled calls, and it hangs.
+foreach (var a in args)
+    if (a == WorkerCli.ProbeInProc)
+    {
+        var pid = 0;
+        for (int i = 0; i < args.Length - 1; i++)
+            if (args[i] == WorkerCli.ProbeInProc) int.TryParse(args[i + 1], out pid);
+        if (pid == 0)
+        {
+            var found = new List<int>();
+            var scan = new Thread(() => { ComMessageFilter.Register(); RotInstances.TryEnumeratePids(out var all); found.AddRange(all); });
+            scan.SetApartmentState(ApartmentState.STA);
+            scan.Start();
+            scan.Join();
+            pid = found.Count > 0 ? found[0] : 0;
+        }
+        if (pid == 0) { Console.Error.WriteLine("probe-inproc: no XAE window found"); return 1; }
+
+        try
+        {
+            using var proc = System.Diagnostics.Process.GetProcessById(pid);
+            var mods = proc.Modules.Cast<System.Diagnostics.ProcessModule>().ToList();
+
+            // A 64-bit reader sees only the wow64 stubs of a 32-bit process, so a tiny module count IS the
+            // bitness answer rather than a failure - say so instead of reporting an empty stack.
+            var wow64 = mods.Any(m => m.ModuleName.StartsWith("wow64", StringComparison.OrdinalIgnoreCase));
+            if (wow64 && mods.Count < 20)
+            {
+                Console.WriteLine($"xae pid    : {pid}");
+                Console.WriteLine("bitness    : 32-bit (WOW64) — and THIS probe is 64-bit, so it can only see the stubs.");
+                Console.WriteLine("            : re-run the module half from 32-bit PowerShell:");
+                Console.WriteLine("            : C:" + @"\Windows\SysWOW64\WindowsPowerShell1.0\powershell.exe" + " -NoProfile -Command \"(Get-Process -Id " + pid + ").Modules | Where-Object { $_.FileName -match 'TwinCAT|NWL|Script' } | Select -Expand ModuleName\"");
+                return 0;
+            }
+
+            Console.WriteLine($"xae pid    : {pid}");
+            Console.WriteLine($"modules    : {mods.Count}");
+            Console.WriteLine($"clr        : {(mods.Any(m => m.ModuleName.Equals("clr.dll", StringComparison.OrdinalIgnoreCase)) ? ".NET Framework (clr.dll) — an in-proc host must be net4x" : mods.Any(m => m.ModuleName.StartsWith("coreclr", StringComparison.OrdinalIgnoreCase)) ? ".NET Core (coreclr.dll)" : "no managed runtime seen")}");
+
+            foreach (var (label, rx) in new[]
+            {
+                ("nwl objects", "NWLObject"),
+                ("script eng ", "ScriptEngine|IronPython"),
+                ("plc stack  ", "Plc|CODESYS|3S"),
+                ("xae base   ", "TwinCAT XAE|System Manager"),
+            })
+            {
+                var hit = mods.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.ModuleName, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                              .Select(m => m.ModuleName).Distinct().Take(6).ToList();
+                Console.WriteLine($"{label}: {(hit.Count == 0 ? "(not loaded)" : string.Join(", ", hit))}");
+            }
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"probe-inproc: {ex.GetType().Name}: {ex.Message}"); return 1; }
+    }
+
 foreach (var a in args)
     if (a == WorkerCli.ListXaePids)
     {
