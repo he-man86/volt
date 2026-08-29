@@ -3,13 +3,13 @@
 Run Volt CLI pipe host HEADLESS  (CODESYS.exe --runscript ... --noUI)
 
 Pipe twin of volt-bridge/codesys-scriptcommands/run_bridge_headless.py: instead
-of the HTTP Host it loads Volt.Cli.Ide.Codesys and calls PipeHost.Start, serving
+of the HTTP Host it loads Volt.Ide.Codesys and calls PipeHost.Start, serving
 the REAL CodesysDriver over the named pipe `volt.bridge.codesys`. Everything else
 (assert-dialog suppression, fixture open, primary-thread pump) is identical —
 the marshaled endpoints still run on the CODESYS primary thread, so we must pump.
 
 Env (set by the launcher):
-  VOLT_BRIDGE_DLL      absolute path to Volt.Cli.Ide.Codesys.dll (required)
+  VOLT_BRIDGE_DLL      absolute path to Volt.Ide.Codesys.dll (required)
   VOLT_FIXTURE_PROJECT .project to open before starting (optional)
   VOLT_STOP_FLAG       path to a file whose existence requests shutdown (optional)
 """
@@ -135,7 +135,7 @@ try:
         _open_fixture()
         _log("loading %s" % dll)
         clr.AddReferenceToFileAndPath(dll)
-        from Volt.Cli.Ide.Codesys import PipeHost
+        from Volt.Ide.Codesys import PipeHost
         _log(PipeHost.Start(projects, system, online))
 
         pump = _make_pump()

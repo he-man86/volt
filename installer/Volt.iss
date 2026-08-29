@@ -256,8 +256,8 @@ begin
   // seconds later. Checking through it made every verification here a coin flip and stopped the connector
   // from launching at all. The VALUE written to the registry stays the 'current' form - that is the
   // invariant; only the existence CHECK uses the path we just wrote the files to.
-  DllPath := ExpandConstant('{app}\current\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll');
-  if FileExists(TargetDir + '\codesys-scriptcommands\Volt.Cli.Ide.Codesys.dll') then
+  DllPath := ExpandConstant('{app}\current\codesys-scriptcommands\Volt.Ide.Codesys.dll');
+  if FileExists(TargetDir + '\codesys-scriptcommands\Volt.Ide.Codesys.dll') then
   begin
     RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL', DllPath);
     Log('volt: VOLT_BRIDGE_DLL=' + DllPath);

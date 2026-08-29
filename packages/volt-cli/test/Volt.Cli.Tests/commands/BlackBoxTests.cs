@@ -24,7 +24,7 @@ public class BlackBoxTests
         var tfm = d.Name;
         var cfg = d.Parent!.Name;
         DirectoryInfo? pkg = d;
-        while (pkg is not null && !File.Exists(Path.Combine(pkg.FullName, "Volt.Cli.sln"))) pkg = pkg.Parent;
+        while (pkg is not null && !File.Exists(Path.Combine(pkg.FullName, "Volt.sln"))) pkg = pkg.Parent;
         Assert.NotNull(pkg);
         var exe = Path.Combine(pkg!.FullName, "src", "Volt.Cli", "bin", cfg, tfm, OperatingSystem.IsWindows() ? "volt.exe" : "volt");
         Assert.True(File.Exists(exe), $"volt binary not built at {exe}");

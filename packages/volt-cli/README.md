@@ -27,15 +27,15 @@ src/
   Volt.Engine.Host/         netstandard2.0  BridgePipeHost: op → service, marshalled onto the IDE thread.
   Volt.Cli/                 net8 exe        the `volt` CLI (init/pull/push/status/build/show/merge/rebind) +
                                             Sync/ (git-native client: the volt/ide merge tree, status, materialize)
-  Volt.Cli.Ide.Codesys/     net48 lib       CodesysDriver + pipe host — loaded in-proc by the CODESYS script host
-  Volt.Cli.Ide.Twincat/     net8 exe        BeckhoffDriver + the worker the connector spawns (XAE via COM)
-  Volt.Cli.Connector.Core/  net8 lib        the connector's UI-free model + the TwinCAT worker fleet (unit-tested)
-  Volt.Cli.Connector/       net8 winexe     the tray shell over that model, and the install/auto-update agent
+  Volt.Ide.Codesys/     net48 lib       CodesysDriver + pipe host — loaded in-proc by the CODESYS script host
+  Volt.Ide.Twincat/     net8 exe        BeckhoffDriver + the worker the connector spawns (XAE via COM)
+  Volt.Connector.Core/  net8 lib        the connector's UI-free model + the TwinCAT worker fleet (unit-tested)
+  Volt.Connector/       net8 winexe     the tray shell over that model, and the install/auto-update agent
 test/
   shared/FakeIde.cs         the ONE in-memory IDE double, linked into both C# test projects
   Volt.Cli.Tests/           net8 xUnit      the CLI layer — commands/ (every verb × situation), wire/, plumbing/
   Volt.Engine.Tests/        net8 xUnit      the engine — sync/ + the parsing / PLCopen / VG round-trip suites
-  Volt.Cli.Connector.Tests/ net8 xUnit      connector core: session model, reconciler, TwinCAT supervisor
+  Volt.Connector.Tests/ net8 xUnit      connector core: session model, reconciler, TwinCAT supervisor
   e2e/                      bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```
 
@@ -48,7 +48,7 @@ contract, the pipe and the host are three assemblies and not one.
 ## Build & test
 
 ```bash
-dotnet build Volt.Cli.sln -c Release                 # the whole toolchain (all TFMs)
+dotnet build Volt.sln -c Release                 # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                     # pipe transport + sync + black-box CLI
 dotnet test test/Volt.Engine.Tests/                # shared engine
 bun test test/e2e                                    # TS e2e parity suite (set VOLT_PIPE, needs a live bridge)

@@ -1,7 +1,7 @@
 /**
  * The connector control-plane client — the SINGLE source of live IDE/bridge **connection status** for the UI.
  *
- * The connector (`Volt.Cli.Connector`) is the one always-on aggregator: it probes every bridge's health and
+ * The connector (`Volt.Connector`) is the one always-on aggregator: it probes every bridge's health and
  * enumerates every project across vendors, and serves the result at `GET http://127.0.0.1:8550/status`
  * (`ConnectorView`). So the UI reads connection status HERE — it does not re-probe the bridge pipes itself. This
  * covers both status use cases: (A) the bound workspace's live status, and (B) the detected-project list that is

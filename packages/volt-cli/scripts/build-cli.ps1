@@ -2,7 +2,7 @@
 # Build the unified Volt CLI toolchain + the user-facing Connector (pipe transport):
 #   - volt.exe:            the PLC CLI (Volt.Cli) — git-native sync over the named pipe.
 #   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.twincat`.
-#   - Volt.Cli.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys`.
+#   - Volt.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys`.
 #   - Connector:           the one system-tray app that supervises every worker (probes `health` over the pipe).
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path $PSScriptRoot -Parent           # the volt-cli package dir
@@ -51,26 +51,26 @@ if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Write-Output "  OK -> dist\Cli\volt.exe"
 
 # --- TwinCAT pipe worker (standalone exe) --------------------------
-Write-Output "`n[2/4] Volt.Cli.Ide.Twincat (VoltBridgeTwincat.exe)"
-& $DOTNET publish "$ROOT\src\Volt.Cli.Ide.Twincat\Volt.Cli.Ide.Twincat.csproj" @VERARGS -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
+Write-Output "`n[2/4] Volt.Ide.Twincat (VoltBridgeTwincat.exe)"
+& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
-Write-Output "`n[3/4] Volt.Cli.Ide.Codesys (in-proc DLL)"
-& $DOTNET build "$ROOT\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\Codesys" --nologo -v q
+Write-Output "`n[3/4] Volt.Ide.Codesys (in-proc DLL)"
+& $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\Codesys" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 # Ship only the user-facing activation scripts; run_pipe_headless.py is a dev/test launcher, not for the installer.
 Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
-Write-Output "  OK -> dist\Codesys\ (Volt.Cli.Ide.Codesys.dll + deps + pipe scripts)"
+Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll + deps + pipe scripts)"
 
 # --- Connector (the one tray app) — bundle the workers next to it --
-Write-Output "`n[4/4] Volt.Cli.Connector"
-& $DOTNET publish "$ROOT\src\Volt.Cli.Connector\Volt.Cli.Connector.csproj" @VERARGS -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
+Write-Output "`n[4/4] Volt.Connector"
+& $DOTNET publish "$ROOT\src\Volt.Connector\Volt.Connector.csproj" @VERARGS -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
-# start_volt_codesys.py loads "<this folder>/Volt.Cli.Ide.Codesys.dll"; dist\Codesys already holds DLL + deps + scripts.
+# start_volt_codesys.py loads "<this folder>/Volt.Ide.Codesys.dll"; dist\Codesys already holds DLL + deps + scripts.
 Copy-Item "$DIST\Codesys\*" -Destination "$DIST\Connector\codesys-scriptcommands\" -Recurse -Force
 Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ pipe workers + CODESYS DLL)"
 

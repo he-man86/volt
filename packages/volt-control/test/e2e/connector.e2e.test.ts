@@ -19,7 +19,7 @@ import { join } from "node:path"
 import { connectorStatus, detectedProjects, isServing } from "../../src/bridge/connector.js"
 import { declareInterest, dropInterest, shutdownSession, __resetSessionForTest } from "../../src/bridge/session.js"
 
-const HARNESS_DIR = join(import.meta.dir, "..", "..", "..", "volt-cli", "test", "Volt.Cli.Connector.ControlHarness")
+const HARNESS_DIR = join(import.meta.dir, "..", "..", "..", "volt-cli", "test", "Volt.Connector.ControlHarness")
 const OUT = join(HARNESS_DIR, "bin", "Debug", "net8.0")
 const EXE = join(OUT, "VoltControlHarness.exe")
 const DLL = join(OUT, "VoltControlHarness.dll")
@@ -33,7 +33,7 @@ function dotnet(): string {
 
 // Always rebuild the harness (its Program.cs changes with the wire); skip the suite only if we can't build (no SDK).
 function ensureHarness(): boolean {
-	const r = spawnSync(dotnet(), ["build", join(HARNESS_DIR, "Volt.Cli.Connector.ControlHarness.csproj"), "-c", "Debug"], { stdio: "ignore" })
+	const r = spawnSync(dotnet(), ["build", join(HARNESS_DIR, "Volt.Connector.ControlHarness.csproj"), "-c", "Debug"], { stdio: "ignore" })
 	return r.status === 0 && (existsSync(EXE) || existsSync(DLL))
 }
 

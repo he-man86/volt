@@ -2,7 +2,7 @@
 """
 Start Volt (CODESYS Script Command / Execute Script File)
 
-Runs inside the LIVE CODESYS IDE: loads Volt.Cli.Ide.Codesys and hands PipeHost
+Runs inside the LIVE CODESYS IDE: loads Volt.Ide.Codesys and hands PipeHost
 the live scripting objects, so the Volt toolchain talks to THIS IDE session over
 the named pipe `volt.bridge.codesys.<pid>` (per-instance, so several CODESYS can
 run at once). PipeHost.Start returns immediately; the IDE's own message loop keeps
@@ -12,16 +12,16 @@ Stop it again with stop_volt_codesys.py.
 
 DLL resolution (first that exists wins):
   1. $VOLT_BRIDGE_DLL                              explicit override
-  2. <this folder>/Volt.Cli.Ide.Codesys.dll       shipped beside this script (backup copy in the install dir)
+  2. <this folder>/Volt.Ide.Codesys.dll       shipped beside this script (backup copy in the install dir)
   3. %LOCALAPPDATA%\Programs\Volt\...              the install dir — where the DLLs live when this script was
                                                    published to a visible folder (Documents\Volt) that has no DLL
-  4. repo build output (absolute)                  dev, this machine
+(For the dev loop, codesys-pipe.ps1 sets VOLT_BRIDGE_DLL - case 1 - before running this.)
 """
 from __future__ import print_function
 import os
 import shutil
 
-_DLL_NAME = "Volt.Cli.Ide.Codesys.dll"
+_DLL_NAME = "Volt.Ide.Codesys.dll"
 # What to copy beside the bridge DLL when staging it (below): everything the CLR probes for as a dependency.
 _STAGE_EXTS = (".dll", ".config", ".json")
 
@@ -29,8 +29,6 @@ _STAGE_EXTS = (".dll", ".config", ".json")
 # the visible Documents\Volt copy of this script find the DLLs that stay in the (hidden) install dir.
 _INSTALL_SUBDIR = ("Programs", "Volt", "codesys-scriptcommands")
 
-# Dev build output on this machine (CODESYS "Execute Script File" does not set __file__).
-_REPO_BIN = r"C:\Users\marce\Github\volt\packages\volt-cli\src\Volt.Cli.Ide.Codesys\bin"
 
 
 def _script_dir():
@@ -53,8 +51,11 @@ def _candidates():
     if local:
         # IronPython 2.7 (CODESYS scripting) rejects f(a, *b, c) at PARSE time — keep the *-unpack trailing.
         out.append(os.path.join(local, *(_INSTALL_SUBDIR + (_DLL_NAME,))))
-    out.append(os.path.join(_REPO_BIN, "Release", "net48", _DLL_NAME))
-    out.append(os.path.join(_REPO_BIN, "Debug", "net48", _DLL_NAME))
+    # There is deliberately NO repo-build fallback here. This file used to carry an ABSOLUTE PATH into one
+    # developer's home directory, which is dead weight on every path that matters: the dev loop goes through
+    # VOLT_BRIDGE_DLL, which codesys-pipe.ps1 sets to the resolved DLL before running this script, and an
+    # install finds the DLL beside the script or in the install dir. It only ever worked on one machine, and
+    # it shipped.
     return out
 
 
@@ -123,7 +124,7 @@ try:
         staged = _stage(dll)  # load a per-session COPY so the install-dir DLLs stay unlocked (in-place updates)
         print("Volt: loading %s" % staged)
         clr.AddReferenceToFileAndPath(staged)
-        from Volt.Cli.Ide.Codesys import PipeHost
+        from Volt.Ide.Codesys import PipeHost
         # projects / system / online are injected into every script's globals.
         # NOTE: CODESYS file-locks the loaded copy (in %TEMP%\Volt), NOT the install dir — so Volt can update while
         # the IDE is open. To pick up a REBUILT bridge, restart CODESYS (a new pid → a fresh copy).

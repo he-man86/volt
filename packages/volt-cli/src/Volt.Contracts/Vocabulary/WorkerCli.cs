@@ -6,8 +6,8 @@
 /// it, so before this table a rename on one side compiled, linked and passed every suite while at runtime the child
 /// exited non-zero, the pid probe read that as "probe failed", the supervisor left the fleet alone, and a newly
 /// opened XAE silently never got a bridge. Both sides now reference these consts, so the rename is a build error.
-/// <para>Lives in Transport because it is the only project BOTH the connector (<c>Volt.Cli.Connector</c> /
-/// <c>Volt.Cli.Connector.Core</c>) and the IDE host (<c>Volt.Cli.Ide.Twincat</c>) already reference; putting it in
+/// <para>Lives in Transport because it is the only project BOTH the connector (<c>Volt.Connector</c> /
+/// <c>Volt.Connector.Core</c>) and the IDE host (<c>Volt.Ide.Twincat</c>) already reference; putting it in
 /// Connector.Core would make the worker reference the connector and invert the layering.</para>
 /// <para><b>Deliberately flags ONLY.</b> The exit codes stay raw integers at both ends: the moment they get names
 /// someone compares against one, and the "bad arguments" exit reads as a SUCCESSFUL empty enumeration — which reaps

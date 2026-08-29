@@ -185,8 +185,8 @@ public class WireVocabularyGuardTests
     private static string FindSrcDir()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.Cli.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not locate Volt.Cli.sln above the test assembly");
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
+        Assert.True(dir != null, "could not locate Volt.sln above the test assembly");
         var src = Path.Combine(dir!.FullName, "src");
         Assert.True(Directory.Exists(src), $"src not found at {src}");
         return src;

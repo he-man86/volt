@@ -76,8 +76,8 @@ If (1) fails, the whole proposal fails and PLCopen stays for both — with the c
 
 ## Impact
 
-- `Volt.Cli.Ide.Twincat` — a native document reader/writer, below the wire.
-- `Volt.Cli.Ide.Codesys` — a typed NWL adapter, replacing the PLCopen read/write path.
+- `Volt.Ide.Twincat` — a native document reader/writer, below the wire.
+- `Volt.Ide.Codesys` — a typed NWL adapter, replacing the PLCopen read/write path.
 - `Volt.Engine` — the contract CHANGES after all: `ICodeStore` demands a PLCopen document
   (`string ReadXml()`), which is precisely what stops either driver from using its own better route. That is
   §2, and it is the blocker rather than the cleanup. `GraphModel` also gains the four network fields both

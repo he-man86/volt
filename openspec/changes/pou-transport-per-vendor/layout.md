@@ -8,11 +8,11 @@
 | `Volt.Wire` | netstandard2.0 | lib | 6 | 390 | no — the connector uses it WITHOUT the engine |
 | `Volt.Engine` | netstandard2.0 | lib | 61 | **8,309** | no — but its CONTENTS are the problem, see below |
 | `Volt.Engine.Host` | netstandard2.0 | lib | 2 | 185 | **no, and this one looks wrong until you check** |
-| `Volt.Cli.Ide.Codesys` | **net48** | lib | 13 | 1,939 | no — CODESYS's plugin host is .NET Framework |
-| `Volt.Cli.Ide.Twincat` | net8.0-windows | **Exe** | 13 | 1,930 | no — separate process |
+| `Volt.Ide.Codesys` | **net48** | lib | 13 | 1,939 | no — CODESYS's plugin host is .NET Framework |
+| `Volt.Ide.Twincat` | net8.0-windows | **Exe** | 13 | 1,930 | no — separate process |
 | `Volt.Cli` | net8.0 | **Exe** | 16 | 2,404 | no |
-| `Volt.Cli.Connector.Core` | net8.0 | lib | 13 | 1,393 | no — the test seam; `Connector.Tests` references it |
-| `Volt.Cli.Connector` | net8.0-windows | **WinExe** | 10 | 1,722 | no |
+| `Volt.Connector.Core` | net8.0 | lib | 13 | 1,393 | no — the test seam; `Connector.Tests` references it |
+| `Volt.Connector` | net8.0-windows | **WinExe** | 10 | 1,722 | no |
 
 **Four are forced by target framework or output type.** The netstandard2.0 core exists *because* net48 must
 consume it — CODESYS's plugin host is .NET Framework, and that is not negotiable.
@@ -78,11 +78,11 @@ Volt.Engine/                 VENDOR- AND FORMAT-NEUTRAL. Knows no vendor's seria
                ProjectStructure, GraphReader, GraphWriter, BodyCodec, BodyElement, BodyGuard,
                BodySpliceGuard, InstanceTypes, NetworkCode, NetworkSplice, DIALECT.md
 
-Volt.Cli.Ide.Codesys/
+Volt.Ide.Codesys/
   Ide/ Driver/      as today, plus:
   Nwl/              the typed object-model adapter: NWLImplementationObject <-> GraphModel
 
-Volt.Cli.Ide.Twincat/
+Volt.Ide.Twincat/
   Nwl/              the same model, read from the .TcPOU <NWL> XmlArchive
 ```
 
@@ -185,8 +185,8 @@ PLCopen turns out to be wrong for CODESYS in a year, that must be a CODESYS-pack
 Dependencies point **one way only**:
 
 ```
-Volt.Engine   ──referenced by──▶   Volt.Cli.Ide.Codesys
-      ▲                            Volt.Cli.Ide.Twincat
+Volt.Engine   ──referenced by──▶   Volt.Ide.Codesys
+      ▲                            Volt.Ide.Twincat
       └── never references either, and never references any vendor's format
 ```
 
@@ -237,7 +237,7 @@ vendors — not by taking the first vendor's document as the definition of "extr
 - [ ] **No vendor identity in engine control flow.** No `if (vendor == …)`, no `switch` on vendor, no capability
       flag consulted by the engine. If the engine has to ask *which IDE this is*, the contract is wrong.
 - [ ] **The swap test, stated as a question a reviewer can answer:** *"To move CODESYS off its transport, which
-      files change?"* The answer must be **only files under `Volt.Cli.Ide.Codesys/`** — unless the new transport
+      files change?"* The answer must be **only files under `Volt.Ide.Codesys/`** — unless the new transport
       carries something Volt's model cannot yet express, which is the bounded exception above and must be called
       out explicitly rather than absorbed.
 

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Connector.Core\Volt.Connector.Core.csproj" />
+    <!-- Also the bridge Core, ONLY so WireContractTests can pin the connector's anonymous `connect` body against
+         Volt.Engine.Wire.ConnectRequest — the one wire DTO still declared twice (the health row is not: it lives in
+         Volt.Wire.Wire, which both sides reference). The production connector deliberately does NOT
+         reference Core, and this reference exists for that single test; when ConnectRequest comes down, it goes. -->
+  </ItemGroup>
+</Project>

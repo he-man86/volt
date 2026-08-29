@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- The CODESYS in-proc integration: a net48 library the IDE's IronPython loads by reflection. Holds the
+         CodesysDriver (talks to the scripting/object model purely by reflection, so no CODESYS assembly refs) +
+         PipeHost.Start, which serves that driver over the NAMED PIPE. -->
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>Volt.Ide.Codesys</RootNamespace>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Engine.Host\Volt.Engine.Host.csproj" />
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
+  </ItemGroup>
+</Project>

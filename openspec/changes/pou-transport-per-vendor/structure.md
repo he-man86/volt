@@ -179,7 +179,7 @@ nothing re-imports the POU, and TwinCAT's archive carries `FolderPath`.
 
 ---
 
-## `Volt.Cli.Ide.Codesys` — file by file
+## `Volt.Ide.Codesys` — file by file
 
 ```
 PipeHost.cs                        UNTOUCHED
@@ -207,7 +207,7 @@ degrade — the repo's zero-fallback rule applied to a dependency Volt does not 
 Language detection becomes a **cast**: `NWLImplementationObject` -> FBD/LD, `STImplementationObject` -> textual,
 `CFCImplementationObject`/SFC -> marker. This deletes the `BodyLanguage` export-and-sniff round trip.
 
-## `Volt.Cli.Ide.Twincat` — file by file
+## `Volt.Ide.Twincat` — file by file
 
 ```
 Program.cs, Ide/{ComMessageFilter,RotInstances,StaDispatcher}.cs   UNTOUCHED

@@ -27,6 +27,6 @@ The current mitigation stops Volt's own processes in `PrepareToInstall`/`CurUnin
 
 - `installer/Volt.iss` — `[Files]` DestDir, `[Icons]`, `[Run]`, `[UninstallDelete]`, the `[Code]` junction management, and the migration of an existing flat install. The `PrepareToInstall` / `CurUninstallStepChanged` process-kill stays until the new layout is proven, then is removed.
 - `scripts/build-installer.ts` / `build-payload.ts` — the stage layout gains the version-directory shape.
-- `packages/volt-cli/src/Volt.Cli.Connector` — `VoltEnv` (PATH + `OPENCODE_CONFIG_DIR` must target `current`), `LoginItem`, `Updater` (prune superseded `app-*` directories at startup; it already knows how to re-run Setup).
+- `packages/volt-cli/src/Volt.Connector` — `VoltEnv` (PATH + `OPENCODE_CONFIG_DIR` must target `current`), `LoginItem`, `Updater` (prune superseded `app-*` directories at startup; it already knows how to re-run Setup).
 - `scripts/test-install-lifecycle.ts` — the gate that must prove the migration: it already asserts per-binary versions, rollback detection, extension registration and zero leftovers across install → uninstall → install → update → update → uninstall → install → uninstall.
 - No change to the `volt` CLI, the bridges, or either frontend: they resolve `volt` from `PATH`, which stays stable by design.

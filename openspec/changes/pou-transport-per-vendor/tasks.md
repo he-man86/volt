@@ -202,9 +202,9 @@ The nine projects are correctly layered already, and this change adds, merges an
 | `Volt.Wire` | named-pipe transport: framing, dispatch | Contracts |
 | `Volt.Engine` | **Volt's own formats + sync + the driver contract** | Contracts |
 | `Volt.Engine.Host` | serves the engine behind the wire | Contracts, Engine, Wire |
-| `Volt.Cli.Ide.Codesys` / `.Twincat` | the vendor drivers | Engine.Host, Engine, Wire |
+| `Volt.Ide.Codesys` / `.Twincat` | the vendor drivers | Engine.Host, Engine, Wire |
 | `Volt.Cli` | the `volt` CLI | Contracts, Wire, Engine |
-| `Volt.Cli.Connector[.Core]` | tray supervisor | Contracts, Wire |
+| `Volt.Connector[.Core]` | tray supervisor | Contracts, Wire |
 
 **The defect is not the layout — it is what sits INSIDE `Volt.Engine`.** PLCopen lives there, so the
 vendor-neutral layer performs a vendor's format conversion. That is the whole error, and moving one folder fixes
@@ -234,10 +234,10 @@ Volt.Engine/
     Network/   network text + GraphModel
   Sync/      Materializer, PushService, FetchService, Versioning
 
-Volt.Cli.Ide.Codesys/
+Volt.Ide.Codesys/
   Format/PlcOpen/   PlcOpenDocument, PouReader, PouSplice, Declaration, Namespaces,
                     ProjectStructure, GraphReader, GraphWriter, DIALECT-codesys.md
-Volt.Cli.Ide.Twincat/
+Volt.Ide.Twincat/
   Format/Native/    TcDocument reader/writer, BoxTree <-> GraphModel, DIALECT-twincat.md
 ```
 

@@ -65,7 +65,7 @@ Every defect in §2 is invisible to a round-trip test. The oracle is not scaffol
 thing that makes the change checkable at all, and it lands first.
 
 - [x] 1.0 **BASELINE, measured 2026-08-27** — offline `Volt.Engine.Tests` **646** / `Volt.Cli.Tests` **142** /
-      `Volt.Cli.Connector.Tests` **80** / `Volt.Cli.Ide.Twincat.Tests` **3**; live CODESYS e2e **129 pass, 20
+      `Volt.Connector.Tests` **80** / `Volt.Ide.Twincat.Tests` **3**; live CODESYS e2e **129 pass, 20
       skip, 0 fail** across 26 files. (The prior change's recorded Engine 392 was stale by 250+.) Every gate
       below compares to this. Closes the `[UNMEASURED: the current offline and live-e2e pass counts.]` marker.
 - [x] 1.1 **`test/Volt.Engine.Tests/StoredVsPushedTests.cs` — the stored-vs-pushed differ.** For each of the 9
@@ -525,7 +525,7 @@ So `CodesysNetworkReader`/`CodesysNetworkWriter` — written against exactly the
 serialization of objects that are already in the box.
 
 **What is still open is ACCESS, not the model.** TcXaeShell is 32-bit and hosts the .NET FRAMEWORK
-CLR, so an in-proc host must be net4x x86 — a sibling of `Volt.Cli.Ide.Codesys` (net48) over the
+CLR, so an in-proc host must be net4x x86 — a sibling of `Volt.Ide.Codesys` (net48) over the
 shared `Volt.Engine`, never the net8/x64 worker.
 
 **A retracted claim, recorded so it is not repeated as fact.** An earlier pass reported "no 3S

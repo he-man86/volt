@@ -23,14 +23,14 @@ src/Volt.Engine           netstandard2.0  The domain — the whole shareable eng
 src/Volt.Engine.Host      netstandard2.0  BridgePipeHost: the ONE place a wire op maps to a service and gets
                                           marshalled onto the IDE thread. Its own assembly precisely so Engine
                                           references no transport.
-src/Volt.Cli.Ide.Codesys  net48 library   CODESYS bridge — driver + pipe host, loaded IN-PROCESS by the IDE.
-src/Volt.Cli.Ide.Twincat  net8 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM.
+src/Volt.Ide.Codesys  net48 library   CODESYS bridge — driver + pipe host, loaded IN-PROCESS by the IDE.
+src/Volt.Ide.Twincat  net8 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM.
 src/Volt.Cli              net8 exe        the `volt` CLI — the pipe CLIENT (see README.md).
-src/Volt.Cli.Connector.Core  net8 library the connector's UI-free model (DetectedProject / IProjectSource /
+src/Volt.Connector.Core  net8 library the connector's UI-free model (DetectedProject / IProjectSource /
                                           ConnectionManager) AND the TwinCAT worker fleet. Here, not in the tray,
                                           because none of it needs WinForms — and in a net8.0-windows assembly
                                           the policy that actually runs was untestable.
-src/Volt.Cli.Connector    net8 exe        tray + window over that model. Owns the WinForms shell, the user-facing
+src/Volt.Connector    net8 exe        tray + window over that model. Owns the WinForms shell, the user-facing
                                           lifecycle and the auto-update/install agent. CODESYS is user-activated
                                           in-proc (never launched).
 ```
@@ -357,7 +357,7 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
 
 ## Build, run, test
 
-See `README.md` for commands. In short: `dotnet build Volt.Cli.sln`; the C# unit tests
+See `README.md` for commands. In short: `dotnet build Volt.sln`; the C# unit tests
 (`test/Volt.Engine.Tests/`) run offline against a fake IDE, and the TS e2e tests (`test/e2e/`) drive a live
 bridge over the pipe; the headless CODESYS dev loop is `scripts/codesys-pipe.ps1` (the TwinCAT worker is spawned
 by the connector).

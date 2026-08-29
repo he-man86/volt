@@ -71,7 +71,7 @@ public class HonestHealthTests
     /// against the pre-move tree: the base machinery it exercises was already right; what was wrong was the TwinCAT
     /// driver READING AND DISCARDING its liveness verdict, so this closure could never fail and the one ambient writer
     /// of <c>_lastOkTick</c> re-stamped it against a dead XAE forever. That driver is reachable from no C# suite (no
-    /// test project references <c>Volt.Cli.Ide.Twincat</c>; it is net8.0-windows over live COM), so the only real
+    /// test project references <c>Volt.Ide.Twincat</c>; it is net8.0-windows over live COM), so the only real
     /// check for the driver half is the e2e against a running XAE. What this test does buy: move the stamp in
     /// <c>RunOnStaThread</c> ahead of the marshalled call, or re-swallow the probe failure, and the TwinCAT fix dies
     /// silently — here it goes red.</para></summary>

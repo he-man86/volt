@@ -38,12 +38,12 @@ prose).
 
 | File | TFM | Writes | Note |
 |---|---|---|---|
-| `src/Volt.Cli.Ide.Twincat/Ide/TcItemArchive.cs` | net8.0-windows | vendor `.TcPOU` XML inside a zip: `FolderPath` attribute (`:180`), `<Folder Name= Id={guid}>` chains (`:198-200`), and zip ENTRY names (`:112-129`) | S. **Re-serializes by hand at `:183` — a byte-identical open-coded copy of `PlcOpenDocument.Serialize`** (§3.5) |
-| `src/Volt.Cli.Ide.Codesys/Ide/CodesysObjectModel.PlcOpen.cs` | net48 | **no XML API** — reflection transport only | strips the BOM at `:87` |
+| `src/Volt.Ide.Twincat/Ide/TcItemArchive.cs` | net8.0-windows | vendor `.TcPOU` XML inside a zip: `FolderPath` attribute (`:180`), `<Folder Name= Id={guid}>` chains (`:198-200`), and zip ENTRY names (`:112-129`) | S. **Re-serializes by hand at `:183` — a byte-identical open-coded copy of `PlcOpenDocument.Serialize`** (§3.5) |
+| `src/Volt.Ide.Codesys/Ide/CodesysObjectModel.PlcOpen.cs` | net48 | **no XML API** — reflection transport only | strips the BOM at `:87` |
 
 ### Assemblies with zero XML code
 
-`Volt.Cli`, `Volt.Contracts`, `Volt.Wire`, `Volt.Engine.Host`, `Volt.Cli.Connector*`. Verified.
+`Volt.Cli`, `Volt.Contracts`, `Volt.Wire`, `Volt.Engine.Host`, `Volt.Connector*`. Verified.
 
 ---
 

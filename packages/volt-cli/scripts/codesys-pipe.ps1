@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
   Launch the Volt CLI pipe host HEADLESS in CODESYS (no UI), for live smoke of
-  the C# toolchain. Loads Volt.Cli.Ide.Codesys.dll and serves the pipe `volt.bridge.codesys`.
+  the C# toolchain. Loads Volt.Ide.Codesys.dll and serves the pipe `volt.bridge.codesys`.
 
 .PARAMETER Action   up (launch, default) | down (stop + kill CODESYS) | logs
 .PARAMETER Version  18 or 21 (default 21)
@@ -27,7 +27,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-$dll      = Join-Path $PSScriptRoot "..\src\Volt.Cli.Ide.Codesys\bin\Release\net48\Volt.Cli.Ide.Codesys.dll"
+$dll      = Join-Path $PSScriptRoot "..\src\Volt.Ide.Codesys\bin\Release\net48\Volt.Ide.Codesys.dll"
 $scriptPy = Join-Path $PSScriptRoot "run_pipe_headless.py"
 $install  = if ($Version -eq "21") { "C:\Program Files\CODESYS 3.5.21.40" } else { "C:\Program Files\CODESYS 3.5.18.30" }
 $exe      = Join-Path $install "CODESYS\Common\CODESYS.exe"
@@ -70,12 +70,12 @@ switch ($Action) {
         # serves the OLD wire shape — the "stale bridge" trap; re-record/verify against a freshly-built bridge). Safe
         # here: CODESYS isn't running yet on `up`, so the DLL isn't locked. Skip with -NoBuild for a fast re-launch.
         if (-not $NoBuild) {
-            Write-Host "building Volt.Cli.Ide.Codesys (Release) so the bridge isn't stale..."
-            $proj = Join-Path $PSScriptRoot "..\src\Volt.Cli.Ide.Codesys\Volt.Cli.Ide.Codesys.csproj"
+            Write-Host "building Volt.Ide.Codesys (Release) so the bridge isn't stale..."
+            $proj = Join-Path $PSScriptRoot "..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj"
             & "C:\Program Files\dotnet\dotnet.exe" build $proj -c Release --nologo -v quiet
             if ($LASTEXITCODE -ne 0) { throw "bridge build failed (exit $LASTEXITCODE) - fix it before launching a stale DLL" }
         }
-        if (-not (Test-Path $dll))     { throw "Pipe DLL missing (build Volt.Cli.Ide.Codesys): $dll" }
+        if (-not (Test-Path $dll))     { throw "Pipe DLL missing (build Volt.Ide.Codesys): $dll" }
         Remove-Item $stopFlag -Force -ErrorAction SilentlyContinue
 
         $env:VOLT_BRIDGE_DLL      = (Resolve-Path $dll).Path

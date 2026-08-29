@@ -2,8 +2,8 @@
 
 Measured 2026-08-27, immediately before this change:
 
-- offline `Volt.Engine.Tests` **680** / `Volt.Cli.Tests` **142** / `Volt.Cli.Connector.Tests` **80** /
-  `Volt.Cli.Ide.Twincat.Tests` **3**
+- offline `Volt.Engine.Tests` **680** / `Volt.Cli.Tests` **142** / `Volt.Connector.Tests` **80** /
+  `Volt.Ide.Twincat.Tests` **3**
 - live CODESYS e2e **129 pass / 20 skip / 0 fail**, 26 files
 - `bun run check` green, 2 `[UNMEASURED:]` markers enumerable; `bun run lint` 0 errors
 
@@ -46,7 +46,8 @@ Order chosen so each step compiles on its own: leaves first, then the things tha
       line, which is ST reading, not vocabulary). **DONE.**
 - [x] 2.3 **`Source/Body/Network/`** ← the whole of `Graph/`, plus `Model/GraphModel.cs`. **DONE.**
       Three mechanical hazards worth knowing before 2.4–2.8, all found the hard way:
-      - **Block-scoped namespaces need a CRLF-aware anchor.** `^namespace X$` does not match `namespace X`, so
+      - **Block-scoped namespaces need a CRLF-aware anchor.** `^namespace X$` does not match `namespace X
+`, so
         three files silently kept the old namespace and the build failed two steps later.
       - **Adding a `using` is not enough — a STALE one must be rewritten.** `using Volt.Engine.Graph;` produced
         CS0234, which the using-fixer does not match at all. Rewrite old namespace names across `src` and `test`

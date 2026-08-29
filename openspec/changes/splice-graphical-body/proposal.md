@@ -292,7 +292,7 @@ fix looks like splice fallout.
   (`Graph/NetworkTextReader.cs` 579, `Graph/GraphWriter.cs` 506, `Graph/GraphReader.cs` 381,
   `Graph/NetworkTextWriter.cs` 317, `Document/GraphSplice.cs` 157 = 1940 lines), plus `Document/BodyCodec.cs` (219)
   which holds the one production write site. The only reference outside the assembly is a doc-comment at
-  `src/Volt.Cli.Ide.Twincat/Ide/TcPlcOpen.cs:12`. Zero cross-package impact — `volt-lsp-iec` and `volt-vscode`
+  `src/Volt.Ide.Twincat/Ide/TcPlcOpen.cs:12`. Zero cross-package impact — `volt-lsp-iec` and `volt-vscode`
   couple to the VG **text format**, never to a C# type.
 - **Tests:** 25 offline C# files in `test/Volt.Engine.Tests` (3708 lines, 168 of that project's 404
   `[Fact]`/`[Theory]`), and 5 files in the live-bridge TS e2e suite (`test/e2e/graphical/` ×3, `harness.ts`,

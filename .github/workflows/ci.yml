@@ -112,15 +112,15 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Build the whole toolchain (all TFMs — CLI, IDE hosts, connector)
-        run: dotnet build packages/volt-cli/Volt.Cli.sln -c Release --nologo
+        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
       - name: Test — pipe transport + ported sync + black-box + CODESYS multi-instance
         run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo
       - name: Test — shared engine (parsing/PLCopen/VG + push/validate incl. delete-idempotency)
         run: dotnet test packages/volt-cli/test/Volt.Engine.Tests/Volt.Engine.Tests.csproj -c Release --nologo
       - name: Test — connector (connection model, discovery source, single-active + disconnect)
-        run: dotnet test packages/volt-cli/test/Volt.Cli.Connector.Tests/Volt.Cli.Connector.Tests.csproj -c Release --nologo
+        run: dotnet test packages/volt-cli/test/Volt.Connector.Tests/Volt.Connector.Tests.csproj -c Release --nologo
       - name: Test — TwinCAT driver (archive round-trip; the item-relocation window)
-        run: dotnet test packages/volt-cli/test/Volt.Cli.Ide.Twincat.Tests/Volt.Cli.Ide.Twincat.Tests.csproj -c Release --nologo
+        run: dotnet test packages/volt-cli/test/Volt.Ide.Twincat.Tests/Volt.Ide.Twincat.Tests.csproj -c Release --nologo
 
   # Desktop boot smoke: launch the built electron app headless (xvfb) in VOLT_SMOKE mode — proves the frameless
   # window + Volt shell.html actually render, which the pure-logic unit suites can't. Electron needs a display +

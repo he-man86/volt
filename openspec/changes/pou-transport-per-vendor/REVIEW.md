@@ -275,17 +275,17 @@ benefits (delete PLCopen from TwinCAT, delete the ladder/instance-type/folder ma
 ## B1. The target package cannot host the tests — and I pre-rejected the fix
 
 ```
-src/Volt.Cli.Ide.Codesys.csproj      <TargetFramework>net48</TargetFramework>
+src/Volt.Ide.Codesys.csproj      <TargetFramework>net48</TargetFramework>
 test/Volt.Engine.Tests.csproj        <TargetFramework>net8.0</TargetFramework>
 ```
 
 **A net8.0 test project cannot reference a net48 library** (NU1201). So the moment PLCopen lands in
-`Volt.Cli.Ide.Codesys`, every test that drives it becomes unreferenceable — `PouSpliceTests` (33 Facts, 6
+`Volt.Ide.Codesys`, every test that drives it becomes unreferenceable — `PouSpliceTests` (33 Facts, 6
 Theories), `PouReaderTests`, `PouDocumentTests`, `BodySpliceGuardTests` (19), `PlcOpenWriterTests`,
 `ProjectStructureTests`, `UnmodelledLanguageTests`, `DeclarationRuleTests`, `TestPlcOpen`…
 
 And **there is no CODESYS test project.** The four test projects are `Volt.Cli.Tests`, `Volt.Engine.Tests`,
-`Volt.Cli.Connector.Tests`, `Volt.Cli.Ide.Twincat.Tests`. TwinCAT has one; CODESYS has none. §5b.6 says "recorded
+`Volt.Connector.Tests`, `Volt.Ide.Twincat.Tests`. TwinCAT has one; CODESYS has none. §5b.6 says "recorded
 PLCopen fixtures stay as CODESYS fixtures" — **there is nowhere to put them.**
 
 **This reverses my own decision.** I rejected a shared `Volt.Format.PlcOpen` package **twice**, as "over-engineering

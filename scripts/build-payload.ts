@@ -23,9 +23,33 @@ const ext = process.platform === "win32" ? ".exe" : ""
 const skipCli = process.argv.includes("--no-cli")
 
 function run(cmd: string, args: string[], cwd = repo): boolean {
-  const r = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32" })
+  // `env` is passed EXPLICITLY. Bun snapshots process.env for child spawns, so a mutation made after startup
+  // (VOLT_VERSION, set below) never reached build-cli.ps1 and every .NET binary shipped stamped 1.0.0.0 while
+  // the installer around it said 0.1.x. Handing the current env in is what makes the mutation take.
+  const r = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32", env: process.env })
   return r.status === 0
 }
+
+// The build version, resolved ONCE and self-sufficiently.
+//
+// This read `process.env.VOLT_VERSION ?? "(dev)"` and trusted its caller to have set it. CI does; a local
+// `bun run build:installer` did not, so the installer was stamped 0.1.x while every binary inside it reported
+// "(dev)"/1.0.0.0 — and `bun run test:install` then failed ten checks that had nothing to do with the change
+// under test. Relying on an inherited env var also failed when the parent set it on `process.env`, because that
+// mutation does not reliably reach a GRANDCHILD (build-cli.ps1, two spawns down).
+//
+// So resolve it here from the same single source every other script uses (version.ts), and WRITE IT BACK to the
+// environment for the children. Whoever runs this script, local or CI, gets the same answer.
+const VOLT_VERSION =
+  process.env.VOLT_VERSION ||
+  (spawnSync("bun", [resolve(repo, "scripts/version.ts")], { cwd: repo, encoding: "utf8", shell: process.platform === "win32" }).stdout ?? "")
+    .split("\n")
+    .find((l) => l.startsWith("version="))
+    ?.slice("version=".length)
+    .trim() ||
+  "(dev)"
+process.env.VOLT_VERSION = VOLT_VERSION
+console.log(`• version ${VOLT_VERSION}`)
 
 function compile(entry: string, name: string): void {
   // Bake VOLT_VERSION into the binary — the JS parallel to build-cli.ps1 stamping FileVersion into the .NET exes.
@@ -37,7 +61,7 @@ function compile(entry: string, name: string): void {
   // STRIPS double quotes from an arg — `__VOLT_VERSION__="1.2.3"` reached bun as an unquoted, invalid define and
   // silently fell back to "(dev)" (caught only because the build asserts the stamp). Single quotes pass through
   // cmd.exe untouched and are a valid JS string literal for esbuild's define. Verified through a shell:true spawn.
-  const version = process.env.VOLT_VERSION ?? "(dev)"
+  const version = VOLT_VERSION
   if (!run("bun", ["build", "--compile", `--define`, `__VOLT_VERSION__='${version}'`, "--outfile", resolve(bin, name + ext), entry])) {
     console.error(`✗ failed to compile ${name}`)
     process.exit(1)

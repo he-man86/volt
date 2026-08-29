@@ -27,7 +27,7 @@ public class FixtureProjectIntegrityTests
     private static string TestRoot()
     {
         var dir = new DirectoryInfo(System.AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Volt.Cli.sln"))) dir = dir.Parent;
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
         Assert.NotNull(dir);
         return Path.Combine(dir!.FullName, "test");
     }

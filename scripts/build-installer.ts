@@ -123,6 +123,13 @@ const iscc = [
 }
 
 // 1. The Volt payload (CLI + LSP + connector + docs).
+//
+// EXPORT the version first. `version` above falls back to version.ts for a LOCAL build, but build-payload.ts
+// and build-cli.ps1 both read `process.env.VOLT_VERSION` and default to "(dev)"/1.0.0.0 when it is unset — so a
+// local `bun run build:installer` produced an installer stamped 0.1.x containing binaries that reported "(dev)",
+// and `bun run test:install` failed 10 checks that had nothing to do with the code under test. CI never saw it
+// because CI sets the variable. One line, and the local build now matches the release build.
+process.env.VOLT_VERSION = version
 if (!skipDist) run("bun", ["scripts/build-payload.ts"])
 for (const dir of ["bin", "connector", "docs"]) {
   if (!existsSync(resolve(payload, dir))) {
