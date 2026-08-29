@@ -38,7 +38,13 @@ internal static class TcPlcOpenWriter
     /// network 0 starts at 10000000001 with the attribute marker at 10000000000.</summary>
     private static XElement WriteBody(NetworkBody body)
     {
-        var root = new XElement(Namespaces.Tc6 + (body.Language == BodyLanguage.Ld ? "LD" : "FBD"));
+        // ALWAYS <FBD>, for a ladder too. An <LD> body whose children are FBD-shaped makes TwinCAT's importer
+        // throw ("Object reference not set to an instance of an object"), because PLCopen ladder is a different
+        // vocabulary - power rails, contacts, coils. Volt does not need it: the vendor treats FBD, LD and IL as
+        // three VIEWS of ONE network, and a ladder's contacts and coils are already lowered into the same
+        // boolean node graph an FBD network uses. The ladder-ness is `DefaultViewMode` on the archive, written
+        // after the import (TcArchive.WithViewMode).
+        var root = new XElement(Namespaces.Tc6 + "FBD");
 
         // ONE attribute marker for the WHOLE BODY, not one per network — measured, after guessing otherwise.
         // Emitting it per network produced a body TwinCAT imported happily and then could never push back: the
@@ -60,14 +66,15 @@ internal static class TcPlcOpenWriter
 
     /// <summary>A complete PLCopen document for <c>PlcOpenImport</c>: the envelope and the lowered body.
     ///
-    /// <para><b>The DECLARATION is deliberately absent.</b> A first version carried it as a 3S
-    /// <c>declaration</c> <c>addData</c> block, and measured live the importer ignored it outright — the POU
-    /// arrived holding nothing but <c>PROGRAM &lt;name&gt;</c>, its VAR block gone. The vendor's own export
-    /// agrees and is the tell: it writes <c>&lt;interface /&gt;</c>, EMPTY, for a POU that has declared
-    /// variables. Declarations do not travel in PLCopen on this install. So the interface is left empty exactly
-    /// as the vendor leaves it, and the caller writes the declaration through <c>DeclarationText</c> afterwards
-    /// — the documented path, which works. Emitting a block the importer discards would only make the loss
-    /// look like a bug somewhere else.</para></summary>
+    /// <para><b>The DECLARATION is deliberately absent, and the first reason given for that was wrong.</b> A
+    /// first version carried it as a <c>plcopenxml/declaration</c> <c>addData</c>, and measured live the
+    /// importer ignored it outright — the POU arrived holding nothing but <c>PROGRAM &lt;name&gt;</c>, its VAR
+    /// block gone. The conclusion drawn then, "declarations do not travel in PLCopen on this install", is NOT
+    /// what that measured: <c>FB_TcMembers.plcopen.xml</c>, a vendor export, carries the declaration as
+    /// <c>plcopenxml/<b>interfaceasplaintext</b></c> holding an <c>xhtml</c> block. The name was simply wrong.
+    /// <para>It stays absent anyway, which is now a choice rather than a limit: <c>DeclarationText</c> is the
+    /// documented path, it already works, and every other write here goes through it. Carrying the declaration
+    /// twice would give two sources of truth for one string.</para></para></summary>
     public static XDocument WriteProject(string pouName, string pouType, NetworkBody body)
     {
         var pou = new XElement(Namespaces.Tc6 + "pou",

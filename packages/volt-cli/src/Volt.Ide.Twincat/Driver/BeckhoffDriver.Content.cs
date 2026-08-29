@@ -162,10 +162,19 @@ public sealed partial class BeckhoffDriver
                 var created = _om.ImportPlcOpen(item.Native,
                     TcPlcOpenWriter.WriteProject(name, PlcOpenPouType(kind), model));
 
-                // The declaration does NOT travel in PLCopen on this install - measured: the importer discards
-                // it and the POU arrives with its VAR block gone. It goes through DeclarationText, which is
-                // both the documented path and the one every other write here already uses.
-                _om.WriteText(created, declaration, null);
+                // The declaration goes through DeclarationText - the documented path, and the one every other
+                // write here already uses. (It COULD ride in the document: the vendor spells it
+                // `plcopenxml/interfaceasplaintext`, not the `plcopenxml/declaration` a first attempt guessed,
+                // which is why that attempt silently lost every VAR block. One source of truth is better.)
+                //
+                // The VIEW travels with neither. A ladder is imported as FBD, because that is the only shape the
+                // importer accepts, and is made a ladder again by the archive's own `DefaultViewMode` - the same
+                // place `CreateChild` leaves it (DIALECT C6). Without this an engineer who pushed a ladder opens
+                // the IDE and finds a function-block diagram: the program is right, the drawing is not the one
+                // they wrote.
+                var view = model.Language == BodyLanguage.Ld ? "Ld" : "Fbd";
+                var revised = TcArchive.WithViewMode(_om.ReadImplementation(created), view);
+                _om.WriteText(created, declaration, revised);
                 return;
             }
 

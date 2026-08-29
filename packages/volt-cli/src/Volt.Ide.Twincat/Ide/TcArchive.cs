@@ -54,6 +54,38 @@ internal static class TcArchive
     /// <summary>The body's language tag, as the archive spells it (<c>"Fbd"</c> / <c>"Ld"</c>).</summary>
     public static string? ViewMode(XElement impl) => Str(impl, "DefaultViewMode");
 
+    /// <summary>The same body with its view set to <paramref name="mode"/> ("Fbd" / "Ld"), or NULL when it
+    /// already says that — so an unchanged push writes nothing at all.
+    ///
+    /// <para><b>This is how a ladder becomes a ladder.</b> `CreateChild` cannot make an "LD" (DIALECT C6): it
+    /// makes an FBD, and the graph goes in through PLCopen as FBD too, because that is the only shape the
+    /// importer accepts — an &lt;LD&gt; body of FBD-shaped elements makes it throw. The vendor does not treat a
+    /// ladder as a different program in the first place; FBD, LD and IL are three VIEWS of one network. So the
+    /// difference between the two languages, for everything Volt can express, is exactly this one string.</para>
+    ///
+    /// <para>The parse preserves whitespace and the serialization adds none, so every byte the IDE wrote other
+    /// than this value survives.</para></summary>
+    public static string? WithViewMode(string? bodyXml, string mode)
+    {
+        if (string.IsNullOrWhiteSpace(bodyXml)) return null;
+
+        XElement doc;
+        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
+        catch (System.Xml.XmlException) { return null; }
+
+        var impl = doc.DescendantsAndSelf("o")
+                      .FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        if (impl == null) return null;
+
+        var slot = impl.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == "DefaultViewMode");
+        if (slot == null) return null;                 // creates nothing - the same rule the writer follows
+
+        var want = "\"" + mode + "\"";
+        if (slot.Value == want) return null;
+        slot.Value = want;
+        return doc.ToString(SaveOptions.DisableFormatting);
+    }
+
     /// <summary>A named object member: <c>&lt;o n="Name"&gt;</c>. An explicit <c>&lt;n n="Name"/&gt;</c> is a
     /// null and yields null.</summary>
     public static XElement? Obj(XElement? owner, string name) =>

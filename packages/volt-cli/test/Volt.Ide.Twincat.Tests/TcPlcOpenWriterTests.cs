@@ -51,6 +51,11 @@ public class TcPlcOpenWriterTests
         return path;
     }
 
+    /// <summary>The whole &lt;NWL&gt; body of a vendor file, exactly as it sits on disk.</summary>
+    private static string Body(string fixture) =>
+        XDocument.Load(Fixture(fixture), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+
     private static XElement Impl(string fixture) =>
         XDocument.Load(Fixture(fixture), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single()
@@ -231,16 +236,46 @@ public class TcPlcOpenWriterTests
         Assert.Equal(3, ids.Count(i => i / 10_000_000_000L == 2));   // network 1's three, no marker of its own
     }
 
-    /// <summary>A LADDER body is the same pipeline with a different wrapper element, so it gets its own gate
-    /// rather than an assumption. <c>ladder.TcPOU</c> is a real vendor file.</summary>
+    /// <summary>A LADDER IS LOWERED AS <c>&lt;FBD&gt;</c>, AND ITS LADDER-NESS IS A VIEW WRITTEN AFTERWARDS.
+    ///
+    /// <para>This used to demand an <c>&lt;LD&gt;</c> element, which reads as obviously right and is wrong.
+    /// Measured live: importing an <c>&lt;LD&gt;</c> whose children are FBD-shaped
+    /// (<c>block</c>/<c>inVariable</c>/<c>outVariable</c>) makes TwinCAT's importer throw — "Creation of object
+    /// 'X' failed. Reason: Object reference not set to an instance of an object." PLCopen ladder is a different
+    /// vocabulary entirely: power rails, contacts, coils.</para>
+    ///
+    /// <para>Volt does not need that vocabulary, because the vendor does not treat a ladder as a different
+    /// program. FBD, LD and IL are three VIEWS of ONE network; <c>GraphReader</c> already lowers contacts and
+    /// coils into the same boolean node graph an FBD network uses, and DIALECT C6 records that
+    /// <c>CreateChild</c> cannot make an "LD" at all — it makes an FBD and the ladder view rides along as
+    /// <c>DefaultViewMode</c> in the NWL archive. So the graph goes in as FBD, the one shape the importer is
+    /// proven to accept, and the view is set on the archive afterwards. One lowering, not two.</para></summary>
     [Fact]
-    public void A_ladder_body_writes_as_LD()
+    public void A_ladder_body_is_lowered_as_FBD_because_ladder_ness_is_a_view()
     {
         var model = TcNetworkReader.Read(Impl("ladder.TcPOU"), BodyLanguage.Ld);
 
         var written = Lower(model);
 
-        Assert.Equal("LD", written.Name.LocalName);
+        Assert.Equal("FBD", written.Name.LocalName);
+    }
+
+    /// <summary>…and the VIEW is what makes it a ladder again. A created archive says <c>"Fbd"</c> — that is all
+    /// <c>CreateChild</c> can make — so without this write an engineer who pushed a ladder would open the IDE
+    /// and find a function-block diagram instead.</summary>
+    [Fact]
+    public void The_ladder_view_is_written_onto_the_archive()
+    {
+        var shell = Body("EmptyGraphicalShell.TcPOU");
+        Assert.Equal("Fbd", TcArchive.ViewMode(Impl("EmptyGraphicalShell.TcPOU")));
+
+        var asLadder = TcArchive.WithViewMode(shell, "Ld");
+
+        Assert.NotNull(asLadder);
+        Assert.Equal("Ld", TcArchive.ViewMode(TcArchive.Root(asLadder)!));
+
+        // …and a no-op when the archive already says so, so an FBD push never rewrites a body for nothing.
+        Assert.Null(TcArchive.WithViewMode(asLadder!, "Ld"));
     }
 
     /// <summary>FAN-OUT IS A SHARED <c>refLocalId</c>, not a repeated producer. This is the shape that has no
