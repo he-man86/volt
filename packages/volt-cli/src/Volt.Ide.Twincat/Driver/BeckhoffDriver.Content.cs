@@ -43,10 +43,24 @@ public sealed partial class BeckhoffDriver
     public void WriteContent(ItemRef item, ItemContent content)
     {
         WriteOne(item, content.Kind, content.Declaration, content.Body);
+        if (content.Members.Count == 0) return;
+
+        // ONE walk, and ORDINAL-IGNORE-CASE — the CODESYS fix from earlier today, reaching its TwinCAT twin.
+        //
+        // This resolved each member by re-walking the whole POU per member (every step a live COM round trip),
+        // and compared names with `StringComparer.Ordinal` — the last Ordinal IDENTITY compare left on the wire.
+        // Every layer above it is OrdinalIgnoreCase (`ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`,
+        // `ItemLookup`, `TreeNav.NameIs`), and IEC identifiers are case-insensitive in both IDEs. So a case-only
+        // rename — `METHOD Calc` to `METHOD calc` — passed every gate, the POU's own declaration and body were
+        // already written on the line above, and THEN this threw NOT_FOUND claiming the member is not in the
+        // project. False, and half-applied.
+        var byName = new Dictionary<string, ItemRef>(StringComparer.OrdinalIgnoreCase);
+        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item)) byName[site.Name] = site.Ref;
+
         foreach (var m in content.Members)
         {
-            var target = FindChildByName(item, m.Name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+            if (!byName.TryGetValue(m.Name, out var target))
+                throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
 
@@ -211,12 +225,6 @@ public sealed partial class BeckhoffDriver
         return decl.Trim();
     }
 
-    private ItemRef? FindChildByName(ItemRef parent, string name)
-    {
-        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, parent))
-            if (string.Equals(site.Name, name, StringComparison.Ordinal)) return site.Ref;
-        return null;
-    }
 
     /// <summary>Write a property's GET or SET. The accessor EXISTS by the time this runs - creating and deleting
     /// one is <c>PushService.ReconcileAccessor</c>'s job, with every other child - so a null here means only

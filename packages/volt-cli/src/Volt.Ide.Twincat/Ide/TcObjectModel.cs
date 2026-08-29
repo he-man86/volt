@@ -27,7 +27,6 @@ internal sealed partial class TcObjectModel
     private dynamic? _sysManager;
     private dynamic? _plcNode;
     private string? _projectName;
-    private string? _plcProjectPath;
     private string? _ideVersion;
 
     // The ONE XAE window this worker owns, by its stable process id. Selection and recovery re-acquire THIS pid
@@ -75,8 +74,23 @@ internal sealed partial class TcObjectModel
     public object PlcRoot()
     {
         EnsurePlc();
-        try { return _plcNode!.NestedProject; } catch { /* fall through to lookup */ }
-        return LookupTreeItemDynamic(_plcProjectPath!);
+
+        // NO FALLBACK, and this one was worse than a swallow. The bare catch replaced a stale-handle RPC fault
+        // with `LookupTreeItemDynamic(_plcProjectPath)` - and `_plcProjectPath` is not a path: Session.cs sets it
+        // to `(string)plc.Name`, the child's bare NAME, while the value being replaced is that child's
+        // NestedProject, one level below. So the substitute either failed to resolve, or resolved a DIFFERENT
+        // node - and this is the origin of GetTreeRoot, GetPlcProjectRoot and WalkItems, so every folder path in
+        // the project would shift by a segment.
+        //
+        // The real cost was to the recovery machinery: an RPC fault here is exactly what `ShouldMarkDegraded`
+        // exists to classify, and swallowing it meant `RunRead` never called `Recover()`. The failure surfaced
+        // as "cannot find tree item", whose HRESULT is outside the RPC family, so health stayed GREEN while
+        // every op failed identically until someone restarted the worker. In an in-process host that wedges
+        // inside the IDE instead.
+        //
+        // FindPlcProject's own comment already argued no such fallback belongs anywhere; this was the one place
+        // that still had it, and `_plcProjectPath`'s only reader.
+        return _plcNode!.NestedProject;
     }
 
     // Raw COM reads — these THROW on failure; the tree-walk callers catch and skip/continue (that

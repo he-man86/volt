@@ -82,13 +82,51 @@ internal static class TcNetworkWriter
                      | SetString(net, "Comment", model.Comment)
                      | SetBool(net, "OutCommented", model.Disabled);
 
+        // A MULTI-OUTPUT ASSIGNMENT IS ONE ITEM, however the text spells it. Network text cannot repeat a
+        // producer without duplicating its box, so `NetworkTextWriter` hoists N>1 targets into a named wire -
+        // `LET g1 := (a OR b); out1 := g1; out2 := g1;` - which reparses as a Demux definition plus one
+        // assignment each. One archive item becomes three model trees, and comparing raw counts refused a body
+        // NOBODY had changed. The surveyed real project has 258 of these.
         var items = TcArchive.List(net, "NetworkItems");
-        if (items.Count != model.Trees.Count)
-            throw Refuse($"network {model.Order + 1} changes from {items.Count} to {model.Trees.Count} item(s)");
+        var trees = Unhoist(model.Trees);
+        if (items.Count != trees.Count)
+            throw Refuse($"network {model.Order + 1} changes from {items.Count} to {trees.Count} item(s)");
 
         for (int i = 0; i < items.Count; i++)
-            changed |= WriteNode(items[i], model.Trees[i]);
+            changed |= WriteNode(items[i], trees[i]);
         return changed;
+    }
+
+    /// <summary>Fold the text's hoisted-wire spelling back into the ONE item the archive holds.
+    ///
+    /// <para>`LET g1 := &lt;producer&gt;; out1 := g1; out2 := g1;` is how network text says "one value, several
+    /// l-values" - it cannot repeat the producer inline without duplicating its box. The archive says the same
+    /// thing as a single item with several outputs, so the two must be compared in the same shape.</para></summary>
+    private static IReadOnlyList<Node> Unhoist(IReadOnlyList<Node> trees)
+    {
+        var wires = trees.OfType<Demux>().Where(d => d.Input is not null)
+                         .ToDictionary(d => d.VarId, d => d.Input!);
+        if (wires.Count == 0) return trees;
+
+        var folded = new List<Node>();
+        var consumed = new Dictionary<int, List<Operand>>();
+        foreach (var t in trees)
+        {
+            if (t is Demux) continue;                                   // the wire's definition
+            if (t is Assign a && a.Value is Demux use && use.Input is null && wires.ContainsKey(use.VarId))
+            {
+                if (!consumed.TryGetValue(use.VarId, out var targets))
+                    consumed[use.VarId] = targets = new List<Operand>();
+                targets.AddRange(a.Targets);
+                continue;
+            }
+            folded.Add(t);
+        }
+
+        // Rebuild each wire as the single multi-target assignment the archive holds.
+        foreach (var kv in consumed)
+            folded.Add(new Assign(wires[kv.Key], kv.Value, Flags.None));
+        return folded.Count == 0 ? trees : folded;
     }
 
     // -- the tree ----------------------------------------------------------------------------------
@@ -98,7 +136,13 @@ internal static class TcNetworkWriter
     private static bool WriteNode(XElement e, Node n)
     {
         var type = TcArchive.TypeOf(e);
-        var changed = WriteFlags(e, n.Flags);
+
+        // A `BoxTreeOperand` carries NO Flags member (DIALECT N4) - a leaf's modifiers live on the `Operand` it
+        // holds, and the Leaf arm below writes them there. Calling WriteFlags at ITEM level for a leaf therefore
+        // found no holder and REFUSED, which became a live failure the moment the reader started surfacing
+        // those flags: every negated contact, SET coil and edge contact made its POU unpushable, on a body
+        // nobody had edited. The surveyed real project carries 846 negations and 246 sets.
+        var changed = type == "BoxTreeOperand" ? false : WriteFlags(e, n.Flags);
 
         switch (n)
         {

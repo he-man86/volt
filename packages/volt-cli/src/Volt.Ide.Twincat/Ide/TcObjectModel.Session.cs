@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -129,7 +129,7 @@ internal sealed partial class TcObjectModel
         // them, so a project that isn't found (or a fallback to a different DTE after a failed instance Bind) left
         // the PREVIOUS project's _sysManager in place — making IsConnected wrongly true and silently serving the OLD
         // project while a DIFFERENT one was requested. Reset first so a miss leaves the model NOT connected.
-        _sysManager = null; _plcNode = null; _projectName = null; _plcProjectPath = null;
+        _sysManager = null; _plcNode = null; _projectName = null;
         dynamic solution = _dte!.Solution;
         dynamic projects = solution.Projects;
         int count = projects.Count;
@@ -173,7 +173,7 @@ internal sealed partial class TcObjectModel
                 try
                 {
                     dynamic plc = tipc.Child[i];
-                    _plcNode = plc; _plcProjectPath = (string)plc.Name; break;
+                    _plcNode = plc; break;
                 }
                 catch { /* not this child - keep looking; a total miss throws below */ }
             }
@@ -227,7 +227,7 @@ internal sealed partial class TcObjectModel
     {
         if (_plcNode != null) { try { Marshal.ReleaseComObject(_plcNode); } catch { } _plcNode = null; }
         if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
-        _projectName = null; _plcProjectPath = null;
+        _projectName = null;
     }
 
     /// <summary>Recovery: re-establish the DESIRED selection (the user's last explicit pick) after a project
