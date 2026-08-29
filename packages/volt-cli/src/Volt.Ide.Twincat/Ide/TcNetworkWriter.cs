@@ -118,8 +118,19 @@ internal static class TcNetworkWriter
                 // The box TYPE is not an editable value: it is what the IDE resolved `CallType`, `InputParam`
                 // and `OutputParam` from, and changing it without redoing that resolution leaves an archive
                 // describing one call with another call's signature.
+                // A FUNCTION-BLOCK CALL IS NAMED BY ITS INSTANCE IN TEXT, NOT BY ITS TYPE. Network text writes
+                // `fbTimer(IN := x)`, so the reader rebuilds `Box(Type: "fbTimer")` while the archive holds
+                // `BoxType = "TON"` - and comparing those two refused a body NOBODY HAD CHANGED, making every
+                // POU with a TON, an R_TRIG or any user FB permanently unpushable.
+                //
+                // This one is mine too: the refusal was added for parity with CODESYS, which REBUILDS the box
+                // and genuinely cannot know the type from the text. This writer edits IN PLACE and has both
+                // values in front of it - the archive's BoxType and its Instance - so it can simply check the
+                // right one. A retype is still refused; being called by its instance name is not a retype.
                 var was = TcArchive.Str(e, "BoxType") ?? "";
-                if (was != b.Type)
+                var instance = TcArchive.Str(TcArchive.Obj(e, "Instance"), "Operand");
+                var namesThisBox = was == b.Type || (instance != null && instance == b.Type);
+                if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
                 changed |= WriteOperand(e, "Instance", b.Instance);
@@ -174,6 +185,23 @@ internal static class TcNetworkWriter
 
     /// <summary>Outputs sit one level deeper than in the live model: an <c>OutputItems</c> member of type
     /// <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
+    /// <summary>An OUTPUT operand's text only. Its modifiers are NOT written, and that is the difference from
+    /// a leaf.
+    ///
+    /// <para>A leaf's modifiers have a network-text form - <c>NOT b</c>, parsed straight back - so the model
+    /// carries them and the writer can put them back. An assignment TARGET's do not:
+    /// <c>NetworkTextWriter.Lhs</c> renders a target as its bare text with no modifiers, so the reader hands
+    /// back <c>new Operand(name)</c> with no flags, and writing that erased the vendor's own value.</para>
+    ///
+    /// <para><b>This was mine, made today.</b> The commit that stopped this method writing Type, SymbolComment,
+    /// LValue and IsInstance deliberately KEPT Flags, because a leaf's flags round-trip - and did not notice
+    /// that outputs come through the same function. Measured on a SET coil: <c>Flags: 2 -> 0</c> from a push
+    /// that changed nothing. The coil stops latching, the push reports success, `volt status` says clean.</para>
+    ///
+    /// <para>The real fix is to give a target's modifiers a text form so a SET coil is visible and editable in
+    /// the workspace at all. Until then the archive value is left exactly as the IDE wrote it.</para></summary>
+    private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
+
     private static bool WriteOutputs(XElement e, IReadOnlyList<Operand> targets)
     {
         var holder = TcArchive.Obj(e, "OutputItems");
@@ -183,7 +211,7 @@ internal static class TcNetworkWriter
 
         bool changed = false;
         for (int i = 0; i < items.Count; i++)
-            changed |= WriteOperandInto(items[i], targets[i]);
+            changed |= WriteOutputOperand(items[i], targets[i]);
         return changed;
     }
 

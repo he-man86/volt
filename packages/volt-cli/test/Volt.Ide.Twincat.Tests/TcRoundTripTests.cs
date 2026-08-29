@@ -79,6 +79,8 @@ public class TcRoundTripTests
     [Theory]
     [InlineData("POU_PBD.TcPOU")]
     [InlineData("ladder.TcPOU")]
+    [InlineData("FbCall.derived.TcPOU")]   // an FB call - the shape a box-type refusal wrongly rejects
+    [InlineData("SetCoil.derived.TcPOU")]  // a SET coil - modifiers on an assignment TARGET
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
     {
         var before = Body(fixture);
@@ -107,6 +109,8 @@ public class TcRoundTripTests
     [Theory]
     [InlineData("POU_PBD.TcPOU")]
     [InlineData("ladder.TcPOU")]
+    [InlineData("FbCall.derived.TcPOU")]
+    [InlineData("SetCoil.derived.TcPOU")]
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);
