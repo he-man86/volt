@@ -268,10 +268,19 @@ public sealed partial class CodesysDriver
 
     private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members)
     {
+        if (members.Count == 0) return;
+
+        // ONE walk for the whole write. FindChildByName used to re-run MemberSites per member, and MemberSites
+        // CLASSIFIES every child it passes - a ReadObject plus an interface-name query each. For a POU with 20
+        // members that is 20 walks and ~400 classifications to write 20 bodies. The tree does not change during
+        // this loop: the member set was reconciled before it, and CODESYS handles survive a child write.
+        var byName = new Dictionary<string, ItemRef>(StringComparer.Ordinal);
+        foreach (var site in MemberSites(pou)) byName[site.Name] = site.Ref;
+
         foreach (var m in members)
         {
-            var target = FindChildByName(pou, m.Name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+            if (!byName.TryGetValue(m.Name, out var target))
+                throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
 
@@ -294,14 +303,6 @@ public sealed partial class CodesysDriver
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
         }
-    }
-
-    /// <summary>The member with this name, anywhere under the POU including inside its folders.</summary>
-    private ItemRef? FindChildByName(ItemRef parent, string name)
-    {
-        foreach (var site in MemberSites(parent))
-            if (string.Equals(site.Name, name, StringComparison.Ordinal)) return site.Ref;
-        return null;
     }
 
     /// <summary>Write a property's GET or SET. The accessor EXISTS by the time this runs - creating and deleting

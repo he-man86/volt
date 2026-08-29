@@ -389,13 +389,21 @@ public static class PushService
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
 
         var mutated = false;
+        var name = ide.Name(pou);
+
+        // Re-resolving the POU costs a FULL PROJECT WALK, so only pay it where a create actually invalidates
+        // the handle. The loop used to pay it after every mutation on both vendors - 19 walks for a 20-member
+        // POU - because it assumed the worse case for both. The driver states which case it is.
+        ItemRef Owner()
+        {
+            if (!mutated || ide.HandlesSurviveStructureChange) return pou;
+            return pou = ItemLookup.Find(ide, name) ?? pou;
+        }
+
         foreach (var m in pushed.Members)
         {
             if (have.Contains(m.Name)) continue;
-            // Re-resolve the POU each time: the PREVIOUS create may have invalidated the handle, which is the
-            // bug an earlier version of this loop shipped by hoisting the lookup out of it.
-            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
-            ide.CreateChild(TreeNav.ResolveFolder(ide, owner, m.Folder),
+            ide.CreateChild(TreeNav.ResolveFolder(ide, Owner(), m.Folder),
                             m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m));
             mutated = true;
         }
@@ -403,8 +411,7 @@ public static class PushService
         foreach (var m in live.Members)
         {
             if (want.Contains(m.Name)) continue;
-            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
-            ide.Delete(owner, m.Name);
+            ide.Delete(Owner(), m.Name);
             mutated = true;
         }
 
@@ -416,14 +423,15 @@ public static class PushService
         {
             if (m.Kind is not (ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)) continue;
             var isInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
-            var prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, owner, m.Folder), m.Name);
+            var prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, Owner(), m.Folder), m.Name);
             if (prop is null) continue;   // the member create refused; that error is the caller's to surface
 
             mutated |= ReconcileAccessor(ide, prop.Value, "Get",
                                          isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
 
-            if (mutated) prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, ItemLookup.Find(ide, ide.Name(pou)) ?? pou, m.Folder), m.Name);
+            // Re-find the PROPERTY only where the accessor create just invalidated it.
+            if (mutated && !ide.HandlesSurviveStructureChange)
+                prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, Owner(), m.Folder), m.Name);
             if (prop is null) continue;
 
             mutated |= ReconcileAccessor(ide, prop.Value, "Set",

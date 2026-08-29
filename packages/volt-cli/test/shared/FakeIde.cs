@@ -259,6 +259,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <summary>Modelled the way CODESYS answers it — by looking at the accessor children the fake holds.
     /// The fake is a DRIVER stand-in, so it answers the question a driver answers, not the one the engine
     /// wishes it could ask.</summary>
+    /// <summary>Defaults to FALSE — the stricter vendor (TwinCAT), where a create kills every handle — so a
+    /// test that does not think about it exercises the re-find path rather than the shortcut. Settable, so the
+    /// CODESYS shape can be asserted too.</summary>
+    public bool HandlesSurviveStructureChange { get; set; }
+
     public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
     {
         bool get = false, set = false;

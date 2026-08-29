@@ -138,6 +138,9 @@ public sealed partial class CodesysDriver
         return (get, set);
     }
 
+    /// <summary>Live scripting objects: adding or removing a child does not disturb a handle to its parent.</summary>
+    public bool HandlesSurviveStructureChange => true;
+
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
     public void Move(ItemRef item, ItemRef target) => _om.Move(item.Native, target.Native);
 
@@ -153,3 +156,5 @@ public sealed partial class CodesysDriver
         return CodesysTypeMap.CodeForObject(ifaces, false, _om.GetName(node), decl);
     }
 }
+
+

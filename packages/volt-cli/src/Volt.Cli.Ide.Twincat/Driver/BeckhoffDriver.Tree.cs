@@ -176,6 +176,9 @@ public sealed partial class BeckhoffDriver
         return (get, set);
     }
 
+    /// <summary>A member is not a separate file here, so placing one round-trips the enclosing POU through its own archive and the import REPLACES the item (DIALECT D4d/D4j) - every handle into it dies.</summary>
+    public bool HandlesSurviveStructureChange => false;
+
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 
     /// <summary>Relocate an item, whole. TwinCAT has no <c>Move</c> member on its tree item — the dispatch

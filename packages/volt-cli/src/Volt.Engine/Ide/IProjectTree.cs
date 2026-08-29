@@ -50,6 +50,18 @@ public interface IProjectTree
     /// language for an interface member because that is what the parameter asked for, so every interface
     /// property create failed. <see cref="Member.ReturnType"/> and <see cref="Member.DataType"/> exist to
     /// supply the other half and had no reader at all.</para></summary>
+    /// <summary>Does a handle into this project SURVIVE creating or deleting one of its children?
+    ///
+    /// <para>On CODESYS yes: the scripting objects are live, and adding a method does not disturb a handle to the
+    /// POU. On TwinCAT NO — a member is not a separate file there, so placing one is a round trip through the
+    /// enclosing POU's own archive and the import REPLACES the item (DIALECT D4d/D4j); the next write through
+    /// the captured handle fails with "Unbound tree item", which is how it surfaced, on 40-odd e2e tests at once.
+    ///
+    /// <para>Stated here because the reconciler used to assume the WORSE case for both, re-finding the POU from
+    /// the tree root after every single create. For a POU with 20 members that is 19 FULL PROJECT WALKS that
+    /// CODESYS never needed — the cost of one vendor's quirk, charged to both.</para></summary>
+    bool HandlesSurviveStructureChange { get; }
+
     ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null);
 
     /// <summary>Which accessors an INTERFACE property actually has, as (Get, Set).
