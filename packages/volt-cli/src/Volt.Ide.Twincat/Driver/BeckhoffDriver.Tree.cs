@@ -66,7 +66,16 @@ public sealed partial class BeckhoffDriver
                 unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
                 continue;
             }
-            int itemType = ClassifiedKind(child);
+            // Classification faults where every other read in this loop does - and is recorded the same way, so
+            // absence under this folder stops meaning "deleted". It used to be swallowed one layer down.
+            int itemType;
+            try { itemType = ClassifiedKind(child); }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"walk: kind unreadable for '{name}' at folder='{folderPath}': {ex.Message}");
+                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                continue;
+            }
 
             // A plain folder OR a container-manager (library / recipe / visualization manager) is a FOLDER, not a
             // file: recurse its children under a folder named after it, emit no item for the container itself.

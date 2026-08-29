@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -111,5 +111,95 @@ public class TcRoundTripTests
     {
         var before = Body(fixture);
         Assert.Null(TcNetworkWriter.Apply(before, TextDerivedModel(before)));
+    }
+
+    /// <summary>MEMBER PLACEMENT MUST PRODUCE A FILE TWINCAT CAN OPEN — and this is the one path where getting
+    /// that wrong is unrecoverable.
+    ///
+    /// <para><c>MoveMember</c> relocates a member by exporting the POU, DELETING it from the project, and
+    /// re-importing the rewritten archive. Between those two steps the archive is the ONLY copy of the item, and
+    /// the rollback re-imports the same bytes — so if the rewrite produces something unopenable, the move AND
+    /// its undo fail on the identical cause. Nothing covered this path at all.</para>
+    ///
+    /// <para>It serialized through a plain <c>StringWriter</c>, which makes <c>XDocument.Save</c> declare
+    /// <c>encoding="utf-16"</c>, and the caller then wrote those characters as UTF-8 — a declaration that
+    /// contradicts its own bytes, which is exactly what a reader refuses.</para></summary>
+    [Fact]
+    public void A_placed_member_is_written_as_valid_UTF8_XML()
+    {
+        var node = new PouNode(File.ReadAllText(Fixture("ITF1.TcIO")));
+
+        TcItemArchive.MoveMember(node, "ITF1", "METH", "Helpers");
+
+        var written = node.LastImported;
+        Assert.NotNull(written);
+        Assert.DoesNotContain("utf-16", written, StringComparison.OrdinalIgnoreCase);
+
+        // The thing the IDE does with it, and the thing that failed.
+        var ex = Record.Exception(() => XDocument.Parse(written!));
+        Assert.True(ex is null, "a placed member left the archive unparseable: " + ex?.Message);
+
+        // …and it actually did the job it was asked to do.
+        Assert.Contains("FolderPath=\"Helpers", written);
+    }
+
+    /// <summary>A stand-in for the POU's tree node, carrying REAL vendor bytes through the export/import round
+    /// trip so the archive handling is genuinely exercised. Public because <c>dynamic</c> binds against the
+    /// driver assembly's accessibility, not this one's.</summary>
+    public sealed class PouNode
+    {
+        private readonly string _content;
+        public PouNode(string content) { _content = content; }
+        public string? LastImported { get; private set; }
+
+        public void ExportChild(string name, string zipPath)
+        {
+            using var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create);
+            var entry = zip.CreateEntry($"POUs/{name}.TcPOU");
+            using var w = new StreamWriter(entry.Open());
+            w.Write(_content);
+        }
+
+        public void DeleteChild(string name) { }
+
+        public void ImportChild(string zipPath, object? before, bool reconnect, object? name)
+        {
+            using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
+            using var r = new StreamReader(zip.Entries[0].Open());
+            LastImported = r.ReadToEnd();
+        }
+    }
+
+    /// <summary>A FAULTED CLASSIFICATION MUST NOT LOOK LIKE AN ITEM WITH NO KIND.
+    ///
+    /// <para><c>TcObjectModel.ItemType</c> swallowed every COM fault and answered <c>ItemKind.Unknown</c>. Its
+    /// comment claimed "an unreadable node is skipped, never phantom-emitted" - nothing skipped it. The walk
+    /// emitted the item with kind -2, nothing was appended to <c>unwalked</c>, so <c>WalkResult.Complete</c>
+    /// stayed TRUE, <c>FetchService</c> did not suppress deletions, and the pull DELETED the engineer's file for
+    /// an item sitting in the IDE - the exact failure <c>WalkResult</c> exists to prevent.</para>
+    ///
+    /// <para>It also disarmed two engine guards from below: <c>ItemLookup.Find</c> ("Refusing to report it as
+    /// absent") returned null so a push CREATED an item that already exists, and <c>MemberSites.Of</c> ("No
+    /// catch, deliberately") dropped a member so the next push DELETED it from the IDE. Every sibling read in
+    /// the same loop lets its fault out; this one is the exception, and CODESYS's counterpart has no catch at
+    /// all.</para>
+    ///
+    /// <para>A <c>dynamic</c> double is the whole contract here, exactly as <c>TcItemArchiveTests</c> does it:
+    /// a node whose <c>ItemType</c> throws must make the read THROW, not answer a kind.</para></summary>
+    [Fact]
+    public void A_faulted_ItemType_throws_rather_than_answering_a_kind()
+    {
+        var om = new TcObjectModel();
+
+        var ex = Record.Exception(() => om.ItemType(new FaultingNode()));
+
+        Assert.NotNull(ex);   // it answered ItemKind.Unknown instead, and the walk emitted a phantom
+    }
+
+    /// <summary>A node whose ItemType read faults - the COM behaviour the driver must not paper over.
+    /// PUBLIC because `dynamic` binds against the CALL SITE's assembly, which is the driver's.</summary>
+    public sealed class FaultingNode
+    {
+        public int ItemType => throw new InvalidOperationException("COM fault reading ItemType");
     }
 }

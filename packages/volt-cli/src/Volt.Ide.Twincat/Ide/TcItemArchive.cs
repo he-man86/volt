@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -160,6 +160,14 @@ internal static class TcItemArchive
         File.Move(rebuilt, zip);
     }
 
+    /// <summary>A StringWriter that says UTF-8, because <see cref="XDocument.Save(System.IO.TextWriter)"/>
+    /// writes whatever encoding its writer declares - and a plain StringWriter declares UTF-16 while the caller
+    /// then writes UTF-8 bytes.</summary>
+    private sealed class Utf8StringWriter : System.IO.StringWriter
+    {
+        public override System.Text.Encoding Encoding => new System.Text.UTF8Encoding(false);
+    }
+
     private static bool TryPlace(ref string tcPou, string memberName, string folderPath)
     {
         var doc = XDocument.Parse(tcPou);
@@ -180,13 +188,24 @@ internal static class TcItemArchive
             member.SetAttributeValue("FolderPath", string.Join(Sep, segments) + Sep);
         }
 
-        // Serialize WITH the XML declaration. `ToString()` drops it, which the no-op identity test caught:
-        // a document written back without its declaration differs from the one the IDE wrote, so a move
-        // rewrote the file even when nothing about it had changed. This used to call the PLCopen layer's
-        // serializer; that layer is gone, and this is a `.TcPOU` document rather than a PLCopen one anyway.
-        using (var sw = new System.IO.StringWriter())
+        // Serialize WITH the XML declaration, and AS UTF-8, and WITHOUT re-indenting.
+        //
+        // This used a plain StringWriter, and every one of those three went wrong. `XDocument.Save` takes its
+        // declared encoding from the writer, and a StringWriter is UTF-16 - so it emitted
+        // `<?xml version="1.0" encoding="utf-16"?>` and the caller then wrote those characters out as UTF-8. A
+        // declaration that contradicts the bytes is exactly what a reader refuses: "There is no Unicode byte
+        // order mark. Cannot switch to Unicode."
+        //
+        // WHY THAT WAS THE WORST PLACE FOR IT: `RoundTrip` DELETES the item from the project before importing
+        // this archive back, so for that window this text is the ONLY copy - and the rollback re-imports the
+        // same bytes, so the move and its undo failed on the identical cause. It is the same class of failure
+        // that already made twenty .TcPOU files unopenable once.
+        //
+        // `SaveOptions.None` also re-indented the whole vendor document; `DisableFormatting` keeps every byte we
+        // were not asked to touch.
+        using (var sw = new Utf8StringWriter())
         {
-            doc.Save(sw, SaveOptions.None);
+            doc.Save(sw, SaveOptions.DisableFormatting);
             tcPou = sw.ToString();
         }
         return true;

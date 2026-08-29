@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -86,9 +86,19 @@ internal sealed partial class TcObjectModel
     public object Parent(object node) => (object)((dynamic)node).Parent;
     public string GetName(object node) => (string)((dynamic)node).Name ?? "";
 
-    // TwinCAT's native ItemType IS the vendor-neutral code. A read failure returns ItemKind.Unknown (not 0
-    // — that's the real SystemRoot code), so an unreadable node is skipped, never phantom-emitted.
-    public int ItemType(object node) { try { return (int)((dynamic)node).ItemType; } catch { return ItemKind.Unknown; } }
+    // TwinCAT's native ItemType IS the vendor-neutral code.
+    //
+    // NO CATCH. This swallowed every COM fault and answered ItemKind.Unknown, with a comment claiming "an
+    // unreadable node is skipped, never phantom-emitted" - and nothing skipped it. The walk emitted the item
+    // with kind -2, nothing reached `unwalked`, so WalkResult.Complete stayed TRUE, FetchService did not
+    // suppress deletions, and a pull DELETED the engineer's file for an item sitting in the IDE.
+    //
+    // It also disarmed two engine guards FROM BELOW, both of which are careful for exactly this reason:
+    // ItemLookup.Find ("Refusing to report it as absent") returned null, so a push CREATED an item that already
+    // exists; and MemberSites.Of ("No catch, deliberately") dropped a member, so the next push DELETED it.
+    // CODESYS's KindCodeOf has no catch either. The fault belongs to the WALK, which records it as an unwalked
+    // subtree - a signal the engine can act on, unlike a kind nobody can distinguish from a real one.
+    public int ItemType(object node) => (int)((dynamic)node).ItemType;
 
     public object CreateChild(object parent, string name, int kindCode, string? language = null)
     {

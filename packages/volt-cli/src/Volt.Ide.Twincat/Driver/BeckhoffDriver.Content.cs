@@ -70,7 +70,10 @@ public sealed partial class BeckhoffDriver
 
         if (TcArchive.Root(raw) is { } impl)
         {
-            var model = TcNetworkReader.Read(impl, ViewModeOf(impl));
+            var language = ViewModeOf(impl);
+            if (language is null) return BodyMarker.For("IL");
+
+            var model = TcNetworkReader.Read(impl, language.Value);
             var text = NetworkTextWriter.Write(model).Trim();
             return text.Length == 0 ? null : text;
         }
@@ -87,13 +90,25 @@ public sealed partial class BeckhoffDriver
     /// <summary>FBD or LD, from the archive's <c>DefaultViewMode</c>. IL is the same network model in a third
     /// view; Volt does not author it, so it is refused rather than re-rendered as a diagram the engineer did
     /// not write.</summary>
-    private static BodyLanguage ViewModeOf(XElement impl)
+    private static BodyLanguage? ViewModeOf(XElement impl)
     {
         var mode = TcArchive.ViewMode(impl) ?? "Fbd";
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
+
+        // NULL means "a view Volt does not author" - IL, today - and the caller turns that into the MARKER,
+        // exactly as CODESYS does. Throwing here instead took the WHOLE ENCLOSING POU out of git: SafeVersion
+        // swallows the throw to UNREADABLE and FetchService then skips the item, so one IL-view METHOD inside an
+        // ordinary ST function block removed the declaration, the body and every sibling method too - and
+        // PushService's `live = ide.ReadContent(pou)` threw, so it could not be pushed back either.
+        //
+        // This is the CODESYS fix (audit defect #4, eaacd48cd3) reaching its TwinCAT twin. Both vendors must
+        // answer identically for the same project, and this is the same fact on the same object model.
+        if (mode.Equals("IL", StringComparison.OrdinalIgnoreCase)) return null;
+
         throw new NotSupportedException(
-            $"TwinCAT: the graphical body's view mode is '{mode}'. Volt authors FBD and LD only.");
+            $"TwinCAT: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
+            "authored, IL materializes as a marker - an unknown fourth view is refused rather than guessed at.");
     }
 
     /// <summary>The wrapper element of a non-NWL graphical body — <c>&lt;CFC&gt;</c>, <c>&lt;SFC&gt;</c> — or
@@ -216,7 +231,25 @@ public sealed partial class BeckhoffDriver
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
     {
         if (accessor is null) return;
-        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet) return;
+
+        // Refusing the WRITE is right (D21). Returning SILENTLY was not: the pull materializes an editable
+        // `GET ... END_GET` in the .itf file, StReader re-kinds it, `PushService.Same` marks it changed,
+        // `BodyFormatGuard` passes it, and the receipt bakes the pushed text into the client's baseline - so the
+        // engineer's edit is discarded and `volt status` then reports in sync. "Accepted but landed nothing" is
+        // the worst class there is.
+        //
+        // No COM read is needed to tell a change from a restatement: `ReadMember` builds an interface accessor
+        // as `new Accessor(null, null)` BY CONSTRUCTION, so anything non-blank pushed at one IS a change. This
+        // is the CODESYS fix (audit defect #11, eaacd48cd3) reaching its TwinCAT twin.
+        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet)
+        {
+            if (!string.IsNullOrWhiteSpace(accessor.Declaration) || !string.IsNullOrWhiteSpace(accessor.Body))
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
+                    "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
+                    "change in the IDE and pull.");
+            return;
+        }
 
         int n = ChildCount(property);
         for (int i = 1; i <= n; i++)
