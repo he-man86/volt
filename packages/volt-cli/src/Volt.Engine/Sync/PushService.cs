@@ -66,7 +66,7 @@ public static class PushService
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
         foreach (var op in request.Ops)
         {
-            try { applied.Add((ApplyOp(ide, parent, itemCache, op), op.Name)); }
+            try { applied.Add((ApplyOp(ide, parent, itemCache, op, request.Force), op.Name)); }
             catch (Exception ex)
             {
                 // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source line;
@@ -114,7 +114,7 @@ public static class PushService
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide, ItemRef parent,
-        Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op)
+        Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op, bool force)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
@@ -125,7 +125,7 @@ public static class PushService
         switch (op)
         {
             case SetItemOp set:
-                return ApplySetItem(ide, parent, name, existing, currentFolder, set);
+                return ApplySetItem(ide, parent, name, existing, currentFolder, set, force);
             case DeleteItemOp when existing is { } del:
                 // `ide.Name(del)`, NOT the wire `name`: `del` is the already-resolved handle, so this is the item's
                 // ACTUAL IDE name. itemCache resolves case-INSENSITIVELY while the drivers' child scan matches
@@ -150,7 +150,8 @@ public static class PushService
     /// <summary>Apply one unified change. A rename uses the IDE's native rename (rewrites call-sites) and
     /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
-    private static string ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string currentFolder, SetItemOp op)
+    private static string ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing,
+                                   string currentFolder, SetItemOp op, bool force)
     {
         if (op.SourceText is { } st && string.IsNullOrWhiteSpace(st))
             throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': sourceText is empty");
@@ -205,7 +206,10 @@ public static class PushService
         }
         if (op.SourceText is { } src)
         {
-            WriteItemFromSource(ide, parent, currentName, item, src, currentFolder); // content update in place
+            // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
+            // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
+            WriteItemFromSource(ide, parent, currentName, item, src, currentFolder,
+                                force ? null : op.IfVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
@@ -265,7 +269,8 @@ public static class PushService
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
     /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.</summary>
-    private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
+    private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing,
+                                        string src, string? folder, string? ifVersion = null)
     {
         var split = StReader.Read(src);
 
@@ -335,6 +340,30 @@ public static class PushService
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
             // must never be overwritten by a textual push, and a marker must not be written over one it can.
             live = ide.ReadContent(pou);
+
+            // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW.
+            //
+            // The per-item `ifVersion` gate runs once, in the pre-apply walk, and a real push then does a lot
+            // between that walk and this write: hash every item in the project, resolve conflicts, and apply
+            // every earlier op in the batch. An engineer working in the IDE the whole time can MOVE, DELETE or
+            // EDIT the very item we are about to overwrite inside that window, and the check that was supposed
+            // to protect them ran before they touched it.
+            //
+            // It costs NOTHING to close most of that: the version is a hash of the materialized text, and the
+            // content it is taken from is already in hand (`live`, read one line up for the format guard). No
+            // extra IDE round trip - just do not trust a reading that is now seconds old.
+            //
+            // This narrows the window; it cannot close it, because nothing here can hold the IDE still. What it
+            // guarantees is that an edit made before this line is never silently overwritten.
+            if (ifVersion is { } expected && expected != Versioning.Unreadable)
+            {
+                var now = Hasher.ComputeItemVersion(folder ?? "", StWriter.Write(live));
+                if (now != expected)
+                    throw new BridgeException(BridgeErrorCodes.BadRequest,
+                        $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite " +
+                        "it. Pull first, then push again.");
+            }
+
             BodyFormatGuard.RequireWritable(live, split);
         }
 
