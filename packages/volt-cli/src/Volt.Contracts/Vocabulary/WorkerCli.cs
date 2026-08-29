@@ -27,6 +27,10 @@ public static class WorkerCli
     /// from outside (a DTE command we can invoke) before anyone builds a VSIX to force it open.</para></summary>
     public const string ProbeInProc = "--probe-inproc";
 
+    /// <summary>One-shot, READ-ONLY: dump what ITcPlcImplementation / ITcPlcPou hand over for one POU -
+    /// <c>Language</c>, <c>ImplementationXml</c> and <c>DocumentXml</c>, none of which Volt currently uses.</summary>
+    public const string ProbePou = "--probe-pou";
+
     /// <summary>The ONE XAE window a worker owns, as <c>--xae-pid &lt;pid&gt;</c>. Required to serve.</summary>
     public const string XaePid = "--xae-pid";
 }

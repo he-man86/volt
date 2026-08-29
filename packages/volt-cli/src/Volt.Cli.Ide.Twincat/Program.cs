@@ -45,6 +45,81 @@ VoltLog.Init(Vendors.Twincat);
 //     has not been opened - not that the objects are unreachable.
 //
 // DO NOT enumerate DTE.Commands here. It was tried: thousands of cross-process marshalled calls, and it hangs.
+// `--probe-pou <name>`: READ-ONLY. Dump what ITcPlcImplementation / ITcPlcPou actually hand over for one POU.
+//
+// Volt uses ImplementationText and infers everything else. Beckhoff's own type library
+// (TCatSysManagerLib) says there is more on the same objects, and none of it is currently touched:
+//     ITcPlcImplementation : ImplementationText | ImplementationXml | Language
+//     ITcPlcPou            : DocumentXml (GET AND SET) | ReturnType
+// `Language` would replace sniffing DefaultViewMode out of the archive, and a settable `DocumentXml` is a
+// ONE-CALL write of a whole POU with its children - the property the PLCopen import had and the per-child
+// write path lost. This measures them instead of assuming, because the last time a TwinCAT shape was assumed
+// it produced twenty files the IDE could not open.
+foreach (var a in args)
+    if (a == WorkerCli.ProbePou)
+    {
+        string? want = null;
+        for (int i = 0; i < args.Length - 1; i++)
+            if (args[i] == WorkerCli.ProbePou) want = args[i + 1];
+        if (string.IsNullOrEmpty(want)) { Console.Error.WriteLine("probe-pou: give a POU name"); return 1; }
+
+        int rc = 0;
+        var t = new Thread(() =>
+        {
+            try
+            {
+                ComMessageFilter.Register();
+                RotInstances.TryEnumeratePids(out var pids);
+                if (pids.Count == 0) { Console.Error.WriteLine("probe-pou: no XAE"); rc = 1; return; }
+
+                var om = new TcObjectModel();
+                om.ConnectToPid(pids[0]);
+                om.SelectProject(null);          // whatever the window is serving
+                om.EnsureAttached();
+
+                var node = FindNamed(om, om.PlcRoot(), want!, 0);
+                if (node == null) { Console.Error.WriteLine($"probe-pou: '{want}' not found"); rc = 1; return; }
+
+                Console.WriteLine($"pou            : {want}");
+                Dump("Language", () => (string)((dynamic)node).Language);
+                Dump("ReturnType", () => (string)((dynamic)node).ReturnType);
+                Dump("ImplementationText", () => (string)((dynamic)node).ImplementationText);
+                Dump("ImplementationXml", () => (string)((dynamic)node).ImplementationXml);
+                Dump("DocumentXml", () => (string)((dynamic)node).DocumentXml);
+            }
+            catch (Exception ex) { Console.Error.WriteLine($"probe-pou: {ex.GetType().Name}: {ex.Message}"); rc = 1; }
+        });
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+        t.Join();
+        return rc;
+
+        static object? FindNamed(TcObjectModel om, object node, string name, int depth)
+        {
+            if (depth > 12) return null;
+            if (string.Equals(om.GetName(node), name, StringComparison.OrdinalIgnoreCase)) return node;
+            int n;
+            try { n = om.ChildCount(node); } catch { return null; }
+            for (int i = 1; i <= n; i++)
+            {
+                object child;
+                try { child = om.ChildAt(node, i); } catch { continue; }
+                var hit = FindNamed(om, child, name, depth + 1);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        static void Dump(string member, Func<string?> get)
+        {
+            string v;
+            try { v = get() ?? "(null)"; }
+            catch (Exception ex) { Console.WriteLine($"{member,-18} : UNAVAILABLE ({ex.GetType().Name})"); return; }
+            var oneLine = v.Replace("\r", "").Replace("\n", " ");
+            Console.WriteLine($"{member,-18} : {v.Length} chars | {(oneLine.Length > 150 ? oneLine.Substring(0, 150) + " ..." : oneLine)}");
+        }
+    }
+
 foreach (var a in args)
     if (a == WorkerCli.ProbeInProc)
     {
