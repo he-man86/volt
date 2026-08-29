@@ -260,7 +260,16 @@ public static class NetworkTextReader
             var node = ParseOperand(line);
             if (node is Box box)
             {
-                if (box.Kind != CallKind.FunctionBlock)
+                // An UNWIRED OPERATOR BOX is a real thing the IDE holds, and the text has to be able to say it.
+                // Measured in the vendor's own POU_PBD.TcPOU: an AND box whose OutputItems list holds a single
+                // NULL entry - one output slot, connected to nothing. It renders as `(FALSE AND FALSE);` and
+                // this arm then refused to read it back, so a POU the IDE was perfectly happy with could be
+                // pulled and never pushed.
+                //
+                // A positional FUNCTION call is still refused: `f(a, b)` as a statement means a call whose
+                // RESULT goes nowhere, which is an authoring mistake rather than a shape the IDE gave us. An
+                // FB instance binds its pins by name and legitimately stands alone.
+                if (box.Kind == CallKind.Function)
                     throw new NetworkTextException(
                         "a call statement must be a function-block instance with named pins "
                         + "(`inst(IN := a)`): " + line);

@@ -47,8 +47,15 @@ internal static class TcNetworkReader
         var flags = ReadFlags(TcArchive.FlagBits(e));
         switch (TcArchive.TypeOf(e))
         {
+            // A `BoxTreeOperand` has NO Flags member (DIALECT N4): an operand's modifiers - negation, SET/RESET,
+            // rising/falling - live on the `Operand` it holds. Taking `flags` from the ITEM therefore always
+            // yielded None, so a negated contact reached the workspace as a plain one. CODESYS puts them on the
+            // leaf because ITS item carries them; this is the same fact reached through the other spelling.
             case "BoxTreeOperand":
-                return new Leaf(ReadOperand(TcArchive.Obj(e, "Operand")), flags);
+            {
+                var operand = ReadOperand(TcArchive.Obj(e, "Operand"));
+                return new Leaf(operand, operand.Flags ?? flags);
+            }
 
             case "BoxTreeAssign":
                 return new Assign(
@@ -59,7 +66,7 @@ internal static class TcNetworkReader
             case "BoxTreeBox":
                 return new Box(
                     TcArchive.Str(e, "BoxType") ?? "",
-                    TcArchive.Obj(e, "Instance") is { } inst ? ReadOperand(inst) : null,
+                    InstanceOf(e),
                     CallKindOf(e),
                     TcArchive.List(e, "InputItems").Select(x => new Input(null, ReadNode(x), Flags.None)).ToList(),
                     Outputs(e),
@@ -137,6 +144,23 @@ internal static class TcNetworkReader
     private static CallKind CallKindOf(XElement e)
     {
         if (TcArchive.Str(e, "CallType") != null) return CallKind.Operator;
-        return TcArchive.Obj(e, "Instance") == null ? CallKind.Function : CallKind.FunctionBlock;
+        return InstanceOf(e) == null ? CallKind.Function : CallKind.FunctionBlock;
+    }
+
+    /// <summary>A box's FB instance, or null when it has none.
+    ///
+    /// <para><b>The PRESENCE of the member proves nothing.</b> The vendor writes an
+    /// <c>&lt;o n="Instance" t="Operand"&gt;</c> on EVERY box and spells emptiness inside it, as an explicit
+    /// <c>&lt;n n="Operand" /&gt;</c> null scalar - the same serializer writes real nulls that way everywhere,
+    /// so the element is never evidence of a value. Testing the member instead of the scalar made
+    /// <c>Instance</c> non-null for every box, so <c>NetworkTextWriter.Definition</c> took its instance arm for
+    /// anything outside the operator table and rendered the callee's NAME away:
+    /// <c>xoutput := ( := xtest,  := xtest2);</c> - unparseable, so the POU could never be pushed back. It also
+    /// made <c>CallKindOf</c> incapable of ever answering <c>Function</c>.</para></summary>
+    private static Operand? InstanceOf(XElement e)
+    {
+        var inst = TcArchive.Obj(e, "Instance");
+        if (inst == null) return null;
+        return TcArchive.Str(inst, "Operand") == null ? null : ReadOperand(inst);
     }
 }

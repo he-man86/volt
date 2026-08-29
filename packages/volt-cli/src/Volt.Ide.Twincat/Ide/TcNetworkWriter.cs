@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -102,8 +102,11 @@ internal static class TcNetworkWriter
 
         switch (n)
         {
+            // A `BoxTreeOperand` carries NO Flags member of its own (DIALECT N4) - an operand's modifiers live
+            // on the `Operand` it holds. So the LEAF's flags are written there, mirroring the read.
             case Leaf l when type == "BoxTreeOperand":
-                return changed | WriteOperand(e, "Operand", l.Operand);
+                return changed
+                     | WriteOperand(e, "Operand", l.Operand with { Flags = l.Flags });
 
             case Assign a when type == "BoxTreeAssign":
                 return changed
@@ -194,12 +197,24 @@ internal static class TcNetworkWriter
         return op == null ? false : WriteOperandInto(o, op);
     }
 
+    /// <summary>Write ONLY what the pushed model can actually carry.
+    ///
+    /// <para>This assigned six members unconditionally, from a model that on the push path is ALWAYS text-derived
+    /// - <c>NetworkTextGate.Validate</c> -> <c>NetworkTextReader</c>, which builds <c>new Operand(name)</c>.
+    /// Network text has no syntax for an operand's declared TYPE, its symbol COMMENT or its l-value marker, so
+    /// those fields arrive null/false for every operand of every network, and writing them ERASED the IDE's own
+    /// values. Measured on the vendor's own files: <c>Type: "BOOL" -> ""</c> on three operands of POU_PBD, and
+    /// <c>LValue: true -> false</c> on ladder.TcPOU - from a push that changed NOTHING.</para>
+    ///
+    /// <para>And it needed no body edit to happen: <c>PushService</c> sends the item's own body on every push, so
+    /// renaming a variable in the VAR block ran this over the whole program.</para>
+    ///
+    /// <para><b>Type, SymbolComment and LValue are the IDE's.</b> It resolves the type from the declaration, the
+    /// comment from the symbol, and the l-value marker from the operand's position in the tree. Volt neither
+    /// authors nor represents them, so it must not write them - reading them is the whole of its business here.
+    /// <c>IsInstance</c> is the same: which box is an FB call is the IDE's classification.</para></summary>
     private static bool WriteOperandInto(XElement o, Operand op) =>
         SetString(o, "Operand", op.Text)
-      | SetString(o, "Type", op.Type)
-      | SetString(o, "SymbolComment", op.Comment)
-      | SetBool(o, "LValue", op.IsLValue)
-      | SetBool(o, "IsInstance", op.IsInstance)
       | WriteFlags(o, op.Flags);
 
     /// <summary>Volt's flags as the vendor's bit-field, written into the <c>Flags</c> object the IDE already
