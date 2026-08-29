@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Xml.Linq;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine;
@@ -135,8 +136,46 @@ public sealed partial class BeckhoffDriver
     public string Name(ItemRef item) => _om.GetName(item.Native);   // never "" — the name is the wire identity
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => new(_om.CreateChild(parent.Native, name, kindCode, seed));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
+    /// <summary>Which accessors an INTERFACE property has, read from the PROPERTY'S OWN metadata XML rather
+    /// than by enumerating its accessor COM children — that enumeration can hard-crash TcXaeShell, which is the
+    /// whole reason this is a per-driver call instead of a tree walk the engine could do itself.
+    ///
+    /// <para><c>ProduceXml(recursive: true)</c> yields TwinCAT's <c>&lt;TreeItem&gt;</c> schema — NOT the
+    /// <c>TcPlcObject</c> file format — so the accessors appear as nested <c>&lt;TreeItem&gt;</c> nodes named
+    /// Get/Set, not as <c>&lt;Get/&gt;</c>/<c>&lt;Set/&gt;</c> elements. Measured: an interface's own XML lists
+    /// <c>ItemName, PathName, ItemType, ItemId, ChildCount, PlcItfDef, DeclarationExport, DocumentExport …</c>
+    /// and carries no property elements at all, which is why asking the interface found nothing.</para>
+    ///
+    /// <para>This replaces the PLCopen export the answer used to come from, and which went with that transport.
+    /// Without it an interface property round-trips with NO accessors: the pull writes a bare
+    /// <c>PROPERTY x : T END_PROPERTY</c> and the next push deletes the accessors the engineer actually has.</para></summary>
+    public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
+    {
+        var xml = _om.ProduceXml(property.Native, recursive: true);
+        if (string.IsNullOrWhiteSpace(xml))
+            throw new BridgeException(BridgeErrorCodes.NotFound,
+                $"TwinCAT: the property '{Name(property)}' produced no XML — refusing to report it has no " +
+                "accessors, which a push would then act on by deleting the ones it does have");
+
+        XElement root;
+        try { root = XElement.Parse(xml); }
+        catch (System.Xml.XmlException ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"TwinCAT: the property '{Name(property)}' produced XML that does not parse: {ex.Message}");
+        }
+
+        bool get = false, set = false;
+        foreach (var n in root.Descendants("ItemName"))
+        {
+            if (string.Equals(n.Value, "Get", StringComparison.OrdinalIgnoreCase)) get = true;
+            else if (string.Equals(n.Value, "Set", StringComparison.OrdinalIgnoreCase)) set = true;
+        }
+        return (get, set);
+    }
+
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 
     /// <summary>Relocate an item, whole. TwinCAT has no <c>Move</c> member on its tree item — the dispatch

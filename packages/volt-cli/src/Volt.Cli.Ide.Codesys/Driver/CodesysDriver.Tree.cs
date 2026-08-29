@@ -122,8 +122,22 @@ public sealed partial class CodesysDriver
     // it the null it deliberately maps 692 to.
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => new(_om.CreateChild(parent.Native, name, kindCode, seed));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
+    /// <summary>Enumerated directly — in-process CODESYS has no problem with it, unlike TwinCAT's COM.</summary>
+    public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
+    {
+        bool get = false, set = false;
+        int n = ChildCount(property);
+        for (int i = 1; i <= n; i++)
+        {
+            var code = KindCode(ChildAt(property, i));
+            if (code is ItemKind.PlcPropGet or ItemKind.PlcItfPropGet) get = true;
+            else if (code is ItemKind.PlcPropSet or ItemKind.PlcItfPropSet) set = true;
+        }
+        return (get, set);
+    }
+
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
     public void Move(ItemRef item, ItemRef target) => _om.Move(item.Native, target.Native);
 

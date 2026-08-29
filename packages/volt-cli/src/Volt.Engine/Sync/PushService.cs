@@ -396,7 +396,7 @@ public static class PushService
             // bug an earlier version of this loop shipped by hoisting the lookup out of it.
             var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
             ide.CreateChild(TreeNav.ResolveFolder(ide, owner, m.Folder),
-                            m.Name, ItemKind.MemberCode(m.Kind), NetworkText.LanguageOf(m.Body));
+                            m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m));
             mutated = true;
         }
 
@@ -408,8 +408,79 @@ public static class PushService
             mutated = true;
         }
 
+        // A property's ACCESSORS are children too, so they are reconciled here with everything else that is a
+        // child. They were briefly done in the drivers, on the reasoning that only a driver can ask which child
+        // is the SET; that is not so - the vendors both name them "Get" and "Set", which is what the original
+        // fix relied on, and doing it here is what lets the INTERFACE rule below be stated once.
+        foreach (var m in pushed.Members)
+        {
+            if (m.Kind is not (ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)) continue;
+            var isInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            var owner = mutated ? ItemLookup.Find(ide, ide.Name(pou)) ?? pou : pou;
+            var prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, owner, m.Folder), m.Name);
+            if (prop is null) continue;   // the member create refused; that error is the caller's to surface
+
+            mutated |= ReconcileAccessor(ide, prop.Value, "Get",
+                                         isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
+
+            if (mutated) prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, ItemLookup.Find(ide, ide.Name(pou)) ?? pou, m.Folder), m.Name);
+            if (prop is null) continue;
+
+            mutated |= ReconcileAccessor(ide, prop.Value, "Set",
+                                         isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
+        }
+
         return mutated;
     }
+
+    /// <summary>Make a property's GET or SET exist, or not, to match the pushed source. <b>Presence is the
+    /// object</b> - a null accessor means the source dropped it, and dropping it must DELETE it.
+    ///
+    /// <para>Creating one is what TwinCAT needs: it makes a property with no accessors, so a pushed
+    /// `GET ... END_GET` had nothing to be written into and the property came back empty. CODESYS makes both
+    /// with the property and exposes no call to add one later, so its driver refuses that create by name -
+    /// a documented divergence, not a fallback.</para>
+    ///
+    /// <para>Deleting one is what a silent no-op used to be: the source said GET only, the push was accepted,
+    /// and the SET stayed in the project running its old code.</para></summary>
+    private static bool ReconcileAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode,
+                                          Accessor? accessor)
+    {
+        // Ask the DRIVER whether it is there, never walk for it: enumerating an interface property's accessor
+        // children can hard-crash TcXaeShell, which is exactly why InterfacePropertyAccessors is a per-vendor
+        // call rather than a tree walk this could do itself.
+        var isItf = kindCode is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet;
+        bool exists;
+        if (isItf)
+        {
+            var (get, set) = ide.InterfacePropertyAccessors(property);
+            exists = kindCode == ItemKind.PlcItfPropGet ? get : set;
+        }
+        else exists = TreeNav.FindChild(ide, property, name) is not null;
+
+        if (accessor is null)
+        {
+            if (!exists) return false;
+            ide.Delete(property, name);
+            return true;
+        }
+        if (exists) return false;
+        ide.CreateChild(property, name, kindCode);
+        return true;
+    }
+
+    /// <summary>The one value a vendor wants when CREATING this member: the declared TYPE for an interface
+    /// member, the body LANGUAGE for everything else.
+    ///
+    /// <para>This is the read side of <see cref="Member.ReturnType"/> and <see cref="Member.DataType"/>, which
+    /// the ST reader has always filled and which nothing consumed — so every interface member was created with
+    /// a body language as its type, and TwinCAT answered "Object reference not set to an instance of an object"
+    /// for an interface PROPERTY. An interface member has no body, so the language it was being handed was
+    /// always null anyway: the two halves were never in competition.</para></summary>
+    private static string? CreateSeed(Member m) =>
+        m.Kind is ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty
+            ? m.ReturnType ?? m.DataType
+            : NetworkText.LanguageOf(m.Body);
 
     private static int PouKindToCode(string kind) => kind switch
     {

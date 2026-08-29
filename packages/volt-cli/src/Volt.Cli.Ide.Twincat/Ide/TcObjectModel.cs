@@ -210,8 +210,13 @@ internal sealed partial class TcObjectModel
         if (implementation != null) n.ImplementationText = implementation;
     }
 
-    /// <summary>The item's raw item-metadata XML (ProduceXml), or "" if it produces none.</summary>
-    public string ProduceXml(object node) => (string)((dynamic)node).ProduceXml() ?? "";
+    /// <summary>The item's own XML, as TwinCAT itself would save it.
+    /// <para><paramref name="recursive"/> is load-bearing and easy to miss: <c>ProduceXml()</c> with no
+    /// argument returns the item's METADATA only, with none of its children — so an interface came back
+    /// without the <c>&lt;Property&gt;</c> elements that carry the accessors, and the accessor read had
+    /// nothing to find. <c>ProduceXml(true)</c> is the whole object, children included.</para></summary>
+    public string ProduceXml(object node, bool recursive = false) =>
+        (string)((dynamic)node).ProduceXml(recursive) ?? "";
 
     // ── PLCopen XML transport ───────────────────────────────────────
     // ExportPouXml / ImportPlcOpenXml lived here and are DELETED with the PLCopen transport. The import

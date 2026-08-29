@@ -42,7 +42,27 @@ public interface IProjectTree
     /// <summary>The item's vendor-neutral kind code (see <c>ItemKind</c>).</summary>
     int KindCode(ItemRef item);
 
-    ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null);
+    /// <summary>Create a child. <paramref name="seed"/> is the ONE value the vendor wants at creation time, and
+    /// WHICH value that is depends on the kind: the body LANGUAGE for a POU or a POU member, and the declared
+    /// TYPE for an interface member (TwinCAT's <c>CreateChild</c> takes it as <c>vInfo</c>, and a null there
+    /// fails with "Object reference not set to an instance of an object").
+    /// <para>This used to be called <c>language</c>, which is how the bug arrived: the engine passed a body
+    /// language for an interface member because that is what the parameter asked for, so every interface
+    /// property create failed. <see cref="Member.ReturnType"/> and <see cref="Member.DataType"/> exist to
+    /// supply the other half and had no reader at all.</para></summary>
+    ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null);
+
+    /// <summary>Which accessors an INTERFACE property actually has, as (Get, Set).
+    ///
+    /// <para>It needs a per-vendor answer because the obvious one is unsafe: enumerating an interface property's
+    /// accessor COM children can HARD-CRASH TcXaeShell. CODESYS enumerates them in-process quite happily;
+    /// TwinCAT reads presence out of the enclosing interface's own XML instead, where a property carries its
+    /// <c>&lt;Get&gt;</c>/<c>&lt;Set&gt;</c> elements directly.</para>
+    ///
+    /// <para>This existed before, answered off the PLCopen export, and went with it. Without it an interface
+    /// property round-trips with NO accessors — the pull writes a bare <c>PROPERTY x : T END_PROPERTY</c> and
+    /// the next push deletes the accessors the engineer actually has.</para></summary>
+    (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property);
     void Delete(ItemRef parent, string name);
     void Rename(ItemRef item, string newName);
 

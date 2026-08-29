@@ -256,10 +256,31 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ItemRef GetPlcProjectRoot() => Ref(PlcRootName);
     public ItemRef GetTreeRoot() => Ref(TreeRootName);
     public ItemRef Parent(ItemRef item) => Ref("<root>");
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null)
+    /// <summary>Modelled the way CODESYS answers it — by looking at the accessor children the fake holds.
+    /// The fake is a DRIVER stand-in, so it answers the question a driver answers, not the one the engine
+    /// wishes it could ask.</summary>
+    public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
+    {
+        bool get = false, set = false;
+        int n = ChildCount(property);
+        for (int i = 1; i <= n; i++)
+        {
+            var name = Name(ChildAt(property, i));
+            if (string.Equals(name, "Get", StringComparison.OrdinalIgnoreCase)) get = true;
+            else if (string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase)) set = true;
+        }
+        return (get, set);
+    }
+
+    /// <summary>The seed each create was given — the body language, or an interface member's declared TYPE.
+    /// Recorded because passing the wrong one is invisible until a live IDE rejects it.</summary>
+    public Dictionary<string, string?> CreatedSeeds { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         Recorded.Add($"create:{name}");
         CreatedKinds[name] = kindCode;
+        CreatedSeeds[name] = seed;
         // A real IDE's created object EXISTS the moment CreateChild returns: it is walkable, readable, and
         // EXPORTABLE — measured on CODESYS 3.5.21.40, where a just-created POU already carries an
         // <InterfaceAsPlainText> and a <body>. The fake used to record the call and nothing more, so a create

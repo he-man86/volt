@@ -51,8 +51,11 @@ public sealed partial class BeckhoffDriver
                     "is the push service's job, and writing through a missing one would land nothing");
 
             WriteOne(target, m.Kind, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, m.Body);
-            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter);
-            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter);
+            // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing
+            // the POU code for an interface property would make the crash guard in WriteAccessor unreachable.
+            var itfProp = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
+            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
         }
     }
 
@@ -188,7 +191,17 @@ public sealed partial class BeckhoffDriver
         var kind = ItemKind.Map(site.Code) ?? ItemKind.Kinds.Method;
 
         Accessor? getter = null, setter = null;
-        if (site.Code is ItemKind.PlcProp or ItemKind.PlcItfProp)
+        if (site.Code == ItemKind.PlcItfProp)
+        {
+            // An INTERFACE property's accessors are read WITHOUT touching them: enumerating their COM children
+            // can hard-crash TcXaeShell, so presence comes from the enclosing interface's own XML. They are
+            // bodiless by definition - an interface accessor declares that a getter/setter exists and nothing
+            // more - so presence IS the whole object, and an empty Accessor is the right one to hand back.
+            var (hasGet, hasSet) = InterfacePropertyAccessors(site.Ref);
+            if (hasGet) getter = new Accessor(null, null);
+            if (hasSet) setter = new Accessor(null, null);
+        }
+        else if (site.Code == ItemKind.PlcProp)
         {
             int n = ChildCount(site.Ref);
             for (int i = 1; i <= n; i++)
@@ -229,26 +242,27 @@ public sealed partial class BeckhoffDriver
         return null;
     }
 
-    /// <summary>Write a property's GET or SET - or REMOVE it when the pushed source dropped it.
+    /// <summary>Write a property's GET or SET. The accessor EXISTS by the time this runs - creating and deleting
+    /// one is <c>PushService.ReconcileAccessor</c>'s job, with every other child - so a null here means only
+    /// "nothing to write", never "remove it".
     ///
-    /// <para><b>The removal is not the push service's job, unlike a member's.</b> An accessor is not in the
-    /// member SET: it is a field of the member (<c>Getter</c>/<c>Setter</c>), and it is identified by its KIND
-    /// CODE rather than by a name the engine could reconcile. Only the driver can ask the object model which
-    /// child is the SET. So this stays here, and the danger that made member removal delicate does not apply -
-    /// the match is on the exact accessor code, never on "everything under the property".</para>
-    ///
-    /// <para>Before this, dropping an accessor was a silent NO-OP: the source said GET only, the push was
-    /// accepted, and the SET stayed in the project. A push that reports success and leaves the old code running
-    /// is the failure this transport exists to prevent.</para></summary>
+    /// <para><b>An INTERFACE property accessor is a bodiless stub and must never be written to.</b> It declares
+    /// that a getter/setter exists and nothing more. TwinCAT COM rejects a declaration/implementation write on
+    /// one and can HARD-CRASH the IDE (RPC 0x800706BE), on read as well as write - measured, and the reason the
+    /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
+    /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
+    /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
     {
+        if (accessor is null) return;
+        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet) return;
+
         int n = ChildCount(property);
         for (int i = 1; i <= n; i++)
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            if (accessor is null) Delete(property, Name(child));
-            else WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body);
+            WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body);
             return;
         }
     }
