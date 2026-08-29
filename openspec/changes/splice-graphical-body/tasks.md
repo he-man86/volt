@@ -498,3 +498,41 @@ by the user, in their own project, not by a test.
 - **CODESYS never needed this gate** and still does not: it hands over typed objects, so there is no
   serialization to reproduce. That asymmetry is why the risk was invisible from the CODESYS side, and it is a
   load-bearing one — see `DIALECT.md`.
+
+## 11. The in-proc spike — measured 2026-08-29
+
+**The object model is the same. Measured, not assumed.** Reflecting over both vendors' shipped
+`NWLObject.dll` — `C:\TwinCAT\3.1\Components\Plc\Common\` (3.5.13.0) and
+`C:\Program Files\CODESYS 3.5.18.30\CODESYS\Common\` (4.1.0.0):
+
+| interface | TwinCAT | CODESYS | |
+|---|---|---|---|
+| `INetwork` | 27 members | 27 | identical |
+| `IBoxTree` | 6 | 6 | identical |
+| `IOperand` | 17 | 17 | identical |
+| `IFlags` | 18 | 18 | identical |
+| `IBoxTreeVisitor` | 3 | 3 | identical |
+| `IOutputItemList` | 5 | 5 | identical |
+| `IBoxTreeDemux` | 5 | 5 | identical |
+
+59 vs 61 types. The whole difference across the two assemblies is `IPLCopenXMLAddDataProviderNWL`
+and `IPLCopenXMLAddDataReaderNWL`, which only CODESYS has and which died with the PLCopen transport.
+Despite a two-major-version gap, **nothing Volt's model touches differs**. TwinCAT also ships
+`NWLObject.plugin.dll` (the concrete types), `ScriptEngine.dll` and IronPython 2.7.7.
+
+So `CodesysNetworkReader`/`CodesysNetworkWriter` — written against exactly these members through
+`NwlInterop` — port to TwinCAT as they stand. The `<XmlArchive>` Volt parses today is the
+serialization of objects that are already in the box.
+
+**What is still open is ACCESS, not the model.** TcXaeShell is 32-bit and hosts the .NET FRAMEWORK
+CLR, so an in-proc host must be net4x x86 — a sibling of `Volt.Cli.Ide.Codesys` (net48) over the
+shared `Volt.Engine`, never the net8/x64 worker.
+
+**A retracted claim, recorded so it is not repeated as fact.** An earlier pass reported "no 3S
+module is loaded in TcXaeShell, machine-wide" from `Process.Modules`. That method is UNSOUND across
+the WOW64 boundary: the same enumeration also fails to show `Microsoft.VisualStudio.Shell`, without
+which the shell cannot run. Absence there is not evidence of absence. Settling access needs code
+INSIDE the process reporting `AppDomain.CurrentDomain.GetAssemblies()`.
+
+Dead end, so it is not retried: enumerating `DTE.Commands` out-of-process hangs — thousands of
+marshalled cross-process calls.
