@@ -86,7 +86,7 @@ public class NetworkTextRoundTripTests
                             Array.Empty<Operand>(), null, null, Flags.None),
                     new[] { new Operand("out") },
                     Flags.None),
-            }, Array.Empty<Operand>()),
+            }),
         });
 
         var written = NetworkTextWriter.Write(body);
@@ -95,48 +95,69 @@ public class NetworkTextRoundTripTests
         Assert.Contains("out := (a AND i1);", written);
     }
 
-    /// <summary>A node network text cannot render must THROW, never render as nothing.
+    /// <summary>FAN-OUT ROUND-TRIPS. One wire feeding two consumers is the vendor's `BoxTreeDemux`, and the
+    /// format spells it `LET g&lt;VarId&gt; := producer;` with every consumer naming it (network-text.md §5).
     ///
-    /// <para>THE BUG (found by audit, 2026-08-29): `Render`'s `default:` returned "". A `Demux` - the vendor's
-    /// fan-out item, and the 4th most common item in the one real ladder project ever surveyed (573 across 36
-    /// POUs) - has no arm, so a branch off a gate output PULLED as `out := ( AND b);` plus a stray `;`. The wire
-    /// was silently gone, `volt status` reported clean, and the resulting file no longer parsed, so it could
-    /// never be pushed back either. No test caught it because every network-text test round-trips
-    /// text -> model -> text, and the text reader never builds a Demux - so nothing ever handed the writer one.
-    /// That is the gap this test closes: it builds the model DIRECTLY.</para></summary>
+    /// <para>THE BUG this pins (audit, 2026-08-29): the writer had no `Demux` arm and fell to
+    /// `default: return ""`, so a branch off a gate output PULLED as `out := ( AND b);` — the wire silently
+    /// gone, `volt status` clean, and the file then unparseable so it could never be pushed back. 573 of these
+    /// in the one real ladder project surveyed. No test caught it because every test round-tripped
+    /// text -> model -> text and the reader never built a Demux; this one builds the model DIRECTLY, which is
+    /// the shape the live IDE hands over.</para></summary>
     [Fact]
-    public void A_node_the_text_format_cannot_render_throws_instead_of_rendering_nothing()
+    public void A_fan_out_wire_renders_as_a_named_LET_and_its_references_name_it()
     {
-        var body = new NetworkBody(BodyLanguage.Ld, new[]
-        {
-            new Network(0, null, null, null, false,
-                        new Node[] { new Demux(24, new Leaf(new Operand("bEnable"), Flags.None), Flags.None) },
-                        Array.Empty<Operand>()),
-        });
+        var wire = new Demux(7, new Box("AND", null, CallKind.Operator,
+                                        new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                                                new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                                        Array.Empty<Operand>(), null, null, Flags.None),
+                             Flags.None);
 
-        var ex = Assert.Throws<NotSupportedException>(() => NetworkTextWriter.Write(body));
-        Assert.Contains("Demux", ex.Message);
-        Assert.Contains("no form", ex.Message);
-    }
-
-    /// <summary>And the same at operand position, where the empty string was even quieter - it produced
-    /// `( AND b)` rather than a visible stray statement.</summary>
-    [Fact]
-    public void An_unrenderable_node_inside_an_expression_throws_too()
-    {
-        var body = new NetworkBody(BodyLanguage.Ld, new[]
+        var body = new NetworkBody(BodyLanguage.Fbd, new[]
         {
             new Network(0, null, null, null, false, new Node[]
             {
-                new Assign(
-                    new Box("AND", null, CallKind.Operator,
-                            new[] { new Input(null, new Demux(24, null, Flags.None), Flags.None),
-                                    new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                            Array.Empty<Operand>(), null, null, Flags.None),
-                    new[] { new Operand("out") }, Flags.None),
-            }, Array.Empty<Operand>()),
+                wire,
+                new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
+                new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out2") }, Flags.None),
+            }),
         });
 
-        Assert.Throws<NotSupportedException>(() => NetworkTextWriter.Write(body));
+        var text = NetworkTextWriter.Write(body);
+
+        Assert.Contains("LET g7 := (a AND b);", text);
+        Assert.Contains("out1 := g7;", text);
+        Assert.Contains("out2 := g7;", text);
+    }
+
+    /// <summary>And it comes back as a Demux, not as an assignment to an undeclared symbol — which is what the
+    /// reader used to build (a `SplitPoints` entry plus a plain `Assign` to the name), landing a real assignment
+    /// to `g7` in the project and leaving the POU uncompilable. The two halves of the model now agree.</summary>
+    [Fact]
+    public void A_named_fan_out_wire_reads_back_as_a_Demux_carrying_its_VarId()
+    {
+        var read = NetworkTextReader.Parse(
+            "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
+
+        var trees = read.Networks[0].Trees;
+        var def = Assert.IsType<Demux>(trees[0]);
+        Assert.Equal(7, def.VarId);
+        Assert.NotNull(def.Input);
+
+        foreach (var t in trees.Skip(1))
+        {
+            var use = Assert.IsType<Demux>(Assert.IsType<Assign>(t).Value);
+            Assert.Equal(7, use.VarId);
+            Assert.Null(use.Input);      // a REFERENCE carries no producer
+        }
+    }
+
+    /// <summary>And the whole thing is a fixed point: what the writer emits, the reader reads back, and the
+    /// writer emits identically. That is what makes pull -> push safe.</summary>
+    [Fact]
+    public void Fan_out_is_a_fixed_point_through_the_text()
+    {
+        var text = "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n";
+        Assert.Equal(text.Trim(), Round(text).Trim());
     }
 }

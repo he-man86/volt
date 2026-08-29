@@ -15,7 +15,7 @@ namespace Volt.Engine.Format.Network;
 /// <list type="bullet">
 /// <item><b>Topological ordering</b> — gone. Tree order is evaluation order; there is nothing to sort.</item>
 /// <item><b>Reference counting to decide inline-vs-name</b> — gone. A wire that fans out IS a
-/// <see cref="Network.SplitPoints"/> entry; everything else is nested in its consumer by construction. The old
+/// <see cref="Demux"/>; everything else is nested in its consumer by construction. The old
 /// writer counted uses across the whole network, then normalised operator output pins so a fan-out wire was not
 /// misread as single-use and wrongly inlined (which duplicated its box).</item>
 /// <item><b>The EN/ENO "into-sink" special case</b> — gone. An enabled box that feeds one sink is simply the
@@ -52,7 +52,9 @@ public static class NetworkTextWriter
             _sb = sb;
             _net = net;
             _lang = lang;
-            _wires = new HashSet<string>(net.SplitPoints.Select(s => s.Text), System.StringComparer.Ordinal);
+            // Every fan-out wire's name is reserved, so a minted temp can never shadow one.
+            _wires = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (var t in net.Trees) CollectWires(t, _wires);
             // A minted temp must never shadow a real declared identifier — an FB instance is the case that bites,
             // because it is a variable in the POU's VAR section AND appears in the body.
             _reserved = new HashSet<string>(System.StringComparer.Ordinal);
@@ -93,6 +95,18 @@ public static class NetworkTextWriter
                 case Box b: { var t = Definition(b); Flush(); Line(t + ";"); break; }
                 case Terminator t when t.Input is not null: Statement(t.Input); break;
                 case Terminator: break;
+
+                // A fan-out wire's DEFINITION. The vendor holds it as a `BoxTreeDemux` carrying the producer;
+                // the format spells it `LET g<VarId> := <producer>;` (docs/network-text.md §5) and every
+                // reference to it renders as the bare name. Both halves were missing, which is how 573 of these
+                // in one real project came back as `out := ( AND b);` with the wire silently gone.
+                case Demux d when d.Input is not null:
+                {
+                    var v = ApplyMods(Render(d.Input, nested: false), d.Flags);
+                    Flush();
+                    Line("LET " + WireName(d.VarId) + " := " + v + ";");
+                    break;
+                }
                 // Same rule at statement level: rendering an unknown node emitted a bare `;` line. Render()
                 // now throws for anything it has no form for, so this arm only ever sees nodes it can render.
                 default: { var t = Render(n, nested: false); Flush(); Line(t + ";"); break; }
@@ -121,6 +135,31 @@ public static class NetworkTextWriter
         /// anything else is a real l-value declared in the POU.</summary>
         private string Lhs(Operand target) =>
             _wires.Contains(target.Text) ? "LET " + target.Text : target.Text;
+
+        /// <summary>A fan-out wire's name is minted from its VarId, so the SAME wire keeps the same name across
+        /// a pull -> push round trip and the id the IDE holds survives it.</summary>
+        private static string WireName(int varId) => "g" + varId;
+
+        private static void CollectWires(Node? n, HashSet<string> into)
+        {
+            switch (n)
+            {
+                case Demux d:
+                    into.Add(WireName(d.VarId));
+                    CollectWires(d.Input, into);
+                    break;
+                case Assign a: CollectWires(a.Value, into); break;
+                case Box b:
+                    CollectWires(b.Enable, into);
+                    foreach (var p in b.Inputs) CollectWires(p.Value, into);
+                    break;
+                case Parallel p2:
+                    CollectWires(p2.Input, into);
+                    foreach (var br in p2.Branches) CollectWires(br, into);
+                    break;
+                case Terminator t: CollectWires(t.Input, into); break;
+            }
+        }
 
         private void EnabledAssign(Assign a, Box b)
         {
@@ -209,6 +248,10 @@ public static class NetworkTextWriter
                     _prelude.Add("LET " + name + " := " + text + ";");
                     return name;
                 }
+                // A REFERENCE to a fan-out wire: the bare name. A Demux carrying an input is the definition
+                // and is emitted as a statement, but it can also sit inline as its own consumer's source.
+                case Demux d: return ApplyMods(WireName(d.VarId), d.Flags);
+
                 case Box b: return ApplyMods(Definition(b), b.Flags);
                 case Parallel p:
                     return "(" + string.Join(p.Mode == ParallelMode.And ? " AND " : " OR ",

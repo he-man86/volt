@@ -22,7 +22,7 @@ namespace Volt.Engine.Format.Network;
 /// <para><b>A tree, not a graph.</b> The consequence runs through everything downstream: a tree cannot share a
 /// node, so the "one leaf feeding two consumers" shape that has no valid FBD form — and that crashed TwinCAT's
 /// importer — is unrepresentable rather than guarded against. Fan-out is explicit, through
-/// <see cref="Network.SplitPoints"/>.</para>
+/// a <see cref="Demux"/>, which is what the vendor holds.</para>
 ///
 /// <para><b>Structural equality is deliberately NOT relied upon.</b> These are records, but their collection
 /// members compare by reference. Compare rendered network text, never models — the same rule
@@ -41,20 +41,14 @@ public enum BodyLanguage { Fbd, Ld }
 /// by BOTH vendors' <c>INetwork</c> (`Title` / `Label` / `Comment` / `OutCommented`), measured on each. They
 /// were absent from the previous model because PLCopen carries none of the four — and worse, its export OMITS
 /// a disabled network entirely, which is how a disabled network could be dropped from a running program. The
-/// fields are not a TwinCAT extra; PLCopen was the lossy party.</para>
-/// <para><see cref="SplitPoints"/> is the vendor's per-network operand list, reachable through
-/// <c>GetSplitPoint</c> / <c>AppendSplitPoint</c>. <b>It is NOT fan-out</b> — that was this model's first
-/// assumption and it was wrong. Fan-out is <see cref="Demux"/>. Measured across 356 networks of a real ladder
-/// project: <b>zero</b> split points and 573 demuxes. The field stays because the vendor has it and a body
-/// could carry one, but nothing should be built on it until a real body is seen using it.</para></summary>
+/// four are now carried, and a fan-out wire is a <see cref="Demux"/> - the vendor's own item.</summary>
 public sealed record Network(
     int Order,
     string? Title,
     string? Label,
     string? Comment,
     bool Disabled,
-    IReadOnlyList<Node> Trees,
-    IReadOnlyList<Operand> SplitPoints);
+    IReadOnlyList<Node> Trees);
 
 /// <summary>A node in a network's tree. The three the vendor's visitor dispatches over are
 /// <see cref="Leaf"/>, <see cref="Box"/> and <see cref="Assign"/>; the remaining three are LD structures.</summary>

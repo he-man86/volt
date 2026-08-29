@@ -21,7 +21,7 @@ namespace Volt.Engine.Format.Network;
 /// wire named once is a textual necessity, not a structure: <c>LET i1 := NOT b; out := (a AND i1)</c> means the
 /// same tree as <c>out := (a AND NOT b)</c>, so a single-use name is substituted back into its consumer. A name
 /// used twice or more IS a structure — the value genuinely feeds two consumers — so it stays, as an
-/// <see cref="Assign"/> to that name plus a <see cref="Network.SplitPoints"/> entry. That is exactly the
+/// <see cref="Demux"/> carrying that producer - the vendor's own fan-out item, keyed by a VarId. That is
 /// vendor's own split-point concept, so the round-trip is faithful in both directions.</para>
 /// </summary>
 public static class NetworkTextReader
@@ -300,22 +300,71 @@ public static class NetworkTextReader
             foreach (var name in _lets.Keys) uses[name] = 0;
             foreach (var (let, node) in _stmts) CountRefs(let is null ? node : _lets[let], uses);
 
+            // A LET used ONCE is a textual convenience, substituted into its consumer. A LET used TWICE OR MORE
+            // is a STRUCTURE - the wire the vendor holds as a `BoxTreeDemux`, keyed by a VarId - so it is built
+            // as a `Demux` here, the shape the driver already knows how to write.
+            //
+            // This used to emit a `Network.SplitPoints` entry plus an ordinary `Assign` to the wire's NAME: a
+            // SECOND encoding of fan-out that no vendor understood, so the assignment landed as a real
+            // assignment to an undeclared symbol and the POU stopped compiling. One model, one encoding, and it
+            // is the vendor's own.
             var inline = new Dictionary<string, Node>(StringComparer.Ordinal);
-            var splits = new List<Operand>();
+            var wires = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var kv in _lets)
-                if (uses.TryGetValue(kv.Key, out var n) && n >= 2) splits.Add(new Operand(kv.Key));
+                if (uses.TryGetValue(kv.Key, out var n) && n >= 2) wires[kv.Key] = VarIdOf(kv.Key, wires.Count);
                 else inline[kv.Key] = kv.Value;
 
             var trees = new List<Node>();
             foreach (var (let, node) in _stmts)
             {
                 if (let != null && inline.ContainsKey(let)) continue;   // substituted into its one consumer
-                trees.Add(Resolve(node, inline, new HashSet<string>(StringComparer.Ordinal)));
+                var resolved = Resolve(node, inline, new HashSet<string>(StringComparer.Ordinal));
+
+                if (let != null && wires.TryGetValue(let, out var defId))
+                    resolved = new Demux(defId, resolved is Assign da ? da.Value : resolved, Flags.None);
+
+                trees.Add(ReferencesToDemux(resolved, wires));
             }
 
             return new Network(Order, _title, _label,
                                _comments.Count == 0 ? null : string.Join("\n", _comments),
-                               _disabled, trees, splits);
+                               _disabled, trees);
+        }
+
+        /// <summary>The VarId for a wire name. `g7` carries its own id, so a pull -> push round trip lands the
+        /// SAME id the IDE had; a name that is not `g&lt;n&gt;` gets a fresh one.</summary>
+        private static int VarIdOf(string name, int fallback) =>
+            name.Length > 1 && name[0] == 'g' && int.TryParse(name.Substring(1), out var id) ? id : fallback + 1;
+
+        /// <summary>Rewrite every REFERENCE to a fan-out wire into a `Demux` carrying the same VarId and NO
+        /// input - exactly how the vendor spells "the other end of this wire".</summary>
+        private static Node ReferencesToDemux(Node n, Dictionary<string, int> wires)
+        {
+            switch (n)
+            {
+                case Leaf l when wires.TryGetValue(l.Operand.Text, out var id):
+                    return new Demux(id, null, l.Flags);
+                case Assign a:
+                    return a with { Value = a.Value is null ? null : ReferencesToDemux(a.Value, wires) };
+                case Box b:
+                    return b with
+                    {
+                        Inputs = b.Inputs.Select(i => i with { Value = ReferencesToDemux(i.Value, wires) }).ToList(),
+                        Enable = b.Enable is null ? null : ReferencesToDemux(b.Enable, wires),
+                    };
+                case Parallel p:
+                    return p with
+                    {
+                        Input = p.Input is null ? null : ReferencesToDemux(p.Input, wires),
+                        Branches = p.Branches.Select(x => ReferencesToDemux(x, wires)).ToList(),
+                    };
+                case Terminator t:
+                    return t with { Input = t.Input is null ? null : ReferencesToDemux(t.Input, wires) };
+                case Demux d:
+                    return d with { Input = d.Input is null ? null : ReferencesToDemux(d.Input, wires) };
+                default:
+                    return n;
+            }
         }
 
         private static void CountRefs(Node? n, Dictionary<string, int> uses)

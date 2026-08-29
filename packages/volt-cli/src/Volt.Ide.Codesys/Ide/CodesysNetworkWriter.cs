@@ -52,23 +52,6 @@ namespace Volt.Ide.Codesys
 
         private static void WriteNetwork(object impl, object net, Network model)
         {
-            // FAN-OUT IS REFUSED, because Volt has two incompatible encodings for it and no proven path between
-            // them. The vendor's is a `BoxTreeDemux` item; the TEXT reader's is a `Network.SplitPoints` entry
-            // plus an ordinary assignment to the wire's NAME. Writing the latter as it stands lands a real
-            // `BoxTreeAssign` to an UNDECLARED symbol (`g1`) in the engineer's project: the push reports
-            // accepted and the POU no longer compiles. And because this method rewrites every network, an edit
-            // to an unrelated network carried the corruption with it.
-            //
-            // The NWL survey said in as many words that the writer "must refuse such a body loudly"; the refusal
-            // was never written. It is written now, and it stays until fan-out has ONE text form both directions
-            // agree on - which is a format decision, not a patch.
-            if (model.SplitPoints.Count > 0)
-                throw new NotSupportedException(
-                    $"CODESYS: network {model.Order} uses a fan-out wire (" +
-                    string.Join(", ", model.SplitPoints.Select(p => p.Text)) +
-                    "), which Volt cannot yet write back — the vendor represents it as a Demux item and network " +
-                    "text as a named wire, and the two are not yet connected. Edit this network in the IDE.");
-
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");

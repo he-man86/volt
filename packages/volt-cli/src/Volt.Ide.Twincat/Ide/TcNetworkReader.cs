@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -40,8 +40,7 @@ internal static class TcNetworkReader
             TcArchive.Str(net, "Label"),
             TcArchive.Str(net, "Comment"),
             TcArchive.Bool(net, "OutCommented"),
-            TcArchive.List(net, "NetworkItems").Select(ReadNode).ToList(),
-            Array.Empty<Operand>());
+            TcArchive.List(net, "NetworkItems").Select(ReadNode).ToList());
 
     private static Node ReadNode(XElement e)
     {

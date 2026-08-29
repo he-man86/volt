@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -40,14 +40,17 @@ namespace Volt.Ide.Codesys
                 if (NwlInterop.TryCall(net, "GetTree", i) is { } tree) trees.Add(ReadNode(tree));
             }
 
-            // The vendor's own per-network operand list. NOT fan-out (that is Demux) — measured zero across
-            // 356 real networks — but read faithfully so a body that does carry one is not silently changed.
-            var splits = new List<Operand>();
-            for (int i = 0; i < 64; i++)
-            {
-                if (NwlInterop.TryCall(net, "GetSplitPoint", i) is not { } sp) break;
-                splits.Add(ReadOperand(sp));
-            }
+            // The vendor's own per-network SPLIT-POINT list, which is NOT fan-out - fan-out is `Demux`, and
+            // this list measured ZERO across all 356 networks of the one real project surveyed. Volt has no
+            // text form for it, so a body that does carry one is REFUSED rather than silently rendered without
+            // it. (It had a field on the model for a while, which then collided with the text reader's own
+            // fan-out encoding and produced two incompatible spellings of the same idea; the model now carries
+            // exactly one, the vendor's.)
+            if (NwlInterop.TryCall(net, "GetSplitPoint", 0) is { } sp)
+                throw new NotSupportedException(
+                    $"CODESYS: network {order} carries a vendor split point ('{ReadOperand(sp).Text}'), which " +
+                    "network text has no form for. Volt refuses to materialize a body it cannot represent " +
+                    "rather than render one silently missing it.");
 
             return new Network(
                 order,
@@ -55,8 +58,7 @@ namespace Volt.Ide.Codesys
                 Clean(NwlInterop.Text(net, "Label")),
                 Clean(NwlInterop.Text(net, "Comment")),
                 NwlInterop.Flag(net, "OutCommented"),
-                trees,
-                splits);
+                trees);
         }
 
         private static Node ReadNode(object n)
