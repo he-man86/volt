@@ -302,6 +302,7 @@ public static class PushService
         // informational marker carries no semantics, so there is no content-marker check here.
 
         ItemRef pou;
+        ItemContent? live = null;
         if (existing is not { } existingPou)
         {
             // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
@@ -333,13 +334,18 @@ public static class PushService
             // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
             // must never be overwritten by a textual push, and a marker must not be written over one it can.
-            // Validate the WHOLE write before any of it lands, so a refusal is atomic.
-            BodyFormatGuard.RequireWritable(ide.ReadContent(pou), split);
+            live = ide.ReadContent(pou);
+            BodyFormatGuard.RequireWritable(live, split);
         }
+
+        // ONE read of the live item, used by all three of the guard, the reconciler and the write filter. These
+        // were two separate ReadContent calls back to back, each walking every member and reading its
+        // declaration, body and accessors, to answer two questions about the same unchanged snapshot.
+        live ??= ide.ReadContent(pou);
 
         // The member SET, for a create and an update alike. A create reaches here with the item existing but
         // empty, so every member the source declares is new; an update reconciles against what is there.
-        if (ReconcileMembers(ide, pou, ide.ReadContent(pou), split))
+        if (ReconcileMembers(ide, pou, live, split))
             // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: a member is not a
             // separate file there, so placing one is a round trip through the enclosing POU's own archive
             // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
@@ -364,8 +370,52 @@ public static class PushService
         //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
         //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
         //     the driver, which is the only layer that can ask the IDE cheaply.
-        ide.WriteContent(pou, split);
+        ide.WriteContent(pou, OnlyChanged(live, split));
     }
+
+    /// <summary>Drop the members whose content the IDE already has, so a push writes what an engineer CHANGED
+    /// rather than everything they sent.
+    ///
+    /// <para>Every member used to be rewritten on every push. Editing one line of a function block's body
+    /// re-wrote all twenty of its methods, and each of those is a separate
+    /// GetObjectToModify/SetObject transaction in the IDE - the bulk of an update's cost, and all of it work
+    /// nobody asked for. This is the same rule the graphical writers already follow: a body whose rendered form
+    /// is unchanged is not written at all.</para>
+    ///
+    /// <para>Safe because <paramref name="live"/> IS the IDE's state, read moments ago in this same push, and
+    /// because a member absent from the list means "leave it alone", never "delete it" - removal is
+    /// <see cref="ReconcileMembers"/>'s job and has already happened. A member the reconciler just CREATED is
+    /// not in the snapshot, so it is correctly seen as changed and written.</para></summary>
+    private static ItemContent OnlyChanged(ItemContent live, ItemContent pushed)
+    {
+        if (pushed.Members.Count == 0) return pushed;
+
+        var byName = new Dictionary<string, Member>(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in live.Members) byName[m.Name] = m;
+
+        var changed = pushed.Members.Where(m => !byName.TryGetValue(m.Name, out var was) || !Same(was, m)).ToList();
+        return changed.Count == pushed.Members.Count ? pushed : pushed with { Members = changed };
+    }
+
+    /// <summary>Does this member need writing? Compared on EVERYTHING a write carries - declaration, body, the
+    /// two accessors, and the FOLDER.
+    /// <para>Folder was left out of this first, on the reasoning that placement is structure and handled
+    /// earlier. It is not: a member whose text is identical but whose folder moved was then dropped from the
+    /// write and never re-placed. `Every_foldered_child_arrives_with_its_folder` caught it immediately, which is
+    /// the whole reason that test exists. Anything that differs at all is written.</para></summary>
+    private static bool Same(Member a, Member b) =>
+        Text(a.Declaration) == Text(b.Declaration)
+        && Text(a.Body) == Text(b.Body)
+        && string.Equals(a.Folder ?? "", b.Folder ?? "", StringComparison.Ordinal)
+        && Same(a.Getter, b.Getter)
+        && Same(a.Setter, b.Setter);
+
+    private static bool Same(Accessor? a, Accessor? b) =>
+        a is null ? b is null
+        : b is not null && Text(a.Declaration) == Text(b.Declaration) && Text(a.Body) == Text(b.Body);
+
+    /// <summary>Compare on the text as it LANDS: the drivers trim, so a trailing newline is not a change.</summary>
+    private static string Text(string? s) => (s ?? "").TrimEnd();
 
     /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
     /// project lacks, remove what the project has and the source dropped.
