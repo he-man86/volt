@@ -309,7 +309,23 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ItemKind.PlcGvl => "VAR_GLOBAL\nEND_VAR\n",
         _ => $"PROGRAM {name}\nVAR\nEND_VAR\n",
     };
-    public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
+    /// <summary>Records AND removes. It only recorded, so nothing could observe that a delete actually
+    /// happened: a test could not tell "deleted" from "reported deleted", and a push that removed a member and
+    /// then read the POU back still saw it. An audit found a foldered member that could never be deleted at all,
+    /// and the offline suite was structurally incapable of noticing.</summary>
+    public void Delete(ItemRef parent, string name)
+    {
+        Recorded.Add($"delete:{name}");
+        var victim = FindOrNull(Ref(name));
+        if (victim is null) return;
+        _items.Remove(victim);
+        var owner = FindOrNull(parent);
+        if (owner?.Children is { } kids)
+            _items[_items.IndexOf(owner)] = owner with
+            {
+                Children = kids.Where(k => !string.Equals(k, name, StringComparison.OrdinalIgnoreCase)).ToArray(),
+            };
+    }
     // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
     // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the
     // call could assert the bug away.
@@ -491,7 +507,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         foreach (var m in content.Members)
         {
             var existing = FindOrNull(Ref(m.Name));
-            var member = new Item(m.Name, KindCodeOf(m.Kind), m.Folder ?? "", false,
+
+            // THE FOLDER COMES FROM THE PROJECT, NEVER FROM THE PUSHED CONTENT. Taking it from `m.Folder` made
+            // the fake PERFORM the relocation a driver does not do — so a member's folder change looked applied
+            // when nothing had applied it, and an audit finding ("a member moved between folders is accepted and
+            // never re-placed") passed green against a fake that asserted the bug away. Placement changes only
+            // through `Move`, which is what the real IDEs require too.
+            var folder = existing?.Folder ?? m.Folder ?? "";
+            var member = new Item(m.Name, KindCodeOf(m.Kind), folder, false,
                                   m.Declaration, m.Body, null, null);
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
