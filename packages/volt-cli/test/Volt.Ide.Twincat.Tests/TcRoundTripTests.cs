@@ -149,13 +149,15 @@ public class TcRoundTripTests
     public sealed class PouNode
     {
         private readonly string _content;
-        public PouNode(string content) { _content = content; }
+        private readonly string _entry;
+        public PouNode(string content, string? entryName = null)
+        { _content = content; _entry = entryName ?? "POUs/{0}.TcPOU"; }
         public string? LastImported { get; private set; }
 
         public void ExportChild(string name, string zipPath)
         {
             using var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create);
-            var entry = zip.CreateEntry($"POUs/{name}.TcPOU");
+            var entry = zip.CreateEntry(_entry.Contains("{0}") ? string.Format(_entry, name) : _entry);
             using var w = new StreamWriter(entry.Open());
             w.Write(_content);
         }
@@ -201,5 +203,90 @@ public class TcRoundTripTests
     public sealed class FaultingNode
     {
         public int ItemType => throw new InvalidOperationException("COM fault reading ItemType");
+    }
+
+    /// <summary>AN FB CALL KEEPS ITS PIN NAMES.
+    ///
+    /// <para>The archive carries them — <c>&lt;o n="InputParam" t="ParamList"&gt;&lt;l2 n="Names"&gt;</c>, a
+    /// measured member of <c>BoxTreeBox</c> (DIALECT N4) — and <c>TcNetworkReader</c> never read it, hard-coding
+    /// every input's <c>Formal</c> to null. <c>NetworkTextWriter</c> renders an instance call as
+    /// <c>Formal := value</c>, so a TON pulled as <c>fbTimer( := bStart,  := T#5s)</c>: which pin each argument
+    /// binds to silently gone from the file committed to git, and the text then unparseable
+    /// (<c>NetworkTextReader.Token</c> throws on the empty name), so that POU could never be pushed back.</para>
+    ///
+    /// <para>CODESYS reads exactly this data (<c>CodesysNetworkReader</c>, <c>InputParams</c> -> <c>Formal</c>),
+    /// so this was the same fact on the same object model, read on one vendor and dropped on the other —
+    /// against the rule that both must answer identically for the same project. <c>test/e2e/oracle.test.ts</c>
+    /// already pins <c>tmr(IN := a, PT := T#5S)</c> as the required shape.</para>
+    ///
+    /// <para>The fixture is DERIVED from the vendor's own POU_PBD.TcPOU: the repo contains no .TcPOU with a
+    /// function-block call, which is exactly why this went unnoticed. Only VALUES differ — every element shape
+    /// is copied verbatim from a populated ParamList in that same vendor file.</para></summary>
+    [Fact]
+    public void An_FB_call_keeps_its_pin_names_through_a_pull()
+    {
+        var text = NetworkTextWriter.Write(
+            TcNetworkReader.Read(Impl(Body("FbCall.derived.TcPOU")), BodyLanguage.Fbd));
+
+        Assert.Contains("IN :=", text);
+        Assert.Contains("PT :=", text);
+        Assert.DoesNotContain(" := ,", text);      // the empty-formal signature
+        Assert.DoesNotContain("( := ", text);
+    }
+
+    /// <summary>And the pulled text is PARSEABLE, which is the half that made such a POU permanently
+    /// unpushable: an empty pin name makes the reader throw "expected a name at: :=".</summary>
+    [Fact]
+    public void An_FB_call_pulls_as_text_that_can_be_pushed_back()
+    {
+        var text = NetworkTextWriter.Write(
+            TcNetworkReader.Read(Impl(Body("FbCall.derived.TcPOU")), BodyLanguage.Fbd));
+
+        var ex = Record.Exception(() => NetworkTextGate.Validate(text));
+        Assert.True(ex is null, "a pulled FB call cannot be pushed back: " + ex?.Message + " | " + text);
+    }
+
+    /// <summary>AN EXECUTE BOX'S ST IS NEVER SILENTLY DROPPED.
+    ///
+    /// <para>A CODESYS Execute box carries raw ST on the box itself, and the archive records that with
+    /// <c>ProvidesSTSnippet</c> + <c>STSnippet</c> — both measured members of <c>BoxTreeBox</c> (DIALECT N4).
+    /// The reader hard-coded <c>StCode</c> to null and never looked at either, so
+    /// <c>NetworkTextWriter</c>'s Execute arm could not fire and the box rendered as a bare
+    /// <c>EXECUTE();</c>: the ST it runs absent from git, with no marker, no diagnostic, no unreadable tally,
+    /// and <c>volt status</c> clean.</para>
+    ///
+    /// <para>Volt REFUSES rather than reads, because the archive shape of a populated <c>STSnippet</c> has never
+    /// been measured on TwinCAT and guessing at a vendor serialization is what produced twenty unopenable files
+    /// once already. Refusing is loud and recoverable; rendering the box without its code is neither. Every
+    /// other unrepresentable shape in this reader throws, and now so does this one.</para></summary>
+    [Fact]
+    public void An_Execute_box_is_refused_rather_than_rendered_without_its_ST()
+    {
+        var ex = Record.Exception(() =>
+            TcNetworkReader.Read(Impl(Body("ExecuteBox.derived.TcPOU")), BodyLanguage.Fbd));
+
+        Assert.NotNull(ex);
+        Assert.Contains("ST", ex!.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>AN INTERFACE MEMBER CAN BE PLACED TOO — it just does not live in a <c>.TcPOU</c>.
+    ///
+    /// <para><c>EnclosingPouOf</c> deliberately routes an interface's methods and properties down
+    /// <c>MoveMember</c>, but the rewrite only ever examined entries ending <c>.TcPOU</c>. TwinCAT stores an
+    /// interface in a <c>.TcIO</c> — whose <c>&lt;Itf&gt;</c> holds exactly the <c>&lt;Method&gt;</c> and
+    /// <c>&lt;Property&gt;</c> children the placement looks for — so <c>placed</c> stayed false and it threw
+    /// "is not in its POU's archive" about an archive the member is in fact inside. A loud failure with a wrong
+    /// diagnosis, which is its own cost: it sends whoever reads it looking in the wrong place.</para>
+    ///
+    /// <para>It fails BEFORE the delete, so nothing was ever destroyed by this one.</para></summary>
+    [Fact]
+    public void An_interface_members_folder_can_be_set()
+    {
+        var node = new PouNode(File.ReadAllText(Fixture("ITF1.TcIO")), entryName: "DUTs/ITF1.TcIO");
+
+        TcItemArchive.MoveMember(node, "ITF1", "METH", "Helpers");
+
+        Assert.NotNull(node.LastImported);
+        Assert.Contains("FolderPath=\"Helpers", node.LastImported!);
     }
 }

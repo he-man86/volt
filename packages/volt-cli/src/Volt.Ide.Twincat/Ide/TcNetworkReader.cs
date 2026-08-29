@@ -68,10 +68,10 @@ internal static class TcNetworkReader
                     TcArchive.Str(e, "BoxType") ?? "",
                     InstanceOf(e),
                     CallKindOf(e),
-                    TcArchive.List(e, "InputItems").Select(x => new Input(null, ReadNode(x), Flags.None)).ToList(),
+                    ReadInputs(e),
                     Outputs(e),
                     TcArchive.Obj(e, "En") is { } en ? ReadNode(en) : null,
-                    null,   // an Execute box's ST snippet: see the note in ReadStCode's CODESYS counterpart
+                    ReadStCode(e),
                     flags);
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.
@@ -100,6 +100,50 @@ internal static class TcNetworkReader
                     "Volt refuses to materialize a body it cannot represent, rather than rendering an " +
                     "approximation an engineer would then push back.");
         }
+    }
+
+    /// <summary>An Execute box's ST — or a REFUSAL, because its archive shape is not measured.
+    ///
+    /// <para>An Execute box carries raw ST on the box itself; the archive records that with
+    /// <c>ProvidesSTSnippet</c> and <c>STSnippet</c>, both measured members of <c>BoxTreeBox</c> (DIALECT N4).
+    /// This returned null unconditionally, so <c>NetworkTextWriter</c>'s Execute arm never fired and the box
+    /// rendered as a bare <c>EXECUTE();</c> — the engineer's ST absent from git with no marker, no diagnostic
+    /// and no unreadable tally, and <c>volt status</c> reporting clean.</para>
+    ///
+    /// <para>It REFUSES rather than reading, and that is deliberate: what a populated <c>STSnippet</c> looks
+    /// like inside this archive has never been measured on TwinCAT, and inventing a vendor serialization is
+    /// exactly what made twenty .TcPOU files unopenable once. A refusal is loud and recoverable; a body missing
+    /// the code it runs is neither. CODESYS reads its own snippet through the live object model, where there is
+    /// nothing to guess at.</para></summary>
+    private static string? ReadStCode(XElement e)
+    {
+        if (!TcArchive.Bool(e, "ProvidesSTSnippet")) return null;
+
+        throw new NotSupportedException(
+            "TwinCAT: this network contains an Execute box (ST inside FBD). Volt has not measured how the " +
+            "archive stores its ST, and it will not materialize the box without the code it runs — the body " +
+            "would look complete and would not be. Edit this POU in the IDE.");
+    }
+
+    /// <summary>A box's inputs, WITH their pin names.
+    ///
+    /// <para>The archive carries them as <c>&lt;o n="InputParam" t="ParamList"&gt;&lt;l2 n="Names"&gt;</c> - a
+    /// measured member of <c>BoxTreeBox</c> (DIALECT N4) - and this hard-coded every <c>Formal</c> to null. The
+    /// text writer renders an instance call as <c>Formal := value</c>, so a TON pulled as
+    /// <c>fbTimer( := bStart,  := T#5s)</c>: the pin bindings gone from the file committed to git, and the text
+    /// unparseable, so the POU could never be pushed back. CODESYS reads exactly this data - the same fact on
+    /// the same object model, dropped on one side only.</para>
+    ///
+    /// <para>An OPERATOR box legitimately has an empty <c>InputParam</c> (measured on every box in every fixture
+    /// here): its pins are positional and have no names, so those stay null rather than being refused.</para></summary>
+    private static List<Input> ReadInputs(XElement e)
+    {
+        var items = TcArchive.List(e, "InputItems");
+        var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
+
+        // Only pair them when the vendor gave one name per input. A partial list is not something to guess at.
+        var named = names.Count == items.Count;
+        return items.Select((x, i) => new Input(named && names[i].Length > 0 ? names[i] : null, ReadNode(x), Flags.None)).ToList();
     }
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an

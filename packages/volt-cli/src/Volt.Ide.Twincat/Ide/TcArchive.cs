@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -64,6 +64,15 @@ internal static class TcArchive
     {
         var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);
         return l == null ? Array.Empty<XElement>() : l.Elements("o").ToList();
+    }
+
+    /// <summary>The SCALAR items of a named list: <c>&lt;l2 n="Names" cet="String"&gt;&lt;v&gt;IN&lt;/v&gt;</c>.
+    /// <para><see cref="List"/> returns only the <c>&lt;o&gt;</c> children, which is right for a list of objects
+    /// and blind to a list of values - and a box's pin NAMES are values.</para></summary>
+    public static IReadOnlyList<string> Strings(XElement? owner, string name)
+    {
+        var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);
+        return l == null ? Array.Empty<string>() : l.Elements("v").Select(v => v.Value).ToList();
     }
 
     /// <summary>An element's type: its own <c>t</c>, else the <c>cet</c> of the list holding it. A

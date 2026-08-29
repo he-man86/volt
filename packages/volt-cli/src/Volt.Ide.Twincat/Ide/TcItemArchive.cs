@@ -146,7 +146,14 @@ internal static class TcItemArchive
             {
                 string text;
                 using (var reader = new StreamReader(entry.Open())) text = reader.ReadToEnd();
-                if (entry.FullName.EndsWith(".TcPOU", StringComparison.OrdinalIgnoreCase))
+                // ANY vendor source document, not just a .TcPOU. An interface lives in a `.TcIO`, whose
+                // `<Itf>` holds exactly the `<Method>`/`<Property>` children `TryPlace` looks for - and
+                // `EnclosingPouOf` deliberately routes interface members here. Matching only `.TcPOU` meant an
+                // interface member could NEVER be placed, and the failure blamed the archive
+                // ("is not in its POU's archive") for not containing something it did contain, which sends
+                // whoever reads it looking in the wrong place. `TryPlace` selects by ELEMENT anyway, so it is
+                // safe to offer it every source document and let it decide.
+                if (IsPlcSource(entry.FullName))
                     placed |= TryPlace(ref text, memberName, folderPath);
                 var copy = dst.CreateEntry(entry.FullName, CompressionLevel.Optimal);
                 using var writer = new StreamWriter(copy.Open());
@@ -167,6 +174,14 @@ internal static class TcItemArchive
     {
         public override System.Text.Encoding Encoding => new System.Text.UTF8Encoding(false);
     }
+
+    /// <summary>The archive entries that are vendor SOURCE documents — a POU, an interface, a DUT or a GVL.
+    /// Everything else in the zip (project metadata, the manifest) is copied through untouched.</summary>
+    private static bool IsPlcSource(string entryName) =>
+        entryName.EndsWith(".TcPOU", StringComparison.OrdinalIgnoreCase)
+        || entryName.EndsWith(".TcIO", StringComparison.OrdinalIgnoreCase)
+        || entryName.EndsWith(".TcDUT", StringComparison.OrdinalIgnoreCase)
+        || entryName.EndsWith(".TcGVL", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPlace(ref string tcPou, string memberName, string folderPath)
     {
