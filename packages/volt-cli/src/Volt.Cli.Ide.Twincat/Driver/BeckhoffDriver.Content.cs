@@ -248,7 +248,7 @@ public sealed partial class BeckhoffDriver
     ///
     /// <para><b>An INTERFACE property accessor is a bodiless stub and must never be written to.</b> It declares
     /// that a getter/setter exists and nothing more. TwinCAT COM rejects a declaration/implementation write on
-    /// one and can HARD-CRASH the IDE (RPC 0x800706BE), on read as well as write - measured, and the reason the
+    /// one and can HARD-CRASH the IDE (RPC 0x800706BE - DIALECT D21), on read as well as write - measured, and the reason the
     /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>

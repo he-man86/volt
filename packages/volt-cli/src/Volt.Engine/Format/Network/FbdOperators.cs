@@ -7,7 +7,8 @@ namespace Volt.Engine.Format.Network;
 /// <summary>
 /// The single canonical table of FBD/LD operator boxes and their infix ST/network text symbols, shared by the
 /// network-text parser and writer (the two ends of the infix rendering) so a new operator is added in exactly
-/// one place. (GraphReader/Writer carry <c>typeName</c> verbatim and never consult it.) The box
+/// one place. (The deleted PLCopen readers carried <c>typeName</c> verbatim and never consulted it; the vendor
+/// adapters do the same, so this table is only ever read by the TEXT ends.) The box
 /// <see cref="TypeName"/> is the PLCopen/CODESYS operator type (OR, ADD, GT…); the
 /// <see cref="Symbol"/> is how it renders infix in ST/network text (OR, +, &gt;…).
 /// </summary>
