@@ -1,0 +1,227 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Xml.Linq;
+using Volt.Engine.Format.Network;
+using Xunit;
+
+namespace Volt.Ide.Twincat.Tests;
+
+/// <summary>
+/// PLCopen FBD generation — the ONLY route by which a graphical body Volt holds can become one TwinCAT holds.
+///
+/// <para><b>Why this exists, and why it is not archive synthesis.</b> <see cref="TcNetworkWriter"/> refuses to
+/// create, and its refusal is right: a real <c>BoxTreeBox</c> carries <c>InputParam</c>, <c>OutputParam</c>,
+/// <c>CallType</c>, <c>EN</c>, <c>ENO</c> and <c>Id</c>, and those are RESULTS OF THE IDE RESOLVING THE CALL.
+/// Volt does not resolve calls. An earlier attempt to build them from a template wrote twenty <c>.TcPOU</c>
+/// files TwinCAT could not open. Reflecting over the shipped assemblies does not rescue it either — DIALECT N11
+/// measured that the archive is the NWL object graph serialized, but that <c>BoxTreeBox</c>, the type the
+/// archive names most often, has no concrete class in any shipped assembly to reflect over.</para>
+///
+/// <para><b>PLCopen inverts the problem.</b> Volt emits TOPOLOGY — which box, which operand, which wire — and
+/// TwinCAT's own importer resolves the rest, producing the very members Volt must not guess. That is Beckhoff's
+/// documented route (<c>PlcOpenImport</c>, the one API they document that carries a graphical body) and it is
+/// the reason it can work where the archive cannot.</para>
+///
+/// <para><b>The gates are deliberately different in what they hold fixed.</b>
+/// <list type="bullet">
+/// <item><b>Format</b> — the vendor's own export is the expected VALUE, and the model is written to describe the
+/// POU that export describes. Nothing weaker is honest before writing a vendor format
+/// (<c>vendor-serialization-needs-identity-gate</c>). It is hand-built because the two fixtures turned out to be
+/// different STATES of one POU — see the test.</item>
+/// <item><b>Production</b> — the model a push actually carries is TEXT-derived, and provably cannot hold an
+/// operand's type or flags (<c>NetworkTextReader</c> builds <c>new Operand(name)</c>; network text has no syntax
+/// for either). A real two-network vendor archive must still lower cleanly through the whole chain.</item>
+/// <item><b>Fan-out</b> and <b>LD</b> — the two shapes with their own lowering rules.</item>
+/// </list>
+/// <b>None of them is the last word.</b> Offline, TwinCAT's importer is not present, and it is the importer that
+/// decides whether a document is understood. The definitive gate is the live e2e: import, then pull, and require
+/// the wire to have survived.</para>
+/// </summary>
+public class TcPlcOpenWriterTests
+{
+    private static string Fixture(string name)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
+        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
+        var path = Path.Combine(dir!.FullName, "test", "Volt.Engine.Tests", "fixtures", "tc-pou", name);
+        Assert.True(File.Exists(path), $"missing vendor fixture: {path}");
+        return path;
+    }
+
+    private static XElement Impl(string fixture) =>
+        XDocument.Load(Fixture(fixture), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single()
+            .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+
+    /// <summary>The vendor's OWN PLCopen body for the same POU — this is the oracle.</summary>
+    private static XElement VendorFbd(string fixture)
+    {
+        XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
+        return XDocument.Load(Fixture(fixture)).Descendants(tc6 + "FBD").Single();
+    }
+
+    /// <summary>Compare ignoring insignificant whitespace, so indentation is not the thing under test.</summary>
+    private static string Canon(XElement e)
+    {
+        var c = new XElement(e);
+        foreach (var n in c.DescendantNodes().OfType<XText>().ToList())
+            if (string.IsNullOrWhiteSpace(n.Value)) n.Remove();
+        return c.ToString(SaveOptions.None);
+    }
+
+    /// <summary>The same, minus the addData blocks that carry types the IDE RESOLVED. A text-derived model
+    /// cannot have these, and this is the only difference the topology gate tolerates.</summary>
+    private static string CanonNoResolvedTypes(XElement e)
+    {
+        var c = new XElement(e);
+        foreach (var d in c.Descendants().Where(x => x.Name.LocalName == "data").ToList())
+        {
+            var n = (string?)d.Attribute("name") ?? "";
+            if (n.Contains("inputparamtypes") || n.Contains("outputparamtypes")) d.Remove();
+        }
+        foreach (var a in c.Descendants().Where(x => x.Name.LocalName == "addData" && !x.HasElements).ToList())
+            a.Remove();
+        foreach (var n in c.DescendantNodes().OfType<XText>().ToList())
+            if (string.IsNullOrWhiteSpace(n.Value)) n.Remove();
+        return c.ToString(SaveOptions.None);
+    }
+
+    /// <summary>Lower through the PRODUCTION entry point and hand back the body element. Tests go through
+    /// `WriteProject` rather than a body-only overload on purpose: an entry point that exists only because a
+    /// test calls it is exactly what `NoTestOnlyCodeInSrcTests` exists to catch.</summary>
+    private static XElement Lower(NetworkBody model)
+    {
+        XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
+        return TcPlcOpenWriter.WriteProject("P", "program", model)
+            .Descendants(tc6 + "body").Single().Elements().Single();
+    }
+
+    // -- routing: which door does a push take? ------------------------------------------------------
+
+    /// <summary>WHAT COUNTS AS "THE IDE HAS NO BODY YET" — and the first answer was wrong.
+    ///
+    /// <para>The obvious test is <c>string.IsNullOrWhiteSpace(existing)</c>, and it never fires. Measured live:
+    /// <c>CreateChild</c> with a graphical language mints a COMPLETE, VALID archive — an
+    /// <c>NWLImplementationObject</c>, a <c>TypeList</c>, and one <c>Network</c> whose <c>NetworkItems</c> is
+    /// empty. So a freshly created POU arrives with a body that is entirely present and entirely blank, the
+    /// blankness check missed it, and the create fell through to the archive writer, which refused with
+    /// "network 1 changes from 0 to 1 item(s)". <c>EmptyGraphicalShell.TcPOU</c> is that vendor-minted shell,
+    /// saved from the live IDE.</para>
+    ///
+    /// <para>The rule that does hold: a body with NO ITEMS in any network is one the engineer has not drawn, so
+    /// creating into it loses nothing. A body with items is edited in place, where every id and every unmodelled
+    /// member survives untouched.</para></summary>
+    [Fact]
+    public void A_vendor_minted_shell_reads_as_having_no_items()
+    {
+        Assert.True(TcArchive.HasNoItems(Impl("EmptyGraphicalShell.TcPOU")),
+            "a freshly created graphical POU must route to the create door");
+
+        Assert.False(TcArchive.HasNoItems(Impl("POU_PBD.TcPOU")),
+            "a real FBD body must never be re-created through an import - that would discard its ids");
+        Assert.False(TcArchive.HasNoItems(Impl("ladder.TcPOU")),
+            "a real ladder body must never be re-created through an import");
+    }
+
+    // -- the gates ---------------------------------------------------------------------------------
+
+    /// <summary>THE FORMAT GATE — the vendor's own bytes are the expected value.
+    ///
+    /// <para><b>The model here is hand-built, and that is a correction rather than a convenience.</b> The
+    /// obvious move is to read <c>POU_PBD.TcPOU</c> and compare against <c>POU_PBD.plcopen.xml</c>, and it is
+    /// wrong: <b>the two fixtures are different states of the same POU</b> — the archive holds TWO networks of
+    /// one <c>BoxTreeBox</c> each, the PLCopen export holds ONE block. They were captured at different moments,
+    /// so pairing them would have asserted a coincidence. Measured, not assumed.</para>
+    ///
+    /// <para>So the input is a model written to describe the POU the vendor's export actually describes, and the
+    /// expected value is that export, untouched. What is under test is the WRITER'S FORMAT FIDELITY: element
+    /// names, nesting, the <c>localId</c> scheme, the attribute marker, <c>formalParameter</c> numbering and the
+    /// call-type <c>addData</c>.</para>
+    ///
+    /// <para>The resolved-signature <c>addData</c> is excluded from both sides, and it is the single documented
+    /// exclusion: <c>OutputParam.Types</c> is the COMPILER's answer (the fixture's <c>AND</c> carries
+    /// <c>["BOOL"]</c> there while its <c>OutputItems</c> is empty — a signature, not a wiring). Volt models no
+    /// resolved signature, so the writer omits the block rather than guessing, and the IDE re-derives it on
+    /// import. Guessing there would be the same class of error as building the archive.</para></summary>
+    [Fact]
+    public void Reproduces_the_vendors_own_FBD_export()
+    {
+        // `out := FALSE AND FALSE`, unassigned - exactly the one network POU_PBD.plcopen.xml holds.
+        var model = new NetworkBody(BodyLanguage.Fbd, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Box("AND", null, CallKind.Operator,
+                    new[]
+                    {
+                        new Input(null, new Leaf(new Operand("FALSE"), Flags.None), Flags.None),
+                        new Input(null, new Leaf(new Operand("FALSE"), Flags.None), Flags.None),
+                    },
+                    Array.Empty<Operand>(), null, null, Flags.None),
+            }),
+        });
+
+        var written = Lower(model);
+
+        Assert.Equal(CanonNoResolvedTypes(VendorFbd("POU_PBD.plcopen.xml")), CanonNoResolvedTypes(written));
+    }
+
+    /// <summary>THE PRODUCTION GATE. The model a push actually carries is TEXT-derived, which provably cannot
+    /// hold an operand's type or flags, and it must still lower cleanly. Driving a real two-network vendor
+    /// archive through the whole pull-then-push chain is what production does on every push.</summary>
+    [Fact]
+    public void The_text_derived_model_of_a_real_archive_lowers()
+    {
+        var pulled = TcNetworkReader.Read(Impl("POU_PBD.TcPOU"), BodyLanguage.Fbd);
+        var model = NetworkTextGate.Validate(NetworkTextWriter.Write(pulled));
+
+        var written = Lower(model);
+
+        // Two networks, each a whole AND box with its two operands, in the vendor's per-network id space.
+        Assert.Equal(2, written.Elements().Count(e => e.Name.LocalName == "vendorElement"));
+        Assert.Equal(2, written.Elements().Count(e => e.Name.LocalName == "block"));
+        Assert.Equal(4, written.Elements().Count(e => e.Name.LocalName == "inVariable"));
+        var ids = written.Elements().Select(e => long.Parse(e.Attribute("localId")!.Value)).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+        Assert.Equal(4, ids.Count(i => i / 10_000_000_000L == 1));
+        Assert.Equal(4, ids.Count(i => i / 10_000_000_000L == 2));
+    }
+
+    /// <summary>A LADDER body is the same pipeline with a different wrapper element, so it gets its own gate
+    /// rather than an assumption. <c>ladder.TcPOU</c> is a real vendor file.</summary>
+    [Fact]
+    public void A_ladder_body_writes_as_LD()
+    {
+        var model = TcNetworkReader.Read(Impl("ladder.TcPOU"), BodyLanguage.Ld);
+
+        var written = Lower(model);
+
+        Assert.Equal("LD", written.Name.LocalName);
+    }
+
+    /// <summary>FAN-OUT IS A SHARED <c>refLocalId</c>, not a repeated producer. This is the shape that has no
+    /// valid FBD form when duplicated, and PLCopen expresses it natively — several connections naming one
+    /// localId — so a Demux must lower to exactly that.</summary>
+    [Fact]
+    public void A_wire_feeding_two_consumers_becomes_one_shared_refLocalId()
+    {
+        // The gate is handed the BODY only - everything from the first NETWORK marker on - not a whole POU.
+        var model = NetworkTextGate.Validate(
+            "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
+
+        var written = Lower(model);
+
+        // Both outVariables must reference THE SAME producer, and that producer is the AND block.
+        var outs = written.Descendants().Where(e => e.Name.LocalName == "outVariable").ToList();
+        Assert.Equal(2, outs.Count);
+        var refs = outs.Select(o => o.Descendants().First(c => c.Name.LocalName == "connection")
+                                     .Attribute("refLocalId")!.Value).Distinct().ToList();
+        Assert.Single(refs);
+
+        var block = written.Descendants().Single(e => e.Name.LocalName == "block");
+        Assert.Equal(refs[0], block.Attribute("localId")!.Value);
+    }
+}

@@ -69,6 +69,24 @@ internal static class TcArchive
     /// <summary>The SCALAR items of a named list: <c>&lt;l2 n="Names" cet="String"&gt;&lt;v&gt;IN&lt;/v&gt;</c>.
     /// <para><see cref="List"/> returns only the <c>&lt;o&gt;</c> children, which is right for a list of objects
     /// and blind to a list of values - and a box's pin NAMES are values.</para></summary>
+    /// <summary>Does this body hold NOTHING an engineer drew?
+    ///
+    /// <para>This is the create/edit fork, and it is not the same question as "is the body blank". Measured
+    /// live: <c>CreateChild</c> with a graphical language mints a COMPLETE archive — implementation object,
+    /// <c>TypeList</c>, one <c>Network</c> — whose <c>NetworkItems</c> is empty. A freshly created POU therefore
+    /// arrives with a body that is fully present and entirely blank, and a blankness check misses it.</para>
+    ///
+    /// <para>True here means the import door: nothing is lost by letting TwinCAT build the body from PLCopen.
+    /// False means the in-place writer, where every id, every <c>Fixed</c> and every unmodelled member the IDE
+    /// wrote survives exactly as it wrote it.</para></summary>
+    public static bool HasNoItems(XElement? impl)
+    {
+        if (impl == null) return true;
+        foreach (var network in List(impl, "NetworkList"))
+            if (List(network, "NetworkItems").Count > 0) return false;
+        return true;
+    }
+
     public static IReadOnlyList<string> Strings(XElement? owner, string name)
     {
         var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);

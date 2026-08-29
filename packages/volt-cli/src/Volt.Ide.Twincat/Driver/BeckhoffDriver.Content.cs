@@ -145,6 +145,30 @@ public sealed partial class BeckhoffDriver
         {
             var model = NetworkTextGate.Validate(b);      // refuse BEFORE touching the IDE
             var existing = _om.ReadImplementation(item.Native);
+
+            // CREATE takes the other door. The archive writer cannot build a body - a BoxTreeBox carries
+            // members the IDE RESOLVES (InputParam, CallType, EN, ENO, Id) and guessing them wrote twenty
+            // unopenable .TcPOU files - so a body the IDE does not have yet is stated as PLCopen TOPOLOGY and
+            // the IDE resolves it. That is also Beckhoff's own documented route: PlcOpenImport is the one API
+            // they document that carries a graphical body. An EXISTING body never comes this way; it is edited
+            // in place, where every id and every unmodelled member survives untouched.
+            // Blank, or an archive the engineer has drawn nothing into. NOT "TcArchive.Root(existing) is
+            // null" - that is also true of a TEXTUAL body, and routing those here would silently convert live
+            // ST into a diagram instead of refusing, which is what TcNetworkWriter is for.
+            var live = TcArchive.Root(existing);
+            if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
+            {
+                var name = _om.GetName(item.Native);
+                var created = _om.ImportPlcOpen(item.Native,
+                    TcPlcOpenWriter.WriteProject(name, PlcOpenPouType(kind), model));
+
+                // The declaration does NOT travel in PLCopen on this install - measured: the importer discards
+                // it and the POU arrives with its VAR block gone. It goes through DeclarationText, which is
+                // both the documented path and the one every other write here already uses.
+                _om.WriteText(created, declaration, null);
+                return;
+            }
+
             var updated = TcNetworkWriter.Apply(existing, model);
             // A null means the archive already says exactly this: writing it back would rewrite ids and
             // vendor members for no change at all.
@@ -160,6 +184,17 @@ public sealed partial class BeckhoffDriver
         _om.WriteText(item.Native, declaration,
                       HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
     }
+
+    /// <summary>The PLCopen <c>pouType</c> for a Volt kind. Only the three kinds that can HOLD a graphical body
+    /// are here; anything else reaching this point is a bug upstream, not a case to default.</summary>
+    private static string PlcOpenPouType(string kind) => kind switch
+    {
+        ItemKind.Kinds.Program => "program",
+        ItemKind.Kinds.FunctionBlock => "functionBlock",
+        ItemKind.Kinds.Function => "function",
+        _ => throw new NotSupportedException(
+            $"TwinCAT: a '{kind}' cannot hold a graphical body, so there is no PLCopen pouType for it."),
+    };
 
     /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
     /// their whole content is the declaration - and an interface METHOD has only a signature.

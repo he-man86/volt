@@ -243,11 +243,96 @@ internal sealed partial class TcObjectModel
         (string)((dynamic)node).ProduceXml(recursive) ?? "";
 
     // ── PLCopen XML transport ───────────────────────────────────────
-    // ExportPouXml / ImportPlcOpenXml lived here and are DELETED with the PLCopen transport. The import
-    // half carried a `Move` back into the item's own folder, because TwinCAT's PlcOpenImport always deposits
-    // at the PLC-project ROOT — measured across the whole options x bFolderStructure x flat/nested matrix,
-    // where all eight REPLACE cells relocated a foldered POU. Nothing imports now, so nothing relocates and
-    // there is nothing to undo.
+    // The PLCopen TRANSPORT is deleted and stays deleted: content does not travel as a document, and every
+    // pull and every edit of an existing body goes through the archive. What survives here is narrower and is
+    // the only thing PLCopen is still good for — CREATING a graphical body TwinCAT does not yet have.
+    //
+    // Nothing else can do it. `TcNetworkWriter` refuses to build archive elements because a `BoxTreeBox`
+    // carries `InputParam`, `OutputParam`, `CallType`, `EN`, `ENO` and `Id` — results of the IDE RESOLVING the
+    // call — and guessing them once wrote twenty unopenable `.TcPOU` files. DIALECT N10 then ruled out reaching
+    // the live NWL objects at all (TwinCAT ships the scripting contract without its implementation), and N11
+    // ruled out deriving the archive from the shipped assemblies (`BoxTreeBox` has no concrete class to
+    // reflect over). An IMPORT inverts the problem: Volt states the topology and the IDE resolves the rest.
+
+    /// <summary>Import a PLCopen document, REPLACING <paramref name="pou"/>, and return a LIVE handle to the
+    /// result — the passed one is dead by then.
+    ///
+    /// <para><b>Two vendor facts drive everything here.</b> First, DIALECT D4d: a TwinCAT PLCopen import
+    /// INVALIDATES every handle into the item it replaced, so the caller is handed a re-resolved node rather
+    /// than being trusted to remember. Second, the import ALWAYS deposits at the PLC-project root — measured
+    /// across the whole options × bFolderStructure × flat/nested matrix, where all eight REPLACE cells relocated
+    /// a foldered POU — so a POU that lived in a folder is put back, or a create would silently move the
+    /// engineer's object.</para></summary>
+    public object ImportPlcOpen(object pou, System.Xml.Linq.XDocument document)
+    {
+        dynamic node = pou;
+        string name = (string)node.Name;
+        string parentPath = PathOf((object)node.Parent);
+        string rootPath = PathOf(PlcRoot());
+
+        var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+                                          "volt-plcopen-" + Guid.NewGuid().ToString("N") + ".xml");
+        try
+        {
+            document.Save(file);
+
+            // DELETE THE SHELL FIRST, rather than asking the import to replace it.
+            //
+            // Measured: importing over an existing POU with options=2 - the value Beckhoff document as REPLACE -
+            // did not replace it. It left the original untouched and deposited the real body beside it as
+            // `VltE2E_fanout_1`, i.e. it RENAMED. Whatever that option means on this install, it is not what its
+            // name promises, and a push that silently produces a second POU is worse than one that fails.
+            //
+            // Deleting first makes the outcome independent of the option's semantics: there is no collision, so
+            // there is nothing to resolve. It is safe because this path only runs for a body with NO ITEMS - a
+            // shell nobody has drawn in - and the verification below turns a silent no-op into an error rather
+            // than leaving the engineer without the POU.
+            var parent = LookupPath(parentPath)
+                ?? throw new InvalidOperationException(
+                       $"TwinCAT: the parent of '{name}' vanished before its body could be imported.");
+            DeleteChild(parent, name);
+
+            ((dynamic)PlcRoot()).PlcOpenImport(file, 0);
+        }
+        finally
+        {
+            try { System.IO.File.Delete(file); } catch { /* a temp file we could not remove is not a push failure */ }
+        }
+
+        // Put it back if the import moved it. Comparing PATHS rather than handles is deliberate: the handles
+        // this method was given are exactly the ones the import just killed.
+        if (!string.Equals(parentPath, rootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            var landed = LookupPath(rootPath + "^" + name);
+            var parent = LookupPath(parentPath);
+            if (landed != null && parent != null) TcItemArchive.Move(PlcRoot(), parent, name);
+        }
+
+        var landedItem = LookupPath(parentPath + "^" + name)
+               ?? LookupPath(rootPath + "^" + name)
+               ?? throw new InvalidOperationException(
+                      $"TwinCAT: '{name}' is gone after its PLCopen import - the shell was deleted and the " +
+                      "import did not put it back. Check the IDE before pushing again.");
+
+        // VERIFY, because the failure mode here is silence. An importer that does not understand the document
+        // does not throw; it produces an empty POU, which would then read back as "no body" and look like the
+        // engineer had drawn nothing. Having just deleted the shell, that is the one outcome worth catching.
+        if (TcArchive.HasNoItems(TcArchive.Root(ReadImplementation(landedItem))))
+            throw new InvalidOperationException(
+                $"TwinCAT: the PLCopen import of '{name}' produced an empty body. The document was accepted but " +
+                "nothing was built from it, so the push is being failed rather than reported as applied.");
+
+        return landedItem;
+    }
+
+    /// <summary>Resolve a tree item by its full path, or null when it is not there. Used after an import, where
+    /// every previously held handle is invalid.</summary>
+    private object? LookupPath(string path)
+    {
+        try { return (object)_sysManager!.LookupTreeItem(path); }
+        catch (COMException) { return null; }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }
+    }
 
     private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
 

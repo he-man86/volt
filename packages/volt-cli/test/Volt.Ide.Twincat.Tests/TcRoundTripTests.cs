@@ -83,6 +83,7 @@ public class TcRoundTripTests
     [InlineData("SetCoil.derived.TcPOU")]  // a SET coil - modifiers on an assignment TARGET
     [InlineData("NegatedContact.derived.TcPOU")]  // a negated contact - the commonest modifier of all
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
+    [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
     {
         var before = Body(fixture);
@@ -115,6 +116,7 @@ public class TcRoundTripTests
     [InlineData("SetCoil.derived.TcPOU")]
     [InlineData("NegatedContact.derived.TcPOU")]  // a negated contact - the commonest modifier of all
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
+    [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);

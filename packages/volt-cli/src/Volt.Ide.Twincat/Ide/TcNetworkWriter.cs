@@ -178,7 +178,19 @@ internal static class TcNetworkWriter
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
                 changed |= WriteOperand(e, "Instance", b.Instance);
-                changed |= WriteOutputs(e, b.Outputs);
+
+                // A BOX'S OWN OUTPUT PINS ARE NOT WRITTEN, and the count is NOT compared. Network text has no
+                // syntax for them at all - `Outputs` appears nowhere in `NetworkTextWriter` or
+                // `NetworkTextReader` - so a text-derived model's `Box.Outputs` is ALWAYS empty, and comparing
+                // it against the archive was comparing against information the model can never carry. The
+                // refusal could only ever pass when the archive's box had zero outputs too, which is true of
+                // every hand-authored fixture and false of every box the IDE has RESOLVED: TwinCAT gives a
+                // resolved `AND` one output item holding an empty operand. So the first body TwinCAT built from
+                // an import could be pulled and never pushed back - "an item changes from 1 to 0 output(s)" on
+                // a push that changed nothing.
+                //
+                // An ASSIGNMENT's targets are a different thing and ARE written (see the Assign arm): `out := x`
+                // is exactly what network text spells, so the model does carry those.
                 changed |= WriteChild(e, "En", b.Enable);
 
                 var inputs = TcArchive.List(e, "InputItems");

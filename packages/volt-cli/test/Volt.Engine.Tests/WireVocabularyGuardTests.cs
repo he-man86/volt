@@ -82,22 +82,24 @@ public class WireVocabularyGuardTests
                     "property_get", "property_set", "interface_method", "interface_property",
                     "interface_property_get", "interface_property_set", "project_info", "trace", "recipe",
                     "symbol_config" },
-            // The PLCopen-XML layer and the network text sublanguage share these words as their OWN vocabularies: "pou",
-            // "method", "action", "Property" there are XML ELEMENT names in the vendor's schema, spelt like item
-            // kinds but not them. `PouSplice` is the write half of that layer and holds the same element names —
-            // it inherits `PlcOpenDocument.cs`'s old entry rather than adding a new exemption, because the file
-            // was split, not the rule.
-            // NB `PouSplice` no longer takes an ItemKind: `AddChild` takes a PlcOpen-native `PouMember` and
-            // `Sync.PouDocument` maps to it, so the dependency on Volt's vocabulary is gone even though the
-            // ELEMENT names remain. That is the distinction this allowlist exists to record.
-            // Three PlcOpen files, not one, because the old single file was split by responsibility: the shared
-            // document primitives (`PlcOpenDocument`), the whole-POU read (`PouReader`) and the whole-POU write
-            // (`PouSplice`). Each resolves elements BY NAME — that is the point of them — so each carries the
-            // schema's element names. Same exemption, same reason, more files.
-            // `ProjectStructure` is a fourth: it locates each member's ELEMENT to read the object id off it, so it
-            // spells the same schema names for the same reason.
-            new HashSet<string> { "ItemKind.cs", "PlcOpenDocument.cs", "PouReader.cs", "PouSplice.cs",
-                                  "ProjectStructure.cs", "NetworkTextReader.cs" }),
+            // The network text sublanguage and PLCopen share these words as their OWN vocabularies, spelt like
+            // item kinds but not them.
+            //
+            // `PlcOpenDocument.cs`, `PouReader.cs`, `PouSplice.cs` and `ProjectStructure.cs` were listed here and
+            // are DELETED with the PLCopen transport - four exemptions guarding nothing. Removed rather than left,
+            // because a stale allowlist entry silently pre-authorizes any future file that takes the same name.
+            //
+            // Two TwinCAT files replace them, for a narrower reason: PLCopen's own enumerations COINCIDE with
+            // Volt's item kinds on some spellings while differing on others. `BeckhoffDriver` maps a Volt kind to
+            // a TC6 `pouType`, where `program`/`function` are shared but TC6 says `functionBlock` where Volt says
+            // `function_block`; `TcPlcOpenWriter` spells `interface` as a TC6 ELEMENT name and `function` as a
+            // `CallType` value. Two vocabularies that happen to overlap, so the literals cannot be replaced by
+            // the constants - that would assert an identity which does not hold.
+            //
+            // Listed by the PARTIAL-CLASS key (`BeckhoffDriver.cs`, not `BeckhoffDriver.Content.cs`) because
+            // `AllowKey` strips the suffix - see its own summary for why.
+            new HashSet<string> { "ItemKind.cs", "NetworkTextReader.cs", "BeckhoffDriver.cs",
+                                  "TcPlcOpenWriter.cs" }),
     };
 
     [Fact]
