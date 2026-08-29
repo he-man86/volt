@@ -231,7 +231,7 @@ if (process.platform === "win32") {
 }
 
 // ── Vendor-fact citations ─────────────────────────────────────────────────────────────────────────
-// `packages/volt-cli/src/Volt.Engine/Source/DIALECT.md` is the home for MEASURED vendor behaviour, and the code
+// `packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md` is the home for MEASURED vendor behaviour, and the code
 // cites its rows by id ("DIALECT D4f"). Two ways that goes wrong, both observed:
 //
 //   - a citation to a row that does not exist — a typo, or a row renamed/removed. The reader follows it nowhere.
@@ -260,7 +260,7 @@ type Row = { id: string; retracted: boolean };
 // what an earlier row got wrong (C2c, D4f and D10 all do), and pinning the rule to whichever word came first
 // did not fix it. Strikethrough alone is not the signal either: D4e was superseded without one.
 function dialectRows(): Row[] {
-	const md = readFileSync(join(REPO_ROOT, "packages/volt-cli/src/Volt.Engine/Source/DIALECT.md"), "utf8");
+	const md = readFileSync(join(REPO_ROOT, "packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md"), "utf8");
 	const rows: Row[] = [];
 	for (const line of md.split(/\r?\n/)) {
 		const m = /^\|\s*(\*\*)?(~~)?([A-D]\d+[a-z]?)(~~)?(\*\*)?\s*\|(.*)$/.exec(line);

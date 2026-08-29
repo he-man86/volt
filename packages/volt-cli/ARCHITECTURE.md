@@ -118,19 +118,24 @@ away from the only code that uses it.
 |---|---|---|
 | **`Ide/`** | **The contract a vendor bridge implements — and only this.** `IIdeDriver` = `IIdeSession` (attach/health/build) + `IProjectTree` (walk + CRUD + `Move`) + `ICodeStore` (the document, plus the textual aspects declaration-only kinds need). `DriverBase` owns the shared degraded-state machine, the single-flight health probe **and the whole health response** — `BuildHealthResponse` used to be abstract, which put a WIRE-VISIBLE shape behind the vendor seam and let the two drivers diverge unseen (they had). `TreeNav` and `ItemLookup` navigate a driver's tree; they live here, not with `Item/`, because they take an `IIdeDriver`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `TreeNav`, `ItemLookup` |
 | **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the vendor-neutral item-type table (`docs/ITEM_KINDS.md`); `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. | `ItemKind`, `FolderPath`, `ItemRef`, `ProjectItem`, `WalkResult` |
-| **`Source/`** | **The item as ONE PLCopen document** — declaration, body, members, accessors, read and written through the same representation. `PouReader` reads; `PouSplice` writes by EDITING the item's own export (never regenerating, so attributes, pragmas, object ids and vendor `addData` survive); `PouDocument` is the one splice entry point; `Declaration` is the ONE declaration rule for every member position (root, child, accessor — they used to be four, and the accessor's was the one A7 describes as writing to the copy the IDE does not read); `ProjectStructure` keeps the document's own structure block honest — TwinCAT's importer creates a POU child ONLY if it is declared there. Vendor dialect facts: `Source/DIALECT.md`. | `PouReader`, `PouSplice`, `PouDocument`, `Declaration`, `ProjectStructure`, `PlcOpenDocument`, `ItemContent` |
-| **`Source/Body/`** | **A body has a LANGUAGE; a language has a CODEC.** `BodyCodec` dispatches by language (ST is identity, FBD/LD pivot on the graph, CFC/SFC/IL are UNSUPPORTED — a marker on read, a refusal on write); `BodyElement` is the one scan that finds a body element, direct or nested, for the reader and the codecs alike; `BodyGuard` is the ONE gate every body write passes, wherever the body sits; `BodySpliceGuard` refuses to overwrite a stored body carrying something network text cannot represent. **There is no "graphical vs textual" fork above this layer**; that boolean was the source of three silent data-loss bugs. | `BodyCodec`, `BodyElement`, `BodyGuard`, `BodySpliceGuard`, `Languages`, `BodyMarker` |
-| **`Source/Body/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). | `StWriter`, `StReader`, `Descriptor`, `CodeHelper` |
-| **`Source/Body/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** **A push rewrites only the networks whose TEXT CHANGED** (`NetworkSplice`): the stored body renders back to byte-for-byte what a pull wrote, so any network matching that keeps its stored XML — ids, vendor `addData`, comment boxes and all. Carrying requires byte equality, so wrong-carry is impossible by construction; a network the engineer edited regenerates exactly as before. The capability gate is scoped to what is actually discarded — narrower in SCOPE, unchanged in what it refuses. `GraphReader.LowerLadder` lowers a ladder's contacts and coils into the same boolean node graph an FBD network uses, so they share the model, the text format and everything below the two arms that read and write the XML. `GraphReader`/`GraphWriter` convert graph ⇄ PLCopen body XML; `NetworkTextReader`/`NetworkTextWriter` convert graph ⇄ network text; `NetworkCode` is the well-formedness gate; `InstanceTypes` recovers FB instance types network text omits. Called `Network`, not `Diagram`: `Languages.IsDiagram` is CFC and SFC, the bodies Volt CANNOT express as text. | `GraphReader`, `GraphWriter`, `NetworkText*`, `NetworkCode`, `GraphModel` |
+| **`Format/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **The owner rule: an INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner — they disagreed once, and every interface with a member materialized as UNREADABLE. | `StWriter`, `StReader`, `Descriptor`, `CodeHelper` |
+| **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (see `Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text (`docs/network-text.md`); `NetworkTextGate` is the well-formedness and canonical-form gate; `FbdOperators` is the operator table. **Nothing here knows XML** — a vendor's own representation is the driver's business, which is why deleting the PLCopen transport did not touch this folder. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkTextGate`, `FbdOperators` |
+| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `BodyMarker` is the informational stand-in an unsupported language (CFC/SFC/IL) materializes as — never written back. There is no "graphical vs textual" boolean above this layer; that flag was the source of three silent data-loss bugs. | `BodyFormatGuard`, `BodyMarker`, `Languages` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body and hash basis, shared so the two vendors cannot drift on those bytes), `LibSignatureRenderer`, `LibraryLayout`, `LibraryFetch`, `LibSignature`. | `LibraryManifest`, `LibSignatureRenderer`, `LibSignature` |
 | **`Sync/`** | **One service per op** — `RefsService`, `FetchService` (`fetch` + `init`), `PushService`, `BuildService`. `Materializer` turns a project item into an `ItemContent` and hands it to `StWriter`; it routes POUs/interfaces through the document and declaration-only kinds (DUT/GVL) through the declaration aspect — a COST decision (~1 ms against ~20 ms per item, on a walk every `volt status` pays), NOT a capability one: both vendors export a DUT fine (DIALECT C2a). The WRITE has no such split; every kind travels as one document. `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning`, `Materializer` |
 
 `BridgeException` and `Polyfills` sit at the root because their namespace is the root: `BridgeException` is the
 wire's error type and every layer throws it, so it is reachable without a `using` by design.
 
-The stack is acyclic and checked. `Item/` depends on nothing; `Source/` may depend on `Source/Body/`, which may
-depend on its language folders, never the reverse; `Ide/` sits above the content layers; `Sync/` composes them.
-That direction is a property of the code, not of the folder names — the names only have to make it legible.
+The stack is acyclic. `Item/` depends on nothing; `Format/` may depend on `Item/`, never the reverse; `Ide/` is
+the vendor contract above the content layers; `Sync/` composes them all. That direction is a property of the
+code, not of the folder names — the names only have to make it legible.
+
+> **`Source/` and everything under it is GONE**, with the PLCopen transport it existed to serve: `PouReader`,
+> `PouSplice`, `PouDocument`, `ProjectStructure`, `PlcOpenDocument`, `BodyCodec`, `GraphReader`, `GraphWriter`,
+> `NetworkSplice`. Content no longer travels as a document at all — `ICodeStore` speaks `ItemContent`, and each
+> driver reaches its vendor's own representation below the seam. The vendor facts that outlived that layer moved
+> to `Ide/DIALECT.md`, which is where they belong: they are about how the two IDEs behave, not about a transport.
 
 ### Protocol invariant: the item **name** is the identity
 
@@ -171,8 +176,11 @@ guard that throws** — real projects legitimately repeat these names, and throw
 - **Container managers are folders, never items** (`Item/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
 - **Property accessor shape round-trips byte-identically** — GET-only / SET-only / GET+SET preserved on both
-  bridges (`Document/PouReader.Accessor` — read from the SAME export as everything else, with an ABSENT accessor
-  (null) kept distinct from a present-but-bodiless one (`""`), which is what lets a push drop a getter).
+  bridges. **Presence is the object**: an ABSENT accessor (`null`) is kept distinct from a present-but-bodiless
+  one, which is what lets a push drop a getter. `PushService.ReconcileAccessor` creates and deletes them; the
+  drivers only write into one that exists, and an INTERFACE property's accessors are never written at all —
+  TwinCAT COM can hard-crash the IDE on that (DIALECT D4d's neighbourhood, and the reason
+  `IProjectTree.InterfacePropertyAccessors` is a per-vendor call).
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
   library (`Library/LibraryManifest`); `verbose` fetch (`FetchRequest.Verbose`) adds each element's declaration-only
   signature as a read-only item, excluded from `structureVersion`. Volt implements no signature extraction on TwinCAT, so the set is empty there. That is a gap in VOLT and
@@ -206,8 +214,9 @@ the bridge's `Driver/` is the bridge between them.**
 | Entrypoint | `PipeHost.cs` | `Program.cs` | CODESYS: `PipeHost.Start()` called in-proc by the IDE's IronPython script command. Beckhoff: standalone exe; spawns its STA thread, starts degraded, attaches when TwinCAT appears. |
 | Driver — session | `Driver/CodesysDriver.cs` | `Driver/BeckhoffDriver.cs` | facade: connect / health / build. |
 | Driver — tree | `Driver/CodesysDriver.Tree.cs` | `Driver/BeckhoffDriver.Tree.cs` | walk/lookup/CRUD algorithm. CODESYS classifies by object-model interface names; Beckhoff by native `ItemType`. |
-| Driver — code | `Driver/CodesysDriver.Code.cs` | `Driver/BeckhoffDriver.Code.cs` | transport orchestration (restore-on-failed-import); textual + PlcOpen XML. |
-| Access gateway | `Ide/CodesysObjectModel.cs` (+ `CodesysTypeMap.cs`, `Reflection.cs`) | `Ide/TcObjectModel.cs` (+ `RotInstances.cs`, `TcPlcOpen.cs`, `TcPouReader.cs`) | holds ALL vendor state + the only `reflection`/`dynamic` in the bridge. |
+| Driver — content | `Driver/CodesysDriver.Content.cs` | `Driver/BeckhoffDriver.Content.cs` | `ICodeStore`: declaration, body, members, accessors. CODESYS writes through aspects and builds graphical bodies as typed `NWLObject` trees; Beckhoff writes text and edits the NWL archive in place. Neither serializes a document. |
+| Access gateway | `Ide/CodesysObjectModel.*.cs` (+ `CodesysTypeMap.cs`, `Reflection.cs`, `NwlInterop.cs`) | `Ide/TcObjectModel.*.cs` (+ `RotInstances.cs`, `TcArchive.cs`, `TcItemArchive.cs`) | holds ALL vendor state + the only `reflection`/`dynamic` in the bridge. |
+| Graphical body | `Ide/CodesysNetworkReader.cs` / `Writer.cs` | `Ide/TcNetworkReader.cs` / `Writer.cs` | `NetworkModel` ⇄ the vendor's own form. CODESYS: live typed objects through `NwlInterop`. TwinCAT: the `<NWL><XmlArchive>` through `TcArchive`, edited in place and never constructed (DIALECT N4). |
 | Thread dispatcher | `Ide/CodesysDispatcher.cs` | `Ide/StaDispatcher.cs` (+ `ComMessageFilter.cs`) | CODESYS delegates to the IDE's `InvokeInPrimaryThread`; Beckhoff owns + pumps an STA thread via a `BlockingCollection`. |
 
 ### Load-bearing asymmetries — don't "unify" these
@@ -216,14 +225,11 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 
 - **Hosting.** CODESYS = net48 library loaded *in-process* by reflection (no compile-time refs → loads in any
   3.5.x); Beckhoff = net8 exe *attaching* to a separate XAE over COM. This dictates each `Ide/` layer.
-- **PlcOpen transport.** CODESYS round-trips XML *in memory* via the object model; Beckhoff's COM API is
-  file-based, so `TcPlcOpen` round-trips through a temp file.
-- **`TcPouReader` has no CODESYS counterpart.** TwinCAT stores graphical bodies in a vendor NWL archive whose
-  language must be parsed out locally; CODESYS gets the same answer from the shared `Volt.Engine.PlcOpen`. The
-  parser is irreducibly TwinCAT-specific, so it stays in Beckhoff. (Both halves of this are on the way out: the
-  NWL archive turns out to be a serialization of the same object model CODESYS exposes live, and CODESYS reads
-  the language off the aspect TYPE rather than parsing anything — see
-  `openspec/changes/pou-transport-per-vendor/nwl-object-model.md`.)
+- **How a graphical body is reached — and this one is ACCESS, not model.** The two vendors ship the SAME
+  `NWLObject` model, member for member (DIALECT N1). CODESYS hands over the live objects, so its writer builds a
+  typed tree and a wrong member name throws. TwinCAT hands over the serialization, so its writer edits the
+  archive in place and a wrong member SET corrupts silently — which is why it constructs nothing. The asymmetry
+  is irreducible only for as long as Volt cannot run in-process on TwinCAT (DIALECT N6).
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
@@ -320,15 +326,14 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     code's current behaviour. Beware the double: `FakeIde` asserted that `IsConnected` and
     `BuildHealthResponse().Connected` were the same signal — an invariant the real TwinCAT driver breaks — so 500+
     green unit tests could not see the divergence.
-11. **Resolve the object you NAMED, never the first match in the document.** `ReadXml` returns a POU *and its
-    children* on both vendors, so `doc.Descendants(ns + "FBD").FirstOrDefault()` can return a METHOD's body — and
-    `SpliceFbdLdBody` then writes the root's new body into it, destroying the method's. The same mistake appeared
-    three times in the graphical splice (`FindFbdLd`, `InlineInsert`, `GraphicalBodyLang`) and once more in
-    `DeclFromExport`, which is why `Document/PouReader` exists. Scope to the root `<pou>`'s DIRECT child, by NAME —
-    `PlcOpenDocument.OwnerOf`/`ItemBody`/`OwnDescendants` are the shared primitives that do it, and every splice
-    member takes an item name for this reason alone. A FIFTH instance of the same bug was found later and is worth
-    knowing: a declaration write took the FIRST `InterfaceAsPlainText` under the item, which on a POU with declared
-    variables is the copy nested inside the typed `<interface>` — so the write was accepted and changed nothing.
+11. **Resolve the object you NAMED, never the first match under it.** A document-shaped read returns a POU *and
+    its children*, so `Descendants("FBD").FirstOrDefault()` can return a METHOD's body — and the write then puts
+    the root's body into it, destroying the method's. That mistake appeared FIVE times: three in the graphical
+    splice, once in the declaration read, and once where a declaration write took the FIRST
+    `InterfaceAsPlainText` under an item — which on a POU with declared variables is the copy nested inside the
+    typed `<interface>`, so the write was accepted and changed nothing. The document layer that hosted all five
+    is deleted, and the rule outlived it: **address the object, never search under it.** `ICodeStore` now takes an
+    `ItemRef` per item and `WriteMembers` resolves each member by NAME from one map.
 12. **A name is not a path.** Wire item names are bare (`Foo.fb`); workspace entries are src-relative paths
     (`Folder/Foo.fb`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
     the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors
@@ -362,11 +367,15 @@ by the connector).
 Twice now a HIDDEN ARGUMENT has cost real debugging time, and both times the answer took minutes once the API
 surface was read properly:
 
-- `PlcOpenImport`'s `options` was hardcoded to `NONE`, which fails on a name collision. That made "TwinCAT
-  cannot replace a POU in place" look like a vendor limit **for months** (DIALECT D4c). `1` = `REPLACE` replaces
-  in place and always did.
+- `ProduceXml()` was called with no argument, which returns an item's METADATA and none of its children. An
+  interface therefore came back with no `<Property>` elements, and a property's accessors were unreadable. The
+  member takes a `recursive` flag; nobody had looked.
 - `ITcPlcOpenImportExport2.PlcOpenExport2` was assumed to take an options flag that would bring back a missing
-  export block. It takes `bSubTree`. The assumption would have sent the fix down the wrong path entirely.
+  export block. It takes `bSubTree`. The assumption would have sent the fix down the wrong path entirely. (That
+  transport is deleted; the lesson is why this section exists.)
+- **Half of `ITcPlcImplementation` was never used.** Volt read `ImplementationText` and inferred the rest, while
+  `ImplementationXml`, `Language` and `ITcPlcPou.DocumentXml` sat on the same objects untouched — see the
+  measurements below, and DIALECT N3/N7.
 
 **TwinCAT — the type library IS the authoritative surface, and it is importable.** `TlbImp.exe` ships with the
 Windows SDK:
@@ -379,12 +388,17 @@ Reflecting over the result gives every interface, method, parameter name and typ
 trial-and-error against a live project. That is how these were settled:
 
 ```
-ITcPlcOpenImportExport    PlcOpenExport (bstrFile, bstrSelection)
 ITcPlcOpenImportExport2   PlcOpenExport2(bstrFile, bstrSelection, bSubTree)   <- bSubTree, NOT options
-ITcPlcPou                 DeclarationText {get;set}  ImplementationText {get;set}
-                          ImplementationXml {get;set}  DocumentXml {get;set}  Language {get;set}
-_ITcPlcImplementation     ImplementationText, but NO DeclarationText
+ITcPlcPou                 DocumentXml {get;set}   ReturnType {get;set}
+ITcPlcImplementation      ImplementationText | ImplementationXml | Language
+ITcPlcDeclaration         DeclarationText, and NOTHING else
 ```
+
+**And the type library is necessary but not sufficient — READ IT, THEN MEASURE IT.** All three
+`ITcPlcImplementation` members are in the TLB; against a live POU only two answer. `Language` throws
+`RuntimeBinderException` — the interface declares it, this object does not implement it — and `ImplementationXml`
+returns byte-for-byte the same string as `ImplementationText`, not a second representation. Reading the surface
+tells you what to try; only the running IDE tells you what is there (`--probe-pou`, DIALECT N3).
 
 That last line is worth keeping: Beckhoff's own object model encodes the fact that **an ACTION has no
 declaration**, which this repo previously learned the hard way. When a vendor fact and a Volt assumption
