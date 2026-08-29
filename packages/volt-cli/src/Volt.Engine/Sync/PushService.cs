@@ -357,7 +357,16 @@ public static class PushService
             // guarantees is that an edit made before this line is never silently overwritten.
             if (ifVersion is { } expected && expected != Versioning.Unreadable)
             {
-                var now = Hasher.ComputeItemVersion(folder ?? "", StWriter.Write(live));
+                // NOT `folder ?? ""`. `Hasher.ComputeItemVersion` requires both inputs for a stated reason: an
+                // item at the project ROOT and an item whose folder failed to read would hash identically, so
+                // defaulting turns a failure into "no change". An `ifVersion` only reaches here on the UPDATE
+                // path, where the folder came from the walk and is never null - so a null IS a bug, and saying
+                // so beats hashing something that merely looks right.
+                if (folder is null)
+                    throw new BridgeException(BridgeErrorCodes.InternalError,
+                        $"'{name}': cannot verify the item version without its folder");
+
+                var now = Hasher.ComputeItemVersion(folder, StWriter.Write(live));
                 if (now != expected)
                     throw new BridgeException(BridgeErrorCodes.BadRequest,
                         $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite " +
