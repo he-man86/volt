@@ -39,10 +39,20 @@ internal static class TcPlcOpenWriter
     private static XElement WriteBody(NetworkBody body)
     {
         var root = new XElement(Namespaces.Tc6 + (body.Language == BodyLanguage.Ld ? "LD" : "FBD"));
-        foreach (var network in body.Networks)
+
+        // ONE attribute marker for the WHOLE BODY, not one per network — measured, after guessing otherwise.
+        // Emitting it per network produced a body TwinCAT imported happily and then could never push back: the
+        // SECOND marker came out of the importer as a real network item, and the next pull rendered it as a box
+        // literally called `FBD Implementation Attributes()`. It is a body-level declaration ("input pins may
+        // carry flags"), so it is written once, in the first network's id space, exactly where the vendor's own
+        // export puts it (localId 10000000000, immediately before that network's items).
+        var first = new NetworkWriter(root, body.Networks.Count > 0 ? body.Networks[0].Order : 0);
+        first.EmitAttributeMarker();
+
+        for (int i = 0; i < body.Networks.Count; i++)
         {
-            var w = new NetworkWriter(root, network.Order);
-            w.EmitAttributeMarker();
+            var network = body.Networks[i];
+            var w = i == 0 ? first : new NetworkWriter(root, network.Order);
             foreach (var tree in network.Trees) w.Emit(tree);
         }
         return root;
@@ -98,15 +108,13 @@ internal static class TcPlcOpenWriter
     private sealed class NetworkWriter
     {
         private readonly XElement _root;
-        private readonly long _base;
         private long _next;
         private readonly Dictionary<int, long> _wires = new();
 
         public NetworkWriter(XElement root, int order)
         {
             _root = root;
-            _base = 10_000_000_000L * (order + 1);
-            _next = _base;
+            _next = 10_000_000_000L * (order + 1);
         }
 
         private long Id() => _next++;
@@ -222,8 +230,13 @@ internal static class TcPlcOpenWriter
 
         private long? EmitAssign(Assign assign)
         {
+            // Jump and Return first, because they deserve their own words. Then EVERY REMAINING BIT - Set,
+            // Reset, Negated, Rising, Falling - because an assignment carries its own modifiers and dropping
+            // one turns a SET coil into a plain one on a push that reports success. The vendor really does put
+            // them here: measured on a real ladder, a target came back Flags=Negation,Set.
             if (assign.Flags.Jump) throw Refuse("contains a jump");
             if (assign.Flags.Return) throw Refuse("contains a return");
+            NoFlags(assign.Flags, "an assignment");
             if (assign.Value is not { } value) throw Refuse("assigns nothing");
 
             var producer = Emit(value) ?? throw Refuse("assigns from a statement");

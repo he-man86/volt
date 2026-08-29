@@ -126,6 +126,41 @@ public class TcPlcOpenWriterTests
             "a real ladder body must never be re-created through an import");
     }
 
+    /// <summary>A MODIFIER ON THE ASSIGNMENT ITSELF MUST BE REFUSED, NOT DROPPED.
+    ///
+    /// <para>Found by reading the code rather than by a failure, which is why it is worth a test. The writer
+    /// declares that anything it cannot express is refused — and <c>EmitAssign</c> checked only
+    /// <c>Jump</c> and <c>Return</c>. Every other bit on the assignment's own <c>Flags</c> — <c>Set</c>,
+    /// <c>Reset</c>, <c>Negated</c>, <c>Rising</c>, <c>Falling</c> — fell straight through and was written as a
+    /// plain assignment. That is a SET coil silently becoming a normal one: the push succeeds, the coil stops
+    /// latching, and nothing anywhere says so. Exactly the failure the refusals exist to prevent.</para>
+    ///
+    /// <para>The vendor really does put modifiers here — measured on a real ladder, an assignment target came
+    /// back <c>Flags=Negation,Set</c> — so this is a live shape, not a hypothetical one.</para></summary>
+    [Theory]
+    [InlineData("set")]
+    [InlineData("reset")]
+    [InlineData("negated")]
+    public void A_modifier_on_the_assignment_is_refused(string which)
+    {
+        var flags = which switch
+        {
+            "set" => new Flags(Set: true),
+            "reset" => new Flags(Reset: true),
+            _ => new Flags(Negated: true),
+        };
+        var model = new NetworkBody(BodyLanguage.Fbd, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Assign(new Leaf(new Operand("a"), Flags.None), new[] { new Operand("coil") }, flags),
+            }),
+        });
+
+        var ex = Assert.Throws<NotSupportedException>(() => Lower(model));
+        Assert.Contains("modifier", ex.Message);
+    }
+
     // -- the gates ---------------------------------------------------------------------------------
 
     /// <summary>THE FORMAT GATE — the vendor's own bytes are the expected value.
@@ -181,13 +216,19 @@ public class TcPlcOpenWriterTests
         var written = Lower(model);
 
         // Two networks, each a whole AND box with its two operands, in the vendor's per-network id space.
-        Assert.Equal(2, written.Elements().Count(e => e.Name.LocalName == "vendorElement"));
         Assert.Equal(2, written.Elements().Count(e => e.Name.LocalName == "block"));
         Assert.Equal(4, written.Elements().Count(e => e.Name.LocalName == "inVariable"));
+
+        // EXACTLY ONE attribute marker for the whole body. This assertion used to demand one PER NETWORK, which
+        // was the guess the code made and the test copied — a test agreeing with the code proves nothing. The
+        // live importer settled it: a second marker came back as a real network item, rendering on the next pull
+        // as a box called `FBD Implementation Attributes()`, so the body could be created and never pushed back.
+        Assert.Single(written.Elements(), e => e.Name.LocalName == "vendorElement");
+
         var ids = written.Elements().Select(e => long.Parse(e.Attribute("localId")!.Value)).ToList();
         Assert.Equal(ids.Count, ids.Distinct().Count());
-        Assert.Equal(4, ids.Count(i => i / 10_000_000_000L == 1));
-        Assert.Equal(4, ids.Count(i => i / 10_000_000_000L == 2));
+        Assert.Equal(4, ids.Count(i => i / 10_000_000_000L == 1));   // marker + network 0's three elements
+        Assert.Equal(3, ids.Count(i => i / 10_000_000_000L == 2));   // network 1's three, no marker of its own
     }
 
     /// <summary>A LADDER body is the same pipeline with a different wrapper element, so it gets its own gate

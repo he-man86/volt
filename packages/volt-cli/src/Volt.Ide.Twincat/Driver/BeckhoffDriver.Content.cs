@@ -192,8 +192,14 @@ public sealed partial class BeckhoffDriver
         ItemKind.Kinds.Program => "program",
         ItemKind.Kinds.FunctionBlock => "functionBlock",
         ItemKind.Kinds.Function => "function",
+        // NOT "a {kind} cannot hold a graphical body" - a METHOD or an ACTION certainly can, and saying
+        // otherwise sends the reader looking for the wrong thing. What is true is narrower: a member has no
+        // document of its own (DIALECT D4j - `ExportChild` refuses one, because TwinCAT keeps the whole POU in
+        // ONE .TcPOU), so it cannot be the subject of a PLCopen import. Creating one needs the ENCLOSING POU
+        // imported with the member inside it, which this path does not do.
         _ => throw new NotSupportedException(
-            $"TwinCAT: a '{kind}' cannot hold a graphical body, so there is no PLCopen pouType for it."),
+            $"TwinCAT: cannot create a graphical body for a '{kind}' - only a whole POU can be imported, and a " +
+            "member has no document of its own. Create it in the IDE and pull it."),
     };
 
     /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
