@@ -19,4 +19,7 @@
     <!-- Wire/BridgePipeHost serves Core's services over the pipe (PipeServer). Transport is the wire-only layer. -->
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
 </Project>

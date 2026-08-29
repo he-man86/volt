@@ -12,4 +12,7 @@
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
 </Project>

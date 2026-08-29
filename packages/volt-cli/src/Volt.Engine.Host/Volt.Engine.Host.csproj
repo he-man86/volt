@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!--
     The pipe HOST: the one place that maps a wire op to a service and marshals it onto the IDE thread.
@@ -25,4 +25,7 @@
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
 </Project>

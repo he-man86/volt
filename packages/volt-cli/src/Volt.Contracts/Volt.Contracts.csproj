@@ -26,4 +26,7 @@
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
 </Project>
