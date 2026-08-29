@@ -168,8 +168,6 @@ internal static class TcPlcOpenWriter
 
         private long EmitLeaf(Leaf leaf)
         {
-            NoFlags(leaf.Operand.Flags, "an operand");
-            NoFlags(leaf.Flags, "an operand");
             var id = Id();
             _root.Add(new XElement(Namespaces.Tc6 + "inVariable",
                 new XAttribute("localId", id.ToString()),
@@ -183,7 +181,6 @@ internal static class TcPlcOpenWriter
         {
             if (box.Enable != null) throw Refuse("wires a box's EN input");
             if (box.StCode != null) throw Refuse("contains an Execute box");
-            NoFlags(box.Flags, "a box");
 
             // Inputs are emitted BEFORE the block, so their ids exist to be referenced - and so the document
             // order matches the vendor's own export, which is producer-before-consumer throughout.
@@ -201,7 +198,6 @@ internal static class TcPlcOpenWriter
             for (int i = 0; i < wired.Count; i++)
             {
                 var (input, from) = wired[i];
-                NoFlags(input.Flags, "a box input pin");
                 if (from is not { } producer) throw Refuse("wires a box input to a statement");
                 inputs.Add(new XElement(Namespaces.Tc6 + "variable",
                     // An operator carries no formal names, and the vendor's exporter numbers the pins - In1,
@@ -248,13 +244,11 @@ internal static class TcPlcOpenWriter
             // them here: measured on a real ladder, a target came back Flags=Negation,Set.
             if (assign.Flags.Jump) throw Refuse("contains a jump");
             if (assign.Flags.Return) throw Refuse("contains a return");
-            NoFlags(assign.Flags, "an assignment");
             if (assign.Value is not { } value) throw Refuse("assigns nothing");
 
             var producer = Emit(value) ?? throw Refuse("assigns from a statement");
             foreach (var target in assign.Targets)
             {
-                NoFlags(target.Flags, "an assignment target");
                 _root.Add(new XElement(Namespaces.Tc6 + "outVariable",
                     new XAttribute("localId", Id().ToString()),
                     Position(),
@@ -282,12 +276,5 @@ internal static class TcPlcOpenWriter
                 : throw Refuse($"references wire {demux.VarId} before it is defined");
         }
 
-        /// <summary>Modifiers have no PLCopen form in this lowering, and a dropped one silently changes what the
-        /// program DOES - a negated contact that stops being negated is a live bug. So they are refused.</summary>
-        private static void NoFlags(Flags? flags, string where)
-        {
-            if (flags is null || flags.IsNone) return;
-            throw Refuse($"puts a modifier on {where}");
-        }
     }
 }

@@ -131,39 +131,42 @@ public class TcPlcOpenWriterTests
             "a real ladder body must never be re-created through an import");
     }
 
-    /// <summary>A MODIFIER ON THE ASSIGNMENT ITSELF MUST BE REFUSED, NOT DROPPED.
+    /// <summary>A MODIFIER SURVIVES A CREATE — carried by the SECOND step, not the first.
     ///
-    /// <para>Found by reading the code rather than by a failure, which is why it is worth a test. The writer
-    /// declares that anything it cannot express is refused — and <c>EmitAssign</c> checked only
-    /// <c>Jump</c> and <c>Return</c>. Every other bit on the assignment's own <c>Flags</c> — <c>Set</c>,
-    /// <c>Reset</c>, <c>Negated</c>, <c>Rising</c>, <c>Falling</c> — fell straight through and was written as a
-    /// plain assignment. That is a SET coil silently becoming a normal one: the push succeeds, the coil stops
-    /// latching, and nothing anywhere says so. Exactly the failure the refusals exist to prevent.</para>
+    /// <para>This assertion used to be that a modifier is REFUSED, and that was right while PLCopen was the
+    /// whole write: a negated contact has no form this lowering knows, so a body carrying one could only be
+    /// rejected or silently flattened, and rejecting is the honest half of that pair.</para>
     ///
-    /// <para>The vendor really does put modifiers here — measured on a real ladder, an assignment target came
-    /// back <c>Flags=Negation,Set</c> — so this is a live shape, not a hypothetical one.</para></summary>
+    /// <para>It is no longer the whole write. The import settles STRUCTURE, and then the in-place archive
+    /// writer — which has always known how to write <c>Flags</c> — stamps the VALUES onto the result. So the
+    /// modifier does not need a PLCopen form at all, and refusing it would now be refusing something Volt can
+    /// do. <b>The danger the old test guarded has not gone away</b>, so this covers the same ground one layer
+    /// down: the guarantee is that step two restores what step one could not carry.</para>
+    ///
+    /// <para>Both halves are real vendor bytes. <c>NegatedContact.derived.TcPOU</c> carries
+    /// <c>Flags 1</c> (Negation) and <c>SetCoil.derived.TcPOU</c> carries <c>Flags 2</c> (Set); zeroing them
+    /// produces exactly what a fresh import hands back — the right shape, no modifiers — and the model is the
+    /// TEXT-derived one a push actually carries.</para></summary>
     [Theory]
-    [InlineData("set")]
-    [InlineData("reset")]
-    [InlineData("negated")]
-    public void A_modifier_on_the_assignment_is_refused(string which)
+    [InlineData("NegatedContact.derived.TcPOU", 1)]
+    [InlineData("SetCoil.derived.TcPOU", 2)]
+    public void A_modifier_the_import_cannot_carry_is_restored_by_the_archive_write(string fixture, int flag)
     {
-        var flags = which switch
-        {
-            "set" => new Flags(Set: true),
-            "reset" => new Flags(Reset: true),
-            _ => new Flags(Negated: true),
-        };
-        var model = new NetworkBody(BodyLanguage.Fbd, new[]
-        {
-            new Network(0, null, null, null, false, new Node[]
-            {
-                new Assign(new Leaf(new Operand("a"), Flags.None), new[] { new Operand("coil") }, flags),
-            }),
-        });
+        var vendor = Body(fixture);
+        Assert.Contains($"<v n=\"Flags\">{flag}</v>", vendor);
 
-        var ex = Assert.Throws<NotSupportedException>(() => Lower(model));
-        Assert.Contains("modifier", ex.Message);
+        // What a fresh PLCopen import hands back: the right structure, every modifier absent.
+        var imported = vendor.Replace($"<v n=\"Flags\">{flag}</v>", "<v n=\"Flags\">0</v>");
+        Assert.DoesNotContain($"<v n=\"Flags\">{flag}</v>", imported);
+
+        // The model a push carries - round-tripped through network text, so it holds only what the text holds.
+        var pulled = TcNetworkReader.Read(Impl(fixture), BodyLanguage.Ld);
+        var model = NetworkTextGate.Validate(NetworkTextWriter.Write(pulled));
+
+        var stamped = TcNetworkWriter.Apply(imported, model);
+
+        Assert.NotNull(stamped);
+        Assert.Contains($"<v n=\"Flags\">{flag}</v>", stamped);
     }
 
     // -- the gates ---------------------------------------------------------------------------------

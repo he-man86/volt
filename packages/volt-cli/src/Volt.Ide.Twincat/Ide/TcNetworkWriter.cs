@@ -153,9 +153,16 @@ internal static class TcNetworkWriter
                      | WriteOperand(e, "Operand", l.Operand with { Flags = l.Flags });
 
             case Assign a when type == "BoxTreeAssign":
+            {
+                // COIL STORAGE GOES BACK WHERE THE ARCHIVE KEEPS IT — on the TARGET — having been read onto the
+                // value (see TcNetworkReader). It is written from the value and STRIPPED from the value, so the
+                // source operand does not also come out latched: `out := a SET;` is a set COIL, not a set input.
+                var storage = a.Value?.Flags ?? Flags.None;
                 return changed
-                     | WriteChild(e, "RValue", a.Value)
-                     | WriteOutputs(e, a.Targets);
+                     | WriteChild(e, "RValue", WithoutStorage(a.Value))
+                     | WriteOutputs(e, a.Targets)
+                     | WriteStorage(e, storage);
+            }
 
             case Box b when type == "BoxTreeBox":
             {
@@ -257,6 +264,52 @@ internal static class TcNetworkWriter
     /// <para>The real fix is to give a target's modifiers a text form so a SET coil is visible and editable in
     /// the workspace at all. Until then the archive value is left exactly as the IDE wrote it.</para></summary>
     private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
+
+    /// <summary>The node with its coil-storage bits cleared, so writing the r-value cannot latch the source.</summary>
+    private static Node? WithoutStorage(Node? node)
+    {
+        if (node is null) return null;
+        var f = node.Flags with { Set = false, Reset = false };
+        return node switch
+        {
+            Leaf l => l with { Flags = f },
+            Box b => b with { Flags = f },
+            Demux d => d with { Flags = f },
+            Parallel p => p with { Flags = f },
+            Terminator t => t with { Flags = f },
+            Assign a => a with { Flags = f },
+            _ => node,
+        };
+    }
+
+    /// <summary>Set or clear the SET bit on every target of an assignment, leaving every OTHER bit alone.
+    ///
+    /// <para>The whole-flags write cannot be used here. A target may carry modifiers network text has no form
+    /// for — a NEGATED coil is the measured case (`Flags=Negation,Set`) — and rewriting the field wholesale
+    /// would erase them on a push that never mentioned them. Only the bit the format can express is touched.</para></summary>
+    private static bool WriteStorage(XElement e, Flags storage)
+    {
+        if (storage.Reset)
+            throw new NotSupportedException(
+                "TwinCAT: a RESET modifier has no representation in the IDE's flag set. Refusing rather than " +
+                "writing a plain coil, which would change what the program does.");
+
+        var holder = TcArchive.Obj(e, "OutputItems");
+        var changed = false;
+        foreach (var target in TcArchive.List(holder, "OutputItems"))
+        {
+            var flags = TcArchive.Obj(target, "Flags");
+            if (flags == null)
+            {
+                if (storage.Set) throw Refuse("a SET modifier appears on a coil that carries no flags");
+                continue;
+            }
+            var now = TcArchive.Int(flags, "Flags");
+            var next = storage.Set ? now | TcArchive.FlagSet : now & ~TcArchive.FlagSet;
+            changed |= SetInt(flags, "Flags", next);
+        }
+        return changed;
+    }
 
     private static bool WriteOutputs(XElement e, IReadOnlyList<Operand> targets)
     {

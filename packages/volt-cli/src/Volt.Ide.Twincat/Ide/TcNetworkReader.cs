@@ -58,10 +58,22 @@ internal static class TcNetworkReader
             }
 
             case "BoxTreeAssign":
-                return new Assign(
-                    TcArchive.Obj(e, "RValue") is { } rv ? ReadNode(rv) : null,
-                    Outputs(e),
-                    flags);
+            {
+                var targets = Outputs(e);
+                var value = TcArchive.Obj(e, "RValue") is { } rv ? ReadNode(rv) : null;
+
+                // COIL STORAGE MOVES ONTO THE VALUE, because that is where network text spells it and where the
+                // model keeps it. The archive puts SET on the assignment TARGET (measured: a coil operand came
+                // back `Flags=Negation,Set`), while the format writes `out := a SET;` - the trailing modifier
+                // after the VALUE - and `NetworkTextWriter` renders modifiers from the value, never from the
+                // target. Left untranslated, a SET coil pulled from TwinCAT rendered as a PLAIN one: invisible
+                // in the workspace, and silently downgraded on the next create. CODESYS's reader already puts it
+                // on the value, so this is the two vendors agreeing rather than a TwinCAT special case.
+                var storage = targets.Select(t => t.Flags).FirstOrDefault(f => f is { Set: true } or { Reset: true });
+                if (storage is { } st && value is not null) value = WithStorage(value, st);
+
+                return new Assign(value, targets, flags);
+            }
 
             case "BoxTreeBox":
                 return new Box(
@@ -148,6 +160,22 @@ internal static class TcNetworkReader
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an
     /// <c>OutputItems</c> object of type <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
+    /// <summary>The same node, carrying the coil storage read off the assignment's target.</summary>
+    private static Node WithStorage(Node node, Flags storage)
+    {
+        var f = node.Flags with { Set = node.Flags.Set || storage.Set, Reset = node.Flags.Reset || storage.Reset };
+        return node switch
+        {
+            Leaf l => l with { Flags = f },
+            Box b => b with { Flags = f },
+            Demux d => d with { Flags = f },
+            Parallel p => p with { Flags = f },
+            Terminator t => t with { Flags = f },
+            Assign a => a with { Flags = f },
+            _ => node,
+        };
+    }
+
     private static IReadOnlyList<Operand> Outputs(XElement e)
     {
         var holder = TcArchive.Obj(e, "OutputItems");

@@ -175,8 +175,19 @@ public sealed partial class BeckhoffDriver
             var live = string.IsNullOrWhiteSpace(existing) ? null : TcArchive.Root(existing);
             if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
             {
-                _om.WriteText(item.Native, declaration,
-                    _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd"));
+                // TWO STEPS, and each does only what it can do honestly.
+                //
+                // The import settles STRUCTURE — which boxes, wired how — because that needs the IDE's own
+                // resolution. It cannot carry MODIFIERS: a negated contact or a SET coil has no PLCopen form
+                // this lowering knows, and inventing one would be the guess that keeps costing.
+                //
+                // But by the time the import returns, the body is an ordinary archive whose shape matches the
+                // pushed model exactly — which is precisely the situation the in-place writer exists for. So it
+                // stamps the values on: flags, comments, titles, everything network text does carry. Neither
+                // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
+                // to survive a create.
+                var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd");
+                _om.WriteText(item.Native, declaration, Stamp(built, model));
                 return;
             }
 
@@ -194,6 +205,60 @@ public sealed partial class BeckhoffDriver
         // make this decision from the item's kind code; it moved here with the rest of the write.
         _om.WriteText(item.Native, declaration,
                       HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
+    }
+
+    /// <summary>Stamp onto a freshly imported body everything the import could not carry — flags, titles,
+    /// comments, a disabled network — and say so plainly when that is impossible.
+    ///
+    /// <para><b>The import decides its own network boundaries.</b> Measured: a network holding two disconnected
+    /// statements (<c>t1(IN := a, PT := pt); done := t1.Q;</c>) comes back as TWO networks, because PLCopen FBD
+    /// has no network element and the importer groups by what is actually wired together. So the archive's shape
+    /// is the IDE's answer, not a copy of the pushed model, and the in-place writer — which requires the two to
+    /// agree — legitimately refuses on it.</para>
+    ///
+    /// <para>That refusal must not become a blanket failure, and must not become a silent shrug either. When the
+    /// model carries nothing beyond structure, the IDE's own grouping IS the right answer and is kept. When it
+    /// carries DETAIL the import cannot express — a negated contact, a SET coil, a network title, a disabled
+    /// network — that detail would be lost, so the push fails instead of reporting success over a body missing
+    /// the very thing the engineer wrote.</para></summary>
+    private static string Stamp(string built, NetworkBody model)
+    {
+        try
+        {
+            return TcNetworkWriter.Apply(built, model) ?? built;
+        }
+        catch (NotSupportedException) when (!CarriesDetail(model))
+        {
+            // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
+            return built;
+        }
+    }
+
+    /// <summary>Anything network text carries that a PLCopen import does not: item modifiers and the
+    /// per-network metadata (<c>Title</c>, <c>Label</c>, <c>Comment</c>, <c>OutCommented</c>).</summary>
+    private static bool CarriesDetail(NetworkBody model) =>
+        model.Networks.Any(n =>
+            !string.IsNullOrEmpty(n.Title) || !string.IsNullOrEmpty(n.Label) ||
+            !string.IsNullOrEmpty(n.Comment) || n.Disabled ||
+            n.Trees.Any(HasFlags));
+
+    private static bool HasFlags(Node node)
+    {
+        if (!node.Flags.IsNone) return true;
+        return node switch
+        {
+            Leaf l => l.Operand.Flags is { IsNone: false },
+            Assign a => a.Targets.Any(t => t.Flags is { IsNone: false }) || (a.Value is { } v && HasFlags(v)),
+            Box b => b.Instance?.Flags is { IsNone: false }
+                     || b.Outputs.Any(o => o.Flags is { IsNone: false })
+                     || b.Inputs.Any(i => !i.Flags.IsNone || HasFlags(i.Value))
+                     || (b.Enable is { } e && HasFlags(e)),
+            Volt.Engine.Format.Network.Parallel p =>
+                (p.Input is { } pi && HasFlags(pi)) || p.Branches.Any(HasFlags),
+            Terminator t => t.Input is { } ti && HasFlags(ti),
+            Demux d => d.Input is { } di && HasFlags(di),
+            _ => false,
+        };
     }
 
     /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
