@@ -42,8 +42,20 @@ public sealed partial class BeckhoffDriver
 
     public void WriteContent(ItemRef item, ItemContent content)
     {
-        WriteOne(item, content.Kind, content.Declaration, content.Body);
-        if (content.Members.Count == 0) return;
+        // MEMBERS FIRST, THE POU ITSELF LAST — and the order is load-bearing on this vendor.
+        //
+        // A member is not a separate file on TwinCAT: the whole POU, members and all, lives in ONE .TcPOU
+        // (DIALECT D4j). Writing a member therefore rewrites the enclosing POU's file, and measured, that
+        // rewrite does not carry the parent's own just-written implementation: with the POU written first, an FB
+        // with a graphical ACTION came back with its `out := a;` body GONE, while the identical fixture with a
+        // METHOD kept it. The action's own body arrived correctly both times, so nothing about the member write
+        // was wrong - it simply landed on top of a parent state that predated the parent's write.
+        //
+        // Writing the POU last makes that unorderable: every child mutation is already done, so there is nothing
+        // left to rewrite the file underneath it. It also matches what the push already assumes one level up,
+        // where `PushService` re-resolves the POU after reconciling members because a member create invalidates
+        // its handle.
+        if (content.Members.Count == 0) { WriteOne(item, content.Kind, content.Declaration, content.Body); return; }
 
         // ONE walk, and ORDINAL-IGNORE-CASE — the CODESYS fix from earlier today, reaching its TwinCAT twin.
         //
@@ -71,6 +83,8 @@ public sealed partial class BeckhoffDriver
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
         }
+
+        WriteOne(item, content.Kind, content.Declaration, content.Body);
     }
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
