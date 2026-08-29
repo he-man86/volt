@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Volt.Contracts;
 using Volt.Engine.Ide;
@@ -83,7 +83,7 @@ public sealed partial class CodesysDriver
                     // A placeholder library's name can carry a Windows-illegal char (the '*' wildcard version,
                     // e.g. "SysTypes2 Interfaces, * (System)") — encode it so the .library file still materializes.
                     foreach (var lib in _om.GetLibraryRefs(child))
-                        items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
+                        items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
                     Walk(child, managerFolder, items, unwalked);

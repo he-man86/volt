@@ -1,4 +1,6 @@
-﻿namespace Volt.Cli.Sync;
+﻿using Volt.Engine.Library;
+
+namespace Volt.Cli.Sync;
 
 /// <summary>
 /// refs/remotes/volt/ide — the live IDE modelled as a git remote-tracking branch. Each commit's tree is the
@@ -109,6 +111,22 @@ public static class IdeTree
         {
             var rel = path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal)
                 ? path.Substring(Files.SrcDir.Length + 1) : path;
+            // A `(unresolved)/<lib>/` tree is a library root too, even though it has no `.library` stub -
+            // it is the one tree `LibraryFetch` writes without one. Keying protection purely on stub presence
+            // left every signature under it an ordinary WRITABLE project item, so a bare-name collision with a
+            // real POU let a declaration-only signature overwrite the engineer's code in the live PLC, and a
+            // stale signature there was immortal. Recognised by the marker the engine names, not by a
+            // fabricated vendor file.
+            var marker = "/" + LibraryLayout.UnresolvedFolder + "/";
+            var u = rel.IndexOf(marker, StringComparison.Ordinal);
+            if (u > 0)
+            {
+                var after = rel.Substring(u + marker.Length);
+                var slash = after.IndexOf('/');
+                if (slash > 0) roots.Add(rel.Substring(0, u + marker.Length + slash));
+                continue;
+            }
+
             if (!rel.EndsWith(".library", StringComparison.Ordinal)) continue;
             var i = rel.LastIndexOf('/');
             if (i > 0) roots.Add(rel.Substring(0, i));

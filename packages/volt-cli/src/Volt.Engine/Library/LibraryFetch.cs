@@ -51,14 +51,14 @@ internal static class LibraryFetch
             string libFolder;
             if (libByResolution.TryGetValue(sig.LibraryPath, out var lib))
                 // Identified: fold the element beside its library's `.library` file (matched by RESOLUTION).
-                libFolder = LibraryFolder(lib.Folder, lib.Name);
+                libFolder = LibraryLayout.FolderFor(lib.Folder, lib.Name);
             else
             {
                 // NOT identified: its owning library matched no `.library` ref by RESOLUTION (CODESYS facade /
                 // Interfaces-Implementation split). Do NOT silently drop it and do NOT guess it into a real
                 // library's folder — surface it LOUD under an explicit `(unresolved)` marker so the matching gap
                 // is impossible to miss (nothing lost, no hidden bug). See openspec bridge-diagnostics-observability.
-                libFolder = LibraryFolder(LibraryFolder(libManBase, "(unresolved)"), LibraryLayout.Sanitize(sig.LibraryPath.Split(',')[0].Trim()));
+                libFolder = LibraryLayout.FolderFor(LibraryLayout.FolderFor(libManBase, LibraryLayout.UnresolvedFolder), LibraryLayout.Sanitize(sig.LibraryPath.Split(',')[0].Trim()));
                 unmatched++;
                 VoltLog.Debug($"fetch: lib element '{sig.Name}' — owning library '{sig.LibraryPath}' matched no .library ref, foldered under (unresolved)");
             }
@@ -92,8 +92,4 @@ internal static class LibraryFetch
     }
 
 
-    /// <summary>A library's own workspace folder — its element folder, holding both the `.library` stub and the
-    /// element signatures (`Library Manager/&lt;lib&gt;/`). One definition so the stub and its elements always
-    /// colocate.</summary>
-    private static string LibraryFolder(string? folder, string name) => Library.LibraryLayout.FolderFor(folder, name);
 }

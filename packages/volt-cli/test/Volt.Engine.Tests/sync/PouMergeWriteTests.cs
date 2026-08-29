@@ -227,4 +227,60 @@ public class PouMergeWriteTests
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
+
+    /// <summary>A member whose KIND changes is deleted and RECREATED, not written through.
+    ///
+    /// <para>THE BUG (audit, 2026-08-29): `have`/`want` are keyed on NAME alone, so `PROPERTY Ready` becoming
+    /// `METHOD Ready` was neither created nor deleted. The method's declaration went into the property's
+    /// Interface aspect, its body went to an Implementation aspect a property does not have (a silent no-op on
+    /// CODESYS), and the old GET/SET stayed compiled in. BodyFormatGuard cannot see it - both shapes are
+    /// Textual.</para></summary>
+    [Fact]
+    public void A_member_whose_kind_changes_is_deleted_and_recreated()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_K", ItemKind.PlcPouFb, "", true,
+                "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", null, null,
+                Children: new[] { "Ready" }),
+            new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : INT", null, null, null));
+
+        var refs = RefsService.Handle(ide);
+        var src = "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR\n\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
+                + "\nMETHOD Ready : INT\nReady := x;\nEND_METHOD\n";
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new() { new SetItemOp { Name = "FB_K.fb", IfVersion = refs.Items["FB_K.fb"], SourceText = src } },
+        });
+
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.Contains("delete:Ready", ide.Recorded);
+        Assert.Contains("create:Ready", ide.Recorded);
+        Assert.True(ide.Recorded.IndexOf("delete:Ready") < ide.Recorded.IndexOf("create:Ready"),
+                    "the delete must come FIRST - a create already committed when a later delete throws leaves "
+                    + "the project mutated under a rejected push");
+    }
+
+    /// <summary>Deletes run before creates, so a throw in either cannot half-apply a push.</summary>
+    [Fact]
+    public void A_removed_member_is_deleted_before_any_member_is_created()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_D", ItemKind.PlcPouFb, "", true,
+                "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", null, null,
+                Children: new[] { "Gone" }),
+            new FakeIde.Item("Gone", ItemKind.PlcMethod, "", false, "METHOD Gone : BOOL", "Gone := TRUE;", null, null));
+
+        var refs = RefsService.Handle(ide);
+        var src = "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR\n\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
+                + "\nMETHOD Fresh : BOOL\nFresh := TRUE;\nEND_METHOD\n";
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new() { new SetItemOp { Name = "FB_D.fb", IfVersion = refs.Items["FB_D.fb"], SourceText = src } },
+        });
+
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(ide.Recorded.IndexOf("delete:Gone") < ide.Recorded.IndexOf("create:Fresh"));
+    }
 }

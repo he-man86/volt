@@ -48,6 +48,24 @@ internal static class TreeNav
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
+    /// <summary>Resolve a folder path WITHOUT creating anything, for a lookup that only wants to READ.
+    /// <para><see cref="ResolveFolder"/> is find-OR-CREATE, which is right on a create path and wrong on every
+    /// other. Used for a read it made a real empty folder inside the engineer's POU whenever the pushed
+    /// `%FOLDER` did not match where the item actually sits, and the subsequent lookup then missed INSIDE the
+    /// folder it had just made - so the caller silently skipped the work it was there to do.</para></summary>
+    internal static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return parent;
+        var node = parent;
+        foreach (var part in FolderPath.Segments(folder))
+        {
+            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && ide.KindCode(c) == ItemKind.PlcFolder);
+            if (next is null) return null;
+            node = next.Value;
+        }
+        return node;
+    }
+
     internal static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name));
 

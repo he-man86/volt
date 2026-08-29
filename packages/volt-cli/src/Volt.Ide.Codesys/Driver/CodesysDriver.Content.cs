@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
@@ -33,7 +33,7 @@ public sealed partial class CodesysDriver
 
         var members = new List<Member>();
         var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
-        foreach (var site in MemberSites(item))
+        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, ownerIsInterface));
 
         // No separate language field: a graphical body's text LEADS with `NETWORK n FBD|LD`, so the
@@ -100,8 +100,17 @@ public sealed partial class CodesysDriver
 
             case "NWLImplementationObject":
             {
+                // IL is a VIEW of this same aspect, not a separate one, so an IL body arrives HERE and not in
+                // the marker arm below. ReadViewMode used to THROW for it, and the cost of that throw was total:
+                // Versioning.SafeVersion swallows it to UNREADABLE, and FetchService then drops the item from
+                // `changed`, `items` AND `folders` — so one IL-view method inside an ordinary ST function block
+                // removed the ENTIRE POU, declaration and every sibling method with it, from refs and fetch, on
+                // every pull, with only a log warning. IL is unsupported, which is exactly what the marker is
+                // for; ARCHITECTURE.md and network-text.md both already said it materializes as one.
                 var language = ReadViewMode(impl);
-                var model = CodesysNetworkReader.Read(impl, language);
+                if (language is null) return (null, BodyMarker.For("IL"));
+
+                var model = CodesysNetworkReader.Read(impl, language.Value);
                 var text = NetworkTextWriter.Write(model).Trim();
                 return (language, text.Length == 0 ? null : text);
             }
@@ -118,15 +127,20 @@ public sealed partial class CodesysDriver
     /// <para>IL is a VIEW of the same network model, not a separate body format, and Volt does not author it.
     /// A body in IL view is refused rather than rendered as FBD, because rendering it would hand the engineer a
     /// diagram they did not write.</para></summary>
-    private static BodyLanguage ReadViewMode(object impl)
+    private static BodyLanguage? ReadViewMode(object impl)
     {
         var mode = NwlInterop.Require(impl, "DefaultViewMode").ToString() ?? "";
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
+
+        // NULL means "a view Volt does not author" — IL, today. The caller turns that into the MARKER, which is
+        // how every other unsupported language is handled. Throwing here instead took the whole enclosing POU
+        // out of refs and fetch, which is a far larger loss than the body Volt cannot render.
+        if (mode.Equals("IL", StringComparison.OrdinalIgnoreCase)) return null;
+
         throw new NotSupportedException(
-            $"CODESYS: the graphical body's view mode is '{mode}'. Volt authors FBD and LD; IL is the same " +
-            "network model in a third view and is not written back, so the body is refused rather than " +
-            "re-rendered as something the engineer did not author.");
+            $"CODESYS: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
+            "authored, IL materializes as a marker — an unknown fourth view is refused rather than guessed at.");
     }
 
     /// <summary>The marker language for an unsupported graphical aspect — <c>CFCImplementationObject</c> to
@@ -138,51 +152,8 @@ public sealed partial class CodesysDriver
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
-    private readonly struct MemberSite
-    {
-        public MemberSite(string? folder, ItemRef itemRef, string name, int code)
-        { Folder = folder; Ref = itemRef; Name = name; Code = code; }
-        public string? Folder { get; }
-        public ItemRef Ref { get; }
-        public string Name { get; }
-        public int Code { get; }
-    }
 
-    /// <summary>Every member of a POU and the folder it sits in, walked off the project TREE.
-    /// <para><b>No catch, deliberately.</b> A swallowed fault here does not degrade gracefully — it MUTATES the
-    /// project on the next push. A member the walk failed to reach materializes with a null folder, the writer
-    /// emits no <c>%FOLDER</c> directive, the pulled file looks legitimately folder-less, and the next push
-    /// resolves that null to the POU ROOT and creates a DUPLICATE beside the real member. Because the version
-    /// hash is taken over the folder-less text, <c>volt status</c> reports clean the whole way through. A
-    /// partial map is not a degraded answer, it is a wrong one. The isolation boundary is one level up, in
-    /// <c>Versioning.SafeVersion</c>, which catches per item and logs which one.</para></summary>
-    private IEnumerable<MemberSite> MemberSites(ItemRef parent, string basePath = "")
-    {
-        int count = ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ChildAt(parent, i);
-            var name = Name(child);
-            var code = KindCode(child);
-
-            if (code == ItemKind.PlcFolder)
-            {
-                foreach (var nested in MemberSites(child, FolderPath.Append(basePath, name))) yield return nested;
-                continue;
-            }
-            // A property's GET/SET are not members in their own right — they are the property's accessors, and
-            // they are read with it.
-            // ONLY kinds the file layout can carry. A transition is inlined in the POU and is NOT a member:
-            // no reader models one, so it never reaches the file and can never be in a pushed member set —
-            // yielding it here would put it in the reconciliation and a push would delete it. Accessors are
-            // excluded too: a property's GET/SET are read WITH the property.
-            if (!ItemKind.IsMember(code)) continue;
-
-            yield return new MemberSite(string.IsNullOrEmpty(basePath) ? null : basePath, child, name, code);
-        }
-    }
-
-    private Member ReadMember(MemberSite site, bool ownerIsInterface)
+    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface)
     {
         var kind = MemberKind(site.Code, ownerIsInterface);
         var iobj = _om.ReadObject(site.Ref.Native);
@@ -217,21 +188,40 @@ public sealed partial class CodesysDriver
             ownerIsInterface ? ItemKind.Kinds.InterfaceMethod : ItemKind.Kinds.Method,
         ItemKind.PlcProp or ItemKind.PlcItfProp =>
             ownerIsInterface ? ItemKind.Kinds.InterfaceProperty : ItemKind.Kinds.Property,
-        _ => ItemKind.Map(code) ?? ItemKind.Kinds.Method,
+        // No fallback. `?? Kinds.Method` turned any live CODESYS code this map does not know into a "method",
+        // which then travels the whole write path as one - the same silent default `ItemKind.MemberCode` used to
+        // carry on the other side of the round trip.
+        _ => ItemKind.Map(code)
+             ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: item type {code} is a member Volt has no kind for — refusing to treat it as a method"),
     };
+
+    private ItemRef? FindAccessor(ItemRef property, int code)
+    {
+        int n = ChildCount(property);
+        for (int i = 1; i <= n; i++)
+        {
+            var child = ChildAt(property, i);
+            if (KindCode(child) == code) return child;
+        }
+        return null;
+    }
+
+    /// <summary>Compare on the text as it LANDS — the drivers trim, so a trailing newline is not a change.</summary>
+    private static string Text(string? s) => (s ?? "").Trim();
 
     private Accessor ReadAccessor(ItemRef acc)
     {
         var iobj = _om.ReadObject(acc.Native);
         var (_, body) = ReadBody(iobj);
-        return new Accessor(KeepDecl(CodesysObjectModel.ReadAspectText(iobj, "Interface")), body);
+        return new Accessor(AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface")), body);
     }
 
     /// <summary>A member's declaration, from the member's OWN declaration aspect.
     /// <para><b>An ACTION is the one member with no declaration to read</b>, in any IDE: IEC gives an action a
     /// name and a body and nothing else. Its header is COMPOSED here rather than read — that is not a fallback
     /// for a missing value, it is the whole of what an action's header is.</para></summary>
-    private string MemberDeclaration(MemberSite site)
+    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site)
     {
         if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
 
@@ -246,16 +236,6 @@ public sealed partial class CodesysDriver
     private string ReadDeclarationText(ItemRef item) =>
         item.Native is LibRefNode lib ? lib.Manifest : _om.ReadDeclaration(item.Native);
 
-    /// <summary>An accessor declaration worth keeping: null/blank, or a bare empty VAR block, carries nothing.</summary>
-    private static string? KeepDecl(string? decl)
-    {
-        var d = decl?.Trim();
-        if (string.IsNullOrEmpty(d)) return null;
-        var lines = d!.Split('\n');
-        var empty = lines.Length <= 2 && d.StartsWith("VAR", StringComparison.Ordinal)
-                                      && d.EndsWith("END_VAR", StringComparison.Ordinal);
-        return empty ? null : d;
-    }
 
     private string KindOf(ItemRef item, string declaration)
     {
@@ -274,8 +254,14 @@ public sealed partial class CodesysDriver
         // CLASSIFIES every child it passes - a ReadObject plus an interface-name query each. For a POU with 20
         // members that is 20 walks and ~400 classifications to write 20 bodies. The tree does not change during
         // this loop: the member set was reconciled before it, and CODESYS handles survive a child write.
-        var byName = new Dictionary<string, ItemRef>(StringComparer.Ordinal);
-        foreach (var site in MemberSites(pou)) byName[site.Name] = site.Ref;
+        // ORDINAL-IGNORE-CASE, like every other name comparison on this wire. IEC identifiers are
+        // case-insensitive and both IDEs treat them so; `ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`,
+        // `ItemLookup` and `TreeNav.NameIs` all use OrdinalIgnoreCase. This one used Ordinal, so a case-only
+        // rename (`Calc` -> `calc`) got past the reconciler, which correctly created nothing, and then died HERE
+        // claiming "the member is in the pushed source but not in the project" - which was false, and left the
+        // POU's own declaration and body already written.
+        var byName = new Dictionary<string, ItemRef>(StringComparer.OrdinalIgnoreCase);
+        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, pou)) byName[site.Name] = site.Ref;
 
         foreach (var m in members)
         {
@@ -283,6 +269,7 @@ public sealed partial class CodesysDriver
                 throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
+
 
             NetworkBody? graph = m.Body is { } b && NetworkText.Is(b) ? NetworkTextGate.Validate(b) : null;
             if (graph is null)
@@ -318,7 +305,23 @@ public sealed partial class CodesysDriver
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
     {
         if (accessor is null) return;
-        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet) return;
+
+        // An INTERFACE property's accessors are bodiless stubs and are never written (DIALECT D21 - the write
+        // can hard-crash TcXaeShell). But returning SILENTLY meant an engineer's edit to a `GET ... END_GET` in
+        // a `.itf` file was accepted and discarded, and `volt status` then said in sync. Refuse only what is
+        // actually a CHANGE: an unchanged restatement is the ordinary no-op that keeps the item pushable.
+        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet)
+        {
+            var live = FindAccessor(property, code);
+            var was = live is null ? null : ReadAccessor(live.Value);
+            if (was is not null && (Text(was.Declaration) != Text(accessor.Declaration)
+                                 || Text(was.Code) != Text(accessor.Code)))
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
+                    "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
+                    "change in the IDE and pull.");
+            return;
+        }
 
         int n = ChildCount(property);
         for (int i = 1; i <= n; i++)

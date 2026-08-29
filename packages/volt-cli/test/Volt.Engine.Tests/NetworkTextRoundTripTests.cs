@@ -94,4 +94,49 @@ public class NetworkTextRoundTripTests
         Assert.Contains("LET i1 := arr[j + 1];", written);
         Assert.Contains("out := (a AND i1);", written);
     }
+
+    /// <summary>A node network text cannot render must THROW, never render as nothing.
+    ///
+    /// <para>THE BUG (found by audit, 2026-08-29): `Render`'s `default:` returned "". A `Demux` - the vendor's
+    /// fan-out item, and the 4th most common item in the one real ladder project ever surveyed (573 across 36
+    /// POUs) - has no arm, so a branch off a gate output PULLED as `out := ( AND b);` plus a stray `;`. The wire
+    /// was silently gone, `volt status` reported clean, and the resulting file no longer parsed, so it could
+    /// never be pushed back either. No test caught it because every network-text test round-trips
+    /// text -> model -> text, and the text reader never builds a Demux - so nothing ever handed the writer one.
+    /// That is the gap this test closes: it builds the model DIRECTLY.</para></summary>
+    [Fact]
+    public void A_node_the_text_format_cannot_render_throws_instead_of_rendering_nothing()
+    {
+        var body = new NetworkBody(BodyLanguage.Ld, new[]
+        {
+            new Network(0, null, null, null, false,
+                        new Node[] { new Demux(24, new Leaf(new Operand("bEnable"), Flags.None), Flags.None) },
+                        Array.Empty<Operand>()),
+        });
+
+        var ex = Assert.Throws<NotSupportedException>(() => NetworkTextWriter.Write(body));
+        Assert.Contains("Demux", ex.Message);
+        Assert.Contains("no form", ex.Message);
+    }
+
+    /// <summary>And the same at operand position, where the empty string was even quieter - it produced
+    /// `( AND b)` rather than a visible stray statement.</summary>
+    [Fact]
+    public void An_unrenderable_node_inside_an_expression_throws_too()
+    {
+        var body = new NetworkBody(BodyLanguage.Ld, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Assign(
+                    new Box("AND", null, CallKind.Operator,
+                            new[] { new Input(null, new Demux(24, null, Flags.None), Flags.None),
+                                    new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                            Array.Empty<Operand>(), null, null, Flags.None),
+                    new[] { new Operand("out") }, Flags.None),
+            }, Array.Empty<Operand>()),
+        });
+
+        Assert.Throws<NotSupportedException>(() => NetworkTextWriter.Write(body));
+    }
 }

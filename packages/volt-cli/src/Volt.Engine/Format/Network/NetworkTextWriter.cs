@@ -93,6 +93,8 @@ public static class NetworkTextWriter
                 case Box b: { var t = Definition(b); Flush(); Line(t + ";"); break; }
                 case Terminator t when t.Input is not null: Statement(t.Input); break;
                 case Terminator: break;
+                // Same rule at statement level: rendering an unknown node emitted a bare `;` line. Render()
+                // now throws for anything it has no form for, so this arm only ever sees nodes it can render.
                 default: { var t = Render(n, nested: false); Flush(); Line(t + ";"); break; }
             }
         }
@@ -213,7 +215,17 @@ public static class NetworkTextWriter
                                              p.Branches.Select(x => Render(x, nested: true))) + ")";
                 case Terminator t: return t.Input is null ? "" : Render(t.Input, nested);
                 case Assign a: return a.Value is null ? "" : Render(a.Value, nested);
-                default: return "";
+
+                // NO SILENT DEFAULT. This arm returned "" — the single line that turned a missing feature into
+                // invisible data loss. A `Demux` (the vendor's fan-out item, the 4th most common item in the one
+                // real ladder project ever surveyed: 573 across 36 POUs) has no arm here, so a branch off a gate
+                // output PULLED as `out := ( AND b);` — the wire silently gone, `volt status` clean, and the
+                // resulting file no longer parseable, so it could never be pushed back either. A body Volt
+                // cannot render must fail, never render as nothing.
+                default:
+                    throw new NotSupportedException(
+                        $"network text has no form for the graphical node '{n.GetType().Name}' — refusing to " +
+                        "render a body that is not what the IDE holds. Edit this POU in the IDE.");
             }
         }
 

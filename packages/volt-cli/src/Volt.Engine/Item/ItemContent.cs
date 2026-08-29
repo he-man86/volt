@@ -46,6 +46,26 @@ public sealed record Member(
 /// either its code or its declaration was non-null), which is a rule every reader of the record had to know and
 /// apply identically. A bodiless accessor — the interface case, where an accessor declares that a getter exists
 /// and nothing more — is an Accessor with an empty <see cref="Body"/>, NOT a null one.</summary>
+/// <summary>Is an accessor declaration worth keeping? Null, blank, or a bare empty <c>VAR</c> block carries
+/// nothing, and an accessor whose declaration is "nothing" must read back as having none — otherwise a pull
+/// writes an empty VAR block the engineer did not author and the next push writes it back.
+///
+/// <para>Shared because it was duplicated byte-for-byte in both drivers, and it is a pure function over a
+/// string: no vendor appears in it. Two copies of a rule that decides whether content EXISTS is exactly the
+/// drift that loses data when only one copy is later corrected.</para></summary>
+public static class AccessorDeclaration
+{
+    public static string? Keep(string? decl)
+    {
+        var d = decl?.Trim();
+        if (string.IsNullOrEmpty(d)) return null;
+        var lines = d!.Split('\n');
+        var empty = lines.Length <= 2 && d.StartsWith("VAR", System.StringComparison.Ordinal)
+                                      && d.EndsWith("END_VAR", System.StringComparison.Ordinal);
+        return empty ? null : d;
+    }
+}
+
 public sealed record Accessor(string? Declaration, string? Body)
 {
     /// <summary>The code to WRITE for this accessor — never null, because the accessor exists.

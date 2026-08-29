@@ -450,18 +450,59 @@ public static class PushService
             return pou = ItemLookup.Find(ide, name) ?? pou;
         }
 
+        // A member whose KIND changed is a DIFFERENT OBJECT, so it is deleted and recreated rather than written
+        // through. `have`/`want` are keyed on NAME alone, so `PROPERTY Ready` -> `METHOD Ready` used to be
+        // neither created nor deleted: the method's declaration was written into the property's Interface
+        // aspect, its body went to an Implementation aspect a property does not have (a silent no-op), and the
+        // old GET/SET stayed compiled in. `BodyFormatGuard` cannot see it - both shapes are Textual.
+        var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, StringComparer.OrdinalIgnoreCase);
+        var retyped = new HashSet<string>(
+            pushed.Members.Where(m => liveKind.TryGetValue(m.Name, out var k) && k != m.Kind).Select(m => m.Name),
+            StringComparer.OrdinalIgnoreCase);
+
+        // DELETES RUN FIRST. The create loop used to run first, and its CreateChild calls are already committed
+        // when a later delete throws - so a rejected push left the project MUTATED, and a rename of a foldered
+        // member left BOTH copies behind. Removing first also makes the retype case a plain delete-then-create.
+        foreach (var m in live.Members)
+        {
+            if (want.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
+            // Delete it WHERE IT LIVES. This passed `Owner()` and dropped `m.Folder`, and DeleteChild scans
+            // direct children only - so a member inside a POU sub-folder could never be deleted at all, failing
+            // loudly on every retry with "no child named 'Act' under 'FB_FolderChild'".
+            var site = TreeNav.FindFolder(ide, Owner(), m.Folder) ?? Owner();
+            ide.Delete(site, m.Name);
+            mutated = true;
+        }
+
         foreach (var m in pushed.Members)
         {
-            if (have.Contains(m.Name)) continue;
+            if (have.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
             ide.CreateChild(TreeNav.ResolveFolder(ide, Owner(), m.Folder),
                             m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m));
             mutated = true;
         }
 
-        foreach (var m in live.Members)
+        // PLACEMENT IS STRUCTURE, so it is reconciled here with create and delete rather than in a driver.
+        //
+        // `Same()` deliberately counts a folder change so a folder-only move is not dropped by `OnlyChanged`,
+        // and its doc said the member was then "re-placed". Nothing re-placed it: the drivers resolve a member
+        // by bare name across every sub-folder and never read `m.Folder`, so a `%FOLDER` edit was ACCEPTED,
+        // landed nothing, and the receipt then hashed the OLD folder into the client's baseline - after which
+        // `volt status` reported "in sync" while the workspace and the IDE disagreed about where the member is.
+        var liveFolder = live.Members.ToDictionary(m => m.Name, m => m.Folder ?? "", StringComparer.OrdinalIgnoreCase);
+        foreach (var m in pushed.Members)
         {
-            if (want.Contains(m.Name)) continue;
-            ide.Delete(Owner(), m.Name);
+            // A member the loops above just created is already in the right folder.
+            if (!liveFolder.TryGetValue(m.Name, out var was) || retyped.Contains(m.Name)) continue;
+            if (string.Equals(was, m.Folder ?? "", StringComparison.Ordinal)) continue;
+
+            var from = TreeNav.FindFolder(ide, Owner(), was);
+            var member = from is null ? null : TreeNav.FindChild(ide, from.Value, m.Name);
+            if (member is null)
+                throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{m.Name}': cannot be found at '{(was.Length == 0 ? "<the POU root>" : was)}' to move it");
+
+            ide.Move(member.Value, TreeNav.ResolveFolder(ide, Owner(), m.Folder));
             mutated = true;
         }
 
@@ -473,16 +514,31 @@ public static class PushService
         {
             if (m.Kind is not (ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)) continue;
             var isInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            var prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, Owner(), m.Folder), m.Name);
-            if (prop is null) continue;   // the member create refused; that error is the caller's to surface
+            // FIND, never find-or-create. This used ResolveFolder - which CREATES - for a pure lookup, so a
+            // pushed `%FOLDER` that did not match where the property actually sits made a real empty folder
+            // inside the engineer's POU, missed the property inside the folder it had just created, and then
+            // `continue`d - silently skipping the reconciliation, so a SET the engineer deleted from the source
+            // stayed live in the IDE running its old code while the push reported "updated".
+            var propParent = TreeNav.FindFolder(ide, Owner(), m.Folder);
+            var prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
+            if (prop is null)
+                throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{m.Name}': the property is in the pushed source but cannot be found in the project" +
+                    (string.IsNullOrEmpty(m.Folder) ? "" : $" under '{m.Folder}'") +
+                    " — refusing to report the push applied when its accessors were never reconciled");
 
             mutated |= ReconcileAccessor(ide, prop.Value, "Get",
                                          isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
 
             // Re-find the PROPERTY only where the accessor create just invalidated it.
             if (mutated && !ide.HandlesSurviveStructureChange)
-                prop = TreeNav.FindChild(ide, TreeNav.ResolveFolder(ide, Owner(), m.Folder), m.Name);
-            if (prop is null) continue;
+            {
+                propParent = TreeNav.FindFolder(ide, Owner(), m.Folder);
+                prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
+            }
+            if (prop is null)
+                throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{m.Name}': the property vanished while its accessors were being reconciled");
 
             mutated |= ReconcileAccessor(ide, prop.Value, "Set",
                                          isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);

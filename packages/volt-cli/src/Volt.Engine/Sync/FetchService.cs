@@ -178,8 +178,12 @@ public static class FetchService
         // library API files and read as nonsense ("880 items, 8104 changed").
         // Decided BEFORE `projectChanged` is taken: whether the held stubs belong in `changed` depends on it,
         // and they are project-tree items rather than signatures, so counting them here keeps the log honest.
-        var libsWillRefresh = onlyItems == null && !(!isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems));
-        if (libsWillRefresh && skippedLibraryStubs.Count > 0)
+        // ONE decision, computed ONCE. This expression existed twice - here as `libsWillRefresh` and again 20
+        // lines down as `librariesUnchanged` + `librariesRefreshed` - character-for-character equal, with
+        // nothing between them touching its inputs. If the two ever diverged, the held stubs and the signature
+        // render would disagree, which is the data-loss path spelled out just below.
+        var librariesRefreshed = onlyItems == null && !(!isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems));
+        if (librariesRefreshed && skippedLibraryStubs.Count > 0)
         {
             // A library whose own version did not move still has to be described, or the client deletes it. That
             // costs more than one file: with the stub gone `IdeTree.LibraryRoots` stops recognising the folder,
@@ -197,13 +201,11 @@ public static class FetchService
         // never on a fetch whose .library versions all match the client's knownItems (no library changed — a
         // library's API is immutable per version, so the client's existing signature files still stand), and always
         // on init. This is the whole optimization: the precompile (Build) runs iff a .library version changed.
-        var librariesUnchanged = !isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems);
         // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
         // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
         // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
         // keep what it has. Without this flag the client cannot tell the cases apart and had to keep them
         // always — which is why a removed library's signatures were immortal.
-        var librariesRefreshed = onlyItems == null && !librariesUnchanged;
         IReadOnlyList<LibSignature> libSigs = librariesRefreshed
             ? ide.ExtractLibrarySignatures()
             : Array.Empty<LibSignature>();
@@ -222,7 +224,7 @@ public static class FetchService
         var removed = isInit || !walk.Complete
             ? new List<string>()
             : knownItems.Keys
-                .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(BareNameOf(k)))
+                .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(Materializer.Bare(k)))
                 .ToList();
 
         // A PARTIAL walk can report no deletions at all, and that is the only honest answer available. Deletion
@@ -278,16 +280,6 @@ public static class FetchService
 
     /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
     /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>
-    /// <summary>A wire name without its kind extension — <c>FB_A.fb</c> → <c>FB_A</c>.
-    /// <para>Used only to match a client-known name against an item the WALK saw but could not read, where the
-    /// materialized full name is unavailable by definition. A library signature path keeps its folder prefix and
-    /// simply never matches a walked bare name, which is correct: those are not walk items.</para></summary>
-    private static string BareNameOf(string wireName)
-    {
-        var dot = wireName.LastIndexOf('.');
-        return dot <= 0 ? wireName : wireName.Substring(0, dot);
-    }
-
     private static List<FetchedItem> DedupeByFullName(List<FetchedItem> items)
     {
         var byName = new Dictionary<string, FetchedItem>(items.Count);

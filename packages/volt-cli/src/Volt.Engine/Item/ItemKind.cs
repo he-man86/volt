@@ -1,4 +1,6 @@
-﻿namespace Volt.Engine.Item;
+﻿using Volt.Contracts;
+
+namespace Volt.Engine.Item;
 
 using System;
 using System.Collections.Generic;
@@ -230,7 +232,12 @@ public static class ItemKind
         Kinds.Property => PlcProp,
         Kinds.InterfaceMethod => PlcItfMeth,
         Kinds.InterfaceProperty => PlcItfProp,
-        _ => PlcMethod,
+        // No fallback. This value decides WHAT OBJECT gets created in the user's live project
+        // (`PushService.ReconcileMembers` -> `CreateChild`), so an unrecognized kind used to create a METHOD
+        // named after the member and report the push accepted. Its structural twin `PushService.PouKindToCode`
+        // - the same map for the other half of this table - throws, and so do `ExtFor` and
+        // `StWriter.EndKeyword`. This arm was the one that disagreed with the policy stated 60 lines below it.
+        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown member kind '{kind}'"),
     };
 
     public static bool IsMember(int code) =>

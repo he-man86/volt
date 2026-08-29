@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -34,7 +34,7 @@ public sealed partial class BeckhoffDriver
         var body = ReadBody(item);
 
         var members = new List<Member>();
-        foreach (var site in MemberSites(item))
+        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site));
 
         return new ItemContent(KindOf(item, declaration), declaration.TrimEnd(), body, members);
@@ -146,47 +146,8 @@ public sealed partial class BeckhoffDriver
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
-    private readonly struct MemberSite
-    {
-        public MemberSite(string? folder, ItemRef itemRef, string name, int code)
-        { Folder = folder; Ref = itemRef; Name = name; Code = code; }
-        public string? Folder { get; }
-        public ItemRef Ref { get; }
-        public string Name { get; }
-        public int Code { get; }
-    }
 
-    /// <summary>Every member of a POU and the folder it sits in.
-    /// <para><b>No catch, deliberately.</b> A member the walk fails to reach materializes with a null folder,
-    /// the writer emits no <c>%FOLDER</c> directive, and the next push resolves that null to the POU ROOT and
-    /// creates a DUPLICATE beside the real member — with <c>volt status</c> reporting clean throughout, because
-    /// the version hash is taken over the folder-less text. A partial map is not a degraded answer, it is a
-    /// wrong one.</para></summary>
-    private IEnumerable<MemberSite> MemberSites(ItemRef parent, string basePath = "")
-    {
-        int count = ChildCount(parent);
-        for (int i = 1; i <= count; i++)
-        {
-            var child = ChildAt(parent, i);
-            var name = Name(child);
-            var code = KindCode(child);
-
-            if (code == ItemKind.PlcFolder)
-            {
-                foreach (var nested in MemberSites(child, FolderPath.Append(basePath, name))) yield return nested;
-                continue;
-            }
-            // ONLY kinds the file layout can carry. A transition is inlined in the POU and is NOT a member:
-            // no reader models one, so it never reaches the file and can never be in a pushed member set —
-            // yielding it here would put it in the reconciliation and a push would delete it. Accessors are
-            // excluded too: a property's GET/SET are read WITH the property.
-            if (!ItemKind.IsMember(code)) continue;
-
-            yield return new MemberSite(string.IsNullOrEmpty(basePath) ? null : basePath, child, name, code);
-        }
-    }
-
-    private Member ReadMember(MemberSite site)
+    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site)
     {
         var kind = ItemKind.Map(site.Code) ?? ItemKind.Kinds.Method;
 
@@ -217,13 +178,13 @@ public sealed partial class BeckhoffDriver
     }
 
     private Accessor ReadAccessor(ItemRef acc) =>
-        new Accessor(KeepDecl(_om.ReadDeclaration(acc.Native)), ReadBody(acc));
+        new Accessor(AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native)), ReadBody(acc));
 
     /// <summary><b>An ACTION is the one member with no declaration to read</b>: IEC gives an action a name and
     /// a body and nothing else, and Beckhoff's own object model says so — <c>_ITcPlcImplementation</c> exposes
     /// <c>ImplementationText</c> and no <c>DeclarationText</c>. Its header is COMPOSED here rather than read;
     /// that is not a fallback for a missing value, it is the whole of what an action's header is.</summary>
-    private string MemberDeclaration(MemberSite site)
+    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site)
     {
         if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
 
@@ -237,7 +198,7 @@ public sealed partial class BeckhoffDriver
 
     private ItemRef? FindChildByName(ItemRef parent, string name)
     {
-        foreach (var site in MemberSites(parent))
+        foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, parent))
             if (string.Equals(site.Name, name, StringComparison.Ordinal)) return site.Ref;
         return null;
     }
@@ -267,16 +228,6 @@ public sealed partial class BeckhoffDriver
         }
     }
 
-    /// <summary>An accessor declaration worth keeping: null/blank, or a bare empty VAR block, carries nothing.</summary>
-    private static string? KeepDecl(string? decl)
-    {
-        var d = decl?.Trim();
-        if (string.IsNullOrEmpty(d)) return null;
-        var lines = d!.Split('\n');
-        var empty = lines.Length <= 2 && d.StartsWith("VAR", StringComparison.Ordinal)
-                                      && d.EndsWith("END_VAR", StringComparison.Ordinal);
-        return empty ? null : d;
-    }
 
     private string KindOf(ItemRef item, string declaration)
     {

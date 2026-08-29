@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -52,6 +52,23 @@ namespace Volt.Ide.Codesys
 
         private static void WriteNetwork(object impl, object net, Network model)
         {
+            // FAN-OUT IS REFUSED, because Volt has two incompatible encodings for it and no proven path between
+            // them. The vendor's is a `BoxTreeDemux` item; the TEXT reader's is a `Network.SplitPoints` entry
+            // plus an ordinary assignment to the wire's NAME. Writing the latter as it stands lands a real
+            // `BoxTreeAssign` to an UNDECLARED symbol (`g1`) in the engineer's project: the push reports
+            // accepted and the POU no longer compiles. And because this method rewrites every network, an edit
+            // to an unrelated network carried the corruption with it.
+            //
+            // The NWL survey said in as many words that the writer "must refuse such a body loudly"; the refusal
+            // was never written. It is written now, and it stays until fan-out has ONE text form both directions
+            // agree on - which is a format decision, not a patch.
+            if (model.SplitPoints.Count > 0)
+                throw new NotSupportedException(
+                    $"CODESYS: network {model.Order} uses a fan-out wire (" +
+                    string.Join(", ", model.SplitPoints.Select(p => p.Text)) +
+                    "), which Volt cannot yet write back — the vendor represents it as a Demux item and network " +
+                    "text as a named wire, and the two are not yet connected. Edit this network in the IDE.");
+
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");
@@ -116,6 +133,22 @@ namespace Volt.Ide.Codesys
                                 "CODESYS: writing an Execute box (ST inside FBD) is not implemented - Volt can " +
                                 "READ one but not build one, and writing the box without its ST would silently " +
                                 "delete the code. Edit the Execute box in the IDE and pull.");
+
+                        // AN FB CALL'S TYPE IS NOT ITS INSTANCE NAME. Network text carries ONE name for a
+                        // call, so `t1 : TON` renders as `t1(...)` and the reader rebuilds `Box(Type: "t1")`.
+                        // Writing that into BoxType puts an unresolvable type in the slot the IDE resolves the
+                        // call's signature from: the push reports accepted, the next pull renders identical
+                        // text, and only `volt build` ever reveals it. The pre-NetworkBody writer had a
+                        // declaration-driven instance->type resolver that threw when it could not resolve; it
+                        // went with that rewrite and nothing replaced it. TwinCAT refuses this exact case
+                        // (TcNetworkWriter: "a box changes from X to Y"), so refusing here is also what makes
+                        // the two vendors agree again.
+                        if (b.Kind == CallKind.FunctionBlock && b.Instance is null)
+                            throw new NotSupportedException(
+                                $"CODESYS: the call '{b.Type}' is a function-block instance, and network text " +
+                                "carries only the instance name - Volt cannot tell which TYPE to write into the " +
+                                "box, and writing the instance name there produces a POU that no longer " +
+                                "compiles. Edit this network in the IDE.");
 
                         var box = NwlInterop.New(_net, "BoxTreeBox");
                         // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.

@@ -407,6 +407,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// declaration says. Reading the header keeps those fixtures meaning what they read as — a
     /// <c>FUNCTION_BLOCK FB_A</c> materializes as <c>FB_A.fb</c> — which is also what the document-based read
     /// did, since the document carried the real POU type.</para></summary>
+    /// <summary>A member's kind, decided by its OWNER — the same rule `CodesysDriver.MemberKind` applies.</summary>
+    private static string MemberKind(int code, bool ownerIsInterface) => code switch
+    {
+        ItemKind.PlcMethod or ItemKind.PlcItfMeth =>
+            ownerIsInterface ? ItemKind.Kinds.InterfaceMethod : ItemKind.Kinds.Method,
+        ItemKind.PlcProp or ItemKind.PlcItfProp =>
+            ownerIsInterface ? ItemKind.Kinds.InterfaceProperty : ItemKind.Kinds.Property,
+        _ => ItemKind.Map(code) ?? throw new System.InvalidOperationException($"FakeIde: unmapped member code {code}"),
+    };
+
     private static string KindOf(Item it)
     {
         var header = Volt.Engine.Format.St.CodeHelper.ParseCodeHeader(it.Declaration ?? "").Type;
@@ -438,12 +448,19 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     private IEnumerable<Member> MembersOf(Item owner)
     {
+        // THE OWNER DECIDES THE MEMBER KIND, exactly as both real drivers do: an interface's children are
+        // `interface_method`/`interface_property`, not `method`/`property`. The fake reported the POU spelling
+        // for every owner, so it disagreed with the drivers it stands in for - and once PushService learned to
+        // delete-and-recreate a member whose KIND changed, that disagreement showed up as a spurious
+        // delete+create on every interface push. A fake that models the driver wrongly hides real bugs and
+        // invents fake ones; this is the second kind.
+        var ownerIsInterface = owner.KindCode == ItemKind.PlcItf;
         foreach (var name in owner.Children ?? System.Array.Empty<string>())
         {
             var child = FindOrNull(Ref(name));
             if (child is null || !ItemKind.IsMember(child.KindCode)) continue;   // a transition is not a member
             yield return new Member(
-                ItemKind.Map(child.KindCode) ?? ItemKind.Kinds.Method,
+                MemberKind(child.KindCode, ownerIsInterface),
                 child.Name,
                 child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
                 BodyTextOf(child),

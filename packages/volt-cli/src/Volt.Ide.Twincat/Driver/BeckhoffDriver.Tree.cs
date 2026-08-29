@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Xml.Linq;
 using System.Collections.Generic;
 using System.Linq;
@@ -93,7 +93,14 @@ public sealed partial class BeckhoffDriver
             try { childCount = _om.ChildCount(child); }
             catch (Exception ex)
             {
+                // SAID on the channel the caller can act on, not only to the log. The three sibling catches in
+                // this method all append here; this one did not, so `WalkResult.Complete` stayed TRUE and
+                // `FetchService` did not suppress deletions - a pull then deleted files for items still in the
+                // IDE, which is the precise failure `WalkResult` exists to prevent. A log line no code reads is
+                // not a signal.
+                var lost = FolderPath.Append(folderPath, name);
                 VoltLog.Warn($"twincat: '{name}' child count unreadable — its subtree is OMITTED from this walk: {ex.Message}");
+                unwalked.Add(lost);
                 childCount = 0;
             }
             bool isHybrid = childCount > 0 && !ItemKind.IsTopLevelCrud(itemType);
