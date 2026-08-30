@@ -158,14 +158,43 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
+        WalkIoNode(tiid, ioFolder, items, unwalked);
+    }
+
+    /// <summary>One level of the I/O tree, recursing into every device that has children.
+    ///
+    /// <para><b>Kind is <see cref="ItemKind.PlcDevice"/>, not the raw TwinCAT tree code.</b> Measured on a live
+    /// XAE: an EtherCAT master reports <c>ItemType 2</c> and an EK1100 coupler <c>ItemType 5</c>, both far below
+    /// the 601-657 PLC range <c>ItemKind.Map</c> covers, so every device fell through to unmapped and was dropped
+    /// by <c>fetch</c>, <c>refs</c> and <c>push</c> alike. The walk paid a live COM round trip per device and
+    /// emitted nothing an engineer ever saw. <c>PlcDevice</c> (695) is the kind CODESYS already emits for the
+    /// same thing, and its own definition names this case ("a TC bridge would map its I/O tree here").</para>
+    ///
+    /// <para><b>The folder rule is CODESYS's, deliberately.</b> A device WITH children becomes a folder named
+    /// after it and keeps its own descriptor inside that folder, so the node reads together with what hangs off
+    /// it; a childless leaf is a plain file beside its siblings. Same shape on both vendors, so a workspace laid
+    /// out from a TwinCAT project looks like one laid out from a CODESYS project.</para></summary>
+    private void WalkIoNode(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
+    {
+        int count;
+        try { count = _om.ChildCount(node); }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"twincat: the I/O children of '{folderPath}' are unreadable — that subtree is OMITTED " +
+                         $"from this walk: {ex.Message}");
+            unwalked.Add(folderPath);
+            return;
+        }
+
         for (int i = 1; i <= count; i++)
         {
             object device;
-            try { device = _om.ChildAt(tiid, i); }
+            try { device = _om.ChildAt(node, i); }
             catch (Exception ex)
             {
-                VoltLog.Warn($"twincat: I/O device #{i} is unreadable — it is OMITTED from this walk: {ex.Message}");
-                unwalked.Add(ioFolder);
+                VoltLog.Warn($"twincat: I/O device #{i} under '{folderPath}' is unreadable — it is OMITTED from " +
+                             $"this walk: {ex.Message}");
+                unwalked.Add(folderPath);
                 continue;
             }
             string name;
@@ -173,10 +202,24 @@ public sealed partial class BeckhoffDriver
             catch (Exception ex)
             {
                 VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is OMITTED from this walk: {ex.Message}");
-                unwalked.Add(ioFolder);
+                unwalked.Add(folderPath);
                 continue;
             }
-            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), ioFolder));
+
+            int children;
+            try { children = _om.ChildCount(device); }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: the child count of I/O device '{name}' is unreadable — it and any subtree " +
+                             $"are OMITTED from this walk: {ex.Message}");
+                unwalked.Add(folderPath);
+                continue;
+            }
+
+            var deviceFolder = FolderPath.Append(folderPath, name);
+            items.Add(new ProjectItem(name, new ItemRef(device), ItemKind.PlcDevice,
+                                      children > 0 ? deviceFolder : folderPath));
+            if (children > 0) WalkIoNode(device, deviceFolder, items, unwalked);
         }
     }
 

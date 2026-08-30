@@ -422,6 +422,13 @@ public sealed partial class BeckhoffDriver
         // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
         if (kind == ItemKind.Kinds.Library) return LibraryManifestFromXml(xml);
 
+        // A `.device` → the identity descriptor, NOT this document. `ProduceXml` on a device is its whole
+        // settings dump (2.9KB for an EtherCAT master, 10.6KB for an EK1100 coupler) carrying the engineer's own
+        // `AmsNetId`, fieldbus addresses and DC timing — machine-specific bytes that would land in a git
+        // repository and, because this text is the version-hash input, would rewrite the file on every unrelated
+        // fieldbus tweak. CODESYS answers with a short identity block; so does this. See TcDeviceDescriptor.
+        if (kind == ItemKind.Kinds.Device) return TcDeviceDescriptor.From(xml) ?? ItemKind.EmptyManifest(kind);
+
         // NOT `?? "?"`. This manifest IS the item's version-hash input, so a fabricated name makes every
         // unnameable item of the kind hash IDENTICALLY — an edit to one could then never show up in `volt status`.
         //
