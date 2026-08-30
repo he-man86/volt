@@ -96,20 +96,34 @@ internal sealed partial class TcObjectModel
     }
 
     /// <summary>The library manager (TwinCAT names the node "References"), found by ITEM TYPE rather than by
-    /// name so a localized or renamed node still resolves. Bounded: it sits directly under the PLC project.</summary>
+    /// name so a localized or renamed node still resolves. Bounded: it sits directly under the PLC project.
+    ///
+    /// <para><b>NO CATCH — null means ABSENT, never "I could not tell".</b> This walked the tree behind three
+    /// swallows, so a COM fault (RPC_E_CALL_REJECTED is the everyday one — a modal dialog in XAE blocks COM)
+    /// came back as null and <see cref="ExtractLibrarySignatures"/> turned that into an EMPTY signature list
+    /// plus a Debug line that is off by default. That is not a cosmetic loss: <c>fetch</c> reports
+    /// <c>librariesRefreshed</c> TRUE alongside the empty list, and <c>IdeTree.DroppedLibraryFile</c> then
+    /// removes EVERY library-signature file the client holds — a real deletion in the engineer's repository,
+    /// and a STICKY one, because the next fetch sees unchanged <c>.library</c> versions, re-renders nothing,
+    /// and leaves the files gone until a library version changes. Every library call reads as unresolved in
+    /// the LSP until then.</para>
+    ///
+    /// <para>The swallow also destroyed the HRESULT: an RPC fault escaping here is exactly what
+    /// <c>BeckhoffDriver.ShouldMarkDegraded</c> classifies, so the session never degraded and never recovered
+    /// while every call failed identically. <see cref="ExtractLibrarySignatures"/>'s own contract already said
+    /// this in words — "a FAILING call is not swallowed: reporting 'no libraries' for a project that has them
+    /// is worse than a loud failure" — and the CODESYS twin throws on both of its equivalents. The same rule is
+    /// written on <see cref="ItemType"/> ("NO CATCH") and on <c>PlcRoot()</c> ("NO FALLBACK"); this call site
+    /// simply never got it.</para></summary>
     private object? FindLibraryManager(object node, int depth)
     {
         if (depth > 3) return null;
-        try { if (ItemType(node) == ItemKind.PlcLibMan) return node; } catch { /* unreadable node: keep looking */ }
+        if (ItemType(node) == ItemKind.PlcLibMan) return node;
 
-        int n;
-        try { n = ChildCount(node); } catch { return null; }
+        var n = ChildCount(node);
         for (int i = 1; i <= n; i++)
-        {
-            object child;
-            try { child = ChildAt(node, i); } catch { continue; }
-            if (FindLibraryManager(child, depth + 1) is { } hit) return hit;
-        }
+            if (FindLibraryManager(ChildAt(node, i), depth + 1) is { } hit) return hit;
+
         return null;
     }
 

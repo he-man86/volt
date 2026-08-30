@@ -27,7 +27,7 @@ public sealed partial class BeckhoffDriver
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         WalkInner(_om.PlcRoot(), "", items, unwalked);
-        WalkIoDevices(items);
+        WalkIoDevices(items, unwalked);
         return new WalkResult(items, unwalked);
     }
 
@@ -120,21 +120,63 @@ public sealed partial class BeckhoffDriver
         }
     }
 
-    private void WalkIoDevices(List<ProjectItem> items)
+    /// <summary>The I/O tree, walked under the synthetic <c>I/O Devices</c> folder.
+    ///
+    /// <para><b>It takes <paramref name="unwalked"/> for the same reason <see cref="WalkInner"/> does.</b> Every
+    /// catch here used to answer <c>return</c> or <c>continue</c> and record NOTHING, so a COM fault on the TIID
+    /// node left <c>WalkResult.Complete</c> TRUE — and <c>Complete</c> is the one signal that stops <c>fetch</c>
+    /// deriving DELETIONS from absence. A transient fault therefore reads as "these devices are gone" and takes
+    /// the engineer's descriptors with it. That is the identical failure the four catches in <c>WalkInner</c>
+    /// each carry a comment about; this method was written without them.</para>
+    ///
+    /// <para>A failure to resolve TIID is reported as unwalked rather than as "this project has no I/O", because
+    /// the two are indistinguishable here and only one of them is safe to guess wrong: reporting unwalked
+    /// suppresses deletions for this pull, while guessing "no I/O" deletes files. Every XAE-bound project has a
+    /// TIID node, so this is a fault path, not a shape a real project takes. (Telling genuine absence from an
+    /// unreadable node needs the not-found HRESULT — the same narrowing <c>LookupPath</c> wants; until that is
+    /// measured, failing toward "keep the files" is the honest default.)</para></summary>
+    private void WalkIoDevices(List<ProjectItem> items, List<string> unwalked)
     {
+        // The synthetic label carries a literal '/', so it is encoded like any other segment.
+        var ioFolder = FolderPath.Encode("I/O Devices");
+
         object tiid;
-        try { tiid = _om.LookupTreeItem("TIID"); } catch { return; }
+        try { tiid = _om.LookupTreeItem("TIID"); }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"twincat: the I/O tree (TIID) is unreadable — every device is OMITTED from this walk: {ex.Message}");
+            unwalked.Add(ioFolder);
+            return;
+        }
+
         int count;
-        try { count = _om.ChildCount(tiid); } catch { return; }
+        try { count = _om.ChildCount(tiid); }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"twincat: the I/O device count is unreadable — every device is OMITTED from this walk: {ex.Message}");
+            unwalked.Add(ioFolder);
+            return;
+        }
+
         for (int i = 1; i <= count; i++)
         {
             object device;
-            try { device = _om.ChildAt(tiid, i); } catch { continue; }
+            try { device = _om.ChildAt(tiid, i); }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: I/O device #{i} is unreadable — it is OMITTED from this walk: {ex.Message}");
+                unwalked.Add(ioFolder);
+                continue;
+            }
             string name;
             try { name = _om.GetName(device); }
-            catch (Exception ex) { VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is omitted: {ex.Message}"); continue; }
-            // Encode the synthetic label like any other segment — "I/O Devices" carries a literal '/'.
-            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), FolderPath.Encode("I/O Devices")));
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is OMITTED from this walk: {ex.Message}");
+                unwalked.Add(ioFolder);
+                continue;
+            }
+            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), ioFolder));
         }
     }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -266,4 +266,67 @@ public class TcNetworkWriterTests
 
     private static Operand Rename(Operand o, string from, string to) =>
         o.Text == from ? o with { Text = to } : o;
+
+    /// <summary>A BOX NAMED IN A DIFFERENT CASE IS THE SAME BOX. IEC 61131-3 identifiers are case-insensitive,
+    /// and every other identity compare on this vendor's write path was deliberately moved off ordinal for
+    /// exactly that reason — <c>BeckhoffDriver.WriteContent</c> calls its Ordinal predecessor "the last Ordinal
+    /// IDENTITY compare left on the wire" and names the analogue that broke it (<c>METHOD Calc</c> renamed to
+    /// <c>METHOD calc</c> passed every gate above and then threw NOT_FOUND). This compare was the one left.
+    ///
+    /// <para>What it costs: a case-only edit of a box or instance name makes <c>Apply</c> refuse a body nobody
+    /// retyped. On the push path that refusal discards the whole network to <c>RebuildNetwork</c>, regenerating
+    /// the very <c>Id</c>/<c>Fixed</c>/<c>ILLines</c> this in-place writer exists to preserve — and where the
+    /// network holds more than one rung the rebuild refuses outright, reporting a shape change that never
+    /// happened.</para></summary>
+    [Theory]
+    [InlineData("and")]
+    [InlineData("And")]
+    [InlineData("aNd")]
+    public void A_box_named_in_a_different_case_is_the_same_box(string recased)
+    {
+        var body = VendorBody();
+        var model = Read(body);
+
+        var edited = model with
+        {
+            Networks = model.Networks
+                .Select(n => n with { Trees = n.Trees.Select(t => Recase(t, recased)).ToList() })
+                .ToList(),
+        };
+
+        // No refusal: the box was never retyped, only spelled differently.
+        var written = TcNetworkWriter.Apply(body, edited);
+
+        // …and because nothing actually changed, the writer has nothing to write back.
+        Assert.Null(written);
+    }
+
+    /// <summary>A GENUINE RETYPE IS STILL REFUSED — the case fix must not turn the guard off. `OR` is a
+    /// different operator from `AND`, and the archive's CallType/InputParam/OutputParam were resolved from the
+    /// old one, so rewriting the name alone would leave an archive describing one call with another's signature.</summary>
+    [Fact]
+    public void A_real_retype_is_still_refused()
+    {
+        var body = VendorBody();
+        var model = Read(body);
+
+        var edited = model with
+        {
+            Networks = model.Networks
+                .Select(n => n with { Trees = n.Trees.Select(t => Recase(t, "OR")).ToList() })
+                .ToList(),
+        };
+
+        Assert.Throws<System.NotSupportedException>(() => TcNetworkWriter.Apply(body, edited));
+    }
+
+    /// <summary>Respell every AND box's type, leaving everything else alone.</summary>
+    private static Node Recase(Node n, string spelling) => n switch
+    {
+        Box b when string.Equals(b.Type, "AND", System.StringComparison.OrdinalIgnoreCase) =>
+            b with { Type = spelling, Inputs = b.Inputs.Select(i => i with { Value = Recase(i.Value, spelling) }).ToList() },
+        Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = Recase(i.Value, spelling) }).ToList() },
+        Assign a => a with { Value = a.Value == null ? null : Recase(a.Value, spelling) },
+        _ => n,
+    };
 }

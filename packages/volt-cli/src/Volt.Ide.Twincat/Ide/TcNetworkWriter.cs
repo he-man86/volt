@@ -220,9 +220,16 @@ internal static class TcNetworkWriter
                 // and genuinely cannot know the type from the text. This writer edits IN PLACE and has both
                 // values in front of it - the archive's BoxType and its Instance - so it can simply check the
                 // right one. A retype is still refused; being called by its instance name is not a retype.
+                // CASE-INSENSITIVELY, because these are IEC IDENTIFIERS and IEC 61131-3 says case does not
+                // distinguish them. This was the last Ordinal identity compare on the wire — the same mistake
+                // `BeckhoffDriver.WriteContent` fixed for member names, where `METHOD Calc` renamed to
+                // `METHOD calc` passed every gate above and then threw NOT_FOUND. Here the cost was a refusal
+                // of a body nobody retyped, which on the push path discards the network to `RebuildNetwork` and
+                // regenerates the exact ids this writer exists to preserve.
                 var was = TcArchive.Str(e, "BoxType") ?? "";
                 var instance = TcArchive.Str(TcArchive.Obj(e, "Instance"), "Operand");
-                var namesThisBox = was == b.Type || (instance != null && instance == b.Type);
+                var namesThisBox = string.Equals(was, b.Type, StringComparison.OrdinalIgnoreCase)
+                                   || (instance != null && string.Equals(instance, b.Type, StringComparison.OrdinalIgnoreCase));
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
