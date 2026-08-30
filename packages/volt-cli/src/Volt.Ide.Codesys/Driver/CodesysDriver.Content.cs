@@ -72,7 +72,7 @@ public sealed partial class CodesysDriver
             // ordering rule that used to live in PushService was about TwinCAT's IMPORTER, and there is no
             // import on this path at all.)
             _om.WriteSourceText(item.Native, content.Declaration, null);
-            CodesysNetworkWriter.Write(_om, item.Native, graph);
+            CodesysNetworkWriter.Write(_om, item.Native, graph, content.Declaration);
         }
 
         WriteMembers(item, content.Members);
@@ -281,7 +281,7 @@ public sealed partial class CodesysDriver
             else
             {
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                CodesysNetworkWriter.Write(_om, target.Native, graph);
+                CodesysNetworkWriter.Write(_om, target.Native, graph, m.Declaration);
             }
 
             // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing

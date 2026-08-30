@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Volt.Engine.Format.St;
 using Volt.Engine.Format.Network;
 // `Parallel` is also System.Threading.Tasks.Parallel; this file means the LD branch.
 using Parallel = Volt.Engine.Format.Network.Parallel;
@@ -24,7 +25,7 @@ namespace Volt.Ide.Codesys
     /// </summary>
     internal static class CodesysNetworkWriter
     {
-        public static void Write(CodesysObjectModel om, object node, NetworkBody body)
+        public static void Write(CodesysObjectModel om, object node, NetworkBody body, string? declaration = null)
         {
             om.ModifyObject(node, iobj =>
             {
@@ -46,11 +47,11 @@ namespace Volt.Ide.Codesys
 
                 var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
                 for (int i = 0; i < existing.Count; i++)
-                    WriteNetwork(impl, existing[i], body.Networks[i]);
+                    WriteNetwork(impl, existing[i], body.Networks[i], declaration);
             });
         }
 
-        private static void WriteNetwork(object impl, object net, Network model)
+        private static void WriteNetwork(object impl, object net, Network model, string? declaration)
         {
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
@@ -63,7 +64,7 @@ namespace Volt.Ide.Codesys
             for (int i = NwlInterop.Int(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
-            var ctx = new BuildContext(impl, net);
+            var ctx = new BuildContext(impl, net, declaration);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
         }
@@ -83,9 +84,11 @@ namespace Volt.Ide.Codesys
         {
             private readonly object _impl;
             private readonly object _net;
+            private readonly string? _declaration;
             private readonly Dictionary<int, int> _varIds = new Dictionary<int, int>();
 
-            public BuildContext(object impl, object net) { _impl = impl; _net = net; }
+            public BuildContext(object impl, object net, string? declaration)
+            { _impl = impl; _net = net; _declaration = declaration; }
 
             public object Node(Node n)
             {
@@ -135,17 +138,32 @@ namespace Volt.Ide.Codesys
 
                         var box = NwlInterop.New(_net, "BoxTreeBox");
                         // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.
-                        NwlInterop.Set(box, "BoxType", b.Type);
+                        NwlInterop.Set(box, "BoxType", BoxTypeOf(b));
 
                         // Everything else the READER models on a box had no counterpart here and was dropped in
                         // silence: an FB call lost its instance, an embedded output vanished, an EN pin was
                         // forgotten. Each is set through the member the reader reads, so the two cannot drift -
                         // and NwlInterop fails loud (naming the observed assembly version) if a member is not
                         // there, which is the whole reason this vendor's typed model is safer than an archive.
-                        if (b.Instance is { } inst) NwlInterop.Set(box, "Instance", Operand(inst));
+                        if (b.Instance is { } inst) WriteInstance(box, inst);
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
+
+                        // FORMAL PIN NAMES, where the model has them. `AppendInputItem` supplies only the value
+                        // WIRED to a pin, never the pin's name, and `InputParams` is where the reader looks for
+                        // it - so a call written without this came back with none: the next pull rendered
+                        // `t1( := a,  := pt)`, which no longer parses, and the POU could never be pushed again.
+                        //
+                        // An OPERATOR has no formal names (its pins are positional) and must not be given any.
+                        // The TYPE is left empty on purpose: it is the IDE's to resolve from the box type, and
+                        // the vendor's own PLCopen export writes an empty `InputParamTypes` for the same reason.
+                        if (b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)))
+                        {
+                            var pins = NwlInterop.Require(box, "InputParams");
+                            foreach (var p in b.Inputs)
+                                NwlInterop.Call(pins, "AppendParam", p.Formal ?? "", "");
+                        }
 
                         if (b.Enable is { } en) NwlInterop.Set(box, "En", Node(en));
 
@@ -204,6 +222,56 @@ namespace Volt.Ide.Codesys
                 var next = NwlInterop.Call(_impl, "GetNextBranchCounter") is int n ? n : 0;
                 _varIds[modelId] = next;
                 return next;
+            }
+
+            /// <summary>The TYPE to write into <c>BoxType</c> — resolved from the DECLARATION for a
+            /// function-block call, because the body cannot carry it.
+            ///
+            /// <para>Network text names a call once: `t1(IN := a, PT := pt)`. `NetworkTextReader` therefore
+            /// builds <c>Box(Type: "t1", Instance: "t1")</c> — both the INSTANCE name. The IDE needs the type
+            /// (`TON`) in <c>BoxType</c>, because that is what it resolves the call's signature from. Writing
+            /// `t1` there produced a box the IDE could not resolve: it came back with NO formal parameter names,
+            /// so the next pull rendered `t1( := a,  := pt)` and that text no longer parses — the POU could be
+            /// created and then never pushed again.</para>
+            ///
+            /// <para>The type is one line up, in the declaration the same push writes (`t1 : TON;`), which is why
+            /// the declaration is written BEFORE the body on both call sites. This restores the
+            /// declaration-driven resolver the pre-NetworkBody writer had and that nothing replaced — including
+            /// its refusal: an instance that is not declared is a body Volt cannot write correctly, and a
+            /// silently unresolvable box is exactly the failure this exists to prevent.</para>
+            ///
+            /// <para>An ARCHIVE-derived model already carries the real type (`Type: "TON"`, `Instance: "t1"`),
+            /// so resolution runs only when the two are the same string — the text-derived shape.</para></summary>
+            private string BoxTypeOf(Box b)
+            {
+                if (b.Kind != CallKind.FunctionBlock || b.Instance is not { } inst) return b.Type;
+                if (!string.Equals(b.Type, inst.Text, StringComparison.OrdinalIgnoreCase)) return b.Type;
+
+                return StDeclaration.TypeOfVariable(_declaration, inst.Text)
+                    ?? throw new NotSupportedException(
+                           $"CODESYS: the call '{inst.Text}' names a function-block instance that is not declared " +
+                           "in this POU, so Volt cannot tell the IDE which TYPE the box calls. Declare it, or " +
+                           "edit this network in the IDE.");
+            }
+
+            /// <summary>Name the function-block instance a box calls            /// <summary>Name the function-block instance a box calls — by MUTATING the operand the box already
+            /// holds, not by replacing it.
+            ///
+            /// <para><b><c>IBoxTreeBox.Instance</c> is READ-ONLY on this build.</b> Reflected over the shipped
+            /// <c>NWLObject.plugin</c> 4.6.0.0: the property has a getter and no setter, so assigning to it
+            /// threw "'BoxTreeBox' has no 'Instance (writable)'" and creating an FB-instance call from text
+            /// failed outright — `t1(IN := a, PT := pt)` could not be pushed at all. That refusal was accurate
+            /// about the object model and wrong about what to do with it.</para>
+            ///
+            /// <para><c>IOperand.OperandExpr</c> IS writable, and the box arrives holding an operand already, so
+            /// the instance name goes there. TwinCAT reaches the same member through its archive
+            /// (<c>&lt;o n="Instance"&gt;</c>), so this is the two vendors writing the same field.</para></summary>
+            private void WriteInstance(object box, Operand inst)
+            {
+                var op = NwlInterop.Require(box, "Instance");
+                NwlInterop.Set(op, "OperandExpr", inst.Text);
+                if (!string.IsNullOrEmpty(inst.Type)) NwlInterop.Set(op, "Type", inst.Type);
+                ApplyFlags(op, inst.Flags);
             }
 
             private object Operand(Operand o)

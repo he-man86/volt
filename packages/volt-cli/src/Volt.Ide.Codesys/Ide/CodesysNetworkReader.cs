@@ -109,6 +109,15 @@ namespace Volt.Ide.Codesys
             }
         }
 
+        /// <summary>The <c>Names</c> array of an <c>IParamList</c>, or empty when there is none.</summary>
+        private static List<string?> Names(object? paramList)
+        {
+            if (paramList == null) return new List<string?>();
+            if (NwlInterop.Get(paramList, "Names") is not System.Collections.IEnumerable names)
+                return new List<string?>();
+            return names.Cast<object?>().Select(x => x?.ToString()).ToList();
+        }
+
         private static Box ReadBox(object n, Flags flags)
         {
             var inputs = NwlInterop.Items(NwlInterop.Get(n, "InputItemList"), listMember: "")
@@ -117,9 +126,14 @@ namespace Volt.Ide.Codesys
 
             // Formal pin names, where the vendor supplies them. Operator boxes are positional; an FB call names
             // its pins, and network text needs those names to write `inst(IN := x, PT := y)`.
-            var formals = NwlInterop.Items(NwlInterop.Get(n, "InputParams"))
-                .Select(p => NwlInterop.Text(p, "Name"))
-                .ToList();
+            //
+            // READ OFF `Names`, NOT by enumerating objects. `InputParams` is an `IParamList`, whose whole surface
+            // is two STRING ARRAYS - `Names` and `Types` - plus AppendParam/InsertParam/RemoveParam/SetType.
+            // This asked `Items(...)` for a `List` of objects each carrying a `Name`, which an IParamList has
+            // never had: the lookup found nothing, `formals` came back EMPTY every time, and the count guard
+            // below then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
+            // does not parse, which means such a POU could be pulled and never pushed back.
+            var formals = Names(NwlInterop.Get(n, "InputParams"));
             if (formals.Count == inputs.Count)
                 inputs = inputs.Select((p, i) => p with { Formal = Clean(formals[i]) }).ToList();
 
