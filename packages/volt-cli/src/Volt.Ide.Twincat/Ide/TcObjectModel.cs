@@ -380,12 +380,24 @@ internal sealed partial class TcObjectModel
         }
     }
 
-    /// <summary>Resolve a tree item by its full path, or null when it is not there. Used after an import, where
-    /// every previously held handle is invalid.</summary>
+    /// <summary>The HRESULT TwinCAT returns for a tree path that does not exist — <c>Item 'x' not found</c>.
+    /// Measured on live TcXaeShell 15.0 (2026-08-30) against two bogus paths, one under an existing root and one
+    /// at the root: both answered <c>0x98510001</c>.</summary>
+    private const int TcItemNotFound = unchecked((int)0x98510001);
+
+    /// <summary>Resolve a tree item by its full path, or null when IT IS NOT THERE. Used after an import, where
+    /// every previously held handle is invalid.
+    ///
+    /// <para><b>Only a genuine not-found becomes null.</b> This caught EVERY <see cref="COMException"/>, so an
+    /// RPC drop mid-push came back as "absent" and <c>ResolveGraphicalBody</c> reported it as "the PLCopen import
+    /// produced no POU" — a wrong diagnosis for a channel fault. Worse, the HRESULT is the only thing
+    /// <c>BeckhoffDriver.ShouldMarkDegraded</c> can classify, so the session never degraded and <c>Recover()</c>
+    /// never ran while health stayed green. That is verbatim the fallback removed from <c>PlcRoot()</c> with a
+    /// DO-NOT record 250 lines above; this was the same shape one call lower.</para></summary>
     private object? LookupPath(string path)
     {
         try { return (object)_sysManager!.LookupTreeItem(path); }
-        catch (COMException) { return null; }
+        catch (COMException ex) when (ex.HResult == TcItemNotFound) { return null; }
         catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }
     }
 

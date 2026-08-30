@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -61,9 +61,24 @@ internal sealed partial class TcObjectModel
         try
         {
             dynamic sb = _dte.Solution.SolutionBuild;
-            try { for (int i = 0; i < 100; i++) { if ((int)sb.BuildState != 2) break; System.Threading.Thread.Sleep(100); } } catch { }
+
+            // WAIT FOR A BUILD THE ENGINEER STARTED IN THE IDE, and refuse if one is still running. Starting a
+            // second build over the top of a live one is what the old code did on expiry: the loop simply fell
+            // through and called Build() anyway.
+            if (!WaitForIdle(sb)) return false;
+
+            // MEASURED SYNCHRONOUS (2026-08-30, live TcXaeShell 15.0): `Build(true)` is EnvDTE's
+            // `WaitForBuildToFinish` overload and it blocks — a Clean+Build cycle returned after 758ms and
+            // 1230ms respectively, with `BuildState` already `vsBuildStateDone`(3) on return and never once
+            // observed as `vsBuildStateInProgress`(2). So there is NO poll after this call.
+            //
+            // There used to be one, and it was the bug: 100x100ms, and on expiry it did not throw, did not log,
+            // and did not stop — it fell through to `LastBuildInfo`, which then reported the PREVIOUS build's
+            // failed-project count as this build's verdict, on a wire-visible boolean. Ten seconds is also not a
+            // plausible ceiling for a real PLC build, so the fall-through was reachable rather than theoretical.
+            // The file's own rule five lines down says it: "NOT catch { failed = 0; }. That turned 'I could not
+            // read the build result' into 'the build passed'."
             sb.Build(true);
-            try { for (int i = 0; i < 100; i++) { if ((int)sb.BuildState != 2) break; System.Threading.Thread.Sleep(100); } } catch { }
             // NOT `catch { failed = 0; }`. That turned "I could not read the build result" into "the build
             // passed" — on a WIRE-VISIBLE boolean, so a client is told a failing project compiles. The sibling
             // GetBuildDiagnostics already applies the opposite reasoning to its own partial-parse case.
@@ -80,9 +95,40 @@ internal sealed partial class TcObjectModel
         catch { return false; }
     }
 
+    /// <summary>Wait until no build is running, and say whether we got there.
+    ///
+    /// <para><c>false</c> means "a build is still running, or I could not tell" — and the caller reports the
+    /// build as FAILED, which is this file's standing rule for an unreadable verdict ("reporting FAILURE rather
+    /// than assuming success"). It is never "assume idle and start another one": that is exactly what the
+    /// expiring loop this replaces did, issuing <c>Build(true)</c> over a build already in flight.</para>
+    ///
+    /// <para>The state read is NOT swallowed. It used to sit in a bare <c>catch { }</c> with no log, so a COM
+    /// fault on the very first poll looked identical to "idle" and the method carried on.</para></summary>
+    private static bool WaitForIdle(dynamic sb)
+    {
+        const int VsBuildStateInProgress = 2;   // EnvDTE vsBuildState: NotStarted=1, InProgress=2, Done=3
+        for (int i = 0; i < 100; i++)
+        {
+            int state;
+            try { state = (int)sb.BuildState; }
+            catch (Exception ex)
+            {
+                VoltLog.Warn($"twincat: the IDE's build state is unreadable — reporting FAILURE rather than " +
+                             $"starting a build over one that may be running: {ex.Message}");
+                return false;
+            }
+            if (state != VsBuildStateInProgress) return true;
+            System.Threading.Thread.Sleep(100);
+        }
+        VoltLog.Warn("twincat: a build started in the IDE is still running after 10s — reporting FAILURE rather " +
+                     "than starting a second build over it");
+        return false;
+    }
+
     public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
     {
         var result = new List<BridgeDiagnostic>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         if (_dte == null) return result;
         try
         {
@@ -92,11 +138,41 @@ internal sealed partial class TcObjectModel
             {
                 dynamic pane;
                 try { pane = output.OutputWindowPanes.Item(p); } catch { continue; }
-                string name = (string)pane.Name;
-                if (!name.Contains("Build") && !name.Contains("TwinCAT")) continue;
-                dynamic td = pane.TextDocument;
-                dynamic ep = td.StartPoint.CreateEditPoint();
-                string text = (string)ep.GetText(td.EndPoint);
+                // EVERY PANE IS PARSED. This does not need to know WHICH pane a build writes to — it needs the
+                // diagnostics, and the regex below already IS the test: a line only matches if it is shaped
+                // `file(line,col) : error|warning|message : text`, which is a compiler's output and not a
+                // window's chrome.
+                //
+                // It used to select panes by `pane.Name.Contains("Build") || .Contains("TwinCAT")` — a
+                // case-sensitive substring test on the shell's USER-VISIBLE caption. The driver supports full
+                // Visual Studio as well as TcXaeShell, and full VS ships localized UI in Beckhoff's own market;
+                // on such a host nothing matches, and a FAILING build is then reported with zero errors.
+                // Selecting by pane GUID instead would only trade one magic string for another: the Build pane's
+                // GUID is a documented VS SDK constant, but TwinCAT's own pane GUID is documented nowhere and was
+                // measured on a single install, so it is exactly the kind of value that quietly stops matching
+                // on the next version. Not identifying the pane at all removes the question.
+                // AN EMPTY PANE THROWS, and that is its ordinary state — not a fault to abort the sweep for.
+                // Measured on live TcXaeShell 15.0 (2026-08-30): of seven panes, `Build`, `TwinCAT` and
+                // `Source Control - Git` return text, while `Debug`, `Build Order` and the two other source
+                // control panes each answer `COMException 0x80004005` (E_FAIL) from `TextDocument`. Letting that
+                // reach the outer catch aborted the WHOLE parse on the first empty pane, so the build reported
+                // one synthetic "could not finish reading" error and nothing else.
+                //
+                // Skipping here does NOT hide a failing build: the verdict comes from `LastBuildInfo` in
+                // `Build()`, never from this list, so the worst case is a failure reported without its detail —
+                // and this now reads every pane, where the previous name-matching version read at most two.
+                string text;
+                try
+                {
+                    dynamic td = pane.TextDocument;
+                    dynamic ep = td.StartPoint.CreateEditPoint();
+                    text = (string)ep.GetText(td.EndPoint);
+                }
+                catch (Exception ex)
+                {
+                    VoltLog.Debug($"twincat: an Output pane has no readable text (usually an empty one): {ex.Message}");
+                    continue;
+                }
                 if (string.IsNullOrEmpty(text)) continue;
                 var regex = new Regex(
                     @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
@@ -106,14 +182,20 @@ internal sealed partial class TcObjectModel
                     int lineNum = 0, colNum = 0;
                     if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
                     if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
-                    result.Add(new BridgeDiagnostic
+                    var diagnostic = new BridgeDiagnostic
                     {
                         // "message" is TwinCAT's word for informational; Severity.Of maps it.
                         Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
                         Message = m.Groups[5].Value.Trim(),
                         Line = lineNum,
                         Column = colNum,
-                    });
+                    };
+                    // ONE ENTRY PER DIAGNOSTIC, however many panes carry it. A PLC build writes the same error
+                    // to Visual Studio's own Build pane AND to TwinCAT's, so now that every pane is read the
+                    // same error arrives twice; the engineer would see it twice in the Problems list. Keyed on
+                    // everything the wire carries, so two genuinely different errors on one line both survive.
+                    if (seen.Add($"{diagnostic.Severity}{diagnostic.Line}{diagnostic.Column}{diagnostic.Message}"))
+                        result.Add(diagnostic);
                 }
             }
         }
