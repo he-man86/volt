@@ -33,12 +33,26 @@ internal static class TcNetworkReader
         return new NetworkBody(language, networks);
     }
 
+    /// <summary>A network's own text with TRAILING WHITESPACE removed.
+    ///
+    /// <para>An IDE stores a title or comment as the engineer typed it, including the newline that ended it.
+    /// Network text puts the title in a QUOTED STRING on the header line, so an untrimmed title emits a quote
+    /// that spans TWO LINES — not parseable network text, which means such a POU could be pulled and never
+    /// pushed back — and a trailing newline in a comment emits an extra empty <c>//</c> line. Measured on
+    /// CODESYS, where a user's title came back as "testlabel" followed by CR LF; the same is done here because
+    /// the two vendors must answer identically for the same body, and nothing makes TwinCAT immune to an
+    /// engineer pressing Enter.</para>
+    ///
+    /// <para>The archive keeps its own bytes: <see cref="TcNetworkWriter"/> compares these with trailing
+    /// whitespace ignored, so a push that changed nothing still writes nothing.</para></summary>
+    private static string? Trimmed(string? s) => s?.TrimEnd();
+
     private static Network ReadNetwork(XElement net, int order) =>
         new Network(
             order,
-            TcArchive.Str(net, "Title"),
-            TcArchive.Str(net, "Label"),
-            TcArchive.Str(net, "Comment"),
+            Trimmed(TcArchive.Str(net, "Title")),
+            Trimmed(TcArchive.Str(net, "Label")),
+            Trimmed(TcArchive.Str(net, "Comment")),
             TcArchive.Bool(net, "OutCommented"),
             TcArchive.List(net, "NetworkItems").Select(ReadNode).ToList());
 

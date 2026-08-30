@@ -116,9 +116,12 @@ internal static class TcNetworkWriter
 
     private static bool WriteNetwork(XElement net, Network model)
     {
-        bool changed = SetString(net, "Title", model.Title)
-                     | SetString(net, "Label", model.Label)
-                     | SetString(net, "Comment", model.Comment)
+        // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
+        // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
+        // rewrite a title nobody had touched on every push — and a push that changes nothing must change nothing.
+        bool changed = SetText(net, "Title", model.Title)
+                     | SetText(net, "Label", model.Label)
+                     | SetText(net, "Comment", model.Comment)
                      | SetBool(net, "OutCommented", model.Disabled);
 
         // A MULTI-OUTPUT ASSIGNMENT IS ONE ITEM, however the text spells it. Network text cannot repeat a
@@ -440,6 +443,13 @@ internal static class TcNetworkWriter
         v.Value = raw;
         return true;
     }
+
+    /// <summary>Like <see cref="SetString"/>, but a difference in TRAILING WHITESPACE alone is not a change —
+    /// the IDE's copy carries the engineer's newline and the model's does not (see the call site).</summary>
+    private static bool SetText(XElement owner, string name, string? text) =>
+        (TcArchive.Str(owner, name) ?? "").TrimEnd() == (text ?? "").TrimEnd()
+            ? false
+            : SetString(owner, name, text);
 
     private static bool SetString(XElement owner, string name, string? text) =>
         Set(owner, name, "\"" + (text ?? "") + "\"", "\"" + (TcArchive.Str(owner, name) ?? "") + "\"");

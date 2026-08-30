@@ -72,9 +72,14 @@ namespace Volt.Ide.Codesys
         private static int Count(object impl) =>
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;
 
+        /// <summary>Write a string member only when it really differs — comparing with TRAILING WHITESPACE
+        /// ignored, because the IDE stores a title or comment with the newline the engineer typed after it and
+        /// the model holds it trimmed (see the reader's `Clean`). Without that, every push rewrote a title
+        /// nobody had touched.</summary>
         private static void SetIfChanged(object o, string member, string value)
         {
-            if ((NwlInterop.Text(o, member) ?? "") != value) NwlInterop.Set(o, member, value);
+            var current = NwlInterop.Text(o, member) ?? "";
+            if (current.TrimEnd() != value.TrimEnd()) NwlInterop.Set(o, member, value);
         }
 
         /// <summary>Per-network build state. <see cref="_varIds"/> maps a model <c>Demux.VarId</c> to the id

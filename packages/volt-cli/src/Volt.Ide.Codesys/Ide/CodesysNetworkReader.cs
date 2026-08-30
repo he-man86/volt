@@ -37,7 +37,7 @@ namespace Volt.Ide.Codesys
                 // NetworkItemCount can EXCEED the number of real trees — measured: a network reported 2 with
                 // one tree, the second slot being an item the IDE had dropped. A null here is normal, not a
                 // failure, and must be skipped rather than treated as an empty body.
-                if (NwlInterop.TryCall(net, "GetTree", i) is { } tree) trees.Add(ReadNode(tree));
+                        if (Tree(NwlInterop.TryCall(net, "GetTree", i)) is { } tree) trees.Add(ReadNode(tree));
             }
 
             // The vendor's own per-network SPLIT-POINT list, which is NOT fan-out - fan-out is `Demux`, and
@@ -61,6 +61,25 @@ namespace Volt.Ide.Codesys
                 trees);
         }
 
+        /// <summary>The value if it is really an NWL TREE NODE, else null — because "not wired" does not come
+        /// back as null on this vendor.
+        ///
+        /// <para><b>An unwired EN pin reads as <c>System.Boolean false</c>, not null.</b> Measured on an
+        /// IDE-authored ladder: a plain <c>AND</c> box reports <c>En = False</c>. The reader took any non-null
+        /// <c>En</c> as a wired enable and handed it to <see cref="ReadNode"/>, which dispatches on the type name,
+        /// found <c>Boolean</c>, and threw "the graphical item 'Boolean' has no network-text form yet".</para>
+        ///
+        /// <para>The cost of that was far past a missing enable: the throw makes the BODY unreadable, and an
+        /// unreadable body makes the whole item UNREADABLE, so <c>FetchService</c> skipped it — the POU vanished
+        /// from the workspace entirely, with no error at the wire and no file in git. It reached a user before a
+        /// test did because every fixture body Volt had was one Volt itself created, and those carry a null
+        /// <c>En</c>; only a body an ENGINEER drew in the IDE has the boolean.</para>
+        ///
+        /// <para>Applied to every node-valued member, not just <c>En</c>: they are read the same way and there is
+        /// no reason to believe the vendor is consistent about which of them answers <c>false</c>.</para></summary>
+        private static object? Tree(object? o) =>
+            o is not null && NwlInterop.TypeName(o).StartsWith("BoxTree", StringComparison.Ordinal) ? o : null;
+
         private static Node ReadNode(object n)
         {
             var flags = ReadFlags(NwlInterop.Get(n, "Flags"));
@@ -71,7 +90,7 @@ namespace Volt.Ide.Codesys
 
                 case "BoxTreeAssign":
                     return new Assign(
-                        NwlInterop.Get(n, "RValue") is { } rv ? ReadNode(rv) : null,
+                        Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null,
                         NwlInterop.Items(NwlInterop.Get(n, "Outputs")).Select(ReadOperand).ToList(),
                         flags);
 
@@ -83,19 +102,19 @@ namespace Volt.Ide.Codesys
                 case "BoxTreeDemux":
                     return new Demux(
                         NwlInterop.Int(n, "VarId"),
-                        NwlInterop.Get(n, "Input") is { } di ? ReadNode(di) : null,
+                        Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di) : null,
                         flags);
 
                 case "BoxTreeParallel":
                     return new Parallel(
-                        NwlInterop.Get(n, "Input") is { } pi ? ReadNode(pi) : null,
+                        Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null,
                         NwlInterop.Items(NwlInterop.Get(n, "Trees"), listMember: "").Select(ReadNode).ToList(),
                         ReadParallelMode(NwlInterop.Get(n, "Mode")),
                         flags);
 
                 case "BoxTreeTerminator":
                     return new Terminator(
-                        NwlInterop.Get(n, "Input") is { } ti ? ReadNode(ti) : null,
+                        Tree(NwlInterop.Get(n, "Input")) is { } ti ? ReadNode(ti) : null,
                         flags);
 
                 default:
@@ -148,7 +167,7 @@ namespace Volt.Ide.Codesys
                 // From the En PIN, never from the EnEno flag: EnEno is a CAPABILITY marker and is true on every
                 // box in a real project — including every plain AND and OR — so keying on it would wrap the
                 // whole project in `IF en THEN ... END_IF`.
-                NwlInterop.Get(n, "En") is { } en ? ReadNode(en) : null,
+                Tree(NwlInterop.Get(n, "En")) is { } en ? ReadNode(en) : null,
                 ReadStCode(n),
                 flags);
         }
@@ -205,7 +224,19 @@ namespace Volt.Ide.Codesys
         /// <para>A freshly constructed operand reports <c>Address='Constant_Address_Serialization_Value'</c> and
         /// <c>SymbolComment='Constant_SymbolComment_Serialization_Value'</c> — sentinels of the archive layer,
         /// not values. Carrying one into the workspace would write a vendor internal into an engineer's file.</para></summary>
+        ///
+        /// <para><b>Trailing whitespace goes too, and that is not cosmetic.</b> CODESYS stores a network title
+        /// as the engineer typed it, INCLUDING the newline that ended it - measured on a user's project, the
+        /// title came back as "testlabel" followed by CR LF. Network text puts the title in a QUOTED STRING on
+        /// the header line, so an untrimmed title emitted a quote that SPANNED TWO LINES: not parseable network
+        /// text, which means such a POU could be pulled and never pushed back. The same trailing newline turned
+        /// a one-line network comment into that comment plus an empty <c>//</c> line.</para>
+        ///
+        /// <para>The vendor keeps its own bytes: the writers compare with trailing whitespace ignored, so a push
+        /// that changed nothing still writes nothing.</para></summary>
         private static string? Clean(string? s) =>
-            string.IsNullOrEmpty(s) || s!.StartsWith("Constant_", StringComparison.Ordinal) ? null : s;
+            string.IsNullOrEmpty(s) || s!.StartsWith("Constant_", StringComparison.Ordinal)
+                ? null
+                : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
     }
 }
