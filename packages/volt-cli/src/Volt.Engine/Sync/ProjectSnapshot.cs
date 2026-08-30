@@ -27,7 +27,15 @@ internal sealed class ProjectSnapshot
     /// snapshot can never exist with unhashed maps.</summary>
     private ProjectSnapshot() { }
 
-    /// <summary>Bare name → version — the aggregate-hash source (project/structure version).</summary>
+    /// <summary>Wire identity → version — the aggregate-hash source (project/structure version).
+    /// <para>Keyed by the SAME identity <see cref="FullVersions"/> publishes, and that is load-bearing. It used to
+    /// be keyed by the BARE name, where two items of different kinds sharing one name (a control module and its
+    /// own visualization — <c>CM_Carrier.fb</c> + <c>CM_Carrier.visualization</c>, which is how CODESYS projects
+    /// are normally organised) collapsed onto one slot and the walk order decided which survived. The shadowed
+    /// item was then invisible to the aggregate hash, so editing it did not move <c>projectVersion</c> and
+    /// <c>volt pull</c> took its "nothing to pull" fast path over a real code change.</para>
+    /// <para>An UNREADABLE item has no full name (it never materialized), so it is keyed by its bare name here.
+    /// That keeps it counted in the hash while staying absent from the wire index — DIALECT C7, unchanged.</para></summary>
     public Dictionary<string, string> Versions { get; } = new();
 
     /// <summary>Full name → version — the wire <c>Items</c> map.</summary>
@@ -82,9 +90,9 @@ internal sealed class ProjectSnapshot
             // Report the folder the item ACTUALLY occupies — Versioning.FolderOf is the one definition, and
             // SafeVersion applies it to the hash itself, so refs, fetch and the receipt cannot drift apart.
             var folder = Versioning.FolderOf(kind, it.Folder, it.Name);
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
-            snap.Versions[it.Name] = version;
-            if (mat != null) { snap.FullVersions[mat.FullName] = version; snap.Folders[mat.FullName] = folder; }
+            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
+            snap.Versions[v.Identity] = v.Version;
+            if (v.Materialized is { } mat) { snap.FullVersions[mat.FullName] = v.Version; snap.Folders[mat.FullName] = folder; }
             else snap.Unreadable.Add(it.Name);
         }
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);

@@ -104,12 +104,14 @@ public static class FetchService
             // hashed the version over the folder it is not in. Same rule now runs in ProjectSnapshot, so /refs
             // and the push receipt agree too.
             var folder = Versioning.FolderOf(kind, walkedFolder, it.Name);
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder, out var mat);
+            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder);
+            var version = v.Version;
+            var mat = v.Materialized;
             // The aggregate project/structure version must cover EVERY walked item — readable or not, and
             // regardless of the onlyItems subset — so it matches /refs and the push receipt (an unreadable item
             // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
             // otherwise a single unreadable item makes /fetch's projectVersion diverge from /refs'.
-            versions[it.Name] = version;
+            versions[v.Identity] = version;
             if (mat == null)
             {
                 // It could not be READ. It has not gone anywhere — the line above just recorded it with the

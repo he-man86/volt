@@ -46,9 +46,13 @@ public static class PushService
             if (kind == null) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
-            currentVersions[it.Name] = version;
-            if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[it.Name] = version;
+            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
+            var version = v.Version;
+            // Keyed by the item's WIRE IDENTITY (see VersionedItem) — the client can only quote back an identity
+            // it was GIVEN, so the ifVersion gate has to look it up under that same one. `itemCache` below stays
+            // BARE on purpose: that is the IDE's OWN lookup key, one rung below the wire.
+            currentVersions[v.Identity] = version;
+            if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
             if (ItemKind.IsTopLevelCrud(it.KindCode)) itemCache[it.Name] = (it.Item, it.Folder);
         }
 

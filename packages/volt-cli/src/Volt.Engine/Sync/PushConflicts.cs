@@ -35,9 +35,15 @@ internal static class PushConflicts
         foreach (var op in ops)
         {
             var name = op.Name;                       // FULL wire name — echoed back in the conflict
-            var bare = Materializer.Bare(name);       // the IDE/version-map key (bare-keyed)
+            var bare = Materializer.Bare(name);
             var clientVersion = op.IfVersion;
-            var currentVersion = pending.TryGetValue(bare, out var v) ? v : null;
+            // Resolve on the FULL name: that is the identity `refs`/`fetch` publish, so it is the only one the
+            // client can have quoted in `ifVersion`. The BARE fallback covers exactly one case — an UNREADABLE
+            // item, which never materialized, has no full name, and is therefore keyed bare (DIALECT C7). It is
+            // absent from refs, so no client holds a version for it; the fallback exists only so a CREATE cannot
+            // land on top of one.
+            var key = pending.ContainsKey(name) ? name : bare;
+            var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
             if (op is SetItemOp set)
             {
@@ -45,7 +51,7 @@ internal static class PushConflicts
                 {
                     if (currentVersion != null)
                         conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
-                    else pending[bare] = "";
+                    else pending[name] = "";          // the new item exists for later ops, under its wire name
                 }
                 else if (currentVersion != clientVersion)   // update / rename / move guard
                 {
@@ -53,8 +59,8 @@ internal static class PushConflicts
                 }
                 else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
                 {
-                    pending.Remove(bare);             // rename: the new identity exists for later ops
-                    pending[Materializer.Bare(toName)] = "";
+                    pending.Remove(key);              // rename: the new identity exists for later ops
+                    pending[toName] = "";
                 }
             }
             else                                      // DeleteItemOp
@@ -66,7 +72,7 @@ internal static class PushConflicts
                 // Only a version MISMATCH on a still-PRESENT item is a real conflict.
                 if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
-                else pending.Remove(bare);
+                else pending.Remove(key);
             }
         }
         return conflicts;

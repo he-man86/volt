@@ -28,9 +28,12 @@ public class ResilienceTests
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("Bad"));
         var it = ide.WalkItems().Items.Single();
-        var version = Versioning.SafeVersion(ide, it.Name, ItemKind.Map(it.KindCode)!, it.Item, it.Folder, out var mat);
-        Assert.Equal(Versioning.Unreadable, version);
-        Assert.Null(mat);   // no materialized body — so it's omitted from the Items map but stays in the project hash
+        var v = Versioning.SafeVersion(ide, it.Name, ItemKind.Map(it.KindCode)!, it.Item, it.Folder);
+        Assert.Equal(Versioning.Unreadable, v.Version);
+        Assert.Null(v.Materialized);   // no body — omitted from the Items map but still in the project hash
+        // …and with no materialized full name to key it by, its identity falls back to the BARE name. That is the
+        // one item in a walk whose identity is not `name.ext`, and the hash still has to count it.
+        Assert.Equal("Bad", v.Identity);
     }
 
     [Fact]

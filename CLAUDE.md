@@ -113,7 +113,11 @@ live PLC IDE  ──named pipe──  volt-cli (C#)  ──>  git repo of text f
 
 ### Protocol invariant: the item **name** is the identity
 
-The whole wire is keyed by bare item name — `refs`, `fetch` `knownItems`, every push op, `structureVersion` (hash of sorted names), and the one-item-per-file layout. This is deliberate and load-bearing across `volt-cli` and `volt-vscode`. Same-name items collapse last-write-wins; this is fine for source items (IEC guarantees unique names) and only affects opaque non-source items the AI never edits. **Do not add a "duplicate name" guard that throws** — real projects legitimately repeat opaque names, and throwing breaks `/refs`.
+The wire is keyed by item NAME — `refs`, `fetch` `knownItems`, every push op, `structureVersion`, and the one-item-per-file layout. This is deliberate and load-bearing across `volt-cli` and `volt-vscode`. Two spellings of that name exist and the boundary between them is exact: **below the vendor seam the name is BARE** (the IDE's own lookup key — it has no extensions), and **on the wire it is FULL** — `name.kind`, e.g. `CM_Carrier.fb`. Every version/folder map Volt publishes or gates against is keyed by the FULL name, derived in ONE place (`Versioning.VersionedItem.Identity`); an item that could not be materialized has no full name and keeps its bare one there.
+
+> This used to read "the wire is keyed by BARE name; same-name items collapse last-write-wins, which is fine for source items (IEC guarantees unique names) and only affects opaque non-source items the AI never edits". **The second half was false and cost real data fidelity.** IEC guarantees unique names *within a kind*, not across kinds: a control module and the visualization that draws it are `CM_Carrier.fb` and `CM_Carrier.visualization`, and a real customer project (V71_PackML_Hauzer) ships two such pairs. Collapsed onto one bare slot, the walk order picked a winner — so the FB's version was invisible to the aggregate hash (`volt pull` reported "nothing to pull" over a real edit) and the push's `ifVersion` gate answered with the VISUALIZATION's hash, which meant **the FB could be pulled and never pushed back**. The collapse never only affected items the AI does not edit; it broke the item beside them.
+
+**Do not add a "duplicate name" guard that throws** — real projects legitimately repeat names across kinds, and throwing breaks `/refs`. The fix for the above was not a guard: it was keying the wire's maps by the identity the wire already publishes.
 
 ### Network text (the FBD/LD source form)
 
