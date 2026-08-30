@@ -253,6 +253,28 @@ public static class PushService
                     "replaced it and the move cannot proceed.");
         }
         ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, parent, newFolder));
+
+        // AND WRITE AGAIN, because a move can REPLACE the item rather than relocate it.
+        //
+        // Measured on TwinCAT: a move-only push keeps the item's body exactly, and a move+edit push lands the
+        // move but comes back with the OLD body - the edit written moments earlier is gone. The move there is an
+        // export/delete/import of the item's own document (DIALECT D4f), and the export serializes what has been
+        // PERSISTED, not the write still in flight. So the edit was never in the archive that got re-imported.
+        //
+        // This is the same fact the re-resolve above already encodes - a move replaces the item - carried to its
+        // conclusion: a replaced item needs its content applied to the thing that exists AFTERWARDS. Writing
+        // first is still what makes a refusal atomic (nothing has moved yet), so both writes earn their place:
+        // the first one can refuse, the second one lands. On a driver whose move truly relocates, the second
+        // write finds the content already correct and is the price of not encoding a per-vendor quirk in the
+        // engine.
+        if (sourceText is { } settle)
+        {
+            var moved = ItemLookup.Find(ide, name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
+                    "push is failed rather than leaving the item holding its pre-edit content.");
+            WriteItemFromSource(ide, parent, name, moved, settle, newFolder);
+        }
     }
 
     /// <summary>Parse the pushed source the way the write will, and throw if it cannot be parsed — WITHOUT

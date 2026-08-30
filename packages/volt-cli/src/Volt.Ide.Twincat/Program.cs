@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
@@ -86,6 +86,13 @@ foreach (var a in args)
                 Dump("ImplementationText", () => (string)((dynamic)node).ImplementationText);
                 Dump("ImplementationXml", () => (string)((dynamic)node).ImplementationXml);
                 Dump("DocumentXml", () => (string)((dynamic)node).DocumentXml);
+                // The metadata schema the accessor detection reads (DIALECT N8). Dumped because the detection
+                // is the one place Volt asks the IDE a STRUCTURAL question it cannot ask any other way.
+                // The metadata schema (DIALECT N8). Dumped because it is the one place Volt used to ask the IDE
+                // a STRUCTURAL question - and the answer turned out not to be in here at all: for a property,
+                // `recursive: true` yields byte-identical output to `false`, children included nowhere.
+                Dump("ProduceXml(false)", () => om.ProduceXml(node!, false));
+                Dump("ProduceXml(true)", () => om.ProduceXml(node!, true));
             }
             catch (Exception ex) { Console.Error.WriteLine($"probe-pou: {ex.GetType().Name}: {ex.Message}"); rc = 1; }
         });

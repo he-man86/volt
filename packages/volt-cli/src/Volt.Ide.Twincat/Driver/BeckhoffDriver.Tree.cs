@@ -154,40 +154,34 @@ public sealed partial class BeckhoffDriver
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => new(_om.CreateChild(parent.Native, name, kindCode, seed));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
-    /// <summary>Which accessors an INTERFACE property has, read from the PROPERTY'S OWN metadata XML rather
-    /// than by enumerating its accessor COM children — that enumeration can hard-crash TcXaeShell, which is the
-    /// whole reason this is a per-driver call instead of a tree walk the engine could do itself.
+    /// <summary>Which accessors an INTERFACE property has — by ENUMERATING its children, the same way a
+    /// non-interface property is read one file over.
     ///
-    /// <para><c>ProduceXml(recursive: true)</c> yields TwinCAT's <c>&lt;TreeItem&gt;</c> schema — NOT the
-    /// <c>TcPlcObject</c> file format — so the accessors appear as nested <c>&lt;TreeItem&gt;</c> nodes named
-    /// Get/Set, not as <c>&lt;Get/&gt;</c>/<c>&lt;Set/&gt;</c> elements. Measured: an interface's own XML lists
-    /// <c>ItemName, PathName, ItemType, ItemId, ChildCount, PlcItfDef, DeclarationExport, DocumentExport …</c>
-    /// and carries no property elements at all, which is why asking the interface found nothing.</para>
+    /// <para><b>This replaced a read of the property's own metadata XML, which could never have worked.</b>
+    /// That version called <c>ProduceXml(recursive: true)</c> and looked for nested <c>ItemName</c> elements
+    /// named Get/Set. Measured on a live GET-only interface property: <c>ProduceXml(true)</c> returns output
+    /// BYTE-IDENTICAL to <c>ProduceXml(false)</c> — metadata for the property alone, no children at any depth.
+    /// It does carry <c>&lt;ChildCount&gt;1&lt;/ChildCount&gt;</c>, but a count cannot tell a GET-only property
+    /// from a SET-only one. So the detection always answered "no accessors": the pull wrote a bare
+    /// <c>PROPERTY x : T END_PROPERTY</c> and the next push DELETED the accessor the engineer had.</para>
     ///
-    /// <para>This replaces the PLCopen export the answer used to come from, and which went with that transport.
-    /// Without it an interface property round-trips with NO accessors: the pull writes a bare
-    /// <c>PROPERTY x : T END_PROPERTY</c> and the next push deletes the accessors the engineer actually has.</para></summary>
+    /// <para><b>And the reason it was written that way does not hold.</b> The comment said enumerating accessor
+    /// COM children "can hard-crash TcXaeShell". Measured: walking into the property, reading the child's
+    /// metadata and its <c>ItemType</c> (654 = <c>TREEITEMTYPE_PLCITFPROPGET</c>) leaves the shell alive. The
+    /// real hazard, DIALECT D21, is WRITING an interface accessor's DECLARATION — which <c>WriteAccessor</c>
+    /// refuses outright and still does.</para></summary>
     public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
     {
-        var xml = _om.ProduceXml(property.Native, recursive: true);
-        if (string.IsNullOrWhiteSpace(xml))
-            throw new BridgeException(BridgeErrorCodes.NotFound,
-                $"TwinCAT: the property '{Name(property)}' produced no XML — refusing to report it has no " +
-                "accessors, which a push would then act on by deleting the ones it does have");
-
-        XElement root;
-        try { root = XElement.Parse(xml); }
-        catch (System.Xml.XmlException ex)
-        {
-            throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"TwinCAT: the property '{Name(property)}' produced XML that does not parse: {ex.Message}");
-        }
-
         bool get = false, set = false;
-        foreach (var n in root.Descendants("ItemName"))
+
+        // NO CATCH. An unreadable child must not read as "this property has no accessors" - PushService acts on
+        // that answer by DELETING accessors, so a swallowed fault here destroys the engineer's code.
+        int n = ChildCount(property);
+        for (int i = 1; i <= n; i++)
         {
-            if (string.Equals(n.Value, "Get", StringComparison.OrdinalIgnoreCase)) get = true;
-            else if (string.Equals(n.Value, "Set", StringComparison.OrdinalIgnoreCase)) set = true;
+            var code = KindCode(ChildAt(property, i));
+            if (code == ItemKind.PlcItfPropGet) get = true;
+            else if (code == ItemKind.PlcItfPropSet) set = true;
         }
         return (get, set);
     }
