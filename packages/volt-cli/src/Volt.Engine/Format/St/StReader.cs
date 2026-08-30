@@ -108,6 +108,41 @@ public static class StReader
 		return new ItemContent(kind, pouDecl, pouImpl, children);
 	}
 
+	/// <summary>The index of the first line that OPENS a member block, or -1 when there is none. Trivia-aware,
+	/// so a `METHOD` inside a comment does not count.</summary>
+	private static int FirstMemberLine(IList<string> lines, int from)
+	{
+		var ctx = new ScanContext();
+		for (int i = 0; i < lines.Count; i++)
+		{
+			ctx.Update(lines[i]);
+			if (i < from || ctx.InsideTrivia) continue;
+			if (LineStartsWithKeyword(ctx.Code, "METHOD") ||
+				LineStartsWithKeyword(ctx.Code, "ACTION") ||
+				LineStartsWithKeyword(ctx.Code, "PROPERTY")) return i;
+		}
+		return -1;
+	}
+
+	/// <summary>Walk back from a member's keyword line over the comments and pragmas written ABOVE it, and
+	/// answer where that member's block really begins. Those lines document the member, not the declaration —
+	/// `SplitChildren` attaches them to the child, so the declaration must not swallow them first.</summary>
+	private static int BackOverMemberTrivia(IList<string> lines, int keywordLine)
+	{
+		int start = keywordLine;
+		while (start - 1 >= 0)
+		{
+			var previous = lines[start - 1];
+			if (string.IsNullOrWhiteSpace(previous)) break;   // a blank line separates the member from the header
+
+			var probe = new ScanContext();
+			probe.Update(previous);
+			if (probe.Code.Trim().Length != 0) break;         // real code: the declaration ends here
+			start--;                                          // a comment or pragma: it belongs to the member
+		}
+		return start;
+	}
+
 	/// <summary>
 	/// Split an INTERFACE block (lines from start up to but not
 	/// including END_INTERFACE) into the header-only declaration and
@@ -123,14 +158,34 @@ public static class StReader
 			return (string.Join("\n", bodyLines).TrimEnd(), new List<Member>());
 		}
 
-		// Declaration = lines up to and including the INTERFACE header.
-		var declLines = SliceLines(bodyLines, 0, interfaceHeaderLineIdx);
+		// THE DECLARATION IS EVERYTHING BEFORE THE FIRST MEMBER — it is not parsed, and Volt has no business
+		// knowing what is in it.
+		//
+		// This used to end the declaration at the INTERFACE header LINE, which is right only while the whole
+		// header fits on one line. CODESYS stores it wrapped — `EXTENDS IModuleStartable` on its own line — and
+		// that line then landed in the child region, where `SplitChildren` refused it with "Expected
+		// METHOD/ACTION/PROPERTY": Volt PULLED such an interface and would not take its own text back, so the POU
+		// could be pulled and never pushed. Found by sweeping a real customer project.
+		//
+		// The first fix taught this to absorb `EXTENDS`/`IMPLEMENTS` by name, and that was the wrong shape: a
+		// DECLARATION is handed to the IDE VERBATIM (it is written straight to the declaration aspect), so
+		// nothing here should have to recognise its contents. Any header this reader has not heard of — another
+		// continuation keyword, an attribute, a pragma — would have broken it again in exactly the same way.
+		//
+		// Bounding it by where the MEMBERS start needs no vocabulary at all. The member's own leading trivia
+		// belongs to the MEMBER (`SplitChildren` attaches the comments and pragmas above a signature to it), so
+		// the boundary walks back over that trivia to the blank line or code that precedes it.
+		int firstMember = FirstMemberLine(bodyLines, interfaceHeaderLineIdx + 1);
+		int declEnd = firstMember < 0 ? bodyLines.Count - 1 : BackOverMemberTrivia(bodyLines, firstMember) - 1;
+
+		var declLines = SliceLines(bodyLines, 0, declEnd);
 		var decl = string.Join("\n", declLines).TrimEnd();
 
-		if (interfaceHeaderLineIdx + 1 >= bodyLines.Count)
+		if (declEnd + 1 >= bodyLines.Count)
 		{
 			return (decl, new List<Member>());
 		}
+		interfaceHeaderLineIdx = declEnd;
 
 		// Children region = lines after the INTERFACE header. SplitChildren
 		// handles leading blanks, captures pragmas/comments above each
@@ -448,7 +503,14 @@ public static class StReader
 	/// visibility on create, so an extracted modifier would have no reader.</summary>
 	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
 	{
-		var clean = sig.TrimEnd();
+		// COMMENTS OFF FIRST. An engineer documents a method on its signature line — `METHOD INTERNAL _mStrConcatA
+		// //Concats string to sContent` — and CODESYS stores it exactly there. Every pattern below anchors at `$`,
+		// so anything trailing failed the match outright: Volt PULLED such an FB and then refused its own text,
+		// which means the POU could be pulled and never pushed back. Found by sweeping a real customer project.
+		//
+		// `CodeHelper.CodeOn` is the one definition of "the code on this line" and already handles `//` and
+		// `(* … *)`; re-implementing the strip here is how the two would drift.
+		var clean = CodeHelper.WithoutComments(sig);
 		if (kind == ItemKind.Kinds.Method)
 		{
 			var m = Regex.Match(clean,

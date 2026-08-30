@@ -33,6 +33,20 @@ public class RefsResponse
 
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
+
+    /// <summary>Items the walk FOUND but could not materialize, by bare name — normally empty.
+    ///
+    /// <para><b>An unreadable item is the one failure a client cannot otherwise see.</b> It still exists, and it
+    /// still counts toward <c>projectVersion</c> (it is tracked with the Unreadable sentinel so a pull does not
+    /// mistake it for deleted), but it has no entry in <c>items</c> and no file in the workspace — so the POU is
+    /// simply ABSENT, with no error anywhere. That happened to a real project: one box whose <c>En</c> pin read
+    /// as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para>
+    ///
+    /// <para>The count was already computed and written to the debug log. Putting the NAMES on the wire is what
+    /// makes it observable: a client can show which items did not come through, and a test can assert the list
+    /// is empty instead of trusting that a project fully materialized.</para></summary>
+    [JsonPropertyName("unreadable")]
+    public List<string> Unreadable { get; set; } = new();
 }
 
 public class FetchRequest
@@ -99,6 +113,20 @@ public class FetchResponse
     /// can reconstruct the tree without a separate <c>refs</c> call.</summary>
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
+
+    /// <summary>Items the walk FOUND but could not materialize, by bare name — normally empty.
+    ///
+    /// <para><b>An unreadable item is the one failure a client cannot otherwise see.</b> It still exists, and it
+    /// still counts toward <c>projectVersion</c> (it is tracked with the Unreadable sentinel so a pull does not
+    /// mistake it for deleted), but it has no entry in <c>items</c> and no file in the workspace — so the POU is
+    /// simply ABSENT, with no error anywhere. That happened to a real project: one box whose <c>En</c> pin read
+    /// as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para>
+    ///
+    /// <para>The count was already computed and written to the debug log. Putting the NAMES on the wire is what
+    /// makes it observable: a client can show which items did not come through, and a test can assert the list
+    /// is empty instead of trusting that a project fully materialized.</para></summary>
+    [JsonPropertyName("unreadable")]
+    public List<string> Unreadable { get; set; } = new();
 
     /// <summary>True when this fetch RE-RENDERED the referenced-library signatures (the precompile ran), so
     /// <c>Changed</c> carries the COMPLETE signature set for every library folder.

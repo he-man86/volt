@@ -58,6 +58,47 @@ public static class CodeHelper
     /// <para>A PRAGMA is deliberately trivia for the WHOLE line, which is what both scanners already did: a
     /// <c>{attribute …}</c> sits on its own line in every form either vendor emits, and the multi-line pragma
     /// that would need real tracking is not valid IEC 61131-3.</para></summary>
+    /// <summary>The line with its comments removed — a TRAILING <c>// …</c> and any complete
+    /// <c>(* … *)</c> span, wherever they sit.
+    ///
+    /// <para><b>Not the same question as <see cref="CodeOn"/>.</b> That one answers "does this line START with
+    /// code", which is what a block scanner needs; it leaves a trailing comment attached. A SIGNATURE parser
+    /// needs the other answer, because its patterns anchor at end-of-line: an engineer documenting a method on
+    /// its own signature line — <c>METHOD INTERNAL _mStrConcatA //Concats string to sContent</c>, which is
+    /// exactly how CODESYS stores it — failed the match outright, so Volt pulled the POU and then refused its
+    /// own text.</para>
+    ///
+    /// <para>String literals are respected, so a <c>//</c> inside <c>'http://x'</c> is not a comment.</para>
+    /// </summary>
+    public static string WithoutComments(string line)
+    {
+        var sb = new System.Text.StringBuilder(line.Length);
+        var inString = false;
+        var quote = '\0';
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (inString)
+            {
+                sb.Append(c);
+                if (c == quote) inString = false;
+                continue;
+            }
+            if (c == '\'' || c == '"') { inString = true; quote = c; sb.Append(c); continue; }
+            if (c == '/' && i + 1 < line.Length && line[i + 1] == '/') break;          // to end of line
+            if (c == '(' && i + 1 < line.Length && line[i + 1] == '*')
+            {
+                var close = line.IndexOf("*)", i + 2, System.StringComparison.Ordinal);
+                if (close < 0) break;                                                  // unterminated: the rest is comment
+                sb.Append(' ');                                                        // a span may sit BETWEEN tokens
+                i = close + 1;
+                continue;
+            }
+            sb.Append(c);
+        }
+        return sb.ToString().Trim();
+    }
+
     public static string CodeOn(string line, ref bool inBlockComment)
     {
         // U+FEFF is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header keyword and

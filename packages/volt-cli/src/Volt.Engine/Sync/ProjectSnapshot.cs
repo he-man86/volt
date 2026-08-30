@@ -37,7 +37,11 @@ internal sealed class ProjectSnapshot
     public Dictionary<string, string> Folders { get; } = new();
 
     public int Unmapped { get; private set; }
-    public int Unreadable { get; private set; }
+
+    /// <summary>Items the walk found but could not materialize, BY NAME. A count was enough for a log line; the
+    /// names are what let a client say WHICH item did not come through — and an unreadable item is invisible
+    /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
+    public List<string> Unreadable { get; } = new List<string>();
 
     /// <summary>The aggregate versions over <see cref="Versions"/>, hashed ONCE at the end of the walk — they are
     /// part of the snapshot, not recomputed (and re-sorted) per read.</summary>
@@ -81,7 +85,7 @@ internal sealed class ProjectSnapshot
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             snap.Versions[it.Name] = version;
             if (mat != null) { snap.FullVersions[mat.FullName] = version; snap.Folders[mat.FullName] = folder; }
-            else snap.Unreadable++;
+            else snap.Unreadable.Add(it.Name);
         }
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         snap.StructureVersion = Hasher.ComputeStructureVersion(snap.Versions);

@@ -47,6 +47,46 @@ public class ResilienceTests
         Assert.False(string.IsNullOrEmpty(refs.ProjectVersion));          // the project version still computes (sentinel in the hash)
     }
 
+    /// <summary>AN UNREADABLE ITEM IS NAMED ON THE WIRE — otherwise nothing anywhere can tell it exists.
+    ///
+    /// <para>The tests above pin the isolation: the item stays in the project hash and is left out of
+    /// <c>Items</c>, so a pull neither crashes nor deletes it. What none of them pinned is that the CLIENT is
+    /// told. It was not: the count went to the debug log and the wire said nothing, so a POU that failed to
+    /// materialize was simply ABSENT — no item, no folder, no error. That is exactly how a real project lost a
+    /// POU to one box whose <c>En</c> pin read as a boolean (DIALECT C7): the log knew, the engineer did not,
+    /// and git never saw the file.</para>
+    ///
+    /// <para>Naming it is what makes the failure observable — a client can surface it, and a whole-project
+    /// sweep can assert the list is EMPTY rather than trusting that everything came through.</para></summary>
+    [Fact]
+    public void An_unreadable_item_is_named_on_the_wire_by_both_endpoints()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("Good", "PROGRAM Good\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.MalformedGraphical("Bad"));
+
+        var refs = RefsService.Handle(ide);
+        var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
+
+        Assert.Equal(new[] { "Bad" }, refs.Unreadable);
+        Assert.Equal(new[] { "Bad" }, fetch.Unreadable);
+
+        // …and it is still NOT a removal: an item Volt could not read has not gone anywhere, and reporting it as
+        // removed would make the next pull delete the engineer's file.
+        Assert.DoesNotContain(fetch.Removed, r => r.StartsWith("Bad", StringComparison.Ordinal));
+    }
+
+    /// <summary>A project that reads cleanly reports NOTHING unreadable — so the assertion above cannot pass by
+    /// accident on an empty list.</summary>
+    [Fact]
+    public void A_readable_project_reports_nothing_unreadable()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("Good", "PROGRAM Good\nVAR\nEND_VAR", "x := 1;"));
+
+        Assert.Empty(RefsService.Handle(ide).Unreadable);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { Init = true }).Unreadable);
+    }
+
     /// <summary>/refs and /fetch must agree on the aggregate versions even when a malformed (unreadable) item
     /// exists: both count it (with its sentinel) in the project/structure hash. Before the fix, /fetch skipped
     /// the unreadable item BEFORE recording its version, so its projectVersion diverged from /refs' (and from the

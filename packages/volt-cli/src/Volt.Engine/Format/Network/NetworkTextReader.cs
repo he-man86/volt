@@ -251,6 +251,22 @@ public static class NetworkTextReader
             {
                 if (a.Lhs.Length == 0)
                     throw new NetworkTextException("assignment with no target: " + line);
+
+                // AN EMPTY RIGHT-HAND SIDE IS A RUNG WITH NOTHING ON IT — `coil := ;` — and it is a shape the
+                // IDE really holds, not an authoring mistake. Measured in a user's ladder: a SET coil whose
+                // `BoxTreeAssign.RValue` is a `BoxTreeTerminator` with no input, i.e. a coil sitting on a rung
+                // that nothing drives. `NetworkTextWriter` renders a bare terminator as the empty string, so it
+                // has always EMITTED this text; the reader then refused it with "expected an operand", which
+                // meant such a POU could be pulled and never pushed back.
+                //
+                // It reads back as the TERMINATOR the vendor holds rather than as a null, because that is what
+                // the archive has: a null would make the in-place writer refuse ("the 'RValue' input of an item
+                // is removed") and lose the rung. Same reasoning as the unwired operator box below — the text
+                // has to be able to say what the IDE is holding.
+                if (a.Rhs.Trim().Length == 0)
+                    return (null, new Assign(new Terminator(null, Flags.None),
+                                             new List<Operand> { new(a.Lhs) }, Flags.None));
+
                 return (null, new Assign(ParseOperand(a.Rhs), new List<Operand> { new(a.Lhs) }, Flags.None));
             }
 

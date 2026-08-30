@@ -160,4 +160,28 @@ public class NetworkTextRoundTripTests
         var text = "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n";
         Assert.Equal(text.Trim(), Round(text).Trim());
     }
+
+    /// <summary>A RUNG WITH NOTHING ON IT round-trips — `coil := ;`.
+    ///
+    /// <para>Measured in a user's ladder: a SET coil whose <c>BoxTreeAssign.RValue</c> is a
+    /// <c>BoxTreeTerminator</c> with no input — a coil the engineer placed on a rung nothing drives. The writer
+    /// renders a bare terminator as the empty string, so it always EMITTED this text; the reader refused it with
+    /// "expected an operand", so the POU could be pulled and never pushed back. It reads back as the TERMINATOR
+    /// the vendor holds, not as a null: a null would make the in-place archive writer refuse the RValue as
+    /// removed and lose the rung.</para></summary>
+    [Fact]
+    public void An_empty_right_hand_side_is_a_rung_with_nothing_on_it()
+    {
+        var text = "NETWORK 0 LD\n  coil := ;\nEND_NETWORK\n";
+
+        var model = NetworkTextGate.Validate(text);
+
+        var assign = Assert.IsType<Assign>(model.Networks.Single().Trees.Single());
+        Assert.Equal(new[] { "coil" }, assign.Targets.Select(t => t.Text));
+        var terminator = Assert.IsType<Terminator>(assign.Value);
+        Assert.Null(terminator.Input);
+
+        // …and it survives being written back out, which is the half that was broken.
+        Assert.Equal(text.TrimEnd(), NetworkTextWriter.Write(model).TrimEnd());
+    }
 }

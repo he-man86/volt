@@ -173,8 +173,22 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 				roundTrip(b, name, fb(bare, { children: METHOD("M") })),
 			])
 			const [ra, rb] = await Promise.all([a.refs(), b.refs()])
-			// `refs` is { projectVersion, structureVersion, items, folders } — again asserted, not assumed.
-			expect(Object.keys(rb).sort()).toEqual(["folders", "items", "projectVersion", "structureVersion"])
+			// `refs` is { projectVersion, structureVersion, items, folders, unreadable } — again asserted, not
+			// assumed. `unreadable` names the items the walk found and could not materialize: they are tracked in
+			// the project hash but deliberately absent from `items`, so without it a POU that failed to read was
+			// simply missing, with no error anywhere (DIALECT C7).
+			expect(Object.keys(rb).sort()).toEqual([
+				"folders",
+				"items",
+				"projectVersion",
+				"structureVersion",
+				"unreadable",
+			])
+
+			// …and BOTH vendors report nothing unreadable for the same push — a parity claim in its own right,
+			// since one vendor quietly dropping an item is exactly what this suite exists to catch.
+			expect(ra.unreadable).toEqual([])
+			expect(rb.unreadable).toEqual([])
 
 			// The ITEM is ONE row keyed by its full wire name on both sides, and a METHOD child does not get a
 			// row of its own — the member rides inside its parent's document. That is the structural half of

@@ -252,6 +252,10 @@ public static class FetchService
             Removed = removed,
             Items = fullVersions,
             Folders = folders,
+            // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
+            // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
+            // them on the wire is what makes an item that simply never arrives visible to a client at all.
+            Unreadable = unreadableBareNames.OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
             LibrariesRefreshed = librariesRefreshed,
             // Echo the project we actually walked, so the client can confirm it before merging. This is the LIVE
             // identity the guard checked, not a cached health row — the echo can't disagree with what was walked.

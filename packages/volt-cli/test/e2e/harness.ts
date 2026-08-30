@@ -470,3 +470,38 @@ ${body}
 fetched:
 ${bodyOf(fetched)}`).toEqual([])
 }
+
+/** The `.library` extension, spelled once. */
+const LIBRARY_EXT = ".library"
+
+/**
+ * Is this item a referenced-library artefact — a `.library` ref or one of the read-only element signatures
+ * rendered beside it?
+ *
+ * DERIVED FROM THE PAYLOAD, never matched on a folder NAME. Three separate tests each hardcoded
+ * `folder.includes("Library Manager")`, which is CODESYS's name for that node — TwinCAT calls it `References` —
+ * so each of them silently answered "no libraries here" on the other vendor. That was invisible while TwinCAT
+ * shipped no signatures at all; the moment it did, one gate measured nothing and another read all 230 signatures
+ * as project items leaking out of a fetch.
+ *
+ * The rule is the LIBRARY-MANAGER NODE, found as the parent the `.library` refs share. Anything at or below it is
+ * a library artefact — including the deliberate `(unresolved)` bucket, which holds elements whose owning library
+ * matched no ref and which are still signatures rather than project items. Pass the `changed` list of a FULL
+ * fetch (the one that carries the `.library` refs); a warm fetch has none and would answer "nothing is a
+ * library", which is why callers derive the roots once and reuse them.
+ */
+export function libraryRoots(changed: readonly any[]): string[] {
+	const libFolders = changed
+		.filter((i) => String(i.name ?? "").toLowerCase().endsWith(LIBRARY_EXT))
+		.map((i) => String(i.folder ?? ""))
+	// The manager node is each library folder's parent.
+	return [...new Set(libFolders.map((f) => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : f)))].filter(
+		(r) => r.length > 0,
+	)
+}
+
+/** Whether a folder sits at or below one of {@link libraryRoots}. */
+export function inLibrary(folder: string | undefined, roots: readonly string[]): boolean {
+	const f = String(folder ?? "")
+	return roots.some((r) => f === r || f.startsWith(r + "/"))
+}

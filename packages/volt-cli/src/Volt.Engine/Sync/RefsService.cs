@@ -27,7 +27,7 @@ public static class RefsService
 
         var hit = new List<string>();
         if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");
-        if (snap.Unreadable > 0) hit.Add($"{snap.Unreadable} unreadable");
+        if (snap.Unreadable.Count > 0) hit.Add($"{snap.Unreadable.Count} unreadable: {string.Join(", ", snap.Unreadable)}");
         VoltLog.Debug($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
 
         return new RefsResponse
@@ -36,6 +36,10 @@ public static class RefsService
             StructureVersion = snap.StructureVersion,
             Items = snap.FullVersions,
             Folders = snap.Folders,
+            // The items the walk found and could not materialize. They are tracked in the version hash above but
+            // deliberately absent from `Items` — naming them here is the only way a client can tell the
+            // difference between "this project has no such POU" and "Volt could not read it".
+            Unreadable = snap.Unreadable,
         };
     }
 }
