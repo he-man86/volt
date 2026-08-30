@@ -68,6 +68,51 @@ internal sealed partial class TcObjectModel
         try { return !_dte!.Solution.Saved; } catch { return null; }
     }
 
+    // ── referenced-library signatures ───────────────────────────────
+
+    /// <summary>Every referenced library's public declarations, from the library manager's own call.
+    ///
+    /// <para><c>ProduceAllLibrarySignatures()</c> takes no argument and answers for ALL libraries at once —
+    /// which matters, because the per-library <c>ProduceLibrarySignatures(pLibRef: VT_PTR)</c> wants a raw
+    /// pointer an RCW cannot satisfy (DIALECT C2c). So this is one COM call for the whole project, not one per
+    /// library.</para>
+    ///
+    /// <para>A project with no <c>References</c> node legitimately has no signatures and answers empty. A
+    /// FAILING call is not swallowed: reporting "no libraries" for a project that has them would make the LSP
+    /// mark every library call unresolved, which is worse than a loud failure.</para></summary>
+    public IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
+    {
+        var manager = FindLibraryManager(PlcRoot(), 0);
+        if (manager == null)
+        {
+            VoltLog.Debug("twincat lib signatures: no library manager under the PLC project — no references");
+            return System.Array.Empty<Volt.Engine.Library.LibSignature>();
+        }
+
+        var xml = (string)((dynamic)manager).ProduceAllLibrarySignatures() ?? "";
+        var sigs = TcLibrarySignatures.Parse(xml);
+        VoltLog.Debug($"twincat lib signatures: {xml.Length} chars -> {sigs.Count} signatures");
+        return sigs;
+    }
+
+    /// <summary>The library manager (TwinCAT names the node "References"), found by ITEM TYPE rather than by
+    /// name so a localized or renamed node still resolves. Bounded: it sits directly under the PLC project.</summary>
+    private object? FindLibraryManager(object node, int depth)
+    {
+        if (depth > 3) return null;
+        try { if (ItemType(node) == ItemKind.PlcLibMan) return node; } catch { /* unreadable node: keep looking */ }
+
+        int n;
+        try { n = ChildCount(node); } catch { return null; }
+        for (int i = 1; i <= n; i++)
+        {
+            object child;
+            try { child = ChildAt(node, i); } catch { continue; }
+            if (FindLibraryManager(child, depth + 1) is { } hit) return hit;
+        }
+        return null;
+    }
+
     // ── tree primitives ─────────────────────────────────────────────
     /// <summary>The PLC project root (its NestedProject), the default parent for new POUs. Lazily resolves the PLC
     /// node on first use (EnsurePlc) — this is THE point where a content op reaches into the PLC application.</summary>

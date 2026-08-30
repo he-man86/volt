@@ -31,6 +31,12 @@ public static class WorkerCli
     /// <c>Language</c>, <c>ImplementationXml</c> and <c>DocumentXml</c>, none of which Volt currently uses.</summary>
     public const string ProbePou = "--probe-pou";
 
+    /// <summary>One-shot, READ-ONLY: dump what <c>_ITcPlcLibraryManager.ProduceAllLibrarySignatures()</c>
+    /// returns, to a file. DIALECT C2c measured that the call WORKS out-of-process (181,179 chars on the
+    /// fixture) while Volt implements no extraction on this vendor — so the missing piece is the FORMAT, which
+    /// only the live IDE can supply and which no fixture in the repo records.</summary>
+    public const string ProbeLibSig = "--probe-libsig";
+
     /// <summary>The ONE XAE window a worker owns, as <c>--xae-pid &lt;pid&gt;</c>. Required to serve.</summary>
     public const string XaePid = "--xae-pid";
 }

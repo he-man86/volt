@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -188,8 +188,20 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
-    // Volt implements NO signature extraction on TwinCAT — it inherits DriverBase's empty
-    // ExtractLibrarySignatures, so `verbose` fetch returns no signatures here (a documented parity gap; the
-    // parity boundary is the wire). There is no fingerprint and no signature cache: FetchService reuses the
-    // `.library` files' own per-file version hashes as the change signal.
+    // ── referenced-library signatures ───────────────────────────────
+    /// <summary>The public declarations of every referenced library, for the LSP to resolve a <c>TON</c> or a
+    /// <c>CONCAT</c> against.
+    ///
+    /// <para>This used to be absent — the driver inherited <c>DriverBase</c>'s empty implementation, so a
+    /// verbose fetch returned no signatures and completion, hover and go-to-definition on library code silently
+    /// did nothing on this vendor while working on the other. The reason on record was that "TwinCAT has no
+    /// equivalent surface", and DIALECT C2c had already measured that to be false: this very call returns
+    /// 181,179 characters on the fixture. What was missing was the FORMAT, which only the live IDE could
+    /// supply.</para>
+    ///
+    /// <para>There is still no fingerprint and no signature cache: <c>FetchService</c> reuses the
+    /// <c>.library</c> files' own per-file version hashes as the change signal, so extraction runs only when a
+    /// referenced library's version actually moved.</para></summary>
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+        _om.ExtractLibrarySignatures();
 }

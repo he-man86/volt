@@ -70,7 +70,25 @@ test(`${BASE}: a full fetch's index agrees with refs (and changed carries the li
 	// index. So changed ⊇ items, and any surplus is a library-foldered signature — never an un-indexed project item.
 	const changed = (fetched.changed ?? []) as any[]
 	const indexNames = new Set(refNames)
-	const surplusOutsideLibraries = changed.filter(i => !indexNames.has(i.name) && !(i.folder || "").includes("Library Manager"))
+
+	// A library folder is DERIVED from the `.library` refs in this same payload, not matched on a folder NAME.
+	// This used to test `!folder.includes("Library Manager")`, which is CODESYS's name for that node — TwinCAT
+	// calls it `References` — so once TwinCAT started shipping signatures, all 230 of them read as un-indexed
+	// project items leaking out of the fetch. The invariant was right; only its idea of "a library" was
+	// CODESYS-shaped.
+	const libraryFolders = new Set(
+		changed.filter(i => String(i.name).toLowerCase().endsWith(".library")).map(i => String(i.folder ?? "")),
+	)
+	// UNDER THE LIBRARY-MANAGER NODE, which is the parent the `.library` refs share. Testing "at or below a
+	// specific library" is too tight: an element whose owning library matched no ref is deliberately foldered
+	// under an explicit `(unresolved)` marker beside the libraries, not inside one, and those are still library
+	// signatures rather than project items leaking out.
+	const libRoots = new Set(
+		[...libraryFolders].map(f => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : f)),
+	)
+	const inALibrary = (folder: string) =>
+		[...libRoots].some(r => r.length > 0 && (folder === r || folder.startsWith(r + "/")))
+	const surplusOutsideLibraries = changed.filter(i => !indexNames.has(i.name) && !inALibrary(String(i.folder ?? "")))
 	expect(surplusOutsideLibraries).toEqual([]) // every non-indexed changed item is a library signature, nothing leaks
 }, OP_TIMEOUT)
 

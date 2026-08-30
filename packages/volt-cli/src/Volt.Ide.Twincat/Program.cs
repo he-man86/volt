@@ -182,6 +182,66 @@ foreach (var a in args)
         catch (Exception ex) { Console.Error.WriteLine($"probe-inproc: {ex.GetType().Name}: {ex.Message}"); return 1; }
     }
 
+// `--probe-libsig <file>`: READ-ONLY. Dump `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()` to a file.
+//
+// DIALECT C2c measured that this call WORKS out-of-process (181,179 chars on the fixture) while Volt implements
+// no extraction on this vendor, so the only thing missing is the FORMAT of what it returns. No fixture in the
+// repo records it and no offline test can invent it - a parser written against a guessed shape is exactly the
+// class of mistake that produced twenty unopenable .TcPOU files.
+foreach (var a in args)
+    if (a == WorkerCli.ProbeLibSig)
+    {
+        string? outPath = null;
+        for (int i = 0; i < args.Length - 1; i++)
+            if (args[i] == WorkerCli.ProbeLibSig) outPath = args[i + 1];
+        if (string.IsNullOrEmpty(outPath)) { Console.Error.WriteLine("probe-libsig: give an output file"); return 1; }
+
+        int rc = 0;
+        var t = new Thread(() =>
+        {
+            try
+            {
+                ComMessageFilter.Register();
+                RotInstances.TryEnumeratePids(out var pids);
+                if (pids.Count == 0) { Console.Error.WriteLine("probe-libsig: no XAE"); rc = 1; return; }
+
+                var om = new TcObjectModel();
+                om.ConnectToPid(pids[0]);
+                om.SelectProject(null);
+                om.EnsureAttached();
+
+                var libMan = FindByType(om, om.PlcRoot(), Volt.Engine.Item.ItemKind.PlcLibMan, 0);
+                if (libMan == null) { Console.Error.WriteLine("probe-libsig: no library manager"); rc = 1; return; }
+                Console.WriteLine($"library manager: {om.GetName(libMan)}");
+
+                var text = (string)((dynamic)libMan).ProduceAllLibrarySignatures();
+                System.IO.File.WriteAllText(outPath!, text ?? "");
+                Console.WriteLine($"wrote {(text ?? "").Length} chars to {outPath}");
+            }
+            catch (Exception ex) { Console.Error.WriteLine($"probe-libsig: {ex.GetType().Name}: {ex.Message}"); rc = 1; }
+        });
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+        t.Join();
+        return rc;
+
+        static object? FindByType(TcObjectModel om, object node, int wantType, int depth)
+        {
+            if (depth > 8) return null;
+            try { if (om.ItemType(node) == wantType) return node; } catch { }
+            int n;
+            try { n = om.ChildCount(node); } catch { return null; }
+            for (int i = 1; i <= n; i++)
+            {
+                object child;
+                try { child = om.ChildAt(node, i); } catch { continue; }
+                var hit = FindByType(om, child, wantType, depth + 1);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+    }
+
 foreach (var a in args)
     if (a == WorkerCli.ListXaePids)
     {
