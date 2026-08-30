@@ -64,9 +64,11 @@ export function computeNetworkTextDiagnostics(
         checkBinaryOps(network.statements, scope, project, messages, out)
         checkConversionArgs(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
-        checkLabels(network.statements, out)
         checkPins(network.statements, scope, project, out)
       }
+
+      // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
+      checkLabels(analysis.networkScopes, out)
     }
   }
   return out
@@ -118,14 +120,27 @@ function checkUndeclared(
 }
 
 /**
- * network-undefined-label: a `JMP` whose target names no `LABEL` in the same network → error. Both compilers
- * reject it. Labels + jumps are gathered across EN/ENO boxes too (a jump reaches any label in its network).
+ * network-undefined-label: a `JMP` whose target names no `LABEL` ANYWHERE IN THE BODY → error.
+ *
+ * SCOPE IS THE BODY, NOT THE NETWORK — and it used to be the network, which rejected the normal case. A jump in
+ * FBD/LD exists precisely to leave the current network: each network may carry one label, and `JMP name` transfers
+ * control to the network carrying it. The bridge writes that label as `name:` at the top of the DESTINATION
+ * network's statements (from `Network.Label`, which both drivers read and write), so a legitimate forward jump
+ * names a label the jumping network does not contain. Resolving per network therefore flagged every real jump and
+ * accepted only a jump to a label in its own network — an infinite loop or a no-op.
+ *
+ * Labels + jumps are gathered through EN/ENO boxes too, since a jump inside one still reaches the body's labels.
  * ponytail: message PROVISIONAL/bridge-gated — network text has no conformance recording yet (like the NETWORK_* codes).
  */
-function checkLabels(statements: readonly NetworkTextStatement[], out: DiagnosticItem[]): void {
+function checkLabels(
+  networkScopes: Iterable<readonly [{ statements: readonly NetworkTextStatement[] }, unknown]>,
+  out: DiagnosticItem[],
+): void {
+  const networks = [...networkScopes].map(([network]) => network)
+
   const labels = new Set<string>()
-  collectLabels(statements, labels)
-  checkJumps(statements, labels, out)
+  for (const network of networks) collectLabels(network.statements, labels)
+  for (const network of networks) checkJumps(network.statements, labels, out)
 }
 
 function collectLabels(statements: readonly NetworkTextStatement[], labels: Set<string>): void {

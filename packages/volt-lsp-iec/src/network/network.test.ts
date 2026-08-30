@@ -387,6 +387,27 @@ END_FUNCTION_BLOCK`
   expect(vgByCode(src, "binary-op-type-mismatch")).toBe(1)
 })
 
+// A JUMP GOES TO ANOTHER NETWORK. That is what a jump IS in FBD/LD: each network may carry one label, and
+// `JMP name` transfers control to the network carrying it. `NetworkTextWriter` emits that label as `name:` at
+// the top of the DESTINATION network's statements (from `Network.Label`, which both drivers read and write), so
+// a legitimate forward jump names a label the jumping network does not contain.
+//
+// Checking labels per network therefore rejects the normal case and accepts only a jump to a label in its own
+// network — which is either an infinite loop or a no-op. This is the shape real ladder uses.
+test("network text: a JMP may target a label on ANOTHER network", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; out : BOOL; END_VAR
+NETWORK 0 LD
+IF a THEN JMP Done; END_IF
+END_NETWORK
+NETWORK 1 LD
+Done:
+out := TRUE;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(src, "network-undefined-label")).toBe(0)
+})
+
 // network-undefined-label — a JMP to a label that exists nowhere in the network.
 test("network text: a JMP to an undefined label is flagged; a defined one is not", () => {
   const bad = `FUNCTION_BLOCK F

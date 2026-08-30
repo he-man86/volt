@@ -242,7 +242,7 @@ internal static class TcPlcOpenWriter
             // Reset, Negated, Rising, Falling - because an assignment carries its own modifiers and dropping
             // one turns a SET coil into a plain one on a push that reports success. The vendor really does put
             // them here: measured on a real ladder, a target came back Flags=Negation,Set.
-            if (assign.Flags.Jump) throw Refuse("contains a jump");
+            if (assign.Flags.Jump) return EmitJump(assign);
             if (assign.Flags.Return) throw Refuse("contains a return");
             if (assign.Value is not { } value) throw Refuse("assigns nothing");
 
@@ -260,7 +260,39 @@ internal static class TcPlcOpenWriter
             return null;
         }
 
-        /// <summary>Fan-out. The DEFINITION emits its producer once and remembers the id; every REFERENCE
+        /// <summary>A JUMP — TC6's own <c>&lt;jump&gt;</c> element, carrying the destination network's label.
+        ///
+        /// <para>The model spells a jump as an <see cref="Assign"/> with <c>Flags.Jump</c>: the TARGET is the
+        /// destination LABEL (not an l-value) and the value is the optional condition, which is why this cannot
+        /// go through the ordinary assignment arm — emitting an <c>outVariable</c> named <c>Done</c> would land a
+        /// real assignment to an undeclared symbol and stop the POU compiling.</para>
+        ///
+        /// <para>The label itself is not written here. It belongs to the DESTINATION network
+        /// (<c>Network.Label</c>), which the archive writer sets after the import.</para></summary>
+        private long? EmitJump(Assign jump)
+        {
+            if (jump.Targets.Count != 1)
+                throw Refuse($"has a jump with {jump.Targets.Count} destinations");
+
+            var el = new XElement(Namespaces.Tc6 + "jump",
+                new XAttribute("localId", Id().ToString()),
+                new XAttribute("label", jump.Targets[0].Text),
+                Position());
+
+            // A CONDITIONAL jump is wired to its condition; an unconditional one has no input at all.
+            if (jump.Value is { } condition)
+            {
+                var producer = Emit(condition) ?? throw Refuse("jumps on a statement");
+                el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
+                    new XElement(Namespaces.Tc6 + "connection",
+                        new XAttribute("refLocalId", producer.ToString()))));
+            }
+
+            _root.Add(el);
+            return null;      // a jump produces no value for anything to consume
+        }
+
+        /// <summary>Fan-out. The DEFINITION emits its producer once        /// <summary>Fan-out. The DEFINITION emits its producer once and remembers the id; every REFERENCE
         /// answers that same id, so several consumers share one <c>refLocalId</c> - which is exactly how PLCopen
         /// spells a wire feeding more than one place, and why nothing needs duplicating.</summary>
         private long EmitDemux(Demux demux)
