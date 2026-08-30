@@ -40,7 +40,23 @@ internal static class TcNetworkWriter
     /// byte-identical — and an unchanged model does not come back at all. Those two together are what make a
     /// push non-destructive: every id, every <c>Fixed</c>, every <c>ILLines</c> entry and every member Volt
     /// does not model survives exactly as the IDE wrote it.</para></summary>
-    public static string? Apply(string? bodyXml, NetworkBody body)
+    public static string? Apply(string? bodyXml, NetworkBody body) => Apply(bodyXml, body, resolve: null);
+
+    /// <summary>The same, with a way OUT of a refusal: <paramref name="resolve"/> is handed a network whose
+    /// shape the archive cannot be edited into, and returns that network rebuilt by the IDE.
+    ///
+    /// <para><b>This is what makes a structural edit possible without a second write path.</b> Retyping a box —
+    /// `OR` to `AND` — changes members only the IDE can resolve (`CallType`, `InputParam`, `Id`), so editing in
+    /// place is refused and always will be. Re-resolving the WHOLE body would work but discards the ids of
+    /// every network the engineer did not touch. Re-resolving just the network that changed does neither: the
+    /// rest of the archive is untouched, byte for byte.</para>
+    ///
+    /// <para><b>It is sound only because of a measured rule</b> (DIALECT D25, gated by
+    /// `test/e2e/graphical/grouping.test.ts`): the importer emits ONE NETWORK PER CONNECTED COMPONENT. A
+    /// network that is one component comes back as one network and can be swapped in; a network holding
+    /// several independent rungs would come back as several, renumbering everything after it, so it is refused
+    /// instead. That check happens HERE, from the model, before the IDE is touched.</para></summary>
+    public static string? Apply(string? bodyXml, NetworkBody body, Func<Network, XElement>? resolve)
     {
         // No archive to edit means there is nothing to edit IN, and creating one is the construction this
         // writer does not do. A newly created POU arrives here with an empty implementation, so this is the
@@ -61,7 +77,30 @@ internal static class TcNetworkWriter
 
         bool changed = false;
         for (int i = 0; i < networks.Count; i++)
-            changed |= WriteNetwork(networks[i], body.Networks[i]);
+        {
+            var model = body.Networks[i];
+            try
+            {
+                changed |= WriteNetwork(networks[i], model);
+                continue;
+            }
+            catch (NotSupportedException) when (resolve != null)
+            {
+                // Fall through: this network's SHAPE changed, so the IDE has to rebuild it.
+            }
+
+            // Only a single-component network can be swapped in without renumbering the ones after it.
+            var parts = Unhoist(model.Trees).Count;
+            if (parts != 1)
+                throw Refuse($"changes the shape of network {model.Order + 1}, which holds {parts} independent " +
+                             "rungs - the IDE rebuilds one network per connected rung, so re-creating it would " +
+                             $"split it into {parts} networks and renumber every network after it");
+
+            var rebuilt = resolve!(model);
+            networks[i].ReplaceWith(rebuilt);
+            WriteNetwork(rebuilt, model);      // stamp the values the rebuild could not carry
+            changed = true;
+        }
 
         return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
     }

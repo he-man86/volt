@@ -191,7 +191,11 @@ public sealed partial class BeckhoffDriver
                 return;
             }
 
-            var updated = TcNetworkWriter.Apply(existing, model);
+            // AN EXISTING BODY IS EDITED IN PLACE, and where its SHAPE changed - a box retyped, a rung
+            // rewired - the IDE rebuilds just that network. Same two mechanisms as a create, scoped to the one
+            // network that changed instead of the whole body, so every network the engineer did not touch stays
+            // byte for byte as the IDE wrote it: ids, Fixed flags, ILLines and all.
+            var updated = TcNetworkWriter.Apply(existing, model, network => RebuildNetwork(network, model.Language));
             // A null means the archive already says exactly this: writing it back would rewrite ids and
             // vendor members for no change at all.
             _om.WriteText(item.Native, declaration, updated);
@@ -205,6 +209,35 @@ public sealed partial class BeckhoffDriver
         // make this decision from the item's kind code; it moved here with the rest of the write.
         _om.WriteText(item.Native, declaration,
                       HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
+    }
+
+    /// <summary>Have the IDE rebuild ONE network, and hand back its archive element ready to be spliced in.
+    ///
+    /// <para>The same scratch-POU resolution a create uses — the IDE resolves the call, Volt copies the result —
+    /// only narrowed to a single network. The guard that this network is ONE connected component lives in
+    /// <see cref="TcNetworkWriter"/>, which checks it from the model before this is ever called.</para></summary>
+    private XElement RebuildNetwork(Network network, BodyLanguage language)
+    {
+        // RENUMBERED TO 0 for the rebuild. `localId` encodes the network index (10^10 * (order + 1)), so a
+        // network carrying its real Order of 1 told the importer to build networks 0 AND 1 - it answered with
+        // an empty one in front of ours, and the splice refused it as "produced 2 networks, not one". The
+        // scratch POU has its own id space, and the network's real position is the slot it is spliced back
+        // into, not anything the rebuild needs to know.
+        var one = new NetworkBody(language, new[] { network with { Order = 0 } });
+        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd");
+
+        var impl = TcArchive.Root(body)
+            ?? throw new InvalidOperationException(
+                   $"TwinCAT: rebuilding network {network.Order + 1} produced no archive.");
+
+        var rebuilt = TcArchive.List(impl, "NetworkList");
+        if (rebuilt.Count != 1)
+            throw new InvalidOperationException(
+                $"TwinCAT: rebuilding network {network.Order + 1} produced {rebuilt.Count} networks, not one. " +
+                "The importer groups by connected rung (DIALECT D25); splicing this back would renumber the " +
+                "networks after it, so the push is failed rather than applied.");
+
+        return new XElement(rebuilt[0]);
     }
 
     /// <summary>Stamp onto a freshly imported body everything the import could not carry — flags, titles,
