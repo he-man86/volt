@@ -85,6 +85,7 @@ dotnet test test/Volt.Cli.Tests/                           # pipe transport + po
 dotnet test test/Volt.Engine.Tests/                      # shared engine (ST + network text, push/fetch/refs)
 dotnet test test/Volt.Connector.Tests/                 # connector core: session model, reconciler, TC supervisor
 dotnet test test/Volt.Ide.Twincat.Tests/                # TwinCAT driver, offline (dynamic doubles — no live XAE)
+dotnet test test/Volt.Ide.Codesys.Tests/                 # CODESYS driver, offline (net48; C# doubles — no live IDE)
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```

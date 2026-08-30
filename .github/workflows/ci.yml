@@ -121,6 +121,8 @@ jobs:
         run: dotnet test packages/volt-cli/test/Volt.Connector.Tests/Volt.Connector.Tests.csproj -c Release --nologo
       - name: Test — TwinCAT driver (archive round-trip; the item-relocation window)
         run: dotnet test packages/volt-cli/test/Volt.Ide.Twincat.Tests/Volt.Ide.Twincat.Tests.csproj -c Release --nologo
+      - name: Test — CODESYS driver (NWL object model, offline; net48 like the in-proc host)
+        run: dotnet test packages/volt-cli/test/Volt.Ide.Codesys.Tests/Volt.Ide.Codesys.Tests.csproj -c Release --nologo
 
   # Desktop boot smoke: launch the built electron app headless (xvfb) in VOLT_SMOKE mode — proves the frameless
   # window + Volt shell.html actually render, which the pure-logic unit suites can't. Electron needs a display +

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- net48, matching the driver under test — Volt.Ide.Codesys is the IN-PROC bridge, loaded by CODESYS's own
+         .NET Framework host, so it cannot be anything else and neither can a project that references it.
+
+         Nothing here needs a live CODESYS. `NwlInterop` reaches every vendor member by REFLECTION
+         (`Type.GetProperty` / `InvokeMember`) and `CodesysNetworkReader` dispatches on `GetType().Name`, so a
+         plain C# class NAMED `BoxTreeBox` with the right properties IS a box as far as the reader can tell.
+         That is what makes the object model testable at all without the IDE, and it is why the shape that took a
+         whole POU out of a user's workspace (DIALECT C7) now has a gate. -->
+    <TargetFramework>net48</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" />
+  </ItemGroup>
+</Project>

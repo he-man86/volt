@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- The CODESYS in-proc integration: a net48 library the IDE's IronPython loads by reflection. Holds the
          CodesysDriver (talks to the scripting/object model purely by reflection, so no CODESYS assembly refs) +
@@ -7,6 +7,11 @@
     <RootNamespace>Volt.Ide.Codesys</RootNamespace>
     <OutputType>Library</OutputType>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The reader/writer are internal: they are vendor glue, not API. The tests drive them with plain
+         C# doubles, which is possible because every vendor member is reached by reflection. -->
+    <InternalsVisibleTo Include="Volt.Ide.Codesys.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
