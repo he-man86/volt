@@ -24,6 +24,7 @@ END_VAR
 NETWORK 0 FBD
   out := NOT (a AND b);
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -39,6 +40,7 @@ END_VAR
 NETWORK 0 LD
   out := (a AND b);
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -62,6 +64,7 @@ END_VAR
 NETWORK 0 LD
   out := (NOT a AND b);
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -77,6 +80,7 @@ END_VAR
 NETWORK 0 LD
   out := (a AND b AND c);
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -93,6 +97,7 @@ NETWORK 0 LD
   q := a;
   r := b;
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -106,6 +111,7 @@ END_VAR
 NETWORK 0 LD
   out := a SET;
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -131,6 +137,7 @@ NETWORK 0 FBD
   END_EXECUTE
   END_IF
 END_NETWORK
+
 END_PROGRAM
 `
 }
@@ -148,6 +155,7 @@ END_VAR
 NETWORK 0 LD
   out := (a AND b);
 END_NETWORK
+
 END_FUNCTION_BLOCK
 `
 }
@@ -173,6 +181,19 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
 			expect(after.sourceText).toMatch(new RegExp(`NETWORK\\s+\\d+\\s+${lang}\\b`))   // stayed ${lang}, not flattened to ST
 			expectNoOperandsLost(src, after.sourceText)   // …and nothing in the diagram was dropped on the way
+
+			// WHAT VOLT WROTE IS WHAT VOLT READS BACK — the pushed source, byte for byte.
+			//
+			// This is the assertion the suite was missing, and its absence is not academic: every other check
+			// here compares a FETCH to a FETCH, so the bridge only had to be self-consistent, not faithful. A
+			// body that lost its declaration, or gained a line, satisfied all of them. (`v1 === v2` after a
+			// re-push is exactly that shape — it pins stability, and stability is not fidelity.)
+			//
+			// The fixtures above are the CANONICAL network-text form, which they claimed to be and were not:
+			// they omitted the blank line StWriter emits before every END keyword, for every kind. Nothing was
+			// wrong with the bridge — the fixtures simply were not the form the format defines, and no
+			// assertion compared them to it, so the discrepancy sat here unseen.
+			expect(after.sourceText).toBe(src)
 
 			// The program-scope DECLARATION must survive a push-create — NetworkCode.Write writes the BODY
 			// only, so without an explicit decl write the VAR section comes back empty and the vars the
@@ -218,7 +239,25 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(after2.sourceText).toBe(after.sourceText)
 	})
 
-	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
+	// `exact` = the pushed text must come back byte for byte. It is TRUE for every shape but one.
+	//
+	// `multicoil` writes two INDEPENDENT rungs inside one network (`q := a; r := b;`), and TwinCAT's PLCopen
+	// importer emits one network per CONNECTED COMPONENT — measured, asserted and depended upon in
+	// `grouping.test.ts` ("two disconnected sinks -> 2"). PLCopen has no network delimiter, so the importer has
+	// to infer the boundaries and there is nothing in the document that can tell it otherwise. The network
+	// therefore comes back SPLIT IN TWO, while CODESYS returns the grouping it was given.
+	//
+	// That is a REAL fidelity gap, not a convention: the same push produces different text on the two vendors,
+	// and a TwinCAT user sees a phantom diff on the next pull. It is recorded here rather than asserted away
+	// because closing it means MERGING the importer's networks, and the only route to that is building archive
+	// elements by hand — which `TcNetworkWriter` refuses by design ("the IDE's own reader depends on a member
+	// contract only the IDE produces"), and which was tried here and produced bodies the IDE could not read.
+	for (const [label, buildSrc, exact] of [
+		["negated", ldNegated, true],
+		["series3", ldSeries3, true],
+		["multicoil", ldMultiCoil, false],
+		["setcoil", ldSetCoil, true],
+	] as [string, (n: string) => string, boolean][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
 			const name = id(`net_ld_${label}`)
 			const fullName = fid(`net_ld_${label}`, "prg")
@@ -231,6 +270,9 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
 			expect(v1.sourceText).toMatch(/NETWORK\s+\d+\s+LD\b/)      // stayed ladder (LD), not flattened to ST
 			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
+			if (exact) expect(v1.sourceText).toBe(buildSrc(name))        // …and it came back exactly as pushed
+			// The one inexact shape still has to keep every rung — the split may regroup them, never drop one.
+			else expect(v1.sourceText.match(/NETWORK\s+\d+\s+LD\b/g)!.length).toBeGreaterThanOrEqual(1)
 
 			// Fixed point: pushing the fetched network text back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
@@ -301,6 +343,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(g).toBeDefined()
 		const s1: string = g.sourceText
 		expect(s1).toContain("NETWORK")
+		expect(s1).toBe(fbdProgram(name))   // the provisioning push is itself faithful, before drift is measured
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: s1, ifVersion: refs.items[g.name] }] })
