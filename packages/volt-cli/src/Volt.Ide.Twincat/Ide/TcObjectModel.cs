@@ -226,6 +226,13 @@ internal sealed partial class TcObjectModel
     public void MoveMember(object pouParent, string pouName, string memberName, string folderPath) =>
         TcItemArchive.MoveMember((dynamic)pouParent, pouName, memberName, folderPath);
 
+    /// <summary>Give POU MEMBERS graphical bodies. Delegates to <see cref="TcItemArchive.SetMemberBodies"/>,
+    /// which rewrites the POU's own <c>.TcPOU</c> and re-imports it — the only route that works, because
+    /// assigning an NWL archive to a member's <c>ImplementationText</c> stores it as ST TEXT (D32).</summary>
+    public void SetMemberBodies(object pouParent, string pouName,
+                                System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies) =>
+        TcItemArchive.SetMemberBodies((dynamic)pouParent, pouName, bodies);
+
     /// <summary>The POU that ENCLOSES <paramref name="node"/>, or null when the node is not inside one — the test
     /// that separates a top-level item (which has its own file, and moves by archive) from a member (which does
     /// not). Walks up through the POU-internal folders a member may sit in.</summary>

@@ -66,6 +66,29 @@ public sealed partial class BeckhoffDriver
         // rename — `METHOD Calc` to `METHOD calc` — passed every gate, the POU's own declaration and body were
         // already written on the line above, and THEN this threw NOT_FOUND claiming the member is not in the
         // project. False, and half-applied.
+        // A MEMBER'S GRAPHICAL BODY GOES IN FIRST, THROUGH THE POU'S OWN ARCHIVE — and the ORDER is the whole
+        // difference between this working and not.
+        //
+        // `ImplementationText` cannot carry one: on a POU already holding an NWL archive TwinCAT replaces the
+        // archive, but on a METHOD, an ACTION or a property ACCESSOR the same assignment stores it as ST TEXT,
+        // and the project stops compiling (`Unexpected Token '<' found`). The archive route can — it is what
+        // `MoveMember` already uses, because a member is not a file.
+        //
+        // But `ExportChild` DOES NOT SEE TREE-NODE WRITES (D32, measured directly: the live node read back
+        // `out := a;` while the archive exported in the same instant carried an empty `<ST/>`). So doing the
+        // tree writes first and the archive second silently reverts them. Archive FIRST, tree writes SECOND:
+        // the re-import brings back the create-time declarations, and the writes below then land on top of
+        // them — while the member bodies survive, because a graphical body is passed as null there and
+        // `WriteText` skips a null implementation.
+        var graphical = new List<(string[] Path, string Text, string? Declaration)>();
+        foreach (var m in content.Members)
+        {
+            Collect(graphical, new[] { m.Name }, m.Body, m.Declaration);
+            Collect(graphical, new[] { m.Name, "Get" }, m.Getter?.Body, m.Getter?.Declaration);
+            Collect(graphical, new[] { m.Name, "Set" }, m.Setter?.Body, m.Setter?.Declaration);
+        }
+        if (graphical.Count > 0) item = WriteMemberBodies(item, graphical);
+
         var byName = new Dictionary<string, ItemRef>(StringComparer.OrdinalIgnoreCase);
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item)) byName[site.Name] = site.Ref;
 
@@ -76,15 +99,77 @@ public sealed partial class BeckhoffDriver
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
 
-            WriteOne(target, m.Kind, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, m.Body);
+            WriteOne(target, m.Kind, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, Textual(m.Body));
             // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing
             // the POU code for an interface property would make the crash guard in WriteAccessor unreachable.
             var itfProp = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
-            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
+            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, Textual(m.Getter));
+            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, Textual(m.Setter));
         }
 
         WriteOne(item, content.Kind, content.Declaration, content.Body);
+    }
+
+    /// <summary>Note a graphical member body for the archive write. Pure — it validates and records, and
+    /// touches the IDE not at all, so a refusal costs nothing and the caller can still order the real work.</summary>
+    private static void Collect(List<(string[] Path, string Text, string? Declaration)> into,
+                                string[] path, string? body, string? declaration)
+    {
+        if (body is not { } b || !NetworkText.Is(b)) return;
+        NetworkTextGate.Validate(b);                      // refuse BEFORE touching the IDE
+        into.Add((path, b, declaration));
+    }
+
+    /// <summary>The body as the TREE write should see it: unchanged when textual, NULL when it is graphical
+    /// and has already gone in through the archive. `WriteText` skips a null implementation, so the archive's
+    /// work survives the declaration write that follows it.</summary>
+    private static string? Textual(string? body) =>
+        body is { } b && NetworkText.Is(b) ? null : body;
+
+    private static Accessor? Textual(Accessor? accessor) =>
+        accessor is null || accessor.Body is not { } b || !NetworkText.Is(b)
+            ? accessor
+            : accessor with { Body = null };
+
+    /// <summary>Resolve every graphical member body and write them all into the POU's archive, in ONE round
+    /// trip — then hand back a LIVE handle to the POU, because the re-import killed the old one (D4d).
+    ///
+    /// <para>One trip for all of them: each DELETES the POU before importing it back, so a property with two
+    /// graphical accessors would otherwise open that window three times.</para>
+    ///
+    /// <para>The parent is read AFTER the bodies are resolved. Resolving imports a scratch POU each time, and
+    /// the fewer imports between reading a handle and using it, the better.</para></summary>
+    private ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Text, string? Declaration)> bodies)
+    {
+        var resolved = new List<(string[] Path, string Nwl)>();
+        foreach (var (path, text, declaration) in bodies)
+        {
+            var model = NetworkTextGate.Validate(text);
+            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd",
+                                                 declaration);
+            resolved.Add((path, Stamp(built, model)));
+        }
+
+        var parent = _om.Parent(item.Native)
+            ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                $"'{_om.GetName(item.Native)}' has no parent, so its archive cannot be rewritten");
+        var pouName = _om.GetName(item.Native);
+
+        _om.SetMemberBodies(parent, pouName, resolved);
+
+        // The POU was deleted and re-imported, so every handle into it is dead. The PARENT was not replaced,
+        // so it is still good to walk.
+        var parentRef = new ItemRef(parent);
+        for (int i = 1; i <= ChildCount(parentRef); i++)
+        {
+            var child = ChildAt(parentRef, i);
+            if (string.Equals(_om.GetName(child.Native), pouName, StringComparison.OrdinalIgnoreCase))
+                return child;
+        }
+
+        throw new BridgeException(BridgeErrorCodes.NotFound,
+            $"'{pouName}' is not under its parent after the archive re-import — refusing to write through a " +
+            "handle the import already killed");
     }
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
@@ -170,16 +255,6 @@ public sealed partial class BeckhoffDriver
         };
     }
 
-    /// <summary>Is this a MEMBER of a POU — a method, an action, or a property accessor — rather than a
-    /// top-level object? They differ from a POU in exactly one way that matters here: their
-    /// implementation slot is ST, so an NWL archive assigned to it is stored as text.</summary>
-    private static bool IsMember(string kind) =>
-        kind is ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod
-             or ItemKind.Kinds.Action
-             or ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty
-             or ItemKind.Kinds.PropertyGet or ItemKind.Kinds.PropertySet
-             or ItemKind.Kinds.InterfacePropertyGet or ItemKind.Kinds.InterfacePropertySet;
-
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body)
     {
         if (body is { } b && NetworkText.Is(b))
@@ -213,32 +288,6 @@ public sealed partial class BeckhoffDriver
                 // stamps the values on: flags, comments, titles, everything network text does carry. Neither
                 // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
                 // to survive a create.
-                // CREATING A GRAPHICAL BODY ON A MEMBER IS REFUSED, because `WriteText` cannot land one
-                // there and the failure was silent until the build oracle started working.
-                //
-                // `WriteText` sets `ImplementationText`, and on a POU whose implementation is already an
-                // NWL archive TwinCAT replaces the archive. On a METHOD, an ACTION or a property
-                // ACCESSOR — whose implementation is ST, or empty because it has just been created — the
-                // same assignment stores the archive AS TEXT. The POU is then written, the push reports
-                // success, the text round-trips (Volt reads its own archive straight back), and the
-                // project does not compile: `Unexpected Token '<' found`, `';' expected instead of 'NWL'`,
-                // `((((((NWL > !!!'ERROR'!!!) < XmlArchive) …`. An action gives the shorter
-                // `Assignment target not specified`.
-                //
-                // It shipped green because `ensureCompiles` filtered build diagnostics by the test-POU
-                // prefix and no vendor puts a name in one, so the four tests asserting exactly this
-                // ("round-trips and compiles") could not fail. Refusing is the honest state until the
-                // vendor route for setting a MEMBER's implementation to an archive is measured — an
-                // engineer told they must draw it in the IDE is strictly better off than one handed a POU
-                // that will not build. An EXISTING graphical member is untouched by this: it takes the
-                // in-place archive path below, which works.
-                if (IsMember(kind))
-                    throw new NotSupportedException(
-                        $"TwinCAT: Volt cannot create a graphical body on a {kind} — setting a member's " +
-                        "implementation to an NWL archive stores it as ST text, and the POU stops " +
-                        "compiling. Draw it in the IDE and pull it. (Editing one that already exists " +
-                        "works; this is only about creating one.)");
-
                 var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
                 _om.WriteText(item.Native, declaration, Stamp(built, model));
                 return;

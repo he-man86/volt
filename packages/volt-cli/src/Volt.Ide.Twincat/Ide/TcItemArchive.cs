@@ -62,6 +62,29 @@ internal static class TcItemArchive
         RoundTrip(pouParent, pouParent, pouName, place);
     }
 
+    /// <summary>Give POU MEMBERS graphical bodies, by rewriting the POU's own archive and re-importing it.
+    ///
+    /// <para><b>Why this exists at all.</b> `WriteText` sets `ImplementationText`, and on a POU already
+    /// holding an NWL archive TwinCAT replaces the archive — but on a METHOD, an ACTION or a property
+    /// ACCESSOR the same assignment stores the archive AS TEXT. The POU is written, the push reports
+    /// success, the body round-trips (Volt reads its own archive straight back), and the project will not
+    /// build: `Unexpected Token '&lt;' found`, `';' expected instead of 'NWL'`. Measured by disabling the
+    /// refusal that stood here and watching it happen again.</para>
+    ///
+    /// <para><b>One round trip for the whole POU</b>, not one per member. Each trip DELETES the item before
+    /// importing it back (see <see cref="RoundTrip"/>), so doing it per accessor would open that window
+    /// three times for one property.</para>
+    ///
+    /// <para>Each body is addressed by its PATH inside the POU: <c>["M_G"]</c> for a method or action,
+    /// <c>["P_G", "Get"]</c> for an accessor — which is how the archive nests them
+    /// (<c>&lt;Property Name="P_G"&gt;&lt;Get Name="Get"&gt;</c>).</para></summary>
+    public static void SetMemberBodies(dynamic pouParent, string pouName,
+                                       System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
+    {
+        Action<string> write = zip => SetBodies(zip, bodies);
+        RoundTrip(pouParent, pouParent, pouName, write);
+    }
+
     /// <summary>Export <paramref name="name"/> out of <paramref name="from"/>, optionally rewrite the archive, and
     /// import it into <paramref name="to"/>. The one shape both relocations share.</summary>
     private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite)
@@ -165,6 +188,91 @@ internal static class TcItemArchive
         }
         File.Delete(zip);
         File.Move(rebuilt, zip);
+    }
+
+    /// <summary>Write each body into the archive's source documents. Same shape as
+    /// <see cref="SetMemberFolder"/>: every entry is copied through, the PLC source documents get the
+    /// rewrite offered to them, and a body no document claims is an ERROR rather than a silent no-op.</summary>
+    private static void SetBodies(string zip,
+                                  System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
+    {
+        var rebuilt = zip + ".bodies";
+        try { File.Delete(rebuilt); } catch { /* fresh temp */ }
+
+        var written = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        using (var src = ZipFile.OpenRead(zip))
+        using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
+        {
+            foreach (var entry in src.Entries)
+            {
+                string text;
+                using (var reader = new StreamReader(entry.Open())) text = reader.ReadToEnd();
+
+                if (IsPlcSource(entry.FullName))
+                    foreach (var (path, nwl) in bodies)
+                        if (TrySetBody(ref text, path, nwl))
+                            written.Add(string.Join(".", path));
+
+                var copy = dst.CreateEntry(entry.FullName, CompressionLevel.Optimal);
+                using var writer = new StreamWriter(copy.Open());
+                writer.Write(text);
+            }
+        }
+
+        var missing = bodies.Select(b => string.Join(".", b.Path)).Where(k => !written.Contains(k)).ToList();
+        if (missing.Count > 0)
+        {
+            try { File.Delete(rebuilt); } catch { /* temp */ }
+            throw new InvalidOperationException(
+                $"'{string.Join("', '", missing)}' is not in the POU's archive, so no graphical body could be " +
+                "written into it");
+        }
+
+        File.Delete(zip);
+        File.Move(rebuilt, zip);
+    }
+
+    /// <summary>Point one member's <c>&lt;Implementation&gt;</c> at a graphical body.
+    ///
+    /// <para><b>The member's <c>LineIds</c> go with it.</b> Those are the ST line-number bookkeeping
+    /// TwinCAT keeps per textual body — <c>&lt;LineIds Name="POU.P_G.Get"&gt;</c> — and a graphical body has
+    /// none: measured on an IDE-drawn ladder, which carries no <c>LineIds</c> element at all. Leaving them
+    /// behind would describe line numbers for a body that no longer has lines.</para>
+    ///
+    /// <para>The NWL is parsed rather than pasted, so a malformed archive fails HERE — before the POU has
+    /// been deleted from the project — rather than inside the import, where the item is already gone.</para></summary>
+    private static bool TrySetBody(ref string tcPou, string[] path, string nwlXml)
+    {
+        var doc = XDocument.Parse(tcPou);
+
+        XElement? member = doc.Root;
+        foreach (var step in path)
+        {
+            member = member?.Descendants()
+                            .FirstOrDefault(e => e.Name.LocalName is "Method" or "Action" or "Property"
+                                                                  or "Get" or "Set"
+                                              && (string?)e.Attribute("Name") == step);
+            if (member is null) return false;
+        }
+
+        var impl = member!.Elements().FirstOrDefault(e => e.Name.LocalName == "Implementation");
+        if (impl is null) return false;
+
+        impl.ReplaceNodes(XElement.Parse(nwlXml));
+
+        // `<LineIds Name="POU.P_G.Get">` — the POU's own name, then the path.
+        var pou = doc.Descendants().First(e => e.Name.LocalName == "POU");
+        var key = string.Join(".", new[] { (string?)pou.Attribute("Name") ?? "" }.Concat(path));
+        foreach (var ids in doc.Descendants()
+                               .Where(e => e.Name.LocalName == "LineIds"
+                                        && (string?)e.Attribute("Name") == key)
+                               .ToList())
+            ids.Remove();
+
+        var sw = new Utf8StringWriter();
+        doc.Save(sw, SaveOptions.DisableFormatting);
+        tcPou = sw.ToString();
+        return true;
     }
 
     /// <summary>A StringWriter that says UTF-8, because <see cref="XDocument.Save(System.IO.TextWriter)"/>
