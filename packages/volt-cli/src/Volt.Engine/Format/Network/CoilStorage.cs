@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace Volt.Engine.Format.Network;
@@ -53,6 +53,23 @@ public static class CoilStorage
     /// driver states it in one line and cannot get half of it right.</summary>
     public static Node? OntoValue(Node? value, IEnumerable<Operand> targets) =>
         value is not null && Of(targets) is { } storage ? WithStorage(value, storage) : value;
+
+    /// <summary>Just the STORAGE a value carries — the half <see cref="WithoutStorage"/> takes away.
+    ///
+    /// <para>The pair partitions a value's flags: <c>WithoutStorage</c> returns everything that is NOT storage,
+    /// this returns everything that IS. A writer needs both halves and they must agree on the line between
+    /// them, which is exactly what having them in one file buys.</para>
+    ///
+    /// <para><b>Written because a driver used the whole flag record as "the storage".</b> CODESYS took
+    /// <c>a.Value?.Flags</c> and applied all of it to the assignment's target, so the NOT in <c>out := NOT a;</c>
+    /// landed on the COIL as well as on the input and the IDE ran <c>out := NOT NOT a</c>. Silent: the reader
+    /// lifts only storage back off a target, so the next pull was byte-identical, and a negated BOOL coil
+    /// compiles clean. DIALECT D26 already required the write to be bit-precise; this makes the precise half
+    /// nameable so a driver cannot approximate it again.</para></summary>
+    public static Flags Of(Node? value) =>
+        value is null
+            ? Flags.None
+            : Flags.None with { Set = value.Flags.Set, Reset = value.Flags.Reset };
 
     /// <summary>The same node with its storage REMOVED — the write-side inverse of <see cref="WithStorage"/>.
     ///

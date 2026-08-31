@@ -144,7 +144,23 @@ namespace Volt.Ide.Codesys
                         // is a set COIL, not a set input. Without this the write half of the same gap stayed
                         // open — a SET an engineer typed in the workspace was accepted and landed as a plain
                         // coil, changing what the program does.
-                        var storage = a.Value?.Flags ?? Flags.None;
+                        // STORAGE ONLY — not the value's whole flag record.
+                        //
+                        // This was `a.Value?.Flags ?? Flags.None`, and every bit of it was then applied to each
+                        // target below. `ApplyFlags` sets Negation, Rtrig and Ftrig as readily as Set, so the NOT
+                        // in `out := NOT a;` landed on the COIL as well as on the input and the IDE ran
+                        // `out := NOT NOT a` — the inverse of the committed source, on the vendor's canonical FBD
+                        // fixture. `out := clk RISING;` gave a rising-edge coil the same way.
+                        //
+                        // Invisible from every direction Volt had: the reader lifts only storage back off a
+                        // target (`CoilStorage.OntoValue`) and the text writer renders a target with no modifiers
+                        // at all, so the next pull was byte-identical and the change gate then said "unchanged";
+                        // and a negated BOOL coil COMPILES, so the build oracle could not see it either.
+                        //
+                        // DIALECT D26 already stated the rule — "the write back is BIT-PRECISE rather than a
+                        // whole-flags assignment" — and TwinCAT obeys it (`TcNetworkWriter.WriteStorage` touches
+                        // the Set bit alone). This vendor did not.
+                        var storage = CoilStorage.Of(a.Value);
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
                         if (CoilStorage.WithoutStorage(a.Value) is { } v) NwlInterop.Set(asg, "RValue", Node(v));
                         // A JUMP RIDES ON THE TARGET OPERAND, exactly like coil storage — and putting it on

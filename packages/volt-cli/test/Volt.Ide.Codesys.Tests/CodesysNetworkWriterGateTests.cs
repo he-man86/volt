@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
@@ -142,4 +142,97 @@ public class CodesysNetworkWriterGateTests
         Assign a => a with { Value = a.Value == null ? null : Rename(a.Value, from, to) },
         _ => n,
     };
+}
+
+
+/// <summary>
+/// WHAT LANDS ON A COIL — the flags the writer puts on an assignment's TARGET operand.
+///
+/// <para><b>There was no CODESYS writer test at all before this one</b>, and the gap had a cost. The writer
+/// took the VALUE's whole flag record as "the storage" and applied every bit of it to each target, so the NOT
+/// in <c>out := NOT a;</c> landed on the COIL as well as on the input and the IDE ran <c>out := NOT NOT a</c> —
+/// the inverse of the committed source, on the vendor's own canonical FBD fixture.</para>
+///
+/// <para><b>Nothing Volt had could see it.</b> The reader lifts only STORAGE back off a target
+/// (<c>CoilStorage.OntoValue</c>) and <c>NetworkTextWriter.Lhs</c> renders a target with no modifiers at all,
+/// so the next pull was byte-identical and the change gate then said "unchanged". A negated BOOL coil also
+/// COMPILES, so the build oracle was blind to it too. The only instrument that can see a flag landing on the
+/// wrong object is a test that looks at the object — which is this one.</para>
+///
+/// <para>DIALECT D26 already required the write to be bit-precise, and TwinCAT obeyed it. This is the same rule
+/// asserted on the vendor that did not.</para>
+/// </summary>
+public class CodesysCoilFlagTests
+{
+    /// <summary>Rebuild a network from <paramref name="model"/> and hand back the operand the coil ended up as.
+    ///
+    /// <para>The live network deliberately holds something DIFFERENT, so the change gate opens and the
+    /// destroy-and-rebuild path — the one that writes target flags — actually runs.</para></summary>
+    private static Nwl.Operand Coil(Network model)
+    {
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, BodyLanguage.Ld);
+
+        var assign = Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1));
+        return Assert.IsType<Nwl.Operand>(Assert.Single(assign.Outputs.List));
+    }
+
+    private static Nwl.Flags FlagsOf(Nwl.Operand o) => Assert.IsType<Nwl.Flags>(o.Flags);
+
+    /// <summary>`out := <value>;` — one coil driven by one leaf carrying <paramref name="onValue"/>.</summary>
+    private static Network Rung(Flags onValue) =>
+        new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Leaf(new Operand("a"), onValue), new[] { new Operand("out") }, Flags.None),
+        });
+
+    /// <summary>THE REGRESSION. A negated INPUT must not negate the COIL.</summary>
+    [Fact]
+    public void A_negated_value_does_not_negate_the_coil()
+    {
+        var coil = Coil(Rung(Flags.None with { Negated = true }));
+
+        Assert.Equal("out", coil.OperandExpr);
+        Assert.False(FlagsOf(coil).Negation, "`out := NOT a;` negated the COIL as well as the input");
+    }
+
+    /// <summary>The same leak, one bit over: an edge on the value is not an edge on the coil.</summary>
+    [Fact]
+    public void A_rising_edge_on_the_value_does_not_reach_the_coil()
+    {
+        var coil = Coil(Rung(Flags.None with { Rising = true }));
+
+        Assert.False(FlagsOf(coil).Rtrig, "`out := a RISING;` put a rising edge on the COIL");
+        Assert.False(FlagsOf(coil).Ftrig);
+    }
+
+    /// <summary>And the bit that genuinely DOES belong there still arrives — the fix must not throw storage out
+    /// with the leak. `out := a SET;` is a SET COIL: the format spells storage after the value, the vendor keeps
+    /// it on the target, and <c>CoilStorage</c> is the one place that translation lives.</summary>
+    [Fact]
+    public void Coil_storage_still_lands_on_the_target()
+    {
+        var coil = Coil(Rung(Flags.None with { Set = true }));
+
+        Assert.True(FlagsOf(coil).Set, "`out := a SET;` lost the SET on the way to the coil");
+        Assert.False(FlagsOf(coil).Negation);
+    }
+
+    /// <summary>A jump's destination carries the Jump bit — the OTHER thing that legitimately rides on a target
+    /// operand (DIALECT C13), and the reason this code path takes an `extra` flag set at all.</summary>
+    [Fact]
+    public void A_jumps_destination_carries_the_jump_bit()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Leaf(new Operand("go"), Flags.None), new[] { new Operand("Done") },
+                       Flags.None with { Jump = true }),
+        });
+
+        var target = Coil(model);
+
+        Assert.Equal("Done", target.OperandExpr);
+        Assert.True(FlagsOf(target).Jump, "the jump's destination operand lost its Jump bit");
+        Assert.False(FlagsOf(target).Negation);
+    }
 }

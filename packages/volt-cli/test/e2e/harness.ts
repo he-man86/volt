@@ -356,6 +356,10 @@ export async function instantiateInPlcPrg(fbName: string): Promise<void> {
 	const endVarIdx = lines.findIndex((l: string) => l.trim() === "END_VAR")
 	if (endVarIdx === -1) throw new Error(`${PLC_PRG} has no END_VAR`)
 	const varName = `inst_${fbName.replace(PREFIX + "_", "")}`
+	// IDEMPOTENT. `ensureCompiles` is called twice by a test that builds before AND after an edit, and a
+	// second instance declaration is itself a compile error ("a local variable named 'inst_x' is already
+	// defined in 'PLC_PRG'") — which the old prefix-filtered assertion could not see and the real one does.
+	if (lines.some((l: string) => l.includes(`${varName} :`))) return
 	lines.splice(endVarIdx, 0, `\t${varName} : ${fbName};`)
 	const r = await pushOps([{
 		op: "set",
@@ -368,15 +372,28 @@ export async function instantiateInPlcPrg(fbName: string): Promise<void> {
 }
 
 /** Verify the FB compiles with zero errors. On TC (skips unreferenced POUs) an instance in the main program
- *  forces compilation; on CODESYS (compiles every POU) the instantiate no-ops and the build still reaches it. */
+ *  forces compilation; on CODESYS (compiles every POU) the instantiate no-ops and the build still reaches it.
+ *
+ *  THIS ASSERTION USED TO BE VACUOUS, and ~10 "and it compiles" tests rode on it. It filtered the build's
+ *  diagnostics by the test-POU prefix — `JSON.stringify(d).includes(PREFIX)` — and NEITHER vendor puts an item
+ *  name in a diagnostic: `BridgeDiagnostic` carries severity/message/line/column and nothing else, CODESYS fills
+ *  the message from the raw compiler text (`Identifier 'Done' not defined` names no POU), and TwinCAT parses
+ *  `file(line,col) : error : text` and keeps only the text, discarding the file that carried the name. So the
+ *  filter matched nothing, `ours` was empty, and `expect(0).toBe(0)` passed over exactly the errors each test
+ *  existed to catch — including a jump that did not compile at all (DIALECT C13).
+ *
+ *  It asserts ZERO ERRORS in the whole project instead, which is both simpler and stronger. That is only honest
+ *  because it was measured: with every test POU removed, CodesysTestProject and TwinCAT Project14 each build
+ *  0 errors / 0 warnings. So any error here is the POU under test, or one an earlier test left behind — and
+ *  failing loudly on the second is a feature. If a fixture ever legitimately carries an error, snapshot the
+ *  diagnostics before the push and assert the set does not GROW (`labels.test.ts` does exactly that); do not
+ *  reintroduce a filter that can silently match nothing. */
 export async function ensureCompiles(fbName: string): Promise<void> {
 	await instantiateInPlcPrg(fbName)
 	const r = await bridge.build()
-	// Assert the created POU's BODY compiled — NOT that the whole project is clean: a real fixture project may
-	// carry pre-existing errors of its own (V71_PackML_Hauzer has two), so check only diagnostics naming our POU.
-	const ours = r.diagnostics.filter((d: any) => d.severity === "error" && JSON.stringify(d).includes(PREFIX))
-	if (ours.length > 0) console.warn("test-POU compile errors:", JSON.stringify(ours).slice(0, 300))
-	expect(ours.length).toBe(0)
+	const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
+	if (errors.length > 0) console.warn("build errors:", JSON.stringify(errors).slice(0, 500))
+	expect(errors.length, `the build reported ${errors.length} error(s) — see above`).toBe(0)
 }
 
 // ── version snapshots + delta assertions (the hash-stability spine) ───────────

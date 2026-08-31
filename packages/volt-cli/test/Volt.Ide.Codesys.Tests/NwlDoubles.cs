@@ -69,13 +69,23 @@ internal static class Nwl
 
     internal sealed class Operand
     {
+        /// <summary>The writer builds one as <c>New(net, "Operand", text)</c>, so the double needs the same
+        /// constructor or a rebuild cannot run at all — which is why there was no writer test until now.</summary>
+        public Operand() { }
+        public Operand(string operandExpr) { OperandExpr = operandExpr; }
+
         public string OperandExpr { get; set; } = "";
         public string Type { get; set; } = "";
         public string SymbolComment { get; set; } = "";
         public string Address { get; set; } = "";
         public bool IsLValue { get; set; }
         public bool IsInstance { get; set; }
-        public object? Flags { get; set; }
+
+        /// <summary>PRESENT, not null. <c>ApplyFlags</c> reads this member and throws when it is missing —
+        /// `IOperand.Flags` has no setter on the vendor, so modifiers are written by MUTATING the object the
+        /// operand already carries. A double whose Flags started null could not receive a modifier at all,
+        /// which would make every writer test pass for the wrong reason.</summary>
+        public object? Flags { get; set; } = new Flags();
     }
 
     /// <summary>A bare operand in tree position.</summary>
@@ -87,19 +97,33 @@ internal static class Nwl
     /// A double that can express a shape the vendor cannot is not a stand-in, it is an alibi.</summary>
     internal sealed class BoxTreeOperand
     {
+        public BoxTreeOperand() { }
+        /// <summary>`New(net, "BoxTreeOperand", operand)` — the writer's leaf construction.</summary>
+        public BoxTreeOperand(Operand operand) { Operand = operand; }
+
         public Operand Operand { get; set; } = new Operand();
     }
 
     internal sealed class OutputItemList
     {
         public List<object> List { get; } = new List<object>();
+
+        /// <summary>The vendor's own append. These collections are NOT <c>IList</c> — no <c>Add</c>, no
+        /// <c>Count</c>, no indexer — so the writer calls this, and a double without it cannot complete a
+        /// rebuild.</summary>
+        public void AppendOutputItem(object item) => List.Add(item);
     }
 
     internal sealed class BoxTreeAssign
     {
         public object? RValue { get; set; }
         public OutputItemList Outputs { get; } = new OutputItemList();
-        public object? Flags { get; set; }
+
+        /// <summary>PRESENT, like the operand's. The vendor's own serialization carries it — a jump built by
+        /// TwinCAT's importer holds `&lt;o n="Flags" t="Flags"&gt;` on the `BoxTreeAssign` as well as on the
+        /// output operand (DIALECT C13) — and `ApplyFlags` throws when the member is missing, so a null here
+        /// would make a jump untestable for a reason the vendor does not have.</summary>
+        public object? Flags { get; set; } = new Flags();
     }
 
     /// <summary>A call or operator.
