@@ -147,10 +147,29 @@ namespace Volt.Ide.Codesys
                         var storage = a.Value?.Flags ?? Flags.None;
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
                         if (CoilStorage.WithoutStorage(a.Value) is { } v) NwlInterop.Set(asg, "RValue", Node(v));
+                        // A JUMP RIDES ON THE TARGET OPERAND, exactly like coil storage — and putting it on
+                        // the ITEM instead made every jump a COMPILE ERROR.
+                        //
+                        // `Flagged(asg, a.Flags)` set `Jump` on the `BoxTreeAssign`, which the IDE does not
+                        // read: it drew the rung as an ordinary coil assigning to the label, and CODESYS
+                        // answered `Identifier 'Done' not defined` / `'Done' is no valid assignment target`,
+                        // plus `The label 'DONE' has not been referenced` — the label existed and nothing
+                        // jumped to it. Measured by moving the bit and rebuilding: 2 errors and 1 warning
+                        // became a clean build, and stripping the item's bit afterwards kept it clean, so
+                        // the operand is where the vendor looks and the item's bit was Volt's own invention.
+                        //
+                        // RETURN stays on the ITEM, and that asymmetry is the model's rather than a
+                        // preference: a return has no target operand to carry anything, and a POU built with
+                        // the bit there compiles clean.
+                        //
+                        // NOTHING IN A ROUND TRIP COULD HAVE CAUGHT THIS. Volt wrote the bit to the item and
+                        // read it back from the item, so the text was byte-identical while the IDE disagreed
+                        // with both halves. Only a BUILD sees it, which is why the jump tests now do one.
                         var outputs = NwlInterop.Require(asg, "Outputs");
+                        var onTarget = storage with { Jump = a.Flags.Jump };
                         foreach (var t in a.Targets)
-                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(t, storage));
-                        return Flagged(asg, a.Flags);
+                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(t, onTarget));
+                        return Flagged(asg, a.Flags with { Jump = false });
                     }
 
                     case Box b:

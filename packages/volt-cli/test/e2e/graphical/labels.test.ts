@@ -27,6 +27,19 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	const pull = async (item: string) =>
 		(await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)
 
+	/**
+	 * How many errors and warnings the project reports. Counted rather than attributed, because a CODESYS
+	 * build diagnostic carries no item name — `Identifier 'Done' not defined` says nothing about which POU
+	 * it came from, so filtering by the test prefix (what `ensureCompiles` does) would have found nothing.
+	 * A baseline before and after is robust to whatever the fixture project already reports.
+	 */
+	const problems = async (): Promise<string[]> => {
+		const r = await bridge.build()
+		return (r.diagnostics ?? [])
+			.filter((d: any) => d.severity === "error" || d.severity === "warning")
+			.map((d: any) => `${d.severity}: ${d.message ?? ""}`)
+	}
+
 	it("a labelled network survives a round trip", async () => {
 		const name = id("lbl"), item = fid("lbl", "prg")
 		await clean(item)
@@ -53,9 +66,22 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		await clean(item)
 	})
 
-	it("a JMP to another network's label survives a round trip", async () => {
+	/**
+	 * AND IT HAS TO COMPILE, which a round trip cannot tell you.
+	 *
+	 * The jump used to be written as a flag on the `BoxTreeAssign` ITEM. Volt read it back from the same
+	 * place, so the text was byte-identical and this test passed — while the IDE, which keeps a jump on the
+	 * TARGET OPERAND, drew the rung as an ordinary coil assigning to the label and refused to compile it:
+	 * `Identifier 'Done' not defined`, `'Done' is no valid assignment target`, and `The label 'DONE' has not
+	 * been referenced` — the label was there and nothing jumped to it.
+	 *
+	 * A self-consistent round trip is exactly the shape a test cannot see through: Volt agreed with itself
+	 * and disagreed with the vendor. Only a BUILD is outside that loop, so the build is part of the test now.
+	 */
+	it("a JMP to another network's label survives a round trip AND compiles", async () => {
 		const name = id("jmp"), item = fid("jmp", "prg")
 		await clean(item)
+		const before = await problems()
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
@@ -75,6 +101,9 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
+		// The jump must not have introduced a single new error or warning.
+		expect(await problems(), "the jump does not compile").toEqual(before)
+
 		await clean(item)
 	})
 
@@ -90,9 +119,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * errors, both from Volt: the unconditional form built an item holding nothing at all (no value, no output),
 	 * and the conditional one was compared against the archive as though a return had outputs.
 	 */
-	it("a conditional RETURN survives a round trip", async () => {
+	it("a conditional RETURN survives a round trip AND compiles", async () => {
 		const name = id("ret"), item = fid("ret", "prg")
 		await clean(item)
+		const before = await problems()
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
@@ -112,6 +142,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
 		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
+
+		// A return has no target operand, so its flag lives on the ITEM — the opposite of a jump. Measured,
+		// not assumed: this build is what says so.
+		expect(await problems(), "the return does not compile").toEqual(before)
 
 		await clean(item)
 	})
