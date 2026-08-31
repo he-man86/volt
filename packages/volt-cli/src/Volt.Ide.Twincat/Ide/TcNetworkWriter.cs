@@ -435,6 +435,62 @@ internal static class TcNetworkWriter
         return changed;
     }
 
+    /// <summary>Remove the EMPTY output operand the PLCopen importer hangs off a box — the one thing that
+    /// stopped every graphical body Volt created on TwinCAT from compiling.
+    ///
+    /// <para>Measured by drawing nothing and diffing two archives of the SAME ladder
+    /// (<c>xoutput := (xtest OR xtest2);</c>): the one TwinCAT's own editor produced
+    /// (<c>fixtures/tc-pou/ladder.TcPOU</c>) carries <c>&lt;l2 n="OutputItems" /&gt;</c> on the box —
+    /// self-closed, EMPTY — while the one its PLCopen importer produced carries a list holding one operand
+    /// whose name is <c>""</c>. The compiler reads that as the box's result going somewhere nameless
+    /// instead of to the coil, and answers <c>Assignment target not specified</c> — pointing at a rung whose
+    /// text is exactly right, which is why this survived: the body round-trips byte-identical, so no test
+    /// that compares text could see it, and the build assertion that would have was filtering diagnostics
+    /// by a POU name no vendor puts in one.</para>
+    ///
+    /// <para>Isolated to the BOX, not the coil: <c>out := a;</c> — a contact wired straight to a coil, no box
+    /// between them — compiles clean, while <c>(a AND b)</c>, <c>(a OR b)</c> and the FBD spelling all fail.
+    /// Two earlier suspects were refuted on the way: <c>LValue</c> and <c>Type</c> differ between the two
+    /// archives as well, but they are RESOLUTION results the compiler fills in for itself — forcing
+    /// <c>LValue</c> true left the error exactly where it was.</para>
+    ///
+    /// <para><b>Only an EMPTY operand is dropped.</b> A box output with a name is an embedded output — a TON
+    /// writing its <c>ET</c> pin straight to a variable — and is the engineer's, not the importer's.</para>
+    ///
+    /// <para><b>And only on the IMPORT path.</b> The general edit path leaves an existing body alone, because
+    /// this is a repair of what the import just produced rather than a rule about archives in general —
+    /// running it everywhere would rewrite bodies created by older versions of Volt on a push that changed
+    /// nothing, which is the one thing the writer must never do.</para></summary>
+    public static string DropImporterBoxOutputs(string bodyXml)
+    {
+        var doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace);
+        return DropImporterBoxOutputs(doc) ? doc.ToString(SaveOptions.DisableFormatting) : bodyXml;
+    }
+
+    /// <summary>The same repair on a live element, for the SPLICE path — where the IDE rebuilds one network
+    /// through the same importer and hands back an element rather than a document.</summary>
+    public static bool DropImporterBoxOutputs(XElement root)
+    {
+        var changed = false;
+
+        foreach (var box in root.DescendantsAndSelf("o")
+                                .Where(o => (string?)o.Attribute("t") == "BoxTreeBox")
+                                .ToList())
+        {
+            var holder = TcArchive.Obj(box, "OutputItems");
+            if (holder == null) continue;
+
+            foreach (var op in TcArchive.List(holder, "OutputItems").ToList())
+                if (string.IsNullOrEmpty(TcArchive.Str(op, "Operand")))
+                {
+                    op.Remove();
+                    changed = true;
+                }
+        }
+
+        return changed;
+    }
+
     /// <summary>Set or clear the JUMP bit on an assignment's targets, leaving every other bit alone.
     ///
     /// <para>A jump's destination operand carries the bit as well as the item does — measured on a jump

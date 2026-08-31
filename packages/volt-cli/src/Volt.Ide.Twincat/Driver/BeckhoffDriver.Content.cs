@@ -283,6 +283,10 @@ public sealed partial class BeckhoffDriver
             ?? throw new InvalidOperationException(
                    $"TwinCAT: rebuilding network {network.Order + 1} produced no archive.");
 
+        // Same importer, same artifact: strip the empty output operand it hangs off every box, or the
+        // spliced network stops compiling exactly as a whole created body did.
+        TcNetworkWriter.DropImporterBoxOutputs(impl);
+
         var rebuilt = TcArchive.List(impl, "NetworkList");
         if (rebuilt.Count != 1)
             throw new InvalidOperationException(
@@ -309,6 +313,11 @@ public sealed partial class BeckhoffDriver
     /// the very thing the engineer wrote.</para></summary>
     private static string Stamp(string built, NetworkBody model)
     {
+        // The importer hangs an EMPTY output operand off every box, which the compiler reads as the box's
+        // result going nowhere — see TcNetworkWriter.DropImporterBoxOutputs. Repaired before the values are
+        // stamped, so the change gate below compares against an archive that is already right.
+        built = TcNetworkWriter.DropImporterBoxOutputs(built);
+
         try
         {
             return TcNetworkWriter.Apply(built, model) ?? built;
