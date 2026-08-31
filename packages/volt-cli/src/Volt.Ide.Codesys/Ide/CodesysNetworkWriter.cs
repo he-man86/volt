@@ -155,8 +155,14 @@ namespace Volt.Ide.Codesys
                         // answered `Identifier 'Done' not defined` / `'Done' is no valid assignment target`,
                         // plus `The label 'DONE' has not been referenced` — the label existed and nothing
                         // jumped to it. Measured by moving the bit and rebuilding: 2 errors and 1 warning
-                        // became a clean build, and stripping the item's bit afterwards kept it clean, so
-                        // the operand is where the vendor looks and the item's bit was Volt's own invention.
+                        // became a clean build.
+                        //
+                        // The bit goes in BOTH places, because that is what the vendor itself writes — read off
+                        // a jump TwinCAT's own importer built (`VltProbe_Jump.TcPOU`): `Flags = 4` on the output
+                        // `Operand` AND on the `BoxTreeAssign`. Only the operand is load-bearing for the
+                        // compiler (stripping the item's bit still built clean), but "it compiles" is a weaker
+                        // claim than "it is what the IDE would have written", and the two vendors share this
+                        // object model member-for-member (N1), so the other one's importer is evidence here.
                         //
                         // RETURN stays on the ITEM, and that asymmetry is the model's rather than a
                         // preference: a return has no target operand to carry anything, and a POU built with
@@ -169,7 +175,7 @@ namespace Volt.Ide.Codesys
                         var onTarget = storage with { Jump = a.Flags.Jump };
                         foreach (var t in a.Targets)
                             NwlInterop.Call(outputs, "AppendOutputItem", Operand(t, onTarget));
-                        return Flagged(asg, a.Flags with { Jump = false });
+                        return Flagged(asg, a.Flags);
                     }
 
                     case Box b:

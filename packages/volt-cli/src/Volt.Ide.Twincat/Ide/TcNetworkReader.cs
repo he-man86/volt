@@ -88,7 +88,17 @@ internal static class TcNetworkReader
                 // target. Left untranslated, a SET coil pulled from TwinCAT rendered as a PLAIN one: invisible
                 // in the workspace, and silently downgraded on the next create. CODESYS's reader already puts it
                 // on the value, so this is the two vendors agreeing rather than a TwinCAT special case.
-                return new Assign(CoilStorage.OntoValue(value, targets), targets, flags);
+                // A JUMP IS READ OFF THE TARGET OPERAND TOO, the same rule CODESYS's reader applies.
+                //
+                // TwinCAT writes the bit in BOTH places — a jump built by its own PLCopen importer carries
+                // `Flags = 4` on the output `Operand` AND on the `BoxTreeAssign` — so reading the item alone
+                // has always worked here, which is exactly why this is worth stating rather than leaving to
+                // luck. On CODESYS the operand was the ONLY place the bit appeared for a jump an engineer drew,
+                // and reading the item there turned their control flow into a coil assigning to the label. One
+                // rule on both vendors costs two lines and removes the asymmetry that made that possible.
+                var jumps = targets.Any(t => t.Flags?.Jump == true);
+                return new Assign(CoilStorage.OntoValue(value, targets), targets,
+                                  jumps ? flags with { Jump = true } : flags);
             }
 
             case "BoxTreeBox":
