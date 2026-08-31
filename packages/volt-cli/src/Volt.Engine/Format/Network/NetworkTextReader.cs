@@ -82,7 +82,23 @@ public static class NetworkTextReader
 
                 if (cur == null) throw new NetworkTextException("statement before any NETWORK: " + line);
 
-                if (line.StartsWith("//", StringComparison.Ordinal)) { cur.AddComment(line.Substring(2).Trim()); continue; }
+                // A COMMENT'S OWN INDENTATION IS ITS TEXT. This used to `Trim()` what followed the `//`, but
+                // the writer emits `"  // " + line` verbatim — so an engineer's aligned block comment came back
+                // flattened to the left margin, and the canonical-form gate then refused their push over
+                // whitespace they never touched. Only the ONE separator space the writer adds is removed, which
+                // makes this the exact inverse of it — including a TRAILING space, which is also the
+                // engineer's. Measured live: one comment in the project ends `could be missed. `, and
+                // trimming it meant the first push after a pull rewrote a comment nobody had edited.
+                // (The canonical-form gate compares lines with trailing whitespace ignored, so keeping
+                // it here costs nothing there.)
+                if (line.StartsWith("//", StringComparison.Ordinal))
+                {
+                    var raw = lines[i];
+                    var body = raw.Substring(raw.IndexOf("//", StringComparison.Ordinal) + 2);
+                    if (body.StartsWith(" ", StringComparison.Ordinal)) body = body.Substring(1);
+                    cur.AddComment(body);
+                    continue;
+                }
 
                 // A multi-line `IF <en> THEN` guarding an EXECUTE block.
                 var guard = Regex.Match(line, @"^IF\s+(\w+)\s+THEN$", RegexOptions.IgnoreCase);
@@ -150,9 +166,16 @@ public static class NetworkTextReader
         public Builder(int order, string rest)
         {
             Order = order;
-            var q = Regex.Match(rest, "\"([^\"]*)\"");
-            if (q.Success) _title = q.Groups[1].Value;
-            _disabled = Regex.IsMatch(rest, @"\bDISABLED\b", RegexOptions.IgnoreCase);
+            // The title runs to the first UNDOUBLED quote (the writer doubles any quote in the text), so a
+            // title that contains one survives instead of ending the moment it reaches it.
+            var q = Regex.Match(rest, "\"((?:[^\"]|\"\")*)\"");
+            if (q.Success) _title = q.Groups[1].Value.Replace("\"\"", "\"");
+
+            // DISABLED is looked for only AFTER the title, never inside it. Scanning the whole header meant
+            // a network titled "DISABLED during commissioning" turned itself off on the way back in — the
+            // flag is a header keyword, and text the engineer wrote is not the header.
+            var tail = q.Success ? rest.Substring(q.Index + q.Length) : rest;
+            _disabled = Regex.IsMatch(tail, @"\bDISABLED\b", RegexOptions.IgnoreCase);
         }
 
         public void AddComment(string c) => _comments.Add(c);
@@ -242,7 +265,20 @@ public static class NetworkTextReader
                     throw new NetworkTextException(
                         $"the wire '{name}' is defined twice - a name introduced with LET IS its definition, "
                         + "and two definitions of one wire have no single meaning", "NETWORK_DUPLICATE_NAME");
-                var value = ParseOperand(let.Groups[2].Value);
+                // `LET i<n> := …` IS AN OPAQUE LEAF, and its text stays TEXT.
+                //
+                // The `i` prefix is the format's marker for one (§6 "Opaque leaf"): a single `inVariable` whose
+                // text is not a safe token — `DINT_TO_REAL(x)`, `fc_dinttotime(a,2)` — so it cannot sit at an
+                // operand position and gets a statement of its own. Parsing it like any other LET turned that
+                // one leaf into a whole function-call BOX, and `Build` then substituted the box into its
+                // consumer. The text no longer round-tripped (the writer re-emits a box inline, never hoisted),
+                // and worse, pushing it would have built a real call box where the IDE holds one variable.
+                //
+                // Measured on Lenze_MID-S100: 23 networks, every one refused by the canonical-form gate — which
+                // is the only reason this surfaced as a refusal rather than as a silently restructured body.
+                var value = OpaqueLeaf.IsMatch(name)
+                    ? new Leaf(new Operand(let.Groups[2].Value.Trim()), Flags.None)
+                    : ParseOperand(let.Groups[2].Value);
                 return (name, new Assign(value, new List<Operand> { new(name) }, Flags.None));
             }
 
@@ -255,14 +291,15 @@ public static class NetworkTextReader
                 // AN EMPTY RIGHT-HAND SIDE IS A RUNG WITH NOTHING ON IT — `coil := ;` — and it is a shape the
                 // IDE really holds, not an authoring mistake. Measured in a user's ladder: a SET coil whose
                 // `BoxTreeAssign.RValue` is a `BoxTreeTerminator` with no input, i.e. a coil sitting on a rung
-                // that nothing drives. `NetworkTextWriter` renders a bare terminator as the empty string, so it
-                // has always EMITTED this text; the reader then refused it with "expected an operand", which
-                // meant such a POU could be pulled and never pushed back.
+                // that nothing drives.
                 //
-                // It reads back as the TERMINATOR the vendor holds rather than as a null, because that is what
-                // the archive has: a null would make the in-place writer refuse ("the 'RValue' input of an item
-                // is removed") and lose the rung. Same reasoning as the unwired operator box below — the text
-                // has to be able to say what the IDE is holding.
+                // This arm was the FIRST place the empty slot was read deliberately, and for a while the only
+                // one — which is why `( * iRPM * 6)` and `RESET := , PV := )` stayed unreadable long after
+                // `coil := ;` worked. `Cursor.IsEmptyOperand` now applies the same rule everywhere an operand
+                // can stand, so this is no longer a special case so much as the statement-level instance of
+                // one. It reads back as the TERMINATOR the vendor holds rather than as a null, because that is
+                // what the archive has: a null would make the in-place writer refuse ("the 'RValue' input of an
+                // item is removed") and lose the rung.
                 if (a.Rhs.Trim().Length == 0)
                     return (null, new Assign(new Terminator(null, Flags.None),
                                              new List<Operand> { new(a.Lhs) }, Flags.None));
@@ -282,15 +319,24 @@ public static class NetworkTextReader
                 // this arm then refused to read it back, so a POU the IDE was perfectly happy with could be
                 // pulled and never pushed.
                 //
-                // A positional FUNCTION call is still refused: `f(a, b)` as a statement means a call whose
-                // RESULT goes nowhere, which is an authoring mistake rather than a shape the IDE gave us. An
-                // FB instance binds its pins by name and legitimately stands alone.
-                if (box.Kind == CallKind.Function)
-                    throw new NetworkTextException(
-                        "a call statement must be a function-block instance with named pins "
-                        + "(`inst(IN := a)`): " + line);
+                // A POSITIONAL CALL STANDS ALONE TOO, for exactly the same reason.
+                //
+                // This arm used to refuse it, arguing that `f(a, b)` as a statement is "a call whose RESULT goes
+                // nowhere, which is an authoring mistake rather than a shape the IDE gave us". The second half
+                // was false, and measurably so: a real customer project (Lenze_MID-S100, 373 networks) renders
+                // `MOVE(g0, iDec);` in 34 of them. A MOVE box in a ladder with its EN wired and its output
+                // connected to nothing is ordinary, the vendor holds it happily, and the text has to be able to
+                // say what the IDE is holding. Refusing meant those POUs could be pulled and never pushed back —
+                // the same failure the unwired-operator arm above was fixed for, on the same kind of evidence.
+                //
+                // The distinction that still stands is call vs NON-call: an operand that is not a box at all (a
+                // bare name, a literal) is not a statement, and falls through to the throw below.
                 return (null, node);
             }
+            // A BARE `?;` — an item the IDE holds that is wired to nothing at all. The writer emits it for
+            // exactly that (it used to emit no line, dropping the item), so the reader has to take it back.
+            if (node is Terminator) return (null, node);
+
             throw new NetworkTextException("not a statement: " + line);
         }
 
@@ -335,9 +381,26 @@ public static class NetworkTextReader
             // is the vendor's own.
             var inline = new Dictionary<string, Node>(StringComparer.Ordinal);
             var wires = new Dictionary<string, int>(StringComparer.Ordinal);
+            // THE PREFIX DECIDES, and the use count only breaks ties for names nobody minted.
+            //
+            // `g<n>` is a wire and `i<n>` an opaque leaf because those are the names the WRITER mints for
+            // exactly those two things — it never mints a `g` for anything but a `Demux` or a shared value, and
+            // never an `i` for anything but a hoisted leaf. Deciding by use count instead threw that away: a
+            // `BoxTreeDemux` feeding ONE consumer is an item the IDE is holding (a branch point drawn on the
+            // rung), and inlining it deleted the item on the way back — `LET g28 := (…); out := f(IN := g28)`
+            // came back as `out := f(IN := (…))`, one item lighter, with the push accepted. Measured on
+            // Lenze_MID-S100: 3 networks, alongside 23 where the same heuristic dissolved an opaque leaf.
+            //
+            // A name the writer did not mint is hand-authored, and there the count is still the only signal
+            // there is: used twice it must be a wire, or the value would be duplicated into both consumers.
             foreach (var kv in _lets)
-                if (uses.TryGetValue(kv.Key, out var n) && n >= 2) wires[kv.Key] = VarIdOf(kv.Key, wires.Count);
+            {
+                var wire = WireName.IsMatch(kv.Key)
+                           || (!OpaqueLeaf.IsMatch(kv.Key)
+                               && uses.TryGetValue(kv.Key, out var n) && n >= 2);
+                if (wire) wires[kv.Key] = VarIdOf(kv.Key, wires.Count);
                 else inline[kv.Key] = kv.Value;
+            }
 
             var trees = new List<Node>();
             foreach (var (let, node) in _stmts)
@@ -355,6 +418,13 @@ public static class NetworkTextReader
                                _comments.Count == 0 ? null : string.Join("\n", _comments),
                                _disabled, trees);
         }
+
+        /// <summary>The opaque-leaf name the writer mints: `i` followed by digits (docs/network-text.md §6).
+        /// `g<n>` is a fan-out wire and `en<n>` an enable echo; those are real structure and are parsed.</summary>
+        private static readonly Regex OpaqueLeaf = new(@"^i\d+$", RegexOptions.Compiled);
+
+        /// <summary>The fan-out wire name the writer mints: `g` followed by digits (docs/network-text.md §5).</summary>
+        private static readonly Regex WireName = new(@"^g\d+$", RegexOptions.Compiled);
 
         /// <summary>The VarId for a wire name. `g7` carries its own id, so a pull -> push round trip lands the
         /// SAME id the IDE had; a name that is not `g&lt;n&gt;` gets a fresh one.</summary>
@@ -506,7 +576,25 @@ public static class NetworkTextReader
         public Node Operand()
         {
             SkipWs();
-            bool negated = Word("NOT");
+
+            // AN EMPTY SLOT IS A PIN CONNECTED TO NOTHING, and it is read here rather than thrown on.
+            // `NetworkTextWriter` renders an unconnected input as nothing at all, so the vendor's own bodies
+            // arrive as `( * iRPM * 6)`, `MOVE(, iDec)` and `RESET := , PV := )`. Only the statement-level case
+            // (`coil := ;`) was ever read back, so 110 of one real project's 373 networks (Lenze_MID-S100)
+            // could be pulled and never pushed. Same rule, every position an operand can stand.
+            if (IsEmptyOperand()) return new Terminator(null, Flags.None);
+
+            // `NOT(x)` IS A BOX NAMED NOT; `NOT x` IS THE NEGATION MODIFIER. FBD has both, and they are
+            // different things in the IDE — a NOT box item versus a negation dot on a pin — so reading one as
+            // the other rewrites the drawing. This arm took every `NOT` as the modifier, so a real NOT box
+            // (rendered through the ordinary call path as `NOT(g20)`, since NOT is not in the operator table)
+            // collapsed into a flag on its input and the box was gone on the next push.
+            //
+            // The two are told apart by the parenthesis being ADJACENT, which is not a coincidence of layout:
+            // `ApplyMods` writes the modifier as `"NOT " + value` and always has, and `Definition` writes a call
+            // as `type + "("` and always has. So this reads exactly what the two emitters produce, and it is
+            // the one place in the format where a space carries meaning (§3).
+            bool negated = !AtCall("NOT") && Word("NOT");
             var core = Core();
             SkipWs();
             bool rising = Word("RISING"), falling = !rising && Word("FALLING");
@@ -520,6 +608,7 @@ public static class NetworkTextReader
         {
             SkipWs();
             if (AtEnd) throw new NetworkTextException("expected an operand", "NETWORK_BAD_EXPRESSION");
+
             if (_s[_i] == '(') return Group();
 
             var name = Token();
@@ -547,6 +636,13 @@ public static class NetworkTextReader
                     throw new NetworkTextException(
                         $"a group mixes '{sym}' and '{op}' - one operator kind per group, use nested parentheses",
                         "NETWORK_BAD_EXPRESSION");
+                // AN OPERATOR STILL NEEDS SOMETHING TO ITS RIGHT, and that asymmetry with the empty LEFT
+                // operand above is deliberate rather than tidy. What is measured is `( * iRPM * 6)` — 14 of
+                // them across Lenze_MID-S100, an operator box whose FIRST pin is unconnected. Not one case of
+                // `(a AND )` appears in the same project, so accepting it would be inferring a shape from a
+                // model that merely looks like it should permit one, which is the reasoning this codebase
+                // refuses everywhere else. Refusing is also the safe direction: it says "Volt cannot take this
+                // back" instead of guessing at what the IDE meant. Measure one, then delete this.
                 SkipWs();
                 if (AtEnd || _s[_i] == ')')
                     throw new NetworkTextException(
@@ -571,25 +667,39 @@ public static class NetworkTextReader
             var args = new List<Input>();
             SkipWs();
             bool named = false;
-            while (!AtEnd && _s[_i] != ')')
+
+            // DRIVEN BY THE COMMAS, not by "is there something before the `)`". The old loop asked whether the
+            // next character was `)` and stopped if it was, so `f(a, )` — a call whose LAST pin is unconnected —
+            // silently lost that pin: the box came back with one input instead of two, changing its arity with
+            // nothing in the text or the diff to show it. A comma promises another argument, and an empty one
+            // is an argument that is empty.
+            bool more = !AtEnd && _s[_i] != ')';
+            while (more)
             {
                 SkipWs();
                 string? formal = null;
-                int save = _i;
-                var maybe = Token();
-                SkipWs();
-                if (!AtEnd && _s[_i] == ':' && _i + 1 < _s.Length && _s[_i + 1] == '=')
+                // The probe only runs where a formal name COULD start. A pin name is an identifier, so an
+                // argument opening with `(` — a parenthesised group, which is most of a real ladder's arguments —
+                // has none, and asking `Token()` there threw "expected a name at" and refused the whole push.
+                if (!IsEmptyOperand() && _s[_i] != '(')
                 {
-                    _i += 2;
-                    formal = maybe;
-                    named = true;
+                    int save = _i;
+                    var maybe = Token();
+                    SkipWs();
+                    if (!AtEnd && _s[_i] == ':' && _i + 1 < _s.Length && _s[_i + 1] == '=')
+                    {
+                        _i += 2;
+                        formal = maybe;
+                        named = true;
+                    }
+                    else _i = save;
                 }
-                else _i = save;
 
                 var val = Operand();
                 args.Add(new Input(formal, val, Flags.None));
                 SkipWs();
-                if (!AtEnd && _s[_i] == ',') { _i++; SkipWs(); }
+                if (!AtEnd && _s[_i] == ',') { _i++; more = true; }
+                else more = false;
             }
             if (AtEnd) throw new NetworkTextException($"unclosed '(' in call to '{name}'");
             _i++;   // ')'
@@ -598,6 +708,31 @@ public static class NetworkTextReader
                 ? new Box(name, new Operand(name, IsInstance: true), CallKind.FunctionBlock, args,
                           new List<Operand>(), null, null, Flags.None)
                 : new Box(name, null, CallKind.Function, args, new List<Operand>(), null, null, Flags.None);
+        }
+
+        /// <summary>Is there NO operand at this position?
+        ///
+        /// <para>A POSITION, not a token — which is the whole reason there is no magic "unconnected" word in
+        /// this format. A token was tried (`?`) and had to be withdrawn: CODESYS writes `???` into a box whose
+        /// instance is unresolved — a real compile error the engineer needs to SEE — and one real project holds
+        /// five, including `??? := ioAxis.xVirtual;`. A sigil chosen for being impossible was already content,
+        /// so Volt carries `???` through verbatim and claims no spelling of its own.</para>
+        ///
+        /// <para>The grammar is fully parenthesised with no precedence (§4), so every operand sits between two
+        /// structural marks. Finding the NEXT mark where an operand should have started — end of input, `)`,
+        /// `,`, or an operator symbol — is therefore an unambiguous statement that the pin is wired to
+        /// nothing.</para></summary>
+        private bool IsEmptyOperand()
+        {
+            SkipWs();
+            if (AtEnd || _s[_i] == ')' || _s[_i] == ',') return true;
+
+            // An OPERATOR where an operand belongs: `( * iRPM * 6)` is a three-input multiply whose first pin
+            // is unconnected. Peeked without consuming, so a real operand is left untouched for Core().
+            int save = _i;
+            try { return FbdOperators.SymbolToType.ContainsKey(Token()); }
+            catch (NetworkTextException) { return false; }
+            finally { _i = save; }
         }
 
         /// <summary>A bare token: an identifier, a member access (<c>inst.Q</c>), a literal, or an operator
@@ -613,7 +748,39 @@ public static class NetworkTextReader
                 _i++;
             }
             if (_i == start) throw new NetworkTextException("expected a name at: " + _s.Substring(start));
-            return _s.Substring(start, _i - start);
+
+            // A MEMBER ACCESS MAY HAVE SPACES AROUND ITS DOT, because the engineer typed them and the IDE kept
+            // them: a real project holds the operand `scSimulationDowntimes .uiMaxSimulationEvents`. The dot
+            // itself never ended a token, so only the SPACE split this in two, and the leftover half then read
+            // as a second operand — reported as "the expression is only partially parenthesised", which points
+            // at precedence and is nowhere near the truth. The whitespace is kept in the returned text: the
+            // operand has to round-trip verbatim, and re-spacing it would rewrite the engineer's name.
+            int end = _i;
+            while (true)
+            {
+                int save = _i;
+                SkipWs();
+                if (AtEnd || _s[_i] != '.') { _i = save; break; }
+                _i++;                                     // '.'
+                while (_i < _s.Length && !char.IsWhiteSpace(_s[_i]) &&
+                       _s[_i] != '(' && _s[_i] != ')' && _s[_i] != ',')
+                {
+                    if (_s[_i] == ':' && _i + 1 < _s.Length && _s[_i + 1] == '=') break;
+                    _i++;
+                }
+                end = _i;
+            }
+            return _s.Substring(start, end - start);
+        }
+
+        /// <summary>Is the text at the cursor a CALL to <paramref name="name"/> — the name with `(` directly
+        /// after it, no space? Consumes nothing.</summary>
+        private bool AtCall(string name)
+        {
+            SkipWs();
+            return _i + name.Length < _s.Length
+                && string.Compare(_s, _i, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) == 0
+                && _s[_i + name.Length] == '(';
         }
 
         /// <summary>Match a keyword on a word boundary, consuming it only on a match.</summary>

@@ -73,3 +73,70 @@ push.
 
 The `EXECUTE … END_EXECUTE` block and `LET` wire definitions are genuine statements with real positions; they
 are not affected. This is only about the three per-network metadata fields.
+
+---
+
+## Addendum (2026-08-31): the lexical rules a real project forced, and the one free diagnostic
+
+Pulling `Lenze_MID-S100_V5_00_602_T51` - 373 engineer-drawn networks - refused **152 of them** at Volt's own
+push gate (DIALECT C10). Closing that changed the *format*, not just the reader, so the LSP now has rules it
+does not know about. Everything below is settled and measured; it needs implementing in `volt-lsp-iec`, not
+deciding.
+
+### `???` is a compile error, and Volt can report it before the build
+
+CODESYS writes `???` into a box whose instance is unresolved. It is not a placeholder Volt invented and not
+something to normalise away - it is the vendor's own marker for a box that **will not compile**, and it
+reaches the workspace verbatim (five in this one project, one of them an assignment target:
+`??? := ioAxis.xVirtual;`).
+
+This is the cheapest real diagnostic on the list: an `???` operand is an error the IDE itself will raise, and
+the LSP can raise it at the point of edit instead. It is also why network text has **no `?` token of its
+own** - a sigil was tried for the unconnected pin and withdrawn precisely because `???` was already content.
+
+| code | condition | severity |
+|---|---|---|
+| `network-unresolved-box` | an operand is `???` | error - the IDE will not compile this box |
+
+### The empty slot is grammar, not a typo
+
+A pin connected to nothing is written as **nothing**, in whichever operand position it occupies:
+`( * iRPM * 6)`, `ctu(CU := a, RESET := , PV := )`, `f(, a)`, `f(a, )`, `coil := ;`, and a bare `;`. The LSP
+must parse all of these (110 networks in one project) and must not report them as syntax errors. Worth
+surfacing as a **hint**, not a warning - an unwired pin is ordinary in a live project, and half the ladders
+here have one.
+
+### Whitespace and quoting carry meaning in exactly five places
+
+Everywhere else in the format whitespace is insignificant, so these are worth stating rather than inferring:
+
+| Written | Means | The rule |
+|---|---|---|
+| `NOT x` | the negation **modifier** (a dot on the pin) | a space follows `NOT` |
+| `NOT(x)` | a **box** named NOT (its own item) | the `(` is adjacent |
+| `"he said ""no"""` | a title containing a quote | the quote is **doubled** |
+| `//     aligned` | an indented comment | everything after the one separator space is the text, trailing spaces included |
+| `a .b` | one qualified name | whitespace around the dot is the engineer's and is kept |
+
+`DISABLED` is a header keyword recognised only **after** the title - never inside it.
+
+### The `LET` prefix is load-bearing, which makes it a naming rule the LSP should enforce
+
+`g<n>` is a fan-out wire, `i<n>` an opaque leaf, `en<n>` an enable echo. The reader honours the prefix rather
+than counting uses, because a `BoxTreeDemux` with one consumer is still an item on the rung and an opaque
+leaf is one variable rather than the expression its text spells. An engineer who hand-writes `LET g5 := ...`
+therefore gets **wire** semantics whether they meant them or not.
+
+| code | condition | severity |
+|---|---|---|
+| `network-reserved-wire-name` | a hand-written `LET` uses a `g<n>` / `i<n>` / `en<n>` name | warning - the prefix decides the semantics, and the writer will renumber it |
+
+### One statement form the grammar gained
+
+A **positional call may stand alone as a statement** (`MOVE(g0, iDec);` - a box whose output goes nowhere, 34
+networks). Any LSP rule that assumed a bare call is an FB instance invocation, and that a missing `PIN :=` is
+a mistake, is now wrong.
+
+### Still open, unchanged
+
+The placement questions above (label/comment position and duplication) are untouched by this work.

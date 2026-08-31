@@ -22,7 +22,12 @@ public class NetworkTextDiagnosticsTests
     // ── statement shape ───────────────────────────────────────────────────────────────
     [InlineData("NETWORK 0 FBD\n  := a;\nEND_NETWORK\n", "NETWORK_PARSE")]                                        // assignment with no target
     [InlineData("NETWORK 0 FBD\n  foo;\nEND_NETWORK\n", "NETWORK_PARSE")]                                         // bare token, not a call/assignment
-    [InlineData("NETWORK 0 FBD\n  inst(IN);\nEND_NETWORK\n", "NETWORK_PARSE")]                                    // FB call arg without ':='
+    // `inst(IN);` USED TO BE HERE, expecting NETWORK_PARSE on the reasoning that a positional call as a
+    // statement is "a call whose result goes nowhere". The premise is refuted by the VENDOR, not by a change
+    // of mind: a real customer project (Lenze_MID-S100) renders `MOVE(g0, iDec);` as a bare statement in 34
+    // of its 373 networks — a MOVE box in a ladder with its EN wired and its output connected to nothing.
+    // Refusing it meant those POUs could be pulled and never pushed back. The row is now a POSITIVE case in
+    // NetworkTextRoundTripTests, which asserts the statement survives a round trip instead of being refused.
 
     // ── expression shape ──────────────────────────────────────────────────────────────
     [InlineData("NETWORK 0 FBD\n  out := (a AND b OR c);\nEND_NETWORK\n", "NETWORK_BAD_EXPRESSION")]              // mixed operators in one group

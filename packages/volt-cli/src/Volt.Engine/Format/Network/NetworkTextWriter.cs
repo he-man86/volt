@@ -66,7 +66,13 @@ public static class NetworkTextWriter
             _sb.Append("NETWORK ").Append(_net.Order).Append(' ').Append(_lang == BodyLanguage.Ld ? "LD" : "FBD");
             // The quoted string is the network's TITLE. The previous model had one string field and PLCopen
             // carried neither, so title and jump-label were the same slot; both vendors' INetwork has both.
-            if (!string.IsNullOrEmpty(_net.Title)) _sb.Append(" \"").Append(_net.Title).Append('"');
+            // A QUOTE INSIDE THE TITLE IS DOUBLED. Engineers put quotes in network titles — one real project
+            // has two, `Muting of alarm "No bunch"` and `the "Active"-alarm signals are reset` — and writing
+            // them raw ended the title early for any reader, so the second half was lost on the way back in.
+            // Doubling is the escape because it needs nothing but the delimiter itself: no new character to
+            // reserve, and a title with no quote in it is unchanged.
+            if (!string.IsNullOrEmpty(_net.Title))
+                _sb.Append(" \"").Append(_net.Title!.Replace("\"", "\"\"")).Append('"');
             if (_net.Disabled) _sb.Append(" DISABLED");
             _sb.Append('\n');
 
@@ -94,7 +100,10 @@ public static class NetworkTextWriter
                 case Box b when b.Enable is not null: EnabledCall(b); break;
                 case Box b: { var t = Definition(b); Flush(); Line(t + ";"); break; }
                 case Terminator t when t.Input is not null: Statement(t.Input); break;
-                case Terminator: break;
+                // NOT a bare `break`. An unconnected terminator standing as its own statement is an item the
+                // IDE is holding, and dropping it emitted no line at all — the item gone from the workspace
+                // with nothing in the file to show it had ever been there.
+                case Terminator: Flush(); Line(Unconnected + ";"); break;
 
                 // A fan-out wire's DEFINITION. The vendor holds it as a `BoxTreeDemux` carrying the producer;
                 // the format spells it `LET g<VarId> := <producer>;` (docs/network-text.md §5) and every
@@ -118,7 +127,9 @@ public static class NetworkTextWriter
             // An enabled box feeding an assignment renders as the IF form, with the sink inside it.
             if (a.Value is Box { Enable: not null } eb) { EnabledAssign(a, eb); return; }
 
-            var value = a.Value is null ? "" : ApplyMods(Render(a.Value, nested: false), a.Flags);
+            // `?`, not "": a coil with nothing driving it says so, instead of rendering as `x := ;`. One
+            // spelling for "connected to nothing", everywhere it can occur.
+            var value = a.Value is null ? Unconnected : ApplyMods(Render(a.Value, nested: false), a.Flags);
 
             if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
             if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " := " + value + ";"); return; }
@@ -260,8 +271,26 @@ public static class NetworkTextWriter
                     // and carries no And/Or at all.
                     return "(" + string.Join(" OR ",
                                              p.Branches.Select(x => Render(x, nested: true))) + ")";
-                case Terminator t: return t.Input is null ? "" : Render(t.Input, nested);
-                case Assign a: return a.Value is null ? "" : Render(a.Value, nested);
+                // AN UNCONNECTED PIN HAS A SPELLING. These two arms used to return "" — the same silent
+                // default that the comment below calls "the single line that turned a missing feature into
+                // invisible data loss", three lines above where it says so. A box input wired to nothing is a
+                // `Terminator` with no input, and rendering it as nothing produced text nobody can read back:
+                // `( * iRPM * 6)`, `RESET := , PV := )`, `MOVE(, iDec)`. Measured on a real customer project
+                // (Lenze_MID-S100): 110 of its 373 networks, every one of them pullable and un-pushable.
+                //
+                // THE SPELLING IS THE EMPTY SLOT ITSELF, and that is a measured choice rather than a shrug.
+                // A magic token was tried first — `?`, on the reasoning that it "cannot be anything else". It
+                // can: CODESYS writes `???` into a box whose instance is not yet named, and the same project
+                // holds five of them, one as an assignment target (`??? := ioAxis.xVirtual;`). A token picked
+                // for being impossible turned out to be content.
+                //
+                // An empty slot cannot collide with anything, because it is a POSITION rather than a string:
+                // the grammar is fully parenthesised with no precedence (§4), so `(`, `,`, `)`, `:=` and an
+                // operator symbol each mark a place an operand belongs, and finding the next one of those
+                // instead says there is no operand there. The reader reads it deliberately (`IsEmptyOperand`),
+                // which is the opposite of the silent "" this used to return.
+                case Terminator t: return t.Input is null ? Unconnected : Render(t.Input, nested);
+                case Assign a: return a.Value is null ? Unconnected : Render(a.Value, nested);
 
                 // NO SILENT DEFAULT. This arm returned "" — the single line that turned a missing feature into
                 // invisible data loss. A `Demux` (the vendor's fan-out item, the 4th most common item in the one
@@ -292,6 +321,11 @@ public static class NetworkTextWriter
         }
 
         // ── helpers ───────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The operand text for a pin connected to NOTHING: the empty slot (docs/network-text.md §3).
+        /// Named rather than written as a bare "" so every site that means "no operand" says so, and so this
+        /// comment sits where the decision is.</summary>
+        private const string Unconnected = "";
 
         private void Line(string s) => _sb.Append("  ").Append(s).Append('\n');
 

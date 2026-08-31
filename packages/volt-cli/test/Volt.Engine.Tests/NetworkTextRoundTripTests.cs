@@ -40,6 +40,61 @@ public class NetworkTextRoundTripTests
     public void Network_text_converges_to_a_fixed_point(string net) => Assert.Equal(Round(net), Round(Round(net)));
 
     [Theory]
+    // -- SHAPES A REAL PROJECT ACTUALLY CONTAINS --------------------------------------------------
+    //
+    // Every case below comes from Lenze_MID-S100_V5_00_602_T51 - 373 graphical networks drawn by
+    // engineers, not by Volt. Pulled through the CODESYS bridge and fed straight back into this gate,
+    // 152 of them were REFUSED by Volt's own reader: text the writer had just produced and could not read
+    // back, which means those POUs could be pulled and never pushed again. That is what this theory
+    // exists to keep out.
+    //
+    // These assert EXACT canonical text rather than convergence. Idempotence would have passed on most of
+    // them while quietly changing the body - an unconnected pin dropped, a wire dissolved, a NOT box
+    // turned into a flag - which is a good part of why several survived as long as they did.
+    //
+    // AN UNCONNECTED PIN renders as an empty slot, and reads back as the terminator the vendor holds.
+    // There is no magic token for it: `?` was tried and withdrawn, because CODESYS writes `???` into a
+    // box whose instance is unresolved - a real compile error the engineer must SEE - and this project
+    // holds five of them, one of them an assignment target.
+    [InlineData("NETWORK 0 LD\n  ( * iRPM * 6);\nEND_NETWORK\n")]   // pin 0 of a MUL box: 14 in the project
+    [InlineData("NETWORK 0 FBD\n  ctu(CU := a, RESET := , PV := );\nEND_NETWORK\n")]   // named pins with nothing on them: 12
+    [InlineData("NETWORK 0 FBD\n  f(, a);\nEND_NETWORK\n")]   // a leading positional slot
+    [InlineData("NETWORK 0 FBD\n  f(a, );\nEND_NETWORK\n")]   // a TRAILING slot - dropped until the arg loop followed commas
+    [InlineData("NETWORK 0 LD\n  coil := ;\nEND_NETWORK\n")]   // a rung nothing drives
+    [InlineData("NETWORK 0 LD\n  ;\nEND_NETWORK\n")]   // an item wired to nothing at all
+    //
+    // A POSITIONAL CALL STANDS ALONE. `MOVE(g0, iDec);` - a box with EN wired and its output connected
+    // to nothing - is a bare statement in 34 networks; the reader used to refuse every one of them.
+    [InlineData("NETWORK 0 LD\n  MOVE(a, b);\nEND_NETWORK\n")]
+    //
+    // A NOT BOX IS NOT THE NEGATION MODIFIER. Both are FBD and they draw differently - a box item versus
+    // a dot on a pin - and they are told apart by the parenthesis being adjacent, which is exactly how
+    // the two emitters already write them.
+    [InlineData("NETWORK 0 FBD\n  out := NOT(a);\nEND_NETWORK\n")]   // the box
+    [InlineData("NETWORK 0 FBD\n  out := NOT a;\nEND_NETWORK\n")]   // the modifier
+    //
+    // A FAN-OUT WIRE USED ONCE IS STILL A WIRE - the vendor holds a `BoxTreeDemux`, a branch point drawn
+    // on the rung, and a use-count heuristic deleted it whenever only one consumer read it.
+    [InlineData("NETWORK 0 LD\n  LET g28 := (a AND b);\n  out := f(IN := g28);\nEND_NETWORK\n")]
+    //
+    // AN OPAQUE LEAF STAYS A LEAF. `LET i<n> := <text>` is ONE `inVariable` whose text is not a safe
+    // token; parsing it turned that single variable into a whole call box, which the next push would
+    // then have BUILT in the IDE.
+    [InlineData("NETWORK 0 FBD\n  LET i1 := DINT_TO_REAL(x);\n  t1(IN := i1);\nEND_NETWORK\n")]   // 23 networks
+    //
+    // A QUOTED TITLE, A DOTTED NAME AN ENGINEER SPACED OUT, AND A COMMENT THEY INDENTED. All three are
+    // text the engineer typed, and all three came back changed.
+    [InlineData("NETWORK 0 LD \"Muting of alarm \"\"No bunch\"\"\"\n  out := a;\nEND_NETWORK\n")]   // a quote in the title, doubled
+    [InlineData("NETWORK 0 FBD\n  out := scSimulationDowntimes .uiMaxSimulationEvents;\nEND_NETWORK\n")]   // the space is the engineer's
+    [InlineData("NETWORK 0 FBD\n  //     indented on purpose\n  out := a;\nEND_NETWORK\n")]   // alignment is content
+    //
+    // DISABLED IS A HEADER KEYWORD, not a word in a title - a network titled with it used to switch
+    // itself off on the way back in.
+    [InlineData("NETWORK 0 LD \"DISABLED during commissioning\"\n  out := a;\nEND_NETWORK\n")]
+    //
+    public void A_real_projects_shapes_round_trip_byte_for_byte(string net) => Assert.Equal(net, Round(net));
+
+    [Theory]
     [InlineData("  x := y;\n")]                                                       // statement before any NETWORK
     [InlineData("NETWORK 0 FBD\n  out := (a AND b OR c);\nEND_NETWORK\n")]             // mixed operators in one parenthesised group
     [InlineData("NETWORK 0 FBD\n  out := ((a AND b);\nEND_NETWORK\n")]                 // unbalanced parens

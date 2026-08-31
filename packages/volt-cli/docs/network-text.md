@@ -95,11 +95,39 @@ real PLC identifiers and must round-trip verbatim.
 | **Modifier words** | `NOT` (leading), `RISING` `FALLING` `SET` `RESET` (trailing) |
 | **Punctuation** | `:=` (assign), `;` (terminator), `.` (member access), `(` `)` (group/call), `,` (arg sep), `:` (label) |
 | **Comment** | `// …` to end of line (a network comment) |
-| **Identifier** | a PLC name: `[A-Za-z_]\w*`, optionally `inst.Pin` for an FB output |
+| **Identifier** | a PLC name: `[A-Za-z_]\w*`, optionally `inst.Pin` for an FB output. A member access may carry **whitespace around its dot** (`a .b`) — engineers type it and the IDE keeps it, so it is part of the name and round-trips verbatim |
+| **Empty slot** | *nothing*, where an operand belongs — a pin connected to nothing (see below) |
 | **Literal** | any ST literal token inlined verbatim (`TRUE`, `FALSE`, `42`, `1.5`, `T#10ms`, `'str'`, …) |
 
 `LET`, `JMP`, etc. are recognised on a **word boundary**, so an identifier such as `LETTER` or `RETURNED` is a
 normal name, not a keyword.
+
+### The empty slot — a pin connected to nothing
+
+An unconnected input is written as **nothing at all**, in whichever operand position it occupies:
+
+```
+( * iRPM * 6);                      // a 3-input MUL box whose first pin is unwired
+ctu(CU := a, RESET := , PV := );    // named pins with nothing on them
+f(, a);   f(a, );                   // positional slots, leading and trailing
+coil := ;                           // a rung nothing drives
+;                                   // an item wired to nothing at all
+```
+
+It is a **position, not a token**, and that is deliberate. A sigil was tried first (`?`) and withdrawn: CODESYS writes `???` into a box whose instance is unresolved — a real compile error the engineer needs to see — so `?` was already content, and Volt carries `???` through verbatim rather than claiming a spelling of its own. Because the grammar is fully parenthesised with **no precedence** (§4), every operand sits between two structural marks, so finding the next mark where an operand should have started — end of input, `)`, `,`, or an operator symbol — says unambiguously that the pin is wired to nothing.
+
+An **operator still needs a right-hand operand**: `(a AND )` is refused (`NETWORK_BAD_EXPRESSION`). The asymmetry with `( * iRPM * 6)` is honest rather than tidy — the empty FIRST pin is measured in a real project (14 of them), the empty right-hand one is not, and Volt refuses shapes it has not seen rather than inferring them from a model that looks like it should allow one.
+
+### Three places whitespace and quoting are content
+
+| Written | Means | Why it is not cosmetic |
+|---|---|---|
+| `NOT x` | the negation **modifier** — a dot on the pin | a space follows `NOT` |
+| `NOT(x)` | a **box** named NOT — its own item on the rung | the `(` is adjacent |
+| `"he said ""no"""` | a network title containing `"` | the quote is **doubled**; writing it raw ended the title early and lost the rest |
+| `//     aligned` | a comment indented by the engineer | everything after the one separator space is the comment's text |
+
+`DISABLED` is a header keyword and is recognised only **after** the title, never inside it — a network titled `"DISABLED during commissioning"` stays enabled.
 
 ---
 
@@ -111,14 +139,17 @@ declaration    = (* ordinary ST: PROGRAM/FUNCTION_BLOCK/… + VAR sections — N
 body           = { network } ;
 
 network        = network-header , { statement } , "END_NETWORK" ;
-network-header = "NETWORK" , integer , language , [ string ] , [ "DISABLED" ] ;
+network-header = "NETWORK" , integer , language , [ title ] , [ "DISABLED" ] ;
+title          = '"' , { char - '"' | '""' } , '"' ;          (* a literal quote is DOUBLED *)
 language       = "FBD" | "LD" ;
 
-statement      = wire-def | sink | fb-call | en-eno-if | execute-box | control-flow | comment ;
+statement      = wire-def | sink | call-stmt | en-eno-if | execute-box | control-flow | comment | empty-stmt ;
 
 wire-def       = "LET" , name , ":=" , producer , [ ";" ] ;   (* an internal wire *)
 sink           = lvalue , ":=" , operand , [ ";" ] ;          (* an outVariable / coil *)
-fb-call        = name , "(" , [ fb-args ] , ")" , [ ";" ] ;   (* a bare FB instance invocation *)
+call-stmt      = call , [ ";" ] ;                             (* an FB instance, OR a box whose output *)
+                                                              (* goes nowhere: `MOVE(g0, iDec);` *)
+empty-stmt     = ";" ;                                        (* an item wired to nothing at all *)
 en-eno-if      = "IF" , name , "THEN" , ( wire-def | sink | fb-call ) , [ ";" ] , "END_IF" ;
 execute-box    = [ "IF" , name , "THEN" ] ,                   (* an Execute box: ST-in-FBD/LD (§6) *)
                  "EXECUTE" , st-text , "END_EXECUTE" ,        (* st-text = verbatim ST, kept byte-for-byte *)
@@ -132,12 +163,14 @@ return         = "RETURN" , [ ";" ]
 comment        = "//" , text ;
 
 producer       = group | call ;                 (* a wire is always a block result or an opaque leaf *)
-operand        = [ "NOT" ] , core , [ "RISING" | "FALLING" ] , [ "SET" | "RESET" ] ;
+operand        = empty
+               | [ "NOT" ] , core , [ "RISING" | "FALLING" ] , [ "SET" | "RESET" ] ;
+empty          = (* nothing — a pin connected to nothing, §3 *) ;
 core           = group | call | member | name | literal ;
 group          = "(" , operand , operator , operand , { operator , operand } , ")" ;
                  (* exactly ONE operator KIND per group; fully parenthesised; no precedence *)
 call           = name , "(" , [ args ] , ")" ;  (* function: positional; FB: PIN := val *)
-member         = name , "." , name ;            (* an FB instance output, e.g. inst.Q *)
+member         = name , [ ws ] , "." , [ ws ] , name ;  (* inst.Q — spacing is the engineer's, kept *)
 
 fb-args        = fb-arg , { "," , fb-arg } ;
 fb-arg         = name , ":=" , operand ;
@@ -236,6 +269,11 @@ A stateless function box; arguments are positional operands.
 out := MAX(a, b);
 out := LIMIT(lo, x, hi);
 ```
+It may also stand alone as a **statement**, when the box's output is connected to nothing — an ordinary
+shape in a ladder, and 34 of one real project's 373 networks:
+```
+MOVE(g0, iDec);
+```
 
 ### FB instance call — `inst(PIN := arg, …)` and output read `inst.Pin`
 A function-block instance is **always named** (it is stateful) and called as a bare statement; its outputs are
@@ -245,6 +283,14 @@ t1(IN := a, PT := pt);
 done := t1.Q;
 et   := t1.ET;
 ```
+
+### The `LET` prefix carries the meaning
+`g<n>` is a **fan-out wire**, `i<n>` an **opaque leaf**, `en<n>` an **enable echo** — those are the names
+the writer mints for exactly those three things, and a reader must honour the prefix rather than guess from
+how often the name is used. A `BoxTreeDemux` feeding a single consumer is still an item drawn on the rung,
+and an opaque leaf is one `inVariable` rather than the expression its text happens to spell. A name the
+writer did not mint is hand-authored, and there use count is the only signal available: used twice it is a
+wire, or its value would be duplicated into both consumers.
 
 ### Opaque leaf — `LET i := <text>`
 An `inVariable` whose text is **not a single safe token** — it has whitespace or parentheses (`a + 1`, `NOT x`,
