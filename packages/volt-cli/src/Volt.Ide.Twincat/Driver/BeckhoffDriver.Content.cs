@@ -131,7 +131,13 @@ public sealed partial class BeckhoffDriver
     /// not write.</summary>
     private static BodyLanguage? ViewModeOf(XElement impl)
     {
-        var mode = TcArchive.ViewMode(impl) ?? "Fbd";
+        // NO `?? "Fbd"`. An archive with no DefaultViewMode is a body whose view Volt cannot determine,
+        // and guessing FBD renders a ladder as a function-block diagram — the engineer's own drawing,
+        // reshaped in git by a default. CODESYS demands the member (`NwlInterop.Require`) and this now
+        // agrees: an absent view falls through to the null below, which the caller turns into the MARKER,
+        // so the POU still appears and still says what it is.
+        var mode = TcArchive.ViewMode(impl);
+        if (mode == null) return null;
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
 
@@ -271,12 +277,26 @@ public sealed partial class BeckhoffDriver
         {
             return TcNetworkWriter.Apply(built, model) ?? built;
         }
-        catch (NotSupportedException) when (!CarriesDetail(model))
+        catch (NotSupportedException) when (!CarriesDetail(model) && !LostNetworks(built, model))
         {
             // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
             return built;
         }
     }
+
+    /// <summary>Did the import come back with FEWER networks than were pushed?
+    ///
+    /// <para><b>The direction is the whole point.</b> D25's regrouping — the importer emitting one network per
+    /// connected component — can only ever produce the SAME number or MORE, because it splits and never merges.
+    /// So "more" is the measured, licensed outcome and the swallow above is right to accept it. FEWER is not
+    /// regrouping at all; it is LOSS, and the known case is an EMPTY network, which PLCopen cannot state because
+    /// it has no network element (D25) and the archive cannot be constructed to reinsert one (N11/N12).</para>
+    ///
+    /// <para>That loss is forced. Reporting the push as APPLIED over it was not: the engineer's empty network
+    /// vanished and the wire said success. Now the refusal propagates, so a body that cannot be created says so
+    /// instead of arriving incomplete.</para></summary>
+    private static bool LostNetworks(string built, NetworkBody model) =>
+        TcArchive.Root(built) is { } impl && TcArchive.List(impl, "NetworkList").Count < model.Networks.Count;
 
     /// <summary>Anything network text carries that a PLCopen import does not: item modifiers and the
     /// per-network metadata (<c>Title</c>, <c>Label</c>, <c>Comment</c>, <c>OutCommented</c>).</summary>

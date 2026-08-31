@@ -179,11 +179,33 @@ internal static class TcPlcOpenWriter
 
         private long EmitBox(Box box)
         {
-            if (box.Enable != null) throw Refuse("wires a box's EN input");
+            // A WIRED ENABLE IS REFUSED — and the reason is measured, not assumed.
+            //
+            // The old refusal said an enable "cannot be expressed as PLCopen", which is false: the vendor's own
+            // export writes it as an ordinary input variable named EN, wired by refLocalId like any other
+            // (`fixtures/tc-fbd/fbd_en_eno.plcopen.xml`). So it was emitted that way and MEASURED end to end on
+            // a live XAE (2026-08-31). The importer accepts the document and does NOT honour the pin:
+            //
+            //     pushed:  LET en1 := go;  IF en1 THEN out := (a AND b); END_IF
+            //     back:    out := (go AND a AND b);
+            //
+            // The enable was absorbed as a THIRD ORDINARY INPUT of the AND. On an AND that is coincidentally
+            // equivalent; on any other box it silently changes what the program does, which is worse than the
+            // refusal it replaced. Nor can the following `Stamp` repair it: the box now has one input more than
+            // the model, and the in-place writer refuses a shape change — correctly.
+            //
+            // So this stays refused, the divergence with CODESYS (which builds an enable natively) is FORCED by
+            // the importer rather than by the format, and the message now says which.
+            // NOT `Refuse(...)`: that helper ends every message with "which Volt cannot express as PLCopen",
+            // and that is precisely the claim this measurement disproves.
+            if (box.Enable != null)
+                throw new NotSupportedException(
+                    "TwinCAT: this graphical body wires a box's EN input. PLCopen can state it — the vendor's own " +
+                    "export does — but TwinCAT's importer does NOT honour it: measured live, an enable comes back " +
+                    "folded into the box as an ordinary input, so `IF en THEN out := (a AND b)` became " +
+                    "`out := (en AND a AND b)`. Creating it would silently change what the program does. Draw the " +
+                    "enable in the IDE and pull it.");
             if (box.StCode != null) throw Refuse("contains an Execute box");
-
-            // Inputs are emitted BEFORE the block, so their ids exist to be referenced - and so the document
-            // order matches the vendor's own export, which is producer-before-consumer throughout.
             var wired = box.Inputs.Select(i => (Input: i, From: Emit(i.Value))).ToList();
 
             var id = Id();
@@ -195,6 +217,7 @@ internal static class TcPlcOpenWriter
                 block.SetAttributeValue("instanceName", instance.Text);
 
             var inputs = new XElement(Namespaces.Tc6 + "inputVariables");
+
             for (int i = 0; i < wired.Count; i++)
             {
                 var (input, from) = wired[i];

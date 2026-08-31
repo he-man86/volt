@@ -98,6 +98,38 @@ internal static class TcArchive
         return l == null ? Array.Empty<XElement>() : l.Elements("o").ToList();
     }
 
+    /// <summary>The items of a list that MUST be there — the strict twin of <see cref="List"/>.
+    ///
+    /// <para><b>Absent and empty are different answers, and the archive spells them differently.</b> A resolved
+    /// box legitimately has no output items, and the vendor writes that as a PRESENT but empty list
+    /// (<c>&lt;o n="OutputItems"&gt;&lt;l2 n="OutputItems" /&gt;&lt;/o&gt;</c>). A list that is not there at all
+    /// means this code is reading by a name the object model does not use — which is not a body with no
+    /// outputs, it is a body Volt cannot read.</para>
+    ///
+    /// <para><see cref="List"/> answered empty for both, so the whole class of wrong-member-name bugs
+    /// materialized here as a SILENTLY EMPTY body rather than an error. That is not hypothetical: the box enable
+    /// was read as <c>"En"</c> for as long as this reader has existed while every archive spells it <c>EN</c>.
+    /// CODESYS's reader has always failed loud on the same conditions (<c>NwlInterop.Require</c>), and its
+    /// message names the loaded assembly version because "member missing" is a version story.</para></summary>
+    public static IReadOnlyList<XElement> RequireList(XElement? owner, string name, string what)
+    {
+        var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);
+        if (l == null)
+            throw new NotSupportedException(
+                $"TwinCAT: {what} has no '{name}' list in the archive. Refusing rather than reading it as an " +
+                "empty one — a member this reader cannot find is a body it cannot represent, not a body with " +
+                "nothing in it.");
+        return l.Elements("o").ToList();
+    }
+
+    /// <summary>A named object member that MUST be there. Same rule as <see cref="RequireList"/>, for the
+    /// holder rather than the list inside it.</summary>
+    public static XElement RequireObj(XElement? owner, string name, string what) =>
+        Obj(owner, name)
+        ?? throw new NotSupportedException(
+               $"TwinCAT: {what} has no '{name}' member in the archive. Refusing rather than treating it as " +
+               "absent content — this reader is looking by a name the object model does not use.");
+
     /// <summary>The SCALAR items of a named list: <c>&lt;l2 n="Names" cet="String"&gt;&lt;v&gt;IN&lt;/v&gt;</c>.
     /// <para><see cref="List"/> returns only the <c>&lt;o&gt;</c> children, which is right for a list of objects
     /// and blind to a list of values - and a box's pin NAMES are values.</para></summary>

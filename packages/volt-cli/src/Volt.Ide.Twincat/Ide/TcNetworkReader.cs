@@ -27,7 +27,7 @@ internal static class TcNetworkReader
 {
     public static NetworkBody Read(XElement impl, BodyLanguage language)
     {
-        var networks = TcArchive.List(impl, "NetworkList")
+        var networks = TcArchive.RequireList(impl, "NetworkList", "the body")
             .Select((n, i) => ReadNetwork(n, i))
             .ToList();
         return new NetworkBody(language, networks);
@@ -54,7 +54,7 @@ internal static class TcNetworkReader
             Trimmed(TcArchive.Str(net, "Label")),
             Trimmed(TcArchive.Str(net, "Comment")),
             TcArchive.Bool(net, "OutCommented"),
-            TcArchive.List(net, "NetworkItems").Select(ReadNode).ToList());
+            TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(ReadNode).ToList());
 
     private static Node ReadNode(XElement e)
     {
@@ -175,9 +175,12 @@ internal static class TcNetworkReader
     /// <c>OutputItems</c> object of type <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
     private static IReadOnlyList<Operand> Outputs(XElement e)
     {
-        var holder = TcArchive.Obj(e, "OutputItems");
-        if (holder == null) return Array.Empty<Operand>();
-        return TcArchive.List(holder, "OutputItems").Select(x => ReadOperand(x)).ToList();
+        // The HOLDER and its list must both be there. An empty list is a resolved box with no output items —
+        // legitimate and common; an ABSENT one means this reader is looking by a name the archive does not
+        // use, which is a body it cannot read, not a body with no outputs.
+        var holder = TcArchive.RequireObj(e, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}");
+        return TcArchive.RequireList(holder, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}'s outputs")
+            .Select(x => ReadOperand(x)).ToList();
     }
 
     private static Operand ReadOperand(XElement? o)

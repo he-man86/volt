@@ -175,7 +175,18 @@ namespace Volt.Ide.Codesys
             if (formals.Count == inputs.Count)
                 inputs = inputs.Select((p, i) => p with { Formal = Clean(formals[i]) }).ToList();
 
-            var instance = NwlInterop.Get(n, "Instance") is { } inst ? ReadOperand(inst) : null;
+            // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —
+            // the serializer writes `<o n="Instance" t="Operand">` with an empty `Operand` inside on every
+            // plain AND/OR in every fixture — so testing presence made a default-constructed Operand("")
+            // look like a function-block call. For an operator that is harmless (the writer renders it from
+            // the box type), but a stateless FUNCTION box — MAX, SEL, LIMIT, MOVE, any user FUNCTION —
+            // misses the operator table and renders as `( := a, := b)`: no callee, unparseable, pulled and
+            // never pushable. TwinCAT tests the inner scalar for exactly this reason, with the same
+            // failure recorded; this is that guard through the live spelling.
+            var instanceObj = NwlInterop.Get(n, "Instance");
+            var instance = instanceObj != null && !string.IsNullOrEmpty(NwlInterop.Text(instanceObj, "OperandExpr"))
+                ? ReadOperand(instanceObj)
+                : null;
 
             return new Box(
                 NwlInterop.Text(n, "BoxType") ?? "",

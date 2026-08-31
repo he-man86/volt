@@ -215,7 +215,24 @@ namespace Volt.Ide.Codesys
                                 NwlInterop.Call(pins, "AppendParam", p.Formal ?? "", "");
                         }
 
-                        if (b.Enable is { } en) NwlInterop.Set(box, "En", Node(en));
+                        // A WIRED ENABLE IS REFUSED, and the refusal is measured rather than assumed.
+                        //
+                        // This assigned the enable's tree straight to `En`, and live CODESYS answers:
+                        //   "Object of type '_3S.CoDeSys.NWLObject.BoxTreeOperand' cannot be converted to type
+                        //    'System.Nullable`1[System.Boolean]'."
+                        // `En` is a NULLABLE BOOLEAN on this vendor, not a node — which is the same fact DIALECT
+                        // C7 records from the other side, where an unwired pin reads back as `System.Boolean
+                        // false` rather than null. So a wired enable was never written here: every push carrying
+                        // one failed, and failed by leaking a raw .NET type error to the engineer.
+                        //
+                        // Where a wired enable's EXPRESSION actually lives on this vendor is not measured, so
+                        // this refuses instead of guessing — the same answer TwinCAT gives, for a different
+                        // measured reason (its importer folds the pin into the box as an ordinary input).
+                        if (b.Enable is not null)
+                            throw new NotSupportedException(
+                                "CODESYS: this graphical body wires a box's EN input, which Volt cannot create — " +
+                                "the vendor's `En` member is a nullable BOOLEAN, not a wired expression, so there " +
+                                "is nowhere to put the enable's tree. Draw it in the IDE and pull it.");
 
                         if (b.Outputs.Count > 0)
                         {
