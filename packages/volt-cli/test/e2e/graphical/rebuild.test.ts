@@ -179,14 +179,14 @@ VAR
 END_VAR
 
 ` +
-			// Canonical order is header, then COMMENT, then LABEL — the reverse of how the IDE lays the two out
-			// in a network's header, where the comment box sits below the label. The reader takes them in
-			// either order; the canonical-form gate does not, so an engineer typing them the way the IDE shows
-			// them gets a refusal with the corrected body. Noted in the network-text-placement-rules proposal.
+			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and now the canonical form too. It was
+			// the other way round until this suite made the cost obvious: the reader takes them in either
+			// order, so a network typed the way the IDE displays it parsed fine and was then re-emitted
+			// swapped and refused as "not in canonical form".
 			`NETWORK 0 LD "interlock"
+  Guard:
   // holds the drive off while the guard is open
   // second line of the same comment
-  Guard:
   out := (a AND b);
 END_NETWORK
 ` +

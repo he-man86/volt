@@ -360,8 +360,9 @@ IF cond THEN RETURN; END_IF           -- conditional return
 
 ### Networks, comments, flags
 ```
-NETWORK 0 FBD "optional title" DISABLED   -- index, language (FBD|LD), optional quoted label, optional DISABLED
-  // a network comment
+NETWORK 0 FBD "optional title" DISABLED   -- index, language (FBD|LD), optional quoted title, optional DISABLED
+  myLabel:                                -- optional jump label, FIRST
+  // a network comment                    -- optional comment, THEN
   out := (a AND b);
 END_NETWORK
 NETWORK 1 LD                              -- a second network; index 1 → localIds in the 1×10¹⁰ band
@@ -370,6 +371,10 @@ END_NETWORK
 ```
 The network **index** is verbatim and must be unique; it bases the network's `localId` band. The **language** tag
 follows the index (a body may even mix FBD and LD networks, vendor permitting).
+
+A network's **label comes before its comment**, mirroring the IDE's own header layout (the label above the
+single comment box). The reader accepts them in either order — only the canonical form is fixed, and it is
+fixed this way so that writing a network the way the IDE displays it is not refused.
 
 ---
 

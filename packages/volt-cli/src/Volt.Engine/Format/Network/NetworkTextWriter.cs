@@ -76,12 +76,19 @@ public static class NetworkTextWriter
             if (_net.Disabled) _sb.Append(" DISABLED");
             _sb.Append('\n');
 
+            // LABEL FIRST, THEN COMMENT — the order the IDE lays a network header out, where the label sits
+            // above the single comment box. This used to be the other way round, which made the one thing
+            // engineers hand-write the one thing the canonical-form gate refused: the reader takes them in
+            // either order, so typing them as the IDE shows them parsed fine and was then re-emitted swapped
+            // and rejected as "not in canonical form". Nothing about the model or the vendors preferred the
+            // old order; it was arbitrary, and arbitrary was costing an error message.
+            //
+            // A jump TARGET is the network's label — `myLabel:` on its own line.
+            if (!string.IsNullOrEmpty(_net.Label)) _sb.Append("  ").Append(_net.Label).Append(":\n");
+
             if (!string.IsNullOrEmpty(_net.Comment))
                 foreach (var line in _net.Comment!.Replace("\r", "").Split('\n'))
                     _sb.Append("  // ").Append(line).Append('\n');
-
-            // A jump TARGET is the network's label — `myLabel:` on its own line.
-            if (!string.IsNullOrEmpty(_net.Label)) _sb.Append("  ").Append(_net.Label).Append(":\n");
 
             foreach (var tree in _net.Trees) Statement(tree);
             _sb.Append("END_NETWORK\n");

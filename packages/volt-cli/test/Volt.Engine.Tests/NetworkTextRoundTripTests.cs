@@ -92,6 +92,13 @@ public class NetworkTextRoundTripTests
     // itself off on the way back in.
     [InlineData("NETWORK 0 LD \"DISABLED during commissioning\"\n  out := a;\nEND_NETWORK\n")]
     //
+    //
+    // A NETWORK'S LABEL COMES BEFORE ITS COMMENT, mirroring the IDE's own header layout (the label above the
+    // single comment box). The reader takes them in either order, so this pins the CANONICAL one — and it is
+    // canonical this way round so that writing a network the way the IDE displays it is not refused. It was
+    // the other way for a while, which made the one thing engineers hand-write the one thing the gate
+    // rejected, for no reason the model or either vendor had an opinion about.
+    [InlineData("NETWORK 0 LD \"interlock\"\n  Guard:\n  // holds the drive off while the guard is open\n  // second line of the same comment\n  out := (a AND b);\nEND_NETWORK\n")]
     public void A_real_projects_shapes_round_trip_byte_for_byte(string net) => Assert.Equal(net, Round(net));
 
     [Theory]
