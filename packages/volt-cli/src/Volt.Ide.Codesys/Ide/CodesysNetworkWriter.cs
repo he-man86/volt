@@ -39,7 +39,13 @@ namespace Volt.Ide.Codesys
                 // two — so it invites an edit that nothing applies: the member is never written on an
                 // update, and the change gate below compares both sides with the language neutralised, so a
                 // header-only edit wrote nothing, reported success, and was reverted by the next pull.
-                NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
+                // ...but only when there IS one. A body that is not graphical YET — a freshly created
+                // accessor, whose Implementation is still an `STImplementationObject` — has no
+                // `DefaultViewMode` member at all, and `ReadViewMode` demands it. Asking that of a CREATE
+                // turned every graphical property accessor into `'STImplementationObject' has no
+                // 'DefaultViewMode'`. There is no view to preserve when there is no diagram yet.
+                if (NwlInterop.Get(impl, "DefaultViewMode") is not null)
+                    NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
 
                 // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
                 // and an earlier version of this file refused a count change outright as "not measured" - which

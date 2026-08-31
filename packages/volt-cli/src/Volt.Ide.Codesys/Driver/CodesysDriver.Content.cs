@@ -340,7 +340,32 @@ public sealed partial class CodesysDriver
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            _om.WriteSourceText(child.Native, accessor.Declaration, accessor.Code);
+
+            // A GRAPHICAL ACCESSOR IS WRITTEN AS A DIAGRAM, not as source text.
+            //
+            // This wrote `accessor.Code` straight through `WriteSourceText`, with no graphical branch at
+            // all - the only write path in this driver that lacked one. So a property whose GET/SET is
+            // FBD or LD had its NETWORK TEXT stored as the accessor's ST body, and the project stopped
+            // compiling: `';' expected instead of '0'`, `';' expected instead of 'FBD'` - the
+            // `NETWORK 0 FBD` header being parsed as a statement.
+            //
+            // It round-tripped perfectly the whole time, because Volt read its own network text straight
+            // back, and the test that exists for exactly this (`graphical-kinds.test.ts`, "an FB whose
+            // PROPERTY has FBD in BOTH accessors round-trips and compiles") passed because its build
+            // assertion filtered diagnostics by a POU name no vendor puts in one. That test's own comment
+            // describes this bug as fixed; the fix covered the member path and never reached the accessor.
+            //
+            // Same two-step as every other body here: validate BEFORE touching the IDE, write the
+            // declaration with a null body, then build the diagram through the network writer.
+            var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkTextGate.Validate(ac) : null;
+            if (graph is null)
+            {
+                _om.WriteSourceText(child.Native, accessor.Declaration, accessor.Code);
+                return;
+            }
+
+            _om.WriteSourceText(child.Native, accessor.Declaration, null);
+            CodesysNetworkWriter.Write(_om, child.Native, graph, accessor.Declaration);
             return;
         }
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -377,7 +377,14 @@ namespace Volt.Ide.Codesys
                     ("name", name), ("language", LanguageArg(language)));
                 case ItemKind.PlcAction: return CreateNamed(MemberContainer(parent), "create_action",
                     ("name", name), ("language", LanguageArg(language)));
-                case ItemKind.PlcProp: return Create(MemberContainer(parent), "create_property", name);
+                // THE LANGUAGE REACHES THE ACCESSORS THROUGH THE PROPERTY. `create_property` builds both
+                // Get and Set with it, and they are what hold a graphical body — the property itself has
+                // none. Passing nothing made them ST, and the graphical write then failed on
+                // `'STImplementationObject' has no 'NetworkList'`, the exact message `CreatePou` warns
+                // about a few lines up. An INTERFACE property's accessors are bodiless stubs (D21), so
+                // that arm keeps its seed as the data type.
+                case ItemKind.PlcProp: return CreateNamed(MemberContainer(parent), "create_property",
+                    ("name", name), ("language", LanguageArg(language)));
                 case ItemKind.PlcItfProp: return Create(MemberContainer(parent), "create_property", name);
                 // Property accessors. create_property above makes BOTH Get and Set with the property, so the
                 // normal path never gets here — PushService.EnsureAccessor finds the existing accessor first.

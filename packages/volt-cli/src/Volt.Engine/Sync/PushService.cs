@@ -658,7 +658,14 @@ public static class PushService
     private static string? CreateSeed(Member m) =>
         m.Kind is ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty
             ? m.ReturnType ?? m.DataType
-            : NetworkText.LanguageOf(m.Body);
+            // A PROPERTY HAS NO BODY OF ITS OWN — its ACCESSORS carry the code, and with it the language.
+            // Reading `m.Body` alone always answered null for one, so `create_property` made its Get and
+            // Set as ST, and a graphical accessor then had nowhere to be written: the aspect is an
+            // `STImplementationObject`, which has no `NetworkList`. Methods and actions never hit this
+            // because their body IS their code.
+            : NetworkText.LanguageOf(m.Body)
+              ?? NetworkText.LanguageOf(m.Getter?.Code)
+              ?? NetworkText.LanguageOf(m.Setter?.Code);
 
     private static int PouKindToCode(string kind) => kind switch
     {
