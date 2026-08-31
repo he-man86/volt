@@ -74,7 +74,7 @@ namespace Volt.Ide.Codesys
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
-            var ctx = new BuildContext(impl, net, declaration);
+            var ctx = new BuildContext(net, declaration);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
         }
@@ -116,18 +116,14 @@ namespace Volt.Ide.Codesys
             if (current.TrimEnd() != value.TrimEnd()) NwlInterop.Set(o, member, value);
         }
 
-        /// <summary>Per-network build state. <see cref="_varIds"/> maps a model <c>Demux.VarId</c> to the id
-        /// actually used in the IDE, because a body authored in network text carries Volt's own wire numbering
-        /// and the IDE mints its own from <c>BranchCounter</c>.</summary>
+        /// <summary>Per-network build state.</summary>
         private sealed class BuildContext
         {
-            private readonly object _impl;
             private readonly object _net;
             private readonly string? _declaration;
-            private readonly Dictionary<int, int> _varIds = new Dictionary<int, int>();
 
-            public BuildContext(object impl, object net, string? declaration)
-            { _impl = impl; _net = net; _declaration = declaration; }
+            public BuildContext(object net, string? declaration)
+            { _net = net; _declaration = declaration; }
 
             public object Node(Node n)
             {
@@ -244,10 +240,23 @@ namespace Volt.Ide.Codesys
                         return Flagged(box, b.Flags);
                     }
 
+                    // THE WIRE ID IS WRITTEN AS THE MODEL CARRIES IT.
+                    //
+                    // This used to mint a fresh id from the aspect's own allocator for every wire, so editing
+                    // anything in a network renumbered all of its fan-out. Measured live: changing one operand
+                    // moved `LET g0` to `LET g2`, while the untouched network beside it kept `g1` because the
+                    // change gate spared it. The engineer got wires they never touched renamed in the same
+                    // commit as the edit they did make — noise in a diff, from the one tool whose entire value
+                    // is that the diff is honest.
+                    //
+                    // Minting was there against a collision that does not exist: ids are NETWORK-scoped, not
+                    // body-unique. Measured by pushing the same `g0` in two networks — both came back `g0`,
+                    // each pairing with its own references. And TwinCAT has always written `d.VarId` straight
+                    // through, so the minting was also the divergence, not the reuse.
                     case Demux d:
                     {
                         var dm = NwlInterop.New(_net, "BoxTreeDemux");
-                        NwlInterop.Set(dm, "VarId", VarIdFor(d.VarId));
+                        NwlInterop.Set(dm, "VarId", d.VarId);
                         // With an Input this DEFINES the wire; without one it REFERENCES the definition
                         // carrying the same id.
                         if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(src));
@@ -274,21 +283,6 @@ namespace Volt.Ide.Codesys
                             $"CODESYS: no way to write the graphical node '{n.GetType().Name}' — refusing " +
                             "rather than writing a body that is not what the source says.");
                 }
-            }
-
-            /// <summary>A wire id the IDE will accept. Volt's numbering comes from the authored text and can
-            /// collide with ids already in the POU, so each distinct model id is mapped once onto a fresh id
-            /// taken from the aspect's own <c>BranchCounter</c>.</summary>
-            private int VarIdFor(int modelId)
-            {
-                if (_varIds.TryGetValue(modelId, out var id)) return id;
-                // The aspect mints these. Incrementing the BranchCounter property by hand -
-                // which is what this did first - reimplements the vendor allocator from the
-                // outside, and would drift the moment it did anything else (skipping an id
-                // already in use, for one).
-                var next = NwlInterop.Call(_impl, "GetNextBranchCounter") is int n ? n : 0;
-                _varIds[modelId] = next;
-                return next;
             }
 
             /// <summary>The TYPE to write into <c>BoxType</c> — resolved from the DECLARATION for a

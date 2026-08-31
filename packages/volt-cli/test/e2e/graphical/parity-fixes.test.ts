@@ -193,6 +193,66 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	})
 
 	/**
+	 * EDITING A NETWORK DOES NOT RENAME THE WIRES IN IT.
+	 *
+	 * A fan-out is a named wire in the text (`LET g0 := ...`), and the name is minted from the id the vendor
+	 * holds. CODESYS re-minted every id on write, so touching one operand renumbered the whole network: measured
+	 * live, `LET g0` came back as `LET g2` after a one-word edit, while the untouched network beside it kept
+	 * `g1` because the change gate spared it. Nothing was lost and nothing miscompiled — the diff just claimed
+	 * the engineer had renamed wires they never touched, in the tool whose whole value is an honest diff.
+	 *
+	 * TwinCAT never had it: `TcNetworkWriter` writes `d.VarId` straight through. So this is vendor-blind like
+	 * the rest of the file, and the minting was the divergence.
+	 */
+	it("editing one operand leaves every wire name alone", async () => {
+		const name = id("pf_wire")
+		const full = fid("pf_wire", "prg")
+		const src =
+			`PROGRAM ${name}
+VAR
+	a : BOOL;
+	b : BOOL;
+	p : BOOL;
+	q : BOOL;
+	r : BOOL;
+	s : BOOL;
+END_VAR
+
+` +
+			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
+			`NETWORK 0 FBD
+  LET g0 := (a AND b);
+  p := g0;
+  q := g0;
+END_NETWORK
+` +
+			`NETWORK 1 FBD
+  LET g1 := (a OR b);
+  r := g1;
+  s := g1;
+END_NETWORK
+
+` +
+			`END_PROGRAM
+`
+
+		// Edit the PULLED text, not the authored text: the IDE owns its own network boundaries (D25), so a
+		// re-stated body can differ in shape for reasons that have nothing to do with wire names.
+		const before = await roundTrip(full, src)
+		const wires = (t: string) => t.match(/LET \w+/g) ?? []
+		expect(wires(before).length).toBe(2)
+
+		const edited = before.replace("(a AND b)", "(a AND p)")
+		expect(edited).not.toBe(before)              // the edit really applied
+		const after = await roundTrip(full, edited)
+
+		// BOTH networks keep their wire names — the edited one and the one that was never touched.
+		expect(wires(after)).toEqual(wires(before))
+		// And the references still point at the definitions, rather than being renamed apart from them.
+		expect(after).toBe(edited)
+	})
+
+	/**
 	 * A FUNCTION-BLOCK CALL CALLS ITS TYPE, NOT ITS INSTANCE — and only a BUILD can see the difference.
 	 *
 	 * Network text names an FB call by its instance (`t1(IN := a)`), so a text-derived model arrives with
