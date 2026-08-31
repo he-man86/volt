@@ -233,9 +233,23 @@ internal static class TcNetworkWriter
                 // value (see TcNetworkReader). It is written from the value and STRIPPED from the value, so the
                 // source operand does not also come out latched: `out := a SET;` is a set COIL, not a set input.
                 var storage = a.Value?.Flags ?? Flags.None;
+
+                // A JUMP OR RETURN HAS NO OUTPUTS, and its `Targets` are not outputs either — a jump's
+                // single target is its LABEL (the destination network's name) and a return has none at all.
+                // Comparing them against the archive's `OutputItems` therefore compared two unrelated
+                // things: TwinCAT's imported return item carries one output slot holding an empty operand,
+                // the model carries zero, and the push was refused with "an item changes from 1 to 0
+                // output(s)" — a body the IDE had just built from Volt's own import could be pulled and
+                // never pushed back.
+                //
+                // This is the same mistake the box arm below documents at length (a text-derived model can
+                // never carry `Box.Outputs`, so comparing them refused every resolved box), in the one
+                // other place the model and the archive disagree about what an "output" is.
+                var controlFlow = a.Flags.Jump || a.Flags.Return;
+
                 return changed
                      | WriteChild(e, "RValue", CoilStorage.WithoutStorage(a.Value))
-                     | WriteOutputs(e, a.Targets)
+                     | (controlFlow ? false : WriteOutputs(e, a.Targets))
                      | WriteStorage(e, storage);
             }
 

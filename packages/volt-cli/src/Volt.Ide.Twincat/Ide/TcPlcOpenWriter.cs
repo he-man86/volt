@@ -293,7 +293,7 @@ internal static class TcPlcOpenWriter
             // one turns a SET coil into a plain one on a push that reports success. The vendor really does put
             // them here: measured on a real ladder, a target came back Flags=Negation,Set.
             if (assign.Flags.Jump) return EmitJump(assign);
-            if (assign.Flags.Return) throw Refuse("contains a return");
+            if (assign.Flags.Return) return EmitReturn(assign);
             if (assign.Value is not { } value) throw Refuse("assigns nothing");
 
             var producer = Emit(value) ?? throw Refuse("assigns from a statement");
@@ -319,6 +319,50 @@ internal static class TcPlcOpenWriter
         ///
         /// <para>The label itself is not written here. It belongs to the DESTINATION network
         /// (<c>Network.Label</c>), which the archive writer sets after the import.</para></summary>
+        /// <summary>A RETURN — `<return>`, which is `<jump>` without the label, and wired to its condition
+        /// the same way.
+        ///
+        /// <para>This was refused as "contains a return, which Volt cannot express as PLCopen" — and that
+        /// was never measured, only assumed. `<return>` is a TC6 element sitting beside `<jump>` in the same
+        /// content model, and Volt was already emitting jumps successfully, so the claim did not survive the
+        /// first look. CODESYS round-trips a conditional return exactly; TwinCAT refused to create one, which
+        /// made a shape one vendor supports unreachable on the other for no reason either could point at.
+        ///
+        /// <para>The importer's behaviour IS the test (D22 is a standing reminder that documented PLCopen
+        /// properties are wrong on this install): if it ever stops honouring this, the round-trip in
+        /// `test/e2e/graphical/labels.test.ts` fails rather than a comment going stale.</para></summary>
+        /// <summary>Nothing drives this item — no value at all, or the unconnected terminator the reader
+        /// builds for a bare `JMP name;` / `RETURN;`.</summary>
+        private static bool Unconditional(Node? value) => value is null or Terminator { Input: null };
+
+        private long? EmitReturn(Assign ret)
+        {
+            var el = new XElement(Namespaces.Tc6 + "return",
+                new XAttribute("localId", Id().ToString()),
+                Position());
+
+            // A CONDITIONAL return is wired to its condition. An unconnected TERMINATOR is how the model
+            // spells "nothing drives this", so it means unconditional — and an unconditional one cannot be
+            // IMPORTED here, which is measured rather than assumed: the identical document with a
+            // `connectionPointIn` imports fine and round-trips, and without one TwinCAT rejects the whole
+            // scratch object with `Value cannot be null. Parameter name: source`. The presence of the
+            // connection is the only difference between the two, so the importer wants a jump or return
+            // WIRED. Refusing says that; letting the vendor's null-reference reach the engineer does not.
+            if (Unconditional(ret.Value)) throw Refuse("contains an unconditional return, which this"
+                + " TwinCAT's PLCopen importer rejects (it requires a return to be wired to a condition)");
+
+            if (ret.Value is { } condition)
+            {
+                var producer = Emit(condition) ?? throw Refuse("returns on a statement");
+                el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
+                    new XElement(Namespaces.Tc6 + "connection",
+                        new XAttribute("refLocalId", producer.ToString()))));
+            }
+
+            _root.Add(el);
+            return null;      // a return produces no value for anything to consume
+        }
+
         private long? EmitJump(Assign jump)
         {
             if (jump.Targets.Count != 1)
@@ -329,7 +373,11 @@ internal static class TcPlcOpenWriter
                 new XAttribute("label", jump.Targets[0].Text),
                 Position());
 
-            // A CONDITIONAL jump is wired to its condition; an unconditional one has no input at all.
+            // Same rule as the return above, and the same measurement: an unconditional jump is rejected by
+            // the importer, a wired one imports and round-trips.
+            if (Unconditional(jump.Value)) throw Refuse("contains an unconditional jump, which this"
+                + " TwinCAT's PLCopen importer rejects (it requires a jump to be wired to a condition)");
+
             if (jump.Value is { } condition)
             {
                 var producer = Emit(condition) ?? throw Refuse("jumps on a statement");

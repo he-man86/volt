@@ -226,15 +226,28 @@ public static class NetworkTextReader
                 return;
             }
 
+            // AN UNCONDITIONAL JUMP OR RETURN IS DRAWN ON A RUNG THAT NOTHING DRIVES, so its value is an
+            // unconnected TERMINATOR rather than null.
+            //
+            // Both used to build an assign with NO value at all, which is an item holding nothing: no
+            // input, and (for RETURN) no output either. Measured live, both vendors refused to save it,
+            // and neither error said why — CODESYS answered "Object reference not set to an instance of
+            // an object" and TwinCAT "Value cannot be null. Parameter name: source". The CONDITIONAL
+            // form worked on both all along, which is the tell: the difference is exactly the missing
+            // value. `BoxTreeTerminator` with no input is the vendor's own spelling for a rung end that
+            // nothing drives (it is what `coil := ;` reads back as), so it is what an unconditional one
+            // gets — a measured shape reused, not a new one invented.
             if (Regex.IsMatch(line, @"^JMP\s+\w+$", RegexOptions.IgnoreCase))
             {
-                _stmts.Add((null, new Assign(null, new List<Operand> { new(line.Substring(4).Trim()) },
+                _stmts.Add((null, new Assign(new Terminator(null, Flags.None),
+                                             new List<Operand> { new(line.Substring(4).Trim()) },
                                              Flags.None with { Jump = true })));
                 return;
             }
             if (line.Equals("RETURN", StringComparison.OrdinalIgnoreCase))
             {
-                _stmts.Add((null, new Assign(null, new List<Operand>(), Flags.None with { Return = true })));
+                _stmts.Add((null, new Assign(new Terminator(null, Flags.None), new List<Operand>(),
+                                             Flags.None with { Return = true })));
                 return;
             }
             // A label — `myLabel:` — is the network's jump target.

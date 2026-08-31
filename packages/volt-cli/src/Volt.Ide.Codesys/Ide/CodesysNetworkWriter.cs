@@ -331,7 +331,7 @@ namespace Volt.Ide.Codesys
             {
                 var op = NwlInterop.Require(box, "Instance");
                 NwlInterop.Set(op, "OperandExpr", inst.Text);
-                if (!string.IsNullOrEmpty(inst.Type)) NwlInterop.Set(op, "Type", inst.Type);
+                // `Type` is NOT written here — see `Operand` below for why it never could be.
                 ApplyFlags(op, inst.Flags);
             }
 
@@ -346,8 +346,24 @@ namespace Volt.Ide.Codesys
             private object Operand(Operand o, Flags extra)
             {
                 var op = NwlInterop.New(_net, "Operand", o.Text);
-                if (!string.IsNullOrEmpty(o.Type)) NwlInterop.Set(op, "Type", o.Type);
-                if (o.IsLValue) NwlInterop.Set(op, "IsLValue", true);
+
+                // `Type` AND `IsLValue` ARE THE IDE'S, and the two lines that restored them here could
+                // never run. `PushService` always sends an item's body AS TEXT, so every model that reaches
+                // this writer is text-derived and carries `Type = null` and `IsLValue = false` on every
+                // operand — both production call sites pass exactly such a model, and network text has no
+                // syntax for either field. So `if (!string.IsNullOrEmpty(o.Type)) Set(op, "Type", …)` read
+                // as "Volt preserves the resolved type across a rebuild" while doing nothing at all.
+                //
+                // It does not need to. Measured live (`test/e2e/graphical/rebuild.test.ts`): an FB whose
+                // network is edited — destroying and re-appending every item in it — still COMPILES, so the
+                // IDE re-resolves the type from the declaration and the l-value marker from the operand's
+                // position, exactly as `TcNetworkWriter` says it does on the other vendor. TwinCAT reaches
+                // the same answer from the opposite direction: it must not write these because it edits in
+                // place and would overwrite the IDE's values (measured there as `Type: "BOOL" -> ""`).
+                //
+                // `SymbolComment` is the one field of the three that is NOT restored and NOT re-derivable
+                // from anything Volt holds. It has no build consequence and no interface Volt can observe
+                // it through, so nothing here claims it survives a rebuild.
                 ApplyFlags(op, o.Flags);
                 if (!extra.IsNone) ApplyFlags(op, extra);
                 return op;

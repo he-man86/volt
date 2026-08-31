@@ -229,7 +229,10 @@ public static class NetworkTextWriter
             var action = a.Flags.Jump
                 ? "JMP " + (a.Targets.Count > 0 ? a.Targets[0].Text : "")
                 : "RETURN";
-            if (a.Value is null) { Flush(); Line(action + ";"); return; }
+            // UNCONDITIONAL when nothing drives it — a null value, or the unconnected terminator the
+            // reader builds for exactly this (a rung end nothing drives). Rendering the terminator as a
+            // condition instead would emit `IF  THEN RETURN; END_IF`, with an empty condition.
+            if (a.Value is null or Terminator { Input: null }) { Flush(); Line(action + ";"); return; }
             var cond = ApplyMods(Render(a.Value, nested: false), a.Flags with { Jump = false, Return = false });
             Flush();
             Line("IF " + cond + " THEN " + action + "; END_IF");

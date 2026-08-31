@@ -1,4 +1,4 @@
-/**
+﻿/**
  * NETWORK LABELS AND JUMPS — the pair that makes `JMP` mean anything.
  *
  * A jump in FBD/LD leaves its network: each network may carry ONE label, and `JMP name` transfers control to the
@@ -74,6 +74,103 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
 		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
+
+		await clean(item)
+	})
+
+	/**
+	 * A RETURN — the third control-flow form, and the one nothing covered live on either vendor.
+	 *
+	 * A real project turned out to contain none of these at all (Lenze_MID-S100: 373 graphical networks, zero
+	 * labels, zero jumps, zero returns), so the corpus could not find what was broken here. Pushing one could,
+	 * and did — twice.
+	 *
+	 * CODESYS refused to SAVE a `RETURN;` with "Object reference not set to an instance of an object", and
+	 * TwinCAT refused a conditional one with "an item changes from 1 to 0 output(s)". Two unrelated-looking
+	 * errors, both from Volt: the unconditional form built an item holding nothing at all (no value, no output),
+	 * and the conditional one was compared against the archive as though a return had outputs.
+	 */
+	it("a conditional RETURN survives a round trip", async () => {
+		const name = id("ret"), item = fid("ret", "prg")
+		await clean(item)
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
+			`NETWORK 0 FBD\n  IF a THEN RETURN; END_IF\nEND_NETWORK\n` +
+			`NETWORK 1 FBD\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+
+		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+
+		const v1 = await pull(item)
+		expect(v1, "the item vanished after its create").toBeDefined()
+		expect(v1.sourceText, "the return was dropped").toMatch(/RETURN/i)
+
+		// The FIXED POINT is the half that matters: TwinCAT imported the return happily and then refused to
+		// push the body back, so a POU Volt had just created could never be pushed again.
+		const refs = await bridge.refs()
+		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
+		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect((await pull(item)).sourceText).toBe(v1.sourceText)
+
+		await clean(item)
+	})
+
+	/**
+	 * AN UNCONDITIONAL `RETURN;` — round-trips, or is refused for a reason that names the vendor limit.
+	 *
+	 * CODESYS builds it: the item needs a VALUE, and "nothing drives this" is spelled as an unconnected
+	 * terminator — the same shape `coil := ;` reads back as — rather than as a null, which is what it used to be
+	 * and what the IDE would not save.
+	 *
+	 * TwinCAT cannot CREATE one. Measured by single-variable comparison: the identical PLCopen document with a
+	 * `connectionPointIn` imports and round-trips, and without one the importer rejects the whole scratch object
+	 * with `Value cannot be null. Parameter name: source` — it wants a jump or return wired. Volt says that
+	 * instead of letting the vendor's null-reference reach the engineer.
+	 */
+	it("an unconditional RETURN round-trips, or is refused with a reason", async () => {
+		const name = id("uret"), item = fid("uret", "prg")
+		await clean(item)
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
+			`NETWORK 0 FBD\n  out := (a AND b);\nEND_NETWORK\n` +
+			`NETWORK 1 FBD\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
+
+		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		if (!created.accepted) {
+			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional return/i)
+			return
+		}
+
+		const v1 = await pull(item)
+		expect(v1).toBeDefined()
+		expect(v1.sourceText, "the return was dropped").toMatch(/^\s*RETURN;/m)
+		expect(v1.sourceText).toBe(src)
+
+		await clean(item)
+	})
+
+	/** The same fact for an unconditional JMP, which shared both bugs and both fixes. */
+	it("an unconditional JMP round-trips, or is refused with a reason", async () => {
+		const name = id("ujmp"), item = fid("ujmp", "prg")
+		await clean(item)
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
+			`NETWORK 0 FBD\n  JMP Done;\nEND_NETWORK\n` +
+			`NETWORK 1 FBD\n  Done:\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+
+		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		if (!created.accepted) {
+			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional jump/i)
+			return
+		}
+
+		const v1 = await pull(item)
+		expect(v1).toBeDefined()
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^\s*JMP\s+Done;/m)
+		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
 	})
