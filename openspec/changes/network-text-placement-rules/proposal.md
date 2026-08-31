@@ -137,6 +137,37 @@ A **positional call may stand alone as a statement** (`MOVE(g0, iDec);` - a box 
 networks). Any LSP rule that assumed a bare call is an FB instance invocation, and that a missing `PIN :=` is
 a mistake, is now wrong.
 
+### The canonical order is the REVERSE of the IDE's, and an engineer will type the IDE's
+
+Volt writes a network as header -> COMMENT -> LABEL -> statements. The IDE lays out a network's header the
+other way round: the label first, and the single comment box below it. So the natural thing to type is
+
+```
+NETWORK 0 LD "interlock"
+  Guard:
+  // holds the drive off while the guard is open
+  out := (a AND b);
+END_NETWORK
+```
+
+and that is refused — not because it is ambiguous (the reader takes the two in either order) but because the
+canonical-form gate re-emits them in Volt's order and the text no longer matches. The engineer gets a refusal
+with the corrected body, which is recoverable but is friction on the one thing they were most likely to hand
+write.
+
+Two ways to close it, and the choice is not obvious:
+
+- **The LSP reports it early** as a placement diagnostic, alongside the label/comment rules above. Cheap, and
+  consistent with how every other unrepresentable shape is handled.
+- **Volt swaps the emitted order** to label-then-comment so the text mirrors the IDE. Better for the engineer
+  and costs nothing at read time, but it is a published-format change: every committed body with a comment AND
+  a label is re-emitted, so it wants doing once, deliberately, rather than drifting into.
+
+The network comment itself is NOT at risk and never was — it is `Network.Comment`, one per network, read and
+written by both drivers, and it survives a destroy-and-rebuild because it lives on the network object rather
+than on its items (gated by `test/e2e/graphical/rebuild.test.ts`, both vendors). The field that does NOT
+survive is an operand's `SymbolComment`, which is per-variable and a different thing entirely.
+
 ### Still open, unchanged
 
 The placement questions above (label/comment position and duplication) are untouched by this work.

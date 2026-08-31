@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WHAT AN EDIT COSTS — the destroy-and-rebuild question, asked of the IDE instead of argued about.
  *
  * `CodesysNetworkWriter` writes a changed network by removing every item and re-appending it from the pushed
@@ -21,13 +21,20 @@
  * The change gate is what keeps this bounded: a network whose text is unchanged is never rebuilt, so the cost
  * is paid only by the network actually edited. This test pays it on purpose.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import {
+	bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy,
+	savePlcPrg, restorePlcPrg, fixPlcPrg, BASE,
+} from "../harness"
 
 setDefaultTimeout(180_000)
 
 describe(`graphical / rebuild after an edit (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy() })
+	// Each case CREATES its POU, so a leftover from a previous run makes the create refuse rather than the
+	// rebuild fail — and `ensureCompiles` instantiates into PLC_PRG, which has to be put back.
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 
 	/**
 	 * A GRAPHICAL BODY STILL COMPILES AFTER AN EDIT REBUILDS IT.
@@ -139,5 +146,74 @@ END_FUNCTION_BLOCK
 		const after = (await fetchItem(full)).sourceText
 		expect(after).toBe(edited)
 		expect(wires(after), "an untouched network was rebuilt too").toEqual(wires(before))
+	})
+
+	/**
+	 * THE TITLE, LABEL AND COMMENT SURVIVE THE REBUILD OF THE NETWORK THEY SIT ON.
+	 *
+	 * These three are the text an engineer writes ABOUT the logic — the comment being the block just below the
+	 * label, one per network — and they are the metadata most obviously at risk from a destroy-and-rebuild,
+	 * because the rebuild removes every item in the network.
+	 *
+	 * They survive by construction: all three live on the NETWORK object, not on its items, and are written by
+	 * `SetIfChanged` before the change gate is even consulted — so removing and re-appending items cannot reach
+	 * them. `comments.test.ts` already pins the round trip and the fixed point; what it cannot show is this,
+	 * because a body that never changes is never rebuilt. Asserted rather than reasoned, since "it lives
+	 * somewhere else" is exactly the kind of claim that is true right up until someone moves it.
+	 *
+	 * (This is a different field from an operand's `SymbolComment`, which is per-variable, frequently holds a
+	 * serialization sentinel rather than engineer text, and is NOT restored by a rebuild — see the note in
+	 * `CodesysNetworkWriter.Operand`.)
+	 */
+	it("a network's title, label and comment survive an edit to its logic", async () => {
+		const name = id("rb_meta")
+		const full = fid("rb_meta", "fb")
+
+		const src =
+			`FUNCTION_BLOCK ${name}
+VAR
+	a : BOOL;
+	b : BOOL;
+	c : BOOL;
+	out : BOOL;
+END_VAR
+
+` +
+			// Canonical order is header, then COMMENT, then LABEL — the reverse of how the IDE lays the two out
+			// in a network's header, where the comment box sits below the label. The reader takes them in
+			// either order; the canonical-form gate does not, so an engineer typing them the way the IDE shows
+			// them gets a refusal with the corrected body. Noted in the network-text-placement-rules proposal.
+			`NETWORK 0 LD "interlock"
+  // holds the drive off while the guard is open
+  // second line of the same comment
+  Guard:
+  out := (a AND b);
+END_NETWORK
+` +
+			`
+END_FUNCTION_BLOCK
+`
+
+		await createItem(fid("rb_meta"), src, "")
+		const before = (await fetchItem(full)).sourceText
+		expect(before, "the title was dropped on create").toContain(`"interlock"`)
+		expect(before, "the label was dropped on create").toContain("Guard:")
+		expect(before, "the comment was dropped on create").toContain("// holds the drive off")
+
+		// Change the LOGIC, which is what forces the rebuild. A title-only edit would leave the trees
+		// untouched and the change gate would skip it — the opposite of what this asks.
+		const edited = before.replace("(a AND b)", "(a AND c)")
+		expect(edited, "the edit did not apply").not.toBe(before)
+
+		const refs = await bridge.refs()
+		const r = await pushOps([{ op: "set", name: full, sourceText: edited, ifVersion: refs.items[full] }])
+		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+
+		const after = (await fetchItem(full)).sourceText
+		expect(after, "the network metadata did not survive the rebuild").toBe(edited)
+		expect(after).toContain(`"interlock"`)
+		expect(after).toContain("Guard:")
+		expect(after).toContain("// holds the drive off while the guard is open")
+		expect(after).toContain("// second line of the same comment")
 	})
 })
