@@ -59,6 +59,7 @@ internal static class TcPlcOpenWriter
         {
             var network = body.Networks[i];
             var w = i == 0 ? first : new NetworkWriter(root, network.Order, declaration);
+            w.CountWireConsumers(network);
             foreach (var tree in network.Trees) w.Emit(tree);
         }
         return root;
@@ -122,6 +123,7 @@ internal static class TcPlcOpenWriter
         private readonly XElement _root;
         private long _next;
         private readonly Dictionary<int, long> _wires = new();
+        private readonly Dictionary<int, int> _consumers = new();
         private readonly string? _declaration;
 
         public NetworkWriter(XElement root, int order, string? declaration)
@@ -340,13 +342,62 @@ internal static class TcPlcOpenWriter
             return null;      // a jump produces no value for anything to consume
         }
 
-        /// <summary>Fan-out. The DEFINITION emits its producer once        /// <summary>Fan-out. The DEFINITION emits its producer once and remembers the id; every REFERENCE
-        /// answers that same id, so several consumers share one <c>refLocalId</c> - which is exactly how PLCopen
-        /// spells a wire feeding more than one place, and why nothing needs duplicating.</summary>
+        /// <summary>How many places REFERENCE each wire in this network. Counted before emitting, because
+        /// what PLCopen can say about a wire depends on it (see <see cref="EmitDemux"/>).</summary>
+        public void CountWireConsumers(Network network)
+        {
+            foreach (var tree in network.Trees) Count(tree);
+
+            void Count(Node? n)
+            {
+                switch (n)
+                {
+                    case null: break;
+                    case Demux d when d.Input is null:
+                        _consumers[d.VarId] = _consumers.TryGetValue(d.VarId, out var c) ? c + 1 : 1;
+                        break;
+                    case Demux d: Count(d.Input); break;
+                    case Assign a: Count(a.Value); break;
+                    case Terminator t: Count(t.Input); break;
+                    case Parallel p:
+                        Count(p.Input);
+                        foreach (var b in p.Branches) Count(b);
+                        break;
+                    case Box b:
+                        Count(b.Enable);
+                        foreach (var i in b.Inputs) Count(i.Value);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>Fan-out. The DEFINITION emits its producer once and remembers the id; every REFERENCE
+        /// answers that same id, so several consumers share one <c>refLocalId</c> - which is exactly how
+        /// PLCopen spells a wire feeding more than one place, and why nothing needs duplicating.
+        ///
+        /// <para><b>A wire feeding ONE place is refused, and that is the interesting case.</b> PLCopen has no
+        /// element for a branch point: a wire is spelled by consumers SHARING a `refLocalId`, so with two
+        /// consumers the importer rebuilds the `BoxTreeDemux`, and with one there is nothing to distinguish
+        /// it from an ordinary direct connection. It came back collapsed - `LET g0 := (a AND b); out := g0;`
+        /// imported as `out := (a AND b);` - with the push ACCEPTED and the branch point gone from the
+        /// drawing. That is the one outcome this file exists to prevent, and it was the last silent one
+        /// left: a body Volt cannot express must be refused, never quietly reshaped.
+        ///
+        /// <para>The cost is small and the boundary is exact. This is the CREATE path (PLCopen import is
+        /// TwinCAT's only route to a body it does not have); editing an existing body goes through
+        /// `TcNetworkWriter`, which writes `VarId` straight into the archive and keeps single-consumer wires
+        /// perfectly well. So a pulled TwinCAT body still round-trips - only CREATING one from text that
+        /// carries a branch point the format cannot spell is refused, with the same "create it in the IDE and
+        /// pull it" answer the terminator and parallel arms already give.</para></summary>
         private long EmitDemux(Demux demux)
         {
             if (demux.Input is { } input)
             {
+                if (!_consumers.TryGetValue(demux.VarId, out var consumers) || consumers < 2)
+                    throw Refuse(
+                        $"contains a branch point (wire {demux.VarId}) feeding only one place, which PLCopen "
+                        + "cannot express - it would import as a plain connection and the branch would be gone");
+
                 var id = Emit(input) ?? throw Refuse("defines a wire from a statement");
                 _wires[demux.VarId] = id;
                 return id;
