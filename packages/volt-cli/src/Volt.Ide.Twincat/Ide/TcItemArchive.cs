@@ -245,13 +245,22 @@ internal static class TcItemArchive
     {
         var doc = XDocument.Parse(tcPou);
 
+        // ORDINAL-IGNORE-CASE, like every other layer that matches a member by name. The `step` values are
+        // the PUSHED spellings, taken from the engineer's signature line, and IEC identifiers are
+        // case-insensitive in both IDEs — so `METHOD Calc` renamed to `METHOD calc` sails through
+        // `ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard` and the driver's own `byName` map (all
+        // OrdinalIgnoreCase) and then missed HERE, and the push failed with "'calc' is not in the POU's
+        // archive" — false, and it sends the engineer looking inside a vendor file. `BeckhoffDriver`'s own
+        // comment calls the compare it replaced "the last Ordinal IDENTITY compare left on the wire"; this
+        // was a new one, a layer lower.
         XElement? member = doc.Root;
         foreach (var step in path)
         {
             member = member?.Descendants()
                             .FirstOrDefault(e => e.Name.LocalName is "Method" or "Action" or "Property"
                                                                   or "Get" or "Set"
-                                              && (string?)e.Attribute("Name") == step);
+                                              && string.Equals((string?)e.Attribute("Name"), step,
+                                                               StringComparison.OrdinalIgnoreCase));
             if (member is null) return false;
         }
 
@@ -260,12 +269,21 @@ internal static class TcItemArchive
 
         impl.ReplaceNodes(XElement.Parse(nwlXml));
 
-        // `<LineIds Name="POU.P_G.Get">` — the POU's own name, then the path.
+        // `<LineIds Name="POU.P_G.Get">` — the POU's own name, then the path AS THE ARCHIVE SPELLS IT.
+        //
+        // Built from the elements actually walked, not from the pushed `path`: with the case-insensitive
+        // match above, a member the engineer relettered would otherwise leave its old `LineIds` behind —
+        // line bookkeeping for a body that no longer has lines, keyed to a spelling nothing else uses.
         var pou = doc.Descendants().First(e => e.Name.LocalName == "POU");
-        var key = string.Join(".", new[] { (string?)pou.Attribute("Name") ?? "" }.Concat(path));
+        var spelled = new List<string> { (string?)pou.Attribute("Name") ?? "" };
+        for (var e = member; e != null && e.Name.LocalName != "POU"; e = e.Parent)
+            spelled.Insert(1, (string?)e.Attribute("Name") ?? "");
+        var key = string.Join(".", spelled);
+
         foreach (var ids in doc.Descendants()
                                .Where(e => e.Name.LocalName == "LineIds"
-                                        && (string?)e.Attribute("Name") == key)
+                                        && string.Equals((string?)e.Attribute("Name"), key,
+                                                         StringComparison.OrdinalIgnoreCase))
                                .ToList())
             ids.Remove();
 

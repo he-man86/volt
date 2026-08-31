@@ -80,24 +80,47 @@ public sealed partial class BeckhoffDriver
         // the re-import brings back the create-time declarations, and the writes below then land on top of
         // them — while the member bodies survive, because a graphical body is passed as null there and
         // `WriteText` skips a null implementation.
-        var graphical = new List<(string[] Path, string Text, string? Declaration)>();
-        foreach (var m in content.Members)
-        {
-            Collect(graphical, new[] { m.Name }, m.Body, m.Declaration);
-            Collect(graphical, new[] { m.Name, "Get" }, m.Getter?.Body, m.Getter?.Declaration);
-            Collect(graphical, new[] { m.Name, "Set" }, m.Setter?.Body, m.Setter?.Declaration);
-        }
-        if (graphical.Count > 0) item = WriteMemberBodies(item, graphical);
-
+        // The handles are walked BEFORE the archive write, because a member's body is resolved AGAINST the one
+        // it already has — a create and an in-place edit are different operations, and only the live archive says
+        // which this is (`ResolveBody`). Reading them here also moves the missing-member refusal ahead of every
+        // write, so a push that cannot land in full lands nothing.
         var byName = new Dictionary<string, ItemRef>(StringComparer.OrdinalIgnoreCase);
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item)) byName[site.Name] = site.Ref;
+
+        foreach (var m in content.Members)
+            if (!byName.ContainsKey(m.Name))
+                throw new BridgeException(BridgeErrorCodes.NotFound,
+                    $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
+                    "is the push service's job, and writing through a missing one would land nothing");
+
+        var graphical = new List<(string[] Path, string Nwl)>();
+        foreach (var m in content.Members)
+        {
+            var site = byName[m.Name];
+            var itf = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            Collect(graphical, new[] { m.Name }, site, m.Body, Scope(m.Declaration, content.Declaration));
+            Collect(graphical, new[] { m.Name, "Get" },
+                    AccessorSite(site, itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet),
+                    m.Getter?.Body, Scope(m.Getter?.Declaration, content.Declaration));
+            Collect(graphical, new[] { m.Name, "Set" },
+                    AccessorSite(site, itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet),
+                    m.Setter?.Body, Scope(m.Setter?.Declaration, content.Declaration));
+        }
+
+        if (graphical.Count > 0)
+        {
+            // The round trip DELETES the POU and imports it back, so every handle read above is now dead.
+            item = WriteMemberBodies(item, graphical);
+            byName.Clear();
+            foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item)) byName[site.Name] = site.Ref;
+        }
 
         foreach (var m in content.Members)
         {
             if (!byName.TryGetValue(m.Name, out var target))
                 throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
-                    "is the push service's job, and writing through a missing one would land nothing");
+                    $"'{m.Name}': the member is not under the POU after its archive was rewritten — refusing " +
+                    "to write through a handle the re-import already killed");
 
             WriteOne(target, m.Kind, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, Textual(m.Body));
             // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing
@@ -110,14 +133,61 @@ public sealed partial class BeckhoffDriver
         WriteOne(item, content.Kind, content.Declaration, content.Body);
     }
 
-    /// <summary>Note a graphical member body for the archive write. Pure — it validates and records, and
-    /// touches the IDE not at all, so a refusal costs nothing and the caller can still order the real work.</summary>
-    private static void Collect(List<(string[] Path, string Text, string? Declaration)> into,
-                                string[] path, string? body, string? declaration)
+    /// <summary>The declarations a graphical body must be resolved against: the member's own FIRST, then
+    /// the POU's.
+    ///
+    /// <para><b>A stateful FB instance lives in the enclosing POU's VAR block, not in the member's.</b> A
+    /// graphical body naming `t1(IN := a)` needs `t1 : TON;` to resolve the call's TYPE, and that
+    /// declaration is one level up — so resolving against the member alone reported `'t1' names a
+    /// function-block instance that is not declared in this POU`, advice pointing at work the engineer had
+    /// already done. An ACTION makes it starker still: it has no declaration at all.</para>
+    ///
+    /// <para>Member first, because the lookup takes the FIRST match and an inner scope must win: a member's
+    /// own `VAR_INPUT p : TON;` shadows a POU-level `p` exactly as IEC says it does.</para></summary>
+    private static string? Scope(string? member, string? owner) =>
+        string.IsNullOrWhiteSpace(member) ? owner
+        : string.IsNullOrWhiteSpace(owner) ? member
+        : member + "\n" + owner;
+
+    /// <summary>Resolve one graphical member body and note it for the archive write — or note NOTHING, when
+    /// the member's live archive already says exactly this.
+    ///
+    /// <para>THE DROP IS THE POINT. Every graphical member body used to take the CREATE route unconditionally:
+    /// `ResolveGraphicalBody` builds a body from PLCopen topology, and a create is allowed to RESHAPE — TwinCAT's
+    /// importer splits a network per connected component (D25), so a rung the engineer drew as ONE network came
+    /// back as several, and `Stamp` then wrote the pushed titles and flags onto the new shape without ever
+    /// reporting it. It also cost the in-place editor its whole reason for existing: ids, `Fixed` flags,
+    /// `ILLines` and every unmodelled member of the networks nobody touched were rebuilt from scratch on each
+    /// push. And a push that changed only a DECLARATION still paid for the round trip — which deletes the POU
+    /// and imports it back, a window in which the item is not in the project at all.</para>
+    ///
+    /// <para>So the selection is <see cref="ResolveBody"/>, the SAME one <see cref="WriteOne"/> makes for a POU,
+    /// against the member's own live implementation. A null verdict means no change, and a body with no change
+    /// does not belong in a round trip.</para>
+    ///
+    /// <para>Validation still runs before anything is touched, so a refusal costs nothing.</para></summary>
+    private void Collect(List<(string[] Path, string Nwl)> into,
+                         string[] path, ItemRef? site, string? body, string? declaration)
     {
         if (body is not { } b || !NetworkText.Is(b)) return;
-        NetworkTextGate.Validate(b);                      // refuse BEFORE touching the IDE
-        into.Add((path, b, declaration));
+        var model = NetworkTextGate.Validate(b);           // refuse BEFORE touching the IDE
+
+        // A null site is an accessor the property does not carry. Collecting nothing leaves the report to
+        // `WriteAccessor`, which is where that case is already decided.
+        var existing = site is { } s ? _om.ReadImplementation(s.Native) : null;
+        if (ResolveBody(existing, model, declaration) is { } nwl) into.Add((path, nwl));
+    }
+
+    /// <summary>A property ACCESSOR's node, or null when the property does not carry one.</summary>
+    private ItemRef? AccessorSite(ItemRef property, int code)
+    {
+        int n = ChildCount(property);
+        for (int i = 1; i <= n; i++)
+        {
+            var child = ChildAt(property, i);
+            if (KindCode(child) == code) return child;
+        }
+        return null;
     }
 
     /// <summary>The body as the TREE write should see it: unchanged when textual, NULL when it is graphical
@@ -131,25 +201,17 @@ public sealed partial class BeckhoffDriver
             ? accessor
             : accessor with { Body = null };
 
-    /// <summary>Resolve every graphical member body and write them all into the POU's archive, in ONE round
-    /// trip — then hand back a LIVE handle to the POU, because the re-import killed the old one (D4d).
+    /// <summary>Write every already-resolved graphical member body into the POU's archive, in ONE round trip —
+    /// then hand back a LIVE handle to the POU, because the re-import killed the old one (D4d).
     ///
     /// <para>One trip for all of them: each DELETES the POU before importing it back, so a property with two
     /// graphical accessors would otherwise open that window three times.</para>
     ///
-    /// <para>The parent is read AFTER the bodies are resolved. Resolving imports a scratch POU each time, and
-    /// the fewer imports between reading a handle and using it, the better.</para></summary>
-    private ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Text, string? Declaration)> bodies)
+    /// <para>The bodies arrive RESOLVED, from <see cref="Collect"/>. Resolving imports a scratch POU each time,
+    /// and every import between reading a handle and using it is a chance to invalidate it — so all of that is
+    /// behind us before the parent below is read.</para></summary>
+    private ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
     {
-        var resolved = new List<(string[] Path, string Nwl)>();
-        foreach (var (path, text, declaration) in bodies)
-        {
-            var model = NetworkTextGate.Validate(text);
-            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd",
-                                                 declaration);
-            resolved.Add((path, Stamp(built, model)));
-        }
-
         var parent = _om.Parent(item.Native)
             ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                 $"'{_om.GetName(item.Native)}' has no parent, so its archive cannot be rewritten");
@@ -274,9 +336,33 @@ public sealed partial class BeckhoffDriver
             // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
             // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
             // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
-            var live = string.IsNullOrWhiteSpace(existing) ? null : TcArchive.Root(existing);
-            if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
-            {
+            _om.WriteText(item.Native, declaration, ResolveBody(existing, model, declaration));
+            return;
+        }
+
+        // A marker is informational and is never written back over a live CFC/SFC body.
+        // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
+        // TwinCAT's COM object does not expose the member at all — writing to it throws
+        // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
+        // make this decision from the item's kind code; it moved here with the rest of the write.
+        _om.WriteText(item.Native, declaration,
+                      HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
+    }
+
+    /// <summary>THE ONE PLACE that decides what a graphical body becomes: a freshly BUILT archive when the item
+    /// has none yet, an in-place EDIT when it does, and NULL when the archive already says exactly this.
+    ///
+    /// <para>Shared by <see cref="WriteOne"/> and <see cref="Collect"/>, because a POU and a MEMBER face the
+    /// identical question — and answering it in two places let them drift: the member path took the create arm
+    /// every time, without reading the live body at all.</para></summary>
+    private string? ResolveBody(string? existing, NetworkBody model, string? declaration)
+    {
+        // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
+        // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
+        // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
+        var live = string.IsNullOrWhiteSpace(existing) ? null : TcArchive.Root(existing);
+        if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
+        {
                 // TWO STEPS, and each does only what it can do honestly.
                 //
                 // The import settles STRUCTURE — which boxes, wired how — because that needs the IDE's own
@@ -288,29 +374,18 @@ public sealed partial class BeckhoffDriver
                 // stamps the values on: flags, comments, titles, everything network text does carry. Neither
                 // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
                 // to survive a create.
-                var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
-                _om.WriteText(item.Native, declaration, Stamp(built, model));
-                return;
-            }
+            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
+            return Stamp(built, model);
+        }
 
             // AN EXISTING BODY IS EDITED IN PLACE, and where its SHAPE changed - a box retyped, a rung
             // rewired - the IDE rebuilds just that network. Same two mechanisms as a create, scoped to the one
             // network that changed instead of the whole body, so every network the engineer did not touch stays
             // byte for byte as the IDE wrote it: ids, Fixed flags, ILLines and all.
-            var updated = TcNetworkWriter.Apply(existing, model, network => RebuildNetwork(network, model.Language, declaration));
-            // A null means the archive already says exactly this: writing it back would rewrite ids and
-            // vendor members for no change at all.
-            _om.WriteText(item.Native, declaration, updated);
-            return;
-        }
-
-        // A marker is informational and is never written back over a live CFC/SFC body.
-        // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
-        // TwinCAT's COM object does not expose the member at all — writing to it throws
-        // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
-        // make this decision from the item's kind code; it moved here with the rest of the write.
-        _om.WriteText(item.Native, declaration,
-                      HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
+        // A null means the archive already says exactly this: writing it back would rewrite ids and
+        // vendor members for no change at all.
+        return TcNetworkWriter.Apply(existing!, model,
+                                     network => RebuildNetwork(network, model.Language, declaration));
     }
 
     /// <summary>Have the IDE rebuild ONE network, and hand back its archive element ready to be spliced in.

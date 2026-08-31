@@ -75,7 +75,7 @@ public sealed partial class CodesysDriver
             CodesysNetworkWriter.Write(_om, item.Native, graph, content.Declaration);
         }
 
-        WriteMembers(item, content.Members);
+        WriteMembers(item, content.Members, content.Declaration);
     }
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
@@ -246,7 +246,23 @@ public sealed partial class CodesysDriver
 
     // ── member write ──────────────────────────────────────────────────────────────────────────────
 
-    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members)
+    /// <summary>The declarations a graphical body must be resolved against: the member's own FIRST, then
+    /// the POU's.
+    ///
+    /// <para><b>A stateful FB instance lives in the enclosing POU's VAR block, not in the member's.</b> A
+    /// graphical body naming `t1(IN := a)` needs `t1 : TON;` to resolve the call's TYPE, and that
+    /// declaration is one level up — so resolving against the member alone reported `'t1' names a
+    /// function-block instance that is not declared in this POU`, advice pointing at work the engineer had
+    /// already done. An ACTION makes it starker still: it has no declaration at all.</para>
+    ///
+    /// <para>Member first, because the lookup takes the FIRST match and an inner scope must win: a member's
+    /// own `VAR_INPUT p : TON;` shadows a POU-level `p` exactly as IEC says it does.</para></summary>
+    private static string? Scope(string? member, string? owner) =>
+        string.IsNullOrWhiteSpace(member) ? owner
+        : string.IsNullOrWhiteSpace(owner) ? member
+        : member + "\n" + owner;
+
+    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, string? ownerDeclaration)
     {
         if (members.Count == 0) return;
 
@@ -281,7 +297,7 @@ public sealed partial class CodesysDriver
             else
             {
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                CodesysNetworkWriter.Write(_om, target.Native, graph, m.Declaration);
+                CodesysNetworkWriter.Write(_om, target.Native, graph, Scope(m.Declaration, ownerDeclaration));
             }
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
@@ -296,8 +312,8 @@ public sealed partial class CodesysDriver
             // written to fix. An engineer's edit to a `GET … END_GET` in a `.itf` was accepted and dropped, and
             // `volt status` then reported in sync.
             var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface);
-            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface);
+            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface, ownerDeclaration);
+            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface, ownerDeclaration);
         }
     }
 
@@ -311,7 +327,8 @@ public sealed partial class CodesysDriver
     /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
-    private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface)
+    private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface,
+                               string? ownerDeclaration)
     {
         if (accessor is null) return;
 
@@ -360,12 +377,19 @@ public sealed partial class CodesysDriver
             var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkTextGate.Validate(ac) : null;
             if (graph is null)
             {
-                _om.WriteSourceText(child.Native, accessor.Declaration, accessor.Code);
+                // A MARKER IS NEVER WRITTEN BACK — the same guard `WriteContent` and `WriteMembers` carry,
+                // and this arm was rewritten without it. An accessor authored in CFC materializes as an
+                // informational marker, `BodyFormatGuard` passes it (restating a marker is the ordinary
+                // no-op that keeps the enclosing POU pushable at all), and writing it into a CFC aspect
+                // throws — after the POU's declaration and earlier members have already committed. That
+                // POU could then never be pushed again while the CFC accessor existed.
+                _om.WriteSourceText(child.Native, accessor.Declaration,
+                                    BodyMarker.Is(accessor.Code) ? null : accessor.Code);
                 return;
             }
 
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            CodesysNetworkWriter.Write(_om, child.Native, graph, accessor.Declaration);
+            CodesysNetworkWriter.Write(_om, child.Native, graph, Scope(accessor.Declaration, ownerDeclaration));
             return;
         }
     }

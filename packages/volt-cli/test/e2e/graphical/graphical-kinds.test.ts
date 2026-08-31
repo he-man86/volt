@@ -31,6 +31,7 @@ const VARS = `VAR
 \ta : BOOL;
 \tb : BOOL;
 \tout : BOOL;
+\tt1 : TON;
 END_VAR`
 
 /** The one network used throughout, in whichever language: `coil := (l AND r)`. Deliberately IDENTICAL across
@@ -38,6 +39,10 @@ END_VAR`
  *  It is also the canonical form both readers emit, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
 	`NETWORK 0 ${lang}\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
+
+/** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
+ *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
+const callNet = (lang: string) => `NETWORK 0 ${lang}\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
 
 /** Every source shape for one language. Built from the same `net` so the two languages differ in exactly one
  *  token — if FBD passes where LD fails, the difference is real and not a fixture artefact. */
@@ -47,12 +52,29 @@ function sources(lang: string) {
 		// The parent's OWN body is ST on purpose. A member's language is independent of its parent's, and an
 		// all-graphical document would still pass while the splice wrote the member's body into the parent's.
 		`FUNCTION_BLOCK ${n}\n${VARS}\n\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
+
+	/** A member whose body CALLS AN FB INSTANCE DECLARED ONE LEVEL UP — `t1 : TON` is in the owner's VAR
+	 *  block, never the member's, which is where a stateful instance has to live.
+	 *
+	 *  This cell was empty: every FB-call test in the suite declared the instance in the same POU as the
+	 *  call. A graphical body is resolved against a declaration to find the call's TYPE (network text names
+	 *  a call by its INSTANCE), and both drivers were handing the writer the MEMBER's declaration alone — so
+	 *  the lookup could not succeed and the whole POU's push was refused with "'t1' names a function-block
+	 *  instance that is not declared in this POU", advice pointing at work already done. An ACTION is the
+	 *  starkest case: it has no declaration at all. */
+	const withFbCall = (n: string, member: string) =>
+		`FUNCTION_BLOCK ${n}\n${VARS}\n\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 	return {
 		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
 		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n\n${net("out")}\nEND_PROGRAM\n`,
 		// A FUNCTION's coil is its RETURN variable — the function's own name. BOOL return so a coil can drive it.
 		fun: (n: string) => `FUNCTION ${n} : BOOL\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR\n\n${net(n)}\nEND_FUNCTION\n`,
 		method: (n: string) => withMember(n, `\nMETHOD M_G : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n${net("M_G", "a", "p")}\nEND_METHOD\n`),
+		// the FB call reaches the OWNER's VAR block for `t1`
+		methodFbCall: (n: string) =>
+			withFbCall(n, `\nMETHOD M_C : BOOL\n${callNet(lang)}\nEND_METHOD\n`),
+		actionFbCall: (n: string) =>
+			withFbCall(n, `\nACTION A_C\n${callNet(lang)}\nEND_ACTION\n`),
 		action: (n: string) => withMember(n, `\nACTION A_G\n${net("out")}\nEND_ACTION\n`),
 		// Both accessors graphical, and they are NOT symmetric: a GET's coil is the property itself, a SET's is
 		// driven BY it. Writing one and asserting the other is how an accessor bug hides.
@@ -152,6 +174,22 @@ for (const lang of ["FBD", "LD"]) {
 		// Build-verified separately because only an FB can be INSTANTIATED, which is how `ensureCompiles` forces
 		// TwinCAT to compile a body at all (TC skips unreferenced POUs; CODESYS compiles everything). The PROGRAM
 		// and FUNCTION cases are covered by their round-trip plus this.
+		// THE CELL THAT WAS EMPTY: a graphical member whose body calls an FB instance declared in the OWNER.
+		// Both drivers resolved the body against the MEMBER's declaration alone, so the call's type could not
+		// be found and the whole POU's push was refused — telling the engineer to declare something they had.
+		for (const [what, key] of [["METHOD", "methodFbCall"], ["ACTION", "actionFbCall"]] as const) {
+			it(`a ${lang} ${what} may call an FB instance declared in the OWNER`, async () => {
+				const name = id(`net_${tag}_${key}`)
+				const full = fid(`net_${tag}_${key}`, "fb")
+				await createItem(full, (src as any)[key](name), "")
+
+				const v1 = await fetchItem(full)
+				expect(v1.sourceText, "the call lost its instance").toContain("t1(IN := a")
+				await isFixedPoint(full, v1)
+				await ensureCompiles(name)
+			})
+		}
+
 		it(`a ${lang} function_block compiles when referenced — build-verified on BOTH vendors`, async () => {
 			const name = id(`net_${tag}_compile`)
 			await createItem(fid(`net_${tag}_compile`, "fb"), src.fb(name), "")

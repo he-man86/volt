@@ -192,6 +192,55 @@ public class NetworkTextRoundTripTests
         Assert.Contains("out2 := g7;", text);
     }
 
+    /// <summary>AND A WIRE WHOSE NAME THE ENGINEER ALREADY USES IS RENAMED, NOT REFUSED.
+    ///
+    /// <para>`g&lt;VarId&gt;` is the vendor's id and Volt reuses it verbatim so an edit does not renumber every
+    /// wire in the rung (C9) — but when a real variable is spelled the same, the two meanings cannot both be
+    /// written and one has to move. It is the wire that moves, because the variable is the engineer's.</para>
+    ///
+    /// <para>THE BUG this pins: this used to THROW, and the throw ran on the PULL path — `Write` renders every
+    /// body Volt reads out of the IDE, so the exception did not report a limit to anyone. The item failed to
+    /// materialize and the POU was simply missing from the workspace, the same failure shape that cost six POUs
+    /// and 187 networks when a fed parallel was refused. The variable read has to survive byte for byte: if
+    /// `g5` were still emitted for the wire, the reader would take the ENGINEER's `g5` for a reference to it and
+    /// the next push would delete their variable.</para></summary>
+    [Fact]
+    public void A_wire_whose_name_a_variable_already_holds_is_renamed_not_refused()
+    {
+        // The engineer's own variable is called `g5`; the vendor's wire id is 5.
+        var body = new NetworkBody(BodyLanguage.Fbd, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Demux(5, new Box("AND", null, CallKind.Operator,
+                                     new[] { new Input(null, new Leaf(new Operand("g5"), Flags.None), Flags.None),
+                                             new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                                     Array.Empty<Operand>(), null, null, Flags.None),
+                          Flags.None),
+                new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
+                new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out2") }, Flags.None),
+            }),
+        });
+
+        var text = NetworkTextWriter.Write(body);
+
+        // It rendered at all, the variable is untouched, and the wire took a name nothing else holds.
+        Assert.Contains("(g5 AND b)", text);
+        Assert.DoesNotContain("LET g5 :=", text);
+
+        var wire = System.Text.RegularExpressions.Regex.Match(text, @"LET (g\d+) :=").Groups[1].Value;
+        Assert.NotEqual("g5", wire);
+        Assert.Contains($"out1 := {wire};", text);
+        Assert.Contains($"out2 := {wire};", text);
+
+        // AND IT READS BACK AS THE SAME GRAPH — the renamed wire is a wire again, `g5` is still a leaf.
+        var back = NetworkTextReader.Parse(text);
+        var net = Assert.Single(back.Networks);
+        var def = Assert.IsType<Demux>(net.Trees[0]);
+        var and = Assert.IsType<Box>(def.Input);
+        Assert.Equal("g5", Assert.IsType<Leaf>(and.Inputs[0].Value).Operand.Text);
+    }
+
     /// <summary>And it comes back as a Demux, not as an assignment to an undeclared symbol — which is what the
     /// reader used to build (a `SplitPoints` entry plus a plain `Assign` to the name), landing a real assignment
     /// to `g7` in the project and leaving the POU uncompilable. The two halves of the model now agree.</summary>

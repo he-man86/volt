@@ -43,6 +43,7 @@ public static class NetworkTextWriter
         private readonly Network _net;
         private readonly BodyLanguage _lang;
         private readonly HashSet<string> _wires;
+        private readonly Dictionary<int, string> _names;
         private readonly HashSet<string> _reserved;
         private readonly List<string> _prelude = new();
         private int _g, _en, _i;
@@ -52,9 +53,8 @@ public static class NetworkTextWriter
             _sb = sb;
             _net = net;
             _lang = lang;
-            // Every fan-out wire's name is reserved, so a minted temp can never shadow one.
-            _wires = new HashSet<string>(System.StringComparer.Ordinal);
-            foreach (var t in net.Trees) CollectWires(t, _wires);
+            var ids = new List<int>();
+            foreach (var t in net.Trees) CollectWireIds(t, ids);
             // A minted temp must never shadow a real declared identifier. This used to collect FB INSTANCE
             // names only — no leaf, no assignment target — so an ordinary variable an engineer happened to
             // call `g1` was not reserved, and a network needing one minted wire produced
@@ -66,16 +66,32 @@ public static class NetworkTextWriter
             _reserved = new HashSet<string>(System.StringComparer.Ordinal);
             foreach (var t in net.Trees) CollectNames(t, _reserved);
 
-            // AND A WIRE'S OWN NAME CANNOT BE MINTED AROUND. `g<VarId>` is the vendor's id (C9 — reusing it
-            // verbatim is what stops an edit renumbering every wire in the rung), so when a real variable is
-            // spelled the same the two meanings cannot both be written. Refusing names the collision; the
-            // alternative is text where one `g5` is a wire and the other is the engineer's variable.
-            foreach (var w in _wires)
-                if (_reserved.Contains(w))
-                    throw new NotSupportedException(
-                        $"network {net.Order} has a variable named '{w}', which is also the name of a fan-out " +
-                        "wire in the same network — network text spells a wire `g<n>`, so the two cannot be " +
-                        "told apart. Rename the variable in the IDE.");
+            // A WIRE WHOSE OWN NAME IS TAKEN IS RENAMED, NOT REFUSED. `g<VarId>` is the vendor's id, and
+            // reusing it verbatim is what stops an edit renumbering every wire in the rung (C9) — so it is the
+            // name a wire GETS, whenever it is free. When a real variable is spelled the same the two meanings
+            // cannot both be written, and one of them has to move; it is the wire, because the variable is the
+            // engineer's.
+            //
+            // This USED TO THROW, and the throw ran on the PULL path — `Write` renders every body Volt reads
+            // out of the IDE. A `NotSupportedException` there does not report a limit to anybody: the item
+            // simply fails to materialize and the POU is missing from the workspace, which is the same failure
+            // shape that once cost six POUs and 187 networks when a fed parallel was refused. Losing the whole
+            // POU to keep one wire's id is the wrong trade by a wide margin.
+            //
+            // Defaults are assigned FIRST and the collisions renamed after, so a minted replacement can never
+            // land on a name another wire was already going to take.
+            _names = new Dictionary<int, string>();
+            foreach (var id in ids)
+                if (!_reserved.Contains(WireName(id))) _names[id] = WireName(id);
+
+            _wires = new HashSet<string>(_names.Values, System.StringComparer.Ordinal);
+            foreach (var id in ids)
+                if (!_names.ContainsKey(id))
+                {
+                    var name = Mint("g", ref _g);
+                    _names[id] = name;
+                    _wires.Add(name);
+                }
         }
 
         public void Emit()
@@ -137,7 +153,7 @@ public static class NetworkTextWriter
                 {
                     var v = ApplyMods(Render(d.Input, nested: false), d.Flags);
                     Flush();
-                    Line("LET " + WireName(d.VarId) + " := " + v + ";");
+                    Line("LET " + NameOf(d.VarId) + " := " + v + ";");
                     break;
                 }
                 // Same rule at statement level: rendering an unknown node emitted a bare `;` line. Render()
@@ -171,28 +187,32 @@ public static class NetworkTextWriter
         private string Lhs(Operand target) =>
             _wires.Contains(target.Text) ? "LET " + target.Text : target.Text;
 
-        /// <summary>A fan-out wire's name is minted from its VarId, so the SAME wire keeps the same name across
-        /// a pull -> push round trip and the id the IDE holds survives it.</summary>
+        /// <summary>A fan-out wire's name: `g<VarId>` whenever that is free, so the SAME wire keeps the same
+        /// name across a pull -> push round trip and the id the IDE holds survives it (C9). A wire whose id
+        /// spells a name the engineer already uses is minted a free one instead — see the constructor.</summary>
+        private string NameOf(int varId) => _names[varId];
+
+        /// <summary>The name a wire WANTS. Only the constructor asks, and only to find out whether it is free.</summary>
         private static string WireName(int varId) => "g" + varId;
 
-        private static void CollectWires(Node? n, HashSet<string> into)
+        private static void CollectWireIds(Node? n, List<int> into)
         {
             switch (n)
             {
                 case Demux d:
-                    into.Add(WireName(d.VarId));
-                    CollectWires(d.Input, into);
+                    into.Add(d.VarId);
+                    CollectWireIds(d.Input, into);
                     break;
-                case Assign a: CollectWires(a.Value, into); break;
+                case Assign a: CollectWireIds(a.Value, into); break;
                 case Box b:
-                    CollectWires(b.Enable, into);
-                    foreach (var p in b.Inputs) CollectWires(p.Value, into);
+                    CollectWireIds(b.Enable, into);
+                    foreach (var p in b.Inputs) CollectWireIds(p.Value, into);
                     break;
                 case Parallel p2:
-                    CollectWires(p2.Input, into);
-                    foreach (var br in p2.Branches) CollectWires(br, into);
+                    CollectWireIds(p2.Input, into);
+                    foreach (var br in p2.Branches) CollectWireIds(br, into);
                     break;
-                case Terminator t: CollectWires(t.Input, into); break;
+                case Terminator t: CollectWireIds(t.Input, into); break;
             }
         }
 
@@ -288,7 +308,7 @@ public static class NetworkTextWriter
                 }
                 // A REFERENCE to a fan-out wire: the bare name. A Demux carrying an input is the definition
                 // and is emitted as a statement, but it can also sit inline as its own consumer's source.
-                case Demux d: return ApplyMods(WireName(d.VarId), d.Flags);
+                case Demux d: return ApplyMods(NameOf(d.VarId), d.Flags);
 
                 case Box b: return ApplyMods(Definition(b), b.Flags);
                 case Parallel p:
