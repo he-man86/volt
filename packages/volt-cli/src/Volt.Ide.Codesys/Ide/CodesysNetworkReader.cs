@@ -88,8 +88,16 @@ namespace Volt.Ide.Codesys
             var flags = ReadFlags(NwlInterop.Get(n, "Flags"));
             switch (NwlInterop.TypeName(n))
             {
+                // A CONTACT'S MODIFIERS LIVE ON ITS OPERAND, not on the item holding it. DIALECT N4 measured the
+                // vendor shape — `BoxTreeOperand carries Operand, Id and NO Flags` — so taking `flags` from the
+                // ITEM always yielded None here, and a negated contact reached the workspace as a PLAIN one:
+                // the wrong logic, committed to git, with nothing downstream to show it. TwinCAT's reader has
+                // always used the operand's; this is the same fact through the other vendor's spelling.
                 case "BoxTreeOperand":
-                    return new Leaf(ReadOperand(NwlInterop.Require(n, "Operand")), flags);
+                {
+                    var operand = ReadOperand(NwlInterop.Require(n, "Operand"));
+                    return new Leaf(operand, operand.Flags ?? flags);
+                }
 
                 case "BoxTreeAssign":
                 {

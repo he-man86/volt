@@ -268,7 +268,13 @@ public class TcRoundTripTests
     /// <para>Volt REFUSES rather than reads, because the archive shape of a populated <c>STSnippet</c> has never
     /// been measured on TwinCAT and guessing at a vendor serialization is what produced twenty unopenable files
     /// once already. Refusing is loud and recoverable; rendering the box without its code is neither. Every
-    /// other unrepresentable shape in this reader throws, and now so does this one.</para></summary>
+    /// other unrepresentable shape in this reader throws, and so does this one.</para>
+    ///
+    /// <para><b>The refusal is right; what it USED to cost was not.</b> A throw here is isolated by
+    /// <c>Versioning.SafeVersion</c> into the Unreadable sentinel, so <c>fetch</c> skipped the POU and the
+    /// engineer got no file at all — only a number in the "N unreadable" tally. The driver now detects the box
+    /// BEFORE the walk (<c>TcArchive.HasExecuteBox</c>) and materializes the body as a marker, the same answer
+    /// it already gives CFC, SFC and IL. This reader's contract is unchanged, which is why this test is.</para></summary>
     [Fact]
     public void An_Execute_box_is_refused_rather_than_rendered_without_its_ST()
     {
@@ -299,4 +305,83 @@ public class TcRoundTripTests
         Assert.NotNull(node.LastImported);
         Assert.Contains("FolderPath=\"Helpers", node.LastImported!);
     }
+
+    /// <summary>…AND THE DRIVER TURNS THAT REFUSAL INTO A MARKER RATHER THAN A MISSING POU. This is the half
+    /// that was absent: the reader was right to refuse, and nothing converted the refusal into something an
+    /// engineer could see. Detection happens before the node walk, on the vendor's own flag.</summary>
+    [Fact]
+    public void An_Execute_box_is_detected_before_the_walk_so_the_body_can_be_a_marker()
+    {
+        Assert.True(TcArchive.HasExecuteBox(Impl(Body("ExecuteBox.derived.TcPOU"))));
+    }
+
+    /// <summary>And it is NARROW — an ordinary ladder must not be mistaken for one, or every graphical body on
+    /// this vendor would materialize as a marker instead of as editable network text.</summary>
+    [Theory]
+    [InlineData("POU_PBD.TcPOU")]
+    [InlineData("FanOut.TcPOU")]
+    public void An_ordinary_body_is_not_mistaken_for_an_Execute_box(string fixture)
+    {
+        Assert.False(TcArchive.HasExecuteBox(Impl(Body(fixture))));
+    }
+
+    /// <summary>REORDERING NAMED PINS MUST MOVE THE NAMES WITH THE VALUES, not just the values.
+    ///
+    /// <para>Network text names a call's pins — <c>t1(IN := a, PT := pt)</c> — so writing them in the other
+    /// order says the same thing. The writer placed input VALUES positionally and never wrote
+    /// <c>InputParam/Names</c> at all, so the swapped values landed in slots still named <c>[IN, PT]</c>:
+    /// <c>PT</c>'s value on <c>IN</c>. Nothing refused it, the text round-tripped clean, and the running
+    /// program changed. CODESYS has always written these on rebuild.</para></summary>
+    [Fact]
+    public void Reordering_a_calls_named_pins_moves_the_names_with_the_values()
+    {
+        var before = Body("FbCall.derived.TcPOU");
+        var model = TextDerivedModel(before);
+
+        // Swap the two named inputs, exactly as an engineer retyping the call would.
+        var swapped = Swap(model);
+        var pairsBefore = Pairs(model);
+        Assert.Equal(2, pairsBefore.Count);   // the fixture really does carry named pins
+
+        var written = TcNetworkWriter.Apply(before, swapped);
+        Assert.NotNull(written);
+
+        // Read it back: every formal must still be paired with ITS OWN value.
+        var after = Pairs(TcNetworkReader.Read(Impl(written!), BodyLanguage.Fbd));
+        Assert.Equal(pairsBefore.OrderBy(x => x.Key).ToList(), after.OrderBy(x => x.Key).ToList());
+    }
+
+    /// <summary>Each named pin as formal -> the text of the value wired to it.</summary>
+    private static System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> Pairs(NetworkBody body) =>
+        body.Networks.SelectMany(n => n.Trees).SelectMany(Boxes)
+            .SelectMany(b => b.Inputs)
+            .Where(i => !string.IsNullOrEmpty(i.Formal))
+            .Select(i => new System.Collections.Generic.KeyValuePair<string, string>(i.Formal!, Text(i.Value)))
+            .ToList();
+
+    private static string Text(Node? n) => n switch
+    {
+        Leaf l => l.Operand.Text,
+        Box b => b.Type,
+        _ => n?.GetType().Name ?? "null",
+    };
+
+    private static System.Collections.Generic.IEnumerable<Box> Boxes(Node n)
+    {
+        if (n is Box b) { yield return b; foreach (var i in b.Inputs) foreach (var x in Boxes(i.Value)) yield return x; }
+        else if (n is Assign a && a.Value is { } v) foreach (var x in Boxes(v)) yield return x;
+    }
+
+    /// <summary>The same body with every named box's inputs reversed — formals and values together.</summary>
+    private static NetworkBody Swap(NetworkBody body) =>
+        body with { Networks = body.Networks.Select(n => n with { Trees = n.Trees.Select(SwapNode).ToList() }).ToList() };
+
+    private static Node SwapNode(Node n) => n switch
+    {
+        Box b when b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)) =>
+            b with { Inputs = b.Inputs.Reverse().ToList() },
+        Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = SwapNode(i.Value) }).ToList() },
+        Assign a => a with { Value = a.Value == null ? null : SwapNode(a.Value) },
+        _ => n,
+    };
 }

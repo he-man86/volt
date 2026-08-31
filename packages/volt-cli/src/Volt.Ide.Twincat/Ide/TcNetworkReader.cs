@@ -93,7 +93,11 @@ internal static class TcNetworkReader
                     CallKindOf(e),
                     ReadInputs(e),
                     Outputs(e),
-                    TcArchive.Obj(e, "En") is { } en ? ReadNode(en) : null,
+                    // "EN", not "En". The archive spells this member in UPPERCASE — 33 occurrences across
+                    // every fixture and both real TwinCAT projects, and zero of "En" — and TcArchive.Obj
+                    // compares ordinally, so the old spelling matched nothing and a WIRED enable was
+                    // silently dropped. DIALECT N4's measured BoxTreeBox member list says EN too.
+                    TcArchive.Obj(e, "EN") is { } en ? ReadNode(en) : null,
                     ReadStCode(e),
                     flags);
 

@@ -111,6 +111,17 @@ internal static class TcArchive
     /// <para>True here means the import door: nothing is lost by letting TwinCAT build the body from PLCopen.
     /// False means the in-place writer, where every id, every <c>Fixed</c> and every unmodelled member the IDE
     /// wrote survives exactly as it wrote it.</para></summary>
+    /// <summary>Does this body hold a CODESYS Execute box — a box whose call is raw ST?
+    ///
+    /// <para>Asked BEFORE the node walk, so the body can materialize as a marker instead of the walk throwing
+    /// and taking the whole item out of the workspace with it. <c>ProvidesSTSnippet</c> is the vendor's own
+    /// flag for it (DIALECT N4's measured <c>BoxTreeBox</c> member set) and is <c>false</c> on every ordinary
+    /// box in every fixture, so this is narrow: it fires on the shape it names and nothing else.</para></summary>
+    public static bool HasExecuteBox(XElement? impl) =>
+        impl != null && impl.Descendants("v").Any(v =>
+            (string?)v.Attribute("n") == "ProvidesSTSnippet" &&
+            string.Equals(v.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
+
     public static bool HasNoItems(XElement? impl)
     {
         if (impl == null) return true;

@@ -79,10 +79,15 @@ internal static class Nwl
     }
 
     /// <summary>A bare operand in tree position.</summary>
+    /// <summary>A bare operand in tree position. <b>It has NO Flags member, and that is the point.</b>
+    /// DIALECT N4 records the measured shape: `a BoxTreeOperand carries Operand, Id and NO Flags` — a
+    /// contact's modifiers live on the OPERAND it holds. This double used to declare a `Flags` property
+    /// the vendor type does not have, which let `CodesysNetworkReader` read a leaf's flags off the ITEM and
+    /// still pass: the whole offline suite was blind to a negated contact pulling as a plain one.
+    /// A double that can express a shape the vendor cannot is not a stand-in, it is an alibi.</summary>
     internal sealed class BoxTreeOperand
     {
         public Operand Operand { get; set; } = new Operand();
-        public object? Flags { get; set; }
     }
 
     internal sealed class OutputItemList

@@ -247,4 +247,47 @@ public class CodesysNetworkReaderTests
 
         Assert.False(Assert.IsType<Assign>(read.Trees.Single()).Value!.Flags.Set);
     }
+
+    /// <summary>A NEGATED CONTACT MUST PULL AS NEGATED. A contact's modifiers live on the OPERAND, not on the
+    /// item holding it — DIALECT N4 measured the vendor shape as `BoxTreeOperand carries Operand, Id and NO
+    /// Flags`. This reader took them off the ITEM, which therefore always yielded None, so a negated contact
+    /// reached the workspace as a PLAIN one: the wrong logic, committed to git, with nothing to show it.
+    ///
+    /// <para>TwinCAT's reader has always done this correctly (`operand.Flags ?? flags`, with a comment naming
+    /// the same fact). This is the same rule reached through the other vendor's spelling.</para>
+    ///
+    /// <para>It stayed invisible offline because the DOUBLE declared a `Flags` property the vendor type does not
+    /// have, so reading the item worked in the test and only in the test.</para></summary>
+    [Fact]
+    public void A_negated_contact_pulls_as_negated()
+    {
+        var leaf = new Nwl.BoxTreeOperand
+        {
+            Operand = new Nwl.Operand { OperandExpr = "a", Flags = new Nwl.Flags { Negation = true } },
+        };
+        var assign = new Nwl.BoxTreeAssign { RValue = leaf };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var value = Assert.IsType<Leaf>(Assert.IsType<Assign>(read.Trees.Single()).Value);
+        Assert.True(value.Flags.Negated, "the contact's negation lives on its operand and must reach the model");
+    }
+
+    /// <summary>An edge-triggered contact travels the same way — the fix is about WHERE flags are read, not
+    /// about one bit.</summary>
+    [Fact]
+    public void A_rising_edge_contact_keeps_its_edge()
+    {
+        var leaf = new Nwl.BoxTreeOperand
+        {
+            Operand = new Nwl.Operand { OperandExpr = "a", Flags = new Nwl.Flags { Rtrig = true } },
+        };
+        var assign = new Nwl.BoxTreeAssign { RValue = leaf };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(read.Trees.Single()).Value).Flags.Rising);
+    }
 }

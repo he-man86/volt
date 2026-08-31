@@ -247,13 +247,20 @@ internal static class TcNetworkWriter
                 //
                 // An ASSIGNMENT's targets are a different thing and ARE written (see the Assign arm): `out := x`
                 // is exactly what network text spells, so the model does carry those.
-                changed |= WriteChild(e, "En", b.Enable);
+                // "EN" — the same correction as the reader's, and it HAS to land in the same change. The
+                // two halves were misspelled in agreement, so the write no-opped for exactly the bodies
+                // the read could not see. Fixing only the reader makes b.Enable non-null while this still
+                // looked up "En", found nothing, and refused "a 'En' input appears where the IDE wrote
+                // none" — a push refusal on a body nobody had touched.
+                changed |= WriteChild(e, "EN", b.Enable);
 
                 var inputs = TcArchive.List(e, "InputItems");
                 if (inputs.Count != b.Inputs.Count)
                     throw Refuse($"box '{b.Type}' changes from {inputs.Count} to {b.Inputs.Count} input(s)");
                 for (int i = 0; i < inputs.Count; i++)
                     changed |= WriteNode(inputs[i], b.Inputs[i].Value);
+
+                changed |= WriteFormalNames(e, b);
                 return changed;
             }
 
@@ -327,6 +334,43 @@ internal static class TcNetworkWriter
     /// <para>The whole-flags write cannot be used here. A target may carry modifiers network text has no form
     /// for — a NEGATED coil is the measured case (`Flags=Negation,Set`) — and rewriting the field wholesale
     /// would erase them on a push that never mentioned them. Only the bit the format can express is touched.</para></summary>
+    /// <summary>A box's FORMAL PIN NAMES, written alongside its input values.
+    ///
+    /// <para><b>Values were written positionally while the names were never written at all</b>, and that pairing
+    /// is a silent semantic swap. Network text names the pins — <c>t1(IN := a, PT := pt)</c> — so an engineer who
+    /// REORDERS them to <c>t1(PT := pt, IN := a)</c> is saying the same thing; the writer put the values into
+    /// slots 0 and 1 while the archive's Names stayed <c>[IN, PT]</c>, so <c>PT</c>'s value landed on <c>IN</c>.
+    /// Nothing refused it, the text round-tripped, and the running program changed. CODESYS writes these on
+    /// every rebuild (<c>AppendParam</c>); this is the in-place equivalent.</para>
+    ///
+    /// <para>Assigning existing <c>&lt;v&gt;</c> values is squarely inside this writer's rule — no element is
+    /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
+    /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
+    /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
+    private static bool WriteFormalNames(XElement e, Box b)
+    {
+        if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal))) return false;   // operator: positional pins
+
+        var list = TcArchive.Obj(e, "InputParam")?.Elements("l2")
+            .FirstOrDefault(l => (string?)l.Attribute("n") == "Names");
+        if (list == null)
+            throw Refuse($"box '{b.Type}' names its pins but the IDE wrote no InputParam/Names to name");
+
+        var slots = list.Elements("v").ToList();
+        if (slots.Count != b.Inputs.Count)
+            throw Refuse($"box '{b.Type}' changes from {slots.Count} to {b.Inputs.Count} named pin(s)");
+
+        var changed = false;
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var want = b.Inputs[i].Formal ?? "";
+            if (slots[i].Value == want) continue;
+            slots[i].Value = want;
+            changed = true;
+        }
+        return changed;
+    }
+
     private static bool WriteStorage(XElement e, Flags storage)
     {
         if (storage.Reset)

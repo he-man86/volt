@@ -101,6 +101,17 @@ public sealed partial class BeckhoffDriver
             var language = ViewModeOf(impl);
             if (language is null) return BodyMarker.For("IL");
 
+            // AN EXECUTE BOX MAKES THE BODY UNSUPPORTED — it does not make the POU DISAPPEAR.
+            //
+            // Reading its ST is still unmeasured on this vendor, and the reader still refuses rather than
+            // materializing a box without the code it runs. But that refusal is a THROW deep in the node walk,
+            // and `Versioning.SafeVersion` isolates a throw by giving the item the Unreadable sentinel — so
+            // `fetch` skipped the POU entirely and the engineer got no file at all, only a count in the
+            // "N unreadable" tally. A body Volt cannot represent is exactly what the marker is for, and this
+            // file already answers CFC, SFC and IL that way: the POU appears, says what it holds, and is refused
+            // on push instead of vanishing from git.
+            if (TcArchive.HasExecuteBox(impl)) return BodyMarker.For("EXECUTE");
+
             var model = TcNetworkReader.Read(impl, language.Value);
             var text = NetworkTextWriter.Write(model).Trim();
             return text.Length == 0 ? null : text;

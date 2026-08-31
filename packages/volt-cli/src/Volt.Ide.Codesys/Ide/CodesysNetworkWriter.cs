@@ -133,8 +133,12 @@ namespace Volt.Ide.Codesys
             {
                 switch (n)
                 {
+                    // A LEAF'S MODIFIERS GO ON ITS OPERAND, mirroring the read. `BoxTreeOperand` carries no
+                    // Flags member of its own (DIALECT N4), so applying them to the ITEM reaches nothing — and
+                    // now that the reader correctly lifts the operand's flags onto the leaf, applying them to
+                    // the item would hit ApplyFlags' "carries no Flags" throw on every negated contact.
                     case Leaf l:
-                        return Flagged(NwlInterop.New(_net, "BoxTreeOperand", Operand(l.Operand)), l.Flags);
+                        return NwlInterop.New(_net, "BoxTreeOperand", Operand(l.Operand, l.Flags));
 
                     case Assign a:
                     {
@@ -322,17 +326,19 @@ namespace Volt.Ide.Codesys
 
             private object Operand(Operand o) => Operand(o, Flags.None);
 
-            /// <summary>Build the vendor operand. <paramref name="storage"/> is the coil storage that belongs on
-            /// an assignment TARGET — only <c>Set</c>/<c>Reset</c> are taken from it, so the operand's own
-            /// modifiers (a negated coil) are neither lost nor overwritten.</summary>
-            private object Operand(Operand o, Flags storage)
+            /// <summary>Build the vendor operand. <paramref name="extra"/> is applied ON TOP of the operand's own
+            /// modifiers, never instead of them, and serves the two places the model keeps a modifier somewhere
+            /// other than on the operand itself: coil STORAGE, which belongs on an assignment target, and a
+            /// LEAF's flags, which the model carries on the node while the vendor keeps them on the operand
+            /// (DIALECT N4 — <c>BoxTreeOperand</c> has no Flags member). <c>ApplyFlags</c> only ever sets bits,
+            /// so nothing the engineer wrote is overwritten.</summary>
+            private object Operand(Operand o, Flags extra)
             {
                 var op = NwlInterop.New(_net, "Operand", o.Text);
                 if (!string.IsNullOrEmpty(o.Type)) NwlInterop.Set(op, "Type", o.Type);
                 if (o.IsLValue) NwlInterop.Set(op, "IsLValue", true);
                 ApplyFlags(op, o.Flags);
-                if (storage.Set || storage.Reset)
-                    ApplyFlags(op, Flags.None with { Set = storage.Set, Reset = storage.Reset });
+                if (!extra.IsNone) ApplyFlags(op, extra);
                 return op;
             }
 
