@@ -254,7 +254,11 @@ public static class NetworkTextWriter
 
                 case Box b: return ApplyMods(Definition(b), b.Flags);
                 case Parallel p:
-                    return "(" + string.Join(p.Mode == ParallelMode.And ? " AND " : " OR ",
+                    // Branches are OR-ed. A ladder's parallel IS an OR, it is the only form the published text format
+                    // spells (the AND in "((a OR b) AND c)" is a series, i.e. an AND box), and it is the only
+                    // value either vendor can produce — `IBoxTreeParallel.Mode` is `Sequential|BoxShortCircuit`
+                    // and carries no And/Or at all.
+                    return "(" + string.Join(" OR ",
                                              p.Branches.Select(x => Render(x, nested: true))) + ")";
                 case Terminator t: return t.Input is null ? "" : Render(t.Input, nested);
                 case Assign a: return a.Value is null ? "" : Render(a.Value, nested);

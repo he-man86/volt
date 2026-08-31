@@ -264,19 +264,15 @@ internal static class TcNetworkWriter
 
             case Parallel p when type == "BoxTreeParallel":
             {
-                // `Mode` IS NOT WRITTEN, and must not be. It used to be set to the string "And" or "Or" from
-                // `ParallelMode` — but that is not what the member holds. Measured on the vendor's own contract
-                // (SP21 `NWLObject` 4.6.0.0): `IBoxTreeParallel.Mode` is typed `OperationMode`, whose only values
-                // are `Sequential` and `BoxShortCircuit`. So "And"/"Or" is outside the member's vocabulary, and
-                // writing it puts a value into a live ladder's archive that the vendor's own deserializer cannot
-                // read back as that enum.
-                //
-                // The same measurement shows the READ was never doing anything either: both drivers compare this
-                // member against "And", which `OperationMode` can never produce, so every parallel has always
-                // been read as `ParallelMode.Or` on both vendors. That is the right ANSWER for a ladder — parallel
-                // branches are an OR — but it is arrived at by accident, and `ParallelMode`'s own doc comment
-                // ("the vendor's BoxTreeParallel.Mode") claims a correspondence that does not exist. Volt does not
-                // model this member, so the honest write is to leave the IDE's value alone.
+                // `Mode` IS NOT WRITTEN, and must not be. It used to be set to the string "And" or "Or"
+                // from a model field that no longer exists. Measured on the vendor's own contract (SP21
+                // `NWLObject` 4.6.0.0): `IBoxTreeParallel.Mode` is typed `OperationMode`, whose only values are
+                // `Sequential` and `BoxShortCircuit`. "And"/"Or" is outside that member's vocabulary, so the
+                // write put a value into a live ladder's archive the vendor's own deserializer cannot read back
+                // as that enum. Both readers were equally confused — they compared it against "And", which the
+                // enum can never produce — so every parallel has always been read as an OR, which for a ladder
+                // is the right answer reached for the wrong reason. Volt does not model this member; the honest
+                // write is to leave the IDE's value alone.
                 changed |= WriteChild(e, "Input", p.Input);
                 var branches = TcArchive.List(e, "Trees");
                 if (branches.Count != p.Branches.Count)

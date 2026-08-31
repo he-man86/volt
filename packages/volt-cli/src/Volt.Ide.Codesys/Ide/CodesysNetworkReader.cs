@@ -121,7 +121,6 @@ namespace Volt.Ide.Codesys
                     return new Parallel(
                         Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null,
                         NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),
-                        ReadParallelMode(NwlInterop.Get(n, "Mode")),
                         flags);
 
                 case "BoxTreeTerminator":
@@ -227,10 +226,6 @@ namespace Volt.Ide.Codesys
             return instance is null ? CallKind.Function : CallKind.FunctionBlock;
         }
 
-        private static ParallelMode ReadParallelMode(object? mode) =>
-            string.Equals(mode?.ToString(), "And", StringComparison.OrdinalIgnoreCase)
-                ? ParallelMode.And
-                : ParallelMode.Or;
 
         /// <summary>Empty and the vendor's serialization placeholders both mean "not set".
         /// <para>A freshly constructed operand reports <c>Address='Constant_Address_Serialization_Value'</c> and

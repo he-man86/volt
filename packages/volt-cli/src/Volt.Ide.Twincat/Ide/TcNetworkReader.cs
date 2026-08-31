@@ -108,8 +108,6 @@ internal static class TcNetworkReader
                 return new Parallel(
                     TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi) : null,
                     TcArchive.List(e, "Trees").Select(ReadNode).ToList(),
-                    string.Equals(TcArchive.Str(e, "Mode"), "And", StringComparison.OrdinalIgnoreCase)
-                        ? ParallelMode.And : ParallelMode.Or,
                     flags);
 
             case "BoxTreeTerminator":
