@@ -53,6 +53,20 @@ internal static class Nwl
         public void AppendTree(object tree) { Calls.Add("AppendTree"); _trees.Add(tree); }
     }
 
+    /// <summary>The vendor's flag bit-field, as NAMED BOOLEANS — which is how it really presents itself
+    /// (measured on IFlags: Negation, Set, Jump, Return, Rtrig, Ftrig, and no Reset). Every one of them is
+    /// settable on the real interface, which is what lets the writer put coil storage back by MUTATING the
+    /// operand's existing flags rather than assigning a new object: `IOperand.Flags` has no setter.</summary>
+    internal sealed class Flags
+    {
+        public bool Negation { get; set; }
+        public bool Set { get; set; }
+        public bool Jump { get; set; }
+        public bool Return { get; set; }
+        public bool Rtrig { get; set; }
+        public bool Ftrig { get; set; }
+    }
+
     internal sealed class Operand
     {
         public string OperandExpr { get; set; } = "";

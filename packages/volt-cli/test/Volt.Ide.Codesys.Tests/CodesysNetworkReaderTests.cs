@@ -193,4 +193,58 @@ public class CodesysNetworkReaderTests
         public object? GetTree(int i) => null;
         public object? GetSplitPoint(int i) => null;
     }
+
+    /// <summary>A SET COIL MUST SURVIVE THE PULL. CODESYS keeps coil storage on the operand being assigned TO
+    /// (measured on a real ladder: 246 Set flags across 356 networks), while network text spells it as a
+    /// trailing modifier after the VALUE — `out := a SET;` — and NetworkTextWriter renders modifiers from the
+    /// value only. This reader dropped the targets' flags entirely, so a SET coil pulled as a PLAIN coil:
+    /// invisible in git, and silently downgraded to a plain coil on the next push. It changes what the program
+    /// does, and nothing in the workspace showed it.
+    ///
+    /// <para>DIALECT D26 asserted this reader "already puts storage on the value" — it did not, which is how the
+    /// gap outlived being written down.</para></summary>
+    [Fact]
+    public void A_set_coil_carries_its_storage_onto_the_value()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "out",
+            IsLValue = true,
+            Flags = new Nwl.Flags { Set = true },
+        });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var a = Assert.IsType<Assign>(read.Trees.Single());
+        Assert.True(a.Value!.Flags.Set, "the coil's SET must land on the value, where network text spells it");
+        Assert.Equal("out", a.Targets.Single().Text);
+    }
+
+    /// <summary>A NEGATED coil keeps its negation on the TARGET, where it is rendered from — only Set/Reset
+    /// move. Moving everything would put the negation on the source operand and change the logic.</summary>
+    [Fact]
+    public void A_negated_coil_keeps_its_negation_on_the_target()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true, Flags = new Nwl.Flags { Negation = true } });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var a = Assert.IsType<Assign>(read.Trees.Single());
+        Assert.False(a.Value!.Flags.Set);
+        Assert.True(a.Targets.Single().Flags!.Negated);
+    }
+
+    /// <summary>A plain coil stays plain — the translation must not invent storage.</summary>
+    [Fact]
+    public void A_plain_coil_gains_no_storage()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        Assert.False(Assert.IsType<Assign>(read.Trees.Single()).Value!.Flags.Set);
+    }
 }

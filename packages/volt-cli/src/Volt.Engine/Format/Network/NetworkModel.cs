@@ -143,7 +143,20 @@ public sealed record Operand(
 /// <summary>How the box is called. The vendor's <c>BoxTreeBox.CallType</c>.</summary>
 public enum CallKind { Operator, Function, FunctionBlock }
 
-/// <summary>LD parallel semantics — the vendor's <c>BoxTreeParallel.Mode</c>.</summary>
+/// <summary>How a parallel's branches are JOINED when the network is rendered as text — <c>" OR "</c> or
+/// <c>" AND "</c> between them.
+///
+/// <para><b>This is NOT the vendor's <c>BoxTreeParallel.Mode</c>, though it claimed to be.</b> Measured on the
+/// vendor's own contract (CODESYS SP21, <c>NWLObject</c> 4.6.0.0): that member is typed <c>OperationMode</c>,
+/// whose values are <c>Sequential</c> and <c>BoxShortCircuit</c> — a statement about evaluation, not about the
+/// operator between branches. Both drivers read it by comparing against the string <c>"And"</c>, which that enum
+/// can never produce, so <see cref="Or"/> is the only value either has ever yielded.</para>
+///
+/// <para>For a ladder that answer is correct — parallel contacts are an OR — so nothing has ever been rendered
+/// wrongly. <see cref="And"/> is currently unreachable, and is kept rather than deleted because the text format
+/// specifies both spellings and a body could be authored with either. What was removed is the pretence that the
+/// vendor supplies this: TwinCAT's writer used to push <c>"And"</c>/<c>"Or"</c> back into that member, writing a
+/// value outside its enum's vocabulary into a live ladder.</para></summary>
 public enum ParallelMode { Or, And }
 
 /// <summary>

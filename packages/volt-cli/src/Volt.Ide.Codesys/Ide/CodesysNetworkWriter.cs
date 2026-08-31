@@ -138,11 +138,18 @@ namespace Volt.Ide.Codesys
 
                     case Assign a:
                     {
+                        // COIL STORAGE GOES BACK WHERE THIS VENDOR KEEPS IT — on the TARGET — having been read
+                        // onto the value (see CodesysNetworkReader). It is written from the value and STRIPPED
+                        // from the value, so the source operand does not also come out latched: `out := a SET;`
+                        // is a set COIL, not a set input. Without this the write half of the same gap stayed
+                        // open — a SET an engineer typed in the workspace was accepted and landed as a plain
+                        // coil, changing what the program does.
+                        var storage = a.Value?.Flags ?? Flags.None;
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
-                        if (a.Value is { } v) NwlInterop.Set(asg, "RValue", Node(v));
+                        if (CoilStorage.WithoutStorage(a.Value) is { } v) NwlInterop.Set(asg, "RValue", Node(v));
                         var outputs = NwlInterop.Require(asg, "Outputs");
                         foreach (var t in a.Targets)
-                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(t));
+                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(t, storage));
                         return Flagged(asg, a.Flags);
                     }
 
@@ -313,12 +320,19 @@ namespace Volt.Ide.Codesys
                 ApplyFlags(op, inst.Flags);
             }
 
-            private object Operand(Operand o)
+            private object Operand(Operand o) => Operand(o, Flags.None);
+
+            /// <summary>Build the vendor operand. <paramref name="storage"/> is the coil storage that belongs on
+            /// an assignment TARGET — only <c>Set</c>/<c>Reset</c> are taken from it, so the operand's own
+            /// modifiers (a negated coil) are neither lost nor overwritten.</summary>
+            private object Operand(Operand o, Flags storage)
             {
                 var op = NwlInterop.New(_net, "Operand", o.Text);
                 if (!string.IsNullOrEmpty(o.Type)) NwlInterop.Set(op, "Type", o.Type);
                 if (o.IsLValue) NwlInterop.Set(op, "IsLValue", true);
                 ApplyFlags(op, o.Flags);
+                if (storage.Set || storage.Reset)
+                    ApplyFlags(op, Flags.None with { Set = storage.Set, Reset = storage.Reset });
                 return op;
             }
 

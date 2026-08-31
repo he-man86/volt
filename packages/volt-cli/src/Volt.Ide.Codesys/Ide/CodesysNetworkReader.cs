@@ -92,10 +92,19 @@ namespace Volt.Ide.Codesys
                     return new Leaf(ReadOperand(NwlInterop.Require(n, "Operand")), flags);
 
                 case "BoxTreeAssign":
-                    return new Assign(
-                        Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null,
-                        NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList(),
-                        flags);
+                {
+                    var targets = NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList();
+                    var value = Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null;
+
+                    // COIL STORAGE MOVES ONTO THE VALUE. CODESYS keeps `Set` on the operand being assigned TO
+                    // (measured on a real ladder: 246 Set flags across 356 networks), while network text spells
+                    // it as a trailing modifier after the VALUE and `NetworkTextWriter` renders modifiers from
+                    // the value only. This read used to drop the targets' flags entirely, so a SET or negated
+                    // coil pulled as a PLAIN one — invisible in git, and downgraded on the next push. DIALECT
+                    // D26 claimed this reader "already puts storage on the value", which is how the gap outlived
+                    // being written down; the rule now lives in ONE place both drivers call.
+                    return new Assign(CoilStorage.OntoValue(value, targets), targets, flags);
+                }
 
                 case "BoxTreeBox":
                     return ReadBox(n, flags);

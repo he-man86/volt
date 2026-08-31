@@ -201,7 +201,7 @@ internal static class TcNetworkWriter
                 // source operand does not also come out latched: `out := a SET;` is a set COIL, not a set input.
                 var storage = a.Value?.Flags ?? Flags.None;
                 return changed
-                     | WriteChild(e, "RValue", WithoutStorage(a.Value))
+                     | WriteChild(e, "RValue", CoilStorage.WithoutStorage(a.Value))
                      | WriteOutputs(e, a.Targets)
                      | WriteStorage(e, storage);
             }
@@ -264,7 +264,19 @@ internal static class TcNetworkWriter
 
             case Parallel p when type == "BoxTreeParallel":
             {
-                changed |= SetString(e, "Mode", p.Mode == ParallelMode.And ? "And" : "Or");
+                // `Mode` IS NOT WRITTEN, and must not be. It used to be set to the string "And" or "Or" from
+                // `ParallelMode` — but that is not what the member holds. Measured on the vendor's own contract
+                // (SP21 `NWLObject` 4.6.0.0): `IBoxTreeParallel.Mode` is typed `OperationMode`, whose only values
+                // are `Sequential` and `BoxShortCircuit`. So "And"/"Or" is outside the member's vocabulary, and
+                // writing it puts a value into a live ladder's archive that the vendor's own deserializer cannot
+                // read back as that enum.
+                //
+                // The same measurement shows the READ was never doing anything either: both drivers compare this
+                // member against "And", which `OperationMode` can never produce, so every parallel has always
+                // been read as `ParallelMode.Or` on both vendors. That is the right ANSWER for a ladder — parallel
+                // branches are an OR — but it is arrived at by accident, and `ParallelMode`'s own doc comment
+                // ("the vendor's BoxTreeParallel.Mode") claims a correspondence that does not exist. Volt does not
+                // model this member, so the honest write is to leave the IDE's value alone.
                 changed |= WriteChild(e, "Input", p.Input);
                 var branches = TcArchive.List(e, "Trees");
                 if (branches.Count != p.Branches.Count)
@@ -313,23 +325,6 @@ internal static class TcNetworkWriter
     /// <para>The real fix is to give a target's modifiers a text form so a SET coil is visible and editable in
     /// the workspace at all. Until then the archive value is left exactly as the IDE wrote it.</para></summary>
     private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
-
-    /// <summary>The node with its coil-storage bits cleared, so writing the r-value cannot latch the source.</summary>
-    private static Node? WithoutStorage(Node? node)
-    {
-        if (node is null) return null;
-        var f = node.Flags with { Set = false, Reset = false };
-        return node switch
-        {
-            Leaf l => l with { Flags = f },
-            Box b => b with { Flags = f },
-            Demux d => d with { Flags = f },
-            Parallel p => p with { Flags = f },
-            Terminator t => t with { Flags = f },
-            Assign a => a with { Flags = f },
-            _ => node,
-        };
-    }
 
     /// <summary>Set or clear the SET bit on every target of an assignment, leaving every OTHER bit alone.
     ///
