@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <POU Name="VltProbe_Mem" Id="{08382fa9-4ef7-43a3-95b2-89cb2477271c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK VltProbe_Mem
+VAR
+	a : BOOL;
+	b : BOOL;
+	out : BOOL;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[out := a;]]></ST>
+    </Implementation>
+    <Action Name="A_G" Id="{61f16898-4fbf-4b0f-a60b-c8323c08512e}">
+      <Implementation>
+        <ST><![CDATA[out := a AND b;]]></ST>
+      </Implementation>
+    </Action>
+    <Property Name="P_G" Id="{daba2012-21df-4b2b-90cd-ebe31c860645}">
+      <Declaration><![CDATA[PROPERTY P_G : BOOL]]></Declaration>
+      <Get Name="Get" Id="{2f7f10ce-8a85-4425-a699-46693b953ee3}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[P_G := a AND b;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{135fd215-4a66-4888-9c34-0802088f9fc2}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[out := P_G;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <LineIds Name="VltProbe_Mem">
+      <LineId Id="8" Count="0" />
+    </LineIds>
+    <LineIds Name="VltProbe_Mem.A_G">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="VltProbe_Mem.P_G.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="VltProbe_Mem.P_G.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
