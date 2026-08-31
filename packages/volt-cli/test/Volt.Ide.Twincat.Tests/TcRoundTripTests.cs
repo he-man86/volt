@@ -47,11 +47,19 @@ public class TcRoundTripTests
         XElement.Parse(body, LoadOptions.PreserveWhitespace)
             .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
 
+    /// <summary>The fixture's OWN view. This was hardcoded `Ld` while every fixture archive says `Fbd`, so the
+    /// model built here disagreed with the body it was about to be written into — harmless while nothing looked,
+    /// and a refusal the moment the writer started checking that a push cannot change a body's view.</summary>
+    private static BodyLanguage LanguageOf(string body) =>
+        string.Equals(TcArchive.ViewMode(Impl(body)), "Ld", System.StringComparison.OrdinalIgnoreCase)
+            ? BodyLanguage.Ld
+            : BodyLanguage.Fbd;
+
     /// <summary>Read the archive the way a PULL does, then parse the text back the way a PUSH does. This is the
     /// model the writer actually receives in production — not the archive-derived one.</summary>
     private static NetworkBody TextDerivedModel(string body)
     {
-        var pulled = TcNetworkReader.Read(Impl(body), BodyLanguage.Ld);
+        var pulled = TcNetworkReader.Read(Impl(body), LanguageOf(body));
         var text = NetworkTextWriter.Write(pulled);
         return NetworkTextGate.Validate(text);
     }

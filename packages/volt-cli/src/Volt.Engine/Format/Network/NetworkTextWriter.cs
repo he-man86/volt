@@ -55,10 +55,27 @@ public static class NetworkTextWriter
             // Every fan-out wire's name is reserved, so a minted temp can never shadow one.
             _wires = new HashSet<string>(System.StringComparer.Ordinal);
             foreach (var t in net.Trees) CollectWires(t, _wires);
-            // A minted temp must never shadow a real declared identifier — an FB instance is the case that bites,
-            // because it is a variable in the POU's VAR section AND appears in the body.
+            // A minted temp must never shadow a real declared identifier. This used to collect FB INSTANCE
+            // names only — no leaf, no assignment target — so an ordinary variable an engineer happened to
+            // call `g1` was not reserved, and a network needing one minted wire produced
+            // `LET g1 := (a AND b);` beside their own `outC := (g1 OR c);`. On the way back the reader
+            // matches `g<n>` as a wire name and rewrites their variable read into a reference to Volt's
+            // fan-out; re-emitting reproduces the text byte-for-byte, so the canonical gate passes, and the
+            // push deletes their inVariable and changes what `outC` computes. Every identifier in the
+            // network is reserved now, which is the only set that cannot collide.
             _reserved = new HashSet<string>(System.StringComparer.Ordinal);
-            foreach (var t in net.Trees) CollectInstances(t, _reserved);
+            foreach (var t in net.Trees) CollectNames(t, _reserved);
+
+            // AND A WIRE'S OWN NAME CANNOT BE MINTED AROUND. `g<VarId>` is the vendor's id (C9 — reusing it
+            // verbatim is what stops an edit renumbering every wire in the rung), so when a real variable is
+            // spelled the same the two meanings cannot both be written. Refusing names the collision; the
+            // alternative is text where one `g5` is a wire and the other is the engineer's variable.
+            foreach (var w in _wires)
+                if (_reserved.Contains(w))
+                    throw new NotSupportedException(
+                        $"network {net.Order} has a variable named '{w}', which is also the name of a fan-out " +
+                        "wire in the same network — network text spells a wire `g<n>`, so the two cannot be " +
+                        "told apart. Rename the variable in the IDE.");
         }
 
         public void Emit()
@@ -395,25 +412,39 @@ public static class NetworkTextWriter
             return s;
         }
 
-        private static void CollectInstances(Node n, HashSet<string> into)
+        /// <summary>Every identifier this network MENTIONS — leaves, assignment targets, box instances and
+        /// box outputs — so a minted `g<n>`/`i<n>`/`en<n>` cannot land on one of them.
+        ///
+        /// <para>It collected FB instances alone, and the name says why that looked sufficient: an instance
+        /// is a declared variable that also appears in the body. So is every other operand. A `Leaf` arm was
+        /// simply missing, which is the whole of the bug — its twin <c>CollectWires</c> has always walked the
+        /// same tree for the other set.</para></summary>
+        private static void CollectNames(Node? n, HashSet<string> into)
         {
             switch (n)
             {
+                case Leaf l:
+                    if (!string.IsNullOrEmpty(l.Operand.Text)) into.Add(l.Operand.Text);
+                    break;
                 case Box b:
                     if (b.Instance is { } i && !string.IsNullOrEmpty(i.Text)) into.Add(i.Text);
-                    if (b.Enable is { } e) CollectInstances(e, into);
-                    foreach (var p in b.Inputs) CollectInstances(p.Value, into);
+                    foreach (var o in b.Outputs)
+                        if (!string.IsNullOrEmpty(o.Text)) into.Add(o.Text);
+                    CollectNames(b.Enable, into);
+                    foreach (var p in b.Inputs) CollectNames(p.Value, into);
                     break;
                 case Assign a:
-                    if (a.Value is { } v) CollectInstances(v, into);
+                    foreach (var t2 in a.Targets)
+                        if (!string.IsNullOrEmpty(t2.Text)) into.Add(t2.Text);
+                    CollectNames(a.Value, into);
                     break;
+                // A demux's own NAME is a wire, collected by `CollectWires`; only what feeds it is a name.
+                case Demux d: CollectNames(d.Input, into); break;
                 case Parallel p2:
-                    if (p2.Input is { } pi) CollectInstances(pi, into);
-                    foreach (var br in p2.Branches) CollectInstances(br, into);
+                    CollectNames(p2.Input, into);
+                    foreach (var br in p2.Branches) CollectNames(br, into);
                     break;
-                case Terminator t:
-                    if (t.Input is { } ti) CollectInstances(ti, into);
-                    break;
+                case Terminator t: CollectNames(t.Input, into); break;
             }
         }
     }

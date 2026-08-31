@@ -127,7 +127,7 @@ public sealed partial class CodesysDriver
     /// <para>IL is a VIEW of the same network model, not a separate body format, and Volt does not author it.
     /// A body in IL view is refused rather than rendered as FBD, because rendering it would hand the engineer a
     /// diagram they did not write.</para></summary>
-    private static BodyLanguage? ReadViewMode(object impl)
+    internal static BodyLanguage? ReadViewMode(object impl)
     {
         var mode = NwlInterop.Require(impl, "DefaultViewMode").ToString() ?? "";
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;

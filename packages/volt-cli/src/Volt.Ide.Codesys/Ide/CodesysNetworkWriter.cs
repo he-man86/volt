@@ -34,6 +34,13 @@ namespace Volt.Ide.Codesys
                         "CODESYS: the item has no Implementation aspect — refusing to write a graphical body " +
                         "into an item that cannot hold one");
 
+                // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
+                // text prints FBD or LD on every network header — the sole textual difference between the
+                // two — so it invites an edit that nothing applies: the member is never written on an
+                // update, and the change gate below compares both sides with the language neutralised, so a
+                // header-only edit wrote nothing, reported success, and was reverted by the next pull.
+                NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
+
                 // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
                 // and an earlier version of this file refused a count change outright as "not measured" - which
                 // failed every splice test, because splicing a body is exactly where a network appears or goes.

@@ -129,7 +129,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>FBD or LD, from the archive's <c>DefaultViewMode</c>. IL is the same network model in a third
     /// view; Volt does not author it, so it is refused rather than re-rendered as a diagram the engineer did
     /// not write.</summary>
-    private static BodyLanguage? ViewModeOf(XElement impl)
+    internal static BodyLanguage? ViewModeOf(XElement impl)
     {
         // NO `?? "Fbd"`. An archive with no DefaultViewMode is a body whose view Volt cannot determine,
         // and guessing FBD renders a ladder as a function-block diagram — the engineer's own drawing,
@@ -170,6 +170,16 @@ public sealed partial class BeckhoffDriver
         };
     }
 
+    /// <summary>Is this a MEMBER of a POU — a method, an action, or a property accessor — rather than a
+    /// top-level object? They differ from a POU in exactly one way that matters here: their
+    /// implementation slot is ST, so an NWL archive assigned to it is stored as text.</summary>
+    private static bool IsMember(string kind) =>
+        kind is ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod
+             or ItemKind.Kinds.Action
+             or ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty
+             or ItemKind.Kinds.PropertyGet or ItemKind.Kinds.PropertySet
+             or ItemKind.Kinds.InterfacePropertyGet or ItemKind.Kinds.InterfacePropertySet;
+
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body)
     {
         if (body is { } b && NetworkText.Is(b))
@@ -203,6 +213,32 @@ public sealed partial class BeckhoffDriver
                 // stamps the values on: flags, comments, titles, everything network text does carry. Neither
                 // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
                 // to survive a create.
+                // CREATING A GRAPHICAL BODY ON A MEMBER IS REFUSED, because `WriteText` cannot land one
+                // there and the failure was silent until the build oracle started working.
+                //
+                // `WriteText` sets `ImplementationText`, and on a POU whose implementation is already an
+                // NWL archive TwinCAT replaces the archive. On a METHOD, an ACTION or a property
+                // ACCESSOR — whose implementation is ST, or empty because it has just been created — the
+                // same assignment stores the archive AS TEXT. The POU is then written, the push reports
+                // success, the text round-trips (Volt reads its own archive straight back), and the
+                // project does not compile: `Unexpected Token '<' found`, `';' expected instead of 'NWL'`,
+                // `((((((NWL > !!!'ERROR'!!!) < XmlArchive) …`. An action gives the shorter
+                // `Assignment target not specified`.
+                //
+                // It shipped green because `ensureCompiles` filtered build diagnostics by the test-POU
+                // prefix and no vendor puts a name in one, so the four tests asserting exactly this
+                // ("round-trips and compiles") could not fail. Refusing is the honest state until the
+                // vendor route for setting a MEMBER's implementation to an archive is measured — an
+                // engineer told they must draw it in the IDE is strictly better off than one handed a POU
+                // that will not build. An EXISTING graphical member is untouched by this: it takes the
+                // in-place archive path below, which works.
+                if (IsMember(kind))
+                    throw new NotSupportedException(
+                        $"TwinCAT: Volt cannot create a graphical body on a {kind} — setting a member's " +
+                        "implementation to an NWL archive stores it as ST text, and the POU stops " +
+                        "compiling. Draw it in the IDE and pull it. (Editing one that already exists " +
+                        "works; this is only about creating one.)");
+
                 var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
                 _om.WriteText(item.Native, declaration, Stamp(built, model));
                 return;

@@ -295,6 +295,31 @@ public class ParallelRenderTests
         Assert.Contains("out := (a OR b);", text);
     }
 
+    /// <summary>A MINTED WIRE MUST NOT CAPTURE A VARIABLE THE ENGINEER DECLARED.
+    ///
+    /// <para>The reservation set collected FB INSTANCE names only — no leaf, no assignment target — so a network
+    /// needing one minted wire, beside an ordinary variable an engineer had called `g1`, emitted
+    /// `LET g1 := …;` and then `outC := (g1 OR c);` meaning Volt's wire. Re-emitting reproduces that text
+    /// byte-for-byte, so the canonical gate passes; the push deletes their inVariable and changes what `outC`
+    /// computes.</para></summary>
+    [Fact]
+    public void A_minted_wire_does_not_capture_a_declared_variable()
+    {
+        var text = NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Ld, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                // two targets on one value — this is what forces a `g` to be minted
+                new Assign(Leaf("a"), new[] { new Operand("out1"), new Operand("out2") }, Flags.None),
+                // …beside a real variable that is already spelled like one
+                new Assign(Leaf("g1"), new[] { new Operand("outC") }, Flags.None),
+            }),
+        }));
+
+        Assert.Contains("outC := g1;", text);                      // the engineer's variable, untouched
+        Assert.DoesNotContain("LET g1 :=", text);                  // and the mint went elsewhere
+    }
+
     /// <summary>And the parallel's OWN modifiers reach the text, which this arm also used to drop.</summary>
     [Fact]
     public void A_negated_parallel_says_so()

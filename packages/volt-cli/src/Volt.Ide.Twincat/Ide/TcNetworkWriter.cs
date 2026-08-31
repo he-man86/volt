@@ -71,6 +71,13 @@ internal static class TcNetworkWriter
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
             ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
+        // THE VIEW CANNOT BE CHANGED BY A PUSH — the same rule CODESYS states, from its own accessor.
+        // Network text prints FBD or LD on every header, so it invites an edit nothing applies: only the
+        // CREATE route writes `DefaultViewMode` (`TcArchive.WithViewMode`), and `Unchanged` below compares
+        // both sides with the language neutralised — so a header-only edit wrote nothing, reported
+        // success, and was reverted by the next pull.
+        NetworkText.RefuseViewModeChange(BeckhoffDriver.ViewModeOf(impl), body.Language);
+
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count != body.Networks.Count)
             throw Refuse($"the number of networks changes ({networks.Count} -> {body.Networks.Count})");
@@ -245,11 +252,21 @@ internal static class TcNetworkWriter
                 // This is the same mistake the box arm below documents at length (a text-derived model can
                 // never carry `Box.Outputs`, so comparing them refused every resolved box), in the one
                 // other place the model and the archive disagree about what an "output" is.
-                var controlFlow = a.Flags.Jump || a.Flags.Return;
-
+                // ONLY A RETURN SKIPS THE OUTPUT WRITE, and narrowing this from "either" is the fix.
+                //
+                // The measurement behind the skip (D31c) is about RETURN: the model carries zero targets
+                // while TwinCAT's imported return item holds one output slot, so comparing the counts
+                // refused a body the IDE had just built. A JUMP is not that shape — its single target is the
+                // destination label and the archive has one slot for it, so the counts agree and the write
+                // works. Folding the two together was a generalization, not a measurement, and it cost the
+                // edit path: retargeting `JMP Done` to `JMP Other` left RValue unchanged, skipped the
+                // outputs and found no storage change, so `changed` stayed false, `Apply` returned null and
+                // the driver wrote nothing at all. The push reported success, the PLC still jumped to `Done`,
+                // and the next pull reverted the engineer's file.
                 return changed
                      | WriteChild(e, "RValue", CoilStorage.WithoutStorage(a.Value))
-                     | (controlFlow ? false : WriteOutputs(e, a.Targets))
+                     | (a.Flags.Return ? false : WriteOutputs(e, a.Targets))
+                     | WriteJump(e, a.Flags.Jump)
                      | WriteStorage(e, storage);
             }
 
@@ -414,6 +431,35 @@ internal static class TcNetworkWriter
             if (slots[i].Value == want) continue;
             slots[i].Value = want;
             changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>Set or clear the JUMP bit on an assignment's targets, leaving every other bit alone.
+    ///
+    /// <para>A jump's destination operand carries the bit as well as the item does — measured on a jump
+    /// TwinCAT's own PLCopen importer built, which holds `Flags = 4` in both places (DIALECT C13). Nothing
+    /// wrote it on the EDIT path, so turning an existing coil into a jump moved the item's flags 0 -> 4 and
+    /// left the label operand at 0 — exactly the archive shape C13 measured as `'Done' is no valid
+    /// assignment target` on the other vendor.</para>
+    ///
+    /// <para>BIT-PRECISE, like <see cref="WriteStorage"/> beside it and for the same reason (D26): a target
+    /// may carry modifiers the text has no form for, and a whole-flags write would erase them.</para></summary>
+    private static bool WriteJump(XElement e, bool jump)
+    {
+        var holder = TcArchive.Obj(e, "OutputItems");
+        var changed = false;
+        foreach (var target in TcArchive.List(holder, "OutputItems"))
+        {
+            var flags = TcArchive.Obj(target, "Flags");
+            if (flags == null)
+            {
+                if (jump) throw Refuse("a jump's destination carries no flags");
+                continue;
+            }
+            var now = TcArchive.Int(flags, "Flags");
+            var next = jump ? now | TcArchive.FlagJump : now & ~TcArchive.FlagJump;
+            changed |= SetInt(flags, "Flags", next);
         }
         return changed;
     }
