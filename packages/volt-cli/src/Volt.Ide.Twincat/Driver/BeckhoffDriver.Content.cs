@@ -203,7 +203,7 @@ public sealed partial class BeckhoffDriver
                 // stamps the values on: flags, comments, titles, everything network text does carry. Neither
                 // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
                 // to survive a create.
-                var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd");
+                var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
                 _om.WriteText(item.Native, declaration, Stamp(built, model));
                 return;
             }
@@ -212,7 +212,7 @@ public sealed partial class BeckhoffDriver
             // rewired - the IDE rebuilds just that network. Same two mechanisms as a create, scoped to the one
             // network that changed instead of the whole body, so every network the engineer did not touch stays
             // byte for byte as the IDE wrote it: ids, Fixed flags, ILLines and all.
-            var updated = TcNetworkWriter.Apply(existing, model, network => RebuildNetwork(network, model.Language));
+            var updated = TcNetworkWriter.Apply(existing, model, network => RebuildNetwork(network, model.Language, declaration));
             // A null means the archive already says exactly this: writing it back would rewrite ids and
             // vendor members for no change at all.
             _om.WriteText(item.Native, declaration, updated);
@@ -233,7 +233,7 @@ public sealed partial class BeckhoffDriver
     /// <para>The same scratch-POU resolution a create uses — the IDE resolves the call, Volt copies the result —
     /// only narrowed to a single network. The guard that this network is ONE connected component lives in
     /// <see cref="TcNetworkWriter"/>, which checks it from the model before this is ever called.</para></summary>
-    private XElement RebuildNetwork(Network network, BodyLanguage language)
+    private XElement RebuildNetwork(Network network, BodyLanguage language, string? declaration)
     {
         // RENUMBERED TO 0 for the rebuild. `localId` encodes the network index (10^10 * (order + 1)), so a
         // network carrying its real Order of 1 told the importer to build networks 0 AND 1 - it answered with
@@ -241,7 +241,7 @@ public sealed partial class BeckhoffDriver
         // scratch POU has its own id space, and the network's real position is the slot it is spliced back
         // into, not anything the rebuild needs to know.
         var one = new NetworkBody(language, new[] { network with { Order = 0 } });
-        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd");
+        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration);
 
         var impl = TcArchive.Root(body)
             ?? throw new InvalidOperationException(

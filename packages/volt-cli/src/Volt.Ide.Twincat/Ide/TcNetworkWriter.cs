@@ -105,6 +105,25 @@ internal static class TcNetworkWriter
         return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
     }
 
+    /// <summary>Does the live network already say exactly what is being pushed?
+    ///
+    /// <para>Rendered through <see cref="TcNetworkReader"/> and <c>NetworkTextWriter</c> — the pull path — so
+    /// "the same" means the same file, which is the only definition that matters to an engineer. A reader that
+    /// REFUSES the live network (an Execute box is the measured case) answers "not unchanged" rather than
+    /// throwing, because the caller's structural walk is then the right place for that refusal to surface, with
+    /// its own message.</para></summary>
+    private static bool Unchanged(XElement net, Network model)
+    {
+        try
+        {
+            var live = TcNetworkReader.ReadNetworkFor(net, model.Order);
+            var one = new NetworkBody(BodyLanguage.Fbd, new[] { live });
+            var other = new NetworkBody(BodyLanguage.Fbd, new[] { model });
+            return NetworkTextWriter.Write(one) == NetworkTextWriter.Write(other);
+        }
+        catch (NotSupportedException) { return false; }
+    }
+
     private static NotSupportedException Refuse(string what) =>
         new NotSupportedException(
             $"TwinCAT: this push {what}, which Volt cannot do through the archive. It edits the VALUES of an " +
@@ -116,6 +135,20 @@ internal static class TcNetworkWriter
 
     private static bool WriteNetwork(XElement net, Network model)
     {
+        // THE CHANGE GATE, FIRST. If the live network already renders to exactly the text being pushed, there is
+        // nothing to write and nothing to refuse — return before the structural walk below can do either.
+        //
+        // Without it, "unchanged" was decided STRUCTURALLY, item by item, and a shape this writer cannot edit in
+        // place threw `Refuse` even when the body was identical. On the push path that refusal is caught and the
+        // whole network is handed to the IDE to REBUILD (see Apply's `resolve` hatch), which re-mints every id
+        // and every member Volt does not model — for a network nobody touched. A parallel branch was the measured
+        // case: pulled, pushed straight back, and redrawn.
+        //
+        // Compared as TEXT, through the same reader and writer a pull uses, because two bodies are equal exactly
+        // when they materialize to the same file. This is the rule CODESYS's writer already follows, so it is
+        // also the two vendors agreeing on when a push is a no-op.
+        if (Unchanged(net, model)) return false;
+
         // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
         // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
         // rewrite a title nobody had touched on every push — and a push that changes nothing must change nothing.

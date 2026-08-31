@@ -47,6 +47,11 @@ internal static class TcNetworkReader
     /// whitespace ignored, so a push that changed nothing still writes nothing.</para></summary>
     private static string? Trimmed(string? s) => s?.TrimEnd();
 
+    /// <summary>One live network, read back into the model — for the WRITER's change gate, which must compare
+    /// through exactly the reader a pull would use. A second, nearly-identical read there is how the two would
+    /// drift apart.</summary>
+    internal static Network ReadNetworkFor(XElement net, int order) => ReadNetwork(net, order);
+
     private static Network ReadNetwork(XElement net, int order) =>
         new Network(
             order,

@@ -11,7 +11,7 @@
  * same project". A test that passed on one bridge and not the other would be the finding.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 setDefaultTimeout(30000)
 
@@ -190,5 +190,46 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const twice = await roundTrip(full, once)
 
 		expect(twice).toBe(once)
+	})
+
+	/**
+	 * A FUNCTION-BLOCK CALL CALLS ITS TYPE, NOT ITS INSTANCE — and only a BUILD can see the difference.
+	 *
+	 * Network text names an FB call by its instance (`t1(IN := a)`), so a text-derived model arrives with
+	 * `Type == Instance == "t1"`. TwinCAT emitted that straight into PLCopen's `typeName`, telling the importer
+	 * to call a block named `t1` — the instance, not the type. The POU imported happily and would not compile,
+	 * and NOTHING at the wire showed it: both vendors render the call by its instance name, so the pulled text
+	 * was byte-identical either way. CODESYS has always resolved the type from the declaration.
+	 *
+	 * So this is deliberately build-verified rather than text-verified. An FB (not a program) referenced from
+	 * PLC_PRG, because TwinCAT skips unreferenced POUs and would report a clean build over a broken body.
+	 */
+	it("a function-block call compiles — the block calls its TYPE", async () => {
+		const name = id("pf_fbtype")
+		const src =
+			`FUNCTION_BLOCK ${name}
+VAR
+	t1 : TON;
+	go : BOOL;
+	pt : TIME;
+	done : BOOL;
+END_VAR
+
+` +
+			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
+			`NETWORK 0 FBD
+  t1(IN := go, PT := pt);
+END_NETWORK
+` +
+			`NETWORK 1 FBD
+  done := t1.Q;
+END_NETWORK
+
+` +
+			`END_FUNCTION_BLOCK
+`
+
+		await createItem(fid("pf_fbtype"), src, "")
+		await ensureCompiles(name)
 	})
 })
