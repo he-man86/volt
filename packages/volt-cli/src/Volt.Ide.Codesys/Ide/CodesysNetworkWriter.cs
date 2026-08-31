@@ -271,12 +271,34 @@ namespace Volt.Ide.Codesys
                                 "the vendor's `En` member is a nullable BOOLEAN, not a wired expression, so there " +
                                 "is nowhere to put the enable's tree. Draw it in the IDE and pull it.");
 
+                        // A BOX'S EMBEDDED OUTPUT IS REFUSED, because a rebuild cannot carry one.
+                        //
+                        // This was `if (b.Outputs.Count > 0) { ...append them... }` — a guard that can NEVER
+                        // be true. `Box.Outputs` has no network-text syntax (`Outputs` appears nowhere in
+                        // `NetworkTextWriter` or `NetworkTextReader`), every Box the text reader builds is
+                        // constructed with an empty list, and every model reaching this writer is text-derived.
+                        // So the branch never ran, while the comment above claimed the loss was closed — the
+                        // same dead-code-that-reads-as-a-guarantee shape the `Type`/`IsLValue` writes were
+                        // deleted for.
+                        //
+                        // What it was hiding: a box that writes a pin's value directly — a TON whose `ET` pin
+                        // carries `elapsed` on the pin itself, the shape in the vendor's own export
+                        // `fixtures/tc-fbd/fbd_ton_embedded_output.plcopen.xml` — pulls as `t1(IN := a, PT :=
+                        // pt);` with `elapsed` nowhere in the file. Edit anything else in that network and the
+                        // destroy-and-rebuild drops it from the live project: no diff (git never held it), no
+                        // diagnostic, and no compile error, because nothing references the variable — it simply
+                        // stops being written. TwinCAT does not lose it; its box arm neither compares nor writes
+                        // outputs, so an in-place edit leaves them alone.
+                        //
+                        // Refusing is the honest answer until the format can spell one. The model can only ever
+                        // carry outputs from a LIVE read, so this fires exactly when a caller hands the writer a
+                        // vendor-derived box — which no production path does today, and which must not silently
+                        // lose pins the day one does.
                         if (b.Outputs.Count > 0)
-                        {
-                            var boxOutputs = NwlInterop.Require(box, "Outputs");
-                            foreach (var t in b.Outputs)
-                                NwlInterop.Call(boxOutputs, "AppendOutputItem", Operand(t));
-                        }
+                            throw new NotSupportedException(
+                                $"CODESYS: the box '{b.Type}' writes to an output pin directly, which network " +
+                                "text has no form for — rebuilding it would drop the pin's variable from the " +
+                                "project. Edit this POU in the IDE.");
 
                         return Flagged(box, b.Flags);
                     }

@@ -275,12 +275,37 @@ public static class NetworkTextWriter
 
                 case Box b: return ApplyMods(Definition(b), b.Flags);
                 case Parallel p:
-                    // Branches are OR-ed. A ladder's parallel IS an OR, it is the only form the published text format
-                    // spells (the AND in "((a OR b) AND c)" is a series, i.e. an AND box), and it is the only
-                    // value either vendor can produce — `IBoxTreeParallel.Mode` is `Sequential|BoxShortCircuit`
-                    // and carries no And/Or at all.
-                    return "(" + string.Join(" OR ",
-                                             p.Branches.Select(x => Render(x, nested: true))) + ")";
+                    // Branches are OR-ed. A ladder's parallel IS an OR, it is the only form the published text
+                    // format spells (the AND in "((a OR b) AND c)" is a series, i.e. an AND box), and it is the
+                    // only value either vendor can produce — `IBoxTreeParallel.Mode` is
+                    // `Sequential|BoxShortCircuit` and carries no And/Or at all.
+                    //
+                    // THE RUNG FEEDING THE BRANCH IS IN SERIES WITH IT, and it used to be dropped on the floor.
+                    //
+                    // `Parallel.Input` is "the rung feeding the branch" and `Branches` are the parallel paths
+                    // (NetworkModel), so the logic is `Input AND (b1 OR b2 …)`. This arm rendered the branches
+                    // ALONE, leaving the feeding element out of the committed file entirely — a silent change to
+                    // what the program computes, not merely to how it draws. The text was then a fixed point, so
+                    // the canonical gate passed and `volt status` read clean over it.
+                    //
+                    // REFUSING WAS TRIED FIRST AND WAS WORSE, which is worth recording because it looked like the
+                    // principled answer. A body the reader refuses is an item `FetchService` skips (DIALECT C7),
+                    // and a fed parallel is not the rarity it was assumed to be: refusing removed SIX POUs from
+                    // the Lenze workspace — 187 networks, including the four largest ladders in the project — and
+                    // losing a POU entirely is a worse outcome than any rendering of it.
+                    //
+                    // So it is rendered, honestly. What survives is the LOGIC and the round trip; what does not
+                    // is the drawing's shape on a rebuild, because re-reading `(c AND (a OR b))` gives an AND box
+                    // over an OR box rather than a `BoxTreeParallel`. That costs a redraw of a network the
+                    // engineer edited anyway, and the change gate spares every network they did not touch. A
+                    // dedicated spelling for a parallel would keep the shape too, and wants measuring against a
+                    // real ladder before it is invented.
+                    var branches = "(" + string.Join(" OR ",
+                                                     p.Branches.Select(x => Render(x, nested: true))) + ")";
+                    var rung = p.Input is null
+                        ? branches
+                        : "(" + Render(p.Input, nested: true) + " AND " + branches + ")";
+                    return ApplyMods(rung, p.Flags);
                 // AN UNCONNECTED PIN HAS A SPELLING. These two arms used to return "" — the same silent
                 // default that the comment below calls "the single line that turned a missing feature into
                 // invisible data loss", three lines above where it says so. A box input wired to nothing is a

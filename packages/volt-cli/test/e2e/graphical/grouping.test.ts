@@ -1,4 +1,4 @@
-/**
+﻿/**
  * THE IMPORTER EMITS ONE NETWORK PER CONNECTED COMPONENT — measured live, and now depended upon.
  *
  * PLCopen FBD has no network element, so when TwinCAT's importer is handed a flat list of wired items it has
@@ -17,7 +17,7 @@
  * engineer's networks, so it is asserted rather than remembered.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, PIPE } from "../harness"
 
 const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements
@@ -68,6 +68,18 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 		}
 
 		console.log("\nIMPORTER GROUPING (D25):\n" + report.join("\n") + "\n")
-		expect(report.length).toBe(SHAPES.length)
+		// THE MEASURED ANSWER, asserted per vendor. This used to be `expect(report.length).toBe(SHAPES.length)`,
+		// and `report.push` runs on the refusal branch as well as the success branch — so it was `4 === 4` for
+		// every reachable outcome: all four pushes could fail and the test stayed green. `counts` was collected
+		// and never read; it was the assertion someone meant to write. Three places called this file the gate for
+		// D25 (the row itself, TcNetworkWriter's header, and the commit that added it) and all three were false.
+		//
+		// THE TWO VENDORS DIFFER HERE, and measuring that is what the assertion is worth. D25 is a fact about
+		// the PLCOPEN IMPORTER, which is TwinCAT's only route to a body it does not have: it groups by connected
+		// component, so two disconnected sinks come back as two networks. CODESYS builds the body directly from
+		// the model and regroups nothing, so it returns exactly the one network it was given. Measured live on
+		// both, today. A single shared expectation would have had to be wrong on one of them.
+		const expected = PIPE.includes("twincat") ? [1, 1, 2, 2] : [1, 1, 1, 1]
+		expect(counts, "the importer's grouping changed, or a push was refused (-1)").toEqual(expected)
 	})
 })

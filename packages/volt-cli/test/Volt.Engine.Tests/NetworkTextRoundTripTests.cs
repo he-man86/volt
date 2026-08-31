@@ -247,3 +247,62 @@ public class NetworkTextRoundTripTests
         Assert.Equal(text.TrimEnd(), NetworkTextWriter.Write(model).TrimEnd());
     }
 }
+
+
+/// <summary>
+/// A LADDER PARALLEL'S FEEDING RUNG — the half that was rendered as nothing.
+///
+/// <para><c>Parallel.Input</c> is "the rung feeding the branch" and <c>Branches</c> are the parallel paths, so
+/// the logic is <c>Input AND (b1 OR b2)</c>. The writer rendered the branches ALONE and left the feeding element
+/// out of the committed file — not a drawing detail but a change to what the program computes, and silent,
+/// because the text it produced was a fixed point that the canonical gate accepted.</para>
+///
+/// <para>Measured on a real project: six POUs pulled with whole sub-expressions missing, including
+/// <c>(((g2 AND stDecendTray) * ioActNumberOfRows * iRowHeight) + tInt + iInitialDescentValue)</c> feeding a
+/// single branch. Both readers populate <c>Input</c>; this render arm was the one place it went missing, which
+/// is why no round-trip test could see it — there is no reader arm that builds a <c>Parallel</c> at all, so the
+/// text reparses to boxes and re-emits identically either way.</para>
+/// </summary>
+public class ParallelRenderTests
+{
+    private static string Render(Node tree) =>
+        NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Ld, new[]
+        {
+            new Network(0, null, null, null, false, new[] { tree }),
+        }));
+
+    private static Node Leaf(string name) => new Leaf(new Operand(name), Flags.None);
+
+    /// <summary>THE REGRESSION: the feeding rung is in SERIES with the branches, and must appear.</summary>
+    [Fact]
+    public void A_fed_parallel_renders_its_feeding_rung()
+    {
+        var text = Render(new Assign(
+            new Volt.Engine.Format.Network.Parallel(Leaf("c"), new[] { Leaf("a"), Leaf("b") }, Flags.None),
+            new[] { new Operand("out") }, Flags.None));
+
+        Assert.Contains("out := (c AND (a OR b));", text);
+    }
+
+    /// <summary>An UNFED parallel is still a plain OR — the fix must not invent a series that is not there.</summary>
+    [Fact]
+    public void An_unfed_parallel_is_still_a_plain_or()
+    {
+        var text = Render(new Assign(
+            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, Flags.None),
+            new[] { new Operand("out") }, Flags.None));
+
+        Assert.Contains("out := (a OR b);", text);
+    }
+
+    /// <summary>And the parallel's OWN modifiers reach the text, which this arm also used to drop.</summary>
+    [Fact]
+    public void A_negated_parallel_says_so()
+    {
+        var text = Render(new Assign(
+            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, Flags.None with { Negated = true }),
+            new[] { new Operand("out") }, Flags.None));
+
+        Assert.Contains("NOT (a OR b)", text);
+    }
+}
