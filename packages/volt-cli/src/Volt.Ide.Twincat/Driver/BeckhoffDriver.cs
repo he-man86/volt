@@ -128,7 +128,15 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     private const uint HResultRpceFamily = 0x80010100u;
     private const uint HResultCallRejected = 0x80010001u;
 
-    public override bool ShouldMarkDegraded(Exception ex)
+    public override bool ShouldMarkDegraded(Exception ex) => IsRpcFault(ex);
+
+    /// <summary>Is this a dead/hung COM CHANNEL rather than a failed operation?
+    ///
+    /// <para>ONE definition, because there are now two callers and a second copy of this HRESULT list would be
+    /// the thing that silently drifts. <see cref="ShouldMarkDegraded"/> is the pipe host's question — should the
+    /// session degrade and recover — and <c>TcObjectModel.Build</c> asks the same one for the opposite reason:
+    /// to let an RPC fault PROPAGATE to that classifier instead of flattening it into "the build failed".</para></summary>
+    internal static bool IsRpcFault(Exception ex)
     {
         for (var e = ex; e != null; e = e.InnerException)
         {

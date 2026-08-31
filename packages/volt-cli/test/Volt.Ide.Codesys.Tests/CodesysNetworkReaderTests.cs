@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
 
@@ -120,5 +120,77 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.All(read.Inputs, i => Assert.Null(i.Formal));
+    }
+
+    /// <summary>A NETWORK TITLE IS NOT A VENDOR SENTINEL. The archive layer's placeholders
+    /// (<c>Constant_Address_Serialization_Value</c>, <c>Constant_SymbolComment_Serialization_Value</c>) are
+    /// measured on OPERAND members, but the filter that drops them was applied to every string the reader
+    /// cleans — including a network's Title, Label and Comment. So an engineer's network called
+    /// <c>Constant_Torque</c> read back as null, and the writer's `SetIfChanged(net, "Title", model.Title ?? "")`
+    /// then wrote "" into the live project: a title deleted from the IDE by a pull, with nothing in git to show
+    /// for it.</summary>
+    [Theory]
+    [InlineData("Constant_Torque")]
+    [InlineData("Constant_Speed_Setpoint")]
+    [InlineData("Constant_")]
+    public void A_network_title_beginning_with_the_sentinel_prefix_survives(string title)
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out" });
+        var net = new Nwl.Network { Title = title, Comment = title, Label = title }.With(assign);
+
+        var read = CodesysNetworkReader.ReadNetwork(net, 0);
+
+        Assert.Equal(title, read.Title);
+        Assert.Equal(title, read.Comment);
+        Assert.Equal(title, read.Label);
+    }
+
+    /// <summary>…while the sentinel IS still dropped where it was actually measured: an operand's SymbolComment.
+    /// Narrowing the filter must not stop it doing its job, or a vendor internal lands in an engineer's file.</summary>
+    [Fact]
+    public void An_operands_symbol_comment_sentinel_is_still_dropped()
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "out",
+            SymbolComment = "Constant_SymbolComment_Serialization_Value",
+        });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
+        Assert.Null(target.Comment);
+    }
+
+    /// <summary>A NETWORK THAT CANNOT SAY HOW MANY ITEMS IT HAS IS A BROKEN OBJECT MODEL, NOT AN EMPTY BODY.
+    ///
+    /// <para><c>NwlInterop.Int</c> answered 0 for an absent member, and 0 is the loop bound for reading every
+    /// tree. At 0 the reader never calls <c>GetTree</c>, so the <c>Missing</c> throw that every other member
+    /// access in that class provides was bypassed by the one soft read deciding whether it runs — and the body
+    /// materialized as a network with a header and no logic. The same 0 gates the WRITER's clear-before-rebuild,
+    /// where it leaves the old trees in place and stacks the new ones on top.</para>
+    ///
+    /// <para>The documented robustness fact is that <c>NetworkItemCount</c> can EXCEED the tree count, never
+    /// that it can be missing — so absence is a version story and must be said out loud.</para></summary>
+    [Fact]
+    public void A_network_missing_its_item_count_throws_rather_than_reading_as_empty()
+    {
+        var ex = Assert.ThrowsAny<System.Exception>(
+            () => CodesysNetworkReader.ReadNetwork(new NetworkWithoutCount(), 0));
+
+        Assert.Contains("NetworkItemCount", ex.Message);
+    }
+
+    /// <summary>A network object shaped like the vendor's EXCEPT that it cannot report its item count.</summary>
+    private sealed class NetworkWithoutCount
+    {
+        public string Title { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string Comment { get; set; } = "";
+        public bool OutCommented { get; set; }
+        public object? GetTree(int i) => null;
+        public object? GetSplitPoint(int i) => null;
     }
 }

@@ -20,14 +20,38 @@ namespace Volt.Ide.Codesys
         /// matching TwinCAT's flat library refs. Read-only (no push target).</summary>
         public List<LibRefNode> GetLibraryRefs(object libManNode)
         {
-            var iobj = ReadObject(libManNode);
-            if (iobj == null) return new List<LibRefNode>();
+            // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
+            // libraries", which is a LIE for all three conditions and an expensive one: `fetch` reports the
+            // empty set with `librariesRefreshed` true, and `IdeTree.DroppedLibraryFile` then removes EVERY
+            // `.library` file the client holds — taking with them every qualified namespace the LSP resolves
+            // against. A version rename of one method would have deleted the engineer's whole library set.
+            //
+            // Two of the old guards were also unreachable: this is only called after `KindCodeOf` classified the
+            // node by `Has(ifaces, "ILibManObject")` over a NON-NULL IObject, so neither a null object nor a
+            // missing interface can arrive here. They are kept as throws rather than deleted because a caller
+            // could change, and a wrong answer here costs files.
+            var iobj = ReadObject(libManNode)
+                ?? throw new InvalidOperationException(
+                    "CODESYS: the library manager's object could not be read. Refusing rather than reporting a " +
+                    "project with no libraries, which would delete every .library file in the workspace.");
 
             // GetAllLibraries lives on the base ILibManObject; invoke via the
             // interface MethodInfo so explicit implementations dispatch correctly.
-            var libManIface = Array.Find(iobj.GetType().GetInterfaces(), i => i.Name == "ILibManObject");
-            var getAll = libManIface?.GetMethod("GetAllLibraries");
-            if (getAll?.Invoke(iobj, new object[] { false }) is not IEnumerable items) return new List<LibRefNode>();
+            var libManIface = Array.Find(iobj.GetType().GetInterfaces(), i => i.Name == "ILibManObject")
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: '{iobj.GetType().Name}' does not implement ILibManObject, so its libraries cannot " +
+                    "be enumerated. Refusing rather than reporting a project with no libraries.");
+
+            var getAll = libManIface.GetMethod("GetAllLibraries")
+                ?? throw new InvalidOperationException(
+                    "CODESYS: ILibManObject has no GetAllLibraries(bool) — the object model has a different shape " +
+                    "than this build expects. Refusing rather than reporting a project with no libraries; a " +
+                    "renamed method is a version mismatch, not an empty library list.");
+
+            if (getAll.Invoke(iobj, new object[] { false }) is not IEnumerable items)
+                throw new InvalidOperationException(
+                    "CODESYS: GetAllLibraries did not return an enumerable. Refusing rather than reporting a " +
+                    "project with no libraries.");
 
             // FLAT: each library once (top-level references + their transitive dependencies, deduped by
             // namespace|name). Transitive deps carry namespaces the source references DIRECTLY (e.g. `MEM` from CAA

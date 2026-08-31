@@ -55,9 +55,27 @@ internal sealed partial class TcObjectModel
         }
     }
 
+    /// <summary>Build the solution and report whether it passed.
+    ///
+    /// <para><b>An unreadable VERDICT is reported as failure; a dead CHANNEL is not a verdict at all.</b> The two
+    /// were the same answer here — one bare `catch` around the whole method turned both into `false` and
+    /// destroyed the exception. That matters because the exception is the only thing
+    /// <c>BeckhoffDriver.ShouldMarkDegraded</c> can classify: it matches the RPC HRESULT family
+    /// (<c>0x800101xx</c>, <c>0x800706BA/BE/BF</c>) that a dropped or hung XAE raises, and
+    /// <c>BridgePipeHost</c> uses that verdict to mark the session degraded so <c>Recover()</c> runs. Swallowed,
+    /// an RPC fault during <c>volt build</c> left health GREEN while every following op failed the same way —
+    /// the identical failure this driver documents three times elsewhere and DIALECT D29(a) describes.</para>
+    ///
+    /// <para>So the RPC family propagates, everything else is logged and reported as a failed build (the
+    /// standing rule for "I could not read the result"), and a null <c>_dte</c> — no IDE attached — is
+    /// <c>PlcDisconnected</c> rather than "your project does not compile", which is what
+    /// <c>FlushPendingWrites</c> already answers for the same state.</para></summary>
     public bool Build()
     {
-        if (_dte == null) return false;
+        if (_dte == null)
+            throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
+                "no TwinCAT XAE is attached, so there is nothing to build — this is a disconnected session, " +
+                "not a project that failed to compile");
         try
         {
             dynamic sb = _dte.Solution.SolutionBuild;
@@ -92,7 +110,14 @@ internal sealed partial class TcObjectModel
             }
             return failed == 0;
         }
-        catch { return false; }
+        catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex))
+        {
+            // NOT the RPC family: a real build-time failure whose verdict we could not read. Report FAILURE —
+            // never "it passed" — and say why, because this used to be a bare catch with no log at all.
+            VoltLog.Warn($"twincat: the build could not be completed or its result read — reporting FAILURE " +
+                         $"rather than assuming success: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>Wait until no build is running, and say whether we got there.

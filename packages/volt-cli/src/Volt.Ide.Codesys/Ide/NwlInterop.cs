@@ -54,6 +54,24 @@ namespace Volt.Ide.Codesys
 
         public static int Int(object? o, string member) => Get(o, member) is int i ? i : 0;
 
+        /// <summary>An int member that MUST be there — the scalar twin of <see cref="Require"/>.
+        ///
+        /// <para><b>Why this exists rather than <see cref="Int"/>.</b> That one answers 0 for an absent member,
+        /// and 0 is not a neutral answer here: <c>NetworkItemCount</c> is the loop bound on BOTH sides of the
+        /// graphical path — reading every tree, and clearing the network before a rebuild. At 0 neither
+        /// <c>GetTree</c> nor <c>RemoveNetworkItem</c> is ever called, so <see cref="Call"/>'s <c>Missing</c>
+        /// throw — the loud path this class exists to provide — is bypassed by the one soft read that decides
+        /// whether it runs. The measured failure that follows is not subtle: every FBD/LD body materializes as
+        /// networks with headers and no logic, and on push the clear loop is skipped so the new trees stack on
+        /// top of the survivors, leaving duplicated rungs in the live POU.</para>
+        ///
+        /// <para>The documented robustness fact about <c>NetworkItemCount</c> is that it can EXCEED the real
+        /// tree count, never that it can be missing — so absence means the object model changed shape, which is
+        /// a version story and belongs in the same <see cref="Missing"/> diagnostic as everything else here.
+        /// <see cref="Int"/> stays for the members where absence is a legitimate answer the caller decides on.</para></summary>
+        public static int RequireInt(object o, string member) =>
+            Get(o, member) is int i ? i : throw Missing(o, member);
+
         /// <summary>Invoke a method by name and arity, on the type or on any interface.</summary>
         public static object? Call(object o, string method, params object?[] args)
         {
@@ -84,15 +102,34 @@ namespace Volt.Ide.Codesys
         /// <summary>A vendor collection as a list. The NWL collections are NOT <c>IList</c>: an
         /// <c>OutputItemList</c> exposes <c>AppendOutputItem</c>/<c>InsertOutputItem</c>/<c>RemoveOutputItem</c>
         /// and enumerates through a <c>List</c> property, with no <c>Add</c>, no <c>Count</c> and no indexer.</summary>
+        /// <para><b>A named list member that is present but NOT enumerable throws</b> rather than answering
+        /// empty. There is no reading under which that is "this node has none": it is the object model having a
+        /// different shape than this code believes, which is the one thing every other member access here
+        /// reports loudly. Answering empty instead let a lost <c>Outputs</c> on an assignment render as valid
+        /// network text — <c>NetworkTextWriter</c> emits a bare <c>value;</c> for zero targets — after which the
+        /// writer's rebuild deleted the coil from the live PLC.</para>
         public static IReadOnlyList<object> Items(object? collection, string listMember = "List")
         {
             if (collection == null) return Array.Empty<object>();
-            if (Get(collection, listMember) is IEnumerable seq)
+            var named = listMember.Length > 0 ? Get(collection, listMember) : null;
+            if (named is IEnumerable seq)
                 return seq.Cast<object>().Where(x => x != null).ToList();
+            if (named != null) throw Missing(collection, listMember + " (present, but not enumerable)");
             if (collection is IEnumerable direct)
                 return direct.Cast<object>().Where(x => x != null).ToList();
             return Array.Empty<object>();
         }
+
+        /// <summary>A collection member that MUST be there, as a list.
+        ///
+        /// <para>For the STRUCTURAL members — an assignment's <c>Outputs</c>, a box's <c>Outputs</c> and
+        /// <c>InputItemList</c>, a parallel's <c>Trees</c> — where the measured vocabulary says the member is
+        /// always present. <see cref="Items"/> treats a null collection as an empty one, which is right for a
+        /// genuinely optional list and wrong for these: null there means the object model drifted, and the
+        /// caller cannot tell that from "this box has no outputs". The write side of the very same members
+        /// already goes through <see cref="Require"/>, so this is the read side agreeing with it.</para></summary>
+        public static IReadOnlyList<object> RequireItems(object o, string member, string listMember = "List") =>
+            Items(Require(o, member), listMember);
 
         /// <summary>The runtime type name — how the adapter dispatches, mirroring the vendor's own
         /// <c>IBoxTreeVisitor</c> arms.</summary>

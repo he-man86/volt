@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Volt.Ide.Codesys.Tests;
 
@@ -42,6 +42,15 @@ internal static class Nwl
         public object? GetSplitPoint(int i) => null;
 
         public Network With(params object[] trees) { _trees.AddRange(trees); return this; }
+
+        // ── the WRITE side, recorded ────────────────────────────────────────────────────────────────
+        // The writer's change gate is only worth having if it is actually WIRED IN, and a test of the gate's
+        // DECISION cannot see that. These record what the writer did to the live network, so a test can assert
+        // that an unchanged push touched nothing at all.
+        public List<string> Calls { get; } = new List<string>();
+
+        public void RemoveNetworkItem(int i) { Calls.Add("RemoveNetworkItem"); _trees.RemoveAt(i); }
+        public void AppendTree(object tree) { Calls.Add("AppendTree"); _trees.Add(tree); }
     }
 
     internal sealed class Operand

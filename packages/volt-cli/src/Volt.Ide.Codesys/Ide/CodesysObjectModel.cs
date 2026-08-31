@@ -132,8 +132,30 @@ namespace Volt.Ide.Codesys
         // ── source text (object model: aspect → ITextDocument.Text) ────────────
         public string ReadDeclaration(object node) => ReadAspectText(ReadObject(node), "Interface");
 
+        /// <summary>An aspect's text, or <c>""</c> when the object legitimately has no such text.
+        ///
+        /// <para><b>A NULL IObject is not an empty item — it means the object could not be obtained at all</b>,
+        /// and it throws. It used to return <c>""</c> like the other two arms, and the consequence ran the whole
+        /// way to disk: <c>ReadDeclaration</c> yielded <c>""</c>, <c>ReadContent</c> used it with no guard, the
+        /// kind still resolved from the tree's type code, and <c>StWriter</c> emitted a file whose entire content
+        /// was <c>END_FUNCTION_BLOCK</c>. An emptied POU was written into the engineer's workspace with no error
+        /// and no log, and the next push wrote that emptiness back into the project. The same file already throws
+        /// <c>InternalError</c> for a blank MEMBER declaration one method away, on the reasoning that "that is a
+        /// broken item, not a transport gap" — this is the same condition one level up.</para>
+        ///
+        /// <para>The other two arms genuinely mean "no text here" and still answer <c>""</c>: an object with no
+        /// such ASPECT, and an aspect with no <c>TextDocument</c> — the latter measured on a CFC POU, whose
+        /// Implementation aspect has none. The write side throws for that same missing <c>TextDocument</c>, and
+        /// that is not an inconsistency: a write that lands nothing is a failure, while a read of a body that
+        /// isn't textual is an answer.</para></summary>
         public static string ReadAspectText(object? iobject, string aspectName)
         {
+            if (iobject == null)
+                throw new InvalidOperationException(
+                    $"CODESYS: cannot read the '{aspectName}' aspect — the object itself could not be obtained. " +
+                    "Refusing rather than reporting an item with no text, which would be written to the " +
+                    "workspace as an emptied POU and pushed back as one.");
+
             var aspect = GetMember(iobject, aspectName);          // ITextVarDeclObject / ISTImplementationObject
             if (aspect == null) return "";
             var doc = GetMember(aspect, "TextDocument");          // ITextDocument

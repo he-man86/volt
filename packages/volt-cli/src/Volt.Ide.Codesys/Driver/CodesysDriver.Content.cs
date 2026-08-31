@@ -284,11 +284,20 @@ public sealed partial class CodesysDriver
                 CodesysNetworkWriter.Write(_om, target.Native, graph, m.Declaration);
             }
 
-            // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing
-            // the POU code for an interface property would make the crash guard in WriteAccessor unreachable.
-            var itfProp = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
-            WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
+            // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
+            // interface-ness is carried SEPARATELY, as a flag off the owner.
+            //
+            // It used to pass `PlcItfPropGet/Set` (654/655) for an interface property, on the reasoning that the
+            // accessor's kind follows its owner. It does not, here: `CodesysTypeMap.RefineAccessor` hands back
+            // only 613/614 for BOTH `IPropertyAccessorObject` and `IInterfacePropertyAccessorObject` — a
+            // measured fact recorded on `ItemKind.PlcPropGet` itself ("CODESYS maps its interface accessors here
+            // too"). So `FindAccessor(property, 654)` could never match, `live` was always null, and the guard
+            // below fell through to a bare `return` — the exact silent discard its own comment says it was
+            // written to fix. An engineer's edit to a `GET … END_GET` in a `.itf` was accepted and dropped, and
+            // `volt status` then reported in sync.
+            var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface);
+            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface);
         }
     }
 
@@ -302,7 +311,7 @@ public sealed partial class CodesysDriver
     /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
-    private void WriteAccessor(ItemRef property, int code, Accessor? accessor)
+    private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface)
     {
         if (accessor is null) return;
 
@@ -310,7 +319,10 @@ public sealed partial class CodesysDriver
         // can hard-crash TcXaeShell). But returning SILENTLY meant an engineer's edit to a `GET ... END_GET` in
         // a `.itf` file was accepted and discarded, and `volt status` then said in sync. Refuse only what is
         // actually a CHANGE: an unchanged restatement is the ordinary no-op that keeps the item pushable.
-        if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet)
+        //
+        // Decided from the OWNER, not from the accessor's own kind code: this vendor classifies an interface
+        // accessor as 613/614 like any other, so a test on the code could never fire (see the call site).
+        if (ownerIsInterface)
         {
             var live = FindAccessor(property, code);
             var was = live is null ? null : ReadAccessor(live.Value);

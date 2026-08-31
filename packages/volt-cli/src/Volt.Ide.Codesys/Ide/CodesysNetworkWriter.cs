@@ -47,11 +47,11 @@ namespace Volt.Ide.Codesys
 
                 var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
                 for (int i = 0; i < existing.Count; i++)
-                    WriteNetwork(impl, existing[i], body.Networks[i], declaration);
+                    WriteNetwork(impl, existing[i], body.Networks[i], declaration, body.Language);
             });
         }
 
-        private static void WriteNetwork(object impl, object net, Network model, string? declaration)
+        internal static void WriteNetwork(object impl, object net, Network model, string? declaration, BodyLanguage language)
         {
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
@@ -59,15 +59,49 @@ namespace Volt.Ide.Codesys
             if (NwlInterop.Flag(net, "OutCommented") != model.Disabled)
                 NwlInterop.Set(net, "OutCommented", model.Disabled);
 
-            // Replace the trees wholesale for this network. Scoped to ONE network, so an edit to one rung does
-            // not disturb the rest of the POU.
-            for (int i = NwlInterop.Int(net, "NetworkItemCount") - 1; i >= 0; i--)
+            // THE CHANGE GATE. A network whose LOGIC is unchanged is not rebuilt — which is what the class
+            // header above has always claimed and what, until now, nothing enforced.
+            //
+            // What follows is destroy-and-rebuild: every NetworkItem is removed and re-appended from the pushed
+            // text. That makes the write LOSSY BY CONSTRUCTION for anything the reader does not capture or the
+            // builder does not set — so without a gate, a push that touched only the DECLARATION still re-minted
+            // every rung in the POU, and each re-mint silently dropped whatever the round trip cannot carry.
+            // Scoping it "to ONE network" bounded the damage to every network, since PushService always sends
+            // the whole body. TwinCAT's `TcNetworkWriter.Apply` has always returned null on no-change; this is
+            // the same rule, and it is what stops the losses below from reaching a rung nobody edited.
+            if (TreesUnchanged(net, model, language)) return;
+
+            for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
             var ctx = new BuildContext(impl, net, declaration);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
         }
+
+        /// <summary>Does the live network already hold exactly the logic being pushed?
+        ///
+        /// <para>Compared as TEXT, through the same reader and writer a pull uses, because that is the only
+        /// definition of "the same" that matters here: two bodies are equal exactly when they materialize to the
+        /// same file. Comparing the object graphs instead would re-implement the reader and drift from it.</para>
+        ///
+        /// <para>Only the TREES are compared. Title, label, comment and OutCommented are written above through
+        /// <c>SetIfChanged</c>, which is already idempotent, so they are neutralised here (the live network's
+        /// metadata is replaced by the model's) rather than dragged into a decision about logic.</para>
+        ///
+        /// <para><b>A body the reader REFUSES is not rebuilt.</b> If reading the live network throws — a vendor
+        /// split point is the measured case — the exception propagates and the push fails. That is deliberate:
+        /// Volt cannot tell whether such a body matches, and destroy-and-rebuild would delete the very construct
+        /// it cannot represent. Refusing is the same answer the reader gives on pull.</para></summary>
+        private static bool TreesUnchanged(object net, Network model, BodyLanguage language)
+        {
+            var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
+            return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language)
+                == Render(model, language);
+        }
+
+        private static string Render(Network network, BodyLanguage language) =>
+            NetworkTextWriter.Write(new NetworkBody(language, new[] { network }));
 
         private static int Count(object impl) =>
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;

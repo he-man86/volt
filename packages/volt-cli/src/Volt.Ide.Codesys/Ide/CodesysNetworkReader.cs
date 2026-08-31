@@ -28,10 +28,13 @@ namespace Volt.Ide.Codesys
             return new NetworkBody(language, networks);
         }
 
-        private static Network ReadNetwork(object net, int order)
+        /// <summary>One live network, read back into the model. INTERNAL rather than private because the WRITER
+        /// needs it: its change gate renders the live network and compares, and it must compare through exactly
+        /// the reader a pull would use — a second, nearly-identical read here is how the two would drift.</summary>
+        internal static Network ReadNetwork(object net, int order)
         {
             var trees = new List<Node>();
-            var count = NwlInterop.Int(net, "NetworkItemCount");
+            var count = NwlInterop.RequireInt(net, "NetworkItemCount");
             for (int i = 0; i < count; i++)
             {
                 // NetworkItemCount can EXCEED the number of real trees — measured: a network reported 2 with
@@ -91,7 +94,7 @@ namespace Volt.Ide.Codesys
                 case "BoxTreeAssign":
                     return new Assign(
                         Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null,
-                        NwlInterop.Items(NwlInterop.Get(n, "Outputs")).Select(ReadOperand).ToList(),
+                        NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList(),
                         flags);
 
                 case "BoxTreeBox":
@@ -101,14 +104,14 @@ namespace Volt.Ide.Codesys
                 // carrying the same VarId. 573 of these in the surveyed project, against zero split points.
                 case "BoxTreeDemux":
                     return new Demux(
-                        NwlInterop.Int(n, "VarId"),
+                        NwlInterop.RequireInt(n, "VarId"),
                         Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di) : null,
                         flags);
 
                 case "BoxTreeParallel":
                     return new Parallel(
                         Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null,
-                        NwlInterop.Items(NwlInterop.Get(n, "Trees"), listMember: "").Select(ReadNode).ToList(),
+                        NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),
                         ReadParallelMode(NwlInterop.Get(n, "Mode")),
                         flags);
 
@@ -139,7 +142,7 @@ namespace Volt.Ide.Codesys
 
         private static Box ReadBox(object n, Flags flags)
         {
-            var inputs = NwlInterop.Items(NwlInterop.Get(n, "InputItemList"), listMember: "")
+            var inputs = NwlInterop.RequireItems(n, "InputItemList", listMember: "")
                 .Select(x => new Input(null, ReadNode(x), Flags.None))
                 .ToList();
 
@@ -163,7 +166,7 @@ namespace Volt.Ide.Codesys
                 instance,
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
-                NwlInterop.Items(NwlInterop.Get(n, "Outputs")).Select(ReadOperand).ToList(),
+                NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList(),
                 // From the En PIN, never from the EnEno flag: EnEno is a CAPABILITY marker and is true on every
                 // box in a real project — including every plain AND and OR — so keying on it would wrap the
                 // whole project in `IF en THEN ... END_IF`.
@@ -186,7 +189,7 @@ namespace Volt.Ide.Codesys
             new Operand(
                 NwlInterop.Text(o, "OperandExpr") ?? "",
                 Clean(NwlInterop.Text(o, "Type")),
-                Clean(NwlInterop.Text(o, "SymbolComment")),
+                CleanOperandField(NwlInterop.Text(o, "SymbolComment")),
                 NwlInterop.Flag(o, "IsInstance"),
                 NwlInterop.Flag(o, "IsLValue"),
                 ReadFlags(NwlInterop.Get(o, "Flags")));
@@ -235,8 +238,24 @@ namespace Volt.Ide.Codesys
         /// <para>The vendor keeps its own bytes: the writers compare with trailing whitespace ignored, so a push
         /// that changed nothing still writes nothing.</para></summary>
         private static string? Clean(string? s) =>
-            string.IsNullOrEmpty(s) || s!.StartsWith("Constant_", StringComparison.Ordinal)
-                ? null
-                : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
+            string.IsNullOrEmpty(s) ? null : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
+
+        /// <summary>As <see cref="Clean"/>, and additionally drops the archive layer's placeholder.
+        ///
+        /// <para><b>Applied to the member the sentinels were MEASURED on, and to nothing else.</b> The test used
+        /// to live in <see cref="Clean"/> itself, which is applied to a network's Title, Label and Comment and to
+        /// an operand's Type and formal parameter name as well — so ANY of those beginning with
+        /// <c>Constant_</c> was erased. An engineer's network titled <c>Constant_Torque</c> read back as null,
+        /// and <c>SetIfChanged(net, "Title", model.Title ?? "")</c> then wrote <c>""</c> into the live project:
+        /// a title deleted from the IDE by a pull, with nothing in git to show it. The documented evidence names
+        /// exactly two sentinels (<c>Constant_Address_Serialization_Value</c>,
+        /// <c>Constant_SymbolComment_Serialization_Value</c>) and both are OPERAND members, so a network title
+        /// was never in scope.</para>
+        ///
+        /// <para>Still a PREFIX test rather than the two exact strings: the placeholders are generated per member
+        /// by the archive layer, so a third would follow the same shape and matching whole strings would let it
+        /// through into an engineer's file. The narrowing that matters is WHICH members are tested.</para></summary>
+        private static string? CleanOperandField(string? s) =>
+            s != null && s.StartsWith("Constant_", StringComparison.Ordinal) ? null : Clean(s);
     }
 }
