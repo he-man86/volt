@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Volt.Contracts;
 
@@ -18,6 +18,7 @@ namespace Volt.Connector
     {
         private readonly BridgeSupervisor _supervisor = new();
         private readonly TwincatSupervisor _policy = new(); // decides which per-XAE TwinCAT workers to run
+        private readonly ProbeHealth _probe = new();       // speaks only when the probe starts or stops working
 
         /// <summary>The worker id for one XAE window — the SAME string across spawn, reap and restart, so it is
         /// spelled exactly once.</summary>
@@ -32,6 +33,13 @@ namespace Volt.Connector
         {
             if (string.IsNullOrEmpty(probeExe)) return;                    // no worker binary (dev without a build)
             var pids = await Task.Run(() => TwincatXaeProbe.ListPids(probeExe, probeTimeout));
+
+            // SAY SO WHEN THE PROBE STOPS WORKING. Returning here on null is right — a persistently failing
+            // probe must not reap every healthy worker — but it suspends spawn, respawn AND reap for as long as
+            // it lasts, and it used to do that silently. `ProbeHealth` speaks only on a transition, so this is
+            // two lines in the log per episode rather than one every third tick forever.
+            if (_probe.Observe(pids != null) is { } transition) VoltLog.Warn(transition);
+
             if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
             var (_, reap) = _policy.Reconcile(pids);
             foreach (var pid in pids)
