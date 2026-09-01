@@ -291,9 +291,31 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // <InterfaceAsPlainText> and a <body>. The fake used to record the call and nothing more, so a create
         // followed by a read threw "sequence contains no matching element" — which made the single-document
         // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
-        // Only TOP-LEVEL items are registered: a created child/folder must not surface in the item walk.
         if (ItemKind.IsTopLevelCrud(kindCode) && !_items.Any(i => i.Name == name))
             _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", null, null));
+
+        // A CREATED MEMBER IS FINDABLE UNDER ITS PARENT, and a created FOLDER is not an item. Both halves
+        // matter, and only the second used to hold: the fake registered top-level kinds and nothing else, so a
+        // member the engine had just created could not be found by the engine's very next call.
+        //
+        // That is not a small infidelity. `PushService.ReconcileMembers` CREATES a member the pushed source
+        // declares and the project lacks — creating members is its job — and `ReconcileAccessor` then looks the
+        // property up to reconcile its GET and SET. Against this fake the lookup failed and the push threw
+        // "the property is in the pushed source but cannot be found in the project", a refusal a real IDE never
+        // produces. So the whole member-create path read as broken here while being correct, which is the shape
+        // that teaches you to distrust the test rather than the code.
+        //
+        // Folders stay unregistered deliberately — `PlcFolder` is not an item and must not surface in the walk.
+        else if (kindCode != ItemKind.PlcFolder && !ItemKind.IsTopLevelCrud(kindCode)
+                 && !_items.Any(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            _items.Add(new Item(name, kindCode, "", false, null, null, null, null));
+            if (FindOrNull(parent) is { } owner)
+                _items[_items.IndexOf(owner)] = owner with
+                {
+                    Children = (owner.Children ?? System.Array.Empty<string>()).Append(name).ToArray(),
+                };
+        }
         return Ref(name);
     }
 
@@ -608,12 +630,29 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ConnectRequest? Selected { get; private set; }
     public override void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
-    public override void FlushPendingWrites() { }
+    /// <summary>The build-side call SEQUENCE, in its own list rather than <see cref="Recorded"/> so the tests
+    /// that assert over that list are unaffected. It exists because ORDER is the contract here: a build reads
+    /// what is on disk, so `FlushPendingWrites` has to run BEFORE it or the compile misses the writes the same
+    /// push just made — and a no-op flush made that unobservable.</summary>
+    public List<string> BuildSequence { get; } = new();
+
+    public override void FlushPendingWrites() => BuildSequence.Add("flush");
 
     // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
     public bool BuildSucceeds { get; init; } = true;
     public IReadOnlyList<BridgeDiagnostic> BuildDiagnostics { get; init; } = new List<BridgeDiagnostic>();
-    public override bool Build() => BuildSucceeds;
+
+    /// <summary>Make the IDE's build THROW rather than return false. The two are different worlds and the
+    /// service treats them differently: a false build is a compile failure carrying diagnostics, a throw is the
+    /// IDE itself faulting — and the second must not be reported as the first without saying so.</summary>
+    public bool BuildThrows { get; init; }
+
+    public override bool Build()
+    {
+        BuildSequence.Add("build");
+        if (BuildThrows) throw new InvalidOperationException("the IDE's compiler faulted");
+        return BuildSucceeds;
+    }
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => BuildDiagnostics;
 
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning

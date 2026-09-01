@@ -120,4 +120,45 @@ public class OpGuardTests
         var resp = FetchService.Handle(Ide("codesys", "WhateverProject"), new FetchRequest { Init = true });
         Assert.Equal("WhateverProject", resp.ProjectName); // proceeded despite no expected identity
     }
+
+    /// <summary>A PLATFORM SUPPLIED WITHOUT A NAME IS STILL CHECKED — and it used not to be.
+    ///
+    /// <para>THE BUG this pins: the vendor comparison sat INSIDE the name comparison, one `if` whose only outer
+    /// condition was `!string.IsNullOrEmpty(expectedName)`. A caller that supplied a platform and no name had
+    /// its platform silently ignored, so a client bound to TwinCAT could fetch, push and build against a
+    /// CODESYS bridge with the guard reporting success — the exact confusion `WRONG_PROJECT` exists to prevent,
+    /// and worse than the mismatch it does catch, because two vendors' projects share no item names at all.</para>
+    ///
+    /// <para>It is not a hypothetical combination: `ExpectedPlatform` and `ExpectedProjectName` are two
+    /// independent nullable fields on every request model, and nothing on the wire couples them. The CLI
+    /// happens to send both, which is the only reason this never surfaced.</para></summary>
+    [Fact]
+    public void A_platform_supplied_without_a_name_is_still_checked()
+    {
+        var ex = Assert.Throws<BridgeException>(() => FetchService.Handle(Ide("codesys", "Demo"),
+            new FetchRequest { Init = true, ExpectedPlatform = "twincat" }));
+
+        Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
+    }
+
+    /// <summary>And the matching platform alone still proceeds — the fix narrows nothing that worked.</summary>
+    [Fact]
+    public void A_matching_platform_without_a_name_proceeds()
+    {
+        var resp = FetchService.Handle(Ide("codesys", "Demo"),
+            new FetchRequest { Init = true, ExpectedPlatform = "CODESYS" });   // case-insensitive, as before
+
+        Assert.Equal("Demo", resp.ProjectName);
+    }
+
+    /// <summary>A NAME SUPPLIED WITHOUT A PLATFORM is checked too, which is the half that always worked — kept
+    /// here so the pair reads as one rule: each supplied expectation is checked on its own.</summary>
+    [Fact]
+    public void A_name_supplied_without_a_platform_is_still_checked()
+    {
+        var ex = Assert.Throws<BridgeException>(() => FetchService.Handle(Ide("codesys", "Demo"),
+            new FetchRequest { Init = true, ExpectedProjectName = "SomethingElse" }));
+
+        Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
+    }
 }

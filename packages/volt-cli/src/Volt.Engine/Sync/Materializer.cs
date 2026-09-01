@@ -21,7 +21,12 @@ public static class Materializer
             FullWireName(name, ItemKind.ExtFor(kind)));
     }
 
-    private static string FullWireName(string bareName, string ext) =>
+    /// <summary>The name an item is known by ON THE WIRE — <c>name.kind</c> — from the BARE name the IDE holds.
+    ///
+    /// <para>Public because <see cref="Bare"/>, its inverse, always was, and a pair that converts between the
+    /// two spellings of the protocol's identity should be reachable from the same place. It was private, so the
+    /// only way to test it was to restate it in the test — which asserts the copy, not this.</para></summary>
+    public static string FullWireName(string bareName, string ext) =>
         IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
 
     private static bool IsVerbatimKind(string name, string ext) =>

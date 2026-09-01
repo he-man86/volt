@@ -27,9 +27,21 @@ internal static class OpGuard
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
         var served = ide.ServedProjectName;
-        if (!string.IsNullOrEmpty(expectedName) &&
-            (!string.Equals(served, expectedName, StringComparison.Ordinal) ||
-             !string.Equals(ide.Vendor, expectedPlatform, StringComparison.OrdinalIgnoreCase)))
+
+        // EACH SUPPLIED EXPECTATION IS CHECKED ON ITS OWN. The vendor check used to be nested inside the name
+        // check — one `if` guarded by `expectedName` alone — so a caller that supplied a PLATFORM and no name
+        // had its platform silently ignored, and a client bound to TwinCAT could push into a CODESYS bridge
+        // with the guard reporting success. The two are independent nullable wire fields (`ExpectedPlatform`,
+        // `ExpectedProjectName` on every request model), so that combination is not hypothetical: nothing on
+        // the wire couples them. The CLI happens to send both, which is why it never surfaced.
+        //
+        // Supplying NEITHER still runs only the connected check — that is init/discovery, and an older client,
+        // which is the case the outer guard was written for and the one it still serves.
+        var wrongName = !string.IsNullOrEmpty(expectedName)
+                        && !string.Equals(served, expectedName, StringComparison.Ordinal);
+        var wrongVendor = !string.IsNullOrEmpty(expectedPlatform)
+                          && !string.Equals(ide.Vendor, expectedPlatform, StringComparison.OrdinalIgnoreCase);
+        if (wrongName || wrongVendor)
             throw BridgeException.WrongProject(ide.Vendor, served, expectedPlatform, expectedName);
         return (ide.Vendor, served);
     }
