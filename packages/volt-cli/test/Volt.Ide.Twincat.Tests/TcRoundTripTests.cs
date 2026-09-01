@@ -28,15 +28,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcRoundTripTests
 {
-    private static string Fixture(string name)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
-        var path = Path.Combine(dir!.FullName, "test", "Volt.Engine.Tests", "fixtures", "tc-pou", name);
-        Assert.True(File.Exists(path), $"missing vendor fixture: {path}");
-        return path;
-    }
+    private static string Fixture(string name) => Fixtures.Path("tc-pou", name);
 
     /// <summary>The NWL body of a vendor-written .TcPOU, exactly as it sits in the file.</summary>
     private static string Body(string fixture) =>

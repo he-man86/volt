@@ -1,7 +1,7 @@
 ﻿using Xunit;
 using Volt.Contracts;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Contracts.Tests;
 
 /// <summary>
 /// The wire's diagnostic severity vocabulary. Both drivers mapped a vendor's word to it themselves and neither

@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Repo.Gates;
 
 /// <summary>
 /// The committed TwinCAT fixture solutions must not reference a file that does not exist.

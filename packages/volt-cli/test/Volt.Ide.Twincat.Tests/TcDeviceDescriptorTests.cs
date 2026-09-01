@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Xunit;
 using Volt.Ide.Twincat;
@@ -15,15 +15,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcDeviceDescriptorTests
 {
-    private static string Fixture(string name)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
-        var path = Path.Combine(dir!.FullName, "test", "Volt.Ide.Twincat.Tests", "fixtures", name);
-        Assert.True(File.Exists(path), $"missing fixture: {path}");
-        return File.ReadAllText(path);
-    }
+    private static string Fixture(string name) => Fixtures.Text(name);
 
     /// <summary>A fieldbus MASTER: it has a readable type and no hardware revision, so the Version line is
     /// absent rather than blank.</summary>

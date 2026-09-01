@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <!--
+    NO ProjectReference, deliberately. These gates read the repo as TEXT - they walk src/, test/ and docs/ and
+    assert properties of the tree. Referencing a package would be the first step toward one of them quietly
+    becoming a test OF that package, which is the drift that put them in the engine suite to begin with.
+  -->
+</Project>

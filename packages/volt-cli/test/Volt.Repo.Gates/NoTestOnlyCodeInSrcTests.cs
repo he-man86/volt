@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Repo.Gates;
 
 /// <summary>
 /// Nothing under <c>src/</c> is reachable only from tests.

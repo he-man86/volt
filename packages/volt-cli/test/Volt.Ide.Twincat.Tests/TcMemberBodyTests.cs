@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,15 +29,7 @@ public class TcMemberBodyTests
 {
     /// <summary>Read a vendor fixture from the repo, as the other TwinCAT tests do — they are not copied to the
     /// test output.</summary>
-    private static string VendorFixture(string name)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
-        var path = Path.Combine(dir!.FullName, "test", "Volt.Engine.Tests", "fixtures", "tc-pou", name);
-        Assert.True(File.Exists(path), $"missing vendor fixture: {path}");
-        return File.ReadAllText(path);
-    }
+    private static string VendorFixture(string name) => Fixtures.Pou(name);
 
     private static string Fixture() => VendorFixture("MembersSt.TcPOU");
 

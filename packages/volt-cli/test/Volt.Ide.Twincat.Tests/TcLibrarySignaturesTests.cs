@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Volt.Engine.Library;
@@ -21,15 +21,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcLibrarySignaturesTests
 {
-    private static string Xml()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
-        var path = Path.Combine(dir!.FullName, "test", "Volt.Engine.Tests", "fixtures", "tc-pou", "library-signatures.xml");
-        Assert.True(File.Exists(path), $"missing vendor fixture: {path}");
-        return File.ReadAllText(path);
-    }
+    private static string Xml() => Fixtures.Pou("library-signatures.xml");
 
     /// <summary>THE CONCATENATION. The vendor returns each library's XML one after another, so the payload has
     /// several roots and is not a well-formed document — feeding it straight to a parser throws, which is why

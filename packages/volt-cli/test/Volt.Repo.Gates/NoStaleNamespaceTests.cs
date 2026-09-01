@@ -5,7 +5,7 @@ using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Repo.Gates;
 
 /// <summary>
 /// No source file or document names a namespace that no longer exists.

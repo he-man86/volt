@@ -33,16 +33,14 @@ public class TcNetworkWriterTests
         return nwl.ToString(SaveOptions.DisableFormatting);
     }
 
-    private static string FixturePath()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not find Volt.sln above the test binaries");
-        var path = Path.Combine(dir!.FullName, "test", "TwinCAT Project14", "TwinCAT Project14",
-                                "Untitled2", "POU_PBD.TcPOU");
-        Assert.True(File.Exists(path), $"the vendor-written fixture is missing: {path}");
-        return path;
-    }
+    /// <summary>THE ORACLE, AND IT IS THIS SUITE'S OWN COPY NOW.
+    ///
+    /// <para>This read <c>test/TwinCAT Project14/.../POU_PBD.TcPOU</c> — a file inside the LIVE e2e project,
+    /// which <c>twincat-instances.ps1</c> opens IN PLACE and which TwinCAT rewrites whenever that tier runs.
+    /// An offline test's oracle cannot be a file another tier mutates: the identity this class asserts would
+    /// have been re-baselined by a live run rather than broken by one. The committed fixture is byte-identical
+    /// (10,997 bytes, verified at the move).</para></summary>
+    private static string FixturePath() => Fixtures.Path("tc-pou", "POU_PBD.TcPOU");
 
     private static XElement Impl(string body) =>
         XElement.Parse(body, LoadOptions.PreserveWhitespace)

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- net8.0-WINDOWS, matching the driver under test. The other three test projects are plain net8.0 because
          what they cover is portable; this one references an exe that talks late-bound COM, so it inherits the TFM.
@@ -14,5 +14,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The suite's own vendor fixtures, beside the test binary. Without this the loader cannot find them. -->
+    <None Include="fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

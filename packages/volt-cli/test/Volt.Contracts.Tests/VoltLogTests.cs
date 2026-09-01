@@ -5,7 +5,7 @@ using Volt.Wire;
 using Xunit;
 using Volt.Contracts;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Contracts.Tests;
 
 /// <summary>The durable logger writes timestamped, source-tagged, leveled lines to a daily per-source file in
 /// the shared store — the thing a field issue is diagnosed from.</summary>
