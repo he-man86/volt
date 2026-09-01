@@ -71,7 +71,7 @@ internal static class TcPlcOpenWriter
     /// first version carried it as a <c>plcopenxml/declaration</c> <c>addData</c>, and measured live the
     /// importer ignored it outright — the POU arrived holding nothing but <c>PROGRAM &lt;name&gt;</c>, its VAR
     /// block gone. The conclusion drawn then, "declarations do not travel in PLCopen on this install", is NOT
-    /// what that measured: <c>FB_TcMembers.plcopen.xml</c>, a vendor export, carries the declaration as
+    /// what that measured: a vendor PLCopen export carries the declaration as
     /// <c>plcopenxml/<b>interfaceasplaintext</b></c> holding an <c>xhtml</c> block. The name was simply wrong.
     /// <para>It stays absent anyway, which is now a choice rather than a limit: <c>DeclarationText</c> is the
     /// documented path, it already works, and every other write here goes through it. Carrying the declaration
@@ -209,8 +209,8 @@ internal static class TcPlcOpenWriter
             // A WIRED ENABLE IS REFUSED — and the reason is measured, not assumed.
             //
             // The old refusal said an enable "cannot be expressed as PLCopen", which is false: the vendor's own
-            // export writes it as an ordinary input variable named EN, wired by refLocalId like any other
-            // (`fixtures/tc-fbd/fbd_en_eno.plcopen.xml`). So it was emitted that way and MEASURED end to end on
+            // export writes it as an ordinary input variable named EN, wired by refLocalId like any
+            // other. So it was emitted that way and MEASURED end to end on
             // a live XAE (2026-08-31). The importer accepts the document and does NOT honour the pin:
             //
             //     pushed:  LET en1 := go;  IF en1 THEN out := (a AND b); END_IF

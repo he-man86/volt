@@ -295,8 +295,8 @@ namespace Volt.Ide.Codesys
                         // deleted for.
                         //
                         // What it was hiding: a box that writes a pin's value directly — a TON whose `ET` pin
-                        // carries `elapsed` on the pin itself, the shape in the vendor's own export
-                        // `fixtures/tc-fbd/fbd_ton_embedded_output.plcopen.xml` — pulls as `t1(IN := a, PT :=
+                        // carries `elapsed` on the pin itself, the shape a vendor FBD export writes —
+                        // pulls as `t1(IN := a, PT :=
                         // pt);` with `elapsed` nowhere in the file. Edit anything else in that network and the
                         // destroy-and-rebuild drops it from the live project: no diff (git never held it), no
                         // diagnostic, and no compile error, because nothing references the variable — it simply

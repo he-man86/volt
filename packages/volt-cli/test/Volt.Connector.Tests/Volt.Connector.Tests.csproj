@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
@@ -9,7 +9,6 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
     <ProjectReference Include="..\..\src\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Volt.Connector.Core\Volt.Connector.Core.csproj" />
     <!-- Also the bridge Core, ONLY so WireContractTests can pin the connector's anonymous `connect` body against
