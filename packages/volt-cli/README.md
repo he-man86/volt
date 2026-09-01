@@ -1,4 +1,4 @@
-# volt-cli — the Volt toolchain (one C# solution)
+﻿# volt-cli — the Volt toolchain (one C# solution)
 
 The whole PLC toolchain in one package, over Windows **named pipes**: the `volt` CLI (git-native sync), the
 two in-IDE bridges (CODESYS / TwinCAT), the tray connector, and the shared `Volt.Engine`. There is no HTTP
@@ -51,9 +51,30 @@ contract, the pipe and the host are three assemblies and not one.
 dotnet build Volt.sln -c Release                 # the whole toolchain (all TFMs)
 dotnet test test/Volt.Cli.Tests/                     # pipe transport + sync + black-box CLI
 dotnet test test/Volt.Engine.Tests/                # shared engine
+dotnet test test/Volt.Repo.Gates/                    # gates on the repo tree itself
+bun test test/unit                                   # offline TS (no bridge)
 bun test test/e2e                                    # TS e2e parity suite (set VOLT_PIPE, needs a live bridge)
 pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe workers + the connector bundle
 ```
 
 Headless CODESYS dev loop: `pwsh scripts/codesys-pipe.ps1 up|down|logs` loads the in-proc pipe host into a
 headless CODESYS against a fixture project; then `VOLT_PIPE=volt.bridge.codesys bun test test/e2e`.
+
+### Where a test goes
+
+**`test/Volt.X.Tests` tests package `src/Volt.X`. The `test/` root holds only what belongs to no single package.**
+
+```
+test/
+  Volt.*.Tests/     one pair per src package — same name, same namespace
+  Volt.Repo.Gates/  gates on the REPO tree itself; carries NO ProjectReference, deliberately
+  e2e/              the live-bridge tier (TypeScript) — items/, connection/, graphical/, endpoints/, …
+  unit/             offline TypeScript; this is volt-cli's `test` script, so CI runs it
+  shared/           doubles linked into more than one C# suite (namespace `Volt.Tests.Shared`)
+  fixtures/         the vendor IDE projects the live tier opens — inputs, not code
+```
+
+Two rules keep it that way. A suite's namespace is its project name, with no exceptions — a file that says
+otherwise is in the wrong assembly or was moved without being renamed. And a fixture lives in the suite that
+reads it: `Volt.Engine.Tests/fixtures/tc-pou/` was opened only by the TwinCAT suite, which reached across for it
+through six separate copies of the same directory walk.

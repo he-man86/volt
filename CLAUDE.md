@@ -86,6 +86,9 @@ dotnet test test/Volt.Engine.Tests/                      # shared engine (ST + n
 dotnet test test/Volt.Connector.Tests/                 # connector core: session model, reconciler, TC supervisor
 dotnet test test/Volt.Ide.Twincat.Tests/                # TwinCAT driver, offline (dynamic doubles — no live XAE)
 dotnet test test/Volt.Ide.Codesys.Tests/                 # CODESYS driver, offline (net48; C# doubles — no live IDE)
+dotnet test test/Volt.Contracts.Tests/                    # the wire contracts (VoltLog, Severity)
+dotnet test test/Volt.Repo.Gates/                            # gates on the REPO, not a package (no ProjectReference)
+bun test test/unit                                          # the offline TS tests (no bridge) — volt-cli's `test` script
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```
