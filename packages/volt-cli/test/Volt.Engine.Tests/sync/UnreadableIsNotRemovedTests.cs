@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// An item Volt cannot READ still EXISTS. Reporting it as removed makes `volt pull` delete the engineer's file

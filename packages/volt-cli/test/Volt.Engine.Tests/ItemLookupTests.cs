@@ -3,7 +3,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Finding a top-level item by name. There were TWO of these, one per driver, and they gave different answers —

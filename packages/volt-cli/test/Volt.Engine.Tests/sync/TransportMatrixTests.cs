@@ -6,7 +6,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// THE TRANSPORT MATRIX: for every writable source kind, exactly which IDE interactions a create / update / move

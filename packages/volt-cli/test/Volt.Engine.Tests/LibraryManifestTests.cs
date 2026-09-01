@@ -1,7 +1,7 @@
 ﻿using Xunit;
 using Volt.Engine.Library;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>The one canonical `.library` manifest shape — the parity contract BOTH drivers (CODESYS + TwinCAT)
 /// must produce via the shared builder, so the wire is byte-identical for the same concept.</summary>

@@ -1,11 +1,11 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// A POU's declaration comes from the IDE, not from an optional vendor extension in its export.

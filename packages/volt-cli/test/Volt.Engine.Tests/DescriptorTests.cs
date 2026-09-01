@@ -1,7 +1,7 @@
 ﻿using Xunit;
 using Volt.Engine.Format.St;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The read-only descriptor format — the file body of every non-source item (`.device`, `.task`, `.trace`,

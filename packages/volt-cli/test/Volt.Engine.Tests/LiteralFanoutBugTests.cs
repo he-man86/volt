@@ -1,7 +1,7 @@
 ﻿using Xunit;
 using Volt.Engine.Format.Network;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 // A LITERAL leaf fanning out to two blocks re-emits identically through the network text-text round-trip gate, so it
 // would slip through to the PLCopen writer and crash TwinCAT's importer ("Index was outside the bounds of the

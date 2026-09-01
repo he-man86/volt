@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
@@ -6,7 +6,7 @@ using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// AN FB THAT SHARES ITS BARE NAME WITH ITS OWN VISUALIZATION MUST STILL BE PUSHABLE.

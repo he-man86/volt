@@ -2,7 +2,7 @@
 using Xunit.Abstractions;
 using Volt.Engine.Format.Network;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// `NETWORK` opens a network only when it is the WHOLE keyword, not merely a prefix.

@@ -21,5 +21,6 @@
   <ItemGroup>
     <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+    <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
   </ItemGroup>
 </Project>

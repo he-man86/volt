@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// An op that is neither a set nor a delete must be REFUSED, not reported as an accepted no-op.

@@ -3,7 +3,7 @@ using System.IO;
 using Xunit;
 using Volt.Engine.Ide;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The bridge's human-facing log. Two things are worth pinning: it writes BOTH sinks, and <c>WarnOnce</c> is

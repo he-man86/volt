@@ -2,7 +2,7 @@
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The folder-path codec: an IDE folder name containing the path separator, a Windows-reserved character,

@@ -5,7 +5,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>Direct tests for the unified <c>set</c> apply path: that one op dispatches to the right IDE
 /// primitives (native rename / recreate-move / in-place write), including the rename+edit and rename+move

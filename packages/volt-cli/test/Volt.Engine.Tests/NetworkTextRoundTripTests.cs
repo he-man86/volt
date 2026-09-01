@@ -2,7 +2,7 @@
 using Xunit;
 using Volt.Engine.Format.Network;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 public class NetworkTextRoundTripTests
 {

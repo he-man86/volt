@@ -6,7 +6,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>One malformed item (e.g. an LD POU whose PLCopen export has no body) must never crash the aggregate
 /// endpoints. Versioning.Materialize stays no-catch for single-item paths where the failure must surface; the

@@ -1,7 +1,7 @@
 ﻿using Xunit;
 using Volt.Engine.Format.Network;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The bridge OWNS the graphical format: every invalid structure must be REFUSED with a stable, specific

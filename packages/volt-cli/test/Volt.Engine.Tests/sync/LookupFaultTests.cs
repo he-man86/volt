@@ -7,7 +7,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// "I could not read the tree" and "it is not there" are different answers.

@@ -4,7 +4,7 @@ using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>`volt status` reads <c>/refs</c>; `volt pull` reads <c>/fetch</c>; `volt push` returns a receipt — all
 /// three MUST produce the SAME version map, or status would report different drift than pull (and a push would

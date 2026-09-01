@@ -5,7 +5,7 @@ using Volt.Engine.Format.St;
 using Xunit;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The item version is content-addressed: a hash of the item's FOLDER + its MATERIALIZED workspace

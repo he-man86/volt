@@ -4,7 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>What /fetch and /refs materialize: every walked item ships as ordinary source (dead/uncalled code
 /// and exclude-from-build objects alike — the bridge draws no build-relevance distinction; reachability is the

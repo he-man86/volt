@@ -5,7 +5,7 @@ using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>FetchService's incremental diff — the knownItems / onlyItems / removed logic behind `volt pull`.
 /// The e2e suite proves this against a LIVE bridge; these pin the same situations at the Core service layer

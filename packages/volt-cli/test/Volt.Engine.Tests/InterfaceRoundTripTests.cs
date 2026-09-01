@@ -6,7 +6,7 @@ using Volt.Engine.Library;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// An INTERFACE carries its method/property signatures INSIDE the INTERFACE…END_INTERFACE block (not as

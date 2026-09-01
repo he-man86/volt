@@ -1,8 +1,8 @@
-using System.Linq;
+﻿using System.Linq;
 using Xunit;
 using Volt.Engine.Format.St;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Where an INTERFACE's declaration ends — and why nothing here reads what is IN it.

@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// A structural keyword must be found on a line that also carries a comment.

@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// A push that MOVES an item and EDITS it must not reach the IDE through a handle the edit invalidated.

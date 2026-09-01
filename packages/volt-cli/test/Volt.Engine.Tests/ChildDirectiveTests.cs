@@ -7,7 +7,7 @@ using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Child metadata travels as a directive block at the top of the body: `%FOLDER &lt;path&gt;` (the

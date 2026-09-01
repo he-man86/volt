@@ -5,7 +5,7 @@ using Volt.Engine.Item;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// THE WRITE HALF of the declaration transport: a declaration edit reaches the IDE for every shape, and an

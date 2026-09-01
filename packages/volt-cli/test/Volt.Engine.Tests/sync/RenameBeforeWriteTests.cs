@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// A REJECTED push must leave the project untouched.

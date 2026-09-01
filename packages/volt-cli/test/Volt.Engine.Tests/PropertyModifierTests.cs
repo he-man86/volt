@@ -3,7 +3,7 @@ using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Format.St;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// A PROPERTY header must accept the modifiers a METHOD header already does.

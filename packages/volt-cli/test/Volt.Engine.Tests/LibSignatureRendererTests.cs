@@ -2,7 +2,7 @@
 using Xunit;
 using Volt.Engine.Library;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The library-signature renderer turns an extracted <see cref="LibSignature"/> into a minimal ST declaration.

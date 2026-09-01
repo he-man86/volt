@@ -2,7 +2,7 @@
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// TwinCAT's DUT tree codes. A DUT is ONE wire kind (<c>dut</c>, one <c>.dut</c> extension) but FOUR tree codes on

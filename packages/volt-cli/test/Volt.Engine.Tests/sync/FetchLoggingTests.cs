@@ -7,7 +7,7 @@ using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>Observability (bridge-diagnostics-observability): a silently-skipped item leaves a durable log
 /// trace — the field signal for "my POU / library type isn't in the workspace". Here we assert the log ENTRY

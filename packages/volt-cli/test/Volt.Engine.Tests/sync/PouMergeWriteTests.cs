@@ -5,7 +5,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>The single-document POU write (`pou-writes-via-plcopen` §3.1): a POU's declaration, body, children and
 /// accessors go to the IDE as ONE merged PLCopen import instead of a root write plus a write per child plus an

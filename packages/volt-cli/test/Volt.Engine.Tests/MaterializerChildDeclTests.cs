@@ -4,7 +4,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Regression (BOTH vendors): a graphical (FBD/LD/CFC/SFC) method child must materialize with ITS OWN

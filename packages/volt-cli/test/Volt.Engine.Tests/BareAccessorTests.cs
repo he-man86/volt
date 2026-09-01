@@ -5,7 +5,7 @@ using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// REGRESSION: a BARE `GET` / `SET` (the bodiless accessor form — one keyword, no `END_GET`) must parse as a

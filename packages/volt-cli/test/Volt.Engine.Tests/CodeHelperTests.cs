@@ -3,7 +3,7 @@ using Xunit;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.St;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>ParseCodeHeader classifies an item from its DECLARATION using only the keyword + name — it requires
 /// NOTHING after the name on the header line, so a `: type` / `EXTENDS Base :` tail that legally wraps onto the

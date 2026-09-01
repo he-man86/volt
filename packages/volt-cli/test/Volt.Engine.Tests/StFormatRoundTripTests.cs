@@ -6,7 +6,7 @@ using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// <see cref="StWriter"/> and <see cref="StReader"/> are an INVERSE PAIR over <see cref="ItemContent"/>, and this

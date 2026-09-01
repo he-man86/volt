@@ -4,7 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Sync;
 using Volt.Engine.Library;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>Method C: FetchService runs the referenced-library precompile ONLY when a `.library` version changed vs
 /// the client's knownItems. The `.library` files are hashed like any other file and already carried in knownItems,

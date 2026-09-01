@@ -6,7 +6,7 @@ using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Sync;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>The in-op "connected + right project" guard that replaced the client's pre-op health round-trip. It's
 /// vendor-agnostic Core, so one parameterized fixture covers CODESYS- and TwinCAT-shaped health. Proves: a match

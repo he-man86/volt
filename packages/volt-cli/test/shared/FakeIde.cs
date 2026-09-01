@@ -10,7 +10,7 @@ using Volt.Engine.Format.Body;
 using Volt.Engine.Host;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Tests.Shared;
 
 /// <summary>
 /// The single in-memory <see cref="IIdeDriver"/> test double for the whole toolchain — the service tests

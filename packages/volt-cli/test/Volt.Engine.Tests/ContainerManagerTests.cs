@@ -5,7 +5,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>A container-manager (library / recipe / visualization manager) is a FOLDER, not a file: it only
 /// groups its children, so it is never emitted as a tracked item — no `<Manager>.<kind>` stub beside the folder.

@@ -7,7 +7,7 @@ using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
-namespace Volt.Cli.Tests;
+namespace Volt.Engine.Tests;
 
 /// <summary>
 /// DATA LOSS regression: an unsupported graphical (CFC/SFC) POU **child** — a method or action — must never be
