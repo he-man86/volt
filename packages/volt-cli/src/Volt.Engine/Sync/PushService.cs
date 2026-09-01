@@ -172,7 +172,18 @@ public static class PushService
         var currentName = name;
         var renamed = false;
         var toName = op.ToName is { } t ? Materializer.Bare(t) : null;
-        if (toName != null && !string.Equals(toName, currentName, StringComparison.OrdinalIgnoreCase))
+        // ORDINAL, because this asks "did the NAME change", not "does it name the same thing".
+        //
+        // It was OrdinalIgnoreCase, and IEC identifiers being case-insensitive is exactly why that reads as
+        // right and is not: `Calc` and `calc` DO name the same object, so the comparison answered "no change"
+        // and the rename never ran. The push reported accepted, the IDE kept the old spelling, and the receipt
+        // baked the pushed spelling into the client's baseline — so `volt status` said in sync over an edit that
+        // landed nothing, which is the worst class there is. Every other identity compare in the repo is
+        // case-INsensitive on purpose; this one is not an identity compare.
+        //
+        // The pushed name is what the engineer typed, and casing is the whole content of this edit: it is what
+        // the IDE displays and what the workspace file is called.
+        if (toName != null && !string.Equals(toName, currentName, StringComparison.Ordinal))
         {
             // VALIDATE THE PUSHED TEXT FIRST. A native rename makes the IDE rewrite every reference to this POU
             // across the project — it is the largest change in this method, and it used to run before anything
@@ -197,6 +208,28 @@ public static class PushService
                 ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
                     "write through the pre-rename handle");
+
+            // AND THE RENAME ACTUALLY TOOK. The lookup above is case-INsensitive — it has to be, that is the
+            // identity rule everywhere else — so on a CASE-ONLY rename it finds the item under its OLD spelling
+            // and cannot tell a performed rename from an ignored one. It is the only step in this method whose
+            // success it cannot verify.
+            //
+            // BOTH VENDORS DO PERFORM IT, measured live 2026-09-01 (CODESYS 3.5.21.40 and TcXaeShell 15.0):
+            // `VltE2E_caseprobe` came back as `VltE2E_caseprobE` on each. So this is not covering for a known
+            // vendor limit — it is covering for the fact that we could not otherwise KNOW. An IDE that quietly
+            // no-ops the call would have the push report "renamed", the receipt bake the new spelling into the
+            // client's baseline, and `volt status` say in sync while the IDE shows the old name, for as long as
+            // the workspace exists.
+            //
+            // (An earlier run of that measurement said TwinCAT ignored it. That reading came from a connector
+            // still running the previously-published worker — a STALE BRIDGE, the trap this repo has hit before.
+            // Re-measured against a freshly built worker, the two vendors agree.)
+            var landed = ide.Name(item);
+            if (!string.Equals(landed, currentName, StringComparison.Ordinal))
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"this IDE did not apply the rename '{name}' -> '{currentName}': the item is still called " +
+                    $"'{landed}'. A rename that changes only LETTER CASE is not supported here — rename it in " +
+                    "the IDE and pull, or pick a name that differs by more than case.");
             renamed = true;
         }
 

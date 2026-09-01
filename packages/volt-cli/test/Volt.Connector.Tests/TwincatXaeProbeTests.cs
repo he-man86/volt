@@ -51,4 +51,36 @@ public class TwincatXaeProbeTests
         Assert.Null(TwincatXaeProbe.ListPids(null, TimeSpan.FromSeconds(1)));
         Assert.Null(TwincatXaeProbe.ListPids(@"C:\volt\definitely\not\here\VoltBridgeTwincat.exe", TimeSpan.FromSeconds(1)));
     }
+
+    /// <summary>A PARTIAL ENUMERATION IS A FAILURE, NOT A SHORT LIST — the case the probe exists to get right,
+    /// and the one nothing reached because it sat inside the spawn.
+    ///
+    /// <para>The worker walks the COM ROT window by window and prints each pid as it finds one, so a walk that
+    /// throws part-way has ALREADY printed some: exit 1 WITH pids on stdout is a real, reachable state. Reading
+    /// those as the answer hands the supervisor a list short by exactly the XAEs the probe never reached — and
+    /// the caller reaps any worker whose pid is absent from a successful result. The engineer's live XAE
+    /// session would lose its bridge because some unrelated window's COM call faulted.</para></summary>
+    [Fact]
+    public void A_nonzero_exit_is_a_failure_even_when_pids_were_already_printed()
+    {
+        Assert.Null(TwincatXaeProbe.Decide(1, "1234\n5678\n"));
+        Assert.Null(TwincatXaeProbe.Decide(-1, "1234\n"));
+    }
+
+    /// <summary>AND A CLEAN EXIT WITH NO OUTPUT IS AN ANSWER, not a failure. "The enumeration ran and saw no
+    /// XAE" is the state that lets the caller reap; conflating it with a failed probe would leave dead workers
+    /// running forever, which is the mirror of the bug above.</summary>
+    [Fact]
+    public void A_clean_exit_with_no_output_is_an_empty_answer_not_a_failure()
+    {
+        var pids = TwincatXaeProbe.Decide(0, "");
+
+        Assert.NotNull(pids);
+        Assert.Empty(pids!);
+    }
+
+    /// <summary>A clean exit parses, and goes through the same <c>Parse</c> the rest of the suite pins.</summary>
+    [Fact]
+    public void A_clean_exit_returns_the_parsed_pids()
+        => Assert.Equal(new[] { 1234, 5678 }, TwincatXaeProbe.Decide(0, "1234\n5678\n"));
 }

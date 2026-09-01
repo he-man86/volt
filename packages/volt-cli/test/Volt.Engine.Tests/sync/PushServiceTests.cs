@@ -377,4 +377,55 @@ public class PushServiceTests
         Assert.False(resp.Accepted);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));   // never relocated
     }
+
+    /// <summary>A CASE-ONLY RENAME REACHES THE IDE.
+    ///
+    /// <para>THE BUG this pins: the "did the name change" check was <c>OrdinalIgnoreCase</c>, and IEC
+    /// identifiers being case-insensitive is exactly why that reads as right and is not. `Calc` and `calc` DO
+    /// name the same object, so the comparison answered "no change" and the rename never ran — while the push
+    /// reported accepted and the receipt baked the pushed spelling into the client's baseline. `volt status`
+    /// then said in sync over an edit that landed nothing, forever. Every other identity compare in this repo is
+    /// case-INsensitive on purpose; this one asks a different question.</para>
+    ///
+    /// <para>Measured live on both vendors (2026-09-01): CODESYS 3.5.21.40 and TcXaeShell 15.0 each perform it,
+    /// so asking for it is right rather than merely louder.</para></summary>
+    [Fact]
+    public void A_case_only_rename_reaches_the_ide()
+    {
+        var ide = OneProgram("Calc");
+        var (v, pv) = Ver(ide, "Calc.prg");
+
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.prg", IfVersion = v, ToName = "calc.prg" });
+
+        Assert.True(resp.Accepted);
+        Assert.Contains("rename:Calc->calc", ide.Recorded);
+        Assert.Contains("calc.prg", resp.NewItems!.Keys);
+    }
+
+    /// <summary>AND A RENAME THE IDE DID NOT APPLY IS REFUSED, not reported as done.
+    ///
+    /// <para>The re-find after a rename is case-INsensitive, because that is the identity rule everywhere else —
+    /// so on a case-only rename it finds the item under its OLD spelling and cannot tell a performed rename from
+    /// an ignored one. It is the one step in the apply path whose success cannot be verified by finding the
+    /// item, so it is verified by reading the name back.</para>
+    ///
+    /// <para>Both shipping vendors do perform it, so this guards the case we could not otherwise KNOW about: an
+    /// IDE that quietly no-ops the call would have the push report "renamed", the receipt bake the new spelling
+    /// into the baseline, and the workspace disagree with the project for as long as it exists.</para></summary>
+    [Fact]
+    public void A_rename_the_ide_silently_ignored_is_refused()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("Calc", "PROGRAM Calc\nVAR\nEND_VAR", "n := 1;"))
+        { IgnoreRenames = true };
+        var (v, pv) = Ver(ide, "Calc.prg");
+
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.prg", IfVersion = v, ToName = "calc.prg" });
+
+        // A per-op refusal comes back as a REJECTION carrying the reason, not as a throw — `PushService`
+        // catches per op so one bad op names itself instead of failing the whole batch anonymously.
+        Assert.False(resp.Accepted);
+        Assert.Contains("did not apply the rename", Assert.Single(resp.Conflicts!).Reason);
+        Assert.Contains("rename:Calc->calc", ide.Recorded);   // it was asked for, and did not take
+    }
+
 }

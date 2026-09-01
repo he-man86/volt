@@ -46,11 +46,25 @@ namespace Volt.Connector
                     try { proc.Kill(entireProcessTree: true); } catch { /* already gone */ }
                     return null; // timed out / hung — a failure, not "no XAE"
                 }
-                if (proc.ExitCode != 0) return null; // the worker signalled the enumeration itself failed
-                return Parse(stdout.GetAwaiter().GetResult());
+                return Decide(proc.ExitCode, stdout.GetAwaiter().GetResult());
             }
             catch { return null; }
         }
+
+        /// <summary>What a finished probe MEANS: its pids, or null when the enumeration failed.
+        ///
+        /// <para>Separated from the spawn for the same reason <see cref="Parse"/> is — so it can be tested
+        /// without a process. It was inline, and it is the branch that decides whether healthy workers get
+        /// reaped, which made it the wrong one to leave unreachable.</para>
+        ///
+        /// <para><b>A NON-ZERO EXIT DISCARDS THE STDOUT, and that is the whole point.</b> The worker walks the
+        /// COM ROT window by window and prints each pid as it finds one, so a walk that throws part-way has
+        /// ALREADY printed some — a real partial enumeration, exit 1 with pids on stdout. Parsing those would
+        /// hand the supervisor a list that is short by exactly the XAEs the probe never reached, and the caller
+        /// reaps any worker whose pid is absent from a SUCCESSFUL result. The engineer's live XAE session would
+        /// lose its bridge because an unrelated window's COM call faulted.</para></summary>
+        public static IReadOnlyList<int>? Decide(int exitCode, string stdout) =>
+            exitCode != 0 ? null : Parse(stdout);
 
         /// <summary>Parse the one-pid-per-line stdout into distinct positive pids (ignores blanks / non-numeric lines).</summary>
         public static IReadOnlyList<int> Parse(string stdout)

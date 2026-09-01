@@ -341,14 +341,19 @@ public sealed partial class CodesysDriver
         // accessor as 613/614 like any other, so a test on the code could never fire (see the call site).
         if (ownerIsInterface)
         {
+            // The DETECTION is this vendor's own — it has to read the accessor back, because a CODESYS
+            // interface accessor carries whatever the IDE put there. The refusal and its wording are shared
+            // (`InterfaceAccessorGuard`), so the sentence an engineer reads cannot drift between vendors.
+            //
+            // A live accessor of null means the property does not carry one at all: there is nothing to write
+            // to and nothing to refuse, so it stays a silent return rather than reaching the guard.
             var live = FindAccessor(property, code);
-            var was = live is null ? null : ReadAccessor(live.Value);
-            if (was is not null && (Text(was.Declaration) != Text(accessor.Declaration)
-                                 || Text(was.Code) != Text(accessor.Code)))
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
-                    "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
-                    "change in the IDE and pull.");
+            if (live is not null)
+            {
+                var was = ReadAccessor(live.Value);
+                InterfaceAccessorGuard.RefuseIfChanged(was.Declaration, was.Code,
+                                                       accessor.Declaration, accessor.Code);
+            }
             return;
         }
 

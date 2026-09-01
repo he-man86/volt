@@ -358,10 +358,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // the generation LAST means this call's own arguments were still valid.
         if (InvalidatesHandlesOnMove) _generation++;
     }
+    /// <summary>Accept the rename call and DO NOTHING — an IDE that no-ops a rename it cannot perform.
+    ///
+    /// <para>Neither shipping vendor behaves this way for a case-only rename (both were measured performing
+    /// one), but the apply path cannot VERIFY that by finding the item: the re-find is case-insensitive, so it
+    /// resolves the old spelling either way. This models the state that check exists to catch.</para></summary>
+    public bool IgnoreRenames { get; init; }
+
     public void Rename(ItemRef item, string newName)
     {
         var old = NameOf(item);
         Recorded.Add($"rename:{old}->{newName}");
+        if (IgnoreRenames) return;
         var idx = _items.FindIndex(i => i.Name == old);
         if (idx >= 0) _items[idx] = _items[idx] with { Name = newName }; // so a follow-up Lookup(newName) resolves
     }

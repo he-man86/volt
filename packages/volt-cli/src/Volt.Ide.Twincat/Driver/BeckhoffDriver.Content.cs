@@ -584,11 +584,10 @@ public sealed partial class BeckhoffDriver
         // is the CODESYS fix (audit defect #11, eaacd48cd3) reaching its TwinCAT twin.
         if (code is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet)
         {
-            if (!string.IsNullOrWhiteSpace(accessor.Declaration) || !string.IsNullOrWhiteSpace(accessor.Body))
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
-                    "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
-                    "change in the IDE and pull.");
+            // Live state is BLANK by construction here — `ReadMember` builds an interface accessor as
+            // `new Accessor(null, null)` — so anything non-blank pushed at one IS a change, and no COM read is
+            // needed to tell. Passing the blanks explicitly is what lets the refusal itself be shared.
+            InterfaceAccessorGuard.RefuseIfChanged(null, null, accessor.Declaration, accessor.Body);
             return;
         }
 

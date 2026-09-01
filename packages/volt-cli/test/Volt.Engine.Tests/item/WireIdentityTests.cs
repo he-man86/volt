@@ -82,9 +82,34 @@ public class WireIdentityTests
     public void A_leading_dot_does_not_produce_an_empty_key()
         => Assert.Equal(".hidden", Materializer.Bare(".hidden"));
 
-    /// <summary>The full name a wire map is keyed by, for one item of the given kind — through the PRODUCT's
-    /// own derivation and extension table, never a restatement of them here. A test that recomputes the rule it
-    /// is checking asserts its own copy and stays green through any change to the real one.</summary>
-    private static string Materialize(string bareName, string kind) =>
-        Materializer.FullWireName(bareName, ItemKind.ExtFor(kind));
+    /// <summary>The full name a wire map is keyed by, taken from a REAL materialization.
+    ///
+    /// <para>Through <c>Materializer.Materialize</c> — the public path every item actually travels — rather than
+    /// the private helper underneath it. Two earlier drafts got this wrong in opposite directions: the first
+    /// restated the derivation here, which asserts the copy; the second made the helper public to reach it,
+    /// which `NoTestOnlyCodeInSrcTests` correctly rejected as shipped code only a test calls. Going through the
+    /// front door is both the honest test and the one that needs no change to src.</para></summary>
+    private static string Materialize(string bareName, string kind)
+    {
+        var ide = new FakeIde(new FakeIde.Item(bareName, Code(kind), "", true,
+                                               Declaration(bareName, kind), "", null, null));
+        return Materializer.Materialize(ide, bareName, kind, new ItemRef(bareName)).FullName;
+    }
+
+    private static int Code(string kind) => kind switch
+    {
+        ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,
+        ItemKind.Kinds.Program => ItemKind.PlcPouProg,
+        ItemKind.Kinds.Visualization => ItemKind.PlcVisObj,
+        _ => ItemKind.PlcLibRef,
+    };
+
+    /// <summary>A declaration the ST writer will accept for this kind — source kinds are assembled from text,
+    /// reference kinds carry a manifest instead.</summary>
+    private static string Declaration(string name, string kind) => kind switch
+    {
+        ItemKind.Kinds.FunctionBlock => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR",
+        ItemKind.Kinds.Program => $"PROGRAM {name}\nVAR\nEND_VAR",
+        _ => $"LIBRARY {name}\nNAMESPACE {name}\n",
+    };
 }

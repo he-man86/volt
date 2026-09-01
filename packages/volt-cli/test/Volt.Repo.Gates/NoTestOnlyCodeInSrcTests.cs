@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -54,6 +54,11 @@ public class NoTestOnlyCodeInSrcTests
         ["ChooseBridgePipe"] = "the pipe-selection RULE, split out so it can be driven with a list of candidate " +
                                "pipes instead of a live machine — its production caller passes the real list " +
                                "from the same file",
+
+        ["Decide"] = "the XAE-probe VERDICT rule (exit code + stdout -> pids, or null for a failed enumeration), " +
+                     "split out for the same reason as ChooseBridgePipe: the branch that decides whether healthy " +
+                     "workers get reaped otherwise only runs behind a spawned process. Its production caller is " +
+                     "ListPids, in the same file",
 
         // Deliberate reference implementations. `FastImport_tree_matches_hash_object_plus_BuildTree` asserts the
         // fast-import path produces a byte-identical tree SHA to plumbing git — so these exist to be the OTHER
