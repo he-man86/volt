@@ -9,7 +9,7 @@
  * pinned as cases it must accept.</p>
  */
 import { describe, it, expect } from "bun:test"
-import { expectNoOperandsLost } from "./harness"
+import { expectNoOperandsLost } from "../e2e/harness"
 const wrap = (b: string) => `PROGRAM P\nVAR\nEND_VAR\n\n${b}\nEND_PROGRAM\n`
 describe("oracle self-check", () => {
 	it("catches an unconsumed block deleted by the writer", () => {

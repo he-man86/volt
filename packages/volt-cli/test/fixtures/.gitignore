@@ -14,3 +14,8 @@ _Libraries/
 
 # CODESYS regenerates this on open (and it is 130 KB of derived state).
 *.precompilecache
+
+# CODESYS per-user / per-machine IDE state. Derived on open, and `CodesysTestProject-AllUsers.opt` was tracked
+# by accident — no rule covered `*.opt`, so it rode along with the project it sits beside.
+*.opt
+*.~u

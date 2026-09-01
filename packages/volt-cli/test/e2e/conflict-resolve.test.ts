@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process"
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve, basename } from "node:path"
-import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, currentPipe } from "../harness"
+import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, currentPipe } from "./harness"
 
 // Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with). Pick
 // the NEWEST of the candidates — a stale `dist/Cli/volt.exe` (an old shipped build) must not mask a fresh source

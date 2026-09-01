@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LIVE multi-instance stability — two headless CODESYS running AT ONCE, one on a SLOW/large project (refs ~20s) and
  * one on a normal project. Proves the two bridges are genuinely INDEPENDENT: the slow instance holding its IDE thread
  * for a 20s op must not stall the other's health OR its refs, and neither instance leaks into the other's project.
@@ -7,7 +7,7 @@
  * Point it at the two per-pid pipes (from `codesys-pipe.ps1 up -Instance …` ×2), from packages/volt-cli. The SLOW
  * one must be the large committed fixture — that's what makes the 20s-op assertion mean anything:
  *   codesys-pipe.ps1 up                                                        # CodesysTestProject  -> FAST
- *   codesys-pipe.ps1 up -Instance b -Project test\Pro2193-94-95-96_COdesys.project   # 9.9 MB -> SLOW
+ *   codesys-pipe.ps1 up -Instance b -Project test\fixtures\Pro2193-94-95-96_COdesys.project   # 9.9 MB -> SLOW
  *   VOLT_PIPE_SLOW=volt.bridge.codesys.<bigPid> VOLT_PIPE_FAST=volt.bridge.codesys.<smallPid> \
  *     bun test test/e2e/stability/parallel-instances.test.ts --timeout 300000
  * Skips cleanly when the two pipes aren't set (so the normal single-pipe suite is unaffected).

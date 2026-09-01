@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Open the committed TwinCAT fixture solutions in TcXaeShell - the TwinCAT analogue of codesys-pipe.ps1, for the
@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ide  = "C:\Program Files (x86)\Beckhoff\TcXaeShell\Common7\IDE\TcXaeShell.exe"
-$test = Join-Path $PSScriptRoot "..\test"
+$test = Join-Path $PSScriptRoot "..\test\fixtures"
 $slns = [ordered]@{
     "13" = Join-Path $test "TwinCAT Project13\TwinCAT Project13.sln"
     "14" = Join-Path $test "TwinCAT Project14\TwinCAT Project14.sln"

@@ -57,8 +57,10 @@ jobs:
   # Every Volt package's own unit suite, each run in its package dir (`--filter` sets the cwd, so the repo-root
   # `bun test` guard is never hit). `--filter='*' test` covers volt-lsp-iec + volt-control automatically — add a
   # `test` script to any Volt package and it gates here with zero CI edit. Two deliberate exceptions:
-  #   • volt-cli — its bun suite is the live-bridge e2e (`test:e2e`, needs a running IDE), so it has no plain
-  #     `test` script; its offline C# tests are the `volt-cli` job below.
+  #   • volt-cli — its `test` script is the small OFFLINE bun suite (`test/unit`, no bridge: currently the
+  #     operand-survival oracle's own self-check, which used to sit inside the e2e tier and therefore never
+  #     ran here). Its LIVE-bridge suite is `test:e2e` and needs a running IDE, so it stays out of CI; its
+  #     offline C# tests are the `volt-cli` job below.
   #   • lsp-iec's `test` is the OFFLINE suite (src + conformance); the heavy real-project corpus is `test:corpus`,
   #     a local ratchet (known-incomplete precision work — it DISCOVERS FPs, it doesn't gate).
   test:
@@ -123,6 +125,10 @@ jobs:
         run: dotnet test packages/volt-cli/test/Volt.Ide.Twincat.Tests/Volt.Ide.Twincat.Tests.csproj -c Release --nologo
       - name: Test — CODESYS driver (NWL object model, offline; net48 like the in-proc host)
         run: dotnet test packages/volt-cli/test/Volt.Ide.Codesys.Tests/Volt.Ide.Codesys.Tests.csproj -c Release --nologo
+      - name: Test — wire contracts (VoltLog, Severity)
+        run: dotnet test packages/volt-cli/test/Volt.Contracts.Tests/Volt.Contracts.Tests.csproj -c Release --nologo
+      - name: Test — repo gates (stale namespaces, test-only code in src, fixture-project integrity)
+        run: dotnet test packages/volt-cli/test/Volt.Repo.Gates/Volt.Repo.Gates.csproj -c Release --nologo
 
   # Desktop boot smoke: launch the built electron app headless (xvfb) in VOLT_SMOKE mode — proves the frameless
   # window + Volt shell.html actually render, which the pure-logic unit suites can't. Electron needs a display +

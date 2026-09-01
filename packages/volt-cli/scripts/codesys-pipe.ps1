@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Launch the Volt CLI pipe host HEADLESS in CODESYS (no UI), for live smoke of
@@ -16,7 +16,7 @@ param(
     [string]$Action = "up",
     [ValidateSet("18", "21")]
     [string]$Version = "21",
-    [string]$Project = "$PSScriptRoot\..\test\CodesysTestProject.project",
+    [string]$Project = "$PSScriptRoot\..\test\fixtures\CodesysTestProject.project",
     [string]$Instance = "",
     # -Ui launches CODESYS WITH its GUI (drops --noUI) — closer to production, where a user runs the same in-proc
     # host inside the real IDE via "Activate in CODESYS". The runscript still opens the fixture + serves the pipe;

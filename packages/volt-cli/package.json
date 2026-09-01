@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@volt/cli",
   "version": "0.1.0",
@@ -13,6 +13,7 @@
   "scripts": {
     "build": "dotnet build Volt.sln -c Release --nologo",
     "build:package": "powershell -File scripts/build-cli.ps1",
+    "test": "bun test test/unit",
     "test:e2e": "bun test",
     "test:e2e:codesys": "VOLT_VENDOR=codesys bun test test/e2e",
     "test:e2e:twincat": "VOLT_VENDOR=twincat bun test test/e2e",
