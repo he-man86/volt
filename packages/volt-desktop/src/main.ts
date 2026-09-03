@@ -16,6 +16,7 @@ import {
   onConnectorView,
   type DiffDirection,
 } from "@volt/control"
+import { startupWorkspace, workspaceArg } from "./startup.js"
 import { bindWorkspace, refreshDetectedProjects } from "./panel.js"
 import { registerCommands } from "./commands.js"
 import { readRecent, setRecentFile } from "./recent.js"
@@ -55,7 +56,11 @@ function configureTools() {
 // (see recent.ts for why that memory is load-bearing here). Neither is a guess: both are paths that were
 // explicitly chosen, and a missing one leaves the app unbound on the picker rather than binding something else.
 async function restoreWorkspace() {
-  const root = process.env.VOLT_WORKSPACE ?? readRecent()
+    // The rule lives in startup.ts, pure and tested: `--workspace` (what `volt open <dir>` passes) wins, then
+    // VOLT_WORKSPACE as the dev override, then the last one bound. Argv is first because it is the only
+    // channel that reaches an ALREADY-RUNNING app, so `volt open <otherDir>` retargets rather than being
+    // silently ignored.
+    const root = startupWorkspace(process.argv, process.env.VOLT_WORKSPACE, readRecent)
   if (root !== undefined && existsSync(root)) await bindWorkspace(shell, root)
 }
 
@@ -97,6 +102,33 @@ ipcMain.on("win:maximize", () => (shell.win?.isMaximized() ? shell.win.unmaximiz
 ipcMain.on("win:close", () => shell.win?.close())
 
 app.whenReady().then(async () => {
+  // ONE WINDOW. Without this, `volt open <dir>` on a machine that already has Volt open would start a
+  // SECOND instance: two windows over the same connector, each with its own status feed, and the newer one
+  // the only place the requested workspace appeared. Electron hands a second launch's argv to the FIRST
+  // instance instead, which is what makes `volt open <otherDir>` retarget rather than duplicate.
+  //
+  // Inside the handler, not at module scope, because of the `return` — a module-scope return is a syntax
+  // error, and this file is bundled.
+  //
+  // Exempt under VOLT_SMOKE: the lock key derives from userData, which is the same path for a packaged app
+  // and for `electron .`, so a developer's open window would make the CI boot smoke test quit before it
+  // rendered and report a pass for the wrong reason.
+  if (!process.env.VOLT_SMOKE && !app.requestSingleInstanceLock()) {
+    app.quit()
+    return
+  }
+
+  app.on("second-instance", (_e, argv) => {
+    // A second `volt open` arrived. Take the workspace it named, if any, and surface the window we already
+    // have — the point of the lock is that the engineer's request still lands somewhere.
+    const root = workspaceArg(argv)
+    if (root !== undefined && existsSync(root)) void bindWorkspace(shell, root)
+    if (shell.win) {
+      if (shell.win.isMinimized()) shell.win.restore()
+      shell.win.focus()
+    }
+  })
+
   shell.win = new BrowserWindow({
     width: 1100,
     height: 820,

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using Volt.Cli.Sync;
 using Volt.Wire;
 using Volt.Contracts;
@@ -67,6 +68,7 @@ internal static class Program
                 "build" => CmdBuild(root, Bridge(), a),
                 "show" => CmdShow(root, Bridge(), a),
                 "merge" => CmdMerge(root, a),
+                "open" => CmdOpen(a),
                 // No "--help" arm: ParseArgs routes every `--`-prefixed token into Flags/Values and never into
                 // positional, so a.Verb can never BE "--help". `volt --help` lands on the `_` arm with Verb null ⇒ 0.
                 "help" => Emit(Usage, 0),
@@ -190,6 +192,39 @@ internal static class Program
         return absent ? 2 : 1;
     }
 
+    /// <summary>`volt open [<dir>]` — launch the desktop app on this workspace.
+    ///
+    /// <para>NO BRIDGE. `Bridge()` is resolved lazily, so a bridge-free arm never probes a pipe — which is right
+    /// here: the app finds the connector itself, and requiring an IDE to be running before you can open a window
+    /// would be a precondition nobody would guess.</para>
+    ///
+    /// <para>It is a convenience for someone already in a terminal, not the way the app is meant to be reached —
+    /// that is the Start Menu, like any other Windows app.</para></summary>
+    private static int CmdOpen(Args a)
+    {
+        var dir = Path.GetFullPath(a.Operand(0) ?? a.Workspace);   // same shape as CmdInit
+        if (!Directory.Exists(dir))
+        {
+            Console.Error.WriteLine($"no such directory: {dir}");
+            return 1;
+        }
+
+        var gui = DesktopApp.GuiExePath(AppContext.BaseDirectory);
+        if (!File.Exists(gui))
+        {
+            // No fallback to the source tree. A build tree has no `desktop\` sibling, and guessing one would run
+            // a different build than the one this volt.exe shipped with. Name the fix instead.
+            Console.Error.WriteLine(
+                $"no Volt desktop app at {gui} — this volt.exe has no desktop folder beside it, so it is a build tree or "
+                + "a partial install. Install Volt with Volt-win-Setup.exe, then retry.");
+            return 1;
+        }
+
+        using var p = Process.Start(DesktopApp.LaunchInfo(gui, dir));   // never waited on — the GUI outlives this shell
+        Console.WriteLine($"opening Volt on {dir}");
+        return 0;
+    }
+
     private static int CmdMerge(string root, Args a)
     {
         var (code, message) = Commands.Merge(root, a.Has("--continue"), a.Has("--abort"), a.Value("--resolve"), a.Has("--use-ours"), a.Has("--use-theirs"));
@@ -282,6 +317,7 @@ internal static class Program
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
         "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
+        "  open     open the Volt desktop app on this workspace              [<dir>]\n" +
         "  version  this binary's own stamped version   (also: --version, -v)\n\n" +
         "  flags: --workspace <dir>  --vendor <codesys|twincat>";
 }
