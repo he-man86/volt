@@ -75,11 +75,13 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
       section.span = joinSpans(header.span, endVar.span)
       return section
     }
-    // A non-name, non-END_VAR keyword here (a unit closer like END_FUNCTION_BLOCK, or the next section) means
-    // the section was never closed — stop cleanly with ONE "unterminated" error and LEAVE the token for the
+    // A section-ending keyword here (a unit closer like END_FUNCTION_BLOCK, or the next section) means the
+    // section was never closed — stop cleanly with ONE "unterminated" error and LEAVE the token for the
     // caller. Choking `parseVarDecl` on it instead cascades: a bogus "expected identifier" AND recovery eats
     // the unit's closer, drawing a third "unterminated <unit>" from the unit parser.
-    if (!c.atNameStart()) break
+    // Any OTHER non-name token is a reserved word used as a variable name (`Limit : INT;`) — a bad decl, not
+    // an unterminated section. Fall through: `parseVarDecl` reports it on the name and recovers to the `;`.
+    if (c.atDeclListEnd()) break
     const decl = parseVarDecl(c)
     if (decl !== undefined) {
       section.decls.push(decl)

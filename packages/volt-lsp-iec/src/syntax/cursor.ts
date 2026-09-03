@@ -128,7 +128,7 @@ export class Cursor {
     const t = this.eatIdent()
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`identifier expected instead of ${describeToken(next)}`, next.span)
+      this.pushError(nameExpected(next), next.span)
     }
     return t
   }
@@ -144,7 +144,7 @@ export class Cursor {
     if (t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
       return this.consume()
     }
-    this.pushError(`identifier expected instead of ${describeToken(t)}`, t.span)
+    this.pushError(nameExpected(t), t.span)
     return undefined
   }
 
@@ -166,6 +166,46 @@ export class Cursor {
     "FINAL",
     "ABSTRACT",
     "OVERRIDE",
+  ])
+
+  /**
+   * True when the next token genuinely CLOSES a declaration list — an `END_*`, another VAR section, the start
+   * of the next unit, or EOF. The complement of `atNameStart()` is NOT that: most reserved words (`LIMIT`,
+   * `MIN`, `TO` …) are neither a legal name nor a section end, they are a *bad declaration* — CODESYS reports
+   * `Unexpected token 'LIMIT' found` on the name, and so must we. Splitting the two keeps the error on the
+   * offending token instead of blaming the section header for an `END_VAR` that is right there.
+   */
+  atDeclListEnd(): boolean {
+    const t = this.peek()
+    if (t.kind === "eof") return true
+    if (t.kind !== "keyword" || t.keyword === undefined) return false
+    return t.keyword.startsWith("END_") || Cursor.DECL_LIST_ENDERS.has(t.keyword)
+  }
+
+  private static readonly DECL_LIST_ENDERS: ReadonlySet<string> = new Set([
+    // the VAR sections — a new one ends the previous
+    "VAR",
+    "VAR_INPUT",
+    "VAR_OUTPUT",
+    "VAR_IN_OUT",
+    "VAR_TEMP",
+    "VAR_STAT",
+    "VAR_INST",
+    "VAR_EXTERNAL",
+    "VAR_GLOBAL",
+    "VAR_CONFIG",
+    "VAR_ACCESS",
+    "VAR_GENERIC",
+    // the unit starters (`parseTopLevel`'s dispatch set) — recovery must never eat past one
+    "PROGRAM",
+    "FUNCTION_BLOCK",
+    "FUNCTION",
+    "METHOD",
+    "ACTION",
+    "PROPERTY",
+    "INTERFACE",
+    "TYPE",
+    "NAMESPACE",
   ])
 
   // ─── Body collection (raw — preserves trivia) ──────────────────
@@ -229,6 +269,20 @@ export class Cursor {
     }
     return false
   }
+}
+
+/**
+ * The error for "a name belongs here and this isn't one".
+ *
+ * A reserved word in name position is CODESYS's **C0009**, not its C0189: `Limit : INT;` — `LIMIT` is a
+ * standard FUNCTION, so it is reserved — reports `Unexpected token 'LIMIT' found`. Confirmed live against
+ * CODESYS SP21, 2026-09-03 (in a VAR section; STRUCT/UNION assume the same parser, unverified).
+ * Only the keyword case has that evidence; punct/EOF keep the "expected instead of" form.
+ */
+function nameExpected(t: Token): string {
+  return t.kind === "keyword"
+    ? `Unexpected token ${describeToken(t)} found`
+    : `identifier expected instead of ${describeToken(t)}`
 }
 
 // CODESYS/TwinCAT render the offending token bare-quoted (`'x'`, `';'`, `'TO'`) and EOF as "end of POU".

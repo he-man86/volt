@@ -126,3 +126,39 @@ test("statement tree: CODESYS typed char literal `UCHAR#'A'` parses cleanly", ()
   expect(assign.value.kind).toBe("literal")
   expect((assign.value as Literal).literalKind).toBe("typed")
 })
+
+// ─── reserved words in name position (CODESYS C0009) ─────────────────────────
+// `LIMIT` is a standard FUNCTION, so CODESYS reserves it: `Limit : INT;` is rejected, live-confirmed as
+// `C0009: Unexpected token 'LIMIT' found` on the NAME. The section is still terminated — blaming its header
+// for a missing END_VAR that is right there sent readers hunting the wrong line.
+
+const messages = (src: string) => parseSource(src).errors.map((e) => e.message)
+
+test("a reserved word as a variable name is reported on the name, not the section header", () => {
+  const src = "PROGRAM P\nVAR\n  Limit : INT;\n  Ok : BOOL;\nEND_VAR\nOk := TRUE;\nEND_PROGRAM\n"
+  expect(messages(src)).toEqual(["Unexpected token 'LIMIT' found"])
+  const err = parseSource(src).errors[0]!
+  expect(src.slice(err.span.start, err.span.end)).toBe("Limit")
+  // recovery continues the section: the following decl and END_VAR are still parsed
+  const unit = parseSource(src).units[0] as { varSections: { decls: VarDecl[] }[] }
+  expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["Ok"])
+})
+
+test("same for a STRUCT and a UNION field", () => {
+  expect(messages("TYPE T :\nSTRUCT\n  Limit : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([
+    "Unexpected token 'LIMIT' found",
+  ])
+  expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(["Unexpected token 'MIN' found"])
+})
+
+test("a genuinely unterminated section still blames the header, with no cascade", () => {
+  // the four ways a decl list really ends early — each must stay ONE error on the section keyword
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nEND_PROGRAM\n")).toEqual(["unterminated VAR section: expected END_VAR"])
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nVAR_INPUT\n  b : INT;\nEND_VAR\nEND_PROGRAM\n")).toEqual([
+    "unterminated VAR section: expected END_VAR",
+  ])
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nPROGRAM Q\nEND_PROGRAM\n")).toEqual([
+    "unterminated VAR section: expected END_VAR",
+  ])
+  expect(messages("TYPE T :\nSTRUCT\n  a : INT;\nEND_TYPE\n")).toEqual(["unterminated STRUCT: expected END_STRUCT"])
+})
