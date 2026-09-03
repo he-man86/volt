@@ -81,7 +81,10 @@ export class VoltViews implements vscode.Disposable {
 	// list changes (they arrive on separate events — status refresh vs the 10s bridge poll).
 	private lastViews: WorkspaceView[] = []
 	private detected: DetectedProject[] = []
-	private connectorUp = true
+	// UNDEFINED until the first probe answers, not `true`. Initialising it optimistically made a fresh
+	// window assert "No PLC project detected — open one in your IDE" before anything had been asked:
+	// `update()` runs before the first probe resolves, and `onboardingMode(true, 0)` is "no-project".
+	private connectorUp: boolean | undefined
 
 	constructor() {
 		this.disposables.push(
@@ -298,7 +301,7 @@ function diagnosticRoots(): VoltNode[] {
 
 // ── Bridge: the connection lifecycle, start to finish ────────────────────────
 // Exported for the panel smoke test (the view-model builder is pure; only the widget layer needs the host).
-export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[], connectorUp = true): VoltNode[] {
+export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[], connectorUp?: boolean): VoltNode[] {
 	const nodes: VoltNode[] = []
 	for (const v of views) {
 		const hd = v.health
@@ -352,6 +355,17 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 	// answers identically; only the rows are ours. Rows, not welcome markdown, precisely so the detected project
 	// can be NAMED — the whole reason this view leads the container.
 	switch (onboardingMode(connectorUp, detected.length)) {
+		case "probing":
+			// Not asked yet. Say that, and ask the user for nothing — the answer arrives in milliseconds (a
+			// refused localhost connection fails fast), so this is usually sub-frame. It exists so the window
+			// never states something it has not established.
+			return [
+				{
+					key: "bridge:probing",
+					label: "Looking for open PLC projects…",
+					icon: new vscode.ThemeIcon("loading~spin"),
+				},
+			]
 		case "no-connector":
 			return [
 				{

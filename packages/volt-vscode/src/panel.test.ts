@@ -29,7 +29,7 @@ const proj = (over: Record<string, unknown> = {}) => {
 // fills that gap — an unbound folder with detected projects renders an INDENTED list: a "Detected project(s)"
 // header with each project NESTED (children) as a named, clickable-to-set-up row.
 test("unbound + a detected project → indented under a header, a named row that inits ITSELF", () => {
-  const [header] = bridgeRoots([], [proj()])
+  const [header] = bridgeRoots([], [proj()], true)
   expect(header?.label).toBe("Detected project")
   const node = header?.children?.[0]
   expect(node?.label).toBe("MyMachine")
@@ -42,13 +42,13 @@ test("unbound + a detected project → indented under a header, a named row that
 })
 
 test("two detected projects → both nested under the header as a list", () => {
-  const [header] = bridgeRoots([], [proj({ displayName: "P13" }), proj({ displayName: "P14" })])
+  const [header] = bridgeRoots([], [proj({ displayName: "P13" }), proj({ displayName: "P14" })], true)
   expect(header?.label).toBe("Detected projects")
   expect(header?.children?.map((c) => c.label)).toEqual(["P13", "P14"])
 })
 
 test("unbound + nothing detected → says so, and what to do about it", () => {
-  const [node] = bridgeRoots([], [])
+  const [node] = bridgeRoots([], [], true)
   expect(node?.label).toBe("No PLC project detected")
 })
 
@@ -81,19 +81,19 @@ test("bound + ready + ideChanged → a 'Refresh to check' hint (no auto-walk)", 
 // Offline, the reconnect surface IS the detected-project list: the matching project is a plain Reconnect
 // (volt.connect); a different-named one is a Rebind (the rename path); nothing detected → a hint, no action.
 test("bound + offline → the matching detected project is a Reconnect row (volt.connect)", () => {
-  const roots = bridgeRoots([offlineView as never], [proj()])
+  const roots = bridgeRoots([offlineView as never], [proj()], true)
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(false) // already disconnected
 })
 
 test("bound + offline + a DIFFERENT-named project → a Rebind row (volt.rebindProject with that project)", () => {
-  const roots = bridgeRoots([offlineView as never], [proj({ displayName: "MyMachine_v2" })])
+  const roots = bridgeRoots([offlineView as never], [proj({ displayName: "MyMachine_v2" })], true)
   const rebind = roots.find((n) => n.command?.command === "volt.rebindProject")
   expect(rebind?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine_v2" })
 })
 
 test("bound + offline + nothing detected → an 'open your project' hint, no connect/rebind action", () => {
-  const roots = bridgeRoots([offlineView as never], [])
+  const roots = bridgeRoots([offlineView as never], [], true)
   expect(roots.some((n) => n.command?.command === "volt.connect" || n.command?.command === "volt.rebindProject")).toBe(false)
   expect(roots.some((n) => String(n.label).includes("Open your project"))).toBe(true)
 })
@@ -101,7 +101,7 @@ test("bound + offline + nothing detected → an 'open your project' hint, no con
 // Disconnect is a REAL disconnect now (the bridge refuses sync until you reconnect), so it earns a button —
 // the mirror of Reconnect, on the same row set, instead of hiding in the command palette.
 test("bound + online → Bridge view offers Disconnect (volt.disconnect)", () => {
-  const roots = bridgeRoots([onlineView as never], [])
+  const roots = bridgeRoots([onlineView as never], [], true)
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(false)
 })
@@ -124,4 +124,15 @@ test("incoming diff = HEAD (repo's last commit) ↔ BRIDGE (live IDE), never the
 
 test("outgoing diff = VOLTIDE (synced baseline) ↔ WORKSPACE (working file)", () => {
   expect(diffRefs("outgoing")).toEqual({ left: "/VOLTIDE/POUs/Foo.pou", right: "/WORKSPACE/POUs/Foo.pou" })
+})
+
+// Before the first probe answers, the view must not claim anything about the connector. This was
+// `private connectorUp = true`: `update()` runs before the probe resolves, so a fresh window asserted
+// "No PLC project detected — open one in your IDE" about a question nobody had asked — sending the user to
+// their IDE to fix a problem that had not been established. The desktop had invented this state locally
+// (`awaiting`); the extension had not, which is the divergence `onboardingMode` exists to prevent.
+test("before the first probe, the view says it is still looking rather than blaming the IDE", () => {
+  const [node] = bridgeRoots([], [], undefined)
+
+  expect(node?.label).toContain("Looking for open PLC projects")
 })

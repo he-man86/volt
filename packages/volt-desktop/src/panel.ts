@@ -32,10 +32,10 @@ import type { Shell } from "./context.js"
 // project carries its connect `action` (init / connect / rebind) so the picker knows what clicking it does.
 type LabeledProject = DetectedProject & { action: ConnectAction }
 type Surface = { create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
-// `awaiting` splits the unbound state: true = the connector hasn't been probed yet ("Looking for open PLC
-// projects…"); false = a known empty state. Without it the first second claims the connector is down before we
-// have asked it. Rides both bound/unbound so the renderer reads it flat.
-type Snap = { surface: Surface; onboarding: OnboardingMode; awaiting: boolean } & (
+// There is no separate `awaiting` field: the cold start IS an `OnboardingMode` ("probing"), so the renderer reads
+// one enum rather than crossing a flag with a mode. The desktop carried that flag privately and the extension did
+// not, which is how the two shells came to disagree about a fresh window — exactly what the shared enum prevents.
+type Snap = { surface: Surface; onboarding: OnboardingMode } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -51,13 +51,13 @@ export function snapshot(shell: Shell): Snap {
   // No `kind`: the renderer branches on `onboarding` and re-derives reconnect itself, so carrying it was a
   // second source of truth for the same decision — and the one nothing read.
   const surface: Surface = { create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
-  const connectorUp = shell.connectorUp
-  const onboarding = onboardingMode(connectorUp, shell.projects.length)
-  const awaiting = shell.awaiting
-  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, onboarding }
+  // `connectorUp` is undefined until the first probe answers — `onboardingMode` reads that as "probing". Both
+  // shells hold the same three-state field and read the same enum, so the one place that decides "connector down"
+  // vs "no project" vs "not asked yet" is @volt/control.
+  const onboarding = onboardingMode(shell.connectorUp, shell.projects.length)
+  if (!vs) return { bound: false, incoming: [], outgoing: [], surface, onboarding }
   return {
     bound: true,
-    awaiting,
     surface,
     onboarding,
     ...projectWorkspace({
@@ -103,11 +103,10 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // NOT `displayName`: an id is `vendor + ":" + project name`, so a rename already changes it. NOT `status`:
   // the picker does not draw it. The rule is the fields drawn, and no more.
   const key = detectedKey
-  // Clear the cold-start flag FIRST: on a machine with the connector down and no projects, nothing below changes,
-  // so an early return here would leave the panel spinning on "Looking for…" forever.
-  const wasAwaiting = shell.awaiting
-  shell.awaiting = false
-  if (!wasAwaiting && up === shell.connectorUp && key(next) === key(shell.projects)) return
+  // The first probe always pushes: `shell.connectorUp` seeds UNDEFINED, so it differs from either answer and the
+  // cold-start "Looking for…" always resolves — including on a machine with the connector down and no projects,
+  // where nothing else here changes.
+  if (up === shell.connectorUp && key(next) === key(shell.projects)) return
   shell.projects = next
   shell.connectorUp = up
   pushStatus(shell)

@@ -33,7 +33,7 @@ const { app, BrowserWindow, ipcMain, shell: electronShell, dialog } = await impo
 // (No-op off Windows; Volt is Windows-only anyway.)
 app.setAppUserModelId("dev.volt.desktop")
 
-const shell: Shell = { win: null, status: null, boundRoot: undefined, awaiting: true, projects: [], connectorUp: false }
+const shell: Shell = { win: null, status: null, boundRoot: undefined, projects: [], connectorUp: undefined }
 
 // Point volt-control at the volt CLI + LSP. Packaged: the compiled .exe's sit beside the connector at the
 // install-dir root (…\Volt\bin), and this GUI runs from …\Volt\desktop\resources\app — so hop up to the install

@@ -95,7 +95,6 @@ const bound = {
   affordance: { caption: "connected", action: "disconnect" },
   surface: { create: [], primary: [], alternates: [] },
   onboarding: "choose-project",
-  awaiting: false,
   ideChanged: false,
 }
 
@@ -116,8 +115,7 @@ test("a project name containing an apostrophe renders as data, not as code", () 
     ...bound,
     bound: false,
     initialized: false,
-    awaiting: false,
-    onboarding: "choose-project",
+      onboarding: "choose-project",
     surface: {
       create: [{ id: "codesys::Bob's Machine:", displayName: "Bob's Machine", dirty: false, action: "init" }],
       primary: [],
@@ -156,7 +154,7 @@ test("...and is NOT stacked onto the offline state, which already explains itsel
  *  connector is sent to their IDE to fix a problem that is not there. */
 test("connector-down and no-project onboarding say different things", () => {
   const s = shell()
-  const unbound = { ...bound, bound: false, initialized: false, awaiting: false, surface: { create: [], primary: [], alternates: [] } }
+  const unbound = { ...bound, bound: false, initialized: false, surface: { create: [], primary: [], alternates: [] } }
 
   s.setSnap({ ...unbound, onboarding: "no-connector" })
   s.render()
@@ -169,7 +167,7 @@ test("connector-down and no-project onboarding say different things", () => {
 
 test("the cold start says it is still looking, rather than claiming nothing is there", () => {
   const s = shell()
-  s.setSnap({ ...bound, bound: false, initialized: false, awaiting: true })
+  s.setSnap({ ...bound, bound: false, initialized: false, onboarding: "probing" })
   s.render()
 
   expect(s.html()).toContain("Looking for open PLC projects")
@@ -185,4 +183,16 @@ test("a merge in progress lists each conflicted file", () => {
   s.render()
 
   expect(s.html()).toContain("FB_Motor.fb")
+})
+
+// THE SEED, not a pushed snapshot: `render()` with nothing set yet is the first paint, before the main process has
+// sent anything. The window is on screen for that frame, so whatever the seed says is what a cold start reads. Seeded
+// with a known empty state it asserted "No PLC project detected" — sending the user to their IDE — one layer below
+// the state fix in `onboardingMode`, and invisible to every test that calls `setSnap` first.
+test("the very first paint, before any status arrives, says it is still looking", () => {
+  const s = shell()
+  s.render()
+
+  expect(s.html()).toContain("Looking for open PLC projects")
+  expect(s.html()).not.toContain("No PLC project detected")
 })

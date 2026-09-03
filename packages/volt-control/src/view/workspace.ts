@@ -82,11 +82,22 @@ export type OnboardingMode =
   | "no-project"
   /** Projects are detected — name them and let the user pick which one this folder binds to. */
   | "choose-project"
+  /** Not probed yet — say nothing about the connector until it has actually been asked. */
+  | "probing"
 
 /** This used to be left to each shell ("split `uninitialized` yourself"), and they promptly diverged — different
  *  states, different wording, and one of them couldn't tell "connector down" (start Volt) from "no project open"
- *  (open one), which need opposite fixes. It's three lines; it lives here so both shells answer identically. */
-export function onboardingMode(connectorUp: boolean, projectCount: number): OnboardingMode {
+ *  (open one), which need opposite fixes. It's four lines; it lives here so both shells answer identically.
+ *
+ *  `connectorUp === undefined` means NOT PROBED YET, and it is a third answer rather than a shade of `false`.
+ *  "We haven't asked" needs a different sentence from both "the connector is down" and "no project is open" —
+ *  it asks the user for nothing. The desktop had invented this state locally (`awaiting`) and the extension had
+ *  not: it initialised `connectorUp = true` and rendered before its first probe resolved, so a fresh window
+ *  asserted "No PLC project detected — open one in your IDE" about a question nobody had asked yet. That is the
+ *  same divergence this function was written to end, one notch earlier, and an optimistic default of exactly
+ *  the kind the no-fallbacks rule forbids. */
+export function onboardingMode(connectorUp: boolean | undefined, projectCount: number): OnboardingMode {
+  if (connectorUp === undefined) return "probing"
   if (!connectorUp) return "no-connector"
   return projectCount > 0 ? "choose-project" : "no-project"
 }

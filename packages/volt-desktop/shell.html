@@ -196,7 +196,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, awaiting: true, initialized: false, incoming: [], outgoing: [], surface: { create: [], primary: [], alternates: [] } }
+  let snap = { bound: false, onboarding: "probing", initialized: false, incoming: [], outgoing: [], surface: { create: [], primary: [], alternates: [] } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   // Which rail tab is lit + scrolled to. Defaults to the connection: it's the first thing to set up, and the first
   // thing to check when sync stops. Every section is always rendered — the rail navigates, it doesn't show/hide.
@@ -337,11 +337,11 @@
     // 1. IDE Connection — the WHOLE connection lifecycle: which project, set up, connect, disconnect. It leads the
     // panel because it's the first thing a new user must do and the first thing to check when sync stops. IDE Sync
     // below is only "what changed" — it never owns connecting (that split is mirrored in the VS Code extension).
-    // Unbound copy splits on `awaiting`: cold start (the connector hasn't answered yet) reads "Looking for…" and
+    // Unbound copy splits on the SHARED onboarding mode: "probing" (the connector hasn't answered yet) reads "Looking for…" and
     // resolves on the first probe; after that it's a known empty state and the onboarding prompt applies. Reused
     // across the three sections so they say the same thing.
     const awaitingNote = `<div class="note"><svg class="ico spin"><use href="#i-refresh"/></svg>Looking for open PLC projects…</div>`
-    const unboundNote = s.awaiting ? awaitingNote : `<div class="note">No workspace open — open one from IDE Connection above.</div>`
+    const unboundNote = s.onboarding === "probing" ? awaitingNote : `<div class="note">No workspace open — open one from IDE Connection above.</div>`
     // Every empty state can also just OPEN an existing workspace. Without it the only offer is "create a new one",
     // which strands a user whose workspace already exists on disk (a reinstall, a clone, a second machine).
     const openExisting = `<div class="init-row">` +
@@ -349,7 +349,7 @@
     // The "no active Volt workspace" body — offer to CREATE one from a detected IDE project, else guide based on WHY
     // nothing's detected. ONE decision, shared by the unbound state and the bound-but-uninitialized state.
     const emptyStateBody = () =>
-      s.awaiting ? awaitingNote
+      s.onboarding === "probing" ? awaitingNote
       : (s.onboarding === "choose-project" ? createSurface(s.surface)
         : s.onboarding === "no-connector" ? `<div class="note">The Volt Connector isn't running — start it from the Start Menu so it can find your open PLC projects.</div>`
         : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`) + openExisting
@@ -458,7 +458,7 @@
     // PREVIOUS project's result (runDiagnostics returns without a new frame), so it must not render here.
     const diagActs = s.initialized ? icoBtn("i-refresh", "Re-analyze", "doRefreshDiag()") : ""
     let diagBody
-    if (!s.bound) diagBody = s.awaiting ? `<div class="note">Looking for open PLC projects…</div>` : `<div class="note">No workspace open.</div>`
+    if (!s.bound) diagBody = s.onboarding === "probing" ? `<div class="note">Looking for open PLC projects…</div>` : `<div class="note">No workspace open.</div>`
     else if (!s.initialized) diagBody = `<div class="note">This folder isn't a Volt workspace yet — set it up in IDE Connection above.</div>`
     else if (!diag || diag.loading) diagBody = `<div class="note">Analyzing Structured Text…</div>`
     else if (diag.error) diagBody = `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(diag.error)}</div>`

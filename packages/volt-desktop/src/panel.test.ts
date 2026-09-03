@@ -94,3 +94,12 @@ test("...and is stable under reordering, since it is a set comparison", () => {
 
   expect(detectedKey([a, b] as never)).toBe(detectedKey([b, a] as never))
 })
+
+// The third state. `connectorUp` seeds UNDEFINED — the connector has not been asked yet — and that is NOT the same
+// as "asked, and it is down". Held as a separate `awaiting` boolean crossed with a two-state `connectorUp`, the
+// refresh had to clear that flag before its early return or a machine with the connector down and no projects spun
+// on "Looking for…" forever; one field with three states cannot have that bug, because the seed differs from either
+// answer and so the first probe always pushes.
+test("before the first probe, the snapshot says 'probing' rather than 'no connector'", () => {
+  expect(snapshot({ projects: [], status: undefined, connectorUp: undefined } as never).onboarding).toBe("probing")
+})
