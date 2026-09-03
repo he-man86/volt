@@ -1,3 +1,18 @@
+﻿> **STATUS 2026-09-03 — two of the three mechanisms have SHIPPED; one has not, and it is the one that matters
+> for anyone who does not run the Windows installer.**
+>
+> - **Claude Code plugin — shipped.** `.claude-plugin/marketplace.json` exists at the repo root.
+> - **Editor extension — shipped as a SIDELOAD, not as a publication.** `installer/Volt.iss` installs the
+>   `.vsix` directly into VS Code, Cursor and Windsurf (one `[Run]` entry each, offered only when that editor's
+>   launcher is on PATH). That covers the installer path and nothing else.
+> - **Registry publication — NOT done.** `release.yml` stamps the extension's version and stops; it runs no
+>   `vsce publish` and no `ovsx publish`. So the extension is in no registry, and anyone who installs Volt any
+>   other way — or who wants updates through their editor — still gets nothing. **This is the remaining work.**
+>
+> The `## Why` below is written against a world where opencode was Volt's shipped integration. That is stale:
+> opencode was removed entirely on 2026-08-05 and `OPENCODE_CONFIG_DIR` no longer exists. The mechanism table it
+> derives is unaffected and is now the arrangement CLAUDE.md documents.
+
 ## Why
 
 Volt's language intelligence and CLI reach exactly two hosts today: opencode (via `OPENCODE_CONFIG_DIR`) and, in principle, VS Code — except the extension is published to **no registry at all**, so in practice the only shipped agent integration is for the tool Volt is least committed to. The hosts our industry actually uses — Claude Code, VS Code, Cursor, Windsurf, Claude Desktop — get nothing but a `volt` on PATH.
