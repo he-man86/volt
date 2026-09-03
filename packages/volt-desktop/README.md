@@ -3,7 +3,7 @@
 > The Volt desktop app — connection, sync and diagnostics for one PLC workspace. The desktop sibling of `volt-vscode`.
 
 A standalone Electron app. It opens from its own executable (Start Menu → **Volt**, or `desktop\Volt.exe`) or from
-the connector's tray, and it depends on nothing but the connector. There is no embedded browser, no bundled editor
+the Start Menu shortcut (which targets this app's exe, not the tray), and it depends on nothing but the connector. There is no embedded browser, no bundled editor
 and no agent runtime: Volt's chrome **is** the window.
 
 > This app used to wrap the installed opencode's served GUI in a `WebContentsView`, with the active workspace
@@ -18,9 +18,9 @@ and no agent runtime: Volt's chrome **is** the window.
   (pick a detected project → set up → connect/disconnect), **IDE Sync** (drift + pull/push/build), **Diagnostics**
   (headless LSP collector). IDE Connection leads the panel and owns every connection affordance; IDE Sync only
   answers "what changed" — the same split as the VS Code extension. Sync carries pull/push/build plus **force pull
-  / force push** (confirmed first), and a merge in progress offers **Finish / Abort** inline. What the desktop
-  deliberately does NOT have is the per-file merge editor (take-a-side) and click-to-diff — those need an editor,
-  which is what `volt-vscode` is for. Bridge *lifecycle* (spawning/activating) is still the connector's job, never
+  / force push** (confirmed first), and a merge in progress offers **Finish / Abort** inline. The desktop DOES have
+  the per-file merge editor (take-a-side) and click-to-diff — both ship here. What it lacks is **open-conflicts**:
+  opening the conflicted files themselves for editing, which needs an editor and is what `volt-vscode` is for. Bridge *lifecycle* (spawning/activating) is still the connector's job, never
   this shell.
   - **The panel is a pure renderer of `@volt/control`'s view-model** — no shell-side connection/vendor logic, so
     both frontends show identical data. Decisions (the create-vs-reconnect picker partition, matching-project-first

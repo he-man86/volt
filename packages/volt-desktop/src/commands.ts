@@ -32,8 +32,13 @@ import {
 import type { Shell } from "./context.js"
 import { bindWorkspace, runDiagnostics } from "./panel.js"
 
-// The desktop has no merge EDITOR (so no per-file `open-conflicts` / take-a-side — that's vscode's job), but
-// finishing/aborting a merge needs no editor, so those are actionable here. presentOutcome filters to this set.
+// The OUTCOME ACTIONS this shell can offer — `presentOutcome` filters to this set. The desktop cannot OPEN the
+// conflicted files for editing (`open-conflicts` is vscode's job), but finishing and aborting a merge need no
+// editor, so those are actionable here.
+//
+// This is a list of outcome ACTIONS, not a feature list, and reading it as one is how the README came to claim
+// the desktop has no take-a-side. It has: take-a-side ships as a button on each conflict ROW
+// (`volt:mergeResolve` → `runMergeResolve`), which is simply not routed through an outcome.
 const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push", "finish-merge", "abort-merge"])
 
 export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell): void {

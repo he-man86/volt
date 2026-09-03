@@ -1,5 +1,5 @@
 // Volt desktop shell — entry point. A standalone Volt app: the frameless titlebar, the icon rail and the IDE
-// panel (see shell.html) ARE the window. It launches from its own executable or from the connector's tray, and
+// panel (see shell.html) ARE the window. It launches from its own executable — the Start Menu shortcut the connector writes points AT it — and
 // depends on nothing but the connector. This file owns the window and lifecycle; the concern-split siblings
 // mirror the extension: `panel` (the IDE-sync data feed), `commands` (pull/push/init), `recent` (which workspace
 // to come back to).

@@ -101,7 +101,7 @@ namespace Volt.Connector
                 lnk.Description = "Volt";
                 lnk.Save();
             }
-            // Best-effort — the app still runs from the tray/CLI without a shortcut — but never silent.
+            // Best-effort — the app still runs from its own exe without a shortcut — but never silent.
             catch (Exception e) { VoltLog.Warn($"could not create the Start Menu shortcut: {e.Message}"); }
         }
 
