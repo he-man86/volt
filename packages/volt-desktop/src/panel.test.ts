@@ -49,15 +49,21 @@ const proj = {
 test("unbound snapshot carries the detected projects as a create surface (so the init surface can name them)", () => {
   const snap = snapshot({ projects: [proj], status: undefined, connectorUp: true } as never)
   expect(snap.bound).toBe(false)
-  expect(snap.surface.kind).toBe("create")
   expect(snap.surface.create.map((p) => p.displayName)).toEqual(["MyMachine"])
 })
 
-// The onboarding gap: connector-down vs no-project must be distinguishable — snapshot carries connectorUp so the
-// renderer can say "Connector isn't running" instead of the misleading "no project detected".
-test("snapshot carries connectorUp so onboarding can tell 'connector down' from 'no project'", () => {
-  expect(snapshot({ projects: [], status: undefined, connectorUp: false } as never).connectorUp).toBe(false)
-  expect(snapshot({ projects: [], status: undefined, connectorUp: true } as never).connectorUp).toBe(true)
+// The onboarding gap: connector-down vs no-project must be distinguishable, or the panel tells someone with a
+// stopped connector that no PLC project was detected — sending them to their IDE to fix a problem that is not
+// there.
+//
+// Retargeted from `connectorUp` to `onboarding`. The old assertion's stated premise — "so the renderer can say
+// 'Connector isn't running'" — was false: the renderer never read `connectorUp`, it branches on `onboarding`
+// (grep `shell.html`). So the test pinned a field nothing consumed while the decision it cared about went
+// unchecked. The premise was wrong on grounds independent of the code, which is the only licence to change a
+// test here; the field itself is now gone.
+test("the snapshot distinguishes 'connector down' from 'connector up, no project'", () => {
+  expect(snapshot({ projects: [], status: undefined, connectorUp: false } as never).onboarding).toBe("no-connector")
+  expect(snapshot({ projects: [], status: undefined, connectorUp: true } as never).onboarding).toBe("no-project")
 })
 
 test("unbound snapshot exposes empty drift arrays the renderer reads unconditionally", () => {

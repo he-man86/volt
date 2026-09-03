@@ -31,11 +31,11 @@ import type { Shell } from "./context.js"
 // The UI is vendor-blind: a project is identified by its NAME only — no vendor label rides to the renderer. Each
 // project carries its connect `action` (init / connect / rebind) so the picker knows what clicking it does.
 type LabeledProject = DetectedProject & { action: ConnectAction }
-type Surface = { kind: "create" | "reconnect"; create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
+type Surface = { create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
 // `awaiting` splits the unbound state: true = the connector hasn't been probed yet ("Looking for open PLC
 // projects…"); false = a known empty state. Without it the first second claims the connector is down before we
 // have asked it. Rides both bound/unbound so the renderer reads it flat.
-type Snap = { surface: Surface; connectorUp: boolean; onboarding: OnboardingMode; awaiting: boolean } & (
+type Snap = { surface: Surface; onboarding: OnboardingMode; awaiting: boolean } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -48,16 +48,17 @@ export function snapshot(shell: Shell): Snap {
   // Name-only — the UI is vendor-blind. Both shells render THIS decision; neither re-derives the grouping.
   const label = (o: ConnectOption): LabeledProject => ({ ...o.project, action: o.action })
   const s = connectSurface(connectOptions(shell.projects, bound))
-  const surface: Surface = { kind: s.kind, create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
+  // No `kind`: the renderer branches on `onboarding` and re-derives reconnect itself, so carrying it was a
+  // second source of truth for the same decision — and the one nothing read.
+  const surface: Surface = { create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
   const connectorUp = shell.connectorUp
   const onboarding = onboardingMode(connectorUp, shell.projects.length)
   const awaiting = shell.awaiting
-  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, connectorUp, onboarding }
+  if (!vs) return { bound: false, awaiting, incoming: [], outgoing: [], surface, onboarding }
   return {
     bound: true,
     awaiting,
     surface,
-    connectorUp,
     onboarding,
     ...projectWorkspace({
       workspaceRoot: vs.workspaceRoot,

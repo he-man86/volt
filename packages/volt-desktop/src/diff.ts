@@ -16,9 +16,9 @@ export function diffHtml(d: FileDiff): string {
         })
         .join("")
   return `<!doctype html><html><head><meta charset="utf-8" /><title>${esc(d.name)} — diff</title><style>
-    :root { --bg:#16120e; --surface:#201a14; --chrome:#2a2219; --border:#342b20; --text:#f3ead9; --muted:#9a8e7c;
+    :root { --bg:#16120e; --chrome:#2a2219; --border:#342b20; --text:#f3ead9; --muted:#9a8e7c;
       --add:#74c07a; --del:#e8675c; --add-bg:rgba(116,192,122,.13); --del-bg:rgba(232,103,92,.13); }
-    @media (prefers-color-scheme: light) { :root { --bg:#fff9f1; --surface:#f4ede2; --chrome:#ebe2d4; --border:#e2d8c8;
+    @media (prefers-color-scheme: light) { :root { --bg:#fff9f1; --chrome:#ebe2d4; --border:#e2d8c8;
       --text:#1a1714; --muted:#6e665b; --add:#3e9b52; --del:#cc4b37; --add-bg:rgba(62,155,82,.12); --del-bg:rgba(204,75,55,.12); } }
     * { box-sizing:border-box; margin:0; }
     html,body { height:100%; background:var(--bg); color:var(--text);

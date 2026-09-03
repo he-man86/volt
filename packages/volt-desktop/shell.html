@@ -8,7 +8,7 @@
      warm-dark counterpart. */
   :root {
     /* warm DARK (default) */
-    --bg: #16120e; --surface: #201a14; --chrome: #2a2219; --border: #342b20;
+    --bg: #16120e; --chrome: #2a2219; --border: #342b20;
     --text: #f3ead9; --muted: #9a8e7c; --accent: #f2843c; --accent-hi: #ff9a52; --on-accent: #16120e;
     --red: #e8675c; --green: #74c07a; --amber: #f2b24c;
     --hover: color-mix(in srgb, var(--text) 8%, transparent);
@@ -20,7 +20,7 @@
   @media (prefers-color-scheme: light) {
     :root {
       /* warm LIGHT — the branded website palette */
-      --bg: #fff9f1; --surface: #f4ede2; --chrome: #ebe2d4; --border: #e2d8c8;
+      --bg: #fff9f1; --chrome: #ebe2d4; --border: #e2d8c8;
       --text: #1a1714; --muted: #6e665b; --accent: #e0651f; --accent-hi: #b8521a; --on-accent: #fff9f1;
       --red: #cc4b37; --green: #3e9b52; --amber: #e08a2b;
     }
@@ -164,7 +164,6 @@
   <symbol id="i-push" viewBox="0 0 24 24"><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4M12 15V4m0 0 4 4m-4-4-4 4"/></symbol>
   <symbol id="i-build" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></symbol>
-  <symbol id="i-connect" viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
   <symbol id="i-disconnect" viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 17h2a5 5 0 0 0 0-10h-2M2 2l20 20"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
   <symbol id="i-bridge" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
@@ -197,7 +196,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, awaiting: true, initialized: false, paused: null, incoming: [], outgoing: [], surface: { kind: "create", create: [], primary: [], alternates: [] } }
+  let snap = { bound: false, awaiting: true, initialized: false, incoming: [], outgoing: [], surface: { create: [], primary: [], alternates: [] } }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   // Which rail tab is lit + scrolled to. Defaults to the connection: it's the first thing to set up, and the first
   // thing to check when sync stops. Every section is always rendered — the rail navigates, it doesn't show/hide.
@@ -309,7 +308,7 @@
     else if (d && d.warnings > 0) db.className = "rail-badge warn", (db.textContent = d.warnings)
     else db.className = "rail-badge err hide"
     // IDE Connection tab — a corner status dot in the health tone (ok / warn / error).
-    document.getElementById("bridgeStatus").className = "rail-status" + (snap.initialized && snap.health ? " " + snap.health.tone : "")
+    document.getElementById("bridgeStatus").className = "rail-status" + (snap.initialized ? " " + snap.health.tone : "")
     // Active-tab highlight (VS Code activity-bar style): the section last navigated to is lit.
     for (const [t, id] of [["bridge", "railBridge"], ["sync", "railSync"], ["diag", "railDiag"]])
       document.getElementById(id).classList.toggle("on", activeTab === t)
@@ -363,8 +362,12 @@
       // Bound Volt workspace — ONE identity: the project name (canonical, what the IDE shows), a health dot, and the
       // connection caption; the workspace folder path lives in the tooltip. A reconcile hint shows ONLY if the folder
       // name diverged from the project (a rename + rebind) — otherwise one name (init names the folder after the project).
-      const h = s.health || { label: "…", tone: "warn", online: false }
-      const a = s.affordance || { caption: h.online ? "connected" : "not connected", action: h.online ? "disconnect" : "connect" }
+      // No `||` defaults. Both are set unconditionally by `projectWorkspace` (volt-control), and this arm is
+      // already inside the bound + initialized branch, so a default here could only ever hide a real bug in
+      // the view-model — and the `a` one was a verbatim re-implementation of `connectionAffordance`, whose
+      // own docstring says it exists BECAUSE the two shells diverged once. The sibling reads both unguarded.
+      const h = s.health
+      const a = s.affordance
       // A connect/disconnect/rebind is fast; surface its label in the PERSISTENT status row so the feedback is
       // visible even after the button flips away on completion (the min-visible-duration in onProgress holds it).
       const cxBusy = busyAction === "connect" || busyAction === "disconnect" || (busyAction || "").startsWith("rebind:")
@@ -414,10 +417,10 @@
     else if (s.mode === "merging") {
       // Per-file conflict resolution: click the name to diff, or take a whole side. Reads the shared `conflicts`
       // list (same one the VS Code merge subtree renders). Buttons/rows go through the delegated panel listener.
-      const cf = s.conflicts || []
+      const cf = s.conflicts   // non-optional on the view-model, and `[]` when not merging
       const clist = cf.length
         ? `<div class="grp">Conflicts<span class="n">${cf.length}</span></div><div class="scroll" data-scroll="merge">` +
-          cf.map((c) => `<div class="row conflict"><span class="stat D">!</span><span class="path click" data-root="${esc(s.workspaceRoot)}" data-path="${esc(c.relPath)}" data-name="${esc(c.name)}" data-dir="incoming" title="Open diff">${esc(c.name)}</span><span class="s-acts"><button class="mini take" data-path="${esc(c.relPath)}" data-side="ide" title="Take the IDE's version">IDE</button><button class="mini take" data-path="${esc(c.relPath)}" data-side="mine" title="Take your version">Mine</button></span></div>`).join("") +
+          cf.map((c) => `<div class="row"><span class="stat D">!</span><span class="path click" data-root="${esc(s.workspaceRoot)}" data-path="${esc(c.relPath)}" data-name="${esc(c.name)}" data-dir="incoming" title="Open diff">${esc(c.name)}</span><span class="s-acts"><button class="mini take" data-path="${esc(c.relPath)}" data-side="ide" title="Take the IDE's version">IDE</button><button class="mini take" data-path="${esc(c.relPath)}" data-side="mine" title="Take your version">Mine</button></span></div>`).join("") +
           `</div>`
         : ""
       syncBody = busyNote +
