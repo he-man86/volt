@@ -2,12 +2,12 @@
 
 - [x] 1.1 **DONE — see FINDINGS.md**, pinned by `MetadataPlacementTests`. Four of five shapes are
       already refused; two comment LINES are accepted and LOSSLESS. Original:
-- [ ] 1.1-orig Check what `NetworkTextGate` does with each shape below TODAY — duplicate label, label mid-network,
+- [x] 1.1-orig Check what `NetworkTextGate` does with each shape below TODAY — duplicate label, label mid-network,
       duplicate comment, comment mid-network. It may already refuse some, in which case the LSP is reporting
       earlier and better rather than introducing a new rule.
 - [x] 1.2 **Decided: neither.** The gate already refuses the three real shapes, so there is nothing to
       newly refuse or normalise — the LSP RELOCATES an existing refusal into the editor. Original:
-- [ ] 1.2-orig Decide refuse-vs-normalise on the evidence from 1.1. Refusing matches how every other unrepresentable
+- [x] 1.2-orig Decide refuse-vs-normalise on the evidence from 1.1. Refusing matches how every other unrepresentable
       shape is handled; normalising is friendlier but silently edits the engineer's file.
 
 ## 2. The free diagnostics — settled, measured, just unimplemented
@@ -24,15 +24,26 @@
 
 ## 3. The placement half — SHRUNK by §1.1, and it is ergonomics, not correctness
 
-- [ ] 3.1 `network-duplicate-label`, `network-label-not-first` — both ALREADY refused at push. The LSP moves the
+- [x] 3.1 SHIPPED as `NETWORK_DUPLICATE_NAME` (error) + `NETWORK_LABEL_NOT_FIRST` (warning). The duplicate's
+      message is BYTE-IDENTICAL to the engine reader's, so one fact has one phrasing. Original: — both ALREADY refused at push. The LSP moves the
       refusal to the keystroke; it does not add a rule. Size it as such, and reuse the reader's wording rather
       than inventing a second phrasing for the same fact.
 - [x] 3.2 ~~`network-duplicate-comment`~~ — **DROPPED, not a defect.** `Network.Comment` is multi-line;
       consecutive `//` lines are JOINED and round-trip exactly. The warning would fire on correct text.
       `network-comment-not-first` survives, and is likewise already refused.
-- [ ] 3.3 Each message names the round-trip consequence, not the grammar rule.
+- [x] 3.3 Done: the misplacement warnings say the metadata "moves to the head of the network on the next pull,
+      so the pushed text and the project stop matching" — the symptom, not the grammar rule.
 
 ## 4. Gate
 
-- [ ] 4.1 A colocated src test per diagnostic, per the repo's LSP test policy (the corpus DISCOVERS; src ACKS).
-- [ ] 4.2 Re-run the corpus ratchet — these must not add false positives to the 4-project corpus.
+- [x] 4.1 `src/network/network-real-shapes.test.ts` — 24 cases: one per diagnostic, plus the shapes that must
+      stay SILENT (empty slots, standalone calls, both NOT spellings, multi-line comments, either metadata order).
+- [x] 4.2 Corpus identity + build-conformance green (13 pass / 1 skip / 0 fail). `NETWORK_UNRESOLVED_BOX` fires
+      on real lenze-mid content and build-conformance still passes, so the IDE's own build agrees.
+
+## 5. Fixed along the way
+
+- [x] 5.1 `NetworkTextNetwork.label` renamed to `title`. It was populated from the header's QUOTED STRING —
+      the title — while a network's actual LABEL is a `name:` statement, and the vendor model keeps them as
+      two fields. One name for two concepts is how a later check gets written against the wrong one, and
+      this change is exactly that later check.

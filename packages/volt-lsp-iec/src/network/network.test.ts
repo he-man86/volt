@@ -108,7 +108,7 @@ END_FUNCTION_BLOCK`
   const n = parseNetworkText(vgBody(src)).networks[0]!
   expect(n.index).toBe(3)
   expect(n.language).toBe("FBD")
-  expect(n.label).toBe("my label")
+  expect(n.title).toBe("my label")   // the header's quoted string is the TITLE, not the label
   expect(n.disabled).toBe(true)
 })
 

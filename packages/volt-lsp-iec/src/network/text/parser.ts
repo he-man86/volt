@@ -62,9 +62,9 @@ function parseNetwork(
     language = mapped
     i++
   }
-  let label: string | undefined
+  let title: string | undefined
   if (toks[i]?.kind === "string_lit") {
-    label = stripQuotes(toks[i]!.text)
+    title = stripQuotes(toks[i]!.text)   // the header string is the TITLE; the LABEL is a `name:` statement
     i++
   }
   let disabled = false
@@ -94,7 +94,7 @@ function parseNetwork(
     })
   }
   const span = spanFromSpans(toks[start]!.span, endSpan, headerStart, endSpan.end)
-  return { network: { index, language, label, disabled, statements, span, headerSpan }, next: i }
+  return { network: { index, language, title, disabled, statements, span, headerSpan }, next: i }
 }
 
 // ─── statements ────────────────────────────────────────────────────────────────

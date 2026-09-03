@@ -24,7 +24,15 @@ export interface NetworkTextBody {
 export interface NetworkTextNetwork {
   index?: number
   language: NetworkLanguage
-  label?: string
+  /**
+   * The network's TITLE — the quoted string in the header, `NETWORK 0 LD "interlock"`.
+   *
+   * Named `label` until 2026-09-03, which was wrong and actively misleading: a network's LABEL is a separate
+   * thing entirely — a `name:` STATEMENT, the jump target `JMP` resolves against — and the two are distinct
+   * fields on the vendor model too (`Network.Title` vs `Network.Label`). One name for two concepts is how a
+   * later check gets written against the wrong one.
+   */
+  title?: string
   disabled: boolean
   statements: NetworkTextStatement[]
   span: Span

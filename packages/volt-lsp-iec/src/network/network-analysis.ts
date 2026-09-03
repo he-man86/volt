@@ -44,7 +44,7 @@ import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
 import type { Document } from "../services/index.js"
 import { analyzeNetworkText } from "./network-analyze.js"
-import type { NetworkTextStatement } from "./text/ast.js"
+import type { NetworkTextNetwork, NetworkTextStatement } from "./text/ast.js"
 
 export function computeNetworkTextDiagnostics(
   doc: Document,
@@ -68,6 +68,7 @@ export function computeNetworkTextDiagnostics(
         checkConversionArgs(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
         checkPins(network.statements, scope, project, out)
+        checkMetadataPlacement(network, out)
       }
 
       // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
@@ -268,6 +269,80 @@ function checkUnresolvedBoxes(body: BodySpan, out: DiagnosticItem[]): void {
     })
     i += 2 // one diagnostic per marker, not three overlapping ones
   }
+}
+
+/**
+ * The three placement rules for a network's LABEL and COMMENT — reported here so an engineer sees them while
+ * typing rather than when the push refuses.
+ *
+ * A network carries exactly ONE label and ONE comment, both per-network metadata on `INetwork` (and both
+ * distinct from the network's TITLE, the quoted string in the header). The text grammar admits them as ordinary
+ * statements, so it accepts bodies the model cannot hold.
+ *
+ * **These are RELOCATIONS, not new rules** — measured 2026-09-03 and pinned by the engine's
+ * `MetadataPlacementTests`: the push already refuses all three. A second label is rejected by the reader; a
+ * label or comment after a statement fails the canonical-form check, because the re-emit moves it to the network
+ * head and the text no longer matches. So the wording here REUSES the reader's rather than inventing a second
+ * phrasing for one fact, and the messages name the round-trip consequence instead of the grammar rule: what the
+ * engineer will actually see is a body that comes back different from the one they wrote.
+ *
+ * Severity follows the push. The duplicate is an ERROR because the reader refuses outright and one of the two
+ * labels cannot exist; the misplacements are WARNINGS because the content survives — only its position does not.
+ *
+ * NOT reported: several `//` lines before the first statement. `Network.Comment` is multi-line, the lines are
+ * joined, and the round trip is exact — a warning there would fire on correct content. The proposal called that
+ * one data loss; it is not.
+ */
+function checkMetadataPlacement(network: NetworkTextNetwork, out: DiagnosticItem[]): void {
+  let firstReal: number | undefined
+  let label: { text: string } | undefined
+
+  network.statements.forEach((stmt, i) => {
+    if (stmt.kind !== "label" && stmt.kind !== "comment") {
+      firstReal ??= i
+      return
+    }
+
+    if (stmt.kind === "label") {
+      if (label !== undefined) {
+        out.push({
+          severity: "error",
+          span: stmt.name.span,
+          source: SOURCE,
+          code: "NETWORK_DUPLICATE_NAME",
+          message:
+            `label '${stmt.name.text}' - the network already declares the label '${label.text}'; ` +
+            "a network is a single jump target",
+        })
+        return
+      }
+      label = { text: stmt.name.text }
+    }
+
+    if (firstReal === undefined) return // metadata before any statement is where it belongs
+
+    out.push(
+      stmt.kind === "label"
+        ? {
+            severity: "warning",
+            span: stmt.span,
+            source: SOURCE,
+            code: "NETWORK_LABEL_NOT_FIRST",
+            message:
+              "a label's position is not stored - this one moves to the head of the network on the next pull, " +
+              "so the pushed text and the project stop matching",
+          }
+        : {
+            severity: "warning",
+            span: stmt.span,
+            source: SOURCE,
+            code: "NETWORK_COMMENT_NOT_FIRST",
+            message:
+              "a comment's position is not stored - this one moves to the head of the network on the next pull, " +
+              "so the pushed text and the project stop matching",
+          },
+    )
+  })
 }
 
 function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {

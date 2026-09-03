@@ -143,3 +143,50 @@ test("spaced question marks are not the vendor's marker", () => {
 test("an ordinary body reports no unresolved boxes", () => {
   expect(unresolved(wrap("NETWORK 0 LD\n  out := (a AND b);\nEND_NETWORK")).length).toBe(0)
 })
+
+// ── §3 label and comment PLACEMENT — relocating a refusal the push already makes ──────────────
+// Measured 2026-09-03 (engine `MetadataPlacementTests`): the push refuses all three of these. These pin that
+// the editor now says so first, in the engineer's terms.
+
+const byCode = (src: string, code: string) => diags(src).filter((d) => d.code === code)
+
+test("a second label in one network is an error, in the reader's own words", () => {
+  const got = byCode(wrap("NETWORK 0 LD\n  First:\n  Second:\n  out := a;\nEND_NETWORK"), "NETWORK_DUPLICATE_NAME")
+  expect(got.length).toBe(1)
+  expect(got[0]!.severity).toBe("error")
+  // Byte-identical to the engine reader's refusal, so one fact has one phrasing.
+  expect(got[0]!.message).toBe(
+    "label 'Second' - the network already declares the label 'First'; a network is a single jump target",
+  )
+})
+
+test("a label after a statement warns that it will move", () => {
+  const got = byCode(wrap("NETWORK 0 LD\n  out := a;\n  Later:\n  b := a;\nEND_NETWORK"), "NETWORK_LABEL_NOT_FIRST")
+  expect(got.length).toBe(1)
+  expect(got[0]!.severity).toBe("warning")
+  expect(got[0]!.message).toContain("moves to the head")
+})
+
+test("a comment after a statement warns that it will move", () => {
+  const got = byCode(wrap("NETWORK 0 LD\n  out := a;\n  // trailing\nEND_NETWORK"), "NETWORK_COMMENT_NOT_FIRST")
+  expect(got.length).toBe(1)
+  expect(got[0]!.severity).toBe("warning")
+})
+
+test("the canonical shape — label then comment, both at the head — is silent", () => {
+  const src = wrap('NETWORK 0 LD "interlock"\n  Guard:\n  // holds the drive off\n  out := (a AND b);\nEND_NETWORK')
+  expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})
+
+test("several comment LINES before the first statement are NOT reported", () => {
+  // `Network.Comment` is multi-line: the lines are joined and round-trip exactly. The proposal called this data
+  // loss and asked for a warning; measuring showed there is no loss, so a warning would fire on correct text.
+  const src = wrap("NETWORK 0 LD\n  // first line\n  // second line\n  out := a;\nEND_NETWORK")
+  expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})
+
+test("a label is still allowed to sit after the comment, as the IDE lays it out", () => {
+  // The emitted order is label-then-comment, but the reader accepts either — so neither ordering warns.
+  const src = wrap("NETWORK 0 LD\n  // why\n  Guard:\n  out := a;\nEND_NETWORK")
+  expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})

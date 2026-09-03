@@ -16,7 +16,7 @@ export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {
       if (!isGraphicalBody(body)) continue
       const networks = parseNetworkText(body).networks.map(
         (n): DocumentSymbol => ({
-          name: `NETWORK ${n.index ?? "?"}${n.label ? `: ${n.label}` : ""}`,
+          name: `NETWORK ${n.index ?? "?"}${n.title ? `: ${n.title}` : ""}`,
           kind: SymbolKind.Namespace,
           range: rangeFromSpan(n.span),
           selectionRange: rangeFromSpan(n.headerSpan),
