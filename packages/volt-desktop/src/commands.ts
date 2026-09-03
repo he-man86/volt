@@ -5,6 +5,9 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { Dialog, IpcMain } from "electron"
 import {
+  FORCE_PULL,
+  FORCE_PUSH,
+  ABORT_MERGE,
   pull,
   push,
   build,
@@ -159,10 +162,33 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   // Force + merge finalisation as FIRST-CLASS actions, not just outcome-dialog buttons. They were reachable only
   // reactively (after a refused pull/push), so a workspace that was ALREADY mid-merge when the app opened had no
   // way out: the section said "resolve the files, then finish the merge" and offered nothing to finish it with.
-  ipcMain.handle("volt:forcePull", () => runGuarded(() => runPull(true)))
-  ipcMain.handle("volt:forcePush", () => runGuarded(() => runPush(true)))
+  // THE DESTRUCTIVE THREE CONFIRM HERE, in the main process, using @volt/control's copy.
+  //
+  // These were registered unguarded: the only gate on an unrecoverable overwrite was a `confirm()` in
+  // `shell.html` — a file nothing typechecks, nothing bundles and no test executes, where a syntax error takes
+  // every handler down silently (it has happened). An IPC channel that force-pushes with no main-process check
+  // is one renderer bug away from doing it unasked.
+  //
+  // `@volt/control` declares itself the owner of this wording (`view/outcomes.ts`) precisely so "neither UI can
+  // skip the 'cannot be undone' confirm", and the same force push already showed control's text when it arrived
+  // as an outcome ACTION while showing the renderer's from the ⋯ menu. One of the two had drifted: the local
+  // copy dropped "the engineer", and the engineer's changes are the entire reason a force push is dangerous.
+  ipcMain.handle("volt:forcePull", () =>
+    runGuarded(async () => {
+      if (await presenter.confirm(FORCE_PULL)) await runPull(true)
+    }),
+  )
+  ipcMain.handle("volt:forcePush", () =>
+    runGuarded(async () => {
+      if (await presenter.confirm(FORCE_PUSH)) await runPush(true)
+    }),
+  )
   ipcMain.handle("volt:finishMerge", () => runGuarded(() => runFinishMerge()))
-  ipcMain.handle("volt:abortMerge", () => runGuarded(() => runAbortMerge()))
+  ipcMain.handle("volt:abortMerge", () =>
+    runGuarded(async () => {
+      if (await presenter.confirm(ABORT_MERGE)) await runAbortMerge()
+    }),
+  )
   ipcMain.handle("volt:mergeResolve", (_e, path: string, side: "mine" | "ide") => runGuarded(() => runMergeResolve(path, side)))
   ipcMain.handle("volt:build", () =>
     runGuarded(async () => {
