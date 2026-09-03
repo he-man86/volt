@@ -4,6 +4,21 @@ This suite drives a **live IDE bridge** over the named pipe (the same wire the C
 not CI: it needs a real CODESYS or TcXaeShell running, so it can't run headless on a build agent. The *same* suite
 runs against either vendor — a pass on one and a fail on the other is a real parity bug, not an expected difference.
 Tests provision their own `VltE2E_*` items and clean them up, so they never depend on ambient project content.
+And `requireHealthy()` sweeps any `VltE2E_*` a PREVIOUS run left behind, once per process, before any test runs —
+because `cleanup()` lives in `afterAll`/`afterEach`, which is exactly where it does not run when a test TIMES OUT.
+Without that sweep one bad run poisons the next, and the failure count climbs run over run.
+
+## Cleaning up: through the BRIDGE, never `git restore`
+
+**If a run leaves the fixture project dirty, clean it over the wire and let the IDE close normally.** Delete the
+leftover items through the bridge (`cleanup()` does this; `requireHealthy()` now does it for you), then stop the
+IDE with `twincat-instances.ps1 down` / `codesys-pipe.ps1 down`.
+
+`git restore` on a fixture **while the IDE has it open** does not clean anything — it fights the IDE. TwinCAT
+holds its own in-memory model of the project and writes it back on save, so restoring files underneath it leaves
+disk and IDE disagreeing about the same project, and the next save undoes the restore. Measured 2026-09-03:
+after a bridge-clean and an orderly shutdown the fixture came back with **zero modified files**, including the
+`LineIds` churn that had looked unavoidable while restoring under a live IDE.
 
 **Pick a vendor with `VOLT_VENDOR`; the harness does the rest.** It **discovers the live per-pid pipe** by prefix
 (so an IDE that restarts with a new pid is followed — no need to hunt for `volt.bridge.<vendor>.<pid>`), and
@@ -42,8 +57,18 @@ The TwinCAT fixtures are committed **source-only** — a `test/.gitignore` strip
 
 ## CODESYS
 
-`scripts/codesys-pipe.ps1` loads the in-proc pipe host into CODESYS against a **copy** of the fixture (never your
-live IDE). Two modes:
+`scripts/codesys-pipe.ps1` loads the in-proc pipe host into CODESYS against the committed **fixture** (never
+your live IDE). Two modes:
+
+> It opens the fixture **in place** — `run_pipe_headless.py` calls `projects.open(path)` on the committed file.
+> This said "a copy" until 2026-09-03 and there has never been one; the claim had also reached CLAUDE.md and
+> a change proposal, where it was used to argue TwinCAT should copy too.
+>
+> **The fixture survives anyway because of the STORAGE MODEL, not a copy.** A CODESYS project is one file
+> that is written on SAVE, and the headless runner never saves — so items created and deleted during a run
+> exist only in memory. TwinCAT stores one file per POU and writes them as it goes, which is why the same
+> suite leaves its fixture modified on one vendor and pristine on the other. That asymmetry is the whole
+> reason `twincat-e2e-fixture-hygiene` exists.
 
 ```powershell
 # headless (fast dev/CI-ish loop) — no window, --noUI

@@ -17,18 +17,22 @@ items, no leftover folders. And every one of the five is a single changed line:
 above it is byte-identical. So on a HEALTHY run `cleanup()` does undo itself: the residue is cosmetic IDE churn
 that dirties `git status` and changes nothing a test can observe.
 
-**…but that churn may be an artefact of how I was tearing down, not of running the suite.** Later the same day,
-after cleaning the projects THROUGH THE BRIDGE (delete the `VltE2E_*` items over the wire, so the IDE performs
-the removal) and then closing the IDEs with `twincat-instances.ps1 down`, the fixture came back **completely
-clean — zero modified files.** The earlier five-file measurement was taken with the IDE still open and after I
-had been `git restore`-ing underneath it, which is its own kind of mess: TwinCAT holds an in-memory model and
-writes it back on save, so restoring files under a live IDE leaves disk and IDE disagreeing about the project.
+**A "zero churn" observation on 2026-09-03 turned out NOT to reproduce, and chasing it is the most instructive
+part of this change.** One bridge-clean-then-shutdown left the fixture with zero modified files, which suggested
+the churn was an artefact of tearing down badly and that a refusing dirty-fixture pre-flight (task 2.3) was worth
+having after all. It was recorded as one observation, explicitly not a pattern — and re-running it settled the
+matter the other way: after two full runs plus a bridge-clean and an orderly `twincat-instances.ps1 down`, the
+fixture came back with **seven modified files**. `.tsproj`, `.tmc` and three POUs' `LineIds`.
 
-That is one observation, not a proven pattern, and it is recorded as such — claiming reproducibility from a
-single run is the mistake this change exists to stop. But it points at a different conclusion than the paragraph
-above: if an orderly run leaves NO churn, then a dirty fixture is meaningful after all, and **task 2.3's refusing
-pre-flight becomes worth having rather than noise.** Confirming it needs three runs each followed by a
-bridge-clean shutdown.
+**The likely explanation for the zero arrived from outside the measurement.** During a later run the engineer
+saw a TwinCAT modal: *"saving project failed"*. A save that FAILS writes nothing — which is indistinguishable,
+from git's point of view, from a run that had nothing to write. So the clean fixture was probably a broken save,
+not a tidy one.
+
+**Conclusion, now with three data points instead of one: the churn is normal and unavoidable.** Task 2.3's
+refusing pre-flight would fire on every run, and it stays dropped. This is the second time this change has been
+about to build something on a single observation; both times the discipline in task 1.3 — record a before AND an
+after — is what caught it.
 
 **The operational rule is settled either way: clean through the bridge, not with `git restore`.** Git cannot see
 the IDE's in-memory state; the bridge is the only route that leaves both ends agreeing.
@@ -74,3 +78,32 @@ two tiers agree for the first time.
   correlated with the failing tests.
 - **The line-id churn.** Cosmetic, but it means `git status` is never clean after a run, which is its own small
   tax: it trains people to ignore a dirty tree, and it is how a real fixture edit gets committed by accident.
+
+## Runs 2026-09-03: results are stable while dirt accumulates
+
+Three consecutive runs from a restored fixture, with NO cleaning in between (task 1.1). The third was cut short
+by a tool timeout on my side, not by a test failure — and that accident produced the most useful result.
+
+| Run | Result | Fixture files dirty after |
+|---|---|---|
+| 1 | 159 pass / 24 skip / 1 fail | 2 |
+| 2 | 159 pass / 24 skip / 1 fail | 7 |
+| 3 | interrupted mid-run | 9, one of them a LEAKED ITEM |
+
+**The results did not move while the dirt grew.** The single failure both times is the Execute box, which is
+excluded on purpose. So accumulated churn does not manufacture failures — which is the claim this change was
+started to test, and it does not hold in the form it was written.
+
+**What DOES leak is an interrupted run**, exactly as predicted: killing the runner mid-flight meant `afterAll`
+never ran and `VltE2E_pf_fbtype.fb` stayed in the project, with an orphan `.TcPOU` on disk. The next invocation's
+sweep found and removed it before any test executed — the mechanism shipped in `harness.ts`, demonstrated by
+accident on the exact case it was written for.
+
+## What remains open
+
+The INITIATOR is still not identified, and there is now a much better candidate than COM contention: **a modal
+dialog blocks COM on TwinCAT** — a trap already recorded in this repo — and the engineer saw
+*"saving project failed"* during these runs. That would explain the whole shape at once: a blocked COM call makes
+the ROT walk hang (measured at over 180s against a 6s budget), which both suspends worker supervision and stalls
+the worker's own operations, producing the 60s/120s test timeouts. Worth testing directly before the two-XAE
+question, which is now the weaker hypothesis.

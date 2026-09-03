@@ -2,10 +2,11 @@
 
 - [x] 1.1 **Partly done, and it answered the question earlier than planned.** One run from a restored
       fixture leaves only churn; four runs from restored fixtures each gave the same result. Original:
-- [ ] 1.1-orig From a `git restore` + `git clean` of `test/fixtures/`, run the TwinCAT e2e three times WITHOUT
+- [x] 1.1-orig From a `git restore` + `git clean` of `test/fixtures/`, run the TwinCAT e2e three times WITHOUT
       cleaning in between, recording the failure set each time. If the count climbs, the fixture is the variable.
-- [ ] 1.2 Run it three times WITH a clean between each. If those are identical, that is the proof.
-- [ ] 1.3 Record both in the close-out. A flaky-suite claim without a before/after is how this got mis-attributed
+- [x] 1.2 Superseded by 1.1's result: three runs WITHOUT cleaning already gave identical results
+      (159/24/1 twice, third interrupted), so a with-cleaning arm cannot show less variance than none.
+- [x] 1.3 Recorded in FINDINGS.md, both arms. A flaky-suite claim without a before/after is how this got mis-attributed
       the first time.
 
 ## 2. Fix the source
@@ -19,20 +20,23 @@
       (a previous run that died before its cleanup). Original text: complete the cleanup, or run against a copy as CODESYS does. Prefer the copy — it is
       the same shape as the vendor tier that does NOT have this problem, and it cannot be defeated by a test that
       forgets to register its own artefact.
-- [ ] 2.3 A dirty-fixture pre-flight that REFUSES rather than warns, naming the paths and the command to
-      fix it. **Reinstated** — I ruled it out on the grounds that it would fire constantly on harmless
-      `LineIds` churn, then observed a run that produced NO churn at all when the project was cleaned
-      through the bridge and the IDE closed normally. If that holds (2.4), a dirty fixture is a real
-      signal and the pre-flight is worth having. See FINDINGS.md.
-- [ ] 2.4 Confirm it: three runs, each followed by a bridge-clean + orderly shutdown, each leaving the
-      fixture untouched. One observation is not a pattern — that is the mistake this change exists to stop.
-- [ ] 2.5 Teardown rule, documented in the e2e README: **clean through the bridge, never `git restore`
+- [x] 2.3 ~~A dirty-fixture pre-flight that REFUSES~~ — **DROPPED for the second and final time.** I ruled
+      it out (churn is harmless), reinstated it on a single zero-churn observation, then failed to
+      reproduce that: two runs plus a bridge-clean and an orderly shutdown left SEVEN modified files.
+      The zero was most likely a FAILED save — the engineer saw a "saving project failed" modal. Churn
+      is normal; a refusing pre-flight would fire every run.
+- [x] 2.4 Attempted, and it REFUTED 2.3 rather than confirming it. Recorded in FINDINGS.md.
+- [x] 2.5 Teardown rule, documented in the e2e README: **clean through the bridge, never `git restore`
       under a live IDE.** Git cannot see TwinCAT's in-memory model, which writes back on save, so a
       restore under a running IDE leaves disk and IDE disagreeing about the same project.
 
 ## 3. Then, and only then, the two-XAE question
 
-- [ ] 3.1 One clean run with two distinct projects open. If it is green, COM contention was never the cause and
-      the 2026-09-03 diagnosis is retracted in writing.
+- [ ] 3.1 **Test the MODAL DIALOG first — it is now the better hypothesis.** A modal blocks COM on TwinCAT (a
+      trap already recorded here), and the engineer saw a "saving project failed" modal during these runs. That
+      explains the whole shape at once: a blocked COM call makes the ROT walk hang (measured >180s against a 6s
+      budget), which BOTH suspends supervision and stalls the worker, producing the 60s/120s test timeouts.
+- [ ] 3.1b Only then the two-XAE question. One clean run with two distinct projects open; if it is green, COM
+      contention was never the cause and the 2026-09-03 diagnosis is retracted in writing.
 - [ ] 3.2 If it still fails, the contention reading survives — and the probe log now says when supervision was
       suspended (`ProbeHealth`, shipped 2026-09-03), so the windows can be correlated with the failing tests.

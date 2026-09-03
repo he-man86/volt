@@ -94,7 +94,7 @@ pwsh scripts/build-cli.ps1                                 # publish volt.exe + 
 ```
 
 Headless CODESYS dev/test loop (Windows/PowerShell): `pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up|down|logs`
-loads the in-proc pipe host into a headless CODESYS against its **own copy** of a fixture project (never the
+loads the in-proc pipe host into a headless CODESYS against a committed **fixture** project (never the
 engineer's live IDE); then run `bun test test/e2e` with `VOLT_PIPE=volt.bridge.codesys`.
 
 ## Volt architecture (big picture)
