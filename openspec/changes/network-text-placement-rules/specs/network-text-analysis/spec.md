@@ -1,0 +1,76 @@
+## ADDED Requirements
+
+### Requirement: Per-network metadata that cannot round-trip is diagnosed before the push
+
+The LSP SHALL report a network body whose labels, titles or comments cannot survive a round trip, naming the
+ROUND-TRIP consequence rather than the grammar rule — the engineer's symptom is a body that comes back different
+from what they wrote, so that is what the message must describe.
+
+A network carries exactly one label, one title and one comment. They are per-network metadata on `INetwork` on
+BOTH vendors, not items in the statement list, while the text grammar admits them as ordinary statements — so the
+grammar accepts bodies the model cannot represent, and nothing refuses or diagnoses them today.
+
+#### Scenario: A second label in one network is an error
+- **WHEN** a network contains more than one label
+- **THEN** the LSP reports `network-duplicate-label` as an error, because only one survives the write
+
+#### Scenario: A label after a statement is reported as moving
+- **WHEN** a label appears after a statement in a network
+- **THEN** the LSP reports `network-label-not-first`, because its position is not represented and it returns at
+  the network head on the next pull
+
+#### Scenario: Multiple comments are reported as collapsing
+- **WHEN** a network contains more than one comment
+- **THEN** the LSP reports `network-duplicate-comment`, because they collapse into the single `Network.Comment`
+
+### Requirement: An unresolved box is reported at the point of edit
+
+The LSP SHALL report an operand of `???` as an error, raising at edit time the error the IDE would raise at build
+time.
+
+CODESYS writes `???` into a box whose instance is unresolved. It is the vendor's own marker for a box that will
+not compile, and it reaches the workspace verbatim — five in one surveyed project, one of them an assignment
+target. It is also why network text has no `?` token of its own: a sigil for the unconnected pin was tried and
+withdrawn precisely because `???` was already content.
+
+#### Scenario: A `???` operand is an error
+- **WHEN** an operand in a network body is `???`
+- **THEN** the LSP reports `network-unresolved-box` as an error
+
+### Requirement: The empty slot parses and is not a syntax error
+
+The LSP SHALL parse every empty-operand form without reporting a syntax error, and SHALL surface it as a hint at
+most.
+
+A pin connected to nothing is written as nothing, in whichever operand position it occupies — `( * iRPM * 6)`,
+`ctu(CU := a, RESET := , PV := )`, `f(, a)`, `coil := ;`, a bare `;`. An unwired pin is ordinary in a live
+project: 110 networks in one surveyed, and half the ladders in it have one.
+
+#### Scenario: An unwired pin parses
+- **WHEN** a network body contains an empty operand slot in any position
+- **THEN** the LSP parses the body and reports no syntax error for the empty slot
+
+### Requirement: A reserved wire prefix is reported when hand-written
+
+The LSP SHALL warn when a hand-written `LET` binds a reserved wire name, because the prefix decides the semantics
+whether or not the engineer intended them.
+
+`g<n>` is a fan-out wire, `i<n>` an opaque leaf, `en<n>` an enable echo. The reader honours the PREFIX rather than
+counting uses — a `BoxTreeDemux` with one consumer is still an item on the rung, and an opaque leaf is one
+variable rather than the expression its text spells — and the writer will renumber the name on the way out.
+
+#### Scenario: A hand-written reserved name is warned about
+- **WHEN** a hand-written `LET` binds a name matching `g<n>`, `i<n>` or `en<n>`
+- **THEN** the LSP reports `network-reserved-wire-name` as a warning naming the semantics the prefix carries
+
+### Requirement: A positional call may stand alone as a statement
+
+The LSP SHALL accept a positional call as a statement in its own right, and SHALL NOT report it as a malformed
+function-block invocation or as a call missing its named arguments.
+
+A box whose output goes nowhere is a statement — `MOVE(g0, iDec);`, 34 networks in one surveyed project. Any rule
+assuming a bare call is an FB-instance invocation, or that a missing `PIN :=` is a mistake, is wrong.
+
+#### Scenario: A standalone positional call is accepted
+- **WHEN** a network body contains a positional call as a statement with no assignment target
+- **THEN** the LSP accepts it and does not report a missing named-argument diagnostic
