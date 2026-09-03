@@ -102,15 +102,46 @@ Every advertised capability has a registered handler — an invariant guarded by
 "The LSP-3.17 conformance surface is declared and kept in capability↔handler parity").
 
 ### Backend — `transpile/`
-A compiler backend, sibling consumer of the frontend (`syntax ← symbols ← types`), not of the LSP. It lowers
-the AST to a small IR carrying resolved types + constant values and emits Rust (`transpile/rust/`, umbrella for
-future targets). IEC→Rust type mapping consumes `types/elementary` (INT→i16, BYTE→u8, subrange/overflow from
-the ranges). Purpose: headless PLC-logic tests — `test/exec/` transpiles a POU, builds it, drives inputs across
-scan cycles, and asserts outputs. Correctness essentials (or the tests lie): **source maps** (generated Rust →
-ST source lines, so a failed assertion or panic points at the ST, not the emitted code); **codegen diagnostics**
-(report any construct the backend can't lower — an untestable POU is flagged, never silently wrong); and
-**deterministic numerics** (integer overflow wraps per the IEC type's width, REAL/LREAL match the PLC's
-precision — semantics come from `types/`, not Rust's defaults).
+A compiler backend, sibling consumer of the frontend (`syntax ← symbols ← types`), not of the LSP.
+
+```
+AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
+                      └── emit/rust/    prints it + a source map
+```
+
+`ir/` is the one contract; `lower/` owns every ST semantic; the backends own none. That split is enforced by
+`check-layering.ts`: inside `transpile/`, **only `ir/` is importable across folders**, so a backend cannot
+reach into the lowering and let a semantic decision drift out of its single home.
+
+**Two decisions carry the design.**
+
+*Places, not references.* ST's memory model is one static image — instances are fixed allocations, `VAR_IN_OUT`
+is a pointer, `POINTER TO`/`REFERENCE TO` are real aliases, GVLs are global mutable state. Mapping any of that
+to Rust `&mut` loses to the borrow checker the moment two aliases live at once, so **nothing lowers to a Rust
+reference**. A POU is a flat frame of slots; a name is a slot index; pointers will become indices into that
+same frame. The emitted struct's `&mut self` is the only borrow in the output, which is what makes 100%
+coverage reachable rather than a wall at the first aliasing construct.
+
+*The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
+constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `types/` —
+not a second type model. **If a backend ever has to decide something, the lowering is incomplete.**
+
+Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
+a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering
+computes operator types over the same widening lattice `types/elementary` owns, and an expression that still
+lands on `UNKNOWN` is a reported gap — never untyped IR. Likewise IEC integer literals are polymorphic: they
+take their type from context, and from the sibling operand before the assignment target (`rate := n / 2` with
+`n : INT` divides in INT and converts the result).
+
+The three correctness essentials, all live: **source maps** (emitted line → ST span, so a panic points at the
+ST); **codegen diagnostics** (`LowerDiagnostic` — lowering is total and never throws, so an untestable POU is
+reported, never silently wrong); **deterministic numerics** (IEC integers wrap at the declared width, so
+arithmetic emits `wrapping_*` rather than Rust's panicking defaults; widths come from `types/elementary`).
+
+Coverage is measured, not asserted: `scripts/lower-completeness.ts` lowers the whole corpus and ranks the
+constructs blocking it, so the next thing to build is a number. Its denominator is POUs **with a body** — most
+units in a real project are empty-bodied, with their logic in separate METHOD/ACTION units, and counting those
+reports a comfortable percentage while nothing real runs.
 
 ## Testing (built in)
 

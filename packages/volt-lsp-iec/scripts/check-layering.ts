@@ -81,10 +81,22 @@ for (const file of walk(SRC)) {
     const relFrom = relative(SRC, file).replaceAll("\\", "/")
     const relTo = relative(SRC, targetFile).replaceAll("\\", "/")
 
-    // Rule 3: transpile reach.
-    if (srcLayer === "transpile" && tgtLayer && !TRANSPILE_ALLOWED.has(tgtLayer)) {
+    // Rule 3: transpile reach — outward to A·B·C only.
+    if (srcLayer === "transpile" && tgtLayer && tgtLayer !== "transpile" && !TRANSPILE_ALLOWED.has(tgtLayer)) {
       violations.push(`${relFrom} → ${relTo}: transpile may only import syntax·symbols·types`)
       continue
+    }
+    // Rule 4: inside transpile, `ir/` is the ONLY shared contract. `lower/` owns the semantics and the
+    // backends (`interp/`, `emit/`) own none, so a backend importing the lowering — or each other — would
+    // let a semantic decision drift out of its one home. Same-folder and the top barrel are exempt.
+    if (srcLayer === "transpile" && tgtLayer === "transpile") {
+      const part = (p: string) => p.split("/")[1] ?? ""
+      const from = part(relFrom)
+      const to = part(relTo)
+      if (from !== to && from !== "index.ts" && to !== "ir") {
+        violations.push(`${relFrom} → ${relTo}: inside transpile only ir/ is shared (lower/ and the backends stay apart)`)
+        continue
+      }
     }
     // Rule 1: upward import between stack layers.
     if (
