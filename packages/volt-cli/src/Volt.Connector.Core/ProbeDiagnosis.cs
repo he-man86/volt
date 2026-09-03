@@ -3,19 +3,36 @@ using System.Linq;
 
 namespace Volt.Connector
 {
+    /// <summary>One visible top-level window, as seen from outside the process.</summary>
+    public readonly struct TopLevelWindow
+    {
+        public TopLevelWindow(string caption, string className, bool enabled)
+        { Caption = caption; ClassName = className; Enabled = enabled; }
+
+        public string Caption { get; }
+
+        /// <summary>The Win32 window class. <c>#32770</c> is the standard dialog class — a strong hint, but only
+        /// a hint: TcXaeShell's own About box is a WPF <c>HwndWrapper[…]</c> and is every bit as modal.</summary>
+        public string ClassName { get; }
+
+        /// <summary>Whether the window accepts input. A modal DISABLES the window it blocks, which is what makes
+        /// this — and not the class — the fact that identifies one.</summary>
+        public bool Enabled { get; }
+    }
+
     /// <summary>One TwinCAT window, as the connector can observe it from outside.</summary>
     public readonly struct XaeWindowState
     {
-        public XaeWindowState(int pid, string? dialogTitle, bool responding)
-        { Pid = pid; DialogTitle = dialogTitle; Responding = responding; }
+        public XaeWindowState(int pid, bool responding, IReadOnlyList<TopLevelWindow> windows)
+        { Pid = pid; Responding = responding; Windows = windows; }
 
         public int Pid { get; }
 
-        /// <summary>The caption of a MODAL DIALOG this window has open, or null when it has none.</summary>
-        public string? DialogTitle { get; }
-
         /// <summary>Whether the process is pumping messages at all.</summary>
         public bool Responding { get; }
+
+        /// <summary>Every visible top-level window it owns. Raw observation — the verdict is drawn here, not there.</summary>
+        public IReadOnlyList<TopLevelWindow> Windows { get; }
     }
 
     /// <summary>
@@ -51,10 +68,11 @@ namespace Volt.Connector
                 return "No TcXaeShell window is running, so there is nothing to enumerate — if a bridge is " +
                        "expected, the IDE closed or never started.";
 
-            var blocked = windows.Where(w => !string.IsNullOrWhiteSpace(w.DialogTitle)).ToList();
+            var blocked = windows.Select(w => new { w.Pid, Title = ModalTitle(w) })
+                                 .Where(x => x.Title != null).ToList();
             if (blocked.Count > 0)
                 return "A DIALOG IS OPEN and a modal blocks COM until it is dismissed: " +
-                       string.Join("; ", blocked.Select(w => $"TcXaeShell pid {w.Pid} — \"{w.DialogTitle!.Trim()}\"")) +
+                       string.Join("; ", blocked.Select(x => $"TcXaeShell pid {x.Pid} — \"{x.Title}\"")) +
                        ". Dismiss it in the IDE; supervision resumes on its own.";
 
             var stuck = windows.Where(w => !w.Responding).ToList();
@@ -67,6 +85,36 @@ namespace Volt.Connector
             // repeating one of the guesses above and sending someone to dismiss a dialog that is not there.
             return $"All {windows.Count} TcXaeShell window(s) look responsive with no dialog open, so the cause " +
                    "is not visible from outside — the enumeration itself is slow or failing.";
+
         }
+
+        /// <summary>The caption of the modal this window is blocked by, or null when it is not blocked.
+        ///
+        /// <para><b>A modal is identified by what it DOES, not by its class.</b> Showing one disables the window
+        /// behind it, so "some window of this process is disabled while another is not" is the signal — and it
+        /// holds for both shapes measured against a live TcXaeShell on 2026-09-03: the <c>#32770</c> "Open
+        /// Project" dialog, and <c>Help &gt; About</c>, which is a WPF <c>HwndWrapper[…]</c>. The class gate this
+        /// replaced saw only the first, and told the engineer no dialog was open while the second blocked the
+        /// probe.</para>
+        ///
+        /// <para>The dialog is named from the ENABLED window — the one that can still be clicked, which is the
+        /// one to dismiss. A <c>#32770</c> is preferred when several qualify, because a tool window that happens
+        /// to be enabled is not what is blocking anything.</para></summary>
+        internal static string? ModalTitle(XaeWindowState w)
+        {
+            var windows = w.Windows;
+            if (windows == null || windows.Count == 0) return null;
+            if (!windows.Any(x => !x.Enabled)) return null;   // nothing is blocked, so nothing is modal
+
+            var candidates = windows.Where(x => x.Enabled && !string.IsNullOrWhiteSpace(x.Caption)).ToList();
+            var dialog = candidates.FirstOrDefault(x => x.ClassName == DialogClass);
+            var named = string.IsNullOrWhiteSpace(dialog.Caption) ? candidates.FirstOrDefault() : dialog;
+
+            // A window is disabled but nothing visible is enabled — a modal owned by a hidden or off-screen
+            // parent. Still a block, and still worth saying so; there is just no caption to point at.
+            return string.IsNullOrWhiteSpace(named.Caption) ? "(unnamed dialog)" : named.Caption.Trim();
+        }
+
+        private const string DialogClass = "#32770";
     }
 }

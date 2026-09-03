@@ -47,7 +47,17 @@ switch ($Action) {
             $pids += $p.Id
             Write-Host "opened TwinCAT Project$k (TcXaeShell pid $($p.Id))"
         }
-        $pids | Out-File $pidFile
+        # MERGE with the instances already tracked, never overwrite. `up -Which 13` then `up -Which 14` used to
+        # replace the file, so `down` closed only the second and left the first running — an orphan XAE holding the
+        # fixture open, which is precisely the state the teardown rule exists to avoid. Dead pids are dropped on the
+        # way through so the file cannot grow stale entries.
+        $live = @()
+        if (Test-Path $pidFile) {
+            $live = Get-Content $pidFile | Where-Object { $_ } | Where-Object {
+                (Get-Process -Id $_ -ErrorAction SilentlyContinue) -ne $null
+            }
+        }
+        ($live + $pids | Select-Object -Unique) | Out-File $pidFile
         Write-Host ""
         Write-Host "TcXaeShell is loading; give it ~30-60s to open the PLC project(s). The connector worker then"
         Write-Host "attaches over the COM ROT. Run the multi-XAE e2e from packages/volt-cli:"

@@ -430,9 +430,19 @@ that CODESYS had no native transport at all. For anything script-facing the fast
 `--runscript` probe that prints `dir(obj)`.
 
 **Probing a live IDE.** TwinCAT is reachable over the COM ROT from PowerShell
-(`Marshal.GetActiveObject('TcXaeShell.DTE.15.0')`). Two traps, both hit in practice: a modal dialog blocks every
-COM call, and an XAE that started WITHOUT loading its solution answers happily while `Solution.FullName` is empty
-and `Projects.Count` is `0` — check those before trusting anything a probe or an e2e run reports.
+(`Marshal.GetActiveObject('TcXaeShell.DTE.15.0')`). Two traps, both hit in practice.
+
+**A modal dialog stalls the bridge — but NOT a simple probe, which is what makes it so easy to mis-diagnose.**
+Measured 2026-09-03 against a live TcXaeShell with a modal up (`#32770` "Open Project", and separately the WPF
+`Help > About`): `GetActiveObject` bound in 4 ms and `Solution.FullName` answered in 5 ms — the dialog pumps its own
+message loop, so a hand probe says everything is fine. The same modal, left open across a real run, timed out every
+test in the suite at 60 s and made the connector's ROT walk exceed a 6-second budget. So *"a modal blocks every COM
+call"* — what this said before — is wrong twice over: it does not block the calls a prober reaches for, and it does
+block the work that matters. **Verify a modal by running actual bridge ops, never by reading a DTE property**, and
+expect the connector to name the dialog in its log (`ProbeDiagnosis`).
+
+**An XAE that started WITHOUT loading its solution** answers happily while `Solution.FullName` is empty and
+`Projects.Count` is `0` — check that before trusting anything a probe or an e2e run reports.
 ## Related docs
 
 - `docs/ITEM_KINDS.md` — the vendor-neutral item-type coverage map (`Item/ItemKind` is the source of truth).

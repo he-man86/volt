@@ -37,11 +37,22 @@
       non-responding window, and says "not visible from outside" when neither applies. Validated live — during
       XAE startup it correctly reported no dialog rather than blaming one. So the next occurrence identifies
       itself, on any machine, without anyone watching.
-- [ ] 3.1 **Test the MODAL DIALOG first — it is now the better hypothesis.** A modal blocks COM on TwinCAT (a
+- [x] 3.1 **CONFIRMED — staged one and reproduced the exact failure shape.** With a `#32770` dialog verified
+      open BEFORE and AFTER the run, `endpoints/refs` went 3 pass / 6.6s → 0 pass, 2 fail, two 60s
+      timeouts. Took three attempts: a hand COM probe answers in 4ms THROUGH a modal (it pumps its own
+      message loop), so two earlier probes read as refutations. `ARCHITECTURE.md`'s "a modal blocks every
+      COM call" was the misleading fact and is corrected. Original text: **Test the MODAL DIALOG first — it is now the better hypothesis.** A modal blocks COM on TwinCAT (a
       trap already recorded here), and the engineer saw a "saving project failed" modal during these runs. That
       explains the whole shape at once: a blocked COM call makes the ROT walk hang (measured >180s against a 6s
       budget), which BOTH suspends supervision and stalls the worker, producing the 60s/120s test timeouts.
-- [ ] 3.1b Only then the two-XAE question. One clean run with two distinct projects open; if it is green, COM
+- [x] 3.1b **RETRACTED, as this task required.** One clean run, both fixtures open, no dialogs: 159 pass /
+      24 skip / 1 fail in 3.6 min, no timeouts (the failure is the deliberately-excluded Execute box; the
+      skip delta is `vendor-parity` needing CODESYS, which was down). COM contention was never the cause.
+      Original: Only then the two-XAE question. One clean run with two distinct projects open; if it is green, COM
       contention was never the cause and the 2026-09-03 diagnosis is retracted in writing.
-- [ ] 3.2 If it still fails, the contention reading survives — and the probe log now says when supervision was
+- [x] 3.2 It did not still fail — 3.1 identified the initiator, so this arm does not apply. It did surface a
+      defect in the diagnosis itself: `XaeWindows` matched dialogs by class `#32770`, and TcXaeShell's own
+      `Help > About` is WPF — so the connector reported "no dialog open" while one blocked the probe. The
+      rule now keys off the DISABLED window a modal leaves behind, moved into pure `ProbeDiagnosis` with
+      five tests, and validated live. Original: If it still fails, the contention reading survives — and the probe log now says when supervision was
       suspended (`ProbeHealth`, shipped 2026-09-03), so the windows can be correlated with the failing tests.

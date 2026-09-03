@@ -20,9 +20,19 @@ namespace Volt.Connector.Tests;
 /// </summary>
 public class ProbeDiagnosisTests
 {
-    private static XaeWindowState Fine(int pid) => new(pid, null, responding: true);
-    private static XaeWindowState WithDialog(int pid, string title) => new(pid, title, responding: true);
-    private static XaeWindowState Hung(int pid) => new(pid, null, responding: false);
+    // The window shapes below are the ones MEASURED against a live TcXaeShell on 2026-09-03, not invented: a
+    // modal disables the main window and leaves itself enabled, and it is not necessarily a #32770 — the shell's
+    // own About box is WPF. `Main` is what an unblocked IDE looks like.
+    private static TopLevelWindow MainWindow(bool enabled = true) =>
+        new("TwinCAT Project13 - TcXaeShell", "HwndWrapper[DefaultDomain;;8fa25112]", enabled);
+    private static TopLevelWindow Win32Dialog(string caption) => new(caption, "#32770", enabled: true);
+    private static TopLevelWindow WpfDialog(string caption) =>
+        new(caption, "HwndWrapper[DefaultDomain;;ed4a950e]", enabled: true);
+
+    private static XaeWindowState Fine(int pid) => new(pid, responding: true, new[] { MainWindow() });
+    private static XaeWindowState WithDialog(int pid, string title) =>
+        new(pid, responding: true, new[] { Win32Dialog(title), MainWindow(enabled: false) });
+    private static XaeWindowState Hung(int pid) => new(pid, responding: false, new[] { MainWindow() });
 
     /// <summary>A DIALOG IS NAMED, with its caption and the window it belongs to — the message an engineer can
     /// act on without knowing anything about COM.</summary>
@@ -97,13 +107,80 @@ public class ProbeDiagnosisTests
         Assert.DoesNotContain("DIALOG", msg);
     }
 
-    /// <summary>A blank caption is not a dialog worth naming — a window with no title tells the engineer
-    /// nothing, so it falls through to the liveness rule rather than printing empty quotes.</summary>
+    /// <summary>A WPF DIALOG COUNTS, and this is the case that was shipping wrong. The rule was "window class is
+    /// #32770", on the stated grounds that every standard dialog is built from it. Measured against a live
+    /// TcXaeShell: <c>Help &gt; About</c> is a WPF HwndWrapper, so the class gate saw nothing and the connector
+    /// said "no dialog open, so the cause is not visible from outside" — while that dialog was blocking the very
+    /// probe that was failing, and the e2e suite behind it was timing out at 60s a test.</summary>
     [Fact]
-    public void A_blank_caption_is_not_treated_as_a_dialog()
+    public void A_WPF_dialog_is_a_dialog_too()
     {
-        var msg = ProbeDiagnosis.Explain(new[] { new XaeWindowState(1, "   ", responding: true) });
+        var msg = ProbeDiagnosis.Explain(new[]
+            { new XaeWindowState(7, responding: true, new[] { WpfDialog("About TcXaeShell"), MainWindow(enabled: false) }) });
+
+        Assert.Contains("DIALOG IS OPEN", msg);
+        Assert.Contains("About TcXaeShell", msg);
+        Assert.DoesNotContain("not visible from outside", msg);
+    }
+
+    /// <summary>THE DISABLED WINDOW IS THE SIGNAL, and the enabled one is what gets named — it is the window the
+    /// engineer can actually click. Naming the blocked one would point at the thing they cannot touch.</summary>
+    [Fact]
+    public void The_dialog_named_is_the_one_that_can_be_dismissed()
+    {
+        var msg = ProbeDiagnosis.Explain(new[]
+            { new XaeWindowState(7, responding: true, new[] { MainWindow(enabled: false), Win32Dialog("Open Project") }) });
+
+        Assert.Contains("\"Open Project\"", msg);
+        Assert.DoesNotContain("\"TwinCAT Project13", msg);
+    }
+
+    /// <summary>A #32770 IS PREFERRED when more than one window is enabled — a tool window that happens to be
+    /// enabled is not what is blocking anything, and naming it would send someone to close the wrong thing.</summary>
+    [Fact]
+    public void A_real_dialog_is_named_over_an_enabled_tool_window()
+    {
+        var msg = ProbeDiagnosis.Explain(new[]
+            {
+                new XaeWindowState(7, responding: true, new[]
+                {
+                    new TopLevelWindow("Error List", "HwndWrapper[DefaultDomain;;aaaa]", enabled: true),
+                    Win32Dialog("Save failed"),
+                    MainWindow(enabled: false),
+                }),
+            });
+
+        Assert.Contains("Save failed", msg);
+        Assert.DoesNotContain("Error List", msg);
+    }
+
+    /// <summary>NOTHING DISABLED IS NOT A MODAL. An enabled dialog beside an enabled main window is a modeless
+    /// tool window — it blocks nothing, and calling it a modal would send someone to dismiss a window that is not
+    /// in the way. Being blocked is the definition, so being blocked is the test.</summary>
+    [Fact]
+    public void A_modeless_window_is_not_reported_as_a_modal()
+    {
+        var msg = ProbeDiagnosis.Explain(new[]
+            { new XaeWindowState(1, responding: true, new[] { Win32Dialog("Find and Replace"), MainWindow() }) });
 
         Assert.DoesNotContain("DIALOG IS OPEN", msg);
+        Assert.Contains("not visible from outside", msg);
+    }
+
+    /// <summary>A BLOCKED WINDOW WITH NOTHING NAMEABLE still reports the block.
+    ///
+    /// <para>This inverts what it replaced. The old test asserted that a blank caption is NOT a dialog — true of
+    /// the old representation, where the caption WAS the whole evidence, so a blank one meant nothing had been
+    /// found. The evidence is now the disabled window, which is present either way: a main window that has been
+    /// disabled is blocked whether or not the thing blocking it has a title. Saying so without a name is a
+    /// smaller claim than the old silence was, and a truer one.</para></summary>
+    [Fact]
+    public void A_block_with_no_caption_is_still_reported()
+    {
+        var msg = ProbeDiagnosis.Explain(new[]
+            { new XaeWindowState(1, responding: true, new[] { new TopLevelWindow("   ", "#32770", true), MainWindow(enabled: false) }) });
+
+        Assert.Contains("DIALOG IS OPEN", msg);
+        Assert.Contains("(unnamed dialog)", msg);
     }
 }

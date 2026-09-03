@@ -107,3 +107,63 @@ dialog blocks COM on TwinCAT** — a trap already recorded in this repo — and 
 the ROT walk hang (measured at over 180s against a 6s budget), which both suspends worker supervision and stalls
 the worker's own operations, producing the 60s/120s test timeouts. Worth testing directly before the two-XAE
 question, which is now the weaker hypothesis.
+
+## 2026-09-03, later: the modal hypothesis, tested directly — CONFIRMED
+
+Staged deliberately on a live TcXaeShell (fixture 13, freshly-built connector and worker), because the only
+honest way to test "a modal causes this" is to open one.
+
+| Condition | Result |
+|---|---|
+| No dialog (baseline) | `endpoints/refs` 3 pass, 6.6 s |
+| `Help > About` open — but it CLOSED mid-run | 3 pass, 17.9 s |
+| `#32770` "Open Project", **verified open before AND after the run** | **0 pass / 2 fail, two 60 s timeouts, 120 s total** |
+
+The third row is the measured failure shape from the top of this document, reproduced on demand. **The modal
+hypothesis holds.**
+
+### It took three attempts, and the two failures are the useful part
+
+Both earlier attempts said the opposite, and both were wrong for reasons worth writing down.
+
+**A hand probe cannot see this.** With a modal up, `Marshal.GetActiveObject('TcXaeShell.DTE.15.0')` bound in
+**4 ms** and `Solution.FullName` answered in **5 ms**. A modal pumps its own message loop, so the calls a prober
+reaches for keep being served while the bridge's project work stalls. The repo said *"a modal dialog blocks every
+COM call"* (`ARCHITECTURE.md`), and that sentence is what made two clean probes look like a refutation. Corrected
+there: **verify a modal by running real bridge ops, never by reading a DTE property.**
+
+**And a dialog that closes mid-run proves nothing.** The 17.9 s run looked like a partial effect; the dialog was
+gone by the end. Checking the window state on BOTH sides of the run is what turned a muddle into the third row.
+
+### The detector was missing half of them
+
+`XaeWindows` found a dialog by window CLASS `#32770`, documented as "every standard dialog is built from it".
+**Measured false on this shell**: `Help > About` is a WPF `HwndWrapper[…]`. The connector logged
+
+> All 1 TcXaeShell window(s) look responsive with no dialog open, so the cause is not visible from outside
+
+at 21:08 — while that dialog sat there blocking the probe that was failing. The `#32770` case, minutes later, was
+named perfectly. So the mechanism worked and its rule did not.
+
+**Fixed by what a modal DOES, not what it is built from**: showing one *disables* the window behind it. That holds
+for both measured shapes. The rule moved from the P/Invoke file (untestable) into `ProbeDiagnosis` (pure), where
+five new tests hold it — including the WPF shape, and a modeless window that must NOT be reported. Validated live:
+the same About dialog is now logged as `TcXaeShell pid 17356 — "About TcXaeShell"`, and supervision resumed by
+itself on dismissal.
+
+## Two XAE windows: the contention reading is RETRACTED
+
+One clean run, both fixtures open, no dialogs: **159 pass / 24 skip / 1 fail in 3.6 min, no timeouts.** The single
+failure is the Execute box, excluded on purpose. Two XAE instances do not cause this, and the earlier COM-contention
+diagnosis is withdrawn in writing, as task 3.1b required.
+
+The skip count is not a regression: `vendor-parity` generates its tests in a loop and needs BOTH vendors up
+(CODESYS was down here), which is the whole 12→24 difference against the 170/12/1 baseline.
+
+## So what actually initiates it
+
+A modal dialog — including one the IDE raises by itself, like the *"saving project failed"* box seen during the
+original runs. It stalls every bridge op for as long as it sits there, the suite times out at 60 s a test, and the
+timeouts skip the `afterAll` cleanup, which is the amplifier this change already fixed. Nothing further is
+outstanding on the initiator: the cause is identified, the connector names it while it is happening, and the
+sweep contains the damage when it does.
