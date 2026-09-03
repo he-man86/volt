@@ -7,8 +7,14 @@ ROUND-TRIP consequence rather than the grammar rule — the engineer's symptom i
 from what they wrote, so that is what the message must describe.
 
 A network carries exactly one label, one title and one comment. They are per-network metadata on `INetwork` on
-BOTH vendors, not items in the statement list, while the text grammar admits them as ordinary statements — so the
-grammar accepts bodies the model cannot represent, and nothing refuses or diagnoses them today.
+BOTH vendors, not items in the statement list, while the text grammar admits them as ordinary statements.
+
+**The push gate already refuses these** — measured 2026-09-03, pinned by `MetadataPlacementTests`: a second label
+is rejected by the reader with a message naming it, and a label or comment after a statement fails the
+canonical-form check. So this requirement RELOCATES an existing refusal to the keystroke rather than adding a
+rule, and its messages SHOULD reuse the reader's wording instead of inventing a second phrasing for one fact.
+The value is the feedback loop — finding out while typing instead of at push — which is ergonomics, not
+correctness.
 
 #### Scenario: A second label in one network is an error
 - **WHEN** a network contains more than one label
@@ -19,9 +25,10 @@ grammar accepts bodies the model cannot represent, and nothing refuses or diagno
 - **THEN** the LSP reports `network-label-not-first`, because its position is not represented and it returns at
   the network head on the next pull
 
-#### Scenario: Multiple comments are reported as collapsing
-- **WHEN** a network contains more than one comment
-- **THEN** the LSP reports `network-duplicate-comment`, because they collapse into the single `Network.Comment`
+#### Scenario: Multiple comment LINES are not reported
+- **WHEN** a network contains several consecutive `//` lines before its first statement
+- **THEN** the LSP reports nothing, because `Network.Comment` is multi-line: the lines are joined, round-trip
+  exactly, and are one comment box in the IDE
 
 ### Requirement: An unresolved box is reported at the point of edit
 

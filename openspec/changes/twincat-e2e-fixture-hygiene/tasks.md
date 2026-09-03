@@ -19,9 +19,16 @@
       (a previous run that died before its cleanup). Original text: complete the cleanup, or run against a copy as CODESYS does. Prefer the copy — it is
       the same shape as the vendor tier that does NOT have this problem, and it cannot be defeated by a test that
       forgets to register its own artefact.
-- [ ] 2.3 ~~A dirty-fixture pre-flight that REFUSES~~ — **NOT AS SPECIFIED.** It would fire after every
-      run, on `LineIds` churn that harms nothing, and would be disabled within a day. What is worth
-      doing instead is silencing the churn so a dirty tree stays meaningful; see FINDINGS.md.
+- [ ] 2.3 A dirty-fixture pre-flight that REFUSES rather than warns, naming the paths and the command to
+      fix it. **Reinstated** — I ruled it out on the grounds that it would fire constantly on harmless
+      `LineIds` churn, then observed a run that produced NO churn at all when the project was cleaned
+      through the bridge and the IDE closed normally. If that holds (2.4), a dirty fixture is a real
+      signal and the pre-flight is worth having. See FINDINGS.md.
+- [ ] 2.4 Confirm it: three runs, each followed by a bridge-clean + orderly shutdown, each leaving the
+      fixture untouched. One observation is not a pattern — that is the mistake this change exists to stop.
+- [ ] 2.5 Teardown rule, documented in the e2e README: **clean through the bridge, never `git restore`
+      under a live IDE.** Git cannot see TwinCAT's in-memory model, which writes back on save, so a
+      restore under a running IDE leaves disk and IDE disagreeing about the same project.
 
 ## 3. Then, and only then, the two-XAE question
 

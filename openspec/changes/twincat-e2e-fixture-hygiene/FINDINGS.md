@@ -17,8 +17,21 @@ items, no leftover folders. And every one of the five is a single changed line:
 above it is byte-identical. So on a HEALTHY run `cleanup()` does undo itself: the residue is cosmetic IDE churn
 that dirties `git status` and changes nothing a test can observe.
 
-**This means a dirty-fixture pre-flight that REFUSES (task 2.3) would be wrong as specified.** It would fire
-after every single run, on churn that harms nothing, and the first thing anyone would do is disable it.
+**…but that churn may be an artefact of how I was tearing down, not of running the suite.** Later the same day,
+after cleaning the projects THROUGH THE BRIDGE (delete the `VltE2E_*` items over the wire, so the IDE performs
+the removal) and then closing the IDEs with `twincat-instances.ps1 down`, the fixture came back **completely
+clean — zero modified files.** The earlier five-file measurement was taken with the IDE still open and after I
+had been `git restore`-ing underneath it, which is its own kind of mess: TwinCAT holds an in-memory model and
+writes it back on save, so restoring files under a live IDE leaves disk and IDE disagreeing about the project.
+
+That is one observation, not a proven pattern, and it is recorded as such — claiming reproducibility from a
+single run is the mistake this change exists to stop. But it points at a different conclusion than the paragraph
+above: if an orderly run leaves NO churn, then a dirty fixture is meaningful after all, and **task 2.3's refusing
+pre-flight becomes worth having rather than noise.** Confirming it needs three runs each followed by a
+bridge-clean shutdown.
+
+**The operational rule is settled either way: clean through the bridge, not with `git restore`.** Git cannot see
+the IDE's in-memory state; the bridge is the only route that leaves both ends agreeing.
 
 ## Where the cascade actually comes from
 
