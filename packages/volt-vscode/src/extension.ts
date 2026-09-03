@@ -7,7 +7,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace, leaveWorkspace, shutdownSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
 
 // Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
 // launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
@@ -170,14 +170,12 @@ function updateContextKeys(): void {
 }
 
 export function deactivate(): Thenable<void> {
-	// Drop each bound workspace's interest, then end the whole session (one DELETE drops every interest at once). The
-	// window is closing, so we're leaving every project (the active project view owns the connection; shared with the
-	// desktop). Bounded to ~1.5s so a slow/absent connector can't hold VS Code open. Folded into the returned thenable
-	// alongside the LSP shutdown so the editor WAITS for both.
-	const disconnected = Promise.race([
-		Promise.allSettled([...statuses.keys()].map((root) => leaveWorkspace(root))).then(() => shutdownSession()),
-		new Promise((resolve) => setTimeout(resolve, 1500)),
-	])
+	// End the connector session — one DELETE drops every interest at once — bounded so a slow or absent connector
+	// cannot hold VS Code open. Shared with the desktop (@volt/control `closeSession`), because both shells had the
+	// same copy AND the same bug: they awaited a `leaveWorkspace` per root first, which could not finish inside the
+	// bound, so the DELETE never fired. Folded into the returned thenable alongside the LSP shutdown so the editor
+	// WAITS for both.
+	const disconnected = closeSession()
 	for (const [, s] of statuses) s.dispose()
 	// Return a thenable (not an array — VS Code only awaits a thenable return value, so the old `return []` was never
 	// awaited) so the editor waits for the stdio LSP to exit + the bridges to disconnect before killing the extension

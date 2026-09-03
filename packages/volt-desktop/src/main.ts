@@ -10,8 +10,7 @@ import {
   setBundledCli,
   setLspServer,
   loadDiff,
-  leaveWorkspace,
-  shutdownSession,
+  closeSession,
   startConnectorFeed,
   onConnectorView,
   type DiffDirection,
@@ -163,14 +162,13 @@ app.on("window-all-closed", () => app.quit())
 
 // Close the connection when the app quits — drop this workspace's interest, then end the whole session (one DELETE
 // drops every interest at once). The bridge stops serving until the next connect; the IDE stays open. Deferred via
-// before-quit but bounded so a slow/absent connector can't hold the app open more than ~1.5s.
+// before-quit but bounded so a slow/absent connector can't hold the app open more than ~1.5s. The bound and
+// the teardown are @volt/control's (`closeSession`) — the extension quits the same way.
 let disconnectedOnQuit = false
 app.on("before-quit", (e) => {
-  const root = shell.status?.workspaceRoot
   if (disconnectedOnQuit) return
   disconnectedOnQuit = true
   e.preventDefault()
-  const closed = (root !== undefined ? leaveWorkspace(root) : Promise.resolve()).then(() => shutdownSession())
-  void Promise.race([closed, new Promise((r) => setTimeout(r, 1500))]).then(() => app.quit())
+  void closeSession().then(() => app.quit())
 })
 app.on("quit", () => shell.status?.dispose())

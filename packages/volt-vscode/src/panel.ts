@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus } from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -232,12 +232,9 @@ function group(dir: string, label: string, children: VoltNode[]): VoltNode {
 // (the editor API) are built here.
 function itemNode(it: DriftItem, workspaceRoot: string, dir: "incoming" | "outgoing"): VoltNode {
 	const onDisk = vscode.Uri.file(join(workspaceRoot, "src", it.relPath))
-	// incoming → HEAD ↔ BRIDGE    (your repo's last commit vs the live IDE — what a pull brings in).
-	//   NOT VOLTIDE: refs/remotes/volt/ide IS the IDE modelled as a remote-tracking branch, so after any pull it
-	//   already equals BRIDGE — the diff would show two identical panes. HEAD is the user's actual local repo.
-	// outgoing → VOLTIDE ↔ WORKSPACE (last-synced IDE baseline vs your working file — what a push sends).
-	const leftRef = dir === "incoming" ? "HEAD" : "VOLTIDE"
-	const rightRef = dir === "incoming" ? "BRIDGE" : "WORKSPACE"
+	// The refs come from @volt/control (`diffRefs`), which the desktop's diff popup uses too — the reasoning for
+	// WHICH refs (and why incoming must not use VOLTIDE) lives there, with the table.
+	const { left: leftRef, right: rightRef } = diffRefs[dir]
 	const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
 	return {
 		key: `${dir}:${workspaceRoot}:${it.name}`,
@@ -283,7 +280,7 @@ function diagnosticRoots(): VoltNode[] {
 	return [
 		{
 			key: "diag:summary",
-			label: `${errors} error${errors === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}`,
+			label: describeDiagnostics({ errors, warnings }),
 			icon: new vscode.ThemeIcon(errors > 0 ? "error" : "warning"),
 			tooltip: "Open the Problems panel",
 			command: openProblems,

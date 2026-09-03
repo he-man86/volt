@@ -33,4 +33,4 @@ export * from "./view/diff.js" // loadDiff, lineDiff, FileDiff, DiffLine, DiffDi
 export * from "./log.js" // voltLog, VOLT_LOG_DIR, LogSource
 
 // headless LSP-diagnostics collector (desktop's Diagnostics section)
-export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics
+export * from "./diagnostics.js" // collectDiagnostics, countDiagnostics, describeDiagnostics

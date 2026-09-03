@@ -21,10 +21,24 @@ export interface FileDiff {
 }
 
 // incoming = what a PULL brings in (your repo's last commit vs the live IDE). outgoing = what a PUSH sends (the
-// last-synced IDE baseline vs your working file). These are the SAME refs VS Code's itemNode diffs against.
+// last-synced IDE baseline vs your working file).
+//
+// EXPORTED as `diffRefs` because VS Code's itemNode diffs against the same two refs and used to re-derive them —
+// a comment here asserting "these are the SAME refs" is not a mechanism. The direction that matters is the one the
+// export buys back: the vscode copy is pinned by a test written against a shipped bug (incoming diffed
+// VOLTIDE ↔ BRIDGE, but VOLTIDE — refs/remotes/volt/ide — IS the IDE as a remote-tracking branch, so after any pull
+// it equals BRIDGE and the diff showed two identical panes). Consuming the table there puts that test on THIS table.
+//
+// The LABELS stay unexported: they name the desktop popup's two panes, while VS Code builds a tab title. Same refs,
+// different surfaces.
+export const diffRefs: Record<DiffDirection, { left: string; right: string }> = {
+	incoming: { left: "HEAD", right: "BRIDGE" },
+	outgoing: { left: "VOLTIDE", right: "WORKSPACE" },
+}
+
 const REFS: Record<DiffDirection, { left: string; right: string; leftLabel: string; rightLabel: string }> = {
-	incoming: { left: "HEAD", right: "BRIDGE", leftLabel: "Workspace (HEAD)", rightLabel: "IDE (live)" },
-	outgoing: { left: "VOLTIDE", right: "WORKSPACE", leftLabel: "IDE (baseline)", rightLabel: "Workspace (working)" },
+	incoming: { ...diffRefs.incoming, leftLabel: "Workspace (HEAD)", rightLabel: "IDE (live)" },
+	outgoing: { ...diffRefs.outgoing, leftLabel: "IDE (baseline)", rightLabel: "Workspace (working)" },
 }
 
 async function showText(workspaceRoot: string, ref: string, relPath: string): Promise<string> {

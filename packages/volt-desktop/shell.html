@@ -465,7 +465,7 @@
     else if ((diag.errors + diag.warnings) === 0) diagBody = `<div class="note">✓ No problems.</div>`
     else
       diagBody =
-        `<div class="grp">${diag.errors} error${diag.errors === 1 ? "" : "s"}, ${diag.warnings} warning${diag.warnings === 1 ? "" : "s"}</div><div class="scroll" data-scroll="diag">` +
+        `<div class="grp">${esc(diag.summary)}</div><div class="scroll" data-scroll="diag">` +
         diag.files.map((f) => `<div class="row click" data-openpath="${esc(f.path)}" title="Open file"><span class="path">${esc(base(f.path))}</span><span class="n">${f.errors ? `${f.errors}⛔ ` : ""}${f.warnings ? `${f.warnings}⚠` : ""}</span></div>`).join("") + `</div>`
 
     // Rebuilding innerHTML resets every scroll container to top. render() runs on each status poll (~4s), so

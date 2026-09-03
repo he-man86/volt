@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { connectorStatus, type ConnectorView } from "./connector.js"
+import { closeSession } from "./actions.js"
 import {
   declareInterest,
   dropInterest,
@@ -246,3 +247,46 @@ describe("session client (declarative connection presence)", () => {
   })
 })
 
+
+// ── the bounded quit teardown (`closeSession`) ──
+
+// THE BUG BOTH SHELLS SHIPPED. Quit ran a `leaveWorkspace` per bound root and THEN the shutdown, all raced against
+// 1.5s — but each leave awaits `ensureSession` + `syncDeclare`, each bounded at 2s, so against a slow connector the
+// sequence could not reach the DELETE inside the bound and the session lingered until its lease expired. The leaves
+// were redundant besides: the DELETE drops every interest in one request. So the assertion is about what is SENT —
+// a DELETE, and no PUT ahead of it that could crowd it out.
+test("quit deletes the session and does not queue interest updates ahead of it", async () => {
+  const root = boundWorkspace("codesys", "MyMachine")
+  const calls = newConnector()
+  await declareInterest(root)
+  calls.length = 0
+
+  await closeSession()
+
+  expect(calls.map((c) => c.method)).toEqual(["DELETE"])
+  expect(calls[0]!.url).toContain("/session/s1")
+})
+
+// The bound is the point: a connector that never answers must not hold the app open. `shutdownSession`'s own fetch
+// is capped at 2s — longer than the 1.5s bound — so without the race a hung DELETE outlives the window it was meant
+// to fit in. Resolving is the assertion; the lease expiry cleans up the abandoned session.
+test("quit gives up on a connector that never answers", async () => {
+  const root = boundWorkspace("codesys", "MyMachine")
+  newConnector()
+  await declareInterest(root)
+  globalThis.fetch = (() => new Promise(() => {})) as unknown as typeof fetch // never settles
+
+  const started = performance.now()
+  await closeSession()
+
+  expect(performance.now() - started).toBeLessThan(1_900) // i.e. the 1.5s bound, not the 2s fetch timeout
+})
+
+// Nothing was ever declared — no session to delete, so quit must not open one on the way out just to close it.
+test("quit with no session open sends nothing", async () => {
+  const calls = router(() => ({ json: {} }))
+
+  await closeSession()
+
+  expect(calls).toEqual([])
+})

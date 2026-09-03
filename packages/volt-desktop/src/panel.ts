@@ -10,6 +10,7 @@ import {
   connectSurface,
   connectorStatus,
   collectDiagnostics,
+  describeDiagnostics,
   onboardingMode,
   connectWorkspace,
   voltLog,
@@ -130,7 +131,9 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
   shell.win?.webContents.send("volt:diagnostics", { loading: true })
   try {
     const result = await collectDiagnostics(root, vendor)
-    if (shell.status?.workspaceRoot === root) shell.win?.webContents.send("volt:diagnostics", { loading: false, ...result })
+    if (shell.status?.workspaceRoot === root) // `summary` is computed HERE and shipped: the renderer is sandboxed and cannot import @volt/control, so
+      // the one place the sentence exists has to reach it over the wire.
+      shell.win?.webContents.send("volt:diagnostics", { loading: false, ...result, summary: describeDiagnostics(result) })
   } catch (err) {
     if (shell.status?.workspaceRoot === root) shell.win?.webContents.send("volt:diagnostics", { loading: false, error: (err as Error).message })
   } finally {

@@ -43,6 +43,20 @@ export function countDiagnostics(diagnostics: Diagnostic[]): { errors: number; w
   return { errors, warnings }
 }
 
+/** The one-line problem count both shells headline their Diagnostics section with.
+ *
+ *  Shared because it was character-for-character identical in `volt-vscode/src/panel.ts` and the desktop
+ *  `shell.html` — pluralization included, which is exactly the kind of duplicate that drifts to "1 errors" in one
+ *  shell and not the other. It rides the desktop's `volt:diagnostics` IPC payload rather than the panel snapshot:
+ *  diagnostics travel on their own channel, and the sandboxed renderer cannot import this package.
+ *
+ *  The EMPTY case deliberately stays with each shell — "No problems" with a themed check icon in the tree, "✓ No
+ *  problems." matched to its sibling note in the panel. Those are presentation, and forcing one string on both
+ *  would make both worse. */
+export function describeDiagnostics(d: { errors: number; warnings: number }): string {
+  return `${d.errors} error${d.errors === 1 ? "" : "s"}, ${d.warnings} warning${d.warnings === 1 ? "" : "s"}`
+}
+
 // ── server resolution ────────────────────────────────────────────────────────
 let serverModule: string | undefined
 /** Point the collector at volt-lsp-iec's stdio entry (dist/src/bin.js). Set once by the host. */

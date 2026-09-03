@@ -196,3 +196,16 @@ test("the very first paint, before any status arrives, says it is still looking"
   expect(s.html()).toContain("Looking for open PLC projects")
   expect(s.html()).not.toContain("No PLC project detected")
 })
+
+// The Diagnostics headline comes over the `volt:diagnostics` IPC payload as `summary`, computed by
+// @volt/control — the renderer is sandboxed and cannot import it, so the sentence has to arrive already written.
+// The renderer must not rebuild it: that copy was character-identical to the extension's and free to drift.
+test("the diagnostics headline is the summary the main process shipped, not one the renderer rebuilt", () => {
+  const s = shell()
+  s.setSnap({ ...bound })
+  s.setDiag({ loading: false, errors: 1, warnings: 0, summary: "1 error, 0 warnings", files: [] })
+  s.render()
+
+  expect(s.html()).toContain("1 error, 0 warnings")
+  expect(s.html()).not.toContain("undefined")
+})

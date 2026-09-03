@@ -11,7 +11,7 @@ import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { isBridgeOnline, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
 import { boundStatus, type DetectedProject } from "./connector.js"
-import { declareInterest, dropInterest, selectPickedProject, adoptPickedProject, releasePickedProject } from "./session.js"
+import { declareInterest, dropInterest, selectPickedProject, adoptPickedProject, releasePickedProject , shutdownSession } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
 // The one session-lifecycle call the shells need beyond enter/leave: drop the whole session on quit/deactivate.
@@ -241,6 +241,21 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
  *  ships it. */
 export async function enterWorkspace(root: string): Promise<{ ok: boolean; message?: string }> {
   return declareInterest(root)
+}
+
+/** The whole client-side teardown on quit, bounded: end the connector session so its interests drop at once
+ *  rather than after the lease TTL, and give up after 1.5s so a slow or absent connector cannot hold the app open.
+ *
+ *  Both shells ran their own copy of this, and both raced the SAME wrong thing: a `leaveWorkspace` per bound root
+ *  and THEN the shutdown. Each leave awaits `ensureSession` + `syncDeclare`, both bounded at 2s — so against a hung
+ *  connector the sequence needed up to 4s inside a 1.5s race and the DELETE never fired at all, which is the one
+ *  call that mattered. The leaves were redundant anyway: `shutdownSession` clears the interest set and deletes the
+ *  session, dropping every interest in one request. So there is nothing to leave and no `roots` to pass — the fix
+ *  and the simplification are the same edit.
+ *
+ *  1.5s is hardcoded because no caller varies it; both shells asked for the same bound. */
+export async function closeSession(): Promise<void> {
+  await Promise.race([shutdownSession(), new Promise<void>((resolve) => setTimeout(resolve, 1500))])
 }
 
 /** Drop THIS workspace's project from the declared interests — the connector gates its bridge only if no other live
