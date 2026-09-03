@@ -248,9 +248,12 @@ function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
 }
 
 function parseCallArg(cur: Cursor): CallArg | undefined {
-  // Named input `p := v` or output `p => tgt` — an identifier followed by := / =>.
-  const t = cur.peek()
-  if (t.kind === "identifier") {
+  // Named input `p := v` or output `p => tgt` — a name followed by := / =>.
+  // `atNameStart` (not `kind === "identifier"`): the soft keywords are legal PARAMETER names for the same
+  // reason they are legal variable names — the Standard `RS` FB declares `SET : BOOL`, so `rs(SET := x)` is
+  // how you call it by name. The declaration side already allowed this (`var-section.ts`); the call side did
+  // not, which made that input reachable only positionally.
+  if (cur.atNameStart()) {
     const next = cur.peek(1)
     if (next.kind === "punct" && (next.text === ":=" || next.text === "=>")) {
       const nameTok = cur.consume()

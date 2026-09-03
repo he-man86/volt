@@ -162,3 +162,21 @@ test("a genuinely unterminated section still blames the header, with no cascade"
   ])
   expect(messages("TYPE T :\nSTRUCT\n  a : INT;\nEND_TYPE\n")).toEqual(["unterminated STRUCT: expected END_STRUCT"])
 })
+
+test("a soft keyword is a legal PARAMETER name in a call, as it is in a declaration", () => {
+  // The Standard `RS` FB declares `SET : BOOL`, so `rs(SET := x)` is how you name that input. The decl side
+  // already accepted it; the call side took identifiers only, leaving the input reachable positionally only.
+  const body = stmts("rs(SET := TRUE, RESET1 := FALSE);")
+  expect(body.ok).toBe(true)
+  const call = (body.statements[0] as { call: { args: { param?: { name: string }; output: boolean }[] } }).call
+  expect(call.args.map((a) => a.param?.name)).toEqual(["SET", "RESET1"])
+  expect(call.args.every((a) => !a.output)).toBe(true)
+})
+
+test("a soft keyword as a positional argument is still an expression, not a parameter name", () => {
+  const body = stmts("f(Set);")
+  expect(body.ok).toBe(true)
+  const call = (body.statements[0] as { call: { args: { param?: unknown; value?: { kind: string } }[] } }).call
+  expect(call.args[0]!.param).toBeUndefined()
+  expect(call.args[0]!.value?.kind).toBe("ident_expr")
+})
