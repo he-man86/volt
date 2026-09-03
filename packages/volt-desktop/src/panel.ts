@@ -12,7 +12,6 @@ import {
   collectDiagnostics,
   onboardingMode,
   connectWorkspace,
-  leaveWorkspace,
   voltLog,
   type DriftItem,
   type WorkspaceView,
@@ -149,16 +148,4 @@ export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   )
 }
 
-/** Release the binding — tears down the status feed and pushes a `{bound:false}` snapshot; the IDE and the bridge
- *  are untouched (leaveWorkspace only drops THIS window's interest). */
-export function unbindWorkspace(shell: Shell): void {
-  if (shell.boundRoot === undefined) return
-  const root = shell.boundRoot
-  voltLog("desktop", `releasing workspace ${root}`)
-  shell.boundRoot = undefined
-  shell.status?.dispose()
-  shell.status = null
-  void leaveWorkspace(root) // the active project view owns the connection: we left it → disconnect the bridge
-  pushStatus(shell)
-}
 

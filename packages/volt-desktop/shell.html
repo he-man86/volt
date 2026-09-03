@@ -210,10 +210,16 @@
   let refreshing = false // status refresh in flight — spins the refresh icon; cleared when the fresh status arrives
   const collapsed = new Set() // section keys the user collapsed (click a header to fold its body away, VS Code-style)
 
-  // Escapes ' as well as the usual four: project names come from the IDE and land inside a single-quoted JS
-  // string in an onclick (doInit('<id>')), so a project called "Bob's Machine" would otherwise close the literal
-  // and leave the button a syntax error that silently does nothing — with the id being attacker-influencable
-  // markup on top of that.
+  // Escapes the five: project names come from the IDE and are interpolated into markup as TEXT and into
+  // `data-*` attribute VALUES, both of which need it.
+  //
+  // It used to be described as what made a name safe inside an inline `onclick` — it is not, and could not be.
+  // An HTML parser decodes character references in an attribute value BEFORE the handler body is compiled as
+  // JS, so an onclick built as doInit + a quoted, esc-ed "Bob&#39;s Machine" reaches the compiler with the
+  // entity already decoded back to an apostrophe — a syntax error, and a button that silently does nothing.
+  // Exactly the case the old comment named as fixed. Project
+  // buttons carry their arguments in `data-*` and are dispatched by the delegated listener below, so no user
+  // text is ever compiled as code.
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
   const base = (p) => p.split(/[\\/]/).pop()
   // Change rows are clickable → open a diff popup. Data rides on data-* attrs (esc-safe) and a single delegated
@@ -228,9 +234,12 @@
     return `<button class="ico-btn" title="${p ? "Working…" : title}" ${p ? "disabled" : ""} onclick="${p ? "" : onclick}">${p ? spinIco : `<svg class="ico"><use href="#${icon}"/></svg>`}</button>`
   }
   // A text/label button (Connect, Disconnect, Finish/Abort merge, a project row) with the same in-button spinner.
-  const btn = (key, cls, onclick, iconHtml, label, title) => {
+  // `attrs` carries `data-*` for buttons whose action needs ARGUMENTS. A busy button gets neither the handler
+  // nor the data, so a double-click during an in-flight action cannot dispatch a second time even if `disabled`
+  // is bypassed.
+  const btn = (key, cls, onclick, iconHtml, label, title, attrs = "") => {
     const p = busyAction === key
-    return `<button class="${cls}" title="${title}" ${p ? "disabled" : ""} onclick="${p ? "" : onclick}">${p ? spinIco : iconHtml}${label}</button>`
+    return `<button class="${cls}" title="${title}" ${p ? "disabled" : ""} ${p ? "" : attrs} onclick="${p ? "" : onclick}">${p ? spinIco : iconHtml}${label}</button>`
   }
   // The refresh action, spinning + disabled while a refresh is in flight (both the Sync and Bridge sections use it).
   const refreshBtn = (title) => refreshing
@@ -245,20 +254,21 @@
 
   // A detected-project button in the connection picker. Its `action` (from @volt/control's connectOptions) decides
   // the click + hint: init = first-time set up · connect = reconnect the matching project · rebind = re-point the
-  // binding at a DIFFERENT project (a rename), confirmed first. Inline call args are esc-safe (esc escapes quotes).
+  // binding at a DIFFERENT project (a rename), confirmed first. The project's id and name travel as `data-*`,
+  // never as inline call arguments — see `esc` above for why that distinction is load-bearing.
   const projectBtn = (p) => {
     const key = p.action === "connect" ? "connect" : `${p.action}:${p.id}` // "connect" | "rebind:<id>" | "init:<id>"
     // The project NAME is the identity — the UI is vendor-blind, so no "CODESYS · " prefix or badge (the vendor is a
     // wire/binding detail, never a way to label a project here).
     const label = `${esc(p.displayName)}${p.dirty ? " *" : ""}`
-    const click = p.action === "connect" ? "doConnect()" : p.action === "rebind" ? `doRebind('${esc(p.id)}','${esc(p.displayName)}')` : `doInit('${esc(p.id)}')`
+    const attrs = `data-pact="${esc(p.action)}" data-pid="${esc(p.id)}" data-pname="${esc(p.displayName)}"`
     const title = p.action === "connect"
       ? "Reconnect this workspace to the IDE."
       : p.action === "rebind"
         ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
         : "Creates the git workspace and pulls the project's code — the IDE is not modified."
     // init/connect are the primary move on their screen (accent fill); rebind stays quiet — it's a correction.
-    return btn(key, p.action === "rebind" ? "btn" : "btn primary", click, `<svg class="bolt"><use href="#bolt"/></svg>`, label, title)
+    return btn(key, p.action === "rebind" ? "btn" : "btn primary", "", `<svg class="bolt"><use href="#bolt"/></svg>`, label, title, attrs)
   }
   const projectList = (projects) => `<div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
   // The two connection surfaces. The GROUPING is @volt/control's (snapshot passes s.surface already partitioned +
@@ -509,7 +519,16 @@
     const openF = e.target.closest("[data-openpath]") // a Diagnostics file row → open it in the OS editor
     if (openF) return volt.openFile(openF.dataset.openpath)
     const row = e.target.closest("[data-dir]") // a change row or a conflict name → open its diff
-    if (row) doDiff(row.dataset.root, row.dataset.path, row.dataset.name, row.dataset.dir)
+    if (row) return doDiff(row.dataset.root, row.dataset.path, row.dataset.name, row.dataset.dir)
+    // A project button in the connection list. Its id/name come from the IDE, so they ride `data-*` rather than
+    // an inline call — the dataset is read back as plain text and never compiled.
+    const pb = e.target.closest("[data-pact]")
+    if (pb)
+      return pb.dataset.pact === "connect"
+        ? doConnect()
+        : pb.dataset.pact === "rebind"
+          ? doRebind(pb.dataset.pid, pb.dataset.pname)
+          : doInit(pb.dataset.pid)
   })
 
   // Live progress from any action (main sends formatProgress's {pct,message}); null clears it. The TEXT is the file

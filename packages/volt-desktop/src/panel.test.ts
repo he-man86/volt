@@ -16,6 +16,24 @@ test("shell.html's script parses (a syntax error there makes the whole IDE panel
   expect(() => new Function(script!)).not.toThrow()
 })
 
+// AND NO USER TEXT IS COMPILED AS CODE. The same "static file nothing checks" property that let a raw newline
+// ship also let a real bug live here: project ids and names come from the IDE and were interpolated into an
+// inline `onclick`, as `doRebind('<id>','<name>')`. `esc` turned `'` into `&#39;` and a comment claimed that
+// made it safe — but an HTML parser decodes character references in an attribute value BEFORE the handler body
+// compiles as JS, so a project called "Bob's Machine" reached the compiler as `doRebind('id','Bob's Machine')`.
+// A SyntaxError, and that one project's button silently did nothing while every other button worked.
+//
+// Asserted at the SOURCE rather than by calling `projectBtn`: it lives inside the inline <script>, which
+// registers listeners at top level and so cannot be imported. The rule it pins is the one that was broken —
+// arguments travel in `data-*` and are read back as text by the delegated listener, never compiled.
+test("shell.html compiles no user text into handlers (project args ride data-*, not inline calls)", () => {
+  const html = readFileSync(join(import.meta.dir, "..", "shell.html"), "utf8")
+  const script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? ""
+
+  expect(script).not.toMatch(/do(Rebind|Init)\(['"`]/) // the exact shape that shipped
+  expect(script).toContain("data-pact") // ...and the replacement is present, so this can't pass by deletion
+})
+
 // panel.ts is electron-free (the renderer draws the pixels); snapshot() is the pure shell → shared view-model
 // projection. Smoke it so the desktop package enters the CI gate and the init surface keeps naming projects.
 const proj = {
