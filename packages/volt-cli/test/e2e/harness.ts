@@ -196,12 +196,55 @@ export function healthStatus(h: any): "healthy" | "degraded" | "unavailable" {
  *  detected project and waits for it to go healthy (retrying across an IDE that is still loading, or one whose pipe
  *  just changed pid). Vendor-agnostic: on CODESYS the select is a harmless re-confirm. Throws with a clear reason if
  *  nothing becomes healthy in time. */
+/**
+ * ONE sweep of leftover `VltE2E_*` items per process, before any test runs.
+ *
+ * `cleanup()` runs in `afterAll`/`afterEach` — which is exactly where it does NOT run when a test TIMES OUT or
+ * the runner is interrupted. Whatever that run created stays in the project, and the next run starts against it.
+ * That is a cascade, not a one-off: leftovers make more tests fail, more failures skip more cleanup, and the
+ * failure count climbs run over run until someone restores the fixture by hand.
+ *
+ * It is a MEASURED cascade, twice. `unify-item-pipeline` recorded "the same reverted code gave 3, then 8, then 0
+ * failures depending only on how used the project copy was"; on 2026-09-03 four runs gave 4, 1, 2 and 7, and a
+ * run from a restored fixture gives 159/1 every time. The zero and the stable runs are the ones that followed a
+ * restore.
+ *
+ * Sweeping here rather than in each file's `beforeAll` is deliberate: `requireHealthy` is the one call every
+ * file already makes first (32 of 35), and a per-file hook is what we have — several files clean only AFTER
+ * themselves, so a file running behind a timed-out one still started dirty. Once per process is enough, because
+ * within a process the per-file hooks already hold.
+ */
+let swept = false
+async function sweepOnce(): Promise<void> {
+	if (swept) return
+	swept = true
+	try {
+		const refs = await bridge.refs()
+		const stale = Object.keys(refs.items ?? {}).filter((n) => n.startsWith(PREFIX))
+		if (stale.length === 0) return
+		console.warn(
+			`[harness] ${stale.length} item(s) left by a previous run — sweeping before starting: ` +
+				stale.slice(0, 8).join(", ") + (stale.length > 8 ? ` (+${stale.length - 8} more)` : ""),
+		)
+		await bridge.push({
+			expectedProjectVersion: refs.projectVersion,
+			ops: stale.map((n) => ({ op: "deleteItem", name: n, ifVersion: refs.items[n] })),
+		})
+	} catch {
+		// A sweep is best-effort: the bridge may not be serving yet on the very first call, and failing here
+		// would turn a hygiene measure into the thing that stops the suite running at all.
+	}
+}
+
 export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
 	const t0 = Date.now()
 	let lastProject: string | undefined
 	while (Date.now() - t0 < timeoutMs) {
 		const h = await bridge.health().catch(() => ({ projects: [] }))
-		if (healthStatus(h) === "healthy") return
+		if (healthStatus(h) === "healthy") {
+			await sweepOnce()
+			return
+		}
 		lastProject = (h.projects ?? [])[0]?.project as string | undefined
 		if (lastProject) await bridge.connect({ project: lastProject }).catch(() => {}) // TwinCAT idle → select it
 		await new Promise((r) => setTimeout(r, 1500))
