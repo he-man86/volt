@@ -50,10 +50,16 @@ should be sized as ergonomics rather than correctness.
 
 §2 — the diagnostics that have nothing to do with placement, and where the LSP is the only layer that can speak:
 
-- **`network-unresolved-box`** — an operand of `???`. CODESYS's own marker for a box that will not compile,
+- **`NETWORK_UNRESOLVED_BOX`** — an operand of `???`. CODESYS's own marker for a box that will not compile,
   reaching the workspace verbatim. The IDE raises this at build; the LSP can raise it at the keystroke. This is
   the single highest-value item in the change and it is unaffected by anything above.
-- **`network-reserved-wire-name`** — a hand-written `LET g<n>` / `i<n>` / `en<n>` silently takes wire semantics.
+- **~~`network-reserved-wire-name`~~ — DROPPED, and for the same reason as the comment one.** The LSP cannot
+  tell a hand-written binding from a pulled one, because **Volt's own writer emits exactly these names**. Counted
+  across the corpus: **247 `LET g<n>`, 196 `LET en<n>`, 33 `LET i<n>` — 476 bindings, all correct output.** The
+  warning would fire on every one of them. The narrower case that is genuinely ambiguous — a reserved name that
+  also names a declared variable, which the reader conflates — is not reachable from Volt either: the writer
+  RENAMES a colliding wire rather than emitting one (fixed 2026-09-01). The corpus carries one `i2` declaration,
+  in a textual body, so it cannot arise there.
 - **The empty slot must parse** (110 networks in one real project) and must never be a syntax error.
 - **A standalone positional call is a statement** (34 networks) and must not be reported as a malformed FB call.
 

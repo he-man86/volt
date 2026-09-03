@@ -42,7 +42,7 @@ withdrawn precisely because `???` was already content.
 
 #### Scenario: A `???` operand is an error
 - **WHEN** an operand in a network body is `???`
-- **THEN** the LSP reports `network-unresolved-box` as an error
+- **THEN** the LSP reports `NETWORK_UNRESOLVED_BOX` as an error
 
 ### Requirement: The empty slot parses and is not a syntax error
 
@@ -57,18 +57,23 @@ project: 110 networks in one surveyed, and half the ladders in it have one.
 - **WHEN** a network body contains an empty operand slot in any position
 - **THEN** the LSP parses the body and reports no syntax error for the empty slot
 
-### Requirement: A reserved wire prefix is reported when hand-written
+### Requirement: A reserved wire prefix is NOT reported on its own
 
-The LSP SHALL warn when a hand-written `LET` binds a reserved wire name, because the prefix decides the semantics
-whether or not the engineer intended them.
+The LSP SHALL NOT warn merely because a `LET` binds a name matching `g<n>`, `i<n>` or `en<n>`.
 
-`g<n>` is a fan-out wire, `i<n>` an opaque leaf, `en<n>` an enable echo. The reader honours the PREFIX rather than
-counting uses — a `BoxTreeDemux` with one consumer is still an item on the rung, and an opaque leaf is one
-variable rather than the expression its text spells — and the writer will renumber the name on the way out.
+`g<n>` is a fan-out wire, `i<n>` an opaque leaf, `en<n>` an enable echo, and the reader honours the PREFIX rather
+than counting uses. The original requirement here asked for a warning on any hand-written binding of one — but
+**the LSP cannot tell hand-written from pulled, because Volt's own writer emits exactly these names.** Measured
+2026-09-03 across the corpus: 247 `LET g<n>`, 196 `LET en<n>` and 33 `LET i<n>` bindings, all Volt's own output.
+The warning would fire 476 times on correct, round-tripping content.
 
-#### Scenario: A hand-written reserved name is warned about
-- **WHEN** a hand-written `LET` binds a name matching `g<n>`, `i<n>` or `en<n>`
-- **THEN** the LSP reports `network-reserved-wire-name` as a warning naming the semantics the prefix carries
+The narrower case that IS ambiguous — a reserved name that also names a declared variable, where the reader
+conflates the two — is not reachable from Volt's output either: the writer renames a colliding wire rather than
+emitting one. The corpus carries a single `i2` declaration, in a textual body.
+
+#### Scenario: A pulled fan-out wire is not reported
+- **WHEN** a graphical body contains `LET g0 := (a AND b);` and a statement reading `g0`
+- **THEN** the LSP reports nothing, because that is what a pulled fan-out looks like
 
 ### Requirement: A positional call may stand alone as a statement
 

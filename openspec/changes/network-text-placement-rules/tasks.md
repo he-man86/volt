@@ -12,10 +12,15 @@
 
 ## 2. The free diagnostics — settled, measured, just unimplemented
 
-- [ ] 2.1 `network-unresolved-box` — an `???` operand. The cheapest real one: the IDE will not compile it.
-- [ ] 2.2 `network-reserved-wire-name` — a hand-written `LET` on a `g<n>` / `i<n>` / `en<n>` name.
-- [ ] 2.3 Confirm the LSP parses every empty-slot form without a syntax error, and surface it as a HINT at most.
-- [ ] 2.4 Confirm a standalone positional call is not reported as a malformed FB call.
+- [x] 2.1 `NETWORK_UNRESOLVED_BOX` — SHIPPED. Token-walked, so titles and comments are skipped for free;
+      8 tests. Fires on real corpus content and `build-conformance` stays green, so the IDE's own build
+      agrees those do not compile.
+- [x] 2.2 ~~`network-reserved-wire-name`~~ — **DROPPED, would be 476 false positives.** The LSP cannot
+      tell hand-written from pulled: Volt's writer emits exactly these names (247 `g<n>`, 196 `en<n>`,
+      33 `i<n>` in the corpus). The narrower collision case is unreachable too — the writer renames a
+      colliding wire. See FINDINGS.md.
+- [x] 2.3 CONFIRMED — already true. Six empty-slot forms, zero errors; pinned by `network-real-shapes`.
+- [x] 2.4 CONFIRMED — already true, and so are both `NOT` spellings and the opaque-leaf binding. Pinned.
 
 ## 3. The placement half — SHRUNK by §1.1, and it is ergonomics, not correctness
 

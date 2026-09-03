@@ -24,6 +24,7 @@ import {
   stmtExprs,
   walkExpr,
   walkStatements,
+  type BodySpan,
   type Expr,
 } from "../syntax/index.js"
 import { inferExprType } from "../types/index.js"
@@ -59,6 +60,8 @@ export function computeNetworkTextDiagnostics(
       for (const d of analysis.vg.diagnostics) {
         out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
       }
+      checkUnresolvedBoxes(body, out)
+
       for (const [network, scope] of analysis.networkScopes) {
         checkStatements(network.statements, scope, project, messages, out)
         checkBinaryOps(network.statements, scope, project, messages, out)
@@ -229,6 +232,44 @@ function isPinSection(section: string | undefined): boolean {
 }
 
 /** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
+/**
+ * NETWORK_UNRESOLVED_BOX: an operand of `???`, which is a COMPILE ERROR the IDE will raise — reported here at
+ * the keystroke instead.
+ *
+ * CODESYS writes `???` into a box whose instance it could not resolve. It is not a placeholder Volt invented and
+ * not something to normalise away: it is the vendor's own marker, it reaches the workspace verbatim, and the
+ * project does not build while it is there. One real project carried five, one of them an assignment TARGET
+ * (`??? := ioAxis.xVirtual;`). It is also why network text has no `?` token of its own — a sigil for the
+ * unconnected pin was tried and withdrawn precisely because `???` was already content.
+ *
+ * Walked over TOKENS rather than the parsed operands, for two reasons. The lean operand parser drops it (before
+ * this, `???` produced no diagnostic at all, anywhere). And the lexer has already separated comments and string
+ * literals into single tokens, so a `???` inside a network TITLE or a `//` comment is skipped for free — which a
+ * text scan would have to re-derive, wrongly, at least once.
+ *
+ * The lexer emits `?` as three separate `punct` tokens, so adjacency is checked on the spans: only `???` written
+ * with nothing between the marks is the vendor's marker.
+ */
+function checkUnresolvedBoxes(body: BodySpan, out: DiagnosticItem[]): void {
+  const toks = body.tokens
+  for (let i = 0; i + 2 < toks.length; i++) {
+    const [a, b, c] = [toks[i]!, toks[i + 1]!, toks[i + 2]!]
+    if (a.kind !== "punct" || a.text !== "?") continue
+    if (b.kind !== "punct" || b.text !== "?" || c.kind !== "punct" || c.text !== "?") continue
+    if (a.span.end !== b.span.start || b.span.end !== c.span.start) continue // `? ? ?` is not `???`
+    out.push({
+      severity: "error",
+      span: { ...a.span, end: c.span.end },
+      source: SOURCE,
+      code: "NETWORK_UNRESOLVED_BOX",
+      message:
+        "`???` marks a box whose instance the IDE could not resolve — the project will not compile until it is " +
+        "replaced with a real operand.",
+    })
+    i += 2 // one diagnostic per marker, not three overlapping ones
+  }
+}
+
 function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
   const out: Expr[] = []
   for (const s of statements) {
