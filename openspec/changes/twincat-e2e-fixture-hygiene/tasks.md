@@ -32,6 +32,11 @@
 
 ## 3. Then, and only then, the two-XAE question
 
+- [x] 3.1a **The connector now DIAGNOSES it rather than me staging one.** `ProbeDiagnosis` + `XaeWindows`:
+      on a probe failure the log names the open dialog and the window it belongs to, falls back to a
+      non-responding window, and says "not visible from outside" when neither applies. Validated live — during
+      XAE startup it correctly reported no dialog rather than blaming one. So the next occurrence identifies
+      itself, on any machine, without anyone watching.
 - [ ] 3.1 **Test the MODAL DIALOG first — it is now the better hypothesis.** A modal blocks COM on TwinCAT (a
       trap already recorded here), and the engineer saw a "saving project failed" modal during these runs. That
       explains the whole shape at once: a blocked COM call makes the ROT walk hang (measured >180s against a 6s

@@ -38,7 +38,13 @@ namespace Volt.Connector
             // probe must not reap every healthy worker — but it suspends spawn, respawn AND reap for as long as
             // it lasts, and it used to do that silently. `ProbeHealth` speaks only on a transition, so this is
             // two lines in the log per episode rather than one every third tick forever.
-            if (_probe.Observe(pids != null) is { } transition) VoltLog.Warn(transition);
+            // The transition line says supervision stopped; the diagnosis says WHY, observed rather than
+            // guessed. Only gathered when the probe actually failed — enumerating windows on every healthy
+            // tick would be work for nothing.
+            if (_probe.Observe(pids != null) is { } transition)
+                VoltLog.Warn(pids == null
+                    ? transition + " " + (ProbeDiagnosis.Explain(XaeWindows.Snapshot()) ?? "")
+                    : transition);
 
             if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
             var (_, reap) = _policy.Reconcile(pids);

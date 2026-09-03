@@ -36,11 +36,15 @@ namespace Volt.Connector
         {
             if (succeeded == !_failing) return null;      // no transition
             _failing = !succeeded;
+            // NO GUESS AT THE CAUSE HERE. This sentence used to end with "usually a TwinCAT window that is busy
+            // or left over from an earlier session … closing stale TcXaeShell windows clears it" — a theory,
+            // written by whoever last had one. `ProbeDiagnosis` now supplies the cause from what is actually on
+            // the desktop, and the caller appends it. Keeping both produced a log line that guessed and then
+            // contradicted itself in the same breath: "usually a stale window" followed by "all windows look
+            // responsive with no dialog open".
             return _failing
                 ? "the TwinCAT XAE probe is failing — worker supervision is SUSPENDED (no worker will be " +
-                  "started, restarted or stopped) until it answers again. Usually a TwinCAT window that is busy " +
-                  "or left over from an earlier session: the COM enumeration blocks and the 6s probe is killed. " +
-                  "Closing stale TcXaeShell windows clears it."
+                  "started, restarted or stopped) until it answers again."
                 : "the TwinCAT XAE probe recovered — worker supervision resumed.";
         }
     }
